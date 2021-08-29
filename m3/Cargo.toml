@@ -11,3 +11,4 @@ bevy = "0.5"
 #egui = { path = "../vendor/egui/egui" }
 egui = "0.13"
 bevy_egui = "0.6.2"
+ahash = "0.7.4"

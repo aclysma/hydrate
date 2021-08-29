@@ -24,4 +24,11 @@ opt-level = 2
 split-debuginfo = "unpacked"
 
 [patch.crates-io]
-egui = { path = "vendor/egui/egui" }
+#egui = { path = "vendor/egui/egui" }
+#imgui = { git = "https://github.com/aclysma/imgui-rs.git", branch = "custom-imgui-rs" }
+#imgui-sys = { git = "https://github.com/aclysma/imgui-rs.git", branch = "custom-imgui-rs" }
+#imgui-winit-support = { git = "https://github.com/aclysma/imgui-rs.git", branch = "custom-imgui-rs" }
+
+imgui = { path = "../imgui-rs/imgui" }
+imgui-sys = { path = "../imgui-rs/imgui-sys" }
+imgui-winit-support = { path = "../imgui-rs/imgui-winit-support" }

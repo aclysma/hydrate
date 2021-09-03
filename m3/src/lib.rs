@@ -5,6 +5,8 @@ mod imgui_support;
 use imgui_support::ImguiManager;
 use imgui::sys::ImVec2;
 
+mod object_db;
+
 // This struct is a simple example of something that can be inspected
 pub struct ExampleInspectTarget {
     x_position: f32,
@@ -314,6 +316,9 @@ fn draw_imgui(
 
 // Creates a window and runs the event loop.
 pub fn run() {
+
+    object_db::test_object_db();
+
     // Create the winit event loop
     let event_loop = winit::event_loop::EventLoop::<()>::with_user_event();
 

@@ -1,6 +1,7 @@
 [workspace]
 members = [
-    "m3"
+    "m3",
+    "refdb"
 ]
 
 exclude = [

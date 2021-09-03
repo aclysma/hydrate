@@ -3,6 +3,7 @@
 #[derive(Debug, Clone)]
 pub enum ObjectDbError {
     TypeError,
+    NoPrototypeError,
     StringError(String)
 }
 
@@ -10,6 +11,7 @@ impl std::error::Error for ObjectDbError {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         match *self {
             ObjectDbError::TypeError => None,
+            ObjectDbError::NoPrototypeError => None,
             ObjectDbError::StringError(_) => None,
         }
     }
@@ -22,6 +24,7 @@ impl core::fmt::Display for ObjectDbError {
     ) -> core::fmt::Result {
         match *self {
             ObjectDbError::TypeError => "TypeError".fmt(fmt),
+            ObjectDbError::NoPrototypeError => "NoPrototypeError".fmt(fmt),
             ObjectDbError::StringError(ref s) => s.fmt(fmt),
         }
     }

@@ -1,16 +1,57 @@
-use uuid::Uuid;
+use super::*;
 
-mod hashing;
-mod object_db;
-use object_db::*;
-
-pub fn run() {
-    let mut db = ObjectDb::default();
-    let vec3_type = db.register_object_type(Uuid::parse_str("6f9cc150-886e-4800-9ba1-cd0534847c9d").unwrap(), "Vec3", &[
+fn register_vec3(db: &mut ObjectDb) -> ObjectTypeId {
+    db.register_object_type(Uuid::parse_str("6f9cc150-886e-4800-9ba1-cd0534847c9d").unwrap(), "Vec3", &[
         PropertyDef::new_f32("x"),
         PropertyDef::new_f32("y"),
         PropertyDef::new_f32("z"),
-    ]).unwrap();
+    ]).unwrap()
+}
+
+fn register_vec4(db: &mut ObjectDb) -> ObjectTypeId {
+    db.register_object_type(Uuid::parse_str("37e94237-a173-47c1-a8fa-b49b2448bf3e").unwrap(), "Vec3", &[
+        PropertyDef::new_f32("x"),
+        PropertyDef::new_f32("y"),
+        PropertyDef::new_f32("z"),
+        PropertyDef::new_f32("w"),
+    ]).unwrap()
+}
+
+fn register_transform(db: &mut ObjectDb) -> ObjectTypeId {
+    let vec3_type = db.find_type_by_name("Vec3").unwrap();
+    let vec4_type = db.find_type_by_name("Vec4").unwrap();
+
+    db.register_object_type(Uuid::parse_str("962ff571-ef95-4761-baaa-37efbbccef43").unwrap(), "Vec3", &[
+        PropertyDef::new_subobject("position", vec3_type),
+        PropertyDef::new_subobject("rotation", vec4_type),
+        PropertyDef::new_subobject("scale", vec3_type),
+    ]).unwrap()
+}
+
+#[test]
+pub fn test_set_subobject_property() {
+    let mut db = ObjectDb::default();
+    let vec3_type = register_vec3(&mut db);
+    let vec4_type = register_vec4(&mut db);
+    let transform_type = register_transform(&mut db);
+
+    let x_property = db.find_property(vec3_type, "position").unwrap();
+
+    let vec3 = db.create_object(vec3_type);
+    db.set_f32(vec3, x_property, 1.0).unwrap();
+
+
+    // set a full object at a time, and set a property on the object. handle the case where setting
+    // a value on a default subobject property marks the whole subobject to override
+    let transform = db.create_object(transform_type);
+    db.set_subobject()
+
+}
+
+#[test]
+pub fn test_f32_override() {
+    let mut db = ObjectDb::default();
+    let vec3_type = register_vec3(&mut db);
 
     let vec3_prototype = db.create_object(vec3_type);
     let x_property = db.find_property(vec3_type, "x").unwrap();
@@ -67,21 +108,4 @@ pub fn run() {
     db.apply_property_override_to_prototype(vec3_instance, x_property);
     let value = db.get_f32(vec3_prototype, x_property).unwrap();
     assert_eq!(5.0, value);
-
-
-    // let transform_type = db.register_type(Uuid::parse_str("e0fe7ed4-8e02-4d08-b2c9-7ac7d21b7c9f").unwrap(), "Transform", &[
-    //     PropertyDef::new_subobject("position", vec3_type),
-    //     PropertyDef::new_subobject("rotation", vec4_type),
-    //     PropertyDef::new_subobject("scale", vec3_type),
-    // ]).unwrap();
-
-    // let transform_object = db.create_object(transform_type);
-    // let position_property = db.find_property(transform_type, "position").unwrap();
-    // db.set_subobject(transform_object, position_property, vec3_object);
-
-
-
-
-
-    //let vec4_type = db.get_type_by_name("Vec4").unwrap();
 }

@@ -4,6 +4,12 @@ use std::collections::VecDeque;
 use slotmap::SlotMap;
 use slotmap::Key;
 
+#[cfg(test)]
+mod tests;
+
+mod bits;
+pub use bits::*;
+
 mod error;
 pub use error::*;
 
@@ -14,66 +20,136 @@ mod property_def;
 pub use property_def::*;
 use std::any::Any;
 
-// up to 64 properties
+//
+// up to 64 properties in a single object type
+//
 const MAX_PROPERTY_COUNT : usize = 64;
-//pub type PropertyBits = bitvec::array::BitArray<bitvec::order::Lsb0, [u64; 1]>;
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct PropertyIndex(u8);
 
-const MAX_TYPE_COUNT : usize = u16::MAX as usize;
+//
+// Up to 65k object types
+//
+const MAX_OBJECT_TYPE_COUNT : usize = u16::MAX as usize;
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct ObjectTypeId(u16);
 
-#[derive(Copy, Clone, Default)]
-struct PropertyBits {
-    bits: u64
+//
+// Up to 64 interface types
+//
+const MAX_INTERFACE_TYPE_COUNT : usize = 64;
+
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
+pub struct InterfaceTypeId(u8);
+
+//
+// Up to 4B objects, uses a u32 ID and u32 version
+//
+slotmap::new_key_type! { pub struct ObjectKey; }
+
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
+pub struct ObjectId(ObjectKey);
+
+// // Magic ID to represent any type
+// const ANY_INTERFACE_TYPE_ID : InterfaceTypeId = InterfaceTypeId(u8::MAX);
+
+type PropertyBits = BitsU64;
+type InterfaceBits = BitsU64;
+
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
+pub enum TypeSelector {
+    Any,
+    Interface(InterfaceTypeId),
+    Object(ObjectTypeId),
 }
 
-impl PropertyBits {
-    fn is_set(self, index: usize) -> bool {
-        (self.bits & (1<<(index as u64))) != 0
+impl From<TypeId> for TypeSelector {
+    fn from(ty: TypeId) -> Self {
+        match ty {
+            TypeId::Interface(v) => TypeSelector::Interface(v),
+            TypeId::Object(v) => TypeSelector::Object(v)
+        }
     }
+}
 
-    fn set(&mut self, index: usize, value: bool) {
-        if value {
-            self.bits |= (1<<(index as u64));
-        } else {
-            self.bits &= !(1<<(index as u64));
+impl From<InterfaceTypeId> for TypeSelector {
+    fn from(ty: InterfaceTypeId) -> Self {
+        TypeSelector::Interface(ty)
+    }
+}
+
+impl From<ObjectTypeId> for TypeSelector {
+    fn from(ty: ObjectTypeId) -> Self {
+        TypeSelector::Object(ty)
+    }
+}
+
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
+pub enum TypeId {
+    Interface(InterfaceTypeId),
+    Object(ObjectTypeId)
+}
+
+impl From<InterfaceTypeId> for TypeId {
+    fn from(ty: InterfaceTypeId) -> Self {
+        TypeId::Interface(ty)
+    }
+}
+
+impl From<ObjectTypeId> for TypeId {
+    fn from(ty: ObjectTypeId) -> Self {
+        TypeId::Object(ty)
+    }
+}
+
+impl TypeId {
+    pub fn object_type(self) -> Option<ObjectTypeId> {
+        match self {
+            TypeId::Interface(_) => None,
+            TypeId::Object(v) => Some(v)
         }
     }
 
-    fn set_first_n(&mut self, count: usize, value: bool) {
-        let (bits, _) = 1u64.overflowing_shl(count as u32);
-        let (bits, _) = bits.overflowing_sub(1);
-        if value {
-            self.bits |= bits;
-        } else {
-            self.bits &= !bits;
+    pub fn interface_type(self) -> Option<InterfaceTypeId> {
+        match self {
+            TypeId::Interface(v) => Some(v),
+            TypeId::Object(_) => None
         }
     }
 }
-
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 pub enum PropertyType {
     U64,
     F32,
     // Ref(ObjectTypeId),
-    // Subobject(ObjectTypeId),
+    Subobject(TypeSelector),
     // RefSet(ObjectTypeId),
     // SubobjectSet(ObjectTypeId),
 }
 
-slotmap::new_key_type! { pub struct ObjectKey; }
+impl PropertyType {
+    pub fn type_selector(self) -> Option<TypeSelector> {
+        match self {
+            PropertyType::U64 => None,
+            PropertyType::F32 => None,
+            PropertyType::Subobject(s) => Some(s)
+        }
+    }
+}
 
-#[derive(Copy, Clone)]
-pub struct ObjectId(ObjectKey);
+struct InterfaceType {
+    name: String,
+    implementors: AHashSet<ObjectTypeId>,
+}
 
 struct ObjectType {
     name: String,
     properties: Vec<PropertyDef>,
+    interfaces: InterfaceBits,
+
     //default_property_values: Vec<Value>,
     //default_object: ObjectId,
 }
@@ -99,24 +175,73 @@ pub struct ObjectInfo {
 
 #[derive(Default)]
 pub struct ObjectDb {
-    types: Vec<ObjectType>,
+    interface_types: Vec<InterfaceType>,
+    object_types: Vec<ObjectType>,
     objects: SlotMap<ObjectKey, ObjectInfo>,
-    type_by_name: AHashMap<String, u16>,
-    type_by_uuid: AHashMap<Uuid, u16>,
+    type_by_name: AHashMap<String, TypeId>,
+    type_by_uuid: AHashMap<Uuid, TypeId>,
 }
 
 impl ObjectDb {
-    pub fn register_type<S: Into<String>>(&mut self, uuid: uuid::Uuid, name: S, properties: &[PropertyDef]) -> ObjectDbResult<ObjectTypeId> {
+    fn inteface_type(&self, id: InterfaceTypeId) -> &InterfaceType {
+        &self.interface_types[id.0 as usize]
+    }
+
+    fn interface_type_mut(&mut self, id: InterfaceTypeId) -> &mut InterfaceType {
+        &mut self.interface_types[id.0 as usize]
+    }
+
+    fn object_type(&self, id: ObjectTypeId) -> &ObjectType {
+        &self.object_types[id.0 as usize]
+    }
+
+    fn object_type_mut(&mut self, id: ObjectTypeId) -> &mut ObjectType {
+        &mut self.object_types[id.0 as usize]
+    }
+
+    pub fn register_interface_type<S: Into<String>>(
+        &mut self,
+        uuid: uuid::Uuid,
+        name: S,
+    ) -> ObjectDbResult<InterfaceTypeId> {
+        if self.object_types.len() >= MAX_INTERFACE_TYPE_COUNT {
+            Err(format!("More than {} interface types not supported", MAX_INTERFACE_TYPE_COUNT))?;
+        }
+
+        // Create the type
+        let name = name.into();
+        let interface_type = InterfaceType {
+            name: name.clone(),
+            implementors: Default::default()
+        };
+
+        // Add the type to the list of types and appropriate lookups
+        let type_id = InterfaceTypeId(self.interface_types.len() as u8);
+        self.interface_types.push(interface_type);
+        let old = self.type_by_name.insert(name, TypeId::Interface(type_id));
+        assert!(old.is_none());
+        let old = self.type_by_uuid.insert(uuid, TypeId::Interface(type_id));
+        assert!(old.is_none());
+
+        Ok(type_id)
+    }
+
+    pub fn register_object_type<S: Into<String>>(
+        &mut self,
+        uuid: uuid::Uuid,
+        name: S,
+        properties: &[PropertyDef]
+    ) -> ObjectDbResult<ObjectTypeId> {
         if properties.len() > MAX_PROPERTY_COUNT {
             Err(format!("More than {} properties not supported", MAX_PROPERTY_COUNT))?;
         }
 
-        if self.types.len() >= MAX_TYPE_COUNT {
-            Err(format!("More than {} types not supported", MAX_TYPE_COUNT))?;
+        if self.object_types.len() >= MAX_OBJECT_TYPE_COUNT {
+            Err(format!("More than {} object types not supported", MAX_OBJECT_TYPE_COUNT))?;
         }
 
         for p in properties {
-            if !p.default_value.can_convert_to(p.property_type) {
+            if !p.default_value.can_convert_to(self, p.property_type) {
                 Err(format!("The given value {:?} cannot be assigned to property type {:?}", p.default_value, p.property_type))?;
             }
         }
@@ -128,20 +253,21 @@ impl ObjectDb {
         let object_type = ObjectType {
             name: name.clone(),
             properties,
+            interfaces: Default::default()
             //default_property_values
             //default_object: ObjectKey::null()
         };
 
         // Add the type to the list of types and appropriate lookups
-        let type_index = self.types.len() as u16;
-        self.types.push(object_type);
-        let old = self.type_by_name.insert(name, type_index);
+        let type_id = ObjectTypeId(self.object_types.len() as u16);
+        self.object_types.push(object_type);
+        let old = self.type_by_name.insert(name, TypeId::Object(type_id));
         assert!(old.is_none());
-        let old = self.type_by_uuid.insert(uuid, type_index);
+        let old = self.type_by_uuid.insert(uuid, TypeId::Object(type_id));
         assert!(old.is_none());
 
         // // Create the default object
-        let type_id = ObjectTypeId(type_index);
+        //let type_id = ObjectTypeId(type_index);
         // let default_object_id = self.create_object(type_id);
         // self.types[type_index as usize].default_object = default_object_id;
         // let mut default_object = &mut self.objects[default_object_id.0];
@@ -155,14 +281,36 @@ impl ObjectDb {
         Ok(type_id)
     }
 
-    //TODO: Get/Set default object? May not need it, we have default property values on the type
-
-    pub fn get_type_by_name(&self, name: &str) -> Option<ObjectTypeId> {
-        self.type_by_name.get(name).map(|x| ObjectTypeId(*x as u16))
+    pub fn add_implementor(&mut self, interface: InterfaceTypeId, implementor: ObjectTypeId) {
+        self.interface_type_mut(interface).implementors.insert(implementor);
+        self.object_type_mut(implementor).interfaces.set(interface.0 as usize, true);
     }
 
-    pub fn get_type_by_uuid(&self, uuid: &Uuid) -> Option<ObjectTypeId> {
-        self.type_by_uuid.get(uuid).map(|x| ObjectTypeId(*x as u16))
+    //TODO: Get/Set default object? May not need it, we have default property values on the type
+
+    pub fn find_type_by_name(&self, name: &str) -> Option<TypeId> {
+        self.type_by_name.get(name).copied()
+    }
+
+    pub fn find_type_by_uuid(&self, uuid: &Uuid) -> Option<TypeId> {
+        self.type_by_uuid.get(uuid).copied()
+    }
+
+    pub fn type_id_of_object(&self, object_id: ObjectId) -> ObjectTypeId {
+        let object = &self.objects[object_id.0];
+        object.object_type_id
+    }
+
+    pub fn is_object_type_allowed(&self, object_type_id: ObjectTypeId, selector: TypeSelector) -> bool {
+        match selector {
+            TypeSelector::Any => true,
+            TypeSelector::Interface(type_id) => {
+                self.object_type(object_type_id).interfaces.is_set(type_id.0 as usize)
+            },
+            TypeSelector::Object(type_id) => {
+                object_type_id == type_id
+            }
+        }
     }
 
     // fn create_empty_object(&mut self, object_type_id: ObjectTypeId) -> ObjectKey {
@@ -191,7 +339,7 @@ impl ObjectDb {
     // }
 
     pub fn create_object(&mut self, type_id: ObjectTypeId) -> ObjectId {
-        let object_type = &self.types[type_id.0 as usize];
+        let object_type = &self.object_type(type_id);
 
         let property_count = object_type.properties.len();
         let mut property_values = Vec::<Value>::with_capacity(property_count);
@@ -212,8 +360,8 @@ impl ObjectDb {
     pub fn create_prototype_instance(&mut self, prototype_object_id: ObjectId) -> ObjectId {
         debug_assert!(!prototype_object_id.0.is_null());
         let prototype = &self.objects[prototype_object_id.0];
-        let type_id = prototype.object_type_id;
-        let object_type = &self.types[type_id.0 as usize];
+        let object_type_id = prototype.object_type_id;
+        let object_type = self.object_type(object_type_id);
 
         let property_count = object_type.properties.len();
         let mut property_values = Vec::<Value>::with_capacity(property_count);
@@ -225,7 +373,7 @@ impl ObjectDb {
         inherited_properties.set_first_n(property_count, true);
         let object_id = self.objects.insert(ObjectInfo {
             prototype: prototype_object_id.0,
-            object_type_id: type_id,
+            object_type_id: object_type_id,
             property_values,
             inherited_properties,
         });
@@ -253,7 +401,7 @@ impl ObjectDb {
                 }
             }
         } else {
-            let object_type = &self.types[object.object_type_id.0 as usize];
+            let object_type = &self.object_types[object.object_type_id.0 as usize];
             for i in 0..property_count {
                 if inherited_properties.is_set(i) {
                     object.property_values[i] = object_type.properties[i].default_value.clone();
@@ -271,7 +419,7 @@ impl ObjectDb {
     //pub fn copy_object()
 
     pub fn find_property(&self, type_id: ObjectTypeId, name: &str) -> Option<PropertyIndex> {
-        let p = self.types[type_id.0 as usize].properties.iter().position(|x| x.name == name);
+        let p = self.object_type(type_id).properties.iter().position(|x| x.name == name);
         p.map(|x| PropertyIndex(x as u8))
     }
 
@@ -303,7 +451,7 @@ impl ObjectDb {
 
         if object_key.is_null() {
             let object_type_id = self.objects[object_id.0].object_type_id;
-            &self.types[object_type_id.0 as usize].properties[property.0 as usize].default_value
+            &self.object_type(object_type_id).properties[property.0 as usize].default_value
         } else {
             &self.objects[object_key].property_values[property.0 as usize]
         }
@@ -369,11 +517,18 @@ impl ObjectDb {
     // pub fn get_subobject(&self, object_id: ObjectId, property: PropertyIndex) -> ObjectDbResult<ObjectId> {
     //     self.objects[object_id.0].property_values[property.0 as usize].get_subobject().map(|x| ObjectId(x))
     // }
-    //
-    // pub fn set_subobject(&mut self, object_id: ObjectId, property: PropertyIndex, value: ObjectId) -> ObjectDbResult<()> {
-    //     //TODO: Type verification
-    //     self.objects[object_id.0].property_values[property.0 as usize].set_subobject(value.0)
-    // }
+
+    pub fn set_subobject(&mut self, object_id: ObjectId, property: PropertyIndex, subobject_id: ObjectId) -> ObjectDbResult<()> {
+        let object_type_id = self.type_id_of_object(object_id);
+        let object_type = self.object_type(object_type_id);
+        let type_selector = object_type.properties[property.0 as usize].property_type.type_selector().ok_or(ObjectDbError::TypeError)?;
+        let subobject_type_id = self.type_id_of_object(subobject_id);
+        if !self.is_object_type_allowed(subobject_type_id, type_selector) {
+            Err(ObjectDbError::TypeError)?;
+        }
+
+        self.objects[object_id.0].property_values[property.0 as usize].set_subobject(subobject_id.0)
+    }
 
 
 

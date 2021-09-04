@@ -25,11 +25,11 @@ impl PropertyDef {
         }
     }
 
-    // pub fn new_subobject<T: Into<String>>(name: T, object_type: ObjectTypeId) -> Self {
-    //     PropertyDef {
-    //         name: name.into(),
-    //         property_type: PropertyType::Subobject(object_type),
-    //         default_value: Value::Subobject(ObjectKey::null())
-    //     }
-    // }
+    pub fn new_subobject<T: Into<String>, S: Into<TypeSelector>>(name: T, ty: S) -> Self {
+        PropertyDef {
+            name: name.into(),
+            property_type: PropertyType::Subobject(ty.into()),
+            default_value: Value::Subobject(ObjectKey::null())
+        }
+    }
 }

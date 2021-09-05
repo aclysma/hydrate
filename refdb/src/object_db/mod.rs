@@ -31,6 +31,12 @@ const MAX_PROPERTY_COUNT : usize = 64;
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct PropertyIndex(u8);
 
+impl PropertyIndex {
+    pub fn from_index(index: usize) -> PropertyIndex {
+        PropertyIndex(index as u8)
+    }
+}
+
 //
 // Up to 65k object types
 //
@@ -54,6 +60,12 @@ slotmap::new_key_type! { pub struct ObjectKey; }
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct ObjectId(ObjectKey);
+
+impl ObjectId {
+    pub fn null() -> ObjectId {
+        ObjectId(ObjectKey::null())
+    }
+}
 
 // // Magic ID to represent any type
 // const ANY_INTERFACE_TYPE_ID : InterfaceTypeId = InterfaceTypeId(u8::MAX);
@@ -161,15 +173,15 @@ impl PropertyType {
     }
 }
 
-struct InterfaceType {
-    name: String,
-    implementors: AHashSet<ObjectTypeId>,
+pub struct InterfaceType {
+    pub name: String,
+    pub implementors: AHashSet<ObjectTypeId>,
 }
 
-struct ObjectType {
-    name: String,
-    properties: Vec<PropertyDef>,
-    interfaces: InterfaceBits,
+pub struct ObjectType {
+    pub name: String,
+    pub properties: Vec<PropertyDef>,
+    pub interfaces: InterfaceBits,
 
     //default_property_values: Vec<Value>,
     //default_object: ObjectId,

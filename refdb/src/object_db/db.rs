@@ -10,7 +10,7 @@ pub struct ObjectDb {
 }
 
 impl ObjectDb {
-    fn inteface_type(&self, id: InterfaceTypeId) -> &InterfaceType {
+    pub fn inteface_type(&self, id: InterfaceTypeId) -> &InterfaceType {
         &self.interface_types[id.0 as usize]
     }
 
@@ -18,7 +18,7 @@ impl ObjectDb {
         &mut self.interface_types[id.0 as usize]
     }
 
-    fn object_type(&self, id: ObjectTypeId) -> &ObjectType {
+    pub fn object_type(&self, id: ObjectTypeId) -> &ObjectType {
         &self.object_types[id.0 as usize]
     }
 

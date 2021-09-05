@@ -6,12 +6,17 @@ edition = "2018"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+refdb = { path = "../refdb" }
+
 #bevy = { path = "../vendor/bevy" }
 #bevy = "0.5"
 #egui = { path = "../vendor/egui/egui" }
 #egui = "0.13"
 #bevy_egui = "0.6.2"
 ahash = "0.7.4"
+uuid = "0.8.2"
+log = "0.4.14"
+env_logger = "0.9.0"
 
 imgui = "0.7"
 imgui-winit-support = "0.7.1"
@@ -21,5 +26,3 @@ bincode = "1.3.1"
 lazy_static = "1"
 winit = "0.24"
 glam = "0.18.0"
-log = "0.4.14"
-env_logger = "0.9.0"

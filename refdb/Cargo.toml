@@ -9,6 +9,6 @@ edition = "2018"
 ahash = "0.7.4"
 uuid = "0.8.2"
 log = "0.4.14"
-env_logger = "0.9.0"
-#slab = "0.4.4"
 slotmap = "1.0.5"
+
+

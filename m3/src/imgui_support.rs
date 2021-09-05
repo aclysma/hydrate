@@ -289,6 +289,11 @@ fn init_imgui(window: &winit::window::Window) -> imgui::Context {
         for col in 0..style.colors.len() {
             style.colors[col] = imgui_gamma_to_linear(style.colors[col]);
         }
+
+        crate::imgui_themes::custom_theme(style);
+        for col in 0..style.colors.len() {
+            style.colors[col] = imgui_gamma_to_linear(style.colors[col]);
+        }
     }
 
     imgui.set_ini_filename(None);

@@ -2,7 +2,7 @@ use rafx::api::*;
 use rafx::framework::render_features::*;
 use rafx::framework::*;
 use std::sync::Arc;
-use crate::ExampleInspectTarget;
+use crate::AppState;
 
 #[derive(Debug, Clone, Copy)]
 struct DebugVertex {
@@ -192,7 +192,7 @@ impl Renderer {
         &mut self,
         window: &winit::window::Window,
         imgui_draw_data: Option<&imgui::DrawData>,
-        example_inspect_target: &ExampleInspectTarget,
+        app_state: &AppState,
     ) -> RafxResult<()> {
         let window_size = window.inner_size();
         let window_size = RafxExtents2D {

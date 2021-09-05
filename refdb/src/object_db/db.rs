@@ -416,7 +416,7 @@ impl ObjectDb {
         Ok(())
     }
 
-    pub fn is_property_overriden(&mut self, object_id: ObjectId, property: PropertyIndex) -> bool {
+    pub fn is_property_inherited(&mut self, object_id: ObjectId, property: PropertyIndex) -> bool {
         let object = &mut self.objects[object_id.0];
         object.inherited_properties.is_set(property.0 as usize)
     }

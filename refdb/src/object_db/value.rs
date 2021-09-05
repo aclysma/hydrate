@@ -12,24 +12,45 @@ pub enum Value {
 }
 
 impl Value {
-    pub fn can_convert_to(&self, db: &ObjectDb, property_type: PropertyType) -> bool {
+    pub fn is_type(&self, db: &ObjectDb, property_type: PropertyType) -> bool {
         match self {
             Value::U64(_) => property_type == PropertyType::U64,
             Value::F32(_) => property_type == PropertyType::F32,
             Value::Subobject(o) => {
                 if let PropertyType::Subobject(type_selector) = property_type {
+                    if o.is_null() {
+                        // Null objects are interpreted as the default object of the concrete type
+                        return true;
+                    }
+
                     let object_type_id = db.type_id_of_object(ObjectId(*o));
                     db.is_object_type_allowed(object_type_id, type_selector)
                 } else {
                     false
                 }
             }
-            // Value::Reference(_) => unimplemented!(),
-            // Value::Subobject(_) => unimplemented!(),
-            // Value::ReferenceSet(_) => unimplemented!(),
-            // Value::SubobjectSet(_) => unimplemented!(),
         }
     }
+
+    // // In the future, this could allow flexible changes
+    // pub fn can_convert_to(&self, db: &ObjectDb, property_type: PropertyType) -> bool {
+    //     match self {
+    //         Value::U64(_) => property_type == PropertyType::U64,
+    //         Value::F32(_) => property_type == PropertyType::F32,
+    //         Value::Subobject(o) => {
+    //             if let PropertyType::Subobject(type_selector) = property_type {
+    //                 let object_type_id = db.type_id_of_object(ObjectId(*o));
+    //                 db.is_object_type_allowed(object_type_id, type_selector)
+    //             } else {
+    //                 false
+    //             }
+    //         }
+    //         // Value::Reference(_) => unimplemented!(),
+    //         // Value::Subobject(_) => unimplemented!(),
+    //         // Value::ReferenceSet(_) => unimplemented!(),
+    //         // Value::SubobjectSet(_) => unimplemented!(),
+    //     }
+    // }
 
     pub fn convert_to(self, property_type: PropertyType) -> Option<Self> {
         match property_type {

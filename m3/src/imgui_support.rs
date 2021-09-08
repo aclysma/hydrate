@@ -286,9 +286,10 @@ fn init_imgui(window: &winit::window::Window) -> imgui::Context {
         }
 
         let style = imgui.style_mut();
-        for col in 0..style.colors.len() {
-            style.colors[col] = imgui_gamma_to_linear(style.colors[col]);
-        }
+        // style.use_dark_colors();
+        // for col in 0..style.colors.len() {
+        //     style.colors[col] = imgui_gamma_to_linear(style.colors[col]);
+        // }
 
         crate::imgui_themes::custom_theme(style);
         for col in 0..style.colors.len() {

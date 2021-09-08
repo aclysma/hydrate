@@ -206,6 +206,8 @@ pub fn corporate_gray_theme(style: &mut imgui::Style) {
     */
 }
 
+
+
 pub fn custom_theme(style: &mut imgui::Style) {
     yet_another_dark_theme(style);
 
@@ -234,4 +236,10 @@ pub fn custom_theme(style: &mut imgui::Style) {
     style[imgui::StyleColor::TabHovered] = style[imgui::StyleColor::SeparatorHovered];
     style[imgui::StyleColor::Header] = header;
     style[imgui::StyleColor::ResizeGrip] = resize_grip;
+
+    style[imgui::StyleColor::MenuBarBg] = unconvert_imgui_gamma_to_linear([8.0/255.0, 15.0/255.0, 28.0/255.0, 1.0]);
+    style[imgui::StyleColor::TabActive] = unconvert_imgui_gamma_to_linear([9.0/255.0, 20.0/255.0, 27.0/255.0, 1.0]);
+    style[imgui::StyleColor::TabUnfocusedActive] = unconvert_imgui_gamma_to_linear([9.0/255.0, 20.0/255.0, 27.0/255.0, 1.0]);
+    style[imgui::StyleColor::TitleBg] = unconvert_imgui_gamma_to_linear([1.0/255.0, 2.0/255.0, 3.0/255.0, 1.0]);
+
 }

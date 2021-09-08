@@ -9,6 +9,7 @@ mod imgui_themes;
 mod test_data;
 
 mod draw_ui;
+mod draw_ui2;
 
 mod app;
 use app::AppState;
@@ -99,7 +100,7 @@ pub fn run() {
             //
             winit::event::Event::RedrawRequested(_window_id) => {
                 imgui_manager.begin_frame(&window);
-                draw_ui::draw_imgui(&imgui_manager, &mut app_state);
+                draw_ui2::draw_imgui(&imgui_manager, &mut app_state);
                 imgui_manager.render(&window);
                 if let Err(e) =
                 renderer.draw(&window, imgui_manager.draw_data(), &app_state)

@@ -1,7 +1,9 @@
 [workspace]
 members = [
     "m3",
-    "refdb"
+    "refdb",
+    "conduit",
+    "base"
 ]
 
 exclude = [

@@ -600,6 +600,7 @@ pub fn draw_imgui(
     {
         imgui_manager.with_ui(|ui: &mut imgui::Ui| {
             draw_menu_bar(ui);
+            //draw_2_pane_view(ui, app_state);
             draw_2_pane_view(ui, app_state);
         });
     }

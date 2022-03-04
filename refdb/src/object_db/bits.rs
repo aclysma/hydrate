@@ -23,6 +23,7 @@ impl BitsU64 {
     }
 
     pub fn set_first_n(&mut self, count: usize, value: bool) {
+        debug_assert!(count < 64);
         let (bits, _) = 1u64.overflowing_shl(count as u32);
         let (bits, _) = bits.overflowing_sub(1);
         if value {

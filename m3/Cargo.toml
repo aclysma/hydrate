@@ -21,7 +21,7 @@ env_logger = "0.9.0"
 imgui = "0.7"
 imgui-winit-support = "0.7.1"
 
-rafx = { version = "0.0.14", features = ["rafx-vulkan", "framework"] }
+rafx = { version = "0.0.14", features = ["rafx-metal", "framework"] }
 bincode = "1.3.1"
 lazy_static = "1"
 winit = "0.24"

@@ -2,10 +2,10 @@ pub use super::*;
 
 #[derive(Clone)]
 pub struct PropertyDef {
-    // name, type, editor, legal subobject types, tooltip, transient, UI name
     pub name: String,
     pub property_type: PropertyType,
     pub default_value: Value
+    //TODO: Editor, Tooltip, IsTransient, Name to show in UI
 }
 
 impl PropertyDef {
@@ -34,7 +34,7 @@ impl PropertyDef {
     }
 
     // If ty is an object type, default value of null will create a default object of the given type
-    // If ty is an interface type, default value of null is not allowed
+    // If ty is an interface type, default value of null is not allowed. This is checked when registering in the DB
     pub fn new_subobject<T: Into<String>, S: Into<TypeSelector>>(name: T, ty: S) -> Self {
         Self::new_subobject_with_default(name, ty, ObjectId(ObjectKey::null()))
     }

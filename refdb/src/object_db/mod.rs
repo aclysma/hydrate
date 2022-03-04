@@ -73,6 +73,42 @@ impl ObjectId {
 type PropertyBits = BitsU64;
 type InterfaceBits = BitsU64;
 
+/// Intended to represent a single particular type
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
+pub enum TypeId {
+    Interface(InterfaceTypeId),
+    Object(ObjectTypeId)
+}
+
+impl From<InterfaceTypeId> for TypeId {
+    fn from(ty: InterfaceTypeId) -> Self {
+        TypeId::Interface(ty)
+    }
+}
+
+impl From<ObjectTypeId> for TypeId {
+    fn from(ty: ObjectTypeId) -> Self {
+        TypeId::Object(ty)
+    }
+}
+
+impl TypeId {
+    pub fn object_type(self) -> Option<ObjectTypeId> {
+        match self {
+            TypeId::Interface(_) => None,
+            TypeId::Object(v) => Some(v)
+        }
+    }
+
+    pub fn interface_type(self) -> Option<InterfaceTypeId> {
+        match self {
+            TypeId::Interface(v) => Some(v),
+            TypeId::Object(_) => None
+        }
+    }
+}
+
+/// Intended to represent a range of allowed types
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 pub enum TypeSelector {
     Any,
@@ -108,40 +144,6 @@ impl From<InterfaceTypeId> for TypeSelector {
 impl From<ObjectTypeId> for TypeSelector {
     fn from(ty: ObjectTypeId) -> Self {
         TypeSelector::Object(ty)
-    }
-}
-
-#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
-pub enum TypeId {
-    Interface(InterfaceTypeId),
-    Object(ObjectTypeId)
-}
-
-impl From<InterfaceTypeId> for TypeId {
-    fn from(ty: InterfaceTypeId) -> Self {
-        TypeId::Interface(ty)
-    }
-}
-
-impl From<ObjectTypeId> for TypeId {
-    fn from(ty: ObjectTypeId) -> Self {
-        TypeId::Object(ty)
-    }
-}
-
-impl TypeId {
-    pub fn object_type(self) -> Option<ObjectTypeId> {
-        match self {
-            TypeId::Interface(_) => None,
-            TypeId::Object(v) => Some(v)
-        }
-    }
-
-    pub fn interface_type(self) -> Option<InterfaceTypeId> {
-        match self {
-            TypeId::Interface(v) => Some(v),
-            TypeId::Object(_) => None
-        }
     }
 }
 
@@ -182,63 +184,19 @@ pub struct ObjectType {
     pub name: String,
     pub properties: Vec<PropertyDef>,
     pub interfaces: InterfaceBits,
-
-    //default_property_values: Vec<Value>,
-    //default_object: ObjectId,
 }
 
 pub struct ObjectInfo {
-    //valid: bool,
-    //generation: u32,
     prototype: ObjectKey,
     object_type_id: ObjectTypeId,
     property_values: Vec<Value>,
     inherited_properties: PropertyBits,
 
-    // base_object
-    // overridden field mask
-    // owner
-    // id
+    //TODO (if needed): owner, id
 }
-
-// struct ObjectDetail {
-//     property_values: Vec<Value>,
-//     object: ObjectKey,
-// }
-
 
 // Registering enums?
 // Registering implementing types (i.e interfaces)
-// Set (adds/removew)
+// Set (adds/removes)
 // Buffer types
-
 // Guid/Reference
-
-#[derive(Copy, Clone, Debug)]
-struct ObjectTypeHash(u64);
-
-// Fast lookup
-// struct ObjectProperty {
-//
-// }
-
-
-// struct ObjectMeta {
-//     name: String,
-//     hash: ObjectTypeHash,
-//     properties: Vec<ObjectProperty>,
-//     property_defs: Vec<ObjectPropertyDef>,
-//
-//     // name, name_hash, type, offset from root
-//     // default object
-//     // aspects
-// }
-
-
-// struct Object {
-// }
-
-#[test]
-pub fn test_object_db() {
-
-}

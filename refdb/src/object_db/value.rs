@@ -12,19 +12,18 @@ pub enum Value {
 }
 
 impl Value {
-    pub fn is_type(&self, db: &ObjectDb, property_type: PropertyType) -> bool {
+    pub fn is_type(&self, db: &ObjectDb, property_type: PropertyType, allow_null_subobject: bool) -> bool {
         match self {
             Value::U64(_) => property_type == PropertyType::U64,
             Value::F32(_) => property_type == PropertyType::F32,
             Value::Subobject(o) => {
                 if let PropertyType::Subobject(type_selector) = property_type {
                     if o.is_null() {
-                        // Null objects are interpreted as the default object of the concrete type
-                        return true;
+                        allow_null_subobject
+                    } else {
+                        let object_type_id = db.type_id_of_object(ObjectId(*o));
+                        db.is_object_type_allowed(object_type_id, type_selector)
                     }
-
-                    let object_type_id = db.type_id_of_object(ObjectId(*o));
-                    db.is_object_type_allowed(object_type_id, type_selector)
                 } else {
                     false
                 }

@@ -32,6 +32,7 @@ impl ObjectDb {
         name: S,
     ) -> ObjectDbResult<InterfaceTypeId> {
         //TODO: Check name not empty
+        //TODO: Check name/uuid not duplicated? Otherwise lookups won't work
         //TODO: Hash name
         //TODO: Return existing type if already registered
 
@@ -64,6 +65,7 @@ impl ObjectDb {
         properties: &[PropertyDef]
     ) -> ObjectDbResult<ObjectTypeId> {
         //TODO: Check name not empty
+        //TODO: Check name not duplicated? Otherwise lookups won't work
         //TODO: Hash name
         //TODO: Return existing type if already registered
 
@@ -76,32 +78,26 @@ impl ObjectDb {
         }
 
         for p in properties {
-            //TODO: If it's an interface subobject, verify not null
+            // A null default value for a concrete subobject type is interpreted as the default object of the concrete type
+            // So if it's an interface subobject, verify not null. (We don't know what concrete type to use by default,
+            // so there's no obvious default value we can use)
+            let mut allow_null_subobject = false;
             if let PropertyType::Subobject(ty) = p.property_type {
-                if !ty.is_concrete() {
-                    if let Value::Subobject(t) = p.default_value {
-                        if t.is_null() {
-                            Err(format!("Property {:?} cannot have a default value of null because it is an abstract, non-nullable subobject", p.name))?;
-                        }
-                    }
-                }
+                allow_null_subobject = ty.is_concrete();
             }
 
-            if !p.default_value.is_type(self, p.property_type) {
-                Err(format!("The given value {:?} cannot be assigned to property {} of type {:?}", p.default_value, p.name, p.property_type))?;
+            if !p.default_value.is_type(self, p.property_type, allow_null_subobject) {
+                Err(format!("The given value {:?} cannot be used as a default value for property {} of type {:?} (allow_null_subobject={})", p.default_value, p.name, p.property_type, allow_null_subobject))?;
             }
         }
 
         // Create the type
         let name = name.into();
         let properties : Vec<PropertyDef> = properties.iter().cloned().collect();
-        //let default_property_values = properties.iter().map(|x| x.default_value).cloned().collect();
         let object_type = ObjectType {
             name: name.clone(),
             properties,
             interfaces: Default::default()
-            //default_property_values
-            //default_object: ObjectKey::null()
         };
 
         // Add the type to the list of types and appropriate lookups
@@ -112,18 +108,6 @@ impl ObjectDb {
         let old = self.type_by_uuid.insert(uuid, TypeId::Object(type_id));
         assert!(old.is_none());
 
-        // // Create the default object
-        //let type_id = ObjectTypeId(type_index);
-        // let default_object_id = self.create_object(type_id);
-        // self.types[type_index as usize].default_object = default_object_id;
-        // let mut default_object = &mut self.objects[default_object_id.0];
-        //
-        // // Initialize all the properties
-        // let object_type = &self.types[type_index as usize];
-        // for (p, v) in object_type.properties.iter().zip(&mut default_object.property_values) {
-        //     *v = p.default_value.clone().convert_to(p.property_type).unwrap(); // can_convert_to() is checked above
-        // }
-
         Ok(type_id)
     }
 
@@ -131,8 +115,6 @@ impl ObjectDb {
         self.interface_type_mut(interface).implementors.insert(implementor);
         self.object_type_mut(implementor).interfaces.set(interface.0 as usize, true);
     }
-
-    //TODO: Get/Set default object? May not need it, we have default property values on the type
 
     pub fn find_type_by_name(&self, name: &str) -> Option<TypeId> {
         self.type_by_name.get(name).copied()
@@ -159,41 +141,23 @@ impl ObjectDb {
         }
     }
 
-    // fn create_empty_object(&mut self, object_type_id: ObjectTypeId) -> ObjectKey {
-    //
-    // }
-
-    // type_id: Which type to create an instance of
-    // prototype: Defines which object we should use for our default values. If not set, uses default object
-    // fn do_create_object(&mut self, type_id: ObjectTypeId, prototype: Option<ObjectId>, inherit_properties: bool) -> ObjectId {
-    //     let object_type = &mut self.types[type_id.0 as usize];
-    //
-    //     let property_count = object_type.properties.len();
-    //     let mut property_values = Vec::<Value>::with_capacity(property_count);
-    //     for p in &object_type.properties {
-    //         property_values.push(p.default_value.clone());
-    //     }
-    //
-    //     let object_id = self.objects.insert(ObjectInfo {
-    //         prototype: prototype.0.unwrap_or(ObjectKey::null()),
-    //         object_type_id: type_id,
-    //         property_values,
-    //         inherited_properties: PropertyBits::default(),
-    //     });
-    //
-    //     ObjectId(object_id)
-    // }
-
+    // Detached properties are copies. Attached implies a prototype instance with a field that is
+    // not overridden
     fn create_property_value(&mut self, p: PropertyType, v: Value, detached: bool) -> Value {
         match p {
             // For subobjects:
-            // - If the value is non-null, clone the object
-            // - If the value is null, create a default object. It is only allowed to be null if the type is concrete
+            // - If the value is null, create a default object.
+            //   * It is only allowed to be null if the type is concrete. (If it's not concrete, we
+            //     won't know the intended default concrete type to use.)
+            //   * If it's null, we know we are creating a new object (not a prototype instance.) Prototype
+            //     instances can only be created from existing objects, and subobject properties of
+            //     existing objects can't be null.)
+            // - If the value is non-null, clone the object, or create a prototype instance of it
             PropertyType::Subobject(ty) => {
                 let subobject = v.get_subobject().unwrap();
                 if subobject.is_null() {
-                    // We should only have null subobjects when working from default properties. In this case,
-                    // the object should always be detached as it would have no prototype
+                    // If it's null, we *must* be creating an entirely new object that has no
+                    // prototype.
                     assert!(detached);
 
                     match ty {
@@ -245,7 +209,6 @@ impl ObjectDb {
         let property_count = object_type.properties.len();
         let mut property_values = Vec::<Value>::with_capacity(property_count);
         for property_index in 0..property_count {
-            //property_values.push(p.clone());
             let p = &self.object_type(object_type_id).properties[property_index];
             let property_value = self.property_value(prototype_object_id, PropertyIndex(property_index as u8)).clone();
             property_values.push(self.create_property_value(p.property_type, property_value, false));
@@ -266,6 +229,11 @@ impl ObjectDb {
     pub fn detach_from_prototype(&mut self, object_id: ObjectId) {
         let object = &mut self.objects[object_id.0];
 
+        if object.prototype.is_null() {
+            // No-op, we are not attached to any prototype
+            return;
+        }
+
         // Clear the prototype
         let prototype = object.prototype;
         object.prototype = ObjectKey::null();
@@ -276,18 +244,9 @@ impl ObjectDb {
 
         // Copy any inherited value from the prototype into this object.
         let property_count = object.property_values.len();
-        if !prototype.is_null() {
-            for i in 0..property_count {
-                if inherited_properties.is_set(i) {
-                    self.objects[object_id.0].property_values[i] = self.objects[prototype].property_values[i].clone();
-                }
-            }
-        } else {
-            let object_type = &self.object_types[object.object_type_id.0 as usize];
-            for i in 0..property_count {
-                if inherited_properties.is_set(i) {
-                    object.property_values[i] = object_type.properties[i].default_value.clone();
-                }
+        for i in 0..property_count {
+            if inherited_properties.is_set(i) {
+                self.objects[object_id.0].property_values[i] = self.objects[prototype].property_values[i].clone();
             }
         }
     }
@@ -394,6 +353,8 @@ impl ObjectDb {
     pub fn set_property_override(&mut self, object_id: ObjectId, property: PropertyIndex) {
         let current_value = self.property_value(object_id, property).clone();
         let object = &mut self.objects[object_id.0];
+        // We can get away without cloning the subobject here because the property will be flagged as
+        // inherited, which means we won't use it directly. (it's essentially a move, not a copy)
         object.property_values[property.0 as usize] = current_value;
         object.inherited_properties.set(property.0 as usize, false);
     }
@@ -403,9 +364,6 @@ impl ObjectDb {
         let current_value = self.property_value(object_id, property).clone();
         let prototype = self.objects[object_id.0].prototype;
         assert!(!prototype.is_null());
-        if prototype.is_null() {
-
-        }
 
         let prototype = &mut self.objects[prototype];
         prototype.property_values[property.0 as usize] = current_value;

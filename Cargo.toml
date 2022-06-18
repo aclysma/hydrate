@@ -3,7 +3,8 @@ members = [
     "m3",
     "refdb",
     "conduit",
-    "base"
+    "base",
+    "asset-engine",
 ]
 
 exclude = [

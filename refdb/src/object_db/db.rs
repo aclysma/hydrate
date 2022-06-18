@@ -1,3 +1,4 @@
+use crate::TypeId::Object;
 use super::*;
 
 #[derive(Default)]
@@ -156,17 +157,24 @@ impl ObjectDb {
             PropertyType::Subobject(ty) => {
                 let subobject = v.get_subobject().unwrap();
                 if subobject.is_null() {
-                    // If it's null, we *must* be creating an entirely new object that has no
-                    // prototype.
-                    assert!(detached);
 
-                    match ty {
-                        TypeSelector::Object(object_type) => {
-                            let object_id = self.create_object(object_type);
-                            Value::Subobject(object_id.0)
-                        },
-                        _ => panic!("A subobject with non-concrete type selector cannot have a null default value")
-                    }
+                    // If it's null and detached, we *must* be creating an entirely new object that has no
+                    // prototype.
+                    //assert!(detached);
+
+                    //if detached
+                    //{
+                        match ty {
+                            TypeSelector::Object(object_type) => {
+                                let object_id = self.create_object(object_type);
+                                Value::Subobject(object_id.0)
+                            },
+                            _ => panic!("A subobject with non-concrete type selector cannot have a null default value")
+                        }
+                    // } else {
+                    //     // It's "attached" to the default value of the type itself
+                    //     Value::Subobject(ObjectKey::null())
+                    // }
                 } else {
                     let prototype = ObjectId(subobject);
                     let new_subobject = if detached {
@@ -181,20 +189,25 @@ impl ObjectDb {
             _ => v
         }
     }
-
+    
     pub fn create_object(&mut self, type_id: ObjectTypeId) -> ObjectId {
         let property_count = self.object_type(type_id).properties.len();
         let mut property_values = Vec::<Value>::with_capacity(property_count);
         for property_index in 0..property_count {
             let p = &self.object_type(type_id).properties[property_index];
-            property_values.push(self.create_property_value(p.property_type, p.default_value.clone(), true));
+            property_values.push(self.create_property_value(p.property_type, p.default_value.clone(), false));
+        }
+
+        let mut property_bits = PropertyBits::default();
+        if !detached {
+            property_bits.set_first_n(property_count, true);
         }
 
         let object_id = self.objects.insert(ObjectInfo {
             prototype: ObjectKey::null(),
             object_type_id: type_id,
             property_values,
-            inherited_properties: PropertyBits::default(),
+            inherited_properties: property_bits,
         });
 
         ObjectId(object_id)
@@ -300,6 +313,9 @@ impl ObjectDb {
             let object_type_id = self.objects[object_id.0].object_type_id;
             &self.object_type(object_type_id).properties[property.0 as usize].default_value
         } else {
+            // Special handling for sets? We need to merge adds/removes. Maybe we just assert and
+            // expect a different API called for set values
+
             &self.objects[object_key].property_values[property.0 as usize]
         }
     }
@@ -329,6 +345,9 @@ impl ObjectDb {
     pub fn get_subobject(&self, object_id: ObjectId, property: PropertyIndex) -> ObjectDbResult<ObjectId> {
         self.property_value(object_id, property).get_subobject().map(|x| ObjectId(x))
     }
+
+    //NOTE: Maybe we don't allow setting subobjects because changing the subobject type means
+    // none of the properties from a parent can be inherited anymore. Not sure.
 
     // pub fn set_subobject(&mut self, object_id: ObjectId, property: PropertyIndex, subobject_id: ObjectId) -> ObjectDbResult<()> {
     //     let object_type_id = self.type_id_of_object(object_id);

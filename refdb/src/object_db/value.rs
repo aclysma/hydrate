@@ -2,13 +2,19 @@
 pub use super::*;
 
 #[derive(Clone, Debug)]
+struct SubobjectSetValue {
+    adds: AHashSet<ObjectKey>,
+    removes: AHashSet<ObjectKey>,
+}
+
+#[derive(Clone, Debug)]
 pub enum Value {
     U64(u64),
     F32(f32),
     // Ref(ObjectKey),
     Subobject(ObjectKey),
     // RefSet(AHashSet<ObjectKey>),
-    // SubobjectSet(AHashSet<ObjectKey>),
+    //SubobjectSet(SubobjectSetValue),
 }
 
 impl Value {
@@ -134,4 +140,50 @@ impl Value {
             _ => Err(ObjectDbError::TypeError)
         }
     }
+    //
+    // pub(super) fn get_subobject_set_adds(&self) -> ObjectDbResult<&AHashSet<ObjectKey>> {
+    //     match self {
+    //         Value::SubobjectSet(v) => Ok(&v.adds),
+    //         _ => Err(ObjectDbError::TypeError)
+    //     }
+    // }
+    //
+    // pub(super) fn insert_subobject_to_set(&mut self, object: ObjectKey) -> ObjectDbResult<bool> {
+    //     match self {
+    //         Value::SubobjectSet(v) => Ok(v.insert(object)),
+    //         _ => Err(ObjectDbError::TypeError)
+    //     }
+    // }
+    //
+    // pub(super) fn remove_subobject_from_set(&mut self, object: ObjectKey) -> ObjectDbResult<bool> {
+    //     match self {
+    //         Value::SubobjectSet(v) => {
+    //             Ok(v.removes.remove(&object))
+    //         },
+    //         _ => Err(ObjectDbError::TypeError)
+    //     }
+    // }
+
+    // pub(super) fn get_subobject_set(&self) -> ObjectDbResult<&AHashSet<ObjectKey>> {
+    //     match self {
+    //         Value::SubobjectSet(v) => Ok(&v),
+    //         _ => Err(ObjectDbError::TypeError)
+    //     }
+    // }
+    //
+    // pub(super) fn insert_subobject_to_set(&mut self, object: ObjectKey) -> ObjectDbResult<bool> {
+    //     match self {
+    //         Value::SubobjectSet(v) => Ok(v.insert(object)),
+    //         _ => Err(ObjectDbError::TypeError)
+    //     }
+    // }
+    //
+    // pub(super) fn remove_subobject_from_set(&mut self, object: ObjectKey) -> ObjectDbResult<bool> {
+    //     match self {
+    //         Value::SubobjectSet(v) => {
+    //             Ok(v.removes.remove(&object))
+    //         },
+    //         _ => Err(ObjectDbError::TypeError)
+    //     }
+    // }
 }

@@ -129,6 +129,9 @@ fn draw_inspector(
                 draw_inspector(ui, db, subobject);
                 id_token.pop();
                 ui.unindent();
+            },
+            PropertyType::SubobjectSet(_) => {
+                ui.text(im_str!("UNHANDLED SET {}", p.name));
             }
         }
         //drop(style_token);

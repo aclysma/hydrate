@@ -1,6 +1,7 @@
 use crate::TypeId::Object;
 use super::*;
 
+
 #[derive(Default)]
 pub struct ObjectDb {
     interface_types: Vec<InterfaceType>,
@@ -157,24 +158,14 @@ impl ObjectDb {
             PropertyType::Subobject(ty) => {
                 let subobject = v.get_subobject().unwrap();
                 if subobject.is_null() {
-
-                    // If it's null and detached, we *must* be creating an entirely new object that has no
-                    // prototype.
-                    //assert!(detached);
-
-                    //if detached
-                    //{
-                        match ty {
-                            TypeSelector::Object(object_type) => {
-                                let object_id = self.create_object(object_type);
-                                Value::Subobject(object_id.0)
-                            },
-                            _ => panic!("A subobject with non-concrete type selector cannot have a null default value")
-                        }
-                    // } else {
-                    //     // It's "attached" to the default value of the type itself
-                    //     Value::Subobject(ObjectKey::null())
-                    // }
+                    // While we create a subobject here, the field may still be marked as inherited.
+                    match ty {
+                        TypeSelector::Object(object_type) => {
+                            let object_id = self.create_object(object_type);
+                            Value::Subobject(object_id.0)
+                        },
+                        _ => panic!("A subobject with non-concrete type selector cannot have a null default value")
+                    }
                 } else {
                     let prototype = ObjectId(subobject);
                     let new_subobject = if detached {
@@ -189,7 +180,7 @@ impl ObjectDb {
             _ => v
         }
     }
-    
+
     pub fn create_object(&mut self, type_id: ObjectTypeId) -> ObjectId {
         let property_count = self.object_type(type_id).properties.len();
         let mut property_values = Vec::<Value>::with_capacity(property_count);
@@ -198,19 +189,25 @@ impl ObjectDb {
             property_values.push(self.create_property_value(p.property_type, p.default_value.clone(), false));
         }
 
+        //NOTE: We could choose not to inherit bits, but we still need to create sub-objects so that
+        // there are values to set when we want to override
         let mut property_bits = PropertyBits::default();
-        if !detached {
-            property_bits.set_first_n(property_count, true);
-        }
+        property_bits.set_first_n(property_count, true);
 
         let object_id = self.objects.insert(ObjectInfo {
             prototype: ObjectKey::null(),
             object_type_id: type_id,
             property_values,
             inherited_properties: property_bits,
+            owner: ObjectKey::null(),
         });
 
         ObjectId(object_id)
+    }
+
+    pub fn delete_object(&mut self, object_id: ObjectId) {
+        // assert owner is null?
+
     }
 
     pub fn create_prototype_instance(&mut self, prototype_object_id: ObjectId) -> ObjectId {
@@ -234,6 +231,7 @@ impl ObjectDb {
             object_type_id: object_type_id,
             property_values,
             inherited_properties,
+            owner: ObjectKey::null()
         });
 
         ObjectId(object_id)
@@ -345,6 +343,43 @@ impl ObjectDb {
     pub fn get_subobject(&self, object_id: ObjectId, property: PropertyIndex) -> ObjectDbResult<ObjectId> {
         self.property_value(object_id, property).get_subobject().map(|x| ObjectId(x))
     }
+/*
+    pub fn add_to_subobject_set(
+        &mut self,
+        object_id: ObjectId,
+        property: PropertyIndex,
+        added_subobject: ObjectId
+    ) -> ObjectDbResult<()> {
+        let owning_object = &mut self.objects[object_id.0];
+        let added_object = &mut self.objects[object_id.0];
+        assert!(added_object.owner.is_null());
+        owning_object.property_values[property.0 as usize].get_subobject_set_children()?.insert(added_subobject.0);
+        added_object.owner = object_id.0;
+
+        //set_owner?
+        Ok(())
+    }
+
+    pub fn remove_from_subobject_set(
+        &mut self,
+        object_id: ObjectId,
+        property: PropertyIndex,
+        removed_subobject: ObjectId
+    ) -> ObjectDbResult<()> {
+        let owning_object = &mut self.objects[object_id.0];
+        let removed_object = &mut self.objects[object_id.0];
+        assert_eq!(added_object.owner, object_id);
+        let removed = owning_object.property_values[property.0 as usize].get_subobject_set_children()?.remove(&removed_subobject.0);
+        removed_object.owner = ObjectKey::null();
+
+
+        //clear_owner?
+    }
+*/
+    // pub fn remove_subobject_from_set(&mut self, object_id: ObjectId, property: PropertyIndex, added_subobject: ObjectId) -> ObjectDbResult<()> {
+    //     let object = &mut self.objects[object_id.0];
+    //     object.property_values[property.0 as usize].add_subobject_to_set(added_subobject);
+    // }
 
     //NOTE: Maybe we don't allow setting subobjects because changing the subobject type means
     // none of the properties from a parent can be inherited anymore. Not sure.
@@ -382,7 +417,12 @@ impl ObjectDb {
     pub fn apply_property_override_to_prototype(&mut self, object_id: ObjectId, property: PropertyIndex) -> ObjectDbResult<()> {
         let current_value = self.property_value(object_id, property).clone();
         let prototype = self.objects[object_id.0].prototype;
-        assert!(!prototype.is_null());
+        //assert!(!prototype.is_null());
+        if (prototype.is_null())
+        {
+            // This is a default value, we don't allow applying overrides to it
+            return ObjectDbResult::Err(ObjectDbError::CannotPerformOperationOnDefaultValue)
+        }
 
         let prototype = &mut self.objects[prototype];
         prototype.property_values[property.0 as usize] = current_value;

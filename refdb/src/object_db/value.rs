@@ -2,9 +2,9 @@
 pub use super::*;
 
 #[derive(Clone, Debug)]
-struct SubobjectSetValue {
-    adds: AHashSet<ObjectKey>,
-    removes: AHashSet<ObjectKey>,
+pub struct SubobjectSetValue {
+    pub children: AHashSet<ObjectKey>,
+    //pub removes: AHashSet<ObjectKey>,
 }
 
 #[derive(Clone, Debug)]
@@ -14,7 +14,7 @@ pub enum Value {
     // Ref(ObjectKey),
     Subobject(ObjectKey),
     // RefSet(AHashSet<ObjectKey>),
-    //SubobjectSet(SubobjectSetValue),
+    SubobjectSet(SubobjectSetValue),
 }
 
 impl Value {
@@ -30,6 +30,26 @@ impl Value {
                         let object_type_id = db.type_id_of_object(ObjectId(*o));
                         db.is_object_type_allowed(object_type_id, type_selector)
                     }
+                } else {
+                    false
+                }
+            }
+            Value::SubobjectSet(o) => {
+                if let PropertyType::SubobjectSet(type_selector) = property_type {
+                    for child in &o.children {
+                        if child.is_null()  {
+                            if allow_null_subobject {
+                                return false;
+                            }
+                        } else {
+                            let object_type_id = db.type_id_of_object(ObjectId(*child));
+                            if !db.is_object_type_allowed(object_type_id, type_selector) {
+                                return false;
+                            }
+                        }
+                    }
+
+                    true
                 } else {
                     false
                 }
@@ -62,6 +82,7 @@ impl Value {
             PropertyType::U64 => self.convert_to_u64(),
             PropertyType::F32 => self.convert_to_f32(),
             PropertyType::Subobject(_) => self.convert_to_subobject(),
+            PropertyType::SubobjectSet(_) => self.convert_to_subobject_set(),
         }
     }
 
@@ -86,6 +107,15 @@ impl Value {
             //Value::F32(v) => Value::F32(v),
             //Value::U64(v) => Value::F32(v as f32),
             Value::Subobject(v) => self,
+            _ => return None,
+        })
+    }
+
+    pub fn convert_to_subobject_set(self) -> Option<Self> {
+        Some(match self {
+            //Value::F32(v) => Value::F32(v),
+            //Value::U64(v) => Value::F32(v as f32),
+            Value::SubobjectSet(ref v) => self,
             _ => return None,
         })
     }
@@ -140,14 +170,21 @@ impl Value {
             _ => Err(ObjectDbError::TypeError)
         }
     }
-    //
-    // pub(super) fn get_subobject_set_adds(&self) -> ObjectDbResult<&AHashSet<ObjectKey>> {
+
+    pub(super) fn get_subobject_set_children(&self) -> ObjectDbResult<&AHashSet<ObjectKey>> {
+        match self {
+            Value::SubobjectSet(v) => Ok(&v.children),
+            _ => Err(ObjectDbError::TypeError)
+        }
+    }
+
+    // pub(super) fn get_subobject_set_removes(&self) -> ObjectDbResult<&AHashSet<ObjectKey>> {
     //     match self {
-    //         Value::SubobjectSet(v) => Ok(&v.adds),
+    //         Value::SubobjectSet(v) => Ok(&v.removes),
     //         _ => Err(ObjectDbError::TypeError)
     //     }
     // }
-    //
+
     // pub(super) fn insert_subobject_to_set(&mut self, object: ObjectKey) -> ObjectDbResult<bool> {
     //     match self {
     //         Value::SubobjectSet(v) => Ok(v.insert(object)),

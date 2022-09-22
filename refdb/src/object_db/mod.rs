@@ -154,7 +154,7 @@ pub enum PropertyType {
     // Ref(ObjectTypeId),
     Subobject(TypeSelector),
     // RefSet(ObjectTypeId),
-    // SubobjectSet(ObjectTypeId),
+    SubobjectSet(TypeSelector),
 }
 
 impl PropertyType {
@@ -163,6 +163,7 @@ impl PropertyType {
             PropertyType::U64 => true,
             PropertyType::F32 => true,
             PropertyType::Subobject(_) => false,
+            PropertyType::SubobjectSet(_) => false,
         }
     }
 
@@ -170,11 +171,25 @@ impl PropertyType {
         match self {
             PropertyType::U64 => None,
             PropertyType::F32 => None,
-            PropertyType::Subobject(s) => Some(s)
+            PropertyType::Subobject(s) => Some(s),
+            PropertyType::SubobjectSet(s) => Some(s)
         }
     }
 }
 
+/*
+// example: typo'd name migrated to correct new name
+{
+// as long as this property remains listed, we will try to maintain backwards/forwards
+// compatibility (continue writing field for old clients, )
+    postion: {
+        migrate_to: "position",
+        type: vec3,
+    },
+    // shorthand, just use the type name
+    position: vec3
+}
+*/
 pub struct InterfaceType {
     pub name: String,
     pub implementors: AHashSet<ObjectTypeId>,
@@ -191,6 +206,7 @@ pub struct ObjectInfo {
     object_type_id: ObjectTypeId,
     property_values: Vec<Value>,
     inherited_properties: PropertyBits,
+    owner: ObjectKey,
 
     //TODO (if needed): owner, id
 }

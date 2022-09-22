@@ -4,6 +4,7 @@
 pub enum ObjectDbError {
     TypeError,
     NoPrototypeError,
+    CannotPerformOperationOnDefaultValue,
     StringError(String)
 }
 
@@ -12,6 +13,7 @@ impl std::error::Error for ObjectDbError {
         match *self {
             ObjectDbError::TypeError => None,
             ObjectDbError::NoPrototypeError => None,
+            ObjectDbError::CannotPerformOperationOnDefaultValue => None,
             ObjectDbError::StringError(_) => None,
         }
     }
@@ -25,6 +27,7 @@ impl core::fmt::Display for ObjectDbError {
         match *self {
             ObjectDbError::TypeError => "TypeError".fmt(fmt),
             ObjectDbError::NoPrototypeError => "NoPrototypeError".fmt(fmt),
+            ObjectDbError::CannotPerformOperationOnDefaultValue => "CannotPerformOperationOnDefaultValue".fmt(fmt),
             ObjectDbError::StringError(ref s) => s.fmt(fmt),
         }
     }

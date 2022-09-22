@@ -8,13 +8,27 @@ fn register_vec3(db: &mut ObjectDb) -> ObjectTypeId {
     ]).unwrap()
 }
 
+{
+    uuid: "5dfbf0cc-b76f-4210-84c6-73343b4b0d9e",
+    name: "vec3",
+    rs_out: "src/whatever/vec3.rs",
+    properties: {
+        x: f32,
+        y: f32,
+        z: f32,
+    }
+}
+
 fn register_vec4(db: &mut ObjectDb) -> ObjectTypeId {
-    db.register_object_type(Uuid::parse_str("37e94237-a173-47c1-a8fa-b49b2448bf3e").unwrap(), "Vec4", &[
-        PropertyDef::new_f32("x"),
-        PropertyDef::new_f32("y"),
-        PropertyDef::new_f32("z"),
-        PropertyDef::new_f32("w"),
-    ]).unwrap()
+    db.register_object_type(
+        Uuid::parse_str("37e94237-a173-47c1-a8fa-b49b2448bf3e").unwrap(),
+        "Vec3",
+        &[
+            PropertyDef::new_f32("x"),
+            PropertyDef::new_f32("y"),
+            PropertyDef::new_f32("z"),
+        ]
+    ).unwrap()
 }
 
 fn register_transform(db: &mut ObjectDb) -> ObjectTypeId {
@@ -166,4 +180,29 @@ pub fn test_override_f32_property_on_subobject() {
     db.apply_property_override_to_prototype(instance_position, x_property);
     let value = db.get_f32(prototype_position, x_property).unwrap();
     assert_eq!(5.0, value);
+}
+
+fn register_vec3_set(db: &mut ObjectDb) -> ObjectTypeId {
+    let vec3_type = db.find_type_by_name("Vec3").unwrap();
+
+    db.register_object_type(Uuid::parse_str("c95a1326-4261-493d-9f20-11709b4ceda0").unwrap(), "Vec3Set", &[
+        PropertyDef::new_subobject_set("vec3_set", vec3_type),
+    ]).unwrap()
+}
+
+#[test]
+pub fn test_subobject_set() {
+    let mut db = ObjectDb::default();
+    let vec3_type = register_vec3(&mut db);
+    let vec3_set_type = register_vec3_set(&mut db);
+    let vec3_set_property = db.find_property(vec3_set_type, "vec3_set");
+
+    let v3_value1 = db.create_object(vec3_type);
+    let v3_value2 = db.create_object(vec3_type);
+    let v3_value3 = db.create_object(vec3_type);
+    let v3_set = db.create_object(vec3_set_type);
+
+    db.add_subobject_to_set(v3_set, vec3_set_property, v3_value1);
+    db.add_subobject_to_set(v3_set, vec3_set_property, v3_value2);
+    db.add_subobject_to_set(v3_set, vec3_set_property, v3_value3);
 }

@@ -43,7 +43,24 @@ impl PropertyDef {
         PropertyDef {
             name: name.into(),
             property_type: PropertyType::Subobject(ty.into()),
-            default_value: Value::Subobject(ObjectKey::null())
+            default_value: Value::Subobject(default_value.0)
         }
     }
+    /*
+
+        pub fn new_subobject_set<T: Into<String>, S: Into<TypeSelector>>(name: T, ty: S) -> Self {
+            Self::new_subobject_set_with_default(name, ty, ObjectId(ObjectKey::null()))
+        }
+
+        pub fn new_subobject_set_with_default<T: Into<String>, S: Into<TypeSelector>>(name: T, ty: S, default_value: ObjectId) -> Self {
+            PropertyDef {
+                name: name.into(),
+                property_type: PropertyType::SubobjectSet(ty.into()),
+                default_value: Value::SubobjectSet(SubobjectSetValue {
+                    adds: Default::default(),
+                    removes: Default::default(),
+                })
+            }
+        }
+    */
 }

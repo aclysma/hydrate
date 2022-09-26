@@ -5,6 +5,7 @@ members = [
     "conduit",
     "base",
     "asset-engine",
+    "nexdb",
 ]
 
 exclude = [

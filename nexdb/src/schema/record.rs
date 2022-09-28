@@ -4,6 +4,7 @@ use std::ops::Deref;
 use std::sync::Arc;
 use siphasher::sip128::Hasher128;
 use uuid::Uuid;
+use crate::SchemaFingerprint;
 use crate::schema::SchemaTypeIndex;
 
 //
@@ -13,33 +14,41 @@ use crate::schema::SchemaTypeIndex;
 pub struct SchemaRecordField {
     name: String,
     aliases: Box<[String]>,
-    field_type: Schema,
+    field_schema: Schema,
 }
 
 impl SchemaRecordField {
     pub fn new(
         name: String,
         aliases: Box<[String]>,
-        field_type: Schema,
+        field_schema: Schema,
 
     ) -> Self {
         SchemaRecordField {
             name,
             aliases,
-            field_type
+            field_schema
         }
     }
 
     pub(crate) fn fingerprint_hash<T: Hasher>(&self, hasher: &mut T) {
         self.name.hash(hasher);
-        self.field_type.fingerprint_hash(hasher);
+        self.field_schema.fingerprint_hash(hasher);
+    }
+
+    pub fn name(&self) -> &str {
+        &self.name
+    }
+
+    pub fn field_schema(&self) -> &Schema {
+        &self.field_schema
     }
 }
 
 #[derive(Debug)]
 pub struct SchemaRecordInner {
     name: String,
-    fingerprint: u128,
+    fingerprint: SchemaFingerprint,
     aliases: Box<[String]>,
     fields: Box<[SchemaRecordField]>,
 }
@@ -76,7 +85,7 @@ impl SchemaRecord {
 
         let mut hasher = siphasher::sip128::SipHasher::default();
         record_fingerprint_hash(&mut hasher, &name, &*fields);
-        let fingerprint = hasher.finish128().as_u128();
+        let fingerprint = SchemaFingerprint(hasher.finish128().as_u128());
 
         let inner = SchemaRecordInner {
             name,
@@ -98,15 +107,29 @@ impl SchemaRecord {
         }
     }
 
-    pub fn fingerprint128(&self) -> u128 {
+    pub fn fingerprint(&self) -> SchemaFingerprint {
         self.fingerprint
     }
 
     pub fn fingerprint_uuid(&self) -> Uuid {
-        Uuid::from_u128(self.fingerprint128())
+        Uuid::from_u128(self.fingerprint().0)
     }
 
     pub fn name(&self) -> &str {
         &self.name
+    }
+
+    pub fn fields(&self) -> &[SchemaRecordField] {
+        &*self.fields
+    }
+
+    pub fn field_schema(&self, field_name: impl AsRef<str>) -> Option<&Schema> {
+        for field in &*self.fields {
+            if field.name == field_name.as_ref() {
+                return Some(&field.field_schema);
+            }
+        }
+
+        None
     }
 }

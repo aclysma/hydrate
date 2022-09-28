@@ -41,4 +41,8 @@ impl SchemaFixed {
         self.name.hash(hasher);
         self.length.hash(hasher);
     }
+
+    pub fn name(&self) -> &str {
+        &self.name
+    }
 }

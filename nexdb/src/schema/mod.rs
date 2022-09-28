@@ -25,7 +25,7 @@ pub use static_array::*;
 
 use std::hash::{Hash, Hasher};
 use siphasher::sip128::Hasher128;
-use uuid::Uuid;
+use crate::SchemaFingerprint;
 
 // Defines a unique number for each variant for hashing/fingerprinting purposes, the number is
 // completely arbitrary
@@ -123,30 +123,100 @@ impl Schema {
         }
     }
 
-    pub fn fingerprint128(&self) -> u128 {
+    pub fn fingerprint(&self) -> SchemaFingerprint {
         let mut hasher = siphasher::sip128::SipHasher::default();
         self.fingerprint_hash(&mut hasher);
-        hasher.finish128().as_u128()
+        SchemaFingerprint(hasher.finish128().as_u128())
     }
 
-    pub fn fingerprint_uuid(&self) -> Uuid {
-        Uuid::from_u128(self.fingerprint128())
+    pub fn find_property_schema(&self, name: impl AsRef<str>) -> Option<&Schema> {
+        let mut record = None;
+        match self {
+            Schema::Nullable(x) => {
+                if let Schema::Record(x) = &**x {
+                    record = Some(x);
+                }
+            },
+            Schema::Record(x) => {
+                record = Some(x);
+            },
+            _ => {}
+        }
+
+        record.map(|x| x.field_schema(name)).flatten()
+    }
+
+    pub fn find_property_path_schema<T: AsRef<str>>(&self, path: &[T]) -> Option<&Schema> {
+        let mut schema = self;
+
+        for path_element in path {
+            let s = schema.find_property_schema(path_element);
+            if let Some(s) = s {
+                schema = s;
+            } else {
+                return None;
+            }
+        }
+
+        Some(schema)
+    }
+
+    pub fn as_record(&self) -> Option<&SchemaRecord> {
+        if let Schema::Record(x) = self {
+            Some(x)
+        } else {
+            None
+        }
     }
 }
 
 #[cfg(test)]
 mod test {
-    use crate::{Schema, SchemaRecord, SchemaRecordField, SchemaStaticArray};
+    use crate::{Schema, SchemaRecord, SchemaRecordField};
 
     // We want the same fingerprint out of a record as a Schema::Record(record)
     #[test]
     fn record_fingerprint_equivalency() {
-        let static_array = SchemaRecord::new("Vec3".to_string(), vec![].into_boxed_slice(), vec![
+        let vec3_schema_record = SchemaRecord::new("Vec3".to_string(), vec![].into_boxed_slice(), vec![
             SchemaRecordField::new("x".to_string(), vec![].into_boxed_slice(), Schema::F32),
             SchemaRecordField::new("y".to_string(), vec![].into_boxed_slice(), Schema::F32),
             SchemaRecordField::new("z".to_string(), vec![].into_boxed_slice(), Schema::F32)
         ].into_boxed_slice());
 
-        assert_eq!(static_array.fingerprint128(), Schema::Record(static_array).fingerprint128());
+        // Fingerprint of a Schema::Record is == to fingerprint of wrapped SchemaRecord
+        assert_eq!(vec3_schema_record.fingerprint(), Schema::Record(vec3_schema_record).fingerprint());
+    }
+
+    #[test]
+    fn test_property_path() {
+        let vec3_schema_record = SchemaRecord::new("Vec3".to_string(), vec![].into_boxed_slice(), vec![
+            SchemaRecordField::new("x".to_string(), vec![].into_boxed_slice(), Schema::F32),
+            SchemaRecordField::new("y".to_string(), vec![].into_boxed_slice(), Schema::F32),
+            SchemaRecordField::new("z".to_string(), vec![].into_boxed_slice(), Schema::F32)
+        ].into_boxed_slice());
+
+        let aabb_schema_record = SchemaRecord::new("AABB".to_string(), vec![].into_boxed_slice(), vec![
+            SchemaRecordField::new("min".to_string(), vec![].into_boxed_slice(), Schema::Record(vec3_schema_record.clone())),
+            SchemaRecordField::new("max".to_string(), vec![].into_boxed_slice(), Schema::Record(vec3_schema_record.clone()))
+        ].into_boxed_slice());
+
+        let aabb_schema = Schema::Record(aabb_schema_record);
+
+        // Access properties
+        assert_eq!(aabb_schema.find_property_path_schema::<&str>(&[]).unwrap().fingerprint(), aabb_schema.fingerprint());
+        assert_eq!(aabb_schema.find_property_path_schema(&["min"]).unwrap().fingerprint(), Schema::Record(vec3_schema_record.clone()).fingerprint());
+        assert_eq!(aabb_schema.find_property_path_schema(&["max"]).unwrap().fingerprint(), Schema::Record(vec3_schema_record.clone()).fingerprint());
+        assert_eq!(aabb_schema.find_property_path_schema(&["min", "x"]).unwrap().fingerprint(), Schema::F32.fingerprint());
+        assert_eq!(aabb_schema.find_property_path_schema(&["min", "y"]).unwrap().fingerprint(), Schema::F32.fingerprint());
+        assert_eq!(aabb_schema.find_property_path_schema(&["min", "z"]).unwrap().fingerprint(), Schema::F32.fingerprint());
+        assert_eq!(aabb_schema.find_property_path_schema(&["max", "x"]).unwrap().fingerprint(), Schema::F32.fingerprint());
+        assert_eq!(aabb_schema.find_property_path_schema(&["max", "y"]).unwrap().fingerprint(), Schema::F32.fingerprint());
+        assert_eq!(aabb_schema.find_property_path_schema(&["max", "z"]).unwrap().fingerprint(), Schema::F32.fingerprint());
+        assert_eq!(aabb_schema.find_property_path_schema(&["max"]).unwrap().find_property_path_schema(&["x"]).unwrap().fingerprint(), Schema::F32.fingerprint());
+
+        // Fail at accessing non-existent properties
+        assert_eq!(aabb_schema.find_property_path_schema(&["min", "A"]).map(|x| x.fingerprint()), None);
+        assert_eq!(aabb_schema.find_property_path_schema(&["min", "x", "asdfs"]).map(|x| x.fingerprint()), None);
+        assert_eq!(aabb_schema.find_property_path_schema(&["aa", "x"]).map(|x| x.fingerprint()), None);
     }
 }

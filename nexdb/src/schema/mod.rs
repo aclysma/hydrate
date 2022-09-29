@@ -129,6 +129,63 @@ impl Schema {
         SchemaFingerprint(hasher.finish128().as_u128())
     }
 
+    pub fn is_nullable(&self) -> bool {
+        match self {
+            Schema::Nullable(_) => true,
+            _ => false
+        }
+    }
+
+    pub fn is_boolean(&self) -> bool {
+        match self {
+            Schema::Nullable(x) => x.is_boolean(),
+            Schema::Boolean => true,
+            _ => false
+        }
+    }
+
+    pub fn is_i32(&self) -> bool {
+        match self {
+            Schema::I32 => true,
+            _ => false
+        }
+    }
+
+    pub fn is_u32(&self) -> bool {
+        match self {
+            Schema::U32 => true,
+            _ => false
+        }
+    }
+
+    pub fn is_i64(&self) -> bool {
+        match self {
+            Schema::I64 => true,
+            _ => false
+        }
+    }
+
+    pub fn is_u64(&self) -> bool {
+        match self {
+            Schema::U64 => true,
+            _ => false
+        }
+    }
+
+    pub fn is_f32(&self) -> bool {
+        match self {
+            Schema::F32 => true,
+            _ => false
+        }
+    }
+
+    pub fn is_f64(&self) -> bool {
+        match self {
+            Schema::F64 => true,
+            _ => false
+        }
+    }
+
     pub fn find_property_schema(&self, name: impl AsRef<str>) -> Option<&Schema> {
         let mut record = None;
         match self {

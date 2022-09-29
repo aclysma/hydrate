@@ -31,14 +31,14 @@ fn main() {
         builder.add_struct("max", &vec3_schema_object);
     });
 
-    let yes_no_enum = db.register_enum_type("YesNo", |builder| {
+    let _yes_no_enum = db.register_enum_type("YesNo", |builder| {
         let yes = builder.add_symbol("Yes", 1);
         yes.add_symbol_alias("YES");
 
         builder.add_symbol("No", 0);
     });
 
-    let uuid_fixed = db.register_fixed_type("SomeFixedSizeField", 16, |builder| {
+    let _uuid_fixed = db.register_fixed_type("SomeFixedSizeField", 16, |_builder| {
 
     });
 

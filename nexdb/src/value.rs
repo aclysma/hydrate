@@ -1,4 +1,3 @@
-use std::hash::{Hash, Hasher};
 use crate::HashMap;
 use crate::ObjectId;
 
@@ -66,6 +65,13 @@ impl Value {
         }
     }
 
+    fn is_i32(&self) -> bool {
+        match self {
+            Value::I32(_) => true,
+            _ => false
+        }
+    }
+
     fn as_i32(&self) -> Option<i32> {
         match self {
             Value::I32(x) => Some(*x as i32),
@@ -77,6 +83,24 @@ impl Value {
             _ => None
         }
     }
+
+    fn set_i32(&mut self, value: i32) {
+        *self = Value::I32(value);
+    }
+
+    // fn get_i32(&self) -> Option<i32> {
+    //     match self {
+    //         Value::I32(x) => Some(*x),
+    //         _ => None
+    //     }
+    // }
+    //
+    // fn get_i32_mut(&mut self) -> Option<&mut i32> {
+    //     match self {
+    //         Value::I32(x) => Some(&mut *x),
+    //         _ => None
+    //     }
+    // }
 
     fn as_u32(&self) -> Option<u32> {
         match self {
@@ -312,7 +336,7 @@ mod test {
         record_properties.insert("min".to_string(), Value::Record(ValueRecord {properties:properties_min }));
         record_properties.insert("max".to_string(), Value::Record(ValueRecord {properties:properties_max }));
 
-        let mut record = Value::Record(ValueRecord {
+        let record = Value::Record(ValueRecord {
             properties: record_properties
         });
 

@@ -23,6 +23,14 @@ impl ObjectId {
     }
 }
 
+#[derive(Copy, Clone, PartialEq, Eq, Hash, Debug)]
+pub struct BufferId(u128);
+impl BufferId {
+    pub fn null() -> Self {
+        BufferId(0)
+    }
+}
+
 mod schema;
 pub use schema::*;
 

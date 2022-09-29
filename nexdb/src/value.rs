@@ -1,4 +1,4 @@
-use crate::HashMap;
+use crate::{BufferId, HashMap};
 use crate::ObjectId;
 
 #[derive(Clone, Debug)]
@@ -29,7 +29,6 @@ pub struct ValueEnum {
 
 #[derive(Clone, Debug)]
 pub enum Value {
-    Nullable(Option<Box<Value>>),
     Boolean(bool),
     I32(i32),
     I64(i64),
@@ -38,7 +37,7 @@ pub enum Value {
     F32(f32),
     F64(f64),
     Bytes(Vec<u8>),
-    Buffer(u128),
+    Buffer(BufferId),
     // buffer value hash
     String(String),
     StaticArray(Vec<Value>),
@@ -51,13 +50,6 @@ pub enum Value {
 }
 
 impl Value {
-    fn as_nullable<T>(&self) -> Option<&Option<Box<Value>>> {
-        match self {
-            Value::Nullable(x) => Some(x),
-            _ => None
-        }
-    }
-
     fn as_boolean(&self) -> Option<bool> {
         match self {
             Value::Boolean(x) => Some(*x),
@@ -165,13 +157,6 @@ impl Value {
     pub fn find_property_value(&self, name: impl AsRef<str>) -> Option<&Value> {
         let mut record = None;
         match self {
-            Value::Nullable(x) => {
-                if let Some(x) = x {
-                    if let Value::Record(x) = &**x {
-                        record = Some(x);
-                    }
-                }
-            },
             Value::Record(x) => {
                 record = Some(x);
             },
@@ -188,13 +173,6 @@ impl Value {
     pub fn find_property_value_mut(&mut self, name: impl AsRef<str>) -> Option<&mut Value> {
         let mut record = None;
         match self {
-            Value::Nullable(x) => {
-                if let Some(x) = x {
-                    if let Value::Record(x) = &mut **x {
-                        record = Some(x);
-                    }
-                }
-            },
             Value::Record(x) => {
                 record = Some(x);
             },
@@ -243,13 +221,6 @@ impl Value {
     pub fn clear_property_value(&mut self, name: impl AsRef<str>) -> Option<Value> {
         let mut record = None;
         match self {
-            Value::Nullable(x) => {
-                if let Some(x) = x {
-                    if let Value::Record(x) = &mut **x {
-                        record = Some(x);
-                    }
-                }
-            },
             Value::Record(x) => {
                 record = Some(x);
             },
@@ -279,13 +250,6 @@ impl Value {
     pub fn set_property_value(&mut self, name: impl Into<String>, value: Value) -> bool {
         let mut record = None;
         match self {
-            Value::Nullable(x) => {
-                if let Some(x) = x {
-                    if let Value::Record(x) = &mut **x {
-                        record = Some(x);
-                    }
-                }
-            },
             Value::Record(x) => {
                 record = Some(x);
             },
@@ -301,17 +265,51 @@ impl Value {
     }
 
     pub fn set_property_path_value<T: AsRef<str>>(&mut self, path: &[T], value: Value) -> bool {
-        if let Some(last) = path.last() {
-            let v = self.find_property_path_value_mut(&path[0..path.len() - 1]);
-            if let Some(v) = v {
-                v.set_property_value(last.as_ref().to_string(), value);
-                true
-            } else {
-                false
-            }
-        } else {
-            false
+        if path.is_empty() {
+            *self = value;
+            return true;
         }
+
+        if let Some(p) = self.find_property_value_mut(path.first().unwrap()) {
+            p.set_property_path_value(&path[1..], value)
+        } else {
+            let mut p = Value::Record(Default::default());
+            p.set_property_path_value(&path[1..], value);
+            self.set_property_value(path.first().unwrap().as_ref(), p);
+            true
+        }
+
+
+        // if !path.is_empty() {
+        //     let mut v = self;
+        //     for p in &path[0..path.len() - 1] {
+        //         let found = v.find_property_value_mut(p);
+        //         if let Some(found) = found {
+        //             v = found;
+        //         } else {
+        //             v.set_property_value(p.as_ref(), Value::Record(Default::default()));
+        //             v = v.find_property_value_mut(p.as_ref()).unwrap()
+        //         }
+        //     }
+        //
+        //     v.set_property_value(path.last().unwrap().as_ref(), value);
+        // }
+        //
+        // false
+
+
+
+        // if let Some(last) = path.last() {
+        //     let v = self.find_property_path_value_mut(&path[0..path.len() - 1]);
+        //     if let Some(v) = v {
+        //         v.set_property_value(last.as_ref().to_string(), value);
+        //         true
+        //     } else {
+        //         false
+        //     }
+        // } else {
+        //     false
+        // }
     }
 }
 

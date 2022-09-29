@@ -66,7 +66,6 @@ pub enum Schema {
     //
 
     /// Marks the field as possible to be null
-    Nullable(Box<Schema>),
     Boolean,
     I32,
     I64,
@@ -99,10 +98,6 @@ pub enum Schema {
 impl Schema {
     pub(crate) fn fingerprint_hash<T: Hasher>(&self, hasher: &mut T) {
         match self {
-            Schema::Nullable(inner) => {
-                SchemaTypeIndex::Nullable.fingerprint_hash(hasher);
-                inner.fingerprint_hash(hasher)
-            },
             Schema::Boolean => SchemaTypeIndex::Boolean.fingerprint_hash(hasher),
             Schema::I32 => SchemaTypeIndex::I32.fingerprint_hash(hasher),
             Schema::I64 => SchemaTypeIndex::I64.fingerprint_hash(hasher),
@@ -129,16 +124,8 @@ impl Schema {
         SchemaFingerprint(hasher.finish128().as_u128())
     }
 
-    pub fn is_nullable(&self) -> bool {
-        match self {
-            Schema::Nullable(_) => true,
-            _ => false
-        }
-    }
-
     pub fn is_boolean(&self) -> bool {
         match self {
-            Schema::Nullable(x) => x.is_boolean(),
             Schema::Boolean => true,
             _ => false
         }
@@ -186,14 +173,30 @@ impl Schema {
         }
     }
 
+    pub fn is_bytes(&self) -> bool {
+        match self {
+            Schema::Bytes => true,
+            _ => false
+        }
+    }
+
+    pub fn is_buffer(&self) -> bool {
+        match self {
+            Schema::Buffer => true,
+            _ => false
+        }
+    }
+
+    pub fn is_string(&self) -> bool {
+        match self {
+            Schema::String => true,
+            _ => false
+        }
+    }
+
     pub fn find_property_schema(&self, name: impl AsRef<str>) -> Option<&Schema> {
         let mut record = None;
         match self {
-            Schema::Nullable(x) => {
-                if let Schema::Record(x) = &**x {
-                    record = Some(x);
-                }
-            },
             Schema::Record(x) => {
                 record = Some(x);
             },

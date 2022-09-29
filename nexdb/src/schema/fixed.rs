@@ -45,4 +45,8 @@ impl SchemaFixed {
     pub fn name(&self) -> &str {
         &self.name
     }
+
+    pub fn length(&self) -> usize {
+        self.length
+    }
 }

@@ -10,6 +10,7 @@ use fixed_type_builder::FixedTypeBuilder;
 
 mod enum_type_builder;
 use enum_type_builder::EnumTypeBuilder;
+use crate::BufferId;
 
 
 pub struct DatabaseSchemaInfo {
@@ -170,12 +171,16 @@ impl Database {
     // }
 }
 
-enum SetPropertyError {
+const EMPTY_BYTE_SLICE: &'static [u8] = &[];
+
+
+#[derive(Debug)]
+pub enum PropertyResolverError {
     FieldDoesNotExist,
     IncorrectType
 }
 
-pub type SetPropertyResult = Result<(), SetPropertyError>;
+pub type PropertyResolverResult<T> = Result<T, PropertyResolverError>;
 
 pub struct ObjectPropertyResolver {
     object_id: ObjectId,
@@ -183,42 +188,216 @@ pub struct ObjectPropertyResolver {
 }
 
 impl ObjectPropertyResolver {
-    // fn has_property<T: AsRef<str>>(&self, db: &Database, path: &[T]) -> bool {
-    //     let schema = db.schema(self.schema).unwrap();
-    //     let mut s = schema;
-    //
-    //     //let mut schema_record = schema.as
-    //     for p in path {
-    //         match s {
-    //             Schema::Nullable(x) => s = &*x,
-    //             Schema::Record(x) => s = db.schema(x.fingerprint()).unwrap(),
-    //             _ => return false
-    //         }
-    //     }
-    //
-    //     match s {
-    //         Schema::Nullable(_) => false,
-    //         Schema::Record(_) => false,
-    //         _ => true,
-    //     }
-    // }
+    fn find_property_path_value<'a, T: AsRef<str>>(&'a self, db: &'a Database, path: &[T]) -> Option<&Value> {
+        let mut object_id = Some(self.object_id);
 
-    fn set_path_f32<T: AsRef<str>>(&self, db: &mut Database, path: &[T], value: f32) -> SetPropertyResult {
+        while let Some(o) = object_id {
+            let obj = db.objects.get(&o).unwrap();
+
+            let value = obj.value.find_property_path_value(path);
+            if value.is_some() {
+                return value;
+            }
+
+            object_id = obj.prototype;
+        }
+
+        None
+    }
+
+    fn get_path<PathT: AsRef<str>, ValueT, ExtractFn: Fn(&Value) -> PropertyResolverResult<ValueT>>(&self, db: &mut Database, path: &[PathT], default: ValueT, extract_fn: ExtractFn) -> PropertyResolverResult<ValueT> {
+        let value = self.find_property_path_value(db, path);
+        if let Some(value) = value {
+            (extract_fn)(value)
+        } else {
+            Ok(default)
+        }
+    }
+
+    pub fn set_path<PathT: AsRef<str>, CompatibleFn: Fn(&Schema) -> bool>(&self, db: &mut Database, path: &[PathT], value: Value, compatible_fn: CompatibleFn) -> PropertyResolverResult<()> {
         let schema = self.schema.find_property_path_schema(path);
         if schema.is_none() {
-            Err(SetPropertyError::FieldDoesNotExist)?;
+            Err(PropertyResolverError::FieldDoesNotExist)?;
         }
 
         let schema = schema.unwrap();
-
-        if schema.is_f32() {
-            Err(SetPropertyError::IncorrectType)?;
+        if !((compatible_fn)(schema)) {
+            Err(PropertyResolverError::IncorrectType)?;
         }
 
-        db.objects.get_mut(&self.object_id).unwrap().value.set_property_path_value(path, Value::F32(value));
+        db.objects.get_mut(&self.object_id).unwrap().value.set_property_path_value(path, value);
 
         Ok(())
     }
+
+
+    pub fn get_path_boolean<T: AsRef<str>>(&self, db: &mut Database, path: &[T]) -> PropertyResolverResult<bool> {
+        self.get_path(db, path, false, |value| {
+            if let Value::Boolean(value) = value {
+                Ok(*value)
+            } else {
+                Err(PropertyResolverError::IncorrectType)
+            }
+        })
+    }
+
+    pub fn set_path_boolean<T: AsRef<str>>(&self, db: &mut Database, path: &[T], value: bool) -> PropertyResolverResult<()> {
+        self.set_path(db, path, Value::Boolean(value), |schema| schema.is_boolean())
+    }
+
+    pub fn get_path_i32<T: AsRef<str>>(&self, db: &mut Database, path: &[T]) -> PropertyResolverResult<i32> {
+        self.get_path(db, path, 0, |value| {
+            if let Value::I32(value) = value {
+                Ok(*value)
+            } else {
+                Err(PropertyResolverError::IncorrectType)
+            }
+        })
+    }
+
+    pub fn set_path_i32<T: AsRef<str>>(&self, db: &mut Database, path: &[T], value: i32) -> PropertyResolverResult<()> {
+        self.set_path(db, path, Value::I32(value), |schema| schema.is_i32())
+    }
+
+    pub fn get_path_u32<T: AsRef<str>>(&self, db: &mut Database, path: &[T]) -> PropertyResolverResult<u32> {
+        self.get_path(db, path, 0, |value| {
+            if let Value::U32(value) = value {
+                Ok(*value)
+            } else {
+                Err(PropertyResolverError::IncorrectType)
+            }
+        })
+    }
+
+    pub fn set_path_u32<T: AsRef<str>>(&self, db: &mut Database, path: &[T], value: u32) -> PropertyResolverResult<()> {
+        self.set_path(db, path, Value::U32(value), |schema| schema.is_u32())
+    }
+
+    pub fn get_path_i64<T: AsRef<str>>(&self, db: &mut Database, path: &[T]) -> PropertyResolverResult<i64> {
+        self.get_path(db, path, 0, |value| {
+            if let Value::I64(value) = value {
+                Ok(*value)
+            } else {
+                Err(PropertyResolverError::IncorrectType)
+            }
+        })
+    }
+
+    pub fn set_path_i64<T: AsRef<str>>(&self, db: &mut Database, path: &[T], value: i64) -> PropertyResolverResult<()> {
+        self.set_path(db, path, Value::I64(value), |schema| schema.is_i64())
+    }
+
+    pub fn get_path_u64<T: AsRef<str>>(&self, db: &mut Database, path: &[T]) -> PropertyResolverResult<u64> {
+        self.get_path(db, path, 0, |value| {
+            if let Value::U64(value) = value {
+                Ok(*value)
+            } else {
+                Err(PropertyResolverError::IncorrectType)
+            }
+        })
+    }
+
+    pub fn set_path_u64<T: AsRef<str>>(&self, db: &mut Database, path: &[T], value: u64) -> PropertyResolverResult<()> {
+        self.set_path(db, path, Value::U64(value), |schema| schema.is_u64())
+    }
+
+    pub fn get_path_f32<T: AsRef<str>>(&self, db: &mut Database, path: &[T]) -> PropertyResolverResult<f32> {
+        self.get_path(db, path, 0.0, |value| {
+            if let Value::F32(value) = value {
+                Ok(*value)
+            } else {
+                Err(PropertyResolverError::IncorrectType)
+            }
+        })
+    }
+
+    pub fn set_path_f32<T: AsRef<str>>(&self, db: &mut Database, path: &[T], value: f32) -> PropertyResolverResult<()> {
+        self.set_path(db, path, Value::F32(value), |schema| schema.is_f32())
+    }
+
+    pub fn get_path_f64<T: AsRef<str>>(&self, db: &mut Database, path: &[T]) -> PropertyResolverResult<f64> {
+        self.get_path(db, path, 0.0, |value| {
+            if let Value::F64(value) = value {
+                Ok(*value)
+            } else {
+                Err(PropertyResolverError::IncorrectType)
+            }
+        })
+    }
+
+    pub fn set_path_f64<T: AsRef<str>>(&self, db: &mut Database, path: &[T], value: f64) -> PropertyResolverResult<()> {
+        self.set_path(db, path, Value::F64(value), |schema| schema.is_f64())
+    }
+
+    pub fn get_path_bytes<'a, T: AsRef<str>>(&'a self, db: &'a mut Database, path: &[T]) -> PropertyResolverResult<&'a [u8]> {
+        let value = self.find_property_path_value(db, path);
+        if let Some(value) = value {
+            if let Value::Bytes(value) = value {
+                Ok(value)
+            } else {
+                Err(PropertyResolverError::IncorrectType)
+            }
+        } else {
+            Ok(EMPTY_BYTE_SLICE)
+        }
+    }
+
+    pub fn set_path_bytes<T: AsRef<str>>(&self, db: &mut Database, path: &[T], value: Vec<u8>) -> PropertyResolverResult<()> {
+        self.set_path(db, path, Value::Bytes(value), |schema| schema.is_bytes())
+    }
+
+    pub fn get_path_buffer<T: AsRef<str>>(&self, db: &mut Database, path: &[T]) -> PropertyResolverResult<BufferId> {
+        self.get_path(db, path, BufferId::null(), |value| {
+            if let Value::Buffer(value) = value {
+                Ok(*value)
+            } else {
+                Err(PropertyResolverError::IncorrectType)
+            }
+        })
+    }
+
+    pub fn set_path_buffer<T: AsRef<str>>(&self, db: &mut Database, path: &[T], value: BufferId) -> PropertyResolverResult<()> {
+        self.set_path(db, path, Value::Buffer(value), |schema| schema.is_buffer())
+    }
+
+    pub fn get_path_string<'a, T: AsRef<str>>(&'a self, db: &'a mut Database, path: &[T]) -> PropertyResolverResult<&'a str> {
+        let value = self.find_property_path_value(db, path);
+        if let Some(value) = value {
+            if let Value::String(value) = value {
+                Ok(value.as_str())
+            } else {
+                Err(PropertyResolverError::IncorrectType)
+            }
+        } else {
+            Ok("")
+        }
+    }
+
+    pub fn set_path_string<T: AsRef<str>>(&self, db: &mut Database, path: &[T], value: String) -> PropertyResolverResult<()> {
+        self.set_path(db, path, Value::String(value), |schema| schema.is_string())
+    }
+
+    // static array
+    // dynamic array
+    // map
+    // record_ref
+    // enum
+
+    pub fn set_path_fixed<T: AsRef<str>>(&self, db: &mut Database, path: &[T], value: Box<[u8]>) -> PropertyResolverResult<()> {
+        let expected_length = value.len();
+        self.set_path(db, path, Value::Fixed(value), |schema| {
+            if let Schema::Fixed(schema_fixed) = schema {
+                if schema_fixed.length() == expected_length {
+                    return true;
+                }
+            }
+
+            false
+        })
+    }
+
+
+
 
 /*
     fn find_property_path_value<'a, T: AsRef<str>>(&'a self, db: &'a Database, path: &[T]) -> Option<&Schema> {

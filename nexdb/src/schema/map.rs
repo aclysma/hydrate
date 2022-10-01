@@ -10,6 +10,14 @@ pub struct SchemaMap {
 }
 
 impl SchemaMap {
+    pub fn key_type(&self) -> &Schema {
+        &*self.key_type
+    }
+
+    pub fn value_type(&self) -> &Schema {
+        &*self.value_type
+    }
+
     pub(crate) fn fingerprint_hash<T: Hasher>(&self, hasher: &mut T) {
         SchemaTypeIndex::Map.fingerprint_hash(hasher);
         self.key_type.fingerprint_hash(hasher);

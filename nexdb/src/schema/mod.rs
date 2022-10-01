@@ -27,6 +27,8 @@ use std::hash::{Hash, Hasher};
 use siphasher::sip128::Hasher128;
 use crate::SchemaFingerprint;
 
+const BOOLEAN_SCHEMA: Schema = Schema::Boolean;
+
 // Defines a unique number for each variant for hashing/fingerprinting purposes, the number is
 // completely arbitrary
 #[derive(Copy, Clone)]
@@ -66,6 +68,7 @@ pub enum Schema {
     //
 
     /// Marks the field as possible to be null
+    Nullable(Box<Schema>),
     Boolean,
     I32,
     I64,
@@ -98,6 +101,10 @@ pub enum Schema {
 impl Schema {
     pub(crate) fn fingerprint_hash<T: Hasher>(&self, hasher: &mut T) {
         match self {
+            Schema::Nullable(inner) => {
+                SchemaTypeIndex::Nullable.fingerprint_hash(hasher);
+                inner.fingerprint_hash(hasher)
+            },
             Schema::Boolean => SchemaTypeIndex::Boolean.fingerprint_hash(hasher),
             Schema::I32 => SchemaTypeIndex::I32.fingerprint_hash(hasher),
             Schema::I64 => SchemaTypeIndex::I64.fingerprint_hash(hasher),
@@ -122,6 +129,13 @@ impl Schema {
         let mut hasher = siphasher::sip128::SipHasher::default();
         self.fingerprint_hash(&mut hasher);
         SchemaFingerprint(hasher.finish128().as_u128())
+    }
+
+    pub fn is_nullable(&self) -> bool {
+        match self {
+            Schema::Nullable(_) => true,
+            _ => false
+        }
     }
 
     pub fn is_boolean(&self) -> bool {
@@ -195,39 +209,50 @@ impl Schema {
     }
 
     pub fn find_property_schema(&self, name: impl AsRef<str>) -> Option<&Schema> {
-        let mut record = None;
         match self {
+            // Schema::Nullable(x) => {
+            //     if name.as_ref().eq("is_null") {
+            //         Some(&BOOLEAN_SCHEMA)
+            //     } else if name.as_ref().eq("value") {
+            //         Some(&*x)
+            //     } else {
+            //         None
+            //     }
+            // },
             Schema::Record(x) => {
-                record = Some(x);
+                x.field_schema(name)
             },
-            _ => {}
-        }
-
-        record.map(|x| x.field_schema(name)).flatten()
-    }
-
-    pub fn find_property_path_schema<T: AsRef<str>>(&self, path: &[T]) -> Option<&Schema> {
-        let mut schema = self;
-
-        for path_element in path {
-            let s = schema.find_property_schema(path_element);
-            if let Some(s) = s {
-                schema = s;
-            } else {
-                return None;
-            }
-        }
-
-        Some(schema)
-    }
-
-    pub fn as_record(&self) -> Option<&SchemaRecord> {
-        if let Schema::Record(x) = self {
-            Some(x)
-        } else {
-            None
+            // Schema::Map(x) => {
+            //     if name == "data" {
+            //         x.value_type()
+            //     }
+            // }
+            _ => None
         }
     }
+    //
+    // pub fn find_property_path_schema<T: AsRef<str>>(&self, path: &[T]) -> Option<&Schema> {
+    //     let mut schema = self;
+    //
+    //     for path_element in path {
+    //         let s = schema.find_property_schema(path_element);
+    //         if let Some(s) = s {
+    //             schema = s;
+    //         } else {
+    //             return None;
+    //         }
+    //     }
+    //
+    //     Some(schema)
+    // }
+    //
+    // pub fn as_record(&self) -> Option<&SchemaRecord> {
+    //     if let Schema::Record(x) = self {
+    //         Some(x)
+    //     } else {
+    //         None
+    //     }
+    // }
 }
 
 #[cfg(test)]

@@ -51,6 +51,8 @@ fn main() {
     let aabb1 = db.new_object(&aabb_schema_object);
     let aabb2 = db.new_object_from_prototype(aabb1);
 
+
+    /*
     let aabb1_resolver = db.object_property_resolver(aabb1);
     let aabb2_resolver = db.object_property_resolver(aabb2);
 
@@ -66,7 +68,7 @@ fn main() {
 
     println!("aabb1.max.y = {}", aabb1_resolver.get_path_f32(&mut db, &["max", "y"]).unwrap());
     println!("aabb2.max.y = {}", aabb2_resolver.get_path_f32(&mut db, &["max", "y"]).unwrap());
-
+    */
 
 
 

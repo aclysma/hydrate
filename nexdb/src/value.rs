@@ -29,6 +29,7 @@ pub struct ValueEnum {
 
 #[derive(Clone, Debug)]
 pub enum Value {
+    Nullable(Option<Box<Value>>),
     Boolean(bool),
     I32(i32),
     I64(i64),
@@ -50,6 +51,47 @@ pub enum Value {
 }
 
 impl Value {
+    //
+    // Nullable
+    //
+    fn is_nullable(&self) -> bool {
+        match self {
+            Value::Nullable(_) => true,
+            _ => false
+        }
+    }
+
+    fn is_null(&self) -> bool {
+        match self {
+            Value::Nullable(None) => true,
+            _ => false
+        }
+    }
+
+    fn as_nullable(&self) -> Option<Option<&Value>> {
+        match self {
+            Value::Nullable(x) => Some(x.as_ref().map(|x| x.as_ref())),
+            _ => None
+        }
+    }
+
+    fn as_nullable_mut(&mut self) -> Option<Option<&mut Value>> {
+        match self {
+            Value::Nullable(x) => Some(x.as_mut().map(|x| x.as_mut())),
+            _ => None
+        }
+    }
+
+    //
+    // Boolean
+    //
+    fn is_boolean(&self) -> bool {
+        match self {
+            Value::Boolean(_) => true,
+            _ => false
+        }
+    }
+
     fn as_boolean(&self) -> Option<bool> {
         match self {
             Value::Boolean(x) => Some(*x),
@@ -57,6 +99,13 @@ impl Value {
         }
     }
 
+    fn set_boolean(&mut self, value: bool) {
+        *self = Value::Boolean(value);
+    }
+
+    //
+    // i32
+    //
     fn is_i32(&self) -> bool {
         match self {
             Value::I32(_) => true,
@@ -94,6 +143,16 @@ impl Value {
     //     }
     // }
 
+    //
+    // u32
+    //
+    fn is_u32(&self) -> bool {
+        match self {
+            Value::U32(_) => true,
+            _ => false
+        }
+    }
+
     fn as_u32(&self) -> Option<u32> {
         match self {
             Value::I32(x) => Some(*x as u32),
@@ -103,6 +162,20 @@ impl Value {
             Value::F32(x) => Some(*x as u32),
             Value::F64(x) => Some(*x as u32),
             _ => None
+        }
+    }
+
+    fn set_u32(&mut self, value: u32) {
+        *self = Value::U32(value);
+    }
+
+    //
+    // i64
+    //
+    fn is_i64(&self) -> bool {
+        match self {
+            Value::I64(_) => true,
+            _ => false
         }
     }
 
@@ -118,6 +191,20 @@ impl Value {
         }
     }
 
+    fn set_i64(&mut self, value: i64) {
+        *self = Value::I64(value);
+    }
+
+    //
+    // u64
+    //
+    fn is_u64(&self) -> bool {
+        match self {
+            Value::U64(_) => true,
+            _ => false
+        }
+    }
+
     fn as_u64(&self) -> Option<u64> {
         match self {
             Value::I32(x) => Some(*x as u64),
@@ -127,6 +214,20 @@ impl Value {
             Value::F32(x) => Some(*x as u64),
             Value::F64(x) => Some(*x as u64),
             _ => None
+        }
+    }
+
+    fn set_u64(&mut self, value: u64) {
+        *self = Value::U64(value);
+    }
+
+    //
+    // f32
+    //
+    fn is_f32(&self) -> bool {
+        match self {
+            Value::F32(_) => true,
+            _ => false
         }
     }
 
@@ -142,6 +243,20 @@ impl Value {
         }
     }
 
+    fn set_f32(&mut self, value: f32) {
+        *self = Value::F32(value);
+    }
+
+    //
+    // f64
+    //
+    fn is_f64(&self) -> bool {
+        match self {
+            Value::F64(_) => true,
+            _ => false
+        }
+    }
+
     fn as_f64(&self) -> Option<f64> {
         match self {
             Value::I32(x) => Some(*x as f64),
@@ -153,6 +268,43 @@ impl Value {
             _ => None
         }
     }
+
+    fn set_f64(&mut self, value: f64) {
+        *self = Value::F64(value);
+    }
+
+    //
+    // Bytes
+    //
+
+    //
+    // Buffer
+    //
+
+    //
+    // String
+    //
+
+    //
+    // StaticArray
+    //
+
+    //
+    // DynamicArray
+    //
+
+    //
+    // Map
+    //
+
+
+    //
+    // RecordRef
+    //
+
+    //
+    // Record
+    //
 
     pub fn find_property_value(&self, name: impl AsRef<str>) -> Option<&Value> {
         let mut record = None;
@@ -171,19 +323,30 @@ impl Value {
     }
 
     pub fn find_property_value_mut(&mut self, name: impl AsRef<str>) -> Option<&mut Value> {
-        let mut record = None;
+        //let mut record = None;
         match self {
+            // Value::Nullable(x) => {
+            //     //record
+            //     if name.as_ref() == "is_null" {
+            //         Value::Boolean(x.is_none())
+            //     } else if name.as_ref() == "value" {
+            //         x.map(|x| &mut *x)
+            //     } else {
+            //         None
+            //     }
+            // }
             Value::Record(x) => {
-                record = Some(x);
+                //record = Some(x);
+                x.properties.get_mut(name.as_ref())
             },
-            _ => {}
+            _ => None
         }
 
-        if let Some(record) = record {
-            record.properties.get_mut(name.as_ref())
-        } else {
-            None
-        }
+        // if let Some(record) = record {
+        //     record.properties.get_mut(name.as_ref())
+        // } else {
+        //     None
+        // }
     }
 
     pub fn find_property_path_value<T: AsRef<str>>(&self, path: &[T]) -> Option<&Value> {
@@ -278,39 +441,15 @@ impl Value {
             self.set_property_value(path.first().unwrap().as_ref(), p);
             true
         }
-
-
-        // if !path.is_empty() {
-        //     let mut v = self;
-        //     for p in &path[0..path.len() - 1] {
-        //         let found = v.find_property_value_mut(p);
-        //         if let Some(found) = found {
-        //             v = found;
-        //         } else {
-        //             v.set_property_value(p.as_ref(), Value::Record(Default::default()));
-        //             v = v.find_property_value_mut(p.as_ref()).unwrap()
-        //         }
-        //     }
-        //
-        //     v.set_property_value(path.last().unwrap().as_ref(), value);
-        // }
-        //
-        // false
-
-
-
-        // if let Some(last) = path.last() {
-        //     let v = self.find_property_path_value_mut(&path[0..path.len() - 1]);
-        //     if let Some(v) = v {
-        //         v.set_property_value(last.as_ref().to_string(), value);
-        //         true
-        //     } else {
-        //         false
-        //     }
-        // } else {
-        //     false
-        // }
     }
+
+    //
+    // Enum
+    //
+
+    //
+    // Fixed
+    //
 }
 
 

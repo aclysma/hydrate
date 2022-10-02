@@ -479,7 +479,7 @@ impl Value {
         //     None
         // }
     }
-
+/*
     pub fn find_property_path_value<T: AsRef<str>>(&self, path: &[T]) -> Option<&Value> {
         let mut value = self;
 
@@ -511,7 +511,7 @@ impl Value {
 
         Some(value)
     }
-
+*/
     pub fn clear_property_value(&mut self, name: impl AsRef<str>) -> Option<Value> {
         let mut record = None;
         match self {
@@ -527,7 +527,7 @@ impl Value {
             None
         }
     }
-
+/*
     pub fn clear_property_path_value<T: AsRef<str>>(&mut self, path: &[T]) -> Option<Value> {
         if let Some(last) = path.last() {
             let v = self.find_property_path_value_mut(&path[0..path.len() - 1]);
@@ -540,7 +540,7 @@ impl Value {
             None
         }
     }
-
+*/
     pub fn set_property_value(&mut self, name: impl Into<String>, value: Value) -> bool {
         let mut record = None;
         match self {
@@ -557,7 +557,7 @@ impl Value {
             false
         }
     }
-
+/*
     pub fn set_property_path_value<T: AsRef<str>>(&mut self, path: &[T], value: Value) -> bool {
         if path.is_empty() {
             *self = value;
@@ -573,7 +573,7 @@ impl Value {
             true
         }
     }
-
+*/
     //
     // Enum
     //
@@ -609,6 +609,7 @@ mod test {
         });
 
         // Access properties
+        /*
         assert_eq!(record.find_property_path_value(&["min"]).unwrap().find_property_path_value(&["x"]).unwrap().as_i32().unwrap(), 1);
         assert_eq!(record.find_property_path_value(&["min", "x"]).unwrap().as_i32().unwrap(), 1);
         assert_eq!(record.find_property_path_value(&["min", "y"]).unwrap().as_i32().unwrap(), 2);
@@ -621,6 +622,8 @@ mod test {
         assert!(record.find_property_path_value(&["asdfsadf"]).is_none());
         assert!(record.find_property_path_value(&["max", "asds"]).is_none());
         assert!(record.find_property_path_value(&["max", "x", "aaaaa"]).is_none());
+
+         */
 
     }
 
@@ -642,7 +645,7 @@ mod test {
 
         let mut record = Value::Record(ValueRecord {
             properties: record_properties
-        });
+        });/*
 
         // Set and clear a property
         assert_eq!(record.find_property_path_value(&["min", "x"]).unwrap().as_i32().unwrap(), 1);
@@ -660,5 +663,6 @@ mod test {
 
         // Setting a property where parent property is not a record should fail, returning false
         assert!(!record.set_property_path_value(&["min", "x", "asdfsaf"], Value::I32(10)));
+        */
     }
 }

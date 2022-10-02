@@ -1,4 +1,5 @@
 use std::io::BufRead;
+use std::str::FromStr;
 use uuid::Uuid;
 use super::{HashSet, HashMap, ObjectId, SchemaFingerprint};
 use super::schema::*;
@@ -327,17 +328,29 @@ impl Database {
     fn property_schema_and_path_ancestors_to_check<'a>(
         mut schema: &'a Schema,
         path: &impl AsRef<str>,
-        schema_parents_to_check_for_null: &mut Vec<String>,
-        schema_parents_to_check_for_replace_mode: &mut Vec<String>,
+        nullable_ancestors: &mut Vec<String>,
+        dynamic_array_ancestors: &mut Vec<String>,
+        map_ancestors: &mut Vec<String>,
+        accessed_dynamic_array_keys: &mut Vec<(String, String)>
     ) -> Option<&'a Schema> {
         //TODO: Escape map keys (and probably avoid path strings anyways)
         let split_path = path.as_ref().split(".");
 
         //println!("property_schema_and_parents_to_check_for_replace_mode {}", path.as_ref());
         // Iterate the path segments to find
+
+        let mut parent_is_dynamic_array = false;
+
         for (i, path_segment) in split_path.enumerate() { //.as_ref().split(".").enumerate() {
             let s = schema.find_property_schema(path_segment);
             //println!("  next schema {:?}", s);
+
+            // current path needs to be verified as existing
+            if parent_is_dynamic_array {
+                accessed_dynamic_array_keys.push((Self::truncate_property_path(path, i - 1), path_segment.to_string()));
+            }
+
+            parent_is_dynamic_array = false;
 
             if let Some(s) = s {
                 // If it's nullable, we need to check for value being null before looking up the prototype chain
@@ -345,12 +358,18 @@ impl Database {
                 match s {
                     Schema::Nullable(_) => {
                         let mut shortened_path = Self::truncate_property_path(path, i);
-                        schema_parents_to_check_for_null.push(shortened_path);
+                        nullable_ancestors.push(shortened_path);
                     }
-                    Schema::DynamicArray(_) | Schema::Map(_) => {
+                    Schema::DynamicArray(_) => {
                         let mut shortened_path = Self::truncate_property_path(path, i);
-                        schema_parents_to_check_for_replace_mode.push(shortened_path);
+                        dynamic_array_ancestors.push(shortened_path.clone());
+
+                        parent_is_dynamic_array = true;
                     },
+                    Schema::Map(_) => {
+                        let mut shortened_path = Self::truncate_property_path(path, i);
+                        map_ancestors.push(shortened_path);
+                    }
                     _ => {}
                 }
 
@@ -385,6 +404,7 @@ impl Database {
         let property_schema = Self::property_schema(object_schema, &path).unwrap();
 
         //TODO: Should we check for null in path ancestors?
+        //TODO: Only allow setting on values that exist, in particular, dynamic array overrides
         if !value.matches_schema(property_schema) {
             panic!("Value doesn't match schema");
         }
@@ -395,32 +415,64 @@ impl Database {
 
     pub fn resolve_property(&self, object: ObjectId, path: impl AsRef<str>) -> Option<&Value> {
         let mut object_id = Some(object);
-        let mut schema = self.object_schema(object);
+        let mut object_schema = self.object_schema(object);
 
         // Contains the path segments that we need to check for being null
-        let mut schema_parents_to_check_for_null = vec![];
+        let mut nullable_ancestors = vec![];
         // Contains the path segments that we need to check for being in append mode
-        let mut schema_parents_to_check_for_replace_mode = vec![];
+        let mut dynamic_array_ancestors = vec![];
+        // Contains the path segments that we need to check for being in append mode
+        let mut map_ancestors = vec![];
+        // Contains the dynamic arrays we access and what keys are used to access them
+        let mut accessed_dynamic_array_keys = vec![];
 
-        let schema = Self::property_schema_and_path_ancestors_to_check(schema, &path, &mut schema_parents_to_check_for_null, &mut schema_parents_to_check_for_replace_mode);
+        //TODO: Only allow getting values that exist, in particular, dynamic array overrides
+
+        let property_schema = Self::property_schema_and_path_ancestors_to_check(
+            object_schema,
+            &path,
+            &mut nullable_ancestors,
+            &mut dynamic_array_ancestors,
+            &mut map_ancestors,
+            &mut accessed_dynamic_array_keys
+        );
 
         while let Some(obj_id) = object_id {
             let obj = self.objects.get(&obj_id).unwrap();
-            if let Some(value) = obj.properties.get(path.as_ref()) {
-                return Some(value);
-            }
-
-            for checked_property in &schema_parents_to_check_for_null {
+            for checked_property in &nullable_ancestors {
                 if obj.properties_set_to_null.contains(checked_property) {
                     return None;
                 }
             }
 
-            for checked_property in &schema_parents_to_check_for_replace_mode {
+            for (path, key) in &accessed_dynamic_array_keys {
+                let dynamic_array_entries = self.resolve_dynamic_array(obj_id, path);
+                if !dynamic_array_entries.contains(&Uuid::from_str(key).unwrap()) {
+                    return None;
+                }
+            }
+
+            if let Some(value) = obj.properties.get(path.as_ref()) {
+                return Some(value);
+            }
+
+            for checked_property in &dynamic_array_ancestors {
                 if obj.properties_in_replace_mode.contains(checked_property) {
                     return None;
                 }
             }
+
+            for checked_property in &map_ancestors {
+                if obj.properties_in_replace_mode.contains(checked_property) {
+                    return None;
+                }
+            }
+
+            // for checked_property in &schema_parents_to_check_for_key_exists {
+            //     if obj.dynamic_array_entries.contains(checked_property) {
+            //         return None;
+            //     }
+            // }
 
             object_id = obj.prototype;
         }
@@ -438,89 +490,140 @@ impl Database {
 
 
 
-    pub fn get_dynamic_array_overrides(&self, object: ObjectId, path: impl AsRef<str>) -> Option<&Value> {
+    pub fn get_dynamic_array_overrides(&self, object: ObjectId, path: impl AsRef<str>) -> &[Uuid] {
+        let mut object_schema = self.object_schema(object);
+        let property_schema = Self::property_schema(object_schema, &path).unwrap();
+
+        if !property_schema.is_dynamic_array() {
+            panic!("get_dynamic_array_overrides only allowed on dynamic arrays");
+        }
+
         let obj = self.objects.get(&object).unwrap();
-        obj.properties.get(path.as_ref())
-    }
-
-    pub fn add_dynamic_array_override(&mut self, object: ObjectId, path: impl AsRef<str>, new_value: Value) -> bool {
-        let mut schema = self.object_schema(object);
-
-        if !new_value.matches_schema(schema) {
-            panic!("Value doesn't match schema");
-        }
-
-        let obj = self.objects.get_mut(&object).unwrap();
-        //obj.properties.insert(path.as_ref().to_string(), value);
-
-        let entry = obj.properties.entry(path.as_ref().to_string()).or_insert(Value::DynamicArray(Default::default()));
-        match entry {
-            Value::DynamicArray(x) => x.push(new_value),
-            _ => panic!("unexpected value type")
-        }
-
-        true
-    }
-
-    pub fn remove_dynamic_array_override(&mut self, object: ObjectId, path: impl AsRef<str>, index: usize) -> Value {
-        //not sure how to let callers specify which value to remove?
-
-        let obj = self.objects.get_mut(&object).unwrap();
-
-        let dynamic_array_value = obj.properties.get_mut(path.as_ref()).unwrap();
-        match dynamic_array_value {
-            Value::DynamicArray(x) => x.remove(index),
-            _ => panic!("unexpected value type")
+        if let Some(overrides) = obj.dynamic_array_entries.get(path.as_ref()) {
+            &*overrides
+        } else {
+            &[]
         }
     }
 
-    pub fn resolve_dynamic_array(&self, object: ObjectId, path: impl AsRef<str>) -> Option<Box<[&Value]>> {
-        let mut object_id = Some(object);
-        let mut schema = self.object_schema(object);
+    pub fn add_dynamic_array_override(&mut self, object: ObjectId, path: impl AsRef<str>) -> Uuid {
+        let mut object_schema = self.object_schema(object).clone();
+        let property_schema = Self::property_schema(&object_schema, &path).unwrap();
 
+        if !property_schema.is_dynamic_array() {
+            panic!("add_dynamic_array_override only allowed on dynamic arrays");
+        }
+
+        let mut obj = self.objects.get_mut(&object).unwrap();
+        let entry = obj.dynamic_array_entries.entry(path.as_ref().to_string()).or_insert(Default::default());
+        let new_uuid = Uuid::new_v4();
+        entry.push(new_uuid);
+        new_uuid
+    }
+
+    pub fn remove_dynamic_array_override(&mut self, object: ObjectId, path: impl AsRef<str>, element_id: Uuid) {
+        let mut object_schema = self.object_schema(object).clone();
+        let property_schema = Self::property_schema(&object_schema, &path).unwrap();
+
+        if !property_schema.is_dynamic_array() {
+            panic!("remove_dynamic_array_override only allowed on dynamic arrays");
+        }
+
+        let mut obj = self.objects.get_mut(&object).unwrap();
+        if let Some(override_list) = obj.dynamic_array_entries.get_mut(path.as_ref()) {
+            let index = override_list.iter().position(|x| *x == element_id);
+            if let Some(index) = index {
+                override_list.remove(index);
+            } else {
+                panic!("override not found");
+            }
+        }
+    }
+
+    pub fn do_resolve_dynamic_array(
+        &self,
+        object_id: ObjectId,
+        path: &str,
+        nullable_ancestors: &Vec<String>,
+        dynamic_array_ancestors: &Vec<String>,
+        map_ancestors: &Vec<String>,
+        accessed_dynamic_array_keys: &Vec<(String, String)>,
+        resolved_entries: &mut Vec<Uuid>
+    ) {
+        let obj = self.objects.get(&object_id).unwrap();
+
+        // if path ancestor is nulled, we do not use any entries from this object or parent
+        for checked_property in nullable_ancestors {
+            if obj.properties_set_to_null.contains(checked_property) {
+                return;
+            }
+        }
+
+        for (path, key) in accessed_dynamic_array_keys {
+            let dynamic_array_entries = self.resolve_dynamic_array(object_id, path);
+            if !dynamic_array_entries.contains(&Uuid::from_str(key).unwrap()) {
+                return;
+            }
+        }
+
+        // See if any properties in the path ancestry are replacing parent data
+        let mut check_parents = true;
+
+        for checked_property in dynamic_array_ancestors {
+            if obj.properties_in_replace_mode.contains(checked_property) {
+                check_parents = false;
+            }
+        }
+
+        for checked_property in map_ancestors {
+            if obj.properties_in_replace_mode.contains(checked_property) {
+                check_parents = false;
+            }
+        }
+
+        // If we do not replace parent data, resolve it now so we can append to it
+        if check_parents {
+            if let Some(prototype) = obj.prototype {
+                self.do_resolve_dynamic_array(
+                    prototype,
+                    path,
+                    nullable_ancestors,
+                    dynamic_array_ancestors,
+                    map_ancestors,
+                    accessed_dynamic_array_keys,
+                    resolved_entries
+                );
+            }
+        }
+
+        if let Some(entries) = obj.dynamic_array_entries.get(path) {
+            for entry in entries {
+                resolved_entries.push(*entry);
+            }
+        }
+    }
+
+    pub fn resolve_dynamic_array(&self, object: ObjectId, path: impl AsRef<str>) -> Box<[Uuid]> {
+        let mut object_schema = self.object_schema(object);
 
         // Contains the path segments that we need to check for being null
-        let mut schema_parents_to_check_for_null = vec![];
+        let mut nullable_ancestors = vec![];
         // Contains the path segments that we need to check for being in append mode
-        let mut schema_parents_to_check_for_replace_mode = vec![];
+        let mut dynamic_array_ancestors = vec![];
+        // Contains the path segments that we need to check for being in append mode
+        let mut map_ancestors = vec![];
+        // Contains the dynamic arrays we access and what keys are used to access them
+        let mut accessed_dynamic_array_keys = vec![];
 
-        let schema = Self::property_schema_and_path_ancestors_to_check(schema, &path, &mut schema_parents_to_check_for_null, &mut schema_parents_to_check_for_replace_mode);
-        if schema.is_none() {
+
+        let property_schema = Self::property_schema_and_path_ancestors_to_check(object_schema, &path, &mut nullable_ancestors, &mut dynamic_array_ancestors, &mut map_ancestors, &mut accessed_dynamic_array_keys);
+        if property_schema.is_none() {
             panic!("dynamic array not found");
         }
 
-        let mut resolved_values = vec![];
-
-        while let Some(obj_id) = object_id {
-            let obj = self.objects.get(&obj_id).unwrap();
-            if let Some(value) = obj.properties.get(path.as_ref()) {
-                match value {
-                    Value::DynamicArray(values) => {
-                        for value in values {
-                            resolved_values.push(value);
-                        }
-                    },
-                    _ => panic!("unexpected value type")
-                }
-            }
-
-            for checked_property in &schema_parents_to_check_for_null {
-                if obj.properties_set_to_null.contains(checked_property) {
-                    return None;
-                }
-            }
-
-            for checked_property in &schema_parents_to_check_for_replace_mode {
-                if obj.properties_in_replace_mode.contains(checked_property) {
-                    return Some(resolved_values.into_boxed_slice());
-                }
-            }
-
-            object_id = obj.prototype;
-        }
-
-        //TODO: Return schema default value
-        Some(resolved_values.into_boxed_slice())
+        let mut resolved_entries = vec![];
+        self.do_resolve_dynamic_array(object, path.as_ref(), &nullable_ancestors, &dynamic_array_ancestors, &map_ancestors, &accessed_dynamic_array_keys, &mut resolved_entries);
+        resolved_entries.into_boxed_slice()
     }
 
 
@@ -535,9 +638,9 @@ impl Database {
 
     pub fn get_override_behavior(&self, object: ObjectId, path: impl AsRef<str>) -> OverrideBehavior {
         let object = self.objects.get(&object).unwrap();
-        let schema = Self::property_schema(&object.schema, &path).unwrap();
+        let property_schema = Self::property_schema(&object.schema, &path).unwrap();
 
-        match schema {
+        match property_schema {
             Schema::DynamicArray(_) | Schema::Map(_) => {
                 if object.properties_in_replace_mode.contains(path.as_ref()) {
                     OverrideBehavior::Replace
@@ -551,9 +654,9 @@ impl Database {
 
     pub fn set_override_behavior(&mut self, object: ObjectId, path: impl AsRef<str>, behavior: OverrideBehavior) {
         let object = self.objects.get_mut(&object).unwrap();
-        let schema = Self::property_schema(&object.schema, &path).unwrap();
+        let property_schema = Self::property_schema(&object.schema, &path).unwrap();
 
-        match schema {
+        match property_schema {
             Schema::DynamicArray(_) | Schema::Map(_) => {
                 let _ = match behavior {
                     OverrideBehavior::Append => object.properties_in_replace_mode.remove(path.as_ref()),

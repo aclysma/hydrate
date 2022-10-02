@@ -69,30 +69,43 @@ fn main() {
     println!("aabb2.test_array = {:?}", db.resolve_dynamic_array(aabb2, "test_array"));
 
     println!("set 10 on parent");
-    db.add_dynamic_array_override(aabb1, "test_array", Value::Record(ValueRecord::default()));
-    db.set_property_override(aabb1, "test_array.0.x", Value::F32(10.0));
-    println!("aabb1.test_array = {:?}", db.resolve_dynamic_array(aabb1, "test_array"));
-    println!("aabb2.test_array = {:?}", db.resolve_dynamic_array(aabb2, "test_array"));
+    let aabb1_array_override = db.add_dynamic_array_override(aabb1, "test_array");
+    db.set_property_override(aabb1, format!("test_array.{}.x", aabb1_array_override), Value::F32(10.0));
+    println!("aabb1.test_array IDs = {:?}", db.resolve_dynamic_array(aabb1, "test_array"));
+    println!("aabb2.test_array IDs = {:?}", db.resolve_dynamic_array(aabb2, "test_array"));
+
+    println!("aabb1.test_array on AABB1 = {:?}", db.resolve_property(aabb1, format!("test_array.{}.x", aabb1_array_override)));
+    println!("aabb2.test_array on AABB1 = {:?}", db.resolve_property(aabb2, format!("test_array.{}.x", aabb1_array_override)));
 
     println!("set 20 on child");
-    db.add_dynamic_array_override(aabb2, "test_array", Value::Record(ValueRecord::default()));
-    println!("aabb1.test_array = {:?}", db.resolve_property(aabb1, "test_array.0.x"));
-    println!("aabb2.test_array = {:?}", db.resolve_property(aabb2, "test_array.0.x"));
+    db.set_property_override(aabb2, format!("test_array.{}.x", aabb1_array_override), Value::F32(20.0));
+    // println!("aabb1.test_array = {:?}", db.resolve_property(aabb1, "test_array.0.x"));
+    // println!("aabb2.test_array = {:?}", db.resolve_property(aabb2, "test_array.0.x"));
+    println!("aabb1.test_array IDs = {:?}", db.resolve_dynamic_array(aabb1, "test_array"));
+    println!("aabb2.test_array IDs = {:?}", db.resolve_dynamic_array(aabb2, "test_array"));
+    println!("aabb1.test_array on AABB1 = {:?}", db.resolve_property(aabb1, format!("test_array.{}.x", aabb1_array_override)));
+    println!("aabb2.test_array on AABB1 = {:?}", db.resolve_property(aabb2, format!("test_array.{}.x", aabb1_array_override)));
 
     println!("set replace mode");
     db.set_override_behavior(aabb2, "test_array", OverrideBehavior::Replace);
-    println!("aabb1.test_array = {:?}", db.resolve_dynamic_array(aabb1, "test_array"));
-    println!("aabb2.test_array = {:?}", db.resolve_dynamic_array(aabb2, "test_array"));
+    println!("aabb1.test_array IDs = {:?}", db.resolve_dynamic_array(aabb1, "test_array"));
+    println!("aabb2.test_array IDs = {:?}", db.resolve_dynamic_array(aabb2, "test_array"));
+    println!("aabb1.test_array on AABB1 = {:?}", db.resolve_property(aabb1, format!("test_array.{}.x", aabb1_array_override)));
+    println!("aabb2.test_array on AABB1 = {:?}", db.resolve_property(aabb2, format!("test_array.{}.x", aabb1_array_override)));
 
     println!("clear replace mode");
     db.set_override_behavior(aabb2, "test_array", OverrideBehavior::Append);
-    println!("aabb1.test_array = {:?}", db.resolve_dynamic_array(aabb1, "test_array"));
-    println!("aabb2.test_array = {:?}", db.resolve_dynamic_array(aabb2, "test_array"));
+    println!("aabb1.test_array IDs = {:?}", db.resolve_dynamic_array(aabb1, "test_array"));
+    println!("aabb2.test_array IDs = {:?}", db.resolve_dynamic_array(aabb2, "test_array"));
+    println!("aabb1.test_array on AABB1 = {:?}", db.resolve_property(aabb1, format!("test_array.{}.x", aabb1_array_override)));
+    println!("aabb2.test_array on AABB1 = {:?}", db.resolve_property(aabb2, format!("test_array.{}.x", aabb1_array_override)));
 
     println!("remove 10 from parent");
-    db.remove_dynamic_array_override(aabb1, "test_array", 0);
-    println!("aabb1.test_array = {:?}", db.resolve_dynamic_array(aabb1, "test_array"));
-    println!("aabb2.test_array = {:?}", db.resolve_dynamic_array(aabb2, "test_array"));
+    db.remove_dynamic_array_override(aabb1, "test_array", aabb1_array_override);
+    println!("aabb1.test_array IDs = {:?}", db.resolve_dynamic_array(aabb1, "test_array"));
+    println!("aabb2.test_array IDs = {:?}", db.resolve_dynamic_array(aabb2, "test_array"));
+    println!("aabb1.test_array on AABB1 = {:?}", db.resolve_property(aabb1, format!("test_array.{}.x", aabb1_array_override)));
+    println!("aabb2.test_array on AABB1 = {:?}", db.resolve_property(aabb2, format!("test_array.{}.x", aabb1_array_override)));
 
 
 

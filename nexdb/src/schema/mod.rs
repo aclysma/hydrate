@@ -208,6 +208,20 @@ impl Schema {
         }
     }
 
+    pub fn is_static_array(&self) -> bool {
+        match self {
+            Schema::StaticArray(_) => true,
+            _ => false
+        }
+    }
+
+    pub fn is_dynamic_array(&self) -> bool {
+        match self {
+            Schema::DynamicArray(_) => true,
+            _ => false
+        }
+    }
+
     pub fn find_property_schema(&self, name: impl AsRef<str>) -> Option<&Schema> {
         match self {
             // Schema::Nullable(x) => {
@@ -233,11 +247,9 @@ impl Schema {
                 }
             },
             Schema::DynamicArray(x) => {
-                if name.as_ref().parse::<u32>().is_ok() {
-                    Some(x.item_type())
-                } else {
-                    None
-                }
+                // We are not picky about the index being a number as the Object DB/property
+                // handling uses UUIDs to ID each object, we just don't show the IDs to users
+                Some(x.item_type())
             },
             Schema::Map(x) => {
                 Some(x.value_type())
@@ -302,7 +314,7 @@ mod test {
         ].into_boxed_slice());
 
         let aabb_schema = Schema::Record(aabb_schema_record);
-
+/*
         // Access properties
         assert_eq!(aabb_schema.find_property_path_schema::<&str>(&[]).unwrap().fingerprint(), aabb_schema.fingerprint());
         assert_eq!(aabb_schema.find_property_path_schema(&["min"]).unwrap().fingerprint(), Schema::Record(vec3_schema_record.clone()).fingerprint());
@@ -319,5 +331,6 @@ mod test {
         assert_eq!(aabb_schema.find_property_path_schema(&["min", "A"]).map(|x| x.fingerprint()), None);
         assert_eq!(aabb_schema.find_property_path_schema(&["min", "x", "asdfs"]).map(|x| x.fingerprint()), None);
         assert_eq!(aabb_schema.find_property_path_schema(&["aa", "x"]).map(|x| x.fingerprint()), None);
+ */
     }
 }

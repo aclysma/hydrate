@@ -385,7 +385,7 @@ impl Value {
     //
     // f32
     //
-    fn is_f32(&self) -> bool {
+    pub fn is_f32(&self) -> bool {
         match self {
             Value::F32(_) => true,
             _ => false
@@ -404,21 +404,21 @@ impl Value {
         }
     }
 
-    fn set_f32(&mut self, value: f32) {
+    pub fn set_f32(&mut self, value: f32) {
         *self = Value::F32(value);
     }
 
     //
     // f64
     //
-    fn is_f64(&self) -> bool {
+    pub fn is_f64(&self) -> bool {
         match self {
             Value::F64(_) => true,
             _ => false
         }
     }
 
-    fn as_f64(&self) -> Option<f64> {
+    pub fn as_f64(&self) -> Option<f64> {
         match self {
             Value::I32(x) => Some(*x as f64),
             Value::U32(x) => Some(*x as f64),
@@ -430,7 +430,7 @@ impl Value {
         }
     }
 
-    fn set_f64(&mut self, value: f64) {
+    pub fn set_f64(&mut self, value: f64) {
         *self = Value::F64(value);
     }
 

@@ -32,6 +32,15 @@ impl RecordTypeBuilder {
         self.fields.last_mut().unwrap()
     }
 
+    pub fn add_f64(&mut self, name: impl Into<String>) -> &mut RecordTypeFieldBuilder {
+        self.fields.push(RecordTypeFieldBuilder {
+            field_type: Schema::F64,
+            aliases: Default::default(),
+            name: name.into(),
+        });
+        self.fields.last_mut().unwrap()
+    }
+
     pub fn add_dynamic_array(&mut self, name: impl Into<String>, schema: &Schema) {
         self.fields.push(RecordTypeFieldBuilder {
             field_type: Schema::DynamicArray(SchemaDynamicArray::new(Box::new(schema.clone()))),

@@ -1,4 +1,4 @@
-use crate::{Schema, SchemaRecord};
+use crate::{Schema, SchemaDynamicArray, SchemaRecord};
 
 pub struct RecordTypeFieldBuilder {
     pub(super) name: String,
@@ -30,6 +30,14 @@ impl RecordTypeBuilder {
             name: name.into(),
         });
         self.fields.last_mut().unwrap()
+    }
+
+    pub fn add_dynamic_array(&mut self, name: impl Into<String>, schema: &Schema) {
+        self.fields.push(RecordTypeFieldBuilder {
+            field_type: Schema::DynamicArray(SchemaDynamicArray::new(Box::new(schema.clone()))),
+            aliases: Default::default(),
+            name: name.into(),
+        });
     }
 
     pub fn add_struct(&mut self, name: impl Into<String>, schema: &SchemaRecord) -> &mut RecordTypeFieldBuilder {

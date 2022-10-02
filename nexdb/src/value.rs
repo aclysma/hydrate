@@ -1,4 +1,4 @@
-use crate::{BufferId, HashMap};
+use crate::{BufferId, HashMap, Schema};
 use crate::ObjectId;
 
 #[derive(Clone, Debug)]
@@ -23,7 +23,7 @@ impl ValueRecord {
 
 #[derive(Clone, Debug)]
 pub struct ValueEnum {
-    symbol_index: u32,
+    //symbol_index: u32,
     symbol_name: String,
 }
 
@@ -51,6 +51,137 @@ pub enum Value {
 }
 
 impl Value {
+    pub(crate) fn matches_schema(&self, schema: &Schema) -> bool {
+        match self {
+            Value::Nullable(inner_value) => {
+                match schema {
+                    Schema::Nullable(inner_schema) => {
+                        if let Some(inner_value) = inner_value {
+                            // check inner value is the intended schema
+                            inner_value.matches_schema(inner_schema)
+                        } else {
+                            // value is null, that's allowed
+                            true
+                        }
+                    },
+                    _ => false
+                }
+            }
+            Value::Boolean(_) => schema.is_boolean(),
+            Value::I32(_) => schema.is_i32(),
+            Value::I64(_) => schema.is_i64(),
+            Value::U32(_) => schema.is_u32(),
+            Value::U64(_) => schema.is_u64(),
+            Value::F32(_) => schema.is_f32(),
+            Value::F64(_) => schema.is_f64(),
+            Value::Bytes(_) => schema.is_bytes(),
+            Value::Buffer(_) => schema.is_buffer(),
+            Value::String(_) => schema.is_string(),
+            Value::StaticArray(inner_values) => {
+                match schema {
+                    Schema::StaticArray(inner_schema) => {
+                        if inner_schema.length != inner_values.len() {
+                            return false
+                        }
+
+                        for value in inner_values {
+                            if !value.matches_schema(&*inner_schema.item_type) {
+                                return false;
+                            }
+                        }
+
+                        true
+                    },
+                    _ => false
+                }
+            }
+            Value::DynamicArray(inner_values) => {
+                match schema {
+                    Schema::DynamicArray(inner_schema) => {
+                        for inner_value in inner_values {
+                            if !inner_value.matches_schema(inner_schema.item_type()) {
+                                return false
+                            }
+                        }
+
+                        true
+                    },
+                    _ => false
+                }
+            }
+            Value::Map(inner_value) => {
+                match schema {
+                    Schema::Map(inner_schema) => {
+                        for (k, v) in &inner_value.properties {
+                            if !k.matches_schema(inner_schema.key_type()) {
+                                return false;
+                            }
+
+                            if !v.matches_schema(inner_schema.value_type()) {
+                                return false;
+                            }
+                        }
+
+                        true
+                    },
+                    _ => false
+                }
+            }
+            Value::RecordRef(_) => unimplemented!(),
+            Value::Record(inner_value) => {
+                // All value properties must exist and match in the schema. However we allow the
+                // value to be missing properties in the schema
+                match schema {
+                    Schema::Record(inner_schema) => {
+                        // Walk through all properties and make sure the field exists and type matches
+                        for (k, v) in &inner_value.properties {
+                            let mut property_match_found = false;
+                            for field in inner_schema.fields() {
+                                if field.name() == k {
+                                    if v.matches_schema(field.field_schema()) {
+                                        property_match_found = true;
+                                        break;
+                                    } else {
+                                        return false;
+                                    }
+                                }
+                            }
+
+                            if !property_match_found {
+                                return false;
+                            }
+                        }
+
+                        true
+                    },
+                    _ => false
+                }
+            },
+            Value::Enum(inner_value) => {
+                match schema {
+                    Schema::Enum(inner_schema) => {
+                        for option in inner_schema.symbols() {
+                            if option.name() == inner_value.symbol_name {
+                                return true;
+                            }
+                        }
+
+                        false
+                    },
+                    _ => false
+                }
+            }
+            Value::Fixed(value) => {
+                match schema {
+                    Schema::Fixed(inner_schema) => {
+                        value.len() == inner_schema.length()
+                    },
+                    _ => false
+                }
+            }
+        }
+    }
+
     //
     // Nullable
     //

@@ -1,4 +1,5 @@
-use super::{HashMap, ObjectId, SchemaFingerprint};
+use std::io::BufRead;
+use super::{HashSet, HashMap, ObjectId, SchemaFingerprint};
 use super::schema::*;
 use super::value::*;
 
@@ -11,6 +12,19 @@ use fixed_type_builder::FixedTypeBuilder;
 mod enum_type_builder;
 use enum_type_builder::EnumTypeBuilder;
 use crate::BufferId;
+
+// enum PropertySchema {
+//     Nullable(Schema),
+//     Value(Schema),
+//     StaticArray(SchemaStaticArray),
+//     DynamicArray(SchemaDynamicArray),
+//     DynamicArrayInner(SchemaDynamicArray),
+//     Map(SchemaMap),
+//     MapInner(SchemaMap),
+// }
+
+
+
 
 /*
 pub struct SchemaPropertyMappingNode {
@@ -121,7 +135,15 @@ pub struct DatabaseObjectInfo {
     schema: Schema, // Will always be a SchemaRecord
     //value: Value, // Will always be a ValueRecord
     prototype: Option<ObjectId>,
-    properties: HashMap<String, Value>
+    properties: HashMap<String, Value>,
+    properties_set_to_null: HashSet<String>,
+    properties_in_replace_mode: HashSet<String>,
+}
+
+#[derive(Debug, Copy, Clone, PartialEq)]
+pub enum OverrideBehavior {
+    Append,
+    Replace
 }
 
 #[derive(Default)]
@@ -217,7 +239,9 @@ impl Database {
         let obj = DatabaseObjectInfo {
             schema: Schema::Record(schema.clone()),
             prototype: None,
-            properties: Default::default()
+            properties: Default::default(),
+            properties_set_to_null: Default::default(),
+            properties_in_replace_mode: Default::default(),
         };
 
         self.insert_object(obj)
@@ -229,6 +253,8 @@ impl Database {
             schema: prototype_info.schema.clone(),
             prototype: Some(prototype),
             properties: Default::default(),
+            properties_set_to_null: Default::default(),
+            properties_in_replace_mode: Default::default(),
         };
 
         self.insert_object(obj)
@@ -239,39 +265,117 @@ impl Database {
         &o.schema
     }
 
+    fn property_schema<'a>(mut schema: &'a Schema, path: &impl AsRef<str>) -> Option<&'a Schema> {
+        //TODO: Escape map keys (and probably avoid path strings anyways)
+        let split_path = path.as_ref().split(".");
 
-    pub fn get_value<T: AsRef<str>>(&self, object: ObjectId,  path: T) -> Option<&Value> {
-        let mut object_id = Some(object);
-
-        let mut schema = self.object_schema(object);
-        for path_segment in path.as_ref().split(".") {
+        // Iterate the path segments to find
+        for path_segment in split_path { //.as_ref().split(".").enumerate() {
             let s = schema.find_property_schema(path_segment);
             if let Some(s) = s {
                 schema = s;
+            } else {
+                return None;
             }
         }
 
-        // match schema {
-        //     Schema::Nullable(_) => {}
-        //     Schema::Boolean => {}
-        //     Schema::I32 => {}
-        //     Schema::I64 => {}
-        //     Schema::U32 => {}
-        //     Schema::U64 => {}
-        //     Schema::F32 => {}
-        //     Schema::F64 => {}
-        //     Schema::Bytes => {}
-        //     Schema::Buffer => {}
-        //     Schema::String => {}
-        //     Schema::StaticArray(_) => {}
-        //     Schema::DynamicArray(_) => {}
-        //     Schema::Map(_) => {}
-        //     Schema::RecordRef(_) => {}
-        //     Schema::Record(_) => {}
-        //     Schema::Enum(_) => {}
-        //     Schema::Fixed(_) => {}
-        // }
+        Some(schema)
+    }
 
+    fn truncate_property_path(path: &impl AsRef<str>, max_segment_count: usize) -> String {
+        let mut shortened_path = String::default();
+        //TODO: Escape map keys (and probably avoid path strings anyways)
+        let split_path = path.as_ref().split(".");
+        for (i, path_segment) in split_path.enumerate() {
+            if i > max_segment_count {
+                break;
+            }
+
+            if i == 0 {
+                shortened_path = path_segment.to_string();
+            } else {
+                shortened_path = format!("{}.{}", shortened_path, path_segment);
+            }
+        }
+
+        shortened_path
+    }
+
+    fn property_schema_and_path_ancestors_to_check<'a>(
+        mut schema: &'a Schema,
+        path: &impl AsRef<str>,
+        schema_parents_to_check_for_null: &mut Vec<String>,
+        schema_parents_to_check_for_replace_mode: &mut Vec<String>,
+    ) -> Option<&'a Schema> {
+        //TODO: Escape map keys (and probably avoid path strings anyways)
+        let split_path = path.as_ref().split(".");
+
+        //println!("property_schema_and_parents_to_check_for_replace_mode {}", path.as_ref());
+        // Iterate the path segments to find
+        for (i, path_segment) in split_path.enumerate() { //.as_ref().split(".").enumerate() {
+            let s = schema.find_property_schema(path_segment);
+            //println!("  next schema {:?}", s);
+
+            if let Some(s) = s {
+                // If it's nullable, we need to check for value being null before looking up the prototype chain
+                // If it's a map or dynamic array, we need to check for append mode before looking up the prototype chain
+                match s {
+                    Schema::Nullable(_) => {
+                        let mut shortened_path = Self::truncate_property_path(path, i);
+                        schema_parents_to_check_for_null.push(shortened_path);
+                    }
+                    Schema::DynamicArray(_) | Schema::Map(_) => {
+                        let mut shortened_path = Self::truncate_property_path(path, i);
+                        schema_parents_to_check_for_replace_mode.push(shortened_path);
+                    },
+                    _ => {}
+                }
+
+                schema = s;
+            } else {
+                return None;
+            }
+        }
+
+        Some(schema)
+    }
+
+    // Just gets if this object has a property without checking prototype chain for fallback or returning a default
+    // Returning none means it is not overridden
+    pub fn get_property_override(&self, object: ObjectId, path: impl AsRef<str>) -> Option<&Value> {
+        let obj = self.objects.get(&object).unwrap();
+        obj.properties.get(path.as_ref())
+    }
+
+    // Just sets a property on this object, making it overridden, or replacing the existing override
+    pub fn set_property_override(&mut self, object: ObjectId, path: impl AsRef<str>, value: Value) -> bool {
+        let mut schema = self.object_schema(object);
+        //
+        // // Contains the index of path segments that we need to check for being in append mode
+        // let mut schema_parents_to_check_for_replace_mode = vec![];
+        //
+        let schema = Self::property_schema(schema, &path).unwrap();
+
+        //TODO: Assert schema/value are compatible
+        if !value.matches_schema(schema) {
+            panic!("Value doesn't match schema");
+        }
+
+        let obj = self.objects.get_mut(&object).unwrap();
+        obj.properties.insert(path.as_ref().to_string(), value);
+        true
+    }
+
+    pub fn resolve_property(&self, object: ObjectId, path: impl AsRef<str>) -> Option<&Value> {
+        let mut object_id = Some(object);
+        let mut schema = self.object_schema(object);
+
+        // Contains the path segments that we need to check for being null
+        let mut schema_parents_to_check_for_null = vec![];
+        // Contains the path segments that we need to check for being in append mode
+        let mut schema_parents_to_check_for_replace_mode = vec![];
+
+        let schema = Self::property_schema_and_path_ancestors_to_check(schema, &path, &mut schema_parents_to_check_for_null, &mut schema_parents_to_check_for_replace_mode);
 
         while let Some(obj_id) = object_id {
             let obj = self.objects.get(&obj_id).unwrap();
@@ -279,348 +383,138 @@ impl Database {
                 return Some(value);
             }
 
-            object_id = obj.prototype;
-        }
-
-        None
-
-
-        //let schema = self.object_schema(object).clone();
-    }
-
-    // fn get_or_create_value(&mut self, object: ObjectId) {
-    //
-    // }
-
-
-    /*
-    pub fn object_property_resolver(&self, object: ObjectId) -> ObjectPropertyResolver {
-        ObjectPropertyResolver {
-            object_id: object,
-            schema: self.object_schema(object).clone()
-        }
-    }
-    */
-
-    // pub fn find_property_schema<T: AsRef<str>>(&self, schema: &Schema, path: &[T]) -> Option<&Schema> {
-    //     let mut s = Some(schema);
-    //
-    //     //let mut schema_record = schema.as
-    //     for p in path {
-    //         match s {
-    //             Schema::Nullable(x) => s = Some(&*x),
-    //             Schema::Record(x) => s = self.schema(x.fingerprint()),
-    //             _ => s = None
-    //         }
-    //
-    //         if s.is_none() {
-    //             return None;
-    //         }
-    //     }
-    //
-    //     s
-    // }
-}
-
-/*
-const EMPTY_BYTE_SLICE: &'static [u8] = &[];
-
-
-#[derive(Debug)]
-pub enum PropertyResolverError {
-    FieldDoesNotExist,
-    IncorrectType
-}
-
-pub type PropertyResolverResult<T> = Result<T, PropertyResolverError>;
-
-pub struct ObjectPropertyResolver {
-    object_id: ObjectId,
-    schema: Schema,
-}
-
-impl ObjectPropertyResolver {
-    fn find_property_path_value<'a, T: AsRef<str>>(&'a self, db: &'a Database, path: &[T]) -> Option<&Value> {
-        let mut object_id = Some(self.object_id);
-
-        while let Some(o) = object_id {
-            let obj = db.objects.get(&o).unwrap();
-
-            let value = obj.value.find_property_path_value(path);
-            if value.is_some() {
-                return value;
-            }
-
-            object_id = obj.prototype;
-        }
-
-        None
-    }
-
-    fn get_path<PathT: AsRef<str>, ValueT, ExtractFn: Fn(&Value) -> PropertyResolverResult<ValueT>>(&self, db: &mut Database, path: &[PathT], default: ValueT, extract_fn: ExtractFn) -> PropertyResolverResult<ValueT> {
-        let value = self.find_property_path_value(db, path);
-        if let Some(value) = value {
-            (extract_fn)(value)
-        } else {
-            Ok(default)
-        }
-    }
-
-    pub fn set_path<PathT: AsRef<str>, CompatibleFn: Fn(&Schema) -> bool>(&self, db: &mut Database, path: &[PathT], value: Value, compatible_fn: CompatibleFn) -> PropertyResolverResult<()> {
-        let schema = self.schema.find_property_path_schema(path);
-        if schema.is_none() {
-            Err(PropertyResolverError::FieldDoesNotExist)?;
-        }
-
-        let schema = schema.unwrap();
-        if !((compatible_fn)(schema)) {
-            Err(PropertyResolverError::IncorrectType)?;
-        }
-
-        db.objects.get_mut(&self.object_id).unwrap().value.set_property_path_value(path, value);
-
-        Ok(())
-    }
-
-
-    pub fn get_path_boolean<T: AsRef<str>>(&self, db: &mut Database, path: &[T]) -> PropertyResolverResult<bool> {
-        self.get_path(db, path, false, |value| {
-            if let Value::Boolean(value) = value {
-                Ok(*value)
-            } else {
-                Err(PropertyResolverError::IncorrectType)
-            }
-        })
-    }
-
-    pub fn set_path_boolean<T: AsRef<str>>(&self, db: &mut Database, path: &[T], value: bool) -> PropertyResolverResult<()> {
-        self.set_path(db, path, Value::Boolean(value), |schema| schema.is_boolean())
-    }
-
-    pub fn get_path_i32<T: AsRef<str>>(&self, db: &mut Database, path: &[T]) -> PropertyResolverResult<i32> {
-        self.get_path(db, path, 0, |value| {
-            if let Value::I32(value) = value {
-                Ok(*value)
-            } else {
-                Err(PropertyResolverError::IncorrectType)
-            }
-        })
-    }
-
-    pub fn set_path_i32<T: AsRef<str>>(&self, db: &mut Database, path: &[T], value: i32) -> PropertyResolverResult<()> {
-        self.set_path(db, path, Value::I32(value), |schema| schema.is_i32())
-    }
-
-    pub fn get_path_u32<T: AsRef<str>>(&self, db: &mut Database, path: &[T]) -> PropertyResolverResult<u32> {
-        self.get_path(db, path, 0, |value| {
-            if let Value::U32(value) = value {
-                Ok(*value)
-            } else {
-                Err(PropertyResolverError::IncorrectType)
-            }
-        })
-    }
-
-    pub fn set_path_u32<T: AsRef<str>>(&self, db: &mut Database, path: &[T], value: u32) -> PropertyResolverResult<()> {
-        self.set_path(db, path, Value::U32(value), |schema| schema.is_u32())
-    }
-
-    pub fn get_path_i64<T: AsRef<str>>(&self, db: &mut Database, path: &[T]) -> PropertyResolverResult<i64> {
-        self.get_path(db, path, 0, |value| {
-            if let Value::I64(value) = value {
-                Ok(*value)
-            } else {
-                Err(PropertyResolverError::IncorrectType)
-            }
-        })
-    }
-
-    pub fn set_path_i64<T: AsRef<str>>(&self, db: &mut Database, path: &[T], value: i64) -> PropertyResolverResult<()> {
-        self.set_path(db, path, Value::I64(value), |schema| schema.is_i64())
-    }
-
-    pub fn get_path_u64<T: AsRef<str>>(&self, db: &mut Database, path: &[T]) -> PropertyResolverResult<u64> {
-        self.get_path(db, path, 0, |value| {
-            if let Value::U64(value) = value {
-                Ok(*value)
-            } else {
-                Err(PropertyResolverError::IncorrectType)
-            }
-        })
-    }
-
-    pub fn set_path_u64<T: AsRef<str>>(&self, db: &mut Database, path: &[T], value: u64) -> PropertyResolverResult<()> {
-        self.set_path(db, path, Value::U64(value), |schema| schema.is_u64())
-    }
-
-    pub fn get_path_f32<T: AsRef<str>>(&self, db: &mut Database, path: &[T]) -> PropertyResolverResult<f32> {
-        self.get_path(db, path, 0.0, |value| {
-            if let Value::F32(value) = value {
-                Ok(*value)
-            } else {
-                Err(PropertyResolverError::IncorrectType)
-            }
-        })
-    }
-
-    pub fn set_path_f32<T: AsRef<str>>(&self, db: &mut Database, path: &[T], value: f32) -> PropertyResolverResult<()> {
-        self.set_path(db, path, Value::F32(value), |schema| schema.is_f32())
-    }
-
-    pub fn get_path_f64<T: AsRef<str>>(&self, db: &mut Database, path: &[T]) -> PropertyResolverResult<f64> {
-        self.get_path(db, path, 0.0, |value| {
-            if let Value::F64(value) = value {
-                Ok(*value)
-            } else {
-                Err(PropertyResolverError::IncorrectType)
-            }
-        })
-    }
-
-    pub fn set_path_f64<T: AsRef<str>>(&self, db: &mut Database, path: &[T], value: f64) -> PropertyResolverResult<()> {
-        self.set_path(db, path, Value::F64(value), |schema| schema.is_f64())
-    }
-
-    pub fn get_path_bytes<'a, T: AsRef<str>>(&'a self, db: &'a mut Database, path: &[T]) -> PropertyResolverResult<&'a [u8]> {
-        let value = self.find_property_path_value(db, path);
-        if let Some(value) = value {
-            if let Value::Bytes(value) = value {
-                Ok(value)
-            } else {
-                Err(PropertyResolverError::IncorrectType)
-            }
-        } else {
-            Ok(EMPTY_BYTE_SLICE)
-        }
-    }
-
-    pub fn set_path_bytes<T: AsRef<str>>(&self, db: &mut Database, path: &[T], value: Vec<u8>) -> PropertyResolverResult<()> {
-        self.set_path(db, path, Value::Bytes(value), |schema| schema.is_bytes())
-    }
-
-    pub fn get_path_buffer<T: AsRef<str>>(&self, db: &mut Database, path: &[T]) -> PropertyResolverResult<BufferId> {
-        self.get_path(db, path, BufferId::null(), |value| {
-            if let Value::Buffer(value) = value {
-                Ok(*value)
-            } else {
-                Err(PropertyResolverError::IncorrectType)
-            }
-        })
-    }
-
-    pub fn set_path_buffer<T: AsRef<str>>(&self, db: &mut Database, path: &[T], value: BufferId) -> PropertyResolverResult<()> {
-        self.set_path(db, path, Value::Buffer(value), |schema| schema.is_buffer())
-    }
-
-    pub fn get_path_string<'a, T: AsRef<str>>(&'a self, db: &'a mut Database, path: &[T]) -> PropertyResolverResult<&'a str> {
-        let value = self.find_property_path_value(db, path);
-        if let Some(value) = value {
-            if let Value::String(value) = value {
-                Ok(value.as_str())
-            } else {
-                Err(PropertyResolverError::IncorrectType)
-            }
-        } else {
-            Ok("")
-        }
-    }
-
-    pub fn set_path_string<T: AsRef<str>>(&self, db: &mut Database, path: &[T], value: String) -> PropertyResolverResult<()> {
-        self.set_path(db, path, Value::String(value), |schema| schema.is_string())
-    }
-
-    // static array
-    // dynamic array
-    // map
-    // record_ref
-    // enum
-
-    pub fn set_path_fixed<T: AsRef<str>>(&self, db: &mut Database, path: &[T], value: Box<[u8]>) -> PropertyResolverResult<()> {
-        let expected_length = value.len();
-        self.set_path(db, path, Value::Fixed(value), |schema| {
-            if let Schema::Fixed(schema_fixed) = schema {
-                if schema_fixed.length() == expected_length {
-                    return true;
+            for checked_property in &schema_parents_to_check_for_null {
+                if obj.properties_set_to_null.contains(checked_property) {
+                    return None;
                 }
             }
 
-            false
-        })
-    }
+            for checked_property in &schema_parents_to_check_for_replace_mode {
+                if obj.properties_in_replace_mode.contains(checked_property) {
+                    return None;
+                }
+            }
 
-
-
-
-/*
-    fn find_property_path_value<'a, T: AsRef<str>>(&'a self, db: &'a Database, path: &[T]) -> Option<&Schema> {
-        let o = Some(self.object_id);
-
-        while let Some(o) = o {
-            let obj = db.objects.get(&o).unwrap();
-
-            obj.value.find_property_path_value(path);
+            object_id = obj.prototype;
         }
 
+        //TODO: Return schema default value
         None
     }
 
-    fn find_property_path_schema<'a, T: AsRef<str>>(&'a self, db: &'a Database, path: &[T]) -> Option<&Schema> {
-        let schema = db.schema(self.schema).unwrap();
-        schema.find_property_path_schema(path)
-
-
-
-
-
-
-
-        // let mut s = Some(schema);
-        //
-        // for p in path {
-        //     let mut record = None;
-        //     match s {
-        //         Schema::Nullable(x) => {
-        //             if let Schema::Record(x) = x {
-        //                 record = Some(x);
-        //             }
-        //         },
-        //         Schema::Record(x) => {
-        //             record = Some(x);
-        //         },
-        //         _ => {}
-        //     }
-        //
-        //     s = None;
-        //     if let Some(record) = record {
-        //         for field in record.fields() {
-        //             if field.name() == p {
-        //                 s = Some(field.field_schema())
-        //             }
-        //         }
-        //     }
-        //
-        //     if s.is_none() {
-        //         return None;
-        //     }
-        // }
-        //
-        // s
+    pub fn get_dynamic_array_overrides(&self, object: ObjectId, path: impl AsRef<str>) -> Option<&Value>{
+        let obj = self.objects.get(&object).unwrap();
+        obj.properties.get(path.as_ref())
     }
-    */
 
-    // fn get_f32<T: AsRef<str>>(&self, db: &Database, path: &[T]) -> f32 {
-    //     //assert!(self.has_property(db, path));
-    //
-    //     let mut object = db.objects.get(&self.object_id).unwrap();
-    //
-    //     while object.is_some() {
-    //         // check if object has the property
-    //
-    //         if let Some(object_id) = object.prototype {
-    //             object = db.objects.get(&object_id);
-    //         }
-    //
-    //     }
-    // }
+    pub fn add_dynamic_array_override(&mut self, object: ObjectId, path: impl AsRef<str>, new_value: Value) -> bool {
+        let mut schema = self.object_schema(object);
+
+        if !new_value.matches_schema(schema) {
+            panic!("Value doesn't match schema");
+        }
+
+        let obj = self.objects.get_mut(&object).unwrap();
+        //obj.properties.insert(path.as_ref().to_string(), value);
+
+        let entry = obj.properties.entry(path.as_ref().to_string()).or_insert(Value::DynamicArray(Default::default()));
+        match entry {
+            Value::DynamicArray(x) => x.push(new_value),
+            _ => panic!("unexpected value type")
+        }
+
+        true
+    }
+
+    pub fn remove_dynamic_array_override(&mut self, object: ObjectId, path: impl AsRef<str>, index: usize) -> Value {
+        //not sure how to let callers specify which value to remove?
+
+        let obj = self.objects.get_mut(&object).unwrap();
+
+        let dynamic_array_value = obj.properties.get_mut(path.as_ref()).unwrap();
+        match dynamic_array_value {
+            Value::DynamicArray(x) => x.remove(index),
+            _ => panic!("unexpected value type")
+        }
+    }
+
+    pub fn resolve_dynamic_array(&self, object: ObjectId, path: impl AsRef<str>) -> Option<Box<[&Value]>> {
+        let mut object_id = Some(object);
+        let mut schema = self.object_schema(object);
+
+
+        // Contains the path segments that we need to check for being null
+        let mut schema_parents_to_check_for_null = vec![];
+        // Contains the path segments that we need to check for being in append mode
+        let mut schema_parents_to_check_for_replace_mode = vec![];
+
+        let schema = Self::property_schema_and_path_ancestors_to_check(schema, &path, &mut schema_parents_to_check_for_null, &mut schema_parents_to_check_for_replace_mode);
+        if schema.is_none() {
+            panic!("dynamic array not found");
+        }
+
+        let mut resolved_values = vec![];
+
+        while let Some(obj_id) = object_id {
+            let obj = self.objects.get(&obj_id).unwrap();
+            if let Some(value) = obj.properties.get(path.as_ref()) {
+                match value {
+                    Value::DynamicArray(values) => {
+                        for value in values {
+                            resolved_values.push(value);
+                        }
+                    },
+                    _ => panic!("unexpected value type")
+                }
+            }
+
+            for checked_property in &schema_parents_to_check_for_null {
+                if obj.properties_set_to_null.contains(checked_property) {
+                    return None;
+                }
+            }
+
+            for checked_property in &schema_parents_to_check_for_replace_mode {
+                if obj.properties_in_replace_mode.contains(checked_property) {
+                    return Some(resolved_values.into_boxed_slice());
+                }
+            }
+
+            object_id = obj.prototype;
+        }
+
+        //TODO: Return schema default value
+        Some(resolved_values.into_boxed_slice())
+    }
+
+    pub fn get_override_behavior(&self, object: ObjectId, path: impl AsRef<str>) -> OverrideBehavior {
+        let object = self.objects.get(&object).unwrap();
+        let schema = Self::property_schema(&object.schema, &path).unwrap();
+
+        match schema {
+            Schema::DynamicArray(_) | Schema::Map(_) => {
+                if object.properties_in_replace_mode.contains(path.as_ref()) {
+                    OverrideBehavior::Replace
+                } else {
+                    OverrideBehavior::Append
+                }
+            },
+            _ => OverrideBehavior::Replace
+        }
+    }
+
+    pub fn set_override_behavior(&mut self, object: ObjectId, path: impl AsRef<str>, behavior: OverrideBehavior) {
+        let object = self.objects.get_mut(&object).unwrap();
+        let schema = Self::property_schema(&object.schema, &path).unwrap();
+
+        match schema {
+            Schema::DynamicArray(_) | Schema::Map(_) => {
+                let _ = match behavior {
+                    OverrideBehavior::Append => object.properties_in_replace_mode.remove(path.as_ref()),
+                    OverrideBehavior::Replace => object.properties_in_replace_mode.insert(path.as_ref().to_string()),
+                };
+            },
+            _ => panic!("unexpected schema type")
+        }
+    }
 }
-*/

@@ -17,4 +17,8 @@ impl SchemaStaticArray {
         self.item_type.fingerprint_hash(hasher);
         self.length.hash(hasher);
     }
+
+    pub fn item_type(&self) -> &Schema {
+        &*self.item_type
+    }
 }

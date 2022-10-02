@@ -24,11 +24,13 @@ fn main() {
         x.add_field_alias("X");
         builder.add_f32("y");
         builder.add_f32("z");
+
     });
 
     let aabb_schema_object = db.register_record_type("AABB", |builder| {
         builder.add_struct("min", &vec3_schema_object);
         builder.add_struct("max", &vec3_schema_object);
+        builder.add_dynamic_array("test_array", &Schema::Record(vec3_schema_object.clone()));
     });
 
     let _yes_no_enum = db.register_enum_type("YesNo", |builder| {
@@ -50,6 +52,48 @@ fn main() {
 
     let aabb1 = db.new_object(&aabb_schema_object);
     let aabb2 = db.new_object_from_prototype(aabb1);
+
+    println!("aabb1.max.y = {:?}", db.resolve_property(aabb1, "max.y"));
+    println!("aabb2.max.y = {:?}", db.resolve_property(aabb2, "max.y"));
+    db.set_property_override(aabb1, "max.y", Value::F32(100.0));
+    println!("aabb1.max.y = {:?}", db.resolve_property(aabb1, "max.y"));
+    println!("aabb2.max.y = {:?}", db.resolve_property(aabb2, "max.y"));
+    db.set_property_override(aabb2, "max.y", Value::F32(200.0));
+    println!("aabb1.max.y = {:?}", db.resolve_property(aabb1, "max.y"));
+    println!("aabb2.max.y = {:?}", db.resolve_property(aabb2, "max.y"));
+
+
+
+    println!("empty");
+    println!("aabb1.test_array = {:?}", db.resolve_dynamic_array(aabb1, "test_array"));
+    println!("aabb2.test_array = {:?}", db.resolve_dynamic_array(aabb2, "test_array"));
+
+    println!("set 10 on parent");
+    db.add_dynamic_array_override(aabb1, "test_array", Value::Record(ValueRecord::default()));
+    db.set_property_override(aabb1, "test_array.0.x", Value::F32(10.0));
+    println!("aabb1.test_array = {:?}", db.resolve_dynamic_array(aabb1, "test_array"));
+    println!("aabb2.test_array = {:?}", db.resolve_dynamic_array(aabb2, "test_array"));
+
+    println!("set 20 on child");
+    db.add_dynamic_array_override(aabb2, "test_array", Value::Record(ValueRecord::default()));
+    println!("aabb1.test_array = {:?}", db.resolve_property(aabb1, "test_array.0.x"));
+    println!("aabb2.test_array = {:?}", db.resolve_property(aabb2, "test_array.0.x"));
+
+    println!("set replace mode");
+    db.set_override_behavior(aabb2, "test_array", OverrideBehavior::Replace);
+    println!("aabb1.test_array = {:?}", db.resolve_dynamic_array(aabb1, "test_array"));
+    println!("aabb2.test_array = {:?}", db.resolve_dynamic_array(aabb2, "test_array"));
+
+    println!("clear replace mode");
+    db.set_override_behavior(aabb2, "test_array", OverrideBehavior::Append);
+    println!("aabb1.test_array = {:?}", db.resolve_dynamic_array(aabb1, "test_array"));
+    println!("aabb2.test_array = {:?}", db.resolve_dynamic_array(aabb2, "test_array"));
+
+    println!("remove 10 from parent");
+    db.remove_dynamic_array_override(aabb1, "test_array", 0);
+    println!("aabb1.test_array = {:?}", db.resolve_dynamic_array(aabb1, "test_array"));
+    println!("aabb2.test_array = {:?}", db.resolve_dynamic_array(aabb2, "test_array"));
+
 
 
     /*

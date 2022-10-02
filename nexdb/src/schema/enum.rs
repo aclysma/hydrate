@@ -91,4 +91,8 @@ impl SchemaEnum {
     pub fn name(&self) -> &str {
         &self.name
     }
+
+    pub fn symbols(&self) -> &[SchemaEnumSymbol] {
+        &*self.symbols
+    }
 }

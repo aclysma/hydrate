@@ -219,17 +219,33 @@ impl Schema {
             //         None
             //     }
             // },
+            Schema::Nullable(x) => {
+                Some(&*x)
+            }
             Schema::Record(x) => {
                 x.field_schema(name)
             },
-            // Schema::Map(x) => {
-            //     if name == "data" {
-            //         x.value_type()
-            //     }
-            // }
+            Schema::StaticArray(x) => {
+                if name.as_ref().parse::<u32>().is_ok() {
+                    Some(x.item_type())
+                } else {
+                    None
+                }
+            },
+            Schema::DynamicArray(x) => {
+                if name.as_ref().parse::<u32>().is_ok() {
+                    Some(x.item_type())
+                } else {
+                    None
+                }
+            },
+            Schema::Map(x) => {
+                Some(x.value_type())
+            },
             _ => None
         }
     }
+
     //
     // pub fn find_property_path_schema<T: AsRef<str>>(&self, path: &[T]) -> Option<&Schema> {
     //     let mut schema = self;

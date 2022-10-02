@@ -25,7 +25,7 @@ pub use static_array::*;
 
 use std::hash::{Hash, Hasher};
 use siphasher::sip128::Hasher128;
-use crate::SchemaFingerprint;
+use crate::{SchemaFingerprint, Value};
 
 const BOOLEAN_SCHEMA: Schema = Schema::Boolean;
 

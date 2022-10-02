@@ -53,12 +53,18 @@ impl Database {
 
     fn register_schema(&mut self, name: impl Into<String>, schema: Schema) {
         let fingerprint = schema.fingerprint();
+
+        if let Some(existing_schema) = self.schemas.get(&fingerprint) {
+            return;
+        }
+
         self.schemas.entry(fingerprint).or_insert_with(|| {
             DatabaseSchemaInfo {
                 fingerprint,
                 schema,
             }
         });
+
         let old = self.schemas_by_name.insert(name.into(), fingerprint);
 
         // We do not allow a single schema name to reference different schemas
@@ -111,7 +117,7 @@ impl Database {
         schema_fixed
     }
 
-    pub fn find_schema_by_name(&self, name: impl AsRef<str>) -> Option<Schema> {
+    pub fn find_schema_by_name(&self, name: &impl AsRef<str>) -> Option<Schema> {
         self.schemas_by_name.get(name.as_ref()).map(|fingerprint| self.find_schema_by_fingerprint(*fingerprint)).flatten()
     }
 
@@ -276,19 +282,19 @@ impl Database {
 
 
 
-
-
-
+    pub fn has_property_override(&self, object: ObjectId, path: &impl AsRef<str>) -> bool {
+        self.get_property_override(object, path).is_some()
+    }
 
     // Just gets if this object has a property without checking prototype chain for fallback or returning a default
     // Returning none means it is not overridden
-    pub fn get_property_override(&self, object: ObjectId, path: impl AsRef<str>) -> Option<&Value> {
+    pub fn get_property_override(&self, object: ObjectId, path: &impl AsRef<str>) -> Option<&Value> {
         let obj = self.objects.get(&object).unwrap();
         obj.properties.get(path.as_ref())
     }
 
     // Just sets a property on this object, making it overridden, or replacing the existing override
-    pub fn set_property_override(&mut self, object: ObjectId, path: impl AsRef<str>, value: Value) {
+    pub fn set_property_override(&mut self, object: ObjectId, path: &impl AsRef<str>, value: Value) {
         let mut object_schema = self.object_schema(object);
         let property_schema = Self::property_schema(object_schema, &path).unwrap();
 
@@ -302,7 +308,24 @@ impl Database {
         obj.properties.insert(path.as_ref().to_string(), value);
     }
 
-    pub fn resolve_property(&self, object: ObjectId, path: impl AsRef<str>) -> Option<&Value> {
+    pub fn remove_property_override(&mut self, object: ObjectId, path: &impl AsRef<str>) -> Option<Value> {
+        let mut obj = self.objects.get_mut(&object).unwrap();
+        obj.properties.remove(path.as_ref())
+    }
+
+    pub fn apply_property_override_to_prototype(&mut self, object: ObjectId, path: &impl AsRef<str>) {
+        let obj = self.objects.get(&object).unwrap();
+        let prototype = obj.prototype;
+
+        if let Some(prototype) = prototype {
+            let v = self.remove_property_override(object, path);
+            if let Some(v) = v {
+                self.set_property_override(prototype, path, v);
+            }
+        }
+    }
+
+    pub fn resolve_property(&self, object: ObjectId, path: &impl AsRef<str>) -> Option<&Value> {
         let mut object_id = Some(object);
         let mut object_schema = self.object_schema(object);
 
@@ -379,7 +402,7 @@ impl Database {
 
 
 
-    pub fn get_dynamic_array_overrides(&self, object: ObjectId, path: impl AsRef<str>) -> &[Uuid] {
+    pub fn get_dynamic_array_overrides(&self, object: ObjectId, path: &impl AsRef<str>) -> &[Uuid] {
         let mut object_schema = self.object_schema(object);
         let property_schema = Self::property_schema(object_schema, &path).unwrap();
 
@@ -395,7 +418,7 @@ impl Database {
         }
     }
 
-    pub fn add_dynamic_array_override(&mut self, object: ObjectId, path: impl AsRef<str>) -> Uuid {
+    pub fn add_dynamic_array_override(&mut self, object: ObjectId, path: &impl AsRef<str>) -> Uuid {
         let mut object_schema = self.object_schema(object).clone();
         let property_schema = Self::property_schema(&object_schema, &path).unwrap();
 
@@ -410,7 +433,7 @@ impl Database {
         new_uuid
     }
 
-    pub fn remove_dynamic_array_override(&mut self, object: ObjectId, path: impl AsRef<str>, element_id: Uuid) {
+    pub fn remove_dynamic_array_override(&mut self, object: ObjectId, path: &impl AsRef<str>, element_id: Uuid) {
         let mut object_schema = self.object_schema(object).clone();
         let property_schema = Self::property_schema(&object_schema, &path).unwrap();
 
@@ -492,7 +515,7 @@ impl Database {
         }
     }
 
-    pub fn resolve_dynamic_array(&self, object: ObjectId, path: impl AsRef<str>) -> Box<[Uuid]> {
+    pub fn resolve_dynamic_array(&self, object: ObjectId, path: &impl AsRef<str>) -> Box<[Uuid]> {
         let mut object_schema = self.object_schema(object);
 
         // Contains the path segments that we need to check for being null
@@ -525,7 +548,7 @@ impl Database {
 
 
 
-    pub fn get_override_behavior(&self, object: ObjectId, path: impl AsRef<str>) -> OverrideBehavior {
+    pub fn get_override_behavior(&self, object: ObjectId, path: &impl AsRef<str>) -> OverrideBehavior {
         let object = self.objects.get(&object).unwrap();
         let property_schema = Self::property_schema(&object.schema, &path).unwrap();
 
@@ -541,7 +564,7 @@ impl Database {
         }
     }
 
-    pub fn set_override_behavior(&mut self, object: ObjectId, path: impl AsRef<str>, behavior: OverrideBehavior) {
+    pub fn set_override_behavior(&mut self, object: ObjectId, path: &impl AsRef<str>, behavior: OverrideBehavior) {
         let object = self.objects.get_mut(&object).unwrap();
         let property_schema = Self::property_schema(&object.schema, &path).unwrap();
 

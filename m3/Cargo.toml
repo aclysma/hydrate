@@ -7,6 +7,7 @@ edition = "2018"
 
 [dependencies]
 refdb = { path = "../refdb" }
+nexdb = { path = "../nexdb" }
 
 #bevy = { path = "../vendor/bevy" }
 #bevy = "0.5"

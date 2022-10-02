@@ -1,5 +1,6 @@
 use crate::{BufferId, HashMap, Schema};
 use crate::ObjectId;
+use crate::Value::RecordRef;
 
 #[derive(Clone, Debug)]
 pub struct ValueMap {
@@ -51,6 +52,35 @@ pub enum Value {
 }
 
 impl Value {
+    pub fn default_for_schema(schema: &Schema) -> Self {
+        match schema {
+            Schema::Nullable(inner) => Value::Nullable(Default::default()),
+            Schema::Boolean => Value::Boolean(Default::default()),
+            Schema::I32 => Value::I32(Default::default()),
+            Schema::I64 => Value::I64(Default::default()),
+            Schema::U32 => Value::U32(Default::default()),
+            Schema::U64 => Value::U64(Default::default()),
+            Schema::F32 => Value::F32(Default::default()),
+            Schema::F64 => Value::F64(Default::default()),
+            Schema::Bytes => Value::Nullable(Default::default()),
+            Schema::Buffer => Value::Nullable(Default::default()),
+            Schema::String => Value::Nullable(Default::default()),
+            Schema::StaticArray(inner) => Value::StaticArray(vec![Value::default_for_schema(&inner.item_type); inner.length]),
+            Schema::DynamicArray(inner) => Value::DynamicArray(vec![]),
+            Schema::Map(inner) => Value::Map(ValueMap {
+                properties: Default::default()
+            }),
+            Schema::RecordRef(inner) => Value::RecordRef(ObjectId::null()),
+            Schema::Record(inner) => Value::Record(ValueRecord {
+                properties: Default::default()
+            }),
+            Schema::Enum(inner) => Value::Enum(ValueEnum {
+                symbol_name: inner.symbols()[0].name().to_string()
+            }),
+            Schema::Fixed(inner) => Value::Fixed(vec![0u8; inner.length()].into_boxed_slice()),
+        }
+    }
+
     pub(crate) fn matches_schema(&self, schema: &Schema) -> bool {
         match self {
             Value::Nullable(inner_value) => {
@@ -362,7 +392,7 @@ impl Value {
         }
     }
 
-    fn as_f32(&self) -> Option<f32> {
+    pub fn as_f32(&self) -> Option<f32> {
         match self {
             Value::I32(x) => Some(*x as f32),
             Value::U32(x) => Some(*x as f32),

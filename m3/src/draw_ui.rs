@@ -1,4 +1,3 @@
-use refdb::*;
 use crate::app::AppState;
 use imgui::sys::ImVec2;
 use crate::imgui_support::ImguiManager;
@@ -37,12 +36,14 @@ fn draw_property_style<F: FnOnce(&imgui::Ui)>(
     (f)(ui);
 }
 
-fn draw_inspector(
+fn draw_inspector_refdb(
     ui: &imgui::Ui,
-    db: &mut ObjectDb,
-    object_id: ObjectId,
+    db: &mut refdb::ObjectDb,
+    object_id: refdb::ObjectId,
 ) {
-    ui.text(im_str!("Start"));
+    use refdb::*;
+
+    //ui.text(im_str!("Start"));
 
     // let header_text = &im_str!("header_text");
     // let content_region = ui.window_content_region_max();
@@ -104,11 +105,11 @@ fn draw_inspector(
 
                     unsafe {
                         if imgui::sys::igBeginPopupContextItem(std::ptr::null(), imgui::sys::ImGuiPopupFlags_MouseButtonRight as _) {
-                            if (imgui::MenuItem::new(im_str!("Clear Override")).build(ui)) {
+                            if imgui::MenuItem::new(im_str!("Clear Override")).build(ui) {
                                 db.clear_property_override(object_id, property_index);
                             }
 
-                            if (imgui::MenuItem::new(im_str!("Apply Override")).build(ui)) {
+                            if imgui::MenuItem::new(im_str!("Apply Override")).build(ui) {
                                 db.apply_property_override_to_prototype(object_id, property_index);
                             }
 
@@ -126,7 +127,7 @@ fn draw_inspector(
                 ui.indent();
                 let id_token = ui.push_id(&p.name);
                 let subobject = db.get_subobject(object_id, property_index).unwrap();
-                draw_inspector(ui, db, subobject);
+                draw_inspector_refdb(ui, db, subobject);
                 id_token.pop();
                 ui.unindent();
             },
@@ -159,6 +160,275 @@ fn draw_inspector(
     //
     // ui.text(im_str!("End"));
 }
+
+
+fn draw_inspector_nexdb_property(
+    ui: &imgui::Ui,
+    db: &mut nexdb::Database,
+    object_id: nexdb::ObjectId,
+    property_path: &str,
+    property_name: &str,
+    schema: &nexdb::Schema,
+) {
+    use nexdb::*;
+
+    //let property_inherited = db.is_property_inherited(object_id, property_path);
+
+    //let property_value = db.resolve_property(object_id, property_path).unwrap();
+    let property_inherited = !db.has_property_override(object_id, &property_path);
+    let property_im_str = im_str!("{}", &property_name);
+
+    match schema {
+        Schema::Nullable(_) => {}
+        Schema::Boolean => {}
+        Schema::I32 => {}
+        Schema::I64 => {}
+        Schema::U32 => {}
+        Schema::U64 => {}
+        Schema::F32 => {
+            draw_property_style(ui, property_inherited, false, |ui| {
+                //let mut v = db.get_f32(object_id, property_index).unwrap();
+
+                let mut v = if property_inherited {
+                    //let resolved = db.resolve_property(object_id, property_path);//.unwrap().as_f32().unwrap()
+                    if let Some(value) = db.resolve_property(object_id, &property_path) {
+                        value.as_f32().unwrap()
+                    } else {
+                        Value::default_for_schema(schema).as_f32().unwrap()
+                    }
+                } else {
+                    //let mut v = db.resolve_property(object_id, property_path).unwrap_or_default(Value::default_for_schema(Schema::F32)).unwrap().as_f32().unwrap();
+                    db.get_property_override(object_id, &property_path).unwrap().as_f32().unwrap()
+                };
+
+                let modified = imgui::Drag::new(&property_im_str).build(ui, &mut v);
+
+
+
+                unsafe {
+                    if imgui::sys::igBeginPopupContextItem(std::ptr::null(), imgui::sys::ImGuiPopupFlags_MouseButtonRight as _) {
+                        if imgui::MenuItem::new(im_str!("Clear Override")).build(ui) {
+                            //db.clear_property_override(object_id, property_index);
+                            db.remove_property_override(object_id, &property_path);
+                        }
+
+                        if imgui::MenuItem::new(im_str!("Apply Override")).build(ui) {
+                            db.apply_property_override_to_prototype(object_id, &property_path);
+                            //db.set_property_override(object_id, property_path, Value::F32(v));
+
+                        }
+
+                        imgui::sys::igEndPopup();
+                    }
+                }
+
+                if modified {
+                    //db.set_f32(object_id, property_index, v);
+                    db.set_property_override(object_id, &property_path, Value::F32(v));
+
+                }
+            });
+        }
+        Schema::F64 => {}
+        Schema::Bytes => {}
+        Schema::Buffer => {}
+        Schema::String => {}
+        Schema::StaticArray(_) => {}
+        Schema::DynamicArray(_) => {}
+        Schema::Map(_) => {}
+        Schema::RecordRef(_) => {}
+        Schema::Record(record) => {
+            for field in record.fields() {
+                let field_path = if !property_path.is_empty() {
+                    format!("{}.{}", property_path, field.name())
+                } else {
+                    field.name().to_string()
+                };
+
+
+
+                ui.text(im_str!("{}", field.name().to_string()));
+                ui.indent();
+                let id_token = ui.push_id(field.name());
+
+
+
+                //let subobject = db.get_subobject(object_id, property_index).unwrap();
+                //draw_inspector_refdb(ui, db, subobject);
+
+                draw_inspector_nexdb_property(ui, db, object_id, &field_path, field.name(), field.field_schema());
+
+
+                id_token.pop();
+                ui.unindent();
+
+
+
+
+            }
+        }
+        Schema::Enum(_) => {}
+        Schema::Fixed(_) => {}
+    }
+}
+
+fn draw_inspector_nexdb(
+    ui: &imgui::Ui,
+    db: &mut nexdb::Database,
+    object_id: nexdb::ObjectId,
+) {
+    //ui.text(im_str!("Start"));
+
+    // let header_text = &im_str!("header_text");
+    // let content_region = ui.window_content_region_max();
+    // let id_token = ui.push_id("some_id");
+    // let draw_children = unsafe {
+    //     imgui::sys::igCollapsingHeaderTreeNodeFlags(
+    //         header_text.as_ptr(),
+    //         imgui::sys::ImGuiTreeNodeFlags_DefaultOpen as i32
+    //             | imgui::sys::ImGuiTreeNodeFlags_AllowItemOverlap as i32,
+    //     )
+    // };
+    //
+    // ui.same_line_with_pos(content_region[0] - 50.0);
+    //
+    // if ui.small_button(im_str!("Delete")) {
+    //     // delete
+    // } else if draw_children {
+    //     ui.indent();
+    //
+    //     ui.text(im_str!("child"));
+    //
+    //     ui.unindent();
+    // }
+    //
+    // id_token.pop();
+
+    let schema = db.object_schema(object_id).clone();
+    draw_inspector_nexdb_property(ui, db, object_id, "", "", &schema);
+
+
+    /*
+    match schema {
+        Schema::Nullable(_) => {}
+        Schema::Boolean => {}
+        Schema::I32 => {}
+        Schema::I64 => {}
+        Schema::U32 => {}
+        Schema::U64 => {}
+        Schema::F32 => {}
+        Schema::F64 => {}
+        Schema::Bytes => {}
+        Schema::Buffer => {}
+        Schema::String => {}
+        Schema::StaticArray(_) => {}
+        Schema::DynamicArray(_) => {}
+        Schema::Map(_) => {}
+        Schema::RecordRef(_) => {}
+        Schema::Record(record) => {
+            for field in record.fields() {
+
+            }
+        }
+        Schema::Enum(_) => {}
+        Schema::Fixed(_) => {}
+    }
+
+
+    // let type_id = db.type_id_of_object(object_id);
+    // let ty = db.object_type(type_id);
+    // let property_count = ty.properties.len();
+
+    for i in 0..property_count {
+        let property_index = PropertyIndex::from_index(i);
+
+        let property_inherited = db.is_property_inherited(object_id, property_index);
+        // let style_token = if property_overridden {
+        //     Some(ui.push_style_color(imgui::StyleColor::Text, [1.0, 1.0, 0.0, 1.0]))
+        // } else {
+        //     None
+        // };
+
+        let p = &db.object_type(type_id).properties[i];
+        let property_im_str = im_str!("{}", &p.name);
+        match p.property_type {
+            PropertyType::U64 => {
+                draw_property_style(ui, property_inherited, false, |ui| {
+                    let mut v = db.get_u64(object_id, property_index).unwrap();
+                    let modified = imgui::Drag::new(&property_im_str).build(ui, &mut v);
+                    if modified {
+                        db.set_u64(object_id, property_index, v);
+                    }
+                });
+            }
+            PropertyType::F32 => {
+                draw_property_style(ui, property_inherited, false, |ui| {
+                    let mut v = db.get_f32(object_id, property_index).unwrap();
+                    let modified = imgui::Drag::new(&property_im_str).build(ui, &mut v);
+
+
+
+                    unsafe {
+                        if imgui::sys::igBeginPopupContextItem(std::ptr::null(), imgui::sys::ImGuiPopupFlags_MouseButtonRight as _) {
+                            if (imgui::MenuItem::new(im_str!("Clear Override")).build(ui)) {
+                                db.clear_property_override(object_id, property_index);
+                            }
+
+                            if (imgui::MenuItem::new(im_str!("Apply Override")).build(ui)) {
+                                db.apply_property_override_to_prototype(object_id, property_index);
+                            }
+
+                            imgui::sys::igEndPopup();
+                        }
+                    }
+
+                    if modified {
+                        db.set_f32(object_id, property_index, v);
+                    }
+                });
+            }
+            PropertyType::Subobject(_) => {
+                ui.text(im_str!("{}", p.name));
+                ui.indent();
+                let id_token = ui.push_id(&p.name);
+                let subobject = db.get_subobject(object_id, property_index).unwrap();
+                draw_inspector_refdb(ui, db, subobject);
+                id_token.pop();
+                ui.unindent();
+            },
+            PropertyType::SubobjectSet(_) => {
+                ui.text(im_str!("UNHANDLED SET {}", p.name));
+            }
+        }
+        //drop(style_token);
+    }
+*/
+
+
+
+    // let mut value = 0.0;
+    // ui.input_float(im_str!("Value 1"), &mut value).build();
+    // ui.input_float(im_str!("Value 2"), &mut value).build();
+    // ui.input_float(im_str!("Value 3"), &mut value).build();
+    //
+    // imgui::Slider::new(im_str!("slider na asdfasdf asdf asdf asd fasdf asdf asdf"))
+    //     .range(std::ops::RangeInclusive::new(0.0, 100.0))
+    //     .build(ui, &mut value);
+    //
+    //
+    // ui.indent();
+    // let g = ui.begin_group();
+    // ui.input_float(im_str!("Value 4"), &mut value).build();
+    // ui.input_float(im_str!("Value 5"), &mut value).build();
+    // g.end();
+    // ui.unindent();
+    //
+    // ui.text(im_str!("End"));
+}
+
+
+
+
 
 fn splitter(vertical: bool, size1: &mut f32, size2: &mut f32) {
     let thickness = 4.0;
@@ -207,7 +477,7 @@ fn splitter(vertical: bool, size1: &mut f32, size2: &mut f32) {
 
 fn draw_asset_browser_splitter(
     ui: &imgui::Ui,
-    db: &mut ObjectDb,
+    db: &mut refdb::ObjectDb,
 ) {
     unsafe {
         imgui::sys::igPushStyleVar_Vec2(imgui::sys::ImGuiStyleVar_WindowPadding as _, ImVec2::new(0.0, 0.0));
@@ -270,7 +540,7 @@ fn draw_asset_browser_splitter(
 
 fn draw_asset_browser_dock_space(
     ui: &imgui::Ui,
-    db: &mut ObjectDb,
+    db: &mut refdb::ObjectDb,
 ) {
     unsafe {
         //let main_viewport = imgui::sys::igGetMainViewport();
@@ -367,7 +637,7 @@ fn draw_asset_browser_dock_space(
 
 fn draw_asset_browser_dock_space_windows(
     ui: &imgui::Ui,
-    db: &mut ObjectDb,
+    db: &mut refdb::ObjectDb,
 ) {
     unsafe {
         let window_token = imgui::Window::new(im_str!("AssetTree"))
@@ -468,11 +738,9 @@ fn draw_2_pane_view(
 
         imgui::sys::igPopStyleVar(3);
 
-
-        draw_asset_browser_dock_space(ui, &mut app_state.db);
-
-
-        draw_asset_browser_dock_space_windows(ui, &mut app_state.db);
+        //TODO: Uncomment to bring asset browser back
+        //draw_asset_browser_dock_space(ui, &mut app_state.test_data_refdb.db);
+        //draw_asset_browser_dock_space_windows(ui, &mut app_state.test_data_refdb.db);
 
         let window_token = imgui::Window::new(im_str!("Prototype"))
             //.position([550.0, 100.0], imgui::Condition::Once)
@@ -480,7 +748,8 @@ fn draw_2_pane_view(
             .begin(ui);
 
         if let Some(window_token) = window_token {
-            draw_inspector(ui, &mut app_state.db, app_state.prototype_obj);
+            //draw_inspector_refdb(ui, &mut app_state.test_data_refdb.db, app_state.test_data_refdb.prototype_obj);
+            draw_inspector_nexdb(ui, &mut app_state.test_data_nexdb.db, app_state.test_data_nexdb.prototype_obj);
             window_token.end();
         }
 
@@ -490,7 +759,8 @@ fn draw_2_pane_view(
             .begin(ui);
 
         if let Some(window_token) = window_token {
-            draw_inspector(ui, &mut app_state.db, app_state.instance_obj);
+            //draw_inspector_refdb(ui, &mut app_state.test_data_refdb.db, app_state.test_data_refdb.instance_obj);
+            draw_inspector_nexdb(ui, &mut app_state.test_data_nexdb.db, app_state.test_data_nexdb.instance_obj);
             window_token.end();
         }
 

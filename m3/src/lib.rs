@@ -6,7 +6,8 @@ use imgui_support::ImguiManager;
 
 mod imgui_themes;
 
-mod test_data;
+mod test_data_refdb;
+mod test_data_nexdb;
 
 mod draw_ui;
 mod draw_ui2;
@@ -15,17 +16,16 @@ mod app;
 use app::AppState;
 
 use refdb::*;
-use crate::test_data::TestData;
 
 
 // Creates a window and runs the event loop.
 pub fn run() {
-    let test_data = test_data::setup_test_data();
+    let test_data_refdb = test_data_refdb::setup_test_data();
+    let test_data_nexdb = test_data_nexdb::setup_test_data();
 
     let mut app_state = AppState {
-        db: test_data.db,
-        prototype_obj: test_data.prototype_obj,
-        instance_obj: test_data.instance_obj
+        test_data_refdb,
+        test_data_nexdb
     };
 
     // Create the winit event loop

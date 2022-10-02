@@ -1,4 +1,5 @@
 use std::io::BufRead;
+use uuid::Uuid;
 use super::{HashSet, HashMap, ObjectId, SchemaFingerprint};
 use super::schema::*;
 use super::value::*;
@@ -138,6 +139,7 @@ pub struct DatabaseObjectInfo {
     properties: HashMap<String, Value>,
     properties_set_to_null: HashSet<String>,
     properties_in_replace_mode: HashSet<String>,
+    dynamic_array_entries: HashMap<String, Vec<Uuid>>,
 }
 
 #[derive(Debug, Copy, Clone, PartialEq)]
@@ -227,6 +229,12 @@ impl Database {
         self.schemas.get(&fingerprint).map(|x| x.schema.clone())
     }
 
+
+
+
+
+
+
     fn insert_object(&mut self, obj_info: DatabaseObjectInfo) -> ObjectId {
         let id = ObjectId(uuid::Uuid::new_v4().as_u128());
         let old = self.objects.insert(id, obj_info);
@@ -242,6 +250,7 @@ impl Database {
             properties: Default::default(),
             properties_set_to_null: Default::default(),
             properties_in_replace_mode: Default::default(),
+            dynamic_array_entries: Default::default(),
         };
 
         self.insert_object(obj)
@@ -255,10 +264,17 @@ impl Database {
             properties: Default::default(),
             properties_set_to_null: Default::default(),
             properties_in_replace_mode: Default::default(),
+            dynamic_array_entries: Default::default(),
         };
 
         self.insert_object(obj)
     }
+
+
+
+
+
+
 
     pub fn object_schema(&self, object: ObjectId) -> &Schema {
         let o = self.objects.get(&object).unwrap();
@@ -281,6 +297,13 @@ impl Database {
 
         Some(schema)
     }
+
+
+
+
+
+
+
 
     fn truncate_property_path(path: &impl AsRef<str>, max_segment_count: usize) -> String {
         let mut shortened_path = String::default();
@@ -340,6 +363,15 @@ impl Database {
         Some(schema)
     }
 
+
+
+
+
+
+
+
+
+
     // Just gets if this object has a property without checking prototype chain for fallback or returning a default
     // Returning none means it is not overridden
     pub fn get_property_override(&self, object: ObjectId, path: impl AsRef<str>) -> Option<&Value> {
@@ -348,22 +380,17 @@ impl Database {
     }
 
     // Just sets a property on this object, making it overridden, or replacing the existing override
-    pub fn set_property_override(&mut self, object: ObjectId, path: impl AsRef<str>, value: Value) -> bool {
-        let mut schema = self.object_schema(object);
-        //
-        // // Contains the index of path segments that we need to check for being in append mode
-        // let mut schema_parents_to_check_for_replace_mode = vec![];
-        //
-        let schema = Self::property_schema(schema, &path).unwrap();
+    pub fn set_property_override(&mut self, object: ObjectId, path: impl AsRef<str>, value: Value) {
+        let mut object_schema = self.object_schema(object);
+        let property_schema = Self::property_schema(object_schema, &path).unwrap();
 
-        //TODO: Assert schema/value are compatible
-        if !value.matches_schema(schema) {
+        //TODO: Should we check for null in path ancestors?
+        if !value.matches_schema(property_schema) {
             panic!("Value doesn't match schema");
         }
 
         let obj = self.objects.get_mut(&object).unwrap();
         obj.properties.insert(path.as_ref().to_string(), value);
-        true
     }
 
     pub fn resolve_property(&self, object: ObjectId, path: impl AsRef<str>) -> Option<&Value> {
@@ -402,7 +429,16 @@ impl Database {
         None
     }
 
-    pub fn get_dynamic_array_overrides(&self, object: ObjectId, path: impl AsRef<str>) -> Option<&Value>{
+
+
+
+
+
+
+
+
+
+    pub fn get_dynamic_array_overrides(&self, object: ObjectId, path: impl AsRef<str>) -> Option<&Value> {
         let obj = self.objects.get(&object).unwrap();
         obj.properties.get(path.as_ref())
     }
@@ -486,6 +522,16 @@ impl Database {
         //TODO: Return schema default value
         Some(resolved_values.into_boxed_slice())
     }
+
+
+
+
+
+
+
+
+
+
 
     pub fn get_override_behavior(&self, object: ObjectId, path: impl AsRef<str>) -> OverrideBehavior {
         let object = self.objects.get(&object).unwrap();

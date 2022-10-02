@@ -5,4 +5,6 @@ pub struct AppState {
     pub db: ObjectDb,
     pub prototype_obj: ObjectId,
     pub instance_obj: ObjectId,
+
+    //TODO: New DB type here, update draw_2_pane_view to call draw_inspector with new data
 }

@@ -15,118 +15,6 @@ mod enum_type_builder;
 use enum_type_builder::EnumTypeBuilder;
 use crate::BufferId;
 
-// enum PropertySchema {
-//     Nullable(Schema),
-//     Value(Schema),
-//     StaticArray(SchemaStaticArray),
-//     DynamicArray(SchemaDynamicArray),
-//     DynamicArrayInner(SchemaDynamicArray),
-//     Map(SchemaMap),
-//     MapInner(SchemaMap),
-// }
-
-
-
-
-/*
-pub struct SchemaPropertyMappingNode {
-    name: String,
-    //index: u64,
-    //parent: u32,
-    // first_child: u32,
-    // children_count: u32,
-    children: Box<[SchemaPropertyMappingNode]>,
-
-
-    //stride: u64,
-    schema: Schema
-}
-
-pub struct SchemaPropertyMapping {
-    //property_schemas: Box<[Schema]>
-    root: SchemaPropertyMappingNode
-}
-
-impl SchemaPropertyMapping {
-    fn add_properties(mappings: &mut Vec<SchemaPropertyMappingNode>, schema: &Schema, prefix: String) {
-        match schema {
-            Schema::Nullable(x) => {
-                let mut children = Vec::with_capacity(2);
-                Self::add_properties(&mut children, &Schema::Boolean, format!("{}.is_null", prefix));
-                Self::add_properties(&mut children, &*x, format!("{}.value.", prefix));
-                mappings.push(SchemaPropertyMappingNode {
-                    name: prefix,
-                    children: children.into_boxed_slice(),
-                    schema: schema.clone(),
-                })
-            }
-            Schema::Boolean | Schema::I32 | Schema::I64 | Schema::U32 | Schema::U64 | Schema::F32 | Schema::F64 | Schema::Bytes | Schema::Buffer | Schema::String => {
-                mappings.push(SchemaPropertyMappingNode {
-                    name: prefix,
-                    children: Vec::default().into_boxed_slice(),
-                    schema: schema.clone(),
-                });
-            }
-            // Schema::I32 => {}
-            // Schema::I64 => {}
-            // Schema::U32 => {}
-            // Schema::U64 => {}
-            // Schema::F32 => {}
-            // Schema::F64 => {}
-            // Schema::Bytes => {}
-            // Schema::Buffer => {}
-            // Schema::String => {}
-            Schema::StaticArray(x) => {
-                let mut children = Vec::with_capacity(x.length);
-                for i in 0..x.length {
-                    Self::add_properties(mappings, &*x.item_type, format!("{}.{}", prefix, i));
-                }
-
-                mappings.push(SchemaPropertyMappingNode {
-                    name: prefix,
-                    children: children.into_boxed_slice(),
-                    schema: schema.clone(),
-                });
-            }
-            Schema::DynamicArray(x) => {
-                let mut children = Vec::with_capacity(2);
-                Self::add_properties(&mut children, &Schema::Boolean, format!("{}.include_prototype_values", prefix));
-                //Self::add_properties(&mut children, schema.clone(), format!("{}.data", prefix));
-                children.push(SchemaPropertyMappingNode {
-                    name: format!("{}.data", prefix),
-                    children: Vec::default().into_boxed_slice(),
-                    schema: Schema::DynamicArray(x.clone()),
-                });
-
-                mappings.push(SchemaPropertyMappingNode {
-                    name: prefix,
-                    children: children.into_boxed_slice(),
-                    schema: schema.clone(),
-                });
-
-            }
-            Schema::Map(_) => {}
-            Schema::RecordRef(_) => {
-                mappings.push(SchemaPropertyMappingNode {
-                    name: prefix,
-                    children: Vec::default().into_boxed_slice(),
-                    schema: schema.clone(),
-                });
-            }
-            Schema::Record(_) => {}
-            //Schema::Enum(_) => {}
-            //Schema::Fixed(_) => {}
-        }
-    }
-
-    pub fn new(schema: Schema) {
-
-
-    }
-}
-*/
-
-
 
 pub struct DatabaseSchemaInfo {
     schema: Schema,
@@ -135,13 +23,14 @@ pub struct DatabaseSchemaInfo {
 
 pub struct DatabaseObjectInfo {
     schema: Schema, // Will always be a SchemaRecord
-    //value: Value, // Will always be a ValueRecord
     prototype: Option<ObjectId>,
     properties: HashMap<String, Value>,
     properties_set_to_null: HashSet<String>,
     properties_in_replace_mode: HashSet<String>,
     dynamic_array_entries: HashMap<String, Vec<Uuid>>,
 }
+
+//TODO: Delete unused property data when path ancestor is null or in replace mode
 
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub enum OverrideBehavior {

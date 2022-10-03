@@ -274,34 +274,35 @@ fn draw_inspector_nexdb_property(
                 draw_property_style(ui, property_inherited, false, |ui| {
 
                     ui.text(property_path);
-                    ui.indent();
-
-                    if is_nulled {
-                        if ui.button(im_str!("Set Non-Null")) {
-                            db.set_null_override(object_id, &property_path, NullOverride::SetNonNull);
-                            is_nulled = false;
-                        }
-                    } else {
-                        if ui.button(im_str!("Set Null")) {
-                            db.set_null_override(object_id, &property_path, NullOverride::SetNull);
-                            is_nulled = true;
-                        }
-                    }
-
-                    ui.same_line();
-                    if ui.button(im_str!("Inherit Null Status")) {
-                        db.clear_null_override(object_id, &property_path);
-                    }
-
-                    if !is_nulled {
-                        ui.indent();
-                        let id_token = ui.push_id(&property_path);
-                        draw_inspector_nexdb_property(ui, db, object_id, property_path, property_name, &*inner_schema);
-                        id_token.pop();
-                        ui.unindent();
-                    }
-                    ui.unindent();
                 });
+
+                ui.indent();
+
+                if is_nulled {
+                    if ui.button(im_str!("Set Non-Null")) {
+                        db.set_null_override(object_id, property_path, NullOverride::SetNonNull);
+                        is_nulled = false;
+                    }
+                } else {
+                    if ui.button(im_str!("Set Null")) {
+                        db.set_null_override(object_id, property_path, NullOverride::SetNull);
+                        is_nulled = true;
+                    }
+                }
+
+                ui.same_line();
+                if ui.button(im_str!("Inherit Null Status")) {
+                    db.remove_null_override(object_id, property_path);
+                }
+
+                if !is_nulled {
+                    ui.indent();
+                    let id_token = ui.push_id(property_path);
+                    draw_inspector_nexdb_property(ui, db, object_id, property_path, property_name, &*inner_schema);
+                    id_token.pop();
+                    ui.unindent();
+                }
+                ui.unindent();
             }
         }
         Schema::Boolean => {

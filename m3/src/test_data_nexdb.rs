@@ -47,20 +47,20 @@ pub fn setup_test_data() -> TestData {
     let prototype_obj = db.new_object(&transform_schema_object);
     let instance_obj = db.new_object_from_prototype(prototype_obj);
 
-    db.set_property_override(prototype_obj, &"position.x", nexdb::Value::F64(10.0));
-    db.set_property_override(instance_obj, &"position.x", nexdb::Value::F64(20.0));
-    let prototype_array_element_1 = db.add_dynamic_array_override(prototype_obj, &"all_fields.dynamic_array_i32");
-    let prototype_array_element_2 = db.add_dynamic_array_override(prototype_obj, &"all_fields.dynamic_array_i32");
-    let instance_array_element_1 = db.add_dynamic_array_override(instance_obj, &"all_fields.dynamic_array_i32");
-    let instance_array_element_2 = db.add_dynamic_array_override(instance_obj, &"all_fields.dynamic_array_i32");
-    let instance_array_element_3 = db.add_dynamic_array_override(instance_obj, &"all_fields.dynamic_array_i32");
+    db.set_property_override(prototype_obj, "position.x", nexdb::Value::F64(10.0));
+    db.set_property_override(instance_obj, "position.x", nexdb::Value::F64(20.0));
+    let prototype_array_element_1 = db.add_dynamic_array_override(prototype_obj, "all_fields.dynamic_array_i32");
+    let prototype_array_element_2 = db.add_dynamic_array_override(prototype_obj, "all_fields.dynamic_array_i32");
+    let instance_array_element_1 = db.add_dynamic_array_override(instance_obj, "all_fields.dynamic_array_i32");
+    let instance_array_element_2 = db.add_dynamic_array_override(instance_obj, "all_fields.dynamic_array_i32");
+    let instance_array_element_3 = db.add_dynamic_array_override(instance_obj, "all_fields.dynamic_array_i32");
 
 
-    let prototype_array_element_1 = db.add_dynamic_array_override(prototype_obj, &"all_fields.dynamic_array_vec3");
-    let prototype_array_element_2 = db.add_dynamic_array_override(prototype_obj, &"all_fields.dynamic_array_vec3");
-    let instance_array_element_1 = db.add_dynamic_array_override(instance_obj, &"all_fields.dynamic_array_vec3");
-    let instance_array_element_2 = db.add_dynamic_array_override(instance_obj, &"all_fields.dynamic_array_vec3");
-    let instance_array_element_3 = db.add_dynamic_array_override(instance_obj, &"all_fields.dynamic_array_vec3");
+    let prototype_array_element_1 = db.add_dynamic_array_override(prototype_obj, "all_fields.dynamic_array_vec3");
+    let prototype_array_element_2 = db.add_dynamic_array_override(prototype_obj, "all_fields.dynamic_array_vec3");
+    let instance_array_element_1 = db.add_dynamic_array_override(instance_obj, "all_fields.dynamic_array_vec3");
+    let instance_array_element_2 = db.add_dynamic_array_override(instance_obj, "all_fields.dynamic_array_vec3");
+    let instance_array_element_3 = db.add_dynamic_array_override(instance_obj, "all_fields.dynamic_array_vec3");
 
     TestData {
         db,

@@ -11,6 +11,7 @@ mod test_data_nexdb;
 
 mod draw_ui;
 mod draw_ui2;
+mod draw_ui_inspector_nexdb;
 
 mod app;
 use app::AppState;

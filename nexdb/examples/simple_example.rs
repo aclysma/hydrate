@@ -46,7 +46,7 @@ fn main() {
 
     println!("fingerprint {}", aabb_schema_object.fingerprint_uuid());
 
-    let schema = db.find_schema_by_name("Vec3").unwrap();
+    let schema = db.find_schema_by_name(&"Vec3").unwrap();
     println!("vec3 fingerprint {}", schema.fingerprint().as_uuid());
 
 

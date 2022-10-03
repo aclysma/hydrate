@@ -50,7 +50,6 @@ pub struct Database {
     objects: HashMap<ObjectId, DatabaseObjectInfo>,
 }
 
-
 impl Database {
     pub fn schema(&self, fingerprint: SchemaFingerprint) -> Option<&Schema> {
         self.schemas.get(&fingerprint).map(|x| &x.schema)
@@ -297,16 +296,6 @@ impl Database {
         }
     }
 
-    pub fn clear_null_override(&mut self, object: ObjectId, path: &impl AsRef<str>) {
-        let mut object_schema = self.object_schema(object);
-        let property_schema = Self::property_schema(object_schema, &path).unwrap();
-
-        if property_schema.is_nullable() {
-            let obj = self.objects.get_mut(&object).unwrap();
-            obj.property_null_overrides.remove(path.as_ref());
-        }
-    }
-
     pub fn set_null_override(&mut self, object: ObjectId, path: &impl AsRef<str>, null_override: NullOverride) {
         let mut object_schema = self.object_schema(object);
         let property_schema = Self::property_schema(object_schema, &path).unwrap();
@@ -314,6 +303,16 @@ impl Database {
         if property_schema.is_nullable() {
             let obj = self.objects.get_mut(&object).unwrap();
             obj.property_null_overrides.insert(path.as_ref().to_string(), null_override);
+        }
+    }
+
+    pub fn remove_null_override(&mut self, object: ObjectId, path: &impl AsRef<str>) {
+        let mut object_schema = self.object_schema(object);
+        let property_schema = Self::property_schema(object_schema, &path).unwrap();
+
+        if property_schema.is_nullable() {
+            let obj = self.objects.get_mut(&object).unwrap();
+            obj.property_null_overrides.remove(path.as_ref());
         }
     }
 
@@ -392,6 +391,15 @@ impl Database {
         //TODO: Return schema default value
         Some(true)
     }
+
+
+
+
+
+
+
+
+
 
     pub fn has_property_override(&self, object: ObjectId, path: &impl AsRef<str>) -> bool {
         self.get_property_override(object, path).is_some()

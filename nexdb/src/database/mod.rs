@@ -15,6 +15,11 @@ mod enum_type_builder;
 use enum_type_builder::EnumTypeBuilder;
 use crate::BufferId;
 
+#[derive(Debug, Copy, Clone, PartialEq)]
+pub enum NullOverride {
+    SetNull,
+    SetNonNull
+}
 
 pub struct DatabaseSchemaInfo {
     schema: Schema,
@@ -25,7 +30,7 @@ pub struct DatabaseObjectInfo {
     schema: Schema, // Will always be a SchemaRecord
     prototype: Option<ObjectId>,
     properties: HashMap<String, Value>,
-    properties_set_to_null: HashSet<String>,
+    property_null_overrides: HashMap<String, NullOverride>,
     properties_in_replace_mode: HashSet<String>,
     dynamic_array_entries: HashMap<String, Vec<Uuid>>,
 }
@@ -144,7 +149,7 @@ impl Database {
             schema: Schema::Record(schema.clone()),
             prototype: None,
             properties: Default::default(),
-            properties_set_to_null: Default::default(),
+            property_null_overrides: Default::default(),
             properties_in_replace_mode: Default::default(),
             dynamic_array_entries: Default::default(),
         };
@@ -158,7 +163,7 @@ impl Database {
             schema: prototype_info.schema.clone(),
             prototype: Some(prototype),
             properties: Default::default(),
-            properties_set_to_null: Default::default(),
+            property_null_overrides: Default::default(),
             properties_in_replace_mode: Default::default(),
             dynamic_array_entries: Default::default(),
         };
@@ -182,7 +187,7 @@ impl Database {
         let split_path = path.as_ref().split(".");
 
         // Iterate the path segments to find
-        for path_segment in split_path { //.as_ref().split(".").enumerate() {
+        for path_segment in split_path {
             let s = schema.find_property_schema(path_segment);
             if let Some(s) = s {
                 schema = s;
@@ -280,7 +285,113 @@ impl Database {
 
 
 
+    pub fn get_null_override(&self, object: ObjectId, path: &impl AsRef<str>) -> Option<NullOverride> {
+        let mut object_schema = self.object_schema(object);
+        let property_schema = Self::property_schema(object_schema, &path).unwrap();
 
+        if property_schema.is_nullable() {
+            let obj = self.objects.get(&object).unwrap();
+            obj.property_null_overrides.get(path.as_ref()).copied()
+        } else {
+            None
+        }
+    }
+
+    pub fn clear_null_override(&mut self, object: ObjectId, path: &impl AsRef<str>) {
+        let mut object_schema = self.object_schema(object);
+        let property_schema = Self::property_schema(object_schema, &path).unwrap();
+
+        if property_schema.is_nullable() {
+            let obj = self.objects.get_mut(&object).unwrap();
+            obj.property_null_overrides.remove(path.as_ref());
+        }
+    }
+
+    pub fn set_null_override(&mut self, object: ObjectId, path: &impl AsRef<str>, null_override: NullOverride) {
+        let mut object_schema = self.object_schema(object);
+        let property_schema = Self::property_schema(object_schema, &path).unwrap();
+
+        if property_schema.is_nullable() {
+            let obj = self.objects.get_mut(&object).unwrap();
+            obj.property_null_overrides.insert(path.as_ref().to_string(), null_override);
+        }
+    }
+
+    // None return means the property can't be resolved, maybe because something higher in
+    // property hierarchy is null or non-existing
+    pub fn resolve_is_null(&self, object: ObjectId, path: &impl AsRef<str>) -> Option<bool> {
+        let mut object_id = Some(object);
+        let mut object_schema = self.object_schema(object);
+
+        // Contains the path segments that we need to check for being null
+        let mut nullable_ancestors = vec![];
+        // Contains the path segments that we need to check for being in append mode
+        let mut dynamic_array_ancestors = vec![];
+        // Contains the path segments that we need to check for being in append mode
+        let mut map_ancestors = vec![];
+        // Contains the dynamic arrays we access and what keys are used to access them
+        let mut accessed_dynamic_array_keys = vec![];
+
+        //TODO: Only allow getting values that exist, in particular, dynamic array overrides
+
+        let property_schema = Self::property_schema_and_path_ancestors_to_check(
+            object_schema,
+            &path,
+            &mut nullable_ancestors,
+            &mut dynamic_array_ancestors,
+            &mut map_ancestors,
+            &mut accessed_dynamic_array_keys
+        ).unwrap();
+
+        if !property_schema.is_nullable() {
+            panic!("schema not nullable");
+        }
+
+        while let Some(obj_id) = object_id {
+            let obj = self.objects.get(&obj_id).unwrap();
+            for checked_property in &nullable_ancestors {
+                if let Some(null_override) = obj.property_null_overrides.get(checked_property) {
+                    if *null_override == NullOverride::SetNull {
+                        return None;
+                    }
+                }
+            }
+
+            for (path, key) in &accessed_dynamic_array_keys {
+                let dynamic_array_entries = self.resolve_dynamic_array(obj_id, path);
+                if !dynamic_array_entries.contains(&Uuid::from_str(key).unwrap()) {
+                    return None;
+                }
+            }
+
+            if let Some(value) = obj.property_null_overrides.get(path.as_ref()) {
+                return Some(*value == NullOverride::SetNull);
+            }
+
+            for checked_property in &dynamic_array_ancestors {
+                if obj.properties_in_replace_mode.contains(checked_property) {
+                    return None;
+                }
+            }
+
+            for checked_property in &map_ancestors {
+                if obj.properties_in_replace_mode.contains(checked_property) {
+                    return None;
+                }
+            }
+
+            // for checked_property in &schema_parents_to_check_for_key_exists {
+            //     if obj.dynamic_array_entries.contains(checked_property) {
+            //         return None;
+            //     }
+            // }
+
+            object_id = obj.prototype;
+        }
+
+        //TODO: Return schema default value
+        Some(true)
+    }
 
     pub fn has_property_override(&self, object: ObjectId, path: &impl AsRef<str>) -> bool {
         self.get_property_override(object, path).is_some()
@@ -296,12 +407,17 @@ impl Database {
     // Just sets a property on this object, making it overridden, or replacing the existing override
     pub fn set_property_override(&mut self, object: ObjectId, path: &impl AsRef<str>, value: Value) {
         let mut object_schema = self.object_schema(object);
-        let property_schema = Self::property_schema(object_schema, &path).unwrap();
+        let mut property_schema = Self::property_schema(object_schema, &path).unwrap();
+
+        match property_schema {
+            Schema::Nullable(inner_schema) => property_schema = inner_schema,
+            _ => {}
+        }
 
         //TODO: Should we check for null in path ancestors?
         //TODO: Only allow setting on values that exist, in particular, dynamic array overrides
         if !value.matches_schema(property_schema) {
-            panic!("Value doesn't match schema");
+            panic!("Value {:?} doesn't match schema {:?}", value, property_schema);
         }
 
         let obj = self.objects.get_mut(&object).unwrap();
@@ -352,8 +468,10 @@ impl Database {
         while let Some(obj_id) = object_id {
             let obj = self.objects.get(&obj_id).unwrap();
             for checked_property in &nullable_ancestors {
-                if obj.properties_set_to_null.contains(checked_property) {
-                    return None;
+                if let Some(null_override) = obj.property_null_overrides.get(checked_property) {
+                    if *null_override == NullOverride::SetNull {
+                        return None;
+                    }
                 }
             }
 
@@ -466,8 +584,10 @@ impl Database {
 
         // if path ancestor is nulled, we do not use any entries from this object or parent
         for checked_property in nullable_ancestors {
-            if obj.properties_set_to_null.contains(checked_property) {
-                return;
+            if let Some(null_override) = obj.property_null_overrides.get(checked_property) {
+                if *null_override == NullOverride::SetNull {
+                    return;
+                }
             }
         }
 

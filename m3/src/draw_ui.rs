@@ -207,6 +207,121 @@ fn draw_inspector_simple_property<F: FnOnce(&imgui::Ui, nexdb::Value) -> Option<
     }
 }
 
+fn draw_inspector_simple_property_bool(
+    ui: &imgui::Ui,
+    db: &mut nexdb::Database,
+    object_id: nexdb::ObjectId,
+    property_path: &str,
+    property_name: &str,
+    schema: &nexdb::Schema,
+    property_inherited: bool,
+) {
+    use nexdb::*;
+
+    draw_inspector_simple_property(ui, db, object_id, property_path, property_name, schema, property_inherited, |ui, value| {
+        let mut v = value.as_boolean().unwrap();
+        let property_im_str = im_str!("{}", &property_name);
+        let modified = ui.checkbox(&property_im_str, &mut v);
+        if modified {
+            Some(Value::Boolean(v))
+        } else {
+            None
+        }
+    })
+}
+
+fn draw_inspector_simple_property_i32(
+    ui: &imgui::Ui,
+    db: &mut nexdb::Database,
+    object_id: nexdb::ObjectId,
+    property_path: &str,
+    property_name: &str,
+    schema: &nexdb::Schema,
+    property_inherited: bool,
+) {
+    use nexdb::*;
+
+    draw_inspector_simple_property(ui, db, object_id, property_path, property_name, schema, property_inherited, |ui, value| {
+        let mut v = value.as_i32().unwrap();
+        let property_im_str = im_str!("{}", &property_name);
+        let modified = imgui::Drag::new(&property_im_str).build(ui, &mut v);
+        if modified {
+            Some(Value::I32(v))
+        } else {
+            None
+        }
+    })
+}
+
+fn draw_inspector_simple_property_u32(
+    ui: &imgui::Ui,
+    db: &mut nexdb::Database,
+    object_id: nexdb::ObjectId,
+    property_path: &str,
+    property_name: &str,
+    schema: &nexdb::Schema,
+    property_inherited: bool,
+) {
+    use nexdb::*;
+
+    draw_inspector_simple_property(ui, db, object_id, property_path, property_name, schema, property_inherited, |ui, value| {
+        let mut v = value.as_u32().unwrap();
+        let property_im_str = im_str!("{}", &property_name);
+        let modified = imgui::Drag::new(&property_im_str).build(ui, &mut v);
+        if modified {
+            Some(Value::U32(v))
+        } else {
+            None
+        }
+    })
+}
+
+fn draw_inspector_simple_property_i64(
+    ui: &imgui::Ui,
+    db: &mut nexdb::Database,
+    object_id: nexdb::ObjectId,
+    property_path: &str,
+    property_name: &str,
+    schema: &nexdb::Schema,
+    property_inherited: bool,
+) {
+    use nexdb::*;
+
+    draw_inspector_simple_property(ui, db, object_id, property_path, property_name, schema, property_inherited, |ui, value| {
+        let mut v = value.as_i64().unwrap();
+        let property_im_str = im_str!("{}", &property_name);
+        let modified = imgui::Drag::new(&property_im_str).build(ui, &mut v);
+        if modified {
+            Some(Value::I64(v))
+        } else {
+            None
+        }
+    })
+}
+
+fn draw_inspector_simple_property_u64(
+    ui: &imgui::Ui,
+    db: &mut nexdb::Database,
+    object_id: nexdb::ObjectId,
+    property_path: &str,
+    property_name: &str,
+    schema: &nexdb::Schema,
+    property_inherited: bool,
+) {
+    use nexdb::*;
+
+    draw_inspector_simple_property(ui, db, object_id, property_path, property_name, schema, property_inherited, |ui, value| {
+        let mut v = value.as_u64().unwrap();
+        let property_im_str = im_str!("{}", &property_name);
+        let modified = imgui::Drag::new(&property_im_str).build(ui, &mut v);
+        if modified {
+            Some(Value::U64(v))
+        } else {
+            None
+        }
+    })
+}
+
 fn draw_inspector_simple_property_f32(
     ui: &imgui::Ui,
     db: &mut nexdb::Database,
@@ -244,6 +359,54 @@ fn draw_inspector_simple_property_f64(
     draw_inspector_simple_property(ui, db, object_id, property_path, property_name, schema, property_inherited, |ui, value| {
         let mut v = value.as_f64().unwrap();
         let property_im_str = im_str!("{}", &property_name);
+        let modified = imgui::Drag::new(&property_im_str).build(ui, &mut v);
+        if modified {
+            Some(Value::F64(v))
+        } else {
+            None
+        }
+    })
+}
+
+fn draw_inspector_simple_property_string(
+    ui: &imgui::Ui,
+    db: &mut nexdb::Database,
+    object_id: nexdb::ObjectId,
+    property_path: &str,
+    property_name: &str,
+    schema: &nexdb::Schema,
+    property_inherited: bool,
+) {
+    use nexdb::*;
+
+    draw_inspector_simple_property(ui, db, object_id, property_path, property_name, schema, property_inherited, |ui, value| {
+        let mut v = value.as_string().unwrap();
+        let property_im_str = im_str!("{}", &property_name);
+        let mut value = im_str!("{}", &v);
+        let modified = imgui::InputText::new(ui, &property_im_str, &mut value).resize_buffer(true).build();
+        if modified {
+            Some(Value::String(value.to_string()))
+        } else {
+            None
+        }
+    })
+}
+
+/*
+fn draw_inspector_simple_property_f64(
+    ui: &imgui::Ui,
+    db: &mut nexdb::Database,
+    object_id: nexdb::ObjectId,
+    property_path: &str,
+    property_name: &str,
+    schema: &nexdb::Schema,
+    property_inherited: bool,
+) {
+    use nexdb::*;
+
+    draw_inspector_simple_property(ui, db, object_id, property_path, property_name, schema, property_inherited, |ui, value| {
+        let mut v = value.as_f64().unwrap();
+        let property_im_str = im_str!("{}", &property_name);
         let modified = unsafe {
             //igInputDouble(property_im_str.as_ptr(), &mut v, 1.0, 10.0, b"%f\0".as_ptr() as *const _, 0)
             igDragScalar(property_im_str.as_ptr(), ImGuiDataType__ImGuiDataType_Double as _, &mut v as *mut f64 as *mut std::ffi::c_void, 1.0, std::ptr::null(), std::ptr::null(),  b"%f\0".as_ptr() as *const _, 0)
@@ -257,7 +420,7 @@ fn draw_inspector_simple_property_f64(
         }
     })
 }
-
+*/
 fn draw_inspector_nexdb_property(
     ui: &imgui::Ui,
     db: &mut nexdb::Database,
@@ -268,52 +431,142 @@ fn draw_inspector_nexdb_property(
 ) {
     use nexdb::*;
 
-    let property_inherited = !db.has_property_override(object_id, &property_path);
-
     match schema {
-        Schema::Nullable(_) => {}
-        Schema::Boolean => {}
-        Schema::I32 => {}
-        Schema::I64 => {}
-        Schema::U32 => {}
-        Schema::U64 => {}
+        Schema::Nullable(inner_schema) => {
+            let property_inherited = !db.get_null_override(object_id, &property_path).is_some();
+            let mut is_nulled = db.resolve_is_null(object_id, &property_path).unwrap_or(true);
+
+            draw_property_style(ui, property_inherited, false, |ui| {
+                if is_nulled {
+                    if ui.button(im_str!("Set Non-Null")) {
+                        db.set_null_override(object_id, &property_path, NullOverride::SetNonNull);
+                        is_nulled = false;
+                    }
+                } else {
+                    if ui.button(im_str!("Set Null")) {
+                        db.set_null_override(object_id, &property_path, NullOverride::SetNull);
+                        is_nulled = true;
+                    }
+                }
+
+                if ui.button(im_str!("Inherit Null Status")) {
+                    db.clear_null_override(object_id, &property_path);
+                }
+
+                if !is_nulled {
+                    ui.indent();
+                    let id_token = ui.push_id(&property_path);
+                    draw_inspector_nexdb_property(ui, db, object_id, property_path, property_name, &*inner_schema);
+                    id_token.pop();
+                    ui.unindent();
+                }
+            });
+        }
+        Schema::Boolean => {
+            let property_inherited = !db.has_property_override(object_id, &property_path);
+            draw_property_style(ui, property_inherited, false, |ui| {
+                draw_inspector_simple_property_bool(ui, db, object_id, property_path, property_name, schema, property_inherited);
+            });
+        }
+        Schema::I32 => {
+            let property_inherited = !db.has_property_override(object_id, &property_path);
+            draw_property_style(ui, property_inherited, false, |ui| {
+                draw_inspector_simple_property_i32(ui, db, object_id, property_path, property_name, schema, property_inherited);
+            });
+        }
+        Schema::I64 => {
+            let property_inherited = !db.has_property_override(object_id, &property_path);
+            draw_property_style(ui, property_inherited, false, |ui| {
+                draw_inspector_simple_property_i64(ui, db, object_id, property_path, property_name, schema, property_inherited);
+            });
+        }
+        Schema::U32 => {
+            let property_inherited = !db.has_property_override(object_id, &property_path);
+            draw_property_style(ui, property_inherited, false, |ui| {
+                draw_inspector_simple_property_u32(ui, db, object_id, property_path, property_name, schema, property_inherited);
+            });
+        }
+        Schema::U64 => {
+            let property_inherited = !db.has_property_override(object_id, &property_path);
+            draw_property_style(ui, property_inherited, false, |ui| {
+                draw_inspector_simple_property_u64(ui, db, object_id, property_path, property_name, schema, property_inherited);
+            });
+        }
         Schema::F32 => {
+            let property_inherited = !db.has_property_override(object_id, &property_path);
             draw_property_style(ui, property_inherited, false, |ui| {
                 draw_inspector_simple_property_f32(ui, db, object_id, property_path, property_name, schema, property_inherited);
             });
         }
         Schema::F64 => {
+            let property_inherited = !db.has_property_override(object_id, &property_path);
             draw_property_style(ui, property_inherited, false, |ui| {
                 draw_inspector_simple_property_f64(ui, db, object_id, property_path, property_name, schema, property_inherited);
             });
         }
         Schema::Bytes => {}
         Schema::Buffer => {}
-        Schema::String => {}
-        Schema::StaticArray(_) => {}
-        Schema::DynamicArray(_) => {}
-        Schema::Map(_) => {}
-        Schema::RecordRef(_) => {}
-        Schema::Record(record) => {
-            for field in record.fields() {
-                let field_path = if !property_path.is_empty() {
-                    format!("{}.{}", property_path, field.name())
-                } else {
-                    field.name().to_string()
-                };
+        Schema::String => {
+            let property_inherited = !db.has_property_override(object_id, &property_path);
+            draw_property_style(ui, property_inherited, false, |ui| {
+                draw_inspector_simple_property_string(ui, db, object_id, property_path, property_name, schema, property_inherited);
+            });
+        }
+        Schema::StaticArray(_) => {
 
-                ui.text(im_str!("{}", field.name().to_string()));
+        }
+        Schema::DynamicArray(array) => {
+            let resolve = db.resolve_dynamic_array(object_id, &property_path);
+            let overrides: Vec<_> = db.get_dynamic_array_overrides(object_id, &property_path).iter().cloned().collect();
+
+            ui.text(im_str!("{}", property_name));
+            if imgui::CollapsingHeader::new(&im_str!("elements")).build(ui) {
                 ui.indent();
-                let id_token = ui.push_id(field.name());
+                let mut index = 0;
+                for id in &resolve[0..(resolve.len() - overrides.len())] {
+                    // inherited
+                    let field_path = format!("{}.{}", property_path, id);
+                    let id_token = ui.push_id(&field_path);
+                    draw_inspector_nexdb_property(ui, db, object_id, &field_path, &id.to_string(), array.item_type());
+                    id_token.pop();
+                    index += 1;
+                }
 
-                draw_inspector_nexdb_property(ui, db, object_id, &field_path, field.name(), field.field_schema());
-
-                id_token.pop();
+                for id in &overrides {
+                    let field_path = format!("{}.{}", property_path, id);
+                    let id_token = ui.push_id(&field_path);
+                    draw_inspector_nexdb_property(ui, db, object_id, &field_path, &id.to_string(), array.item_type());
+                    id_token.pop();
+                    index += 1;
+                }
                 ui.unindent();
             }
         }
-        Schema::Enum(_) => {}
-        Schema::Fixed(_) => {}
+        Schema::Map(_) => {}
+        Schema::RecordRef(_) => {}
+        Schema::Record(record) => {
+            if property_path.is_empty() || imgui::CollapsingHeader::new(&im_str!("{}", property_name)).build(ui) {
+                ui.indent();
+                for field in record.fields() {
+                    let field_path = if !property_path.is_empty() {
+                        format!("{}.{}", property_path, field.name())
+                    } else {
+                        field.name().to_string()
+                    };
+
+                    let id_token = ui.push_id(field.name());
+                    draw_inspector_nexdb_property(ui, db, object_id, &field_path, field.name(), field.field_schema());
+                    id_token.pop();
+                }
+                ui.unindent();
+            }
+        }
+        Schema::Enum(_) => {
+
+        }
+        Schema::Fixed(_) => {
+
+        }
     }
 }
 

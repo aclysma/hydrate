@@ -62,9 +62,9 @@ impl Value {
             Schema::U64 => Value::U64(Default::default()),
             Schema::F32 => Value::F32(Default::default()),
             Schema::F64 => Value::F64(Default::default()),
-            Schema::Bytes => Value::Nullable(Default::default()),
-            Schema::Buffer => Value::Nullable(Default::default()),
-            Schema::String => Value::Nullable(Default::default()),
+            Schema::Bytes => Value::Bytes(Default::default()),
+            Schema::Buffer => Value::Buffer(BufferId::null()),
+            Schema::String => Value::String(Default::default()),
             Schema::StaticArray(inner) => Value::StaticArray(vec![Value::default_for_schema(&inner.item_type); inner.length]),
             Schema::DynamicArray(inner) => Value::DynamicArray(vec![]),
             Schema::Map(inner) => Value::Map(ValueMap {
@@ -81,7 +81,7 @@ impl Value {
         }
     }
 
-    pub(crate) fn matches_schema(&self, schema: &Schema) -> bool {
+    pub fn matches_schema(&self, schema: &Schema) -> bool {
         match self {
             Value::Nullable(inner_value) => {
                 match schema {
@@ -215,28 +215,28 @@ impl Value {
     //
     // Nullable
     //
-    fn is_nullable(&self) -> bool {
+    pub fn is_nullable(&self) -> bool {
         match self {
             Value::Nullable(_) => true,
             _ => false
         }
     }
 
-    fn is_null(&self) -> bool {
+    pub fn is_null(&self) -> bool {
         match self {
             Value::Nullable(None) => true,
             _ => false
         }
     }
 
-    fn as_nullable(&self) -> Option<Option<&Value>> {
+    pub fn as_nullable(&self) -> Option<Option<&Value>> {
         match self {
             Value::Nullable(x) => Some(x.as_ref().map(|x| x.as_ref())),
             _ => None
         }
     }
 
-    fn as_nullable_mut(&mut self) -> Option<Option<&mut Value>> {
+    pub fn as_nullable_mut(&mut self) -> Option<Option<&mut Value>> {
         match self {
             Value::Nullable(x) => Some(x.as_mut().map(|x| x.as_mut())),
             _ => None
@@ -246,35 +246,35 @@ impl Value {
     //
     // Boolean
     //
-    fn is_boolean(&self) -> bool {
+    pub fn is_boolean(&self) -> bool {
         match self {
             Value::Boolean(_) => true,
             _ => false
         }
     }
 
-    fn as_boolean(&self) -> Option<bool> {
+    pub fn as_boolean(&self) -> Option<bool> {
         match self {
             Value::Boolean(x) => Some(*x),
             _ => None
         }
     }
 
-    fn set_boolean(&mut self, value: bool) {
+    pub fn set_boolean(&mut self, value: bool) {
         *self = Value::Boolean(value);
     }
 
     //
     // i32
     //
-    fn is_i32(&self) -> bool {
+    pub fn is_i32(&self) -> bool {
         match self {
             Value::I32(_) => true,
             _ => false
         }
     }
 
-    fn as_i32(&self) -> Option<i32> {
+    pub fn as_i32(&self) -> Option<i32> {
         match self {
             Value::I32(x) => Some(*x as i32),
             Value::U32(x) => Some(*x as i32),
@@ -286,7 +286,7 @@ impl Value {
         }
     }
 
-    fn set_i32(&mut self, value: i32) {
+    pub fn set_i32(&mut self, value: i32) {
         *self = Value::I32(value);
     }
 
@@ -307,14 +307,14 @@ impl Value {
     //
     // u32
     //
-    fn is_u32(&self) -> bool {
+    pub fn is_u32(&self) -> bool {
         match self {
             Value::U32(_) => true,
             _ => false
         }
     }
 
-    fn as_u32(&self) -> Option<u32> {
+    pub fn as_u32(&self) -> Option<u32> {
         match self {
             Value::I32(x) => Some(*x as u32),
             Value::U32(x) => Some(*x as u32),
@@ -326,21 +326,21 @@ impl Value {
         }
     }
 
-    fn set_u32(&mut self, value: u32) {
+    pub fn set_u32(&mut self, value: u32) {
         *self = Value::U32(value);
     }
 
     //
     // i64
     //
-    fn is_i64(&self) -> bool {
+    pub fn is_i64(&self) -> bool {
         match self {
             Value::I64(_) => true,
             _ => false
         }
     }
 
-    fn as_i64(&self) -> Option<i64> {
+    pub fn as_i64(&self) -> Option<i64> {
         match self {
             Value::I32(x) => Some(*x as i64),
             Value::U32(x) => Some(*x as i64),
@@ -352,21 +352,21 @@ impl Value {
         }
     }
 
-    fn set_i64(&mut self, value: i64) {
+    pub fn set_i64(&mut self, value: i64) {
         *self = Value::I64(value);
     }
 
     //
     // u64
     //
-    fn is_u64(&self) -> bool {
+    pub fn is_u64(&self) -> bool {
         match self {
             Value::U64(_) => true,
             _ => false
         }
     }
 
-    fn as_u64(&self) -> Option<u64> {
+    pub fn as_u64(&self) -> Option<u64> {
         match self {
             Value::I32(x) => Some(*x as u64),
             Value::U32(x) => Some(*x as u64),
@@ -378,7 +378,7 @@ impl Value {
         }
     }
 
-    fn set_u64(&mut self, value: u64) {
+    pub fn set_u64(&mut self, value: u64) {
         *self = Value::U64(value);
     }
 
@@ -445,6 +445,23 @@ impl Value {
     //
     // String
     //
+    pub fn is_string(&self) -> bool {
+        match self {
+            Value::String(_) => true,
+            _ => false
+        }
+    }
+
+    pub fn as_string(&self) -> Option<&str> {
+        match self {
+            Value::String(x) => Some(&*x),
+            _ => None
+        }
+    }
+
+    pub fn set_string(&mut self, value: String) {
+        *self = Value::String(value);
+    }
 
     //
     // StaticArray

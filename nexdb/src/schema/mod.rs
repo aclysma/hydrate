@@ -234,7 +234,8 @@ impl Schema {
             //     }
             // },
             Schema::Nullable(x) => {
-                Some(&*x)
+                //Some(&*x)
+                x.find_property_schema(name)
             }
             Schema::Record(x) => {
                 x.field_schema(name)

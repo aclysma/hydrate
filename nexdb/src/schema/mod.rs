@@ -300,38 +300,4 @@ mod test {
         // Fingerprint of a Schema::Record is == to fingerprint of wrapped SchemaRecord
         assert_eq!(vec3_schema_record.fingerprint(), Schema::Record(vec3_schema_record).fingerprint());
     }
-
-    #[test]
-    fn test_property_path() {
-        let vec3_schema_record = SchemaRecord::new("Vec3".to_string(), vec![].into_boxed_slice(), vec![
-            SchemaRecordField::new("x".to_string(), vec![].into_boxed_slice(), Schema::F32),
-            SchemaRecordField::new("y".to_string(), vec![].into_boxed_slice(), Schema::F32),
-            SchemaRecordField::new("z".to_string(), vec![].into_boxed_slice(), Schema::F32)
-        ].into_boxed_slice());
-
-        let aabb_schema_record = SchemaRecord::new("AABB".to_string(), vec![].into_boxed_slice(), vec![
-            SchemaRecordField::new("min".to_string(), vec![].into_boxed_slice(), Schema::Record(vec3_schema_record.clone())),
-            SchemaRecordField::new("max".to_string(), vec![].into_boxed_slice(), Schema::Record(vec3_schema_record.clone()))
-        ].into_boxed_slice());
-
-        let aabb_schema = Schema::Record(aabb_schema_record);
-/*
-        // Access properties
-        assert_eq!(aabb_schema.find_property_path_schema::<&str>(&[]).unwrap().fingerprint(), aabb_schema.fingerprint());
-        assert_eq!(aabb_schema.find_property_path_schema(&["min"]).unwrap().fingerprint(), Schema::Record(vec3_schema_record.clone()).fingerprint());
-        assert_eq!(aabb_schema.find_property_path_schema(&["max"]).unwrap().fingerprint(), Schema::Record(vec3_schema_record.clone()).fingerprint());
-        assert_eq!(aabb_schema.find_property_path_schema(&["min", "x"]).unwrap().fingerprint(), Schema::F32.fingerprint());
-        assert_eq!(aabb_schema.find_property_path_schema(&["min", "y"]).unwrap().fingerprint(), Schema::F32.fingerprint());
-        assert_eq!(aabb_schema.find_property_path_schema(&["min", "z"]).unwrap().fingerprint(), Schema::F32.fingerprint());
-        assert_eq!(aabb_schema.find_property_path_schema(&["max", "x"]).unwrap().fingerprint(), Schema::F32.fingerprint());
-        assert_eq!(aabb_schema.find_property_path_schema(&["max", "y"]).unwrap().fingerprint(), Schema::F32.fingerprint());
-        assert_eq!(aabb_schema.find_property_path_schema(&["max", "z"]).unwrap().fingerprint(), Schema::F32.fingerprint());
-        assert_eq!(aabb_schema.find_property_path_schema(&["max"]).unwrap().find_property_path_schema(&["x"]).unwrap().fingerprint(), Schema::F32.fingerprint());
-
-        // Fail at accessing non-existent properties
-        assert_eq!(aabb_schema.find_property_path_schema(&["min", "A"]).map(|x| x.fingerprint()), None);
-        assert_eq!(aabb_schema.find_property_path_schema(&["min", "x", "asdfs"]).map(|x| x.fingerprint()), None);
-        assert_eq!(aabb_schema.find_property_path_schema(&["aa", "x"]).map(|x| x.fingerprint()), None);
- */
-    }
 }

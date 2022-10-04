@@ -449,7 +449,7 @@ impl Database {
         }
     }
 
-    pub fn resolve_property(&self, object: ObjectId, path: impl AsRef<str>) -> Option<&Value> {
+    pub fn resolve_property(&self, object: ObjectId, path: impl AsRef<str>) -> Option<Value> {
         let mut object_id = Some(object);
         let mut object_schema = self.object_schema(object);
 
@@ -471,7 +471,13 @@ impl Database {
             &mut dynamic_array_ancestors,
             &mut map_ancestors,
             &mut accessed_dynamic_array_keys
-        );
+        ).unwrap();
+
+        for checked_property in &nullable_ancestors {
+            if self.resolve_is_null(object, checked_property) != Some(false) {
+                return None;
+            }
+        }
 
         while let Some(obj_id) = object_id {
             let obj = self.objects.get(&obj_id).unwrap();
@@ -491,7 +497,7 @@ impl Database {
             }
 
             if let Some(value) = obj.properties.get(path.as_ref()) {
-                return Some(value);
+                return Some(value.clone());
             }
 
             for checked_property in &dynamic_array_ancestors {
@@ -516,7 +522,7 @@ impl Database {
         }
 
         //TODO: Return schema default value
-        None
+        Some(Value::default_for_schema(property_schema).clone())
     }
 
 
@@ -705,5 +711,151 @@ impl Database {
             },
             _ => panic!("unexpected schema type")
         }
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use crate::{Database, NullOverride, Schema, SchemaRecord, SchemaRecordField, Value};
+
+    fn create_vec3_schema() -> SchemaRecord {
+        SchemaRecord::new("Vec3".to_string(), vec![].into_boxed_slice(), vec![
+            SchemaRecordField::new("x".to_string(), vec![].into_boxed_slice(), Schema::F32),
+            SchemaRecordField::new("y".to_string(), vec![].into_boxed_slice(), Schema::F32),
+            SchemaRecordField::new("z".to_string(), vec![].into_boxed_slice(), Schema::F32)
+        ].into_boxed_slice())
+    }
+
+    // We want the same fingerprint out of a record as a Schema::Record(record)
+    #[test]
+    fn set_struct_values() {
+        let vec3_schema_record = create_vec3_schema();
+
+        let mut db = Database::default();
+        let obj = db.new_object(&vec3_schema_record);
+        assert_eq!(db.resolve_property(obj, "x").map(|x| x.as_f32()), Some(Some(0.0)));
+        db.set_property_override(obj, "x", Value::F32(10.0));
+        assert_eq!(db.resolve_property(obj, "x").map(|x| x.as_f32()), Some(Some(10.0)));
+        db.set_property_override(obj, "y", Value::F32(20.0));
+        assert_eq!(db.resolve_property(obj, "y").map(|x| x.as_f32()), Some(Some(20.0)));
+        db.set_property_override(obj, "z", Value::F32(30.0));
+        assert_eq!(db.resolve_property(obj, "z").map(|x| x.as_f32()), Some(Some(30.0)));
+    }
+
+    #[test]
+    fn set_struct_values_in_struct() {
+        let vec3_schema_record = create_vec3_schema();
+
+        let outer_struct = SchemaRecord::new("OuterStruct".to_string(), vec![].into_boxed_slice(), vec![
+            SchemaRecordField::new("a".to_string(), vec![].into_boxed_slice(), Schema::Record(vec3_schema_record.clone())),
+            SchemaRecordField::new("b".to_string(), vec![].into_boxed_slice(), Schema::Record(vec3_schema_record.clone())),
+        ].into_boxed_slice());
+
+        let mut db = Database::default();
+        let obj = db.new_object(&outer_struct);
+        assert_eq!(db.resolve_property(obj, "a.x").map(|x| x.as_f32()), Some(Some(0.0)));
+        db.set_property_override(obj, "a.x", Value::F32(10.0));
+        assert_eq!(db.resolve_property(obj, "a.x").map(|x| x.as_f32()), Some(Some(10.0)));
+        assert_eq!(db.resolve_property(obj, "b.x").map(|x| x.as_f32()), Some(Some(0.0)));
+        db.set_property_override(obj, "b.x", Value::F32(20.0));
+        assert_eq!(db.resolve_property(obj, "a.x").map(|x| x.as_f32()), Some(Some(10.0)));
+        assert_eq!(db.resolve_property(obj, "b.x").map(|x| x.as_f32()), Some(Some(20.0)));
+    }
+
+    #[test]
+    fn set_simple_property_override() {
+        let vec3_schema_record = create_vec3_schema();
+
+        let mut db = Database::default();
+        let obj1 = db.new_object(&vec3_schema_record);
+        let obj2 = db.new_object_from_prototype(obj1);
+        assert_eq!(db.resolve_property(obj1, "x").map(|x| x.as_f32()), Some(Some(0.0)));
+        assert_eq!(db.resolve_property(obj2, "x").map(|x| x.as_f32()), Some(Some(0.0)));
+        assert_eq!(db.has_property_override(obj1, "x"), false);
+        assert_eq!(db.has_property_override(obj2, "x"), false);
+        assert_eq!(db.get_property_override(obj1, "x").is_none(), true);
+        assert_eq!(db.get_property_override(obj2, "x").is_none(), true);
+
+        db.set_property_override(obj1, "x", Value::F32(10.0));
+        assert_eq!(db.resolve_property(obj1, "x").map(|x| x.as_f32()), Some(Some(10.0)));
+        assert_eq!(db.resolve_property(obj2, "x").map(|x| x.as_f32()), Some(Some(10.0)));
+        assert_eq!(db.has_property_override(obj1, "x"), true);
+        assert_eq!(db.has_property_override(obj2, "x"), false);
+        assert_eq!(db.get_property_override(obj1, "x").unwrap().as_f32().unwrap(), 10.0);
+        assert_eq!(db.get_property_override(obj2, "x").is_none(), true);
+
+        db.set_property_override(obj2, "x", Value::F32(20.0));
+        assert_eq!(db.resolve_property(obj1, "x").map(|x| x.as_f32()), Some(Some(10.0)));
+        assert_eq!(db.resolve_property(obj2, "x").map(|x| x.as_f32()), Some(Some(20.0)));
+        assert_eq!(db.has_property_override(obj1, "x"), true);
+        assert_eq!(db.has_property_override(obj2, "x"), true);
+        assert_eq!(db.get_property_override(obj1, "x").unwrap().as_f32().unwrap(), 10.0);
+        assert_eq!(db.get_property_override(obj2, "x").unwrap().as_f32().unwrap(), 20.0);
+
+        db.remove_property_override(obj1, "x");
+        assert_eq!(db.resolve_property(obj1, "x").map(|x| x.as_f32()), Some(Some(0.0)));
+        assert_eq!(db.resolve_property(obj2, "x").map(|x| x.as_f32()), Some(Some(20.0)));
+        assert_eq!(db.has_property_override(obj1, "x"), false);
+        assert_eq!(db.has_property_override(obj2, "x"), true);
+        assert_eq!(db.get_property_override(obj1, "x").is_none(), true);
+        assert_eq!(db.get_property_override(obj2, "x").unwrap().as_f32().unwrap(), 20.0);
+
+        db.remove_property_override(obj2, "x");
+        assert_eq!(db.resolve_property(obj1, "x").map(|x| x.as_f32()), Some(Some(0.0)));
+        assert_eq!(db.resolve_property(obj2, "x").map(|x| x.as_f32()), Some(Some(0.0)));
+        assert_eq!(db.has_property_override(obj1, "x"), false);
+        assert_eq!(db.has_property_override(obj2, "x"), false);
+        assert_eq!(db.get_property_override(obj1, "x").is_none(), true);
+        assert_eq!(db.get_property_override(obj2, "x").is_none(), true);
+    }
+
+    #[test]
+    fn property_in_nullable() {
+        let vec3_schema_record = create_vec3_schema();
+
+        let outer_struct = SchemaRecord::new("OuterStruct".to_string(), vec![].into_boxed_slice(), vec![
+            SchemaRecordField::new(
+                "nullable".to_string(),
+                vec![].into_boxed_slice(),
+                Schema::Nullable(Box::new(Schema::Record(vec3_schema_record)))
+            )
+        ].into_boxed_slice());
+
+        let mut db = Database::default();
+        let obj = db.new_object(&outer_struct);
+
+        assert_eq!(db.resolve_is_null(obj, "nullable").unwrap(), true);
+        assert_eq!(db.resolve_property(obj, "nullable.x").map(|x| x.as_f32()), None);
+        db.set_property_override(obj, "nullable.x", Value::F32(10.0));
+        assert_eq!(db.resolve_is_null(obj, "nullable").unwrap(), true);
+        assert_eq!(db.resolve_property(obj, "nullable.x").map(|x| x.as_f32()), None);
+        db.set_null_override(obj, "nullable", NullOverride::SetNonNull);
+        assert_eq!(db.resolve_is_null(obj, "nullable").unwrap(), false);
+        assert_eq!(db.resolve_property(obj, "nullable.x").map(|x| x.as_f32()), Some(Some(10.0)));
+    }
+
+    #[test]
+    fn nullable_property_in_nullable() {
+        let vec3_schema_record = create_vec3_schema();
+
+        let outer_struct = SchemaRecord::new("OuterStruct".to_string(), vec![].into_boxed_slice(), vec![
+            SchemaRecordField::new(
+                "nullable".to_string(),
+                vec![].into_boxed_slice(),
+                Schema::Nullable(Box::new(Schema::Record(vec3_schema_record)))
+            )
+        ].into_boxed_slice());
+
+        let mut db = Database::default();
+        let obj = db.new_object(&outer_struct);
+
+        assert_eq!(db.resolve_is_null(obj, "nullable").unwrap(), true);
+        assert_eq!(db.resolve_property(obj, "nullable.x").map(|x| x.as_f32()), None);
+        db.set_property_override(obj, "nullable.x", Value::F32(10.0));
+        assert_eq!(db.resolve_is_null(obj, "nullable").unwrap(), true);
+        assert_eq!(db.resolve_property(obj, "nullable.x").map(|x| x.as_f32()), None);
+        db.set_null_override(obj, "nullable", NullOverride::SetNonNull);
+        assert_eq!(db.resolve_is_null(obj, "nullable").unwrap(), false);
+        assert_eq!(db.resolve_property(obj, "nullable.x").map(|x| x.as_f32()), Some(Some(10.0)));
     }
 }

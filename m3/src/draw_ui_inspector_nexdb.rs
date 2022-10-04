@@ -272,7 +272,6 @@ fn draw_inspector_nexdb_property(
 
             if imgui::CollapsingHeader::new(&im_str!("{}", property_name)).build(ui) {
                 draw_property_style(ui, property_inherited, false, |ui| {
-
                     ui.text(property_path);
                 });
 
@@ -297,8 +296,15 @@ fn draw_inspector_nexdb_property(
 
                 if !is_nulled {
                     ui.indent();
-                    let id_token = ui.push_id(property_path);
-                    draw_inspector_nexdb_property(ui, db, object_id, property_path, property_name, &*inner_schema);
+
+                    let inner_property_path = if property_path.is_empty() {
+                        "value".to_string()
+                    } else {
+                        format!("{}.value", property_path)
+                    };
+
+                    let id_token = ui.push_id(&inner_property_path);
+                    draw_inspector_nexdb_property(ui, db, object_id, &inner_property_path, "value", &*inner_schema);
                     id_token.pop();
                     ui.unindent();
                 }

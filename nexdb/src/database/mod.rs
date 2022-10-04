@@ -233,15 +233,15 @@ impl Database {
         accessed_dynamic_array_keys: &mut Vec<(String, String)>
     ) -> Option<&'a Schema> {
         //TODO: Escape map keys (and probably avoid path strings anyways)
-        let split_path = path.as_ref().split(".");
+        let split_path: Vec<_> = path.as_ref().split(".").collect();
 
         //println!("property_schema_and_parents_to_check_for_replace_mode {}", path.as_ref());
         // Iterate the path segments to find
 
         let mut parent_is_dynamic_array = false;
 
-        for (i, path_segment) in split_path.enumerate() { //.as_ref().split(".").enumerate() {
-            let s = schema.find_property_schema(path_segment);
+        for (i, path_segment) in split_path[0..split_path.len() - 1].iter().enumerate() { //.as_ref().split(".").enumerate() {
+            let s = schema.find_property_schema(path_segment)?;
             //println!("  next schema {:?}", s);
 
             // current path needs to be verified as existing
@@ -251,7 +251,7 @@ impl Database {
 
             parent_is_dynamic_array = false;
 
-            if let Some(s) = s {
+            //if let Some(s) = s {
                 // If it's nullable, we need to check for value being null before looking up the prototype chain
                 // If it's a map or dynamic array, we need to check for append mode before looking up the prototype chain
                 match s {
@@ -273,9 +273,13 @@ impl Database {
                 }
 
                 schema = s;
-            } else {
-                return None;
-            }
+            //} else {
+            //    return None;
+            //}
+        }
+
+        if let Some(last_path_segment) = split_path.last() {
+            schema = schema.find_property_schema(split_path.last().unwrap())?;
         }
 
         Some(schema)
@@ -344,6 +348,12 @@ impl Database {
 
         if !property_schema.is_nullable() {
             panic!("schema not nullable");
+        }
+
+        for checked_property in &nullable_ancestors {
+            if self.resolve_is_null(object, checked_property) != Some(false) {
+                return None;
+            }
         }
 
         while let Some(obj_id) = object_id {
@@ -667,6 +677,12 @@ impl Database {
             panic!("dynamic array not found");
         }
 
+        // for checked_property in &nullable_ancestors {
+        //     if self.resolve_is_null(object, checked_property) != Some(false) {
+        //         return None;
+        //     }
+        // }
+
         let mut resolved_entries = vec![];
         self.do_resolve_dynamic_array(object, path.as_ref(), &nullable_ancestors, &dynamic_array_ancestors, &map_ancestors, &accessed_dynamic_array_keys, &mut resolved_entries);
         resolved_entries.into_boxed_slice()
@@ -716,7 +732,7 @@ impl Database {
 
 #[cfg(test)]
 mod test {
-    use crate::{Database, NullOverride, Schema, SchemaRecord, SchemaRecordField, Value};
+    use crate::{Database, NullOverride, Schema, SchemaDynamicArray, SchemaRecord, SchemaRecordField, Value};
 
     fn create_vec3_schema() -> SchemaRecord {
         SchemaRecord::new("Vec3".to_string(), vec![].into_boxed_slice(), vec![
@@ -769,40 +785,40 @@ mod test {
         let mut db = Database::default();
         let obj1 = db.new_object(&vec3_schema_record);
         let obj2 = db.new_object_from_prototype(obj1);
-        assert_eq!(db.resolve_property(obj1, "x").map(|x| x.as_f32()), Some(Some(0.0)));
-        assert_eq!(db.resolve_property(obj2, "x").map(|x| x.as_f32()), Some(Some(0.0)));
+        assert_eq!(db.resolve_property(obj1, "x").map(|x| x.as_f32().unwrap()), Some(0.0));
+        assert_eq!(db.resolve_property(obj2, "x").map(|x| x.as_f32().unwrap()), Some(0.0));
         assert_eq!(db.has_property_override(obj1, "x"), false);
         assert_eq!(db.has_property_override(obj2, "x"), false);
         assert_eq!(db.get_property_override(obj1, "x").is_none(), true);
         assert_eq!(db.get_property_override(obj2, "x").is_none(), true);
 
         db.set_property_override(obj1, "x", Value::F32(10.0));
-        assert_eq!(db.resolve_property(obj1, "x").map(|x| x.as_f32()), Some(Some(10.0)));
-        assert_eq!(db.resolve_property(obj2, "x").map(|x| x.as_f32()), Some(Some(10.0)));
+        assert_eq!(db.resolve_property(obj1, "x").map(|x| x.as_f32().unwrap()), Some(10.0));
+        assert_eq!(db.resolve_property(obj2, "x").map(|x| x.as_f32().unwrap()), Some(10.0));
         assert_eq!(db.has_property_override(obj1, "x"), true);
         assert_eq!(db.has_property_override(obj2, "x"), false);
         assert_eq!(db.get_property_override(obj1, "x").unwrap().as_f32().unwrap(), 10.0);
         assert_eq!(db.get_property_override(obj2, "x").is_none(), true);
 
         db.set_property_override(obj2, "x", Value::F32(20.0));
-        assert_eq!(db.resolve_property(obj1, "x").map(|x| x.as_f32()), Some(Some(10.0)));
-        assert_eq!(db.resolve_property(obj2, "x").map(|x| x.as_f32()), Some(Some(20.0)));
+        assert_eq!(db.resolve_property(obj1, "x").map(|x| x.as_f32().unwrap()), Some(10.0));
+        assert_eq!(db.resolve_property(obj2, "x").map(|x| x.as_f32().unwrap()), Some(20.0));
         assert_eq!(db.has_property_override(obj1, "x"), true);
         assert_eq!(db.has_property_override(obj2, "x"), true);
         assert_eq!(db.get_property_override(obj1, "x").unwrap().as_f32().unwrap(), 10.0);
         assert_eq!(db.get_property_override(obj2, "x").unwrap().as_f32().unwrap(), 20.0);
 
         db.remove_property_override(obj1, "x");
-        assert_eq!(db.resolve_property(obj1, "x").map(|x| x.as_f32()), Some(Some(0.0)));
-        assert_eq!(db.resolve_property(obj2, "x").map(|x| x.as_f32()), Some(Some(20.0)));
+        assert_eq!(db.resolve_property(obj1, "x").map(|x| x.as_f32().unwrap()), Some(0.0));
+        assert_eq!(db.resolve_property(obj2, "x").map(|x| x.as_f32().unwrap()), Some(20.0));
         assert_eq!(db.has_property_override(obj1, "x"), false);
         assert_eq!(db.has_property_override(obj2, "x"), true);
         assert_eq!(db.get_property_override(obj1, "x").is_none(), true);
         assert_eq!(db.get_property_override(obj2, "x").unwrap().as_f32().unwrap(), 20.0);
 
         db.remove_property_override(obj2, "x");
-        assert_eq!(db.resolve_property(obj1, "x").map(|x| x.as_f32()), Some(Some(0.0)));
-        assert_eq!(db.resolve_property(obj2, "x").map(|x| x.as_f32()), Some(Some(0.0)));
+        assert_eq!(db.resolve_property(obj1, "x").map(|x| x.as_f32().unwrap()), Some(0.0));
+        assert_eq!(db.resolve_property(obj2, "x").map(|x| x.as_f32().unwrap()), Some(0.0));
         assert_eq!(db.has_property_override(obj1, "x"), false);
         assert_eq!(db.has_property_override(obj2, "x"), false);
         assert_eq!(db.get_property_override(obj1, "x").is_none(), true);
@@ -825,13 +841,13 @@ mod test {
         let obj = db.new_object(&outer_struct);
 
         assert_eq!(db.resolve_is_null(obj, "nullable").unwrap(), true);
-        assert_eq!(db.resolve_property(obj, "nullable.x").map(|x| x.as_f32()), None);
-        db.set_property_override(obj, "nullable.x", Value::F32(10.0));
+        assert_eq!(db.resolve_property(obj, "nullable.value.x").map(|x| x.as_f32().unwrap()), None);
+        db.set_property_override(obj, "nullable.value.x", Value::F32(10.0));
         assert_eq!(db.resolve_is_null(obj, "nullable").unwrap(), true);
-        assert_eq!(db.resolve_property(obj, "nullable.x").map(|x| x.as_f32()), None);
+        assert_eq!(db.resolve_property(obj, "nullable.value.x").map(|x| x.as_f32().unwrap()), None);
         db.set_null_override(obj, "nullable", NullOverride::SetNonNull);
         assert_eq!(db.resolve_is_null(obj, "nullable").unwrap(), false);
-        assert_eq!(db.resolve_property(obj, "nullable.x").map(|x| x.as_f32()), Some(Some(10.0)));
+        assert_eq!(db.resolve_property(obj, "nullable.value.x").map(|x| x.as_f32().unwrap()), Some(10.0));
     }
 
     #[test]
@@ -842,7 +858,7 @@ mod test {
             SchemaRecordField::new(
                 "nullable".to_string(),
                 vec![].into_boxed_slice(),
-                Schema::Nullable(Box::new(Schema::Record(vec3_schema_record)))
+                Schema::Nullable(Box::new(Schema::Nullable(Box::new(Schema::Record(vec3_schema_record)))))
             )
         ].into_boxed_slice());
 
@@ -850,12 +866,59 @@ mod test {
         let obj = db.new_object(&outer_struct);
 
         assert_eq!(db.resolve_is_null(obj, "nullable").unwrap(), true);
-        assert_eq!(db.resolve_property(obj, "nullable.x").map(|x| x.as_f32()), None);
-        db.set_property_override(obj, "nullable.x", Value::F32(10.0));
+        assert_eq!(db.resolve_is_null(obj, "nullable.value"), None);
+        assert_eq!(db.resolve_property(obj, "nullable.value.value.x").map(|x| x.as_f32().unwrap()), None);
+        db.set_property_override(obj, "nullable.value.value.x", Value::F32(10.0));
         assert_eq!(db.resolve_is_null(obj, "nullable").unwrap(), true);
-        assert_eq!(db.resolve_property(obj, "nullable.x").map(|x| x.as_f32()), None);
+        assert_eq!(db.resolve_is_null(obj, "nullable.value"), None);
+        assert_eq!(db.resolve_property(obj, "nullable.value.value.x").map(|x| x.as_f32().unwrap()), None);
         db.set_null_override(obj, "nullable", NullOverride::SetNonNull);
         assert_eq!(db.resolve_is_null(obj, "nullable").unwrap(), false);
-        assert_eq!(db.resolve_property(obj, "nullable.x").map(|x| x.as_f32()), Some(Some(10.0)));
+        assert_eq!(db.resolve_is_null(obj, "nullable.value").unwrap(), true);
+        assert_eq!(db.resolve_property(obj, "nullable.value.value.x").map(|x| x.as_f32().unwrap()), None);
+        db.set_null_override(obj, "nullable.value", NullOverride::SetNonNull);
+        assert_eq!(db.resolve_is_null(obj, "nullable").unwrap(), false);
+        assert_eq!(db.resolve_is_null(obj, "nullable.value").unwrap(), false);
+        assert_eq!(db.resolve_property(obj, "nullable.value.value.x").map(|x| x.as_f32().unwrap()), Some(10.0));
+    }
+
+    //TODO: Test override nullable
+
+    #[test]
+    fn struct_in_dynamic_array() {
+        let vec3_schema_record = create_vec3_schema();
+
+        let outer_struct = SchemaRecord::new("OuterStruct".to_string(), vec![].into_boxed_slice(), vec![
+            SchemaRecordField::new(
+                "array".to_string(),
+                vec![].into_boxed_slice(),
+                Schema::DynamicArray(SchemaDynamicArray::new(Box::new(Schema::Record(vec3_schema_record))))
+            )
+        ].into_boxed_slice());
+
+        let mut db = Database::default();
+        let obj = db.new_object(&outer_struct);
+
+        assert!(db.resolve_dynamic_array(obj, "array").is_empty());
+        let uuid1 = db.add_dynamic_array_override(obj, "array");
+        let prop1 = format!("array.{}.x", uuid1);
+        assert_eq!(db.resolve_dynamic_array(obj, "array"), vec![uuid1].into_boxed_slice());
+        let uuid2 = db.add_dynamic_array_override(obj, "array");
+        let prop2 = format!("array.{}.x", uuid2);
+        assert_eq!(db.resolve_dynamic_array(obj, "array"), vec![uuid1, uuid2].into_boxed_slice());
+
+        assert_eq!(db.resolve_property(obj, &prop1).unwrap().as_f32().unwrap(), 0.0);
+        assert_eq!(db.resolve_property(obj, &prop2).unwrap().as_f32().unwrap(), 0.0);
+        db.set_property_override(obj, &prop1, Value::F32(10.0));
+        assert_eq!(db.resolve_property(obj, &prop1).unwrap().as_f32().unwrap(), 10.0);
+        assert_eq!(db.resolve_property(obj, &prop2).unwrap().as_f32().unwrap(), 0.0);
+        db.set_property_override(obj, &prop2, Value::F32(20.0));
+        assert_eq!(db.resolve_property(obj, &prop1).unwrap().as_f32().unwrap(), 10.0);
+        assert_eq!(db.resolve_property(obj, &prop2).unwrap().as_f32().unwrap(), 20.0);
+
+        db.remove_dynamic_array_override(obj, "array", uuid1);
+        assert_eq!(db.resolve_dynamic_array(obj, "array"), vec![uuid2].into_boxed_slice());
+        assert!(db.resolve_property(obj, &prop1).is_none());
+        assert_eq!(db.resolve_property(obj, &prop2).unwrap().as_f32().unwrap(), 20.0);
     }
 }

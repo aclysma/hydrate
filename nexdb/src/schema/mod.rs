@@ -235,7 +235,12 @@ impl Schema {
             // },
             Schema::Nullable(x) => {
                 //Some(&*x)
-                x.find_property_schema(name)
+                if name.as_ref() == "value" {
+                    Some(&*x)
+                } else {
+                     None
+                }
+                //x.find_property_schema(name)
             }
             Schema::Record(x) => {
                 x.field_schema(name)

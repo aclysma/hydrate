@@ -365,42 +365,10 @@ impl Database {
 
         while let Some(obj_id) = object_id {
             let obj = self.objects.get(&obj_id).unwrap();
-            // for checked_property in &nullable_ancestors {
-            //     if let Some(null_override) = obj.property_null_overrides.get(checked_property) {
-            //         if *null_override == NullOverride::SetNull {
-            //             return None;
-            //         }
-            //     }
-            // }
-
-            // for (path, key) in &accessed_dynamic_array_keys {
-            //     let dynamic_array_entries = self.resolve_dynamic_array(obj_id, path);
-            //     if !dynamic_array_entries.contains(&Uuid::from_str(key).unwrap()) {
-            //         return None;
-            //     }
-            // }
 
             if let Some(value) = obj.property_null_overrides.get(path.as_ref()) {
                 return Some(*value == NullOverride::SetNull);
             }
-
-            for checked_property in &dynamic_array_ancestors {
-                if obj.properties_in_replace_mode.contains(checked_property) {
-                    return None;
-                }
-            }
-
-            for checked_property in &map_ancestors {
-                if obj.properties_in_replace_mode.contains(checked_property) {
-                    return None;
-                }
-            }
-
-            // for checked_property in &schema_parents_to_check_for_key_exists {
-            //     if obj.dynamic_array_entries.contains(checked_property) {
-            //         return None;
-            //     }
-            // }
 
             object_id = obj.prototype;
         }
@@ -434,11 +402,6 @@ impl Database {
         let mut object_schema = self.object_schema(object);
         let mut property_schema = Self::property_schema(object_schema, &path).unwrap();
 
-        // match property_schema {
-        //     Schema::Nullable(inner_schema) => property_schema = inner_schema,
-        //     _ => {}
-        // }
-
         //TODO: Should we check for null in path ancestors?
         //TODO: Only allow setting on values that exist, in particular, dynamic array overrides
         if !value.matches_schema(property_schema) {
@@ -463,20 +426,11 @@ impl Database {
             &mut accessed_dynamic_array_keys
         ).unwrap();
 
-        let obj = self.objects.get(&object).unwrap();
-
         for checked_property in &nullable_ancestors {
             if self.resolve_is_null(object, checked_property) != Some(false) {
                 return false;
             }
         }
-        // for checked_property in &nullable_ancestors {
-        //     if let Some(null_override) = obj.property_null_overrides.get(checked_property) {
-        //         if *null_override == NullOverride::SetNull {
-        //             return false;
-        //         }
-        //     }
-        // }
 
         for (path, key) in &accessed_dynamic_array_keys {
             let dynamic_array_entries = self.resolve_dynamic_array(object, path);
@@ -546,42 +500,10 @@ impl Database {
 
         while let Some(obj_id) = object_id {
             let obj = self.objects.get(&obj_id).unwrap();
-            // for checked_property in &nullable_ancestors {
-            //     if let Some(null_override) = obj.property_null_overrides.get(checked_property) {
-            //         if *null_override == NullOverride::SetNull {
-            //             return None;
-            //         }
-            //     }
-            // }
-
-            // for (path, key) in &accessed_dynamic_array_keys {
-            //     let dynamic_array_entries = self.resolve_dynamic_array(obj_id, path);
-            //     if !dynamic_array_entries.contains(&Uuid::from_str(key).unwrap()) {
-            //         return None;
-            //     }
-            // }
 
             if let Some(value) = obj.properties.get(path.as_ref()) {
                 return Some(value.clone());
             }
-
-            for checked_property in &dynamic_array_ancestors {
-                if obj.properties_in_replace_mode.contains(checked_property) {
-                    return None;
-                }
-            }
-
-            for checked_property in &map_ancestors {
-                if obj.properties_in_replace_mode.contains(checked_property) {
-                    return None;
-                }
-            }
-
-            // for checked_property in &schema_parents_to_check_for_key_exists {
-            //     if obj.dynamic_array_entries.contains(checked_property) {
-            //         return None;
-            //     }
-            // }
 
             object_id = obj.prototype;
         }
@@ -742,6 +664,8 @@ impl Database {
         //         return None;
         //     }
         // }
+
+        
 
         let mut resolved_entries = vec![];
         self.do_resolve_dynamic_array(object, path.as_ref(), &nullable_ancestors, &dynamic_array_ancestors, &map_ancestors, &accessed_dynamic_array_keys, &mut resolved_entries);

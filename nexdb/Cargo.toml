@@ -13,6 +13,7 @@ slotmap = "1.0.5"
 serde = { default-features = false, version = "1.0.145", features = ["derive"] }
 serde_json = { default-features = false, version = "1.0.85", features = ["std"] }
 siphasher = "0.3"
+globwalk = "0.8.1"
 
 [dev-dependencies]
 serde_json = { default-features = false, version = "1.0.85", features = ["std"] }

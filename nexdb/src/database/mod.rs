@@ -356,22 +356,29 @@ impl Database {
             }
         }
 
+        for (path, key) in &accessed_dynamic_array_keys {
+            let dynamic_array_entries = self.resolve_dynamic_array(object, path);
+            if !dynamic_array_entries.contains(&Uuid::from_str(key).unwrap()) {
+                return None;
+            }
+        }
+
         while let Some(obj_id) = object_id {
             let obj = self.objects.get(&obj_id).unwrap();
-            for checked_property in &nullable_ancestors {
-                if let Some(null_override) = obj.property_null_overrides.get(checked_property) {
-                    if *null_override == NullOverride::SetNull {
-                        return None;
-                    }
-                }
-            }
+            // for checked_property in &nullable_ancestors {
+            //     if let Some(null_override) = obj.property_null_overrides.get(checked_property) {
+            //         if *null_override == NullOverride::SetNull {
+            //             return None;
+            //         }
+            //     }
+            // }
 
-            for (path, key) in &accessed_dynamic_array_keys {
-                let dynamic_array_entries = self.resolve_dynamic_array(obj_id, path);
-                if !dynamic_array_entries.contains(&Uuid::from_str(key).unwrap()) {
-                    return None;
-                }
-            }
+            // for (path, key) in &accessed_dynamic_array_keys {
+            //     let dynamic_array_entries = self.resolve_dynamic_array(obj_id, path);
+            //     if !dynamic_array_entries.contains(&Uuid::from_str(key).unwrap()) {
+            //         return None;
+            //     }
+            // }
 
             if let Some(value) = obj.property_null_overrides.get(path.as_ref()) {
                 return Some(*value == NullOverride::SetNull);
@@ -423,14 +430,14 @@ impl Database {
     }
 
     // Just sets a property on this object, making it overridden, or replacing the existing override
-    pub fn set_property_override(&mut self, object: ObjectId, path: impl AsRef<str>, value: Value) {
+    pub fn set_property_override(&mut self, object: ObjectId, path: impl AsRef<str>, value: Value) -> bool {
         let mut object_schema = self.object_schema(object);
         let mut property_schema = Self::property_schema(object_schema, &path).unwrap();
 
-        match property_schema {
-            Schema::Nullable(inner_schema) => property_schema = inner_schema,
-            _ => {}
-        }
+        // match property_schema {
+        //     Schema::Nullable(inner_schema) => property_schema = inner_schema,
+        //     _ => {}
+        // }
 
         //TODO: Should we check for null in path ancestors?
         //TODO: Only allow setting on values that exist, in particular, dynamic array overrides
@@ -438,8 +445,49 @@ impl Database {
             panic!("Value {:?} doesn't match schema {:?}", value, property_schema);
         }
 
+        // Contains the path segments that we need to check for being null
+        let mut nullable_ancestors = vec![];
+        // Contains the path segments that we need to check for being in append mode
+        let mut dynamic_array_ancestors = vec![];
+        // Contains the path segments that we need to check for being in append mode
+        let mut map_ancestors = vec![];
+        // Contains the dynamic arrays we access and what keys are used to access them
+        let mut accessed_dynamic_array_keys = vec![];
+
+        let property_schema = Self::property_schema_and_path_ancestors_to_check(
+            object_schema,
+            &path,
+            &mut nullable_ancestors,
+            &mut dynamic_array_ancestors,
+            &mut map_ancestors,
+            &mut accessed_dynamic_array_keys
+        ).unwrap();
+
+        let obj = self.objects.get(&object).unwrap();
+
+        for checked_property in &nullable_ancestors {
+            if self.resolve_is_null(object, checked_property) != Some(false) {
+                return false;
+            }
+        }
+        // for checked_property in &nullable_ancestors {
+        //     if let Some(null_override) = obj.property_null_overrides.get(checked_property) {
+        //         if *null_override == NullOverride::SetNull {
+        //             return false;
+        //         }
+        //     }
+        // }
+
+        for (path, key) in &accessed_dynamic_array_keys {
+            let dynamic_array_entries = self.resolve_dynamic_array(object, path);
+            if !dynamic_array_entries.contains(&Uuid::from_str(key).unwrap()) {
+                return false;
+            }
+        }
+
         let obj = self.objects.get_mut(&object).unwrap();
         obj.properties.insert(path.as_ref().to_string(), value);
+        true
     }
 
     pub fn remove_property_override(&mut self, object: ObjectId, path: impl AsRef<str>) -> Option<Value> {
@@ -489,22 +537,29 @@ impl Database {
             }
         }
 
+        for (path, key) in &accessed_dynamic_array_keys {
+            let dynamic_array_entries = self.resolve_dynamic_array(object, path);
+            if !dynamic_array_entries.contains(&Uuid::from_str(key).unwrap()) {
+                return None;
+            }
+        }
+
         while let Some(obj_id) = object_id {
             let obj = self.objects.get(&obj_id).unwrap();
-            for checked_property in &nullable_ancestors {
-                if let Some(null_override) = obj.property_null_overrides.get(checked_property) {
-                    if *null_override == NullOverride::SetNull {
-                        return None;
-                    }
-                }
-            }
+            // for checked_property in &nullable_ancestors {
+            //     if let Some(null_override) = obj.property_null_overrides.get(checked_property) {
+            //         if *null_override == NullOverride::SetNull {
+            //             return None;
+            //         }
+            //     }
+            // }
 
-            for (path, key) in &accessed_dynamic_array_keys {
-                let dynamic_array_entries = self.resolve_dynamic_array(obj_id, path);
-                if !dynamic_array_entries.contains(&Uuid::from_str(key).unwrap()) {
-                    return None;
-                }
-            }
+            // for (path, key) in &accessed_dynamic_array_keys {
+            //     let dynamic_array_entries = self.resolve_dynamic_array(obj_id, path);
+            //     if !dynamic_array_entries.contains(&Uuid::from_str(key).unwrap()) {
+            //         return None;
+            //     }
+            // }
 
             if let Some(value) = obj.properties.get(path.as_ref()) {
                 return Some(value.clone());
@@ -637,6 +692,11 @@ impl Database {
             }
         }
 
+        // Still need to check *this* property in addition to ancestors
+        if obj.properties_in_replace_mode.contains(path) {
+            check_parents = false;
+        }
+
         // If we do not replace parent data, resolve it now so we can append to it
         if check_parents {
             if let Some(prototype) = obj.prototype {
@@ -732,7 +792,7 @@ impl Database {
 
 #[cfg(test)]
 mod test {
-    use crate::{Database, NullOverride, Schema, SchemaDynamicArray, SchemaRecord, SchemaRecordField, Value};
+    use crate::{Database, NullOverride, OverrideBehavior, Schema, SchemaDynamicArray, SchemaRecord, SchemaRecordField, Value};
 
     fn create_vec3_schema() -> SchemaRecord {
         SchemaRecord::new("Vec3".to_string(), vec![].into_boxed_slice(), vec![
@@ -842,12 +902,18 @@ mod test {
 
         assert_eq!(db.resolve_is_null(obj, "nullable").unwrap(), true);
         assert_eq!(db.resolve_property(obj, "nullable.value.x").map(|x| x.as_f32().unwrap()), None);
-        db.set_property_override(obj, "nullable.value.x", Value::F32(10.0));
+        // This should fail because we are trying to set a null value
+        assert!(!db.set_property_override(obj, "nullable.value.x", Value::F32(10.0)));
         assert_eq!(db.resolve_is_null(obj, "nullable").unwrap(), true);
         assert_eq!(db.resolve_property(obj, "nullable.value.x").map(|x| x.as_f32().unwrap()), None);
         db.set_null_override(obj, "nullable", NullOverride::SetNonNull);
         assert_eq!(db.resolve_is_null(obj, "nullable").unwrap(), false);
+        assert_eq!(db.resolve_is_null(obj, "nullable"), Some(false));
+        // This is still set to 0 because the above set should have failed
+        assert_eq!(db.resolve_property(obj, "nullable.value.x").map(|x| x.as_f32().unwrap()), Some(0.0));
+        db.set_property_override(obj, "nullable.value.x", Value::F32(10.0));
         assert_eq!(db.resolve_property(obj, "nullable.value.x").map(|x| x.as_f32().unwrap()), Some(10.0));
+
     }
 
     #[test]
@@ -920,5 +986,46 @@ mod test {
         assert_eq!(db.resolve_dynamic_array(obj, "array"), vec![uuid2].into_boxed_slice());
         assert!(db.resolve_property(obj, &prop1).is_none());
         assert_eq!(db.resolve_property(obj, &prop2).unwrap().as_f32().unwrap(), 20.0);
+    }
+
+    #[test]
+    fn dynamic_array_override_behavior() {
+        let vec3_schema_record = create_vec3_schema();
+
+        let outer_struct = SchemaRecord::new("OuterStruct".to_string(), vec![].into_boxed_slice(), vec![
+            SchemaRecordField::new(
+                "array".to_string(),
+                vec![].into_boxed_slice(),
+                Schema::DynamicArray(SchemaDynamicArray::new(Box::new(Schema::Record(vec3_schema_record))))
+            )
+        ].into_boxed_slice());
+
+        let mut db = Database::default();
+        let obj1 = db.new_object(&outer_struct);
+        let obj2 = db.new_object_from_prototype(obj1);
+
+        let item1 = db.add_dynamic_array_override(obj1, "array");
+        let item2 = db.add_dynamic_array_override(obj2, "array");
+
+        assert_eq!(db.resolve_dynamic_array(obj1, "array"), vec![item1].into_boxed_slice());
+        assert_eq!(db.resolve_dynamic_array(obj2, "array"), vec![item1, item2].into_boxed_slice());
+
+        // This should fail, this override is on obj2, not obj1
+        assert!(!db.set_property_override(obj1, format!("array.{}.x", item2), Value::F32(20.0)));
+
+        db.set_property_override(obj1, format!("array.{}.x", item1), Value::F32(10.0));
+        db.set_property_override(obj2, format!("array.{}.x", item2), Value::F32(20.0));
+
+        db.set_override_behavior(obj2, "array", OverrideBehavior::Replace);
+        assert_eq!(db.resolve_dynamic_array(obj2, "array"), vec![item2].into_boxed_slice());
+
+        assert!(db.resolve_property(obj2, format!("array.{}.x", item1)).is_none());
+        assert_eq!(db.resolve_property(obj2, format!("array.{}.x", item2)).unwrap().as_f32().unwrap(), 20.0);
+
+        // This should fail, this override is on obj1 which we no longer inherit
+        assert!(!db.set_property_override(obj2, format!("array.{}.x", item1), Value::F32(30.0)));
+
+        db.set_override_behavior(obj2, "array", OverrideBehavior::Append);
+        assert_eq!(db.resolve_dynamic_array(obj2, "array"), vec![item1, item2].into_boxed_slice());
     }
 }

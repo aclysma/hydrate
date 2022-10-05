@@ -2,7 +2,7 @@
   {
     "type": "record",
     "name": "Vec3",
-    "aliases": [],
+    "aliases": ["vec3"],
     "fields": [
       {
         "name": "x",

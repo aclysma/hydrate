@@ -583,22 +583,6 @@ impl Database {
     ) {
         let obj = self.objects.get(&object_id).unwrap();
 
-        // if path ancestor is nulled, we do not use any entries from this object or parent
-        for checked_property in nullable_ancestors {
-            if let Some(null_override) = obj.property_null_overrides.get(checked_property) {
-                if *null_override == NullOverride::SetNull {
-                    return;
-                }
-            }
-        }
-
-        for (path, key) in accessed_dynamic_array_keys {
-            let dynamic_array_entries = self.resolve_dynamic_array(object_id, path);
-            if !dynamic_array_entries.contains(&Uuid::from_str(key).unwrap()) {
-                return;
-            }
-        }
-
         // See if any properties in the path ancestry are replacing parent data
         let mut check_parents = true;
 
@@ -653,19 +637,23 @@ impl Database {
         // Contains the dynamic arrays we access and what keys are used to access them
         let mut accessed_dynamic_array_keys = vec![];
 
-
         let property_schema = Self::property_schema_and_path_ancestors_to_check(object_schema, &path, &mut nullable_ancestors, &mut dynamic_array_ancestors, &mut map_ancestors, &mut accessed_dynamic_array_keys);
         if property_schema.is_none() {
             panic!("dynamic array not found");
         }
 
-        // for checked_property in &nullable_ancestors {
-        //     if self.resolve_is_null(object, checked_property) != Some(false) {
-        //         return None;
-        //     }
-        // }
+        for checked_property in &nullable_ancestors {
+            if self.resolve_is_null(object, checked_property) != Some(false) {
+                return vec![].into_boxed_slice();
+            }
+        }
 
-        
+        for (path, key) in &accessed_dynamic_array_keys {
+            let dynamic_array_entries = self.resolve_dynamic_array(object, path);
+            if !dynamic_array_entries.contains(&Uuid::from_str(key).unwrap()) {
+                return vec![].into_boxed_slice();
+            }
+        }
 
         let mut resolved_entries = vec![];
         self.do_resolve_dynamic_array(object, path.as_ref(), &nullable_ancestors, &dynamic_array_ancestors, &map_ancestors, &accessed_dynamic_array_keys, &mut resolved_entries);

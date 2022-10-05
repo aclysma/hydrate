@@ -1,0 +1,46 @@
+[
+  {
+    "type": "record",
+    "name": "Vec3",
+    "aliases": [],
+    "fields": [
+      {
+        "name": "x",
+        "type": "f32"
+      },
+      {
+        "name": "y",
+        "type": "f32"
+      },
+      {
+        "name": "z",
+        "type": "f32"
+      }
+    ]
+  },
+  {
+    "type": "record",
+    "name": "AABB",
+    "aliases": [],
+    "fields": [
+      {
+        "name": "min",
+        "type": "Vec3"
+      },
+      {
+        "name": "max",
+        "type": "Vec3"
+      },
+      {
+        "name": "nullable_property",
+        "type": "AABB",
+        "is_nullable": true
+      },
+      {
+        "name": "dynamic_array",
+        "type": "dynamic_array",
+        "items": "AABB"
+      }
+    ]
+  }
+]

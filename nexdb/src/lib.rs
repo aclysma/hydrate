@@ -31,6 +31,9 @@ impl BufferId {
     }
 }
 
+mod schema_registry;
+pub use schema_registry::*;
+
 mod schema;
 pub use schema::*;
 

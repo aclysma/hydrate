@@ -122,6 +122,7 @@ impl Schema {
             Schema::Record(inner) => inner.fingerprint_hash(hasher),
             Schema::Enum(inner) => inner.fingerprint_hash(hasher),
             Schema::Fixed(inner) => inner.fingerprint_hash(hasher),
+            //TODO: Union?
         }
     }
 

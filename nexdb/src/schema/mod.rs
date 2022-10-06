@@ -96,6 +96,7 @@ pub enum Schema {
     Record(SchemaRecord),
     Enum(SchemaEnum),
     Fixed(SchemaFixed),
+    // union?
 }
 
 impl Schema {

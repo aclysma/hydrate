@@ -32,14 +32,21 @@
         "type": "Vec3"
       },
       {
-        "name": "nullable_property",
-        "type": "AABB",
-        "is_nullable": true
+        "name": "nullable_field",
+        "type": {
+          "name": "nullable",
+          "inner_type": {
+            "name": "nullable",
+            "inner_type": "AABB"
+          }
+        }
       },
       {
         "name": "dynamic_array",
-        "type": "dynamic_array",
-        "items": "AABB"
+        "type": {
+          "name": "dynamic_array",
+          "inner_type": "AABB"
+        }
       }
     ]
   }

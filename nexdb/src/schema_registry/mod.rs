@@ -1,6 +1,9 @@
 
-mod using_json_value;
-pub use using_json_value::*;
+mod schema_from_file;
+pub use schema_from_file::*;
 
-mod using_serde;
-//pub use using_serde::*;
+mod registry;
+pub use registry::*;
+
+mod schema_loader;
+pub use schema_loader::*;

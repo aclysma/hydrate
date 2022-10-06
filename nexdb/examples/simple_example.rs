@@ -55,6 +55,7 @@ fn main() {
 
     let mut loader = SchemaLoader::default();
     loader.add_source_dir(path, "*.json").unwrap();
+    loader.finish();
 
     println!("{}", env!("CARGO_MANIFEST_DIR"));
 

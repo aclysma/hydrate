@@ -2,6 +2,7 @@ use std::hash::{Hash, Hasher};
 use std::ops::Deref;
 use std::sync::Arc;
 use crate::schema::SchemaTypeIndex;
+use crate::SchemaFingerprint;
 
 #[derive(Debug)]
 pub struct SchemaEnumSymbol {
@@ -38,6 +39,7 @@ impl SchemaEnumSymbol {
 #[derive(Debug)]
 pub struct SchemaEnumInner {
     name: String,
+    fingerprint: SchemaFingerprint,
     aliases: Box<[String]>,
     symbols: Box<[SchemaEnumSymbol]>
 }
@@ -56,7 +58,7 @@ impl Deref for SchemaEnum {
 }
 
 impl SchemaEnum {
-    pub fn new(name: String, aliases: Box<[String]>, symbols: Box<[SchemaEnumSymbol]>) -> Self {
+    pub fn new(name: String, fingerprint: SchemaFingerprint, aliases: Box<[String]>, symbols: Box<[SchemaEnumSymbol]>) -> Self {
         // Check symbols are sorted
         for i in 0..symbols.len() - 1 {
             assert!(symbols[i].value < symbols[i + 1].value);
@@ -71,6 +73,7 @@ impl SchemaEnum {
 
         let inner = SchemaEnumInner {
             name,
+            fingerprint,
             aliases,
             symbols
         };
@@ -79,14 +82,14 @@ impl SchemaEnum {
             inner: Arc::new(inner)
         }
     }
-
-    pub(crate) fn fingerprint_hash<T: Hasher>(&self, hasher: &mut T) {
-        SchemaTypeIndex::Enum.fingerprint_hash(hasher);
-        self.inner.name.hash(hasher);
-        for symbol in self.inner.symbols.iter() {
-            symbol.fingerprint_hash(hasher);
-        }
-    }
+    //
+    // pub(crate) fn fingerprint_hash<T: Hasher>(&self, hasher: &mut T) {
+    //     SchemaTypeIndex::Enum.fingerprint_hash(hasher);
+    //     self.inner.name.hash(hasher);
+    //     for symbol in self.inner.symbols.iter() {
+    //         symbol.fingerprint_hash(hasher);
+    //     }
+    // }
 
     pub fn name(&self) -> &str {
         &self.name
@@ -94,5 +97,9 @@ impl SchemaEnum {
 
     pub fn symbols(&self) -> &[SchemaEnumSymbol] {
         &*self.symbols
+    }
+
+    pub fn fingerprint(&self) -> SchemaFingerprint {
+        self.fingerprint
     }
 }

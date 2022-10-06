@@ -1,7 +1,7 @@
 
 #[derive(Default)]
 pub struct FixedTypeBuilder {
-    pub(super) aliases: Vec<String>,
+    pub(crate) aliases: Vec<String>,
 }
 
 impl FixedTypeBuilder {

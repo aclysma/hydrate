@@ -18,9 +18,9 @@ impl SchemaMap {
         &*self.value_type
     }
 
-    pub(crate) fn fingerprint_hash<T: Hasher>(&self, hasher: &mut T) {
-        SchemaTypeIndex::Map.fingerprint_hash(hasher);
-        self.key_type.fingerprint_hash(hasher);
-        self.value_type.fingerprint_hash(hasher);
-    }
+    // pub(crate) fn fingerprint_hash<T: Hasher>(&self, hasher: &mut T) {
+    //     SchemaTypeIndex::Map.fingerprint_hash(hasher);
+    //     self.key_type.fingerprint_hash(hasher);
+    //     self.value_type.fingerprint_hash(hasher);
+    // }
 }

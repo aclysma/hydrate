@@ -1,19 +1,11 @@
 use std::io::BufRead;
 use std::str::FromStr;
 use uuid::Uuid;
-use super::{HashSet, HashMap, ObjectId, SchemaFingerprint};
+use super::{HashMap, HashSet, ObjectId, SchemaFingerprint};
 use super::schema::*;
 use super::value::*;
 
-mod record_type_builder;
-use record_type_builder::RecordTypeBuilder;
-
-mod fixed_type_builder;
-use fixed_type_builder::FixedTypeBuilder;
-
-mod enum_type_builder;
-use enum_type_builder::EnumTypeBuilder;
-use crate::BufferId;
+use crate::{BufferId, SchemaLinker, SchemaLinkerResult};
 
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub enum NullOverride {
@@ -21,13 +13,14 @@ pub enum NullOverride {
     SetNonNull
 }
 
-pub struct DatabaseSchemaInfo {
-    schema: Schema,
-    fingerprint: SchemaFingerprint,
-}
+// pub struct DatabaseSchemaInfo {
+//     schema: SchemaNamedType,
+//     //schema_id: SchemaId,
+//     fingerprint: SchemaFingerprint,
+// }
 
 pub struct DatabaseObjectInfo {
-    schema: Schema, // Will always be a SchemaRecord
+    schema: SchemaNamedType, // Will always be a SchemaRecord
     prototype: Option<ObjectId>,
     properties: HashMap<String, Value>,
     property_null_overrides: HashMap<String, NullOverride>,
@@ -46,35 +39,54 @@ pub enum OverrideBehavior {
 #[derive(Default)]
 pub struct Database {
     schemas_by_name: HashMap<String, SchemaFingerprint>,
-    schemas: HashMap<SchemaFingerprint, DatabaseSchemaInfo>,
+    schemas: HashMap<SchemaFingerprint, SchemaNamedType>,
     objects: HashMap<ObjectId, DatabaseObjectInfo>,
 }
 
 impl Database {
-    pub fn schema(&self, fingerprint: SchemaFingerprint) -> Option<&Schema> {
-        self.schemas.get(&fingerprint).map(|x| &x.schema)
-    }
+    // pub fn schema(&self, fingerprint: SchemaFingerprint) -> Option<&Schema> {
+    //     self.schemas.get(&fingerprint).map(|x| &x.schema)
+    // }
 
-    fn register_schema(&mut self, name: impl Into<String>, schema: Schema) {
-        let fingerprint = schema.fingerprint();
+    pub fn add_linked_types(&mut self, mut linker: SchemaLinker) -> SchemaLinkerResult<()> {
+        let linked = linker.finish()?;
 
-        if let Some(existing_schema) = self.schemas.get(&fingerprint) {
-            return;
+        //TODO: check no name collisions and merge with DB
+
+        for (k, v) in linked.schemas {
+            self.schemas.insert(k, v);
         }
 
-        self.schemas.entry(fingerprint).or_insert_with(|| {
-            DatabaseSchemaInfo {
-                fingerprint,
-                schema,
-            }
-        });
+        for (k, v) in linked.schemas_by_name {
+            self.schemas_by_name.insert(k, v);
+        }
 
-        let old = self.schemas_by_name.insert(name.into(), fingerprint);
-
-        // We do not allow a single schema name to reference different schemas
-        assert_eq!(old.unwrap_or(fingerprint), fingerprint);
+        Ok(())
     }
 
+    // fn register_named_type(
+    //     &mut self,
+    //     fingerprint: SchemaFingerprint,
+    //     schema: SchemaNamedType,
+    //     name: Option<impl Into<String>>,
+    // ) {
+    //     //let fingerprint = schema.fingerprint();
+    //
+    //     if let Some(existing_schema) = self.schemas.get(&fingerprint) {
+    //         return;
+    //     }
+    //
+    //     //TODO: Could verify schema and already registered schema with same fingerprint are actually the same
+    //     self.schemas.entry(fingerprint).or_insert(schema);
+    //
+    //     if let Some(name) = name {
+    //         let old = self.schemas_by_name.insert(name.into(), fingerprint);
+    //
+    //         // We do not allow a single schema name to reference different schemas
+    //         assert_eq!(old.unwrap_or(fingerprint), fingerprint);
+    //     }
+    // }
+/*
     pub fn register_record_type<F: Fn(&mut RecordTypeBuilder)>(&mut self, name: impl Into<String>, f: F) -> SchemaRecord {
         let mut builder = RecordTypeBuilder::default();
         (f)(&mut builder);
@@ -84,8 +96,8 @@ impl Database {
         }).collect();
         let schema_record = SchemaRecord::new(name.into(), builder.aliases.into_boxed_slice(), fields.into_boxed_slice());
 
-        let schema = Schema::Record(schema_record.clone());
-        println!("Registering struct {} {}", schema_record.name(), schema_record.fingerprint_uuid());
+        let schema = SchemaNamedType::Record(schema_record.clone());
+        println!("Registering struct {} {}", schema_record.name(), schema_record.fingerprint().as_uuid());
         self.register_schema(schema_record.name(), schema);
 
         schema_record
@@ -101,8 +113,8 @@ impl Database {
         symbols.sort_by_key(|x| x.value());
         let schema_enum = SchemaEnum::new(name.into(), builder.aliases.into_boxed_slice(), symbols.into_boxed_slice());
 
-        let schema = Schema::Enum(schema_enum.clone());
-        println!("Registering enum {} {:?}", schema_enum.name(), schema.fingerprint());
+        let schema = SchemaNamedType::Enum(schema_enum.clone());
+        println!("Registering enum {} {:?}", schema_enum.name(), schema.fingerprint().as_uuid());
         self.register_schema(schema_enum.name(), schema);
 
         schema_enum
@@ -114,19 +126,19 @@ impl Database {
 
         let schema_fixed = SchemaFixed::new(name.into(), builder.aliases.into_boxed_slice(), length);
 
-        let schema = Schema::Fixed(schema_fixed.clone());
+        let schema = SchemaNamedType::Fixed(schema_fixed.clone());
         println!("Registering fixed {} {}", schema_fixed.name(), schema.fingerprint().as_uuid());
         self.register_schema(schema_fixed.name(), schema);
 
         schema_fixed
     }
-
-    pub fn find_schema_by_name(&self, name: impl AsRef<str>) -> Option<Schema> {
-        self.schemas_by_name.get(name.as_ref()).map(|fingerprint| self.find_schema_by_fingerprint(*fingerprint)).flatten()
+*/
+    pub fn find_named_type(&self, name: impl AsRef<str>) -> Option<&SchemaNamedType> {
+        self.schemas_by_name.get(name.as_ref()).map(|fingerprint| self.find_named_type_by_fingerprint(*fingerprint)).flatten()
     }
 
-    pub fn find_schema_by_fingerprint(&self, fingerprint: SchemaFingerprint) -> Option<Schema> {
-        self.schemas.get(&fingerprint).map(|x| x.schema.clone())
+    pub fn find_named_type_by_fingerprint(&self, fingerprint: SchemaFingerprint) -> Option<&SchemaNamedType> {
+        self.schemas.get(&fingerprint)
     }
 
 
@@ -145,7 +157,7 @@ impl Database {
 
     pub fn new_object(&mut self, schema: &SchemaRecord) -> ObjectId {
         let obj = DatabaseObjectInfo {
-            schema: Schema::Record(schema.clone()),
+            schema: SchemaNamedType::Record(schema.clone()),
             prototype: None,
             properties: Default::default(),
             property_null_overrides: Default::default(),
@@ -176,20 +188,22 @@ impl Database {
 
 
 
-    pub fn object_schema(&self, object: ObjectId) -> &Schema {
+    pub fn object_schema(&self, object: ObjectId) -> &SchemaNamedType {
         let o = self.objects.get(&object).unwrap();
         &o.schema
     }
 
-    fn property_schema<'a>(mut schema: &'a Schema, path: impl AsRef<str>) -> Option<&'a Schema> {
+    fn property_schema(schema: &SchemaNamedType, path: impl AsRef<str>, named_types: &HashMap<SchemaFingerprint, SchemaNamedType>) -> Option<Schema> {
+        let mut schema = Schema::NamedType(schema.fingerprint());
+
         //TODO: Escape map keys (and probably avoid path strings anyways)
         let split_path = path.as_ref().split(".");
 
         // Iterate the path segments to find
         for path_segment in split_path {
-            let s = schema.find_property_schema(path_segment);
+            let s = schema.find_property_schema(path_segment, named_types);
             if let Some(s) = s {
-                schema = s;
+                schema = s.clone();
             } else {
                 return None;
             }
@@ -225,13 +239,16 @@ impl Database {
     }
 
     fn property_schema_and_path_ancestors_to_check<'a>(
-        mut schema: &'a Schema,
+        named_type: &'a SchemaNamedType,
         path: impl AsRef<str>,
+        named_types: &HashMap<SchemaFingerprint, SchemaNamedType>,
         nullable_ancestors: &mut Vec<String>,
         dynamic_array_ancestors: &mut Vec<String>,
         map_ancestors: &mut Vec<String>,
         accessed_dynamic_array_keys: &mut Vec<(String, String)>
-    ) -> Option<&'a Schema> {
+    ) -> Option<Schema> {
+        let mut schema = Schema::NamedType(named_type.fingerprint());
+
         //TODO: Escape map keys (and probably avoid path strings anyways)
         let split_path: Vec<_> = path.as_ref().split(".").collect();
 
@@ -241,7 +258,7 @@ impl Database {
         let mut parent_is_dynamic_array = false;
 
         for (i, path_segment) in split_path[0..split_path.len() - 1].iter().enumerate() { //.as_ref().split(".").enumerate() {
-            let s = schema.find_property_schema(path_segment)?;
+            let s = schema.find_property_schema(path_segment, named_types)?;
             //println!("  next schema {:?}", s);
 
             // current path needs to be verified as existing
@@ -272,14 +289,14 @@ impl Database {
                     _ => {}
                 }
 
-                schema = s;
+                schema = s.clone();
             //} else {
             //    return None;
             //}
         }
 
         if let Some(last_path_segment) = split_path.last() {
-            schema = schema.find_property_schema(split_path.last().unwrap())?;
+            schema = schema.find_property_schema(split_path.last().unwrap(), named_types)?.clone();
         }
 
         Some(schema)
@@ -290,7 +307,7 @@ impl Database {
 
     pub fn get_null_override(&self, object: ObjectId, path: impl AsRef<str>) -> Option<NullOverride> {
         let mut object_schema = self.object_schema(object);
-        let property_schema = Self::property_schema(object_schema, &path).unwrap();
+        let property_schema = Self::property_schema(object_schema, &path, &self.schemas).unwrap();
 
         if property_schema.is_nullable() {
             let obj = self.objects.get(&object).unwrap();
@@ -302,7 +319,7 @@ impl Database {
 
     pub fn set_null_override(&mut self, object: ObjectId, path: impl AsRef<str>, null_override: NullOverride) {
         let mut object_schema = self.object_schema(object);
-        let property_schema = Self::property_schema(object_schema, &path).unwrap();
+        let property_schema = Self::property_schema(object_schema, &path, &self.schemas).unwrap();
 
         if property_schema.is_nullable() {
             let obj = self.objects.get_mut(&object).unwrap();
@@ -312,7 +329,7 @@ impl Database {
 
     pub fn remove_null_override(&mut self, object: ObjectId, path: impl AsRef<str>) {
         let mut object_schema = self.object_schema(object);
-        let property_schema = Self::property_schema(object_schema, &path).unwrap();
+        let property_schema = Self::property_schema(object_schema, &path, &self.schemas).unwrap();
 
         if property_schema.is_nullable() {
             let obj = self.objects.get_mut(&object).unwrap();
@@ -340,6 +357,7 @@ impl Database {
         let property_schema = Self::property_schema_and_path_ancestors_to_check(
             object_schema,
             &path,
+            &self.schemas,
             &mut nullable_ancestors,
             &mut dynamic_array_ancestors,
             &mut map_ancestors,
@@ -400,11 +418,11 @@ impl Database {
     // Just sets a property on this object, making it overridden, or replacing the existing override
     pub fn set_property_override(&mut self, object: ObjectId, path: impl AsRef<str>, value: Value) -> bool {
         let mut object_schema = self.object_schema(object);
-        let mut property_schema = Self::property_schema(object_schema, &path).unwrap();
+        let mut property_schema = Self::property_schema(object_schema, &path, &self.schemas).unwrap();
 
         //TODO: Should we check for null in path ancestors?
         //TODO: Only allow setting on values that exist, in particular, dynamic array overrides
-        if !value.matches_schema(property_schema) {
+        if !value.matches_schema(&property_schema, &self.schemas) {
             panic!("Value {:?} doesn't match schema {:?}", value, property_schema);
         }
 
@@ -420,6 +438,7 @@ impl Database {
         let property_schema = Self::property_schema_and_path_ancestors_to_check(
             object_schema,
             &path,
+            &self.schemas,
             &mut nullable_ancestors,
             &mut dynamic_array_ancestors,
             &mut map_ancestors,
@@ -479,6 +498,7 @@ impl Database {
         let property_schema = Self::property_schema_and_path_ancestors_to_check(
             object_schema,
             &path,
+            &self.schemas,
             &mut nullable_ancestors,
             &mut dynamic_array_ancestors,
             &mut map_ancestors,
@@ -509,7 +529,7 @@ impl Database {
         }
 
         //TODO: Return schema default value
-        Some(Value::default_for_schema(property_schema).clone())
+        Some(Value::default_for_schema(&property_schema, &self.schemas).clone())
     }
 
 
@@ -523,7 +543,7 @@ impl Database {
 
     pub fn get_dynamic_array_overrides(&self, object: ObjectId, path: impl AsRef<str>) -> &[Uuid] {
         let mut object_schema = self.object_schema(object);
-        let property_schema = Self::property_schema(object_schema, &path).unwrap();
+        let property_schema = Self::property_schema(object_schema, &path, &self.schemas).unwrap();
 
         if !property_schema.is_dynamic_array() {
             panic!("get_dynamic_array_overrides only allowed on dynamic arrays");
@@ -539,7 +559,7 @@ impl Database {
 
     pub fn add_dynamic_array_override(&mut self, object: ObjectId, path: impl AsRef<str>) -> Uuid {
         let mut object_schema = self.object_schema(object).clone();
-        let property_schema = Self::property_schema(&object_schema, &path).unwrap();
+        let property_schema = Self::property_schema(&object_schema, &path, &self.schemas).unwrap();
 
         if !property_schema.is_dynamic_array() {
             panic!("add_dynamic_array_override only allowed on dynamic arrays");
@@ -554,7 +574,7 @@ impl Database {
 
     pub fn remove_dynamic_array_override(&mut self, object: ObjectId, path: impl AsRef<str>, element_id: Uuid) {
         let mut object_schema = self.object_schema(object).clone();
-        let property_schema = Self::property_schema(&object_schema, &path).unwrap();
+        let property_schema = Self::property_schema(&object_schema, &path, &self.schemas).unwrap();
 
         if !property_schema.is_dynamic_array() {
             panic!("remove_dynamic_array_override only allowed on dynamic arrays");
@@ -637,7 +657,15 @@ impl Database {
         // Contains the dynamic arrays we access and what keys are used to access them
         let mut accessed_dynamic_array_keys = vec![];
 
-        let property_schema = Self::property_schema_and_path_ancestors_to_check(object_schema, &path, &mut nullable_ancestors, &mut dynamic_array_ancestors, &mut map_ancestors, &mut accessed_dynamic_array_keys);
+        let property_schema = Self::property_schema_and_path_ancestors_to_check(
+            object_schema,
+            &path,
+            &self.schemas,
+            &mut nullable_ancestors,
+            &mut dynamic_array_ancestors,
+            &mut map_ancestors,
+            &mut accessed_dynamic_array_keys
+        );
         if property_schema.is_none() {
             panic!("dynamic array not found");
         }
@@ -672,7 +700,7 @@ impl Database {
 
     pub fn get_override_behavior(&self, object: ObjectId, path: impl AsRef<str>) -> OverrideBehavior {
         let object = self.objects.get(&object).unwrap();
-        let property_schema = Self::property_schema(&object.schema, &path).unwrap();
+        let property_schema = Self::property_schema(&object.schema, &path, &self.schemas).unwrap();
 
         match property_schema {
             Schema::DynamicArray(_) | Schema::Map(_) => {
@@ -688,7 +716,7 @@ impl Database {
 
     pub fn set_override_behavior(&mut self, object: ObjectId, path: impl AsRef<str>, behavior: OverrideBehavior) {
         let object = self.objects.get_mut(&object).unwrap();
-        let property_schema = Self::property_schema(&object.schema, &path).unwrap();
+        let property_schema = Self::property_schema(&object.schema, &path, &self.schemas).unwrap();
 
         match property_schema {
             Schema::DynamicArray(_) | Schema::Map(_) => {
@@ -704,23 +732,27 @@ impl Database {
 
 #[cfg(test)]
 mod test {
-    use crate::{Database, NullOverride, OverrideBehavior, Schema, SchemaDynamicArray, SchemaRecord, SchemaRecordField, Value};
+    use crate::{Database, NullOverride, OverrideBehavior, Schema, SchemaDefDynamicArray, SchemaDefType, SchemaDynamicArray, SchemaLinker, SchemaLinkerResult, SchemaRecord, SchemaRecordField, Value};
 
-    fn create_vec3_schema() -> SchemaRecord {
-        SchemaRecord::new("Vec3".to_string(), vec![].into_boxed_slice(), vec![
-            SchemaRecordField::new("x".to_string(), vec![].into_boxed_slice(), Schema::F32),
-            SchemaRecordField::new("y".to_string(), vec![].into_boxed_slice(), Schema::F32),
-            SchemaRecordField::new("z".to_string(), vec![].into_boxed_slice(), Schema::F32)
-        ].into_boxed_slice())
+    fn create_vec3_schema(linker: &mut SchemaLinker) -> SchemaLinkerResult<()> {
+        linker.register_record_type("Vec3", |builder| {
+            builder.add_f32("x");
+            builder.add_f32("y");
+            builder.add_f32("z");
+        })
     }
 
     // We want the same fingerprint out of a record as a Schema::Record(record)
     #[test]
     fn set_struct_values() {
-        let vec3_schema_record = create_vec3_schema();
+        let mut linker = SchemaLinker::default();
+        create_vec3_schema(&mut linker).unwrap();
 
         let mut db = Database::default();
-        let obj = db.new_object(&vec3_schema_record);
+        db.add_linked_types(linker).unwrap();
+        let vec3_type = db.find_named_type("Vec3").unwrap().as_record().unwrap().clone();
+
+        let obj = db.new_object(&vec3_type);
         assert_eq!(db.resolve_property(obj, "x").map(|x| x.as_f32()), Some(Some(0.0)));
         db.set_property_override(obj, "x", Value::F32(10.0));
         assert_eq!(db.resolve_property(obj, "x").map(|x| x.as_f32()), Some(Some(10.0)));
@@ -732,15 +764,20 @@ mod test {
 
     #[test]
     fn set_struct_values_in_struct() {
-        let vec3_schema_record = create_vec3_schema();
+        let mut linker = SchemaLinker::default();
+        create_vec3_schema(&mut linker).unwrap();
 
-        let outer_struct = SchemaRecord::new("OuterStruct".to_string(), vec![].into_boxed_slice(), vec![
-            SchemaRecordField::new("a".to_string(), vec![].into_boxed_slice(), Schema::Record(vec3_schema_record.clone())),
-            SchemaRecordField::new("b".to_string(), vec![].into_boxed_slice(), Schema::Record(vec3_schema_record.clone())),
-        ].into_boxed_slice());
+        linker.register_record_type("OuterStruct", |builder| {
+            builder.add_struct("a", "Vec3");
+            builder.add_struct("b", "Vec3");
+        }).unwrap();
 
         let mut db = Database::default();
-        let obj = db.new_object(&outer_struct);
+        db.add_linked_types(linker).unwrap();
+        //let vec3_type = db.find_named_type("Vec3").unwrap().as_record().unwrap();
+        let outer_struct_type = db.find_named_type("OuterStruct").unwrap().as_record().unwrap().clone();
+
+        let obj = db.new_object(&outer_struct_type);
         assert_eq!(db.resolve_property(obj, "a.x").map(|x| x.as_f32()), Some(Some(0.0)));
         db.set_property_override(obj, "a.x", Value::F32(10.0));
         assert_eq!(db.resolve_property(obj, "a.x").map(|x| x.as_f32()), Some(Some(10.0)));
@@ -752,10 +789,14 @@ mod test {
 
     #[test]
     fn set_simple_property_override() {
-        let vec3_schema_record = create_vec3_schema();
+        let mut linker = SchemaLinker::default();
+        create_vec3_schema(&mut linker).unwrap();
 
         let mut db = Database::default();
-        let obj1 = db.new_object(&vec3_schema_record);
+        db.add_linked_types(linker).unwrap();
+        let vec3_type = db.find_named_type("Vec3").unwrap().as_record().unwrap().clone();
+
+        let obj1 = db.new_object(&vec3_type);
         let obj2 = db.new_object_from_prototype(obj1);
         assert_eq!(db.resolve_property(obj1, "x").map(|x| x.as_f32().unwrap()), Some(0.0));
         assert_eq!(db.resolve_property(obj2, "x").map(|x| x.as_f32().unwrap()), Some(0.0));
@@ -799,18 +840,32 @@ mod test {
 
     #[test]
     fn property_in_nullable() {
-        let vec3_schema_record = create_vec3_schema();
+        // let vec3_schema_record = create_vec3_schema();
+        //
+        // let outer_struct = SchemaRecord::new("OuterStruct".to_string(), vec![].into_boxed_slice(), vec![
+        //     SchemaRecordField::new(
+        //         "nullable".to_string(),
+        //         vec![].into_boxed_slice(),
+        //         Schema::Nullable(Box::new(Schema::Record(vec3_schema_record)))
+        //     )
+        // ].into_boxed_slice());
+        //
+        // let mut db = Database::default();
 
-        let outer_struct = SchemaRecord::new("OuterStruct".to_string(), vec![].into_boxed_slice(), vec![
-            SchemaRecordField::new(
-                "nullable".to_string(),
-                vec![].into_boxed_slice(),
-                Schema::Nullable(Box::new(Schema::Record(vec3_schema_record)))
-            )
-        ].into_boxed_slice());
+
+        let mut linker = SchemaLinker::default();
+        create_vec3_schema(&mut linker).unwrap();
+
+        linker.register_record_type("OuterStruct", |builder| {
+            builder.add_nullable("nullable", SchemaDefType::Nullable(Box::new(SchemaDefType::NamedType("Vec3".to_string()))));
+        }).unwrap();
 
         let mut db = Database::default();
-        let obj = db.new_object(&outer_struct);
+        db.add_linked_types(linker).unwrap();
+        //let vec3_type = db.find_named_type("Vec3").unwrap().as_record().unwrap().clone();
+        let outer_struct_type = db.find_named_type("OuterStruct").unwrap().as_record().unwrap().clone();
+
+        let obj = db.new_object(&outer_struct_type);
 
         assert_eq!(db.resolve_is_null(obj, "nullable").unwrap(), true);
         assert_eq!(db.resolve_property(obj, "nullable.value.x").map(|x| x.as_f32().unwrap()), None);
@@ -830,18 +885,34 @@ mod test {
 
     #[test]
     fn nullable_property_in_nullable() {
-        let vec3_schema_record = create_vec3_schema();
+        // let vec3_schema_record = create_vec3_schema();
+        //
+        // let outer_struct = SchemaRecord::new("OuterStruct".to_string(), vec![].into_boxed_slice(), vec![
+        //     SchemaRecordField::new(
+        //         "nullable".to_string(),
+        //         vec![].into_boxed_slice(),
+        //         Schema::Nullable(Box::new(Schema::Nullable(Box::new(Schema::Record(vec3_schema_record)))))
+        //     )
+        // ].into_boxed_slice());
+        //
+        // let mut db = Database::default();
 
-        let outer_struct = SchemaRecord::new("OuterStruct".to_string(), vec![].into_boxed_slice(), vec![
-            SchemaRecordField::new(
-                "nullable".to_string(),
-                vec![].into_boxed_slice(),
-                Schema::Nullable(Box::new(Schema::Nullable(Box::new(Schema::Record(vec3_schema_record)))))
-            )
-        ].into_boxed_slice());
+
+        let mut linker = SchemaLinker::default();
+        create_vec3_schema(&mut linker).unwrap();
+
+        linker.register_record_type("OuterStruct", |builder| {
+            builder.add_nullable("nullable", SchemaDefType::Nullable(Box::new(SchemaDefType::NamedType("Vec3".to_string()))));
+        }).unwrap();
 
         let mut db = Database::default();
-        let obj = db.new_object(&outer_struct);
+        db.add_linked_types(linker).unwrap();
+        //let vec3_type = db.find_named_type("Vec3").unwrap().as_record().unwrap();
+        let outer_struct_type = db.find_named_type("OuterStruct").unwrap().as_record().unwrap().clone();
+
+
+
+        let obj = db.new_object(&outer_struct_type);
 
         assert_eq!(db.resolve_is_null(obj, "nullable").unwrap(), true);
         assert_eq!(db.resolve_is_null(obj, "nullable.value"), None);
@@ -864,18 +935,36 @@ mod test {
 
     #[test]
     fn struct_in_dynamic_array() {
-        let vec3_schema_record = create_vec3_schema();
+        // let vec3_schema_record = create_vec3_schema();
+        //
+        // let outer_struct = SchemaRecord::new("OuterStruct".to_string(), vec![].into_boxed_slice(), vec![
+        //     SchemaRecordField::new(
+        //         "array".to_string(),
+        //         vec![].into_boxed_slice(),
+        //         Schema::DynamicArray(SchemaDynamicArray::new(Box::new(Schema::Record(vec3_schema_record))))
+        //     )
+        // ].into_boxed_slice());
+        //
+        // let mut db = Database::default();
 
-        let outer_struct = SchemaRecord::new("OuterStruct".to_string(), vec![].into_boxed_slice(), vec![
-            SchemaRecordField::new(
-                "array".to_string(),
-                vec![].into_boxed_slice(),
-                Schema::DynamicArray(SchemaDynamicArray::new(Box::new(Schema::Record(vec3_schema_record))))
-            )
-        ].into_boxed_slice());
+
+        let mut linker = SchemaLinker::default();
+        create_vec3_schema(&mut linker).unwrap();
+
+        linker.register_record_type("OuterStruct", |builder| {
+            let def = SchemaDefDynamicArray::new(Box::new(SchemaDefType::NamedType("Vec3".to_string())));
+            builder.add_dynamic_array("array", SchemaDefType::DynamicArray(def));
+        }).unwrap();
 
         let mut db = Database::default();
-        let obj = db.new_object(&outer_struct);
+        db.add_linked_types(linker).unwrap();
+        //let vec3_type = db.find_named_type("Vec3").unwrap().as_record().unwrap();
+        let outer_struct_type = db.find_named_type("OuterStruct").unwrap().as_record().unwrap().clone();
+
+
+
+
+        let obj = db.new_object(&outer_struct_type);
 
         assert!(db.resolve_dynamic_array(obj, "array").is_empty());
         let uuid1 = db.add_dynamic_array_override(obj, "array");
@@ -902,18 +991,33 @@ mod test {
 
     #[test]
     fn dynamic_array_override_behavior() {
-        let vec3_schema_record = create_vec3_schema();
+        // let vec3_schema_record = create_vec3_schema();
+        //
+        // let outer_struct = SchemaRecord::new("OuterStruct".to_string(), vec![].into_boxed_slice(), vec![
+        //     SchemaRecordField::new(
+        //         "array".to_string(),
+        //         vec![].into_boxed_slice(),
+        //         Schema::DynamicArray(SchemaDynamicArray::new(Box::new(Schema::Record(vec3_schema_record))))
+        //     )
+        // ].into_boxed_slice());
+        //
+        // let mut db = Database::default();
 
-        let outer_struct = SchemaRecord::new("OuterStruct".to_string(), vec![].into_boxed_slice(), vec![
-            SchemaRecordField::new(
-                "array".to_string(),
-                vec![].into_boxed_slice(),
-                Schema::DynamicArray(SchemaDynamicArray::new(Box::new(Schema::Record(vec3_schema_record))))
-            )
-        ].into_boxed_slice());
+
+        let mut linker = SchemaLinker::default();
+        create_vec3_schema(&mut linker).unwrap();
+
+        linker.register_record_type("OuterStruct", |builder| {
+            let def = SchemaDefDynamicArray::new(Box::new(SchemaDefType::NamedType("Vec3".to_string())));
+            builder.add_dynamic_array("array", SchemaDefType::DynamicArray(def));
+        }).unwrap();
 
         let mut db = Database::default();
-        let obj1 = db.new_object(&outer_struct);
+        db.add_linked_types(linker).unwrap();
+        //let vec3_type = db.find_named_type("Vec3").unwrap().as_record().unwrap();
+        let outer_struct_type = db.find_named_type("OuterStruct").unwrap().as_record().unwrap().clone();
+
+        let obj1 = db.new_object(&outer_struct_type);
         let obj2 = db.new_object_from_prototype(obj1);
 
         let item1 = db.add_dynamic_array_override(obj1, "array");

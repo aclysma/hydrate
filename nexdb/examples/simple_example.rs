@@ -1,4 +1,5 @@
 use std::path::PathBuf;
+use log::MetadataBuilder;
 use serde_json::Value as JsonValue;
 
 use nexdb::*;
@@ -53,9 +54,12 @@ fn main() {
         "/examples/schema"
     ));
 
-    let mut loader = SchemaLoader::default();
-    loader.add_source_dir(path, "*.json").unwrap();
-    loader.finish();
+    let mut linker = SchemaLinker::default();
+    linker.add_source_dir(path, "*.json").unwrap();
+
+    let mut db = Database::default();
+    db.add_linked_types(linker);
+    //linker.finish();
 
     println!("{}", env!("CARGO_MANIFEST_DIR"));
 

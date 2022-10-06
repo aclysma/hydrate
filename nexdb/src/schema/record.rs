@@ -4,7 +4,7 @@ use std::ops::Deref;
 use std::sync::Arc;
 use siphasher::sip128::Hasher128;
 use uuid::Uuid;
-use crate::SchemaFingerprint;
+use crate::{SchemaFingerprint, SchemaId};
 use crate::schema::SchemaTypeIndex;
 
 //
@@ -31,10 +31,10 @@ impl SchemaRecordField {
         }
     }
 
-    pub(crate) fn fingerprint_hash<T: Hasher>(&self, hasher: &mut T) {
-        self.name.hash(hasher);
-        self.field_schema.fingerprint_hash(hasher);
-    }
+    // pub(crate) fn fingerprint_hash<T: Hasher>(&self, hasher: &mut T) {
+    //     self.name.hash(hasher);
+    //     self.field_schema.fingerprint_hash(hasher);
+    // }
 
     pub fn name(&self) -> &str {
         &self.name
@@ -66,16 +66,16 @@ impl Deref for SchemaRecord {
     }
 }
 
-fn record_fingerprint_hash<T: Hasher>(hasher: &mut T, name: &str, fields: &[SchemaRecordField]) {
-    SchemaTypeIndex::Record.fingerprint_hash(hasher);
-    name.hash(hasher);
-    for field in &*fields {
-        field.fingerprint_hash(hasher);
-    }
-}
+// fn record_fingerprint_hash<T: Hasher>(hasher: &mut T, name: &str, fields: &[SchemaRecordField]) {
+//     SchemaTypeIndex::Record.fingerprint_hash(hasher);
+//     name.hash(hasher);
+//     for field in &*fields {
+//         field.fingerprint_hash(hasher);
+//     }
+// }
 
 impl SchemaRecord {
-    pub fn new(name: String, aliases: Box<[String]>, fields: Box<[SchemaRecordField]>) -> Self {
+    pub fn new(name: String, fingerprint: SchemaFingerprint, aliases: Box<[String]>, fields: Box<[SchemaRecordField]>) -> Self {
         // Check names are unique
         for i in 0..fields.len() {
             for j in 0..i {
@@ -83,9 +83,9 @@ impl SchemaRecord {
             }
         }
 
-        let mut hasher = siphasher::sip128::SipHasher::default();
-        record_fingerprint_hash(&mut hasher, &name, &*fields);
-        let fingerprint = SchemaFingerprint(hasher.finish128().as_u128());
+        // let mut hasher = siphasher::sip128::SipHasher::default();
+        // record_fingerprint_hash(&mut hasher, &name, &*fields);
+        // let fingerprint = SchemaFingerprint(hasher.finish128().as_u128());
 
         let inner = SchemaRecordInner {
             name,
@@ -99,21 +99,21 @@ impl SchemaRecord {
         }
     }
 
-    pub(crate) fn fingerprint_hash<T: Hasher>(&self, hasher: &mut T) {
-        SchemaTypeIndex::Record.fingerprint_hash(hasher);
-        self.name.hash(hasher);
-        for field in &*self.fields {
-            field.fingerprint_hash(hasher);
-        }
-    }
+    // pub(crate) fn fingerprint_hash<T: Hasher>(&self, hasher: &mut T) {
+    //     SchemaTypeIndex::Record.fingerprint_hash(hasher);
+    //     self.name.hash(hasher);
+    //     for field in &*self.fields {
+    //         field.fingerprint_hash(hasher);
+    //     }
+    // }
 
     pub fn fingerprint(&self) -> SchemaFingerprint {
         self.fingerprint
     }
-
-    pub fn fingerprint_uuid(&self) -> Uuid {
-        Uuid::from_u128(self.fingerprint().0)
-    }
+    //
+    // pub fn fingerprint_uuid(&self) -> Uuid {
+    //     Uuid::from_u128(self.fingerprint().0)
+    // }
 
     pub fn name(&self) -> &str {
         &self.name

@@ -4,39 +4,39 @@ use std::path::Path;
 use siphasher::sip128::Hasher128;
 use uuid::Uuid;
 use super::schema_def::*;
-use crate::{HashMap, HashSet, SchemaDefParserError, SchemaNamedType};
+use crate::{HashMap, HashSet, SchemaDefParserError, SchemaFingerprint, SchemaNamedType};
 use super::record_type_builder::*;
 use super::enum_type_builder::*;
 use super::fixed_type_builder::*;
 
 #[derive(Debug)]
-pub enum SchemaLoaderError {
+pub enum SchemaLinkerError {
     Str(&'static str),
     String(String),
     ValidationError(SchemaDefValidationError),
 }
 
-impl From<SchemaDefParserError> for SchemaLoaderError {
+impl From<SchemaDefParserError> for SchemaLinkerError {
     fn from(err: SchemaDefParserError) -> Self {
         match err {
-            SchemaDefParserError::Str(x) => SchemaLoaderError::Str(x),
-            SchemaDefParserError::String(x) => SchemaLoaderError::String(x),
-            SchemaDefParserError::ValidationError(x) => SchemaLoaderError::ValidationError(x),
+            SchemaDefParserError::Str(x) => SchemaLinkerError::Str(x),
+            SchemaDefParserError::String(x) => SchemaLinkerError::String(x),
+            SchemaDefParserError::ValidationError(x) => SchemaLinkerError::ValidationError(x),
         }
     }
 }
 
-impl From<SchemaDefValidationError> for SchemaLoaderError {
+impl From<SchemaDefValidationError> for SchemaLinkerError {
     fn from(err: SchemaDefValidationError) -> Self {
-        SchemaLoaderError::ValidationError(err)
+        SchemaLinkerError::ValidationError(err)
     }
 }
 
-pub type SchemaLoaderResult<T> = Result<T, SchemaLoaderError>;
+pub type SchemaLinkerResult<T> = Result<T, SchemaLinkerError>;
 
 
 #[derive(Default)]
-pub struct SchemaLoader {
+pub struct SchemaLinker {
     types: HashMap<String, SchemaDefNamedType>,
     type_aliases: HashMap<String, String>,
     //records: Vec<SchemaFromFileRecord>,
@@ -45,25 +45,24 @@ pub struct SchemaLoader {
     // union?
 }
 
-impl SchemaLoader {
-
-    fn add_named_type(&mut self, named_type: SchemaDefNamedType) -> SchemaLoaderResult<()> {
+impl SchemaLinker {
+    fn add_named_type(&mut self, named_type: SchemaDefNamedType) -> SchemaLinkerResult<()> {
         log::debug!("Adding type {}", named_type.type_name());
         if self.types.contains_key(named_type.type_name()) {
-            Err(SchemaLoaderError::String(format!("Type name {} has already been used", named_type.type_name())))?;
+            Err(SchemaLinkerError::String(format!("Type name {} has already been used", named_type.type_name())))?;
         }
 
         if self.type_aliases.contains_key(named_type.type_name()) {
-            Err(SchemaLoaderError::String(format!("Type name {} has already been used", named_type.type_name())))?;
+            Err(SchemaLinkerError::String(format!("Type name {} has already been used", named_type.type_name())))?;
         }
 
         for alias in named_type.aliases() {
             if self.types.contains_key(alias) {
-                Err(SchemaLoaderError::String(format!("Type name {} has already been used", alias)))?;
+                Err(SchemaLinkerError::String(format!("Type name {} has already been used", alias)))?;
             }
 
             if self.type_aliases.contains_key(alias) {
-                Err(SchemaLoaderError::String(format!("Type name {} has already been used", alias)))?;
+                Err(SchemaLinkerError::String(format!("Type name {} has already been used", alias)))?;
             }
         }
 
@@ -74,7 +73,7 @@ impl SchemaLoader {
         Ok(())
     }
 
-    pub fn add_source_dir<PathT: AsRef<Path>, PatternT: AsRef<str>>(&mut self, path: PathT, pattern: PatternT) -> SchemaLoaderResult<()> {
+    pub fn add_source_dir<PathT: AsRef<Path>, PatternT: AsRef<str>>(&mut self, path: PathT, pattern: PatternT) -> SchemaLinkerResult<()> {
         log::info!("Adding schema source dir {:?} with pattern {:?}", path.as_ref(), pattern.as_ref());
         let walker = globwalk::GlobWalkerBuilder::new(path.as_ref(), pattern.as_ref())
             .file_type(globwalk::FileType::FILE)
@@ -88,7 +87,7 @@ impl SchemaLoader {
             let json_value: serde_json::Value = serde_json::from_str(&schema_str).unwrap();
             //println!("VALUE {:#?}", value);
 
-            let json_objects = json_value.as_array().ok_or_else(|| SchemaLoaderError::Str("Schema file must be an array of json objects"))?;
+            let json_objects = json_value.as_array().ok_or_else(|| SchemaLinkerError::Str("Schema file must be an array of json objects"))?;
 
             for json_object in json_objects {
                 let named_type = super::schema_def::parse_json_schema_def(&json_object, &format!("[{}]", file.path().display()))?;
@@ -99,7 +98,7 @@ impl SchemaLoader {
         Ok(())
     }
 
-    pub fn register_record_type<F: Fn(&mut RecordTypeBuilder)>(&mut self, name: impl Into<String>, f: F) -> SchemaLoaderResult<()> {
+    pub fn register_record_type<F: Fn(&mut RecordTypeBuilder)>(&mut self, name: impl Into<String>, f: F) -> SchemaLinkerResult<()> {
         let mut builder = RecordTypeBuilder::default();
         (f)(&mut builder);
 
@@ -116,7 +115,7 @@ impl SchemaLoader {
         //schema_record
     }
 
-    pub fn register_enum_type<F: Fn(&mut EnumTypeBuilder)>(&mut self, name: impl Into<String>, f: F) -> SchemaLoaderResult<()> {
+    pub fn register_enum_type<F: Fn(&mut EnumTypeBuilder)>(&mut self, name: impl Into<String>, f: F) -> SchemaLinkerResult<()> {
         let mut builder = EnumTypeBuilder::default();
         (f)(&mut builder);
 
@@ -136,7 +135,7 @@ impl SchemaLoader {
         //schema_enum
     }
 
-    pub fn register_fixed_type<F: Fn(&mut FixedTypeBuilder)>(&mut self, name: impl Into<String>, length: usize, f: F) -> SchemaLoaderResult<()> {
+    pub fn register_fixed_type<F: Fn(&mut FixedTypeBuilder)>(&mut self, name: impl Into<String>, length: usize, f: F) -> SchemaLinkerResult<()> {
         let mut builder = FixedTypeBuilder::default();
         (f)(&mut builder);
 
@@ -149,7 +148,7 @@ impl SchemaLoader {
         //schema_fixed
     }
 
-    pub fn finish(&mut self) {
+    pub(crate) fn finish(&mut self) -> SchemaLinkerResult<LinkedSchemas> {
         // Apply aliases
         for (_, named_type) in &mut self.types {
             named_type.apply_type_aliases(&self.type_aliases);
@@ -162,6 +161,9 @@ impl SchemaLoader {
             let partial_fingerprint = hasher.finish128().as_u128();
             partial_hashes.insert(type_name, partial_fingerprint);
         }
+
+        let mut schemas_by_name: HashMap<String, SchemaFingerprint> = Default::default();
+        let mut schemas: HashMap<SchemaFingerprint, SchemaNamedType> = Default::default();
 
         // Hash each thing
         for (type_name, named_type) in &self.types {
@@ -199,5 +201,17 @@ impl SchemaLoader {
 
             println!("type {} fingerprint is {}", type_name, fingerprint);
         }
+
+        //TODO: Start here, convert schema def to schema
+
+        Ok(LinkedSchemas {
+            schemas_by_name,
+            schemas
+        })
     }
+}
+
+pub(crate) struct LinkedSchemas {
+    pub(crate) schemas_by_name: HashMap<String, SchemaFingerprint>,
+    pub(crate) schemas: HashMap<SchemaFingerprint, SchemaNamedType>,
 }

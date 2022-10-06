@@ -1,4 +1,4 @@
-use crate::{BufferId, HashMap, Schema};
+use crate::{BufferId, HashMap, Schema, SchemaFingerprint, SchemaId, SchemaNamedType};
 use crate::ObjectId;
 use crate::Value::RecordRef;
 
@@ -52,7 +52,7 @@ pub enum Value {
 }
 
 impl Value {
-    pub fn default_for_schema(schema: &Schema) -> Self {
+    pub fn default_for_schema(schema: &Schema, named_types: &HashMap<SchemaFingerprint, SchemaNamedType>) -> Self {
         match schema {
             Schema::Nullable(inner) => Value::Nullable(Default::default()),
             Schema::Boolean => Value::Boolean(Default::default()),
@@ -65,30 +65,42 @@ impl Value {
             Schema::Bytes => Value::Bytes(Default::default()),
             Schema::Buffer => Value::Buffer(BufferId::null()),
             Schema::String => Value::String(Default::default()),
-            Schema::StaticArray(inner) => Value::StaticArray(vec![Value::default_for_schema(&inner.item_type); inner.length]),
+            Schema::StaticArray(inner) => Value::StaticArray(vec![Value::default_for_schema(&inner.item_type, named_types); inner.length]),
             Schema::DynamicArray(inner) => Value::DynamicArray(vec![]),
             Schema::Map(inner) => Value::Map(ValueMap {
                 properties: Default::default()
             }),
             Schema::RecordRef(inner) => Value::RecordRef(ObjectId::null()),
-            Schema::Record(inner) => Value::Record(ValueRecord {
-                properties: Default::default()
-            }),
-            Schema::Enum(inner) => Value::Enum(ValueEnum {
-                symbol_name: inner.symbols()[0].name().to_string()
-            }),
-            Schema::Fixed(inner) => Value::Fixed(vec![0u8; inner.length()].into_boxed_slice()),
+            Schema::NamedType(named_type_id) => {
+                let named_type = named_types.get(named_type_id).unwrap();
+                match named_type {
+                    SchemaNamedType::Record(inner) => Value::Record(ValueRecord {
+                        properties: Default::default()
+                    }),
+                    SchemaNamedType::Enum(inner) => Value::Enum(ValueEnum {
+                        symbol_name: inner.symbols()[0].name().to_string()
+                    }),
+                    SchemaNamedType::Fixed(inner) => Value::Fixed(vec![0u8; inner.length()].into_boxed_slice()),
+                }
+            }
+            // Schema::Record(inner) => Value::Record(ValueRecord {
+            //     properties: Default::default()
+            // }),
+            // Schema::Enum(inner) => Value::Enum(ValueEnum {
+            //     symbol_name: inner.symbols()[0].name().to_string()
+            // }),
+            // Schema::Fixed(inner) => Value::Fixed(vec![0u8; inner.length()].into_boxed_slice()),
         }
     }
 
-    pub fn matches_schema(&self, schema: &Schema) -> bool {
+    pub fn matches_schema(&self, schema: &Schema, named_types: &HashMap<SchemaFingerprint, SchemaNamedType>) -> bool {
         match self {
             Value::Nullable(inner_value) => {
                 match schema {
                     Schema::Nullable(inner_schema) => {
                         if let Some(inner_value) = inner_value {
                             // check inner value is the intended schema
-                            inner_value.matches_schema(inner_schema)
+                            inner_value.matches_schema(inner_schema, named_types)
                         } else {
                             // value is null, that's allowed
                             true
@@ -115,7 +127,7 @@ impl Value {
                         }
 
                         for value in inner_values {
-                            if !value.matches_schema(&*inner_schema.item_type) {
+                            if !value.matches_schema(&*inner_schema.item_type, named_types) {
                                 return false;
                             }
                         }
@@ -129,7 +141,7 @@ impl Value {
                 match schema {
                     Schema::DynamicArray(inner_schema) => {
                         for inner_value in inner_values {
-                            if !inner_value.matches_schema(inner_schema.item_type()) {
+                            if !inner_value.matches_schema(inner_schema.item_type(), named_types) {
                                 return false
                             }
                         }
@@ -143,11 +155,11 @@ impl Value {
                 match schema {
                     Schema::Map(inner_schema) => {
                         for (k, v) in &inner_value.properties {
-                            if !k.matches_schema(inner_schema.key_type()) {
+                            if !k.matches_schema(inner_schema.key_type(), named_types) {
                                 return false;
                             }
 
-                            if !v.matches_schema(inner_schema.value_type()) {
+                            if !v.matches_schema(inner_schema.value_type(), named_types) {
                                 return false;
                             }
                         }
@@ -162,49 +174,68 @@ impl Value {
                 // All value properties must exist and match in the schema. However we allow the
                 // value to be missing properties in the schema
                 match schema {
-                    Schema::Record(inner_schema) => {
-                        // Walk through all properties and make sure the field exists and type matches
-                        for (k, v) in &inner_value.properties {
-                            let mut property_match_found = false;
-                            for field in inner_schema.fields() {
-                                if field.name() == k {
-                                    if v.matches_schema(field.field_schema()) {
-                                        property_match_found = true;
-                                        break;
-                                    } else {
+                    Schema::NamedType(named_type_id) => {
+                        let named_type = named_types.get(named_type_id).unwrap();
+                        match named_type {
+                            SchemaNamedType::Record(inner_schema) => {
+                                // Walk through all properties and make sure the field exists and type matches
+                                for (k, v) in &inner_value.properties {
+                                    let mut property_match_found = false;
+                                    for field in inner_schema.fields() {
+                                        if field.name() == k {
+                                            if v.matches_schema(field.field_schema(), named_types) {
+                                                property_match_found = true;
+                                                break;
+                                            } else {
+                                                return false;
+                                            }
+                                        }
+                                    }
+
+                                    if !property_match_found {
                                         return false;
                                     }
                                 }
-                            }
 
-                            if !property_match_found {
-                                return false;
+                                true
                             }
+                            _ => false
                         }
-
-                        true
                     },
                     _ => false
                 }
             },
             Value::Enum(inner_value) => {
                 match schema {
-                    Schema::Enum(inner_schema) => {
-                        for option in inner_schema.symbols() {
-                            if option.name() == inner_value.symbol_name {
-                                return true;
-                            }
-                        }
+                    Schema::NamedType(named_type_id) => {
+                        let named_type = named_types.get(named_type_id).unwrap();
+                        match named_type {
+                            SchemaNamedType::Enum(inner_schema) => {
+                                for option in inner_schema.symbols() {
+                                    if option.name() == inner_value.symbol_name {
+                                        return true;
+                                    }
+                                }
 
-                        false
+                                false
+                            },
+                            _ => false
+                        }
                     },
                     _ => false
                 }
             }
             Value::Fixed(value) => {
                 match schema {
-                    Schema::Fixed(inner_schema) => {
-                        value.len() == inner_schema.length()
+                    Schema::NamedType(named_type_id) => {
+
+                        let named_type = named_types.get(named_type_id).unwrap();
+                        match named_type {
+                            SchemaNamedType::Fixed(inner_schema) => {
+                                value.len() == inner_schema.length()
+                            },
+                            _ => false
+                        }
                     },
                     _ => false
                 }

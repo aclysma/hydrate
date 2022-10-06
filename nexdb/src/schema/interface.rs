@@ -33,7 +33,7 @@ impl SchemaInterface {
         }
     }
 
-    pub(crate) fn fingerprint_hash<T: Hasher>(&self, hasher: &mut T) {
-        self.name.hash(hasher);
-    }
+    // pub(crate) fn fingerprint_hash<T: Hasher>(&self, hasher: &mut T) {
+    //     self.name.hash(hasher);
+    // }
 }

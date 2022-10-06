@@ -1,8 +1,8 @@
 
 pub struct EnumTypeSymbolBuilder {
-    pub(super) name: String,
-    pub(super) aliases: Vec<String>,
-    pub(super) value: i32,
+    pub(crate) name: String,
+    pub(crate) aliases: Vec<String>,
+    pub(crate) value: i32,
 }
 
 impl EnumTypeSymbolBuilder {
@@ -13,8 +13,8 @@ impl EnumTypeSymbolBuilder {
 
 #[derive(Default)]
 pub struct EnumTypeBuilder {
-    pub(super) aliases: Vec<String>,
-    pub(super) symbols: Vec<EnumTypeSymbolBuilder>,
+    pub(crate) aliases: Vec<String>,
+    pub(crate) symbols: Vec<EnumTypeSymbolBuilder>,
 }
 
 impl EnumTypeBuilder {

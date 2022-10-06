@@ -6,16 +6,30 @@ use uuid::Uuid;
 use crate::{SchemaFingerprint, Value, HashMap, Schema, HashSet};
 
 #[derive(Debug)]
+pub enum SchemaDefValidationError {
+    DuplicateFieldName,
+}
+
+pub type SchemaDefValidationResult<T> = Result<T, SchemaDefValidationError>;
+
+#[derive(Debug)]
 pub enum SchemaDefParserError {
     Str(&'static str),
-    String(String)
+    String(String),
+    ValidationError(SchemaDefValidationError),
+}
+
+impl From<SchemaDefValidationError> for SchemaDefParserError {
+    fn from(validation_error: SchemaDefValidationError) -> Self {
+        SchemaDefParserError::ValidationError(validation_error)
+    }
 }
 
 pub type SchemaDefParserResult<T> = Result<T, SchemaDefParserError>;
 
 #[derive(Debug)]
-pub(super) struct SchemaDefStaticArray {
-    pub(super) item_type: Box<SchemaDefTypeRef>,
+pub struct SchemaDefStaticArray {
+    pub(super) item_type: Box<SchemaDefType>,
     pub(super) length: usize
 }
 
@@ -35,11 +49,17 @@ impl SchemaDefStaticArray {
 }
 
 #[derive(Debug)]
-pub(super) struct SchemaDefDynamicArray {
-    pub(super) item_type: Box<SchemaDefTypeRef>
+pub struct SchemaDefDynamicArray {
+    pub(super) item_type: Box<SchemaDefType>
 }
 
 impl SchemaDefDynamicArray {
+    pub fn new(item_type: Box<SchemaDefType>) -> Self {
+        SchemaDefDynamicArray {
+            item_type
+        }
+    }
+
     fn apply_type_aliases(&mut self, aliases: &HashMap<String, String>) {
         self.item_type.apply_type_aliases(aliases);
     }
@@ -54,9 +74,9 @@ impl SchemaDefDynamicArray {
 }
 
 #[derive(Debug)]
-pub(super) struct SchemaDefMap {
-    pub(super) key_type: Box<SchemaDefTypeRef>,
-    pub(super) value_type: Box<SchemaDefTypeRef>
+pub struct SchemaDefMap {
+    pub(super) key_type: Box<SchemaDefType>,
+    pub(super) value_type: Box<SchemaDefType>
 }
 
 impl SchemaDefMap {
@@ -80,10 +100,22 @@ impl SchemaDefMap {
 pub(super) struct SchemaDefRecordField {
     pub(super) field_name: String,
     pub(super) aliases: Vec<String>,
-    pub(super) field_type: Box<SchemaDefTypeRef>
+    pub(super) field_type: SchemaDefType
 }
 
 impl SchemaDefRecordField {
+    pub fn new(
+        field_name: String,
+        aliases: Vec<String>,
+        field_type: SchemaDefType
+    ) -> SchemaDefValidationResult<Self> {
+        Ok(SchemaDefRecordField {
+            field_name,
+            aliases,
+            field_type
+        })
+    }
+
     fn apply_type_aliases(&mut self, aliases: &HashMap<String, String>) {
         self.field_type.apply_type_aliases(aliases);
     }
@@ -107,6 +139,27 @@ pub(super) struct SchemaDefRecord {
 }
 
 impl SchemaDefRecord {
+    pub fn new(
+        type_name: String,
+        aliases: Vec<String>,
+        fields: Vec<SchemaDefRecordField>,
+    ) -> SchemaDefValidationResult<Self> {
+        // Check names are unique
+        for i in 0..fields.len() {
+            for j in 0..i {
+                if fields[i].field_name == fields[j].field_name {
+                    Err(SchemaDefValidationError::DuplicateFieldName)?;
+                }
+            }
+        }
+
+        Ok(SchemaDefRecord {
+            type_name,
+            aliases,
+            fields
+        })
+    }
+
     fn apply_type_aliases(&mut self, aliases: &HashMap<String, String>) {
         for field in &mut self.fields {
             field.apply_type_aliases(aliases);
@@ -140,6 +193,18 @@ pub(super) struct SchemaDefEnumSymbol {
 }
 
 impl SchemaDefEnumSymbol {
+    pub fn new(
+        symbol_name: String,
+        aliases: Vec<String>,
+        value: i32
+    ) -> SchemaDefValidationResult<Self> {
+        Ok(SchemaDefEnumSymbol {
+            symbol_name,
+            aliases,
+            value
+        })
+    }
+
     fn partial_hash<T: Hasher>(&self, hasher: &mut T) {
         self.symbol_name.hash(hasher);
         self.value.hash(hasher);
@@ -155,6 +220,18 @@ pub(super) struct SchemaDefEnum {
 }
 
 impl SchemaDefEnum {
+    pub fn new(
+        type_name: String,
+        aliases: Vec<String>,
+        symbols: Vec<SchemaDefEnumSymbol>,
+    ) -> SchemaDefValidationResult<Self> {
+        Ok(SchemaDefEnum {
+            type_name,
+            aliases,
+            symbols,
+        })
+    }
+
     fn apply_type_aliases(&mut self, aliases: &HashMap<String, String>) {
 
     }
@@ -184,6 +261,18 @@ pub(super) struct SchemaDefFixed {
 }
 
 impl SchemaDefFixed {
+    pub fn new(
+        type_name: String,
+        aliases: Vec<String>,
+        length: usize
+    ) -> SchemaDefValidationResult<Self> {
+        Ok(SchemaDefFixed {
+            type_name,
+            aliases,
+            length,
+        })
+    }
+
     fn apply_type_aliases(&mut self, aliases: &HashMap<String, String>) {
 
     }
@@ -200,8 +289,8 @@ impl SchemaDefFixed {
 }
 
 #[derive(Debug)]
-pub(super) enum SchemaDefTypeRef {
-    Nullable(Box<SchemaDefTypeRef>),
+pub enum SchemaDefType {
+    Nullable(Box<SchemaDefType>),
     Boolean,
     I32,
     I64,
@@ -223,24 +312,24 @@ pub(super) enum SchemaDefTypeRef {
     // union?
 }
 
-impl SchemaDefTypeRef {
+impl SchemaDefType {
     fn apply_type_aliases(&mut self, aliases: &HashMap<String, String>) {
         match self {
-            SchemaDefTypeRef::Nullable(x) => x.apply_type_aliases(aliases),
-            SchemaDefTypeRef::Boolean => {}
-            SchemaDefTypeRef::I32 => {}
-            SchemaDefTypeRef::I64 => {}
-            SchemaDefTypeRef::U32 => {}
-            SchemaDefTypeRef::U64 => {}
-            SchemaDefTypeRef::F32 => {}
-            SchemaDefTypeRef::F64 => {}
-            SchemaDefTypeRef::Bytes => {}
-            SchemaDefTypeRef::Buffer => {}
-            SchemaDefTypeRef::String => {}
-            SchemaDefTypeRef::StaticArray(x) => x.apply_type_aliases(aliases),
-            SchemaDefTypeRef::DynamicArray(x) => x.apply_type_aliases(aliases),
-            SchemaDefTypeRef::Map(x) => x.apply_type_aliases(aliases),
-            SchemaDefTypeRef::NamedType(x) => {
+            SchemaDefType::Nullable(x) => x.apply_type_aliases(aliases),
+            SchemaDefType::Boolean => {}
+            SchemaDefType::I32 => {}
+            SchemaDefType::I64 => {}
+            SchemaDefType::U32 => {}
+            SchemaDefType::U64 => {}
+            SchemaDefType::F32 => {}
+            SchemaDefType::F64 => {}
+            SchemaDefType::Bytes => {}
+            SchemaDefType::Buffer => {}
+            SchemaDefType::String => {}
+            SchemaDefType::StaticArray(x) => x.apply_type_aliases(aliases),
+            SchemaDefType::DynamicArray(x) => x.apply_type_aliases(aliases),
+            SchemaDefType::Map(x) => x.apply_type_aliases(aliases),
+            SchemaDefType::NamedType(x) => {
                 let alias = aliases.get(x);
                 if let Some(alias) = alias {
                     *x = alias.clone();
@@ -251,21 +340,21 @@ impl SchemaDefTypeRef {
 
     fn collect_all_related_types(&self, types: &mut HashSet<String>) {
         match self {
-            SchemaDefTypeRef::Nullable(x) => x.collect_all_related_types(types),
-            SchemaDefTypeRef::Boolean => {}
-            SchemaDefTypeRef::I32 => {}
-            SchemaDefTypeRef::I64 => {}
-            SchemaDefTypeRef::U32 => {}
-            SchemaDefTypeRef::U64 => {}
-            SchemaDefTypeRef::F32 => {}
-            SchemaDefTypeRef::F64 => {}
-            SchemaDefTypeRef::Bytes => {}
-            SchemaDefTypeRef::Buffer => {}
-            SchemaDefTypeRef::String => {}
-            SchemaDefTypeRef::StaticArray(x) => x.collect_all_related_types(types),
-            SchemaDefTypeRef::DynamicArray(x) => x.collect_all_related_types(types),
-            SchemaDefTypeRef::Map(x) => x.collect_all_related_types(types),
-            SchemaDefTypeRef::NamedType(x) => {
+            SchemaDefType::Nullable(x) => x.collect_all_related_types(types),
+            SchemaDefType::Boolean => {}
+            SchemaDefType::I32 => {}
+            SchemaDefType::I64 => {}
+            SchemaDefType::U32 => {}
+            SchemaDefType::U64 => {}
+            SchemaDefType::F32 => {}
+            SchemaDefType::F64 => {}
+            SchemaDefType::Bytes => {}
+            SchemaDefType::Buffer => {}
+            SchemaDefType::String => {}
+            SchemaDefType::StaticArray(x) => x.collect_all_related_types(types),
+            SchemaDefType::DynamicArray(x) => x.collect_all_related_types(types),
+            SchemaDefType::Map(x) => x.collect_all_related_types(types),
+            SchemaDefType::NamedType(x) => {
                 types.insert(x.clone());
             },
         }
@@ -273,33 +362,33 @@ impl SchemaDefTypeRef {
 
     fn partial_hash<T: Hasher>(&self, hasher: &mut T) {
         match self {
-            SchemaDefTypeRef::Nullable(x) => {
+            SchemaDefType::Nullable(x) => {
                 "Nullable".hash(hasher);
                 x.partial_hash(hasher);
             }
-            SchemaDefTypeRef::Boolean => "Boolean".hash(hasher),
-            SchemaDefTypeRef::I32 => "I32".hash(hasher),
-            SchemaDefTypeRef::I64 => "I64".hash(hasher),
-            SchemaDefTypeRef::U32 => "U32".hash(hasher),
-            SchemaDefTypeRef::U64 => "U64".hash(hasher),
-            SchemaDefTypeRef::F32 => "F32".hash(hasher),
-            SchemaDefTypeRef::F64 => "F64".hash(hasher),
-            SchemaDefTypeRef::Bytes => "Bytes".hash(hasher),
-            SchemaDefTypeRef::Buffer => "Buffer".hash(hasher),
-            SchemaDefTypeRef::String => "String".hash(hasher),
-            SchemaDefTypeRef::StaticArray(x) => {
+            SchemaDefType::Boolean => "Boolean".hash(hasher),
+            SchemaDefType::I32 => "I32".hash(hasher),
+            SchemaDefType::I64 => "I64".hash(hasher),
+            SchemaDefType::U32 => "U32".hash(hasher),
+            SchemaDefType::U64 => "U64".hash(hasher),
+            SchemaDefType::F32 => "F32".hash(hasher),
+            SchemaDefType::F64 => "F64".hash(hasher),
+            SchemaDefType::Bytes => "Bytes".hash(hasher),
+            SchemaDefType::Buffer => "Buffer".hash(hasher),
+            SchemaDefType::String => "String".hash(hasher),
+            SchemaDefType::StaticArray(x) => {
                 "StaticArray".hash(hasher);
                 x.partial_hash(hasher);
             }
-            SchemaDefTypeRef::DynamicArray(x) => {
+            SchemaDefType::DynamicArray(x) => {
                 "DynamicArray".hash(hasher);
                 x.partial_hash(hasher);
             }
-            SchemaDefTypeRef::Map(x) => {
+            SchemaDefType::Map(x) => {
                 "Map".hash(hasher);
                 x.partial_hash(hasher);
             }
-            SchemaDefTypeRef::NamedType(x) => {
+            SchemaDefType::NamedType(x) => {
                 "NamedType".hash(hasher);
                 x.hash(hasher);
             }
@@ -364,7 +453,7 @@ impl SchemaDefNamedType {
     }
 }
 
-fn parse_json_schema_type_ref(json_value: &serde_json::Value, error_prefix: &str) -> SchemaDefParserResult<SchemaDefTypeRef> {
+fn parse_json_schema_type_ref(json_value: &serde_json::Value, error_prefix: &str) -> SchemaDefParserResult<SchemaDefType> {
     let mut name;
     match json_value {
         serde_json::Value::String(type_name) => {
@@ -381,18 +470,18 @@ fn parse_json_schema_type_ref(json_value: &serde_json::Value, error_prefix: &str
             let inner_type = json_value.get("inner_type").ok_or_else(|| SchemaDefParserError::String(format!("{}All nullable types must has an inner_type", error_prefix)))?;
             let inner_type = parse_json_schema_type_ref(inner_type, error_prefix)?;
 
-            SchemaDefTypeRef::Nullable(Box::new(inner_type))
+            SchemaDefType::Nullable(Box::new(inner_type))
         },
-        "bool" => SchemaDefTypeRef::Boolean,
-        "i32" => SchemaDefTypeRef::I32,
-        "i64" => SchemaDefTypeRef::I64,
-        "u32" => SchemaDefTypeRef::U32,
-        "u64" => SchemaDefTypeRef::U64,
-        "f32" => SchemaDefTypeRef::F32,
-        "f64" => SchemaDefTypeRef::F64,
-        "bytes" => SchemaDefTypeRef::Bytes,
-        "buffer" => SchemaDefTypeRef::Buffer,
-        "string" => SchemaDefTypeRef::String,
+        "bool" => SchemaDefType::Boolean,
+        "i32" => SchemaDefType::I32,
+        "i64" => SchemaDefType::I64,
+        "u32" => SchemaDefType::U32,
+        "u64" => SchemaDefType::U64,
+        "f32" => SchemaDefType::F32,
+        "f64" => SchemaDefType::F64,
+        "bytes" => SchemaDefType::Bytes,
+        "buffer" => SchemaDefType::Buffer,
+        "string" => SchemaDefType::String,
         "static_array" => {
             unimplemented!()
         },
@@ -400,7 +489,7 @@ fn parse_json_schema_type_ref(json_value: &serde_json::Value, error_prefix: &str
             let inner_type = json_value.get("inner_type").ok_or_else(|| SchemaDefParserError::String(format!("{}All dynamic_array types must has an inner_type", error_prefix)))?;
             let inner_type = parse_json_schema_type_ref(inner_type, error_prefix)?;
 
-            SchemaDefTypeRef::DynamicArray(SchemaDefDynamicArray {
+            SchemaDefType::DynamicArray(SchemaDefDynamicArray {
                 item_type: Box::new(inner_type)
             })
         },
@@ -417,7 +506,7 @@ fn parse_json_schema_type_ref(json_value: &serde_json::Value, error_prefix: &str
         // Record(SchemaDefRecord),
         // Enum(SchemaDefEnum),
         // Fixed(SchemaDefFixed),
-        _ => SchemaDefTypeRef::NamedType(name.to_string())
+        _ => SchemaDefType::NamedType(name.to_string())
     })
 }
 
@@ -432,7 +521,7 @@ fn parse_json_schema_type_ref(json_value: &serde_json::Value, error_prefix: &str
 //     Ok(strings)
 // }
 
-fn parse_json_schema_record_field(json_object: &serde_json::Value, error_prefix: &str) -> SchemaDefParserResult<SchemaDefRecordField> {
+fn parse_json_schema_def_record_field(json_object: &serde_json::Value, error_prefix: &str) -> SchemaDefParserResult<SchemaDefRecordField> {
     let object = json_object.as_object().ok_or_else(|| SchemaDefParserError::String(format!("{}Record schema fields must be a json object", error_prefix)))?;
 
     let field_name = object.get("name").map(|x| x.as_str()).flatten().ok_or_else(|| SchemaDefParserError::String(format!("{}Record fields must be a name that is a string", error_prefix)))?.to_string();
@@ -457,11 +546,11 @@ fn parse_json_schema_record_field(json_object: &serde_json::Value, error_prefix:
     Ok(SchemaDefRecordField {
         field_name,
         aliases,
-        field_type: Box::new(field_type)
+        field_type
     })
 }
 
-fn parse_json_schema_record(json_object: &serde_json::Map<String, serde_json::Value>, error_prefix: &str) -> SchemaDefParserResult<SchemaDefRecord> {
+fn parse_json_schema_def_record(json_object: &serde_json::Map<String, serde_json::Value>, error_prefix: &str) -> SchemaDefParserResult<SchemaDefRecord> {
     let name = json_object.get("name").ok_or_else(|| SchemaDefParserError::String(format!("{}Records must have a name", error_prefix)))?;
     let name_str = name.as_str().ok_or_else(|| SchemaDefParserError::String(format!("{}Records must have a name", error_prefix)))?;
 
@@ -479,7 +568,7 @@ fn parse_json_schema_record(json_object: &serde_json::Map<String, serde_json::Va
     let json_fields = json_object.get("fields").map(|x| x.as_array()).flatten().ok_or_else(|| SchemaDefParserError::String(format!("{}Records must have an array of fields", error_prefix)))?;
     let mut fields = vec![];
     for json_field in json_fields {
-        fields.push(parse_json_schema_record_field(json_field, &error_prefix)?);
+        fields.push(parse_json_schema_def_record_field(json_field, &error_prefix)?);
     }
 
     Ok(SchemaDefRecord {
@@ -489,14 +578,14 @@ fn parse_json_schema_record(json_object: &serde_json::Map<String, serde_json::Va
     })
 }
 
-pub(super) fn parse_json_schema(json_value: &serde_json::Value, error_prefix: &str) -> SchemaDefParserResult<SchemaDefNamedType> {
+pub(super) fn parse_json_schema_def(json_value: &serde_json::Value, error_prefix: &str) -> SchemaDefParserResult<SchemaDefNamedType> {
     let object = json_value.as_object().ok_or_else(|| SchemaDefParserError::String(format!("{}Schema file must be an array of json objects", error_prefix)))?;
 
     let object_type = object.get("type").ok_or_else(|| SchemaDefParserError::String(format!("{}Schema file objects must have a type field", error_prefix)))?;
     let object_type_str = object_type.as_str().ok_or_else(|| SchemaDefParserError::String(format!("{}Schema file objects must have a type field that is a string", error_prefix)))?;
     match object_type_str {
         "record" => {
-            let record = parse_json_schema_record(object, error_prefix)?;
+            let record = parse_json_schema_def_record(object, error_prefix)?;
             return Ok(SchemaDefNamedType::Record(record))
 
             //self.types.insert(record.type_name, NamedType::Record())

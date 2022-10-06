@@ -26,8 +26,10 @@ pub use static_array::*;
 use std::hash::{Hash, Hasher};
 use siphasher::sip128::Hasher128;
 use crate::{SchemaFingerprint, Value};
+use crate::HashMap;
 
-const BOOLEAN_SCHEMA: Schema = Schema::Boolean;
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+pub struct SchemaId(u128);
 
 // Defines a unique number for each variant for hashing/fingerprinting purposes, the number is
 // completely arbitrary
@@ -56,6 +58,45 @@ enum SchemaTypeIndex {
 impl SchemaTypeIndex {
     pub(crate) fn fingerprint_hash<T: Hasher>(&self, hasher: &mut T) {
         (*self as u32).hash(hasher);
+    }
+}
+
+#[derive(Clone, Debug)]
+pub enum SchemaNamedType {
+    Record(SchemaRecord),
+    Enum(SchemaEnum),
+    Fixed(SchemaFixed),
+    // Union?
+}
+
+impl SchemaNamedType {
+    pub fn fingerprint(&self) -> SchemaFingerprint {
+        match self {
+            SchemaNamedType::Record(x) => x.fingerprint(),
+            SchemaNamedType::Enum(x) => x.fingerprint(),
+            SchemaNamedType::Fixed(x) => x.fingerprint(),
+        }
+    }
+
+    pub fn as_record(&self) -> Option<&SchemaRecord> {
+        match self {
+            SchemaNamedType::Record(x) => Some(x),
+            _ => None,
+        }
+    }
+
+    pub fn as_enum(&self) -> Option<&SchemaEnum> {
+        match self {
+            SchemaNamedType::Enum(x) => Some(x),
+            _ => None,
+        }
+    }
+
+    pub fn as_fixed(&self) -> Option<&SchemaFixed> {
+        match self {
+            SchemaNamedType::Fixed(x) => Some(x),
+            _ => None,
+        }
     }
 }
 
@@ -93,45 +134,46 @@ pub enum Schema {
     //
 
     /// An object or inlined struct within an object
-    Record(SchemaRecord),
-    Enum(SchemaEnum),
-    Fixed(SchemaFixed),
+    // Record(SchemaRecord),
+    // Enum(SchemaEnum),
+    // Fixed(SchemaFixed),
     // union?
+    NamedType(SchemaFingerprint)
 }
 
 impl Schema {
-    pub(crate) fn fingerprint_hash<T: Hasher>(&self, hasher: &mut T) {
-        match self {
-            Schema::Nullable(inner) => {
-                SchemaTypeIndex::Nullable.fingerprint_hash(hasher);
-                inner.fingerprint_hash(hasher)
-            },
-            Schema::Boolean => SchemaTypeIndex::Boolean.fingerprint_hash(hasher),
-            Schema::I32 => SchemaTypeIndex::I32.fingerprint_hash(hasher),
-            Schema::I64 => SchemaTypeIndex::I64.fingerprint_hash(hasher),
-            Schema::U32 => SchemaTypeIndex::U32.fingerprint_hash(hasher),
-            Schema::U64 => SchemaTypeIndex::U64.fingerprint_hash(hasher),
-            Schema::F32 => SchemaTypeIndex::F32.fingerprint_hash(hasher),
-            Schema::F64 => SchemaTypeIndex::F64.fingerprint_hash(hasher),
-            Schema::Bytes => SchemaTypeIndex::Bytes.fingerprint_hash(hasher),
-            Schema::Buffer => SchemaTypeIndex::Buffer.fingerprint_hash(hasher),
-            Schema::String => SchemaTypeIndex::String.fingerprint_hash(hasher),
-            Schema::StaticArray(inner) => inner.fingerprint_hash(hasher),
-            Schema::DynamicArray(inner) => inner.fingerprint_hash(hasher),
-            Schema::Map(inner) => inner.fingerprint_hash(hasher),
-            Schema::RecordRef(inner) => inner.fingerprint_hash(hasher),
-            Schema::Record(inner) => inner.fingerprint_hash(hasher),
-            Schema::Enum(inner) => inner.fingerprint_hash(hasher),
-            Schema::Fixed(inner) => inner.fingerprint_hash(hasher),
-            //TODO: Union?
-        }
-    }
+    // pub(crate) fn fingerprint_hash<T: Hasher>(&self, hasher: &mut T) {
+    //     match self {
+    //         Schema::Nullable(inner) => {
+    //             SchemaTypeIndex::Nullable.fingerprint_hash(hasher);
+    //             inner.fingerprint_hash(hasher)
+    //         },
+    //         Schema::Boolean => SchemaTypeIndex::Boolean.fingerprint_hash(hasher),
+    //         Schema::I32 => SchemaTypeIndex::I32.fingerprint_hash(hasher),
+    //         Schema::I64 => SchemaTypeIndex::I64.fingerprint_hash(hasher),
+    //         Schema::U32 => SchemaTypeIndex::U32.fingerprint_hash(hasher),
+    //         Schema::U64 => SchemaTypeIndex::U64.fingerprint_hash(hasher),
+    //         Schema::F32 => SchemaTypeIndex::F32.fingerprint_hash(hasher),
+    //         Schema::F64 => SchemaTypeIndex::F64.fingerprint_hash(hasher),
+    //         Schema::Bytes => SchemaTypeIndex::Bytes.fingerprint_hash(hasher),
+    //         Schema::Buffer => SchemaTypeIndex::Buffer.fingerprint_hash(hasher),
+    //         Schema::String => SchemaTypeIndex::String.fingerprint_hash(hasher),
+    //         Schema::StaticArray(inner) => inner.fingerprint_hash(hasher),
+    //         Schema::DynamicArray(inner) => inner.fingerprint_hash(hasher),
+    //         Schema::Map(inner) => inner.fingerprint_hash(hasher),
+    //         Schema::RecordRef(inner) => inner.fingerprint_hash(hasher),
+    //         Schema::Record(inner) => inner.fingerprint_hash(hasher),
+    //         Schema::Enum(inner) => inner.fingerprint_hash(hasher),
+    //         Schema::Fixed(inner) => inner.fingerprint_hash(hasher),
+    //         //TODO: Union?
+    //     }
+    // }
 
-    pub fn fingerprint(&self) -> SchemaFingerprint {
-        let mut hasher = siphasher::sip128::SipHasher::default();
-        self.fingerprint_hash(&mut hasher);
-        SchemaFingerprint(hasher.finish128().as_u128())
-    }
+    // pub fn fingerprint(&self) -> SchemaFingerprint {
+    //     let mut hasher = siphasher::sip128::SipHasher::default();
+    //     self.fingerprint_hash(&mut hasher);
+    //     SchemaFingerprint(hasher.finish128().as_u128())
+    // }
 
     pub fn is_nullable(&self) -> bool {
         match self {
@@ -224,28 +266,22 @@ impl Schema {
         }
     }
 
-    pub fn find_property_schema(&self, name: impl AsRef<str>) -> Option<&Schema> {
+    pub fn find_property_schema<'a>(&'a self, name: impl AsRef<str>, named_types: &'a HashMap<SchemaFingerprint, SchemaNamedType>) -> Option<&'a Schema> {
         match self {
-            // Schema::Nullable(x) => {
-            //     if name.as_ref().eq("is_null") {
-            //         Some(&BOOLEAN_SCHEMA)
-            //     } else if name.as_ref().eq("value") {
-            //         Some(&*x)
-            //     } else {
-            //         None
-            //     }
-            // },
             Schema::Nullable(x) => {
-                //Some(&*x)
                 if name.as_ref() == "value" {
                     Some(&*x)
                 } else {
                      None
                 }
-                //x.find_property_schema(name)
             }
-            Schema::Record(x) => {
-                x.field_schema(name)
+            Schema::NamedType(named_type_id) => {
+                let named_type = named_types.get(named_type_id).unwrap();
+                match named_type {
+                    SchemaNamedType::Record(x) => x.field_schema(name),
+                    SchemaNamedType::Enum(_) => None,
+                    SchemaNamedType::Fixed(_) => None,
+                }
             },
             Schema::StaticArray(x) => {
                 if name.as_ref().parse::<u32>().is_ok() {
@@ -289,22 +325,4 @@ impl Schema {
     //         None
     //     }
     // }
-}
-
-#[cfg(test)]
-mod test {
-    use crate::{Schema, SchemaRecord, SchemaRecordField};
-
-    // We want the same fingerprint out of a record as a Schema::Record(record)
-    #[test]
-    fn record_fingerprint_equivalency() {
-        let vec3_schema_record = SchemaRecord::new("Vec3".to_string(), vec![].into_boxed_slice(), vec![
-            SchemaRecordField::new("x".to_string(), vec![].into_boxed_slice(), Schema::F32),
-            SchemaRecordField::new("y".to_string(), vec![].into_boxed_slice(), Schema::F32),
-            SchemaRecordField::new("z".to_string(), vec![].into_boxed_slice(), Schema::F32)
-        ].into_boxed_slice());
-
-        // Fingerprint of a Schema::Record is == to fingerprint of wrapped SchemaRecord
-        assert_eq!(vec3_schema_record.fingerprint(), Schema::Record(vec3_schema_record).fingerprint());
-    }
 }

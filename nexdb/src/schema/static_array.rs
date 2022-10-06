@@ -12,11 +12,11 @@ pub struct SchemaStaticArray {
 }
 
 impl SchemaStaticArray {
-    pub(crate) fn fingerprint_hash<T: Hasher>(&self, hasher: &mut T) {
-        SchemaTypeIndex::StaticArray.fingerprint_hash(hasher);
-        self.item_type.fingerprint_hash(hasher);
-        self.length.hash(hasher);
-    }
+    // pub(crate) fn fingerprint_hash<T: Hasher>(&self, hasher: &mut T) {
+    //     SchemaTypeIndex::StaticArray.fingerprint_hash(hasher);
+    //     self.item_type.fingerprint_hash(hasher);
+    //     self.length.hash(hasher);
+    // }
 
     pub fn item_type(&self) -> &Schema {
         &*self.item_type

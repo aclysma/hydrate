@@ -1,4 +1,4 @@
-use crate::{Schema, SchemaDynamicArray, SchemaRecord};
+use crate::{Schema, SchemaDynamicArray, SchemaFingerprint, SchemaId, SchemaRecord};
 
 pub struct RecordTypeFieldBuilder {
     pub(super) name: String,
@@ -112,9 +112,9 @@ impl RecordTypeBuilder {
         });
     }
 
-    pub fn add_struct(&mut self, name: impl Into<String>, schema: &SchemaRecord) -> &mut RecordTypeFieldBuilder {
+    pub fn add_struct(&mut self, name: impl Into<String>, named_type_id: SchemaFingerprint) -> &mut RecordTypeFieldBuilder {
         self.fields.push(RecordTypeFieldBuilder {
-            field_type: Schema::Record(schema.clone()),
+            field_type: Schema::NamedType(named_type_id),
             aliases: Default::default(),
             name: name.into(),
         });

@@ -39,12 +39,6 @@ impl SchemaFixed {
         }
     }
 
-    // pub(crate) fn fingerprint_hash<T: Hasher>(&self, hasher: &mut T) {
-    //     SchemaTypeIndex::Fixed.fingerprint_hash(hasher);
-    //     self.name.hash(hasher);
-    //     self.length.hash(hasher);
-    // }
-
     pub fn name(&self) -> &str {
         &self.name
     }

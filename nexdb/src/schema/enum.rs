@@ -82,14 +82,6 @@ impl SchemaEnum {
             inner: Arc::new(inner)
         }
     }
-    //
-    // pub(crate) fn fingerprint_hash<T: Hasher>(&self, hasher: &mut T) {
-    //     SchemaTypeIndex::Enum.fingerprint_hash(hasher);
-    //     self.inner.name.hash(hasher);
-    //     for symbol in self.inner.symbols.iter() {
-    //         symbol.fingerprint_hash(hasher);
-    //     }
-    // }
 
     pub fn name(&self) -> &str {
         &self.name

@@ -32,8 +32,4 @@ impl SchemaInterface {
             inner: Arc::new(inner)
         }
     }
-
-    // pub(crate) fn fingerprint_hash<T: Hasher>(&self, hasher: &mut T) {
-    //     self.name.hash(hasher);
-    // }
 }

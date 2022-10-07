@@ -13,12 +13,6 @@ pub enum NullOverride {
     SetNonNull
 }
 
-// pub struct DatabaseSchemaInfo {
-//     schema: SchemaNamedType,
-//     //schema_id: SchemaId,
-//     fingerprint: SchemaFingerprint,
-// }
-
 pub struct DatabaseObjectInfo {
     schema: SchemaNamedType, // Will always be a SchemaRecord
     prototype: Option<ObjectId>,
@@ -44,95 +38,24 @@ pub struct Database {
 }
 
 impl Database {
-    // pub fn schema(&self, fingerprint: SchemaFingerprint) -> Option<&Schema> {
-    //     self.schemas.get(&fingerprint).map(|x| &x.schema)
-    // }
-
     pub fn add_linked_types(&mut self, mut linker: SchemaLinker) -> SchemaLinkerResult<()> {
         let linked = linker.finish()?;
 
         //TODO: check no name collisions and merge with DB
 
         for (k, v) in linked.schemas {
-            self.schemas.insert(k, v);
+            let old = self.schemas.insert(k, v);
+            assert!(old.is_none());
         }
 
         for (k, v) in linked.schemas_by_name {
-            self.schemas_by_name.insert(k, v);
+            let old = self.schemas_by_name.insert(k, v);
+            assert!(old.is_none());
         }
 
         Ok(())
     }
 
-    // fn register_named_type(
-    //     &mut self,
-    //     fingerprint: SchemaFingerprint,
-    //     schema: SchemaNamedType,
-    //     name: Option<impl Into<String>>,
-    // ) {
-    //     //let fingerprint = schema.fingerprint();
-    //
-    //     if let Some(existing_schema) = self.schemas.get(&fingerprint) {
-    //         return;
-    //     }
-    //
-    //     //TODO: Could verify schema and already registered schema with same fingerprint are actually the same
-    //     self.schemas.entry(fingerprint).or_insert(schema);
-    //
-    //     if let Some(name) = name {
-    //         let old = self.schemas_by_name.insert(name.into(), fingerprint);
-    //
-    //         // We do not allow a single schema name to reference different schemas
-    //         assert_eq!(old.unwrap_or(fingerprint), fingerprint);
-    //     }
-    // }
-/*
-    pub fn register_record_type<F: Fn(&mut RecordTypeBuilder)>(&mut self, name: impl Into<String>, f: F) -> SchemaRecord {
-        let mut builder = RecordTypeBuilder::default();
-        (f)(&mut builder);
-
-        let fields: Vec<_> = builder.fields.into_iter().map(|x| {
-            SchemaRecordField::new(x.name, x.aliases.into_boxed_slice(), x.field_type)
-        }).collect();
-        let schema_record = SchemaRecord::new(name.into(), builder.aliases.into_boxed_slice(), fields.into_boxed_slice());
-
-        let schema = SchemaNamedType::Record(schema_record.clone());
-        println!("Registering struct {} {}", schema_record.name(), schema_record.fingerprint().as_uuid());
-        self.register_schema(schema_record.name(), schema);
-
-        schema_record
-    }
-
-    pub fn register_enum_type<F: Fn(&mut EnumTypeBuilder)>(&mut self, name: impl Into<String>, f: F) -> SchemaEnum {
-        let mut builder = EnumTypeBuilder::default();
-        (f)(&mut builder);
-
-        let mut symbols: Vec<_> = builder.symbols.into_iter().map(|x| {
-            SchemaEnumSymbol::new(x.name, x.aliases.into_boxed_slice(), x.value)
-        }).collect();
-        symbols.sort_by_key(|x| x.value());
-        let schema_enum = SchemaEnum::new(name.into(), builder.aliases.into_boxed_slice(), symbols.into_boxed_slice());
-
-        let schema = SchemaNamedType::Enum(schema_enum.clone());
-        println!("Registering enum {} {:?}", schema_enum.name(), schema.fingerprint().as_uuid());
-        self.register_schema(schema_enum.name(), schema);
-
-        schema_enum
-    }
-
-    pub fn register_fixed_type<F: Fn(&mut FixedTypeBuilder)>(&mut self, name: impl Into<String>, length: usize, f: F) -> SchemaFixed {
-        let mut builder = FixedTypeBuilder::default();
-        (f)(&mut builder);
-
-        let schema_fixed = SchemaFixed::new(name.into(), builder.aliases.into_boxed_slice(), length);
-
-        let schema = SchemaNamedType::Fixed(schema_fixed.clone());
-        println!("Registering fixed {} {}", schema_fixed.name(), schema.fingerprint().as_uuid());
-        self.register_schema(schema_fixed.name(), schema);
-
-        schema_fixed
-    }
-*/
     pub fn find_named_type(&self, name: impl AsRef<str>) -> Option<&SchemaNamedType> {
         self.schemas_by_name.get(name.as_ref()).map(|fingerprint| self.find_named_type_by_fingerprint(*fingerprint)).flatten()
     }
@@ -140,10 +63,6 @@ impl Database {
     pub fn find_named_type_by_fingerprint(&self, fingerprint: SchemaFingerprint) -> Option<&SchemaNamedType> {
         self.schemas.get(&fingerprint)
     }
-
-
-
-
 
 
 
@@ -259,6 +178,7 @@ impl Database {
 
         for (i, path_segment) in split_path[0..split_path.len() - 1].iter().enumerate() { //.as_ref().split(".").enumerate() {
             let s = schema.find_property_schema(path_segment, named_types)?;
+            println!("path segment {} is schema {:?}", path_segment, s);
             //println!("  next schema {:?}", s);
 
             // current path needs to be verified as existing
@@ -363,9 +283,11 @@ impl Database {
             &mut map_ancestors,
             &mut accessed_dynamic_array_keys
         ).unwrap();
+        println!("SCHEMA OF PATH {} IS {:?}", path.as_ref(), property_schema);
 
         if !property_schema.is_nullable() {
-            panic!("schema not nullable");
+            panic!("not nullable");
+            return None;
         }
 
         for checked_property in &nullable_ancestors {
@@ -504,6 +426,8 @@ impl Database {
             &mut map_ancestors,
             &mut accessed_dynamic_array_keys
         ).unwrap();
+
+        println!("Path {} schema is {:?}", path.as_ref(), property_schema);
 
         for checked_property in &nullable_ancestors {
             if self.resolve_is_null(object, checked_property) != Some(false) {
@@ -857,7 +781,7 @@ mod test {
         create_vec3_schema(&mut linker).unwrap();
 
         linker.register_record_type("OuterStruct", |builder| {
-            builder.add_nullable("nullable", SchemaDefType::Nullable(Box::new(SchemaDefType::NamedType("Vec3".to_string()))));
+            builder.add_nullable("nullable", SchemaDefType::NamedType("Vec3".to_string()));
         }).unwrap();
 
         let mut db = Database::default();
@@ -915,9 +839,11 @@ mod test {
         let obj = db.new_object(&outer_struct_type);
 
         assert_eq!(db.resolve_is_null(obj, "nullable").unwrap(), true);
+        // This returns none because parent property is null, so this property should act like it doesn't exist
         assert_eq!(db.resolve_is_null(obj, "nullable.value"), None);
         assert_eq!(db.resolve_property(obj, "nullable.value.value.x").map(|x| x.as_f32().unwrap()), None);
-        db.set_property_override(obj, "nullable.value.value.x", Value::F32(10.0));
+        // This attempt to set should fail because an ancestor path is null
+        assert!(!db.set_property_override(obj, "nullable.value.value.x", Value::F32(10.0)));
         assert_eq!(db.resolve_is_null(obj, "nullable").unwrap(), true);
         assert_eq!(db.resolve_is_null(obj, "nullable.value"), None);
         assert_eq!(db.resolve_property(obj, "nullable.value.value.x").map(|x| x.as_f32().unwrap()), None);
@@ -928,6 +854,9 @@ mod test {
         db.set_null_override(obj, "nullable.value", NullOverride::SetNonNull);
         assert_eq!(db.resolve_is_null(obj, "nullable").unwrap(), false);
         assert_eq!(db.resolve_is_null(obj, "nullable.value").unwrap(), false);
+        // This is default value because the attempt to set it to 10 above should have failed
+        assert_eq!(db.resolve_property(obj, "nullable.value.value.x").map(|x| x.as_f32().unwrap()), Some(0.0));
+        assert!(db.set_property_override(obj, "nullable.value.value.x", Value::F32(10.0)));
         assert_eq!(db.resolve_property(obj, "nullable.value.value.x").map(|x| x.as_f32().unwrap()), Some(10.0));
     }
 
@@ -952,8 +881,7 @@ mod test {
         create_vec3_schema(&mut linker).unwrap();
 
         linker.register_record_type("OuterStruct", |builder| {
-            let def = SchemaDefDynamicArray::new(Box::new(SchemaDefType::NamedType("Vec3".to_string())));
-            builder.add_dynamic_array("array", SchemaDefType::DynamicArray(def));
+            builder.add_dynamic_array("array", SchemaDefType::NamedType("Vec3".to_string()));
         }).unwrap();
 
         let mut db = Database::default();
@@ -1008,8 +936,7 @@ mod test {
         create_vec3_schema(&mut linker).unwrap();
 
         linker.register_record_type("OuterStruct", |builder| {
-            let def = SchemaDefDynamicArray::new(Box::new(SchemaDefType::NamedType("Vec3".to_string())));
-            builder.add_dynamic_array("array", SchemaDefType::DynamicArray(def));
+            builder.add_dynamic_array("array", SchemaDefType::NamedType("Vec3".to_string()));
         }).unwrap();
 
         let mut db = Database::default();

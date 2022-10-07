@@ -148,7 +148,7 @@ impl SchemaLinker {
         //schema_fixed
     }
 
-    pub(crate) fn finish(&mut self) -> SchemaLinkerResult<LinkedSchemas> {
+    pub(crate) fn finish(mut self) -> SchemaLinkerResult<LinkedSchemas> {
         // Apply aliases
         for (_, named_type) in &mut self.types {
             named_type.apply_type_aliases(&self.type_aliases);
@@ -200,9 +200,15 @@ impl SchemaLinker {
             let fingerprint = hasher.finish128().as_u128();
 
             println!("type {} fingerprint is {}", type_name, fingerprint);
+            schemas_by_name.insert(type_name.to_string(), SchemaFingerprint(fingerprint));
         }
 
-        //TODO: Start here, convert schema def to schema
+
+        for (_type_name, named_type) in self.types {
+            let fingerprint = schemas_by_name.get(named_type.type_name()).unwrap();
+            let schema = named_type.to_schema(&schemas_by_name);
+            schemas.insert(*fingerprint, schema);
+        }
 
         Ok(LinkedSchemas {
             schemas_by_name,

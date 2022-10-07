@@ -1,5 +1,5 @@
 use crate::{Schema, SchemaDynamicArray, SchemaFingerprint, SchemaId, SchemaRecord};
-use crate::schema_registry::schema_def::{SchemaDefDynamicArray, SchemaDefType};
+use super::schema_def::{SchemaDefDynamicArray, SchemaDefType};
 
 pub struct RecordTypeFieldBuilder {
     pub(super) name: String,

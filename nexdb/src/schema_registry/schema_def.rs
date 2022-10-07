@@ -3,7 +3,7 @@ use std::hash::{Hash, Hasher};
 use std::path::Path;
 use siphasher::sip128::Hasher128;
 use uuid::Uuid;
-use crate::{SchemaFingerprint, Value, HashMap, Schema, HashSet};
+use crate::{SchemaFingerprint, Value, HashMap, Schema, HashSet, SchemaNamedType, SchemaRecord, SchemaRecordField, SchemaMap, SchemaDynamicArray, SchemaStaticArray, SchemaEnumSymbol, SchemaEnum, SchemaFixed};
 
 #[derive(Debug)]
 pub enum SchemaDefValidationError {
@@ -46,6 +46,10 @@ impl SchemaDefStaticArray {
         self.item_type.partial_hash(hasher);
         self.length.hash(hasher);
     }
+
+    fn to_schema(self, named_types: &HashMap<String, SchemaFingerprint>) -> SchemaStaticArray {
+        SchemaStaticArray::new(Box::new(self.item_type.to_schema(named_types)), self.length)
+    }
 }
 
 #[derive(Debug)]
@@ -71,6 +75,10 @@ impl SchemaDefDynamicArray {
     fn partial_hash<T: Hasher>(&self, hasher: &mut T) {
         self.item_type.partial_hash(hasher);
     }
+
+    fn to_schema(self, named_types: &HashMap<String, SchemaFingerprint>) -> SchemaDynamicArray {
+        SchemaDynamicArray::new(Box::new(self.item_type.to_schema(named_types)))
+    }
 }
 
 #[derive(Debug)]
@@ -94,10 +102,14 @@ impl SchemaDefMap {
         self.key_type.partial_hash(hasher);
         self.value_type.partial_hash(hasher);
     }
+
+    fn to_schema(self, named_types: &HashMap<String, SchemaFingerprint>) -> SchemaMap {
+        SchemaMap::new(Box::new(self.key_type.to_schema(named_types)), Box::new(self.value_type.to_schema(named_types)))
+    }
 }
 
 #[derive(Debug)]
-pub(super) struct SchemaDefRecordField {
+pub struct SchemaDefRecordField {
     pub(super) field_name: String,
     pub(super) aliases: Vec<String>,
     pub(super) field_type: SchemaDefType
@@ -128,11 +140,15 @@ impl SchemaDefRecordField {
         self.field_name.hash(hasher);
         self.field_type.partial_hash(hasher);
     }
+
+    fn to_schema(self, named_types: &HashMap<String, SchemaFingerprint>) -> SchemaRecordField {
+        SchemaRecordField::new(self.field_name, self.aliases.into_boxed_slice(), self.field_type.to_schema(named_types))
+    }
 }
 
 //TODO: Verify we don't have dupe field names
 #[derive(Debug)]
-pub(super) struct SchemaDefRecord {
+pub struct SchemaDefRecord {
     pub(super) type_name: String,
     pub(super) aliases: Vec<String>,
     pub(super) fields: Vec<SchemaDefRecordField>,
@@ -183,10 +199,21 @@ impl SchemaDefRecord {
             field.partial_hash(hasher);
         }
     }
+
+    fn to_schema(self, named_types: &HashMap<String, SchemaFingerprint>) -> SchemaRecord {
+        let fingerprint = *named_types.get(&self.type_name).unwrap();
+
+        let mut fields = Vec::with_capacity(self.fields.len());
+        for field in self.fields {
+            fields.push(field.to_schema(named_types));
+        }
+
+        SchemaRecord::new(self.type_name, fingerprint, self.aliases.into_boxed_slice(), fields.into_boxed_slice())
+    }
 }
 
 #[derive(Debug)]
-pub(super) struct SchemaDefEnumSymbol {
+pub struct SchemaDefEnumSymbol {
     pub(super) symbol_name: String,
     pub(super) aliases: Vec<String>,
     pub(super) value: i32
@@ -209,11 +236,15 @@ impl SchemaDefEnumSymbol {
         self.symbol_name.hash(hasher);
         self.value.hash(hasher);
     }
+
+    fn to_schema(self, named_types: &HashMap<String, SchemaFingerprint>) -> SchemaEnumSymbol {
+        SchemaEnumSymbol::new(self.symbol_name, self.aliases.into_boxed_slice(), self.value)
+    }
 }
 
 //TODO: Verify that we don't have dupe symbol names or values
 #[derive(Debug)]
-pub(super) struct SchemaDefEnum {
+pub struct SchemaDefEnum {
     pub(super) type_name: String,
     pub(super) aliases: Vec<String>,
     pub(super) symbols: Vec<SchemaDefEnumSymbol>,
@@ -251,10 +282,21 @@ impl SchemaDefEnum {
             symbol.partial_hash(hasher);
         }
     }
+
+    fn to_schema(self, named_types: &HashMap<String, SchemaFingerprint>) -> SchemaEnum {
+        let fingerprint = *named_types.get(&self.type_name).unwrap();
+
+        let mut symbols = Vec::with_capacity(self.symbols.len());
+        for symbol in self.symbols {
+            symbols.push(symbol.to_schema(named_types));
+        }
+
+        SchemaEnum::new(self.type_name, fingerprint, self.aliases.into_boxed_slice(), symbols.into_boxed_slice())
+    }
 }
 
 #[derive(Debug)]
-pub(super) struct SchemaDefFixed {
+pub struct SchemaDefFixed {
     pub(super) type_name: String,
     pub(super) aliases: Vec<String>,
     pub(super) length: usize
@@ -285,6 +327,11 @@ impl SchemaDefFixed {
     fn partial_hash<T: Hasher>(&self, hasher: &mut T) {
         self.type_name.hash(hasher);
         self.length.hash(hasher);
+    }
+
+    fn to_schema(self, named_types: &HashMap<String, SchemaFingerprint>) -> SchemaFixed {
+        let fingerprint = *named_types.get(&self.type_name).unwrap();
+        SchemaFixed::new(self.type_name, fingerprint, self.aliases.into_boxed_slice(), self.length)
     }
 }
 
@@ -394,9 +441,29 @@ impl SchemaDefType {
             }
         }
     }
+
+    fn to_schema(self, named_types: &HashMap<String, SchemaFingerprint>) -> Schema {
+        match self {
+            SchemaDefType::Nullable(x) => Schema::Nullable(Box::new(x.to_schema(named_types))),
+            SchemaDefType::Boolean => Schema::Boolean,
+            SchemaDefType::I32 => Schema::I32,
+            SchemaDefType::I64 => Schema::I64,
+            SchemaDefType::U32 => Schema::U32,
+            SchemaDefType::U64 => Schema::U64,
+            SchemaDefType::F32 => Schema::F32,
+            SchemaDefType::F64 => Schema::F64,
+            SchemaDefType::Bytes => Schema::Bytes,
+            SchemaDefType::Buffer => Schema::Buffer,
+            SchemaDefType::String => Schema::String,
+            SchemaDefType::StaticArray(x) => Schema::StaticArray(x.to_schema(named_types)),
+            SchemaDefType::DynamicArray(x) => Schema::DynamicArray(x.to_schema(named_types)),
+            SchemaDefType::Map(x) => Schema::Map(x.to_schema(named_types)),
+            SchemaDefType::NamedType(x) => Schema::NamedType(*named_types.get(&x).unwrap()),
+        }
+    }
 }
 
-pub(super) enum SchemaDefNamedType {
+pub enum SchemaDefNamedType {
     Record(SchemaDefRecord),
     Enum(SchemaDefEnum),
     Fixed(SchemaDefFixed),
@@ -449,6 +516,14 @@ impl SchemaDefNamedType {
                 "fixed".hash(hasher);
                 x.partial_hash(hasher);
             }
+        }
+    }
+
+    pub(super) fn to_schema(self, named_types: &HashMap<String, SchemaFingerprint>) -> SchemaNamedType {
+        match self {
+            SchemaDefNamedType::Record(x) => SchemaNamedType::Record(x.to_schema(named_types)),
+            SchemaDefNamedType::Enum(x) => SchemaNamedType::Enum(x.to_schema(named_types)),
+            SchemaDefNamedType::Fixed(x) => SchemaNamedType::Fixed(x.to_schema(named_types)),
         }
     }
 }

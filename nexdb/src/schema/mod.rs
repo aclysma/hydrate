@@ -25,7 +25,7 @@ pub use static_array::*;
 
 use std::hash::{Hash, Hasher};
 use siphasher::sip128::Hasher128;
-use crate::{SchemaFingerprint, Value};
+use crate::{SchemaDefNamedType, SchemaFingerprint, Value};
 use crate::HashMap;
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
@@ -98,16 +98,22 @@ impl SchemaNamedType {
             _ => None,
         }
     }
+
+    // pub fn create_from_def(&self, &schema_def: SchemaDefNamedType, schemas_by_name: &HashMap<SchemaFingerprint, SchemaNamedType>) -> SchemaNamedType {
+    //     match schema_def {
+    //         SchemaDefNamedType::Record(def) => {
+    //             Schema::NamedType(SchemaRecord::create_from_def(def))
+    //         }
+    //         SchemaDefNamedType::Enum(_) => {}
+    //         SchemaDefNamedType::Fixed(_) => {}
+    //     }
+    // }
 }
 
 /// Describes format of data, either a single primitive value or complex layout comprised of
 /// potentially many values
 #[derive(Clone, Debug)]
 pub enum Schema {
-    //
-    // Anonymous Types
-    //
-
     /// Marks the field as possible to be null
     Nullable(Box<Schema>),
     Boolean,
@@ -128,53 +134,11 @@ pub enum Schema {
     DynamicArray(SchemaDynamicArray),
     Map(SchemaMap),
     RecordRef(SchemaRefConstraint),
-
-    //
-    // Named Types
-    //
-
-    /// An object or inlined struct within an object
-    // Record(SchemaRecord),
-    // Enum(SchemaEnum),
-    // Fixed(SchemaFixed),
-    // union?
+    /// Named type, it could be an enum, record, etc.
     NamedType(SchemaFingerprint)
 }
 
 impl Schema {
-    // pub(crate) fn fingerprint_hash<T: Hasher>(&self, hasher: &mut T) {
-    //     match self {
-    //         Schema::Nullable(inner) => {
-    //             SchemaTypeIndex::Nullable.fingerprint_hash(hasher);
-    //             inner.fingerprint_hash(hasher)
-    //         },
-    //         Schema::Boolean => SchemaTypeIndex::Boolean.fingerprint_hash(hasher),
-    //         Schema::I32 => SchemaTypeIndex::I32.fingerprint_hash(hasher),
-    //         Schema::I64 => SchemaTypeIndex::I64.fingerprint_hash(hasher),
-    //         Schema::U32 => SchemaTypeIndex::U32.fingerprint_hash(hasher),
-    //         Schema::U64 => SchemaTypeIndex::U64.fingerprint_hash(hasher),
-    //         Schema::F32 => SchemaTypeIndex::F32.fingerprint_hash(hasher),
-    //         Schema::F64 => SchemaTypeIndex::F64.fingerprint_hash(hasher),
-    //         Schema::Bytes => SchemaTypeIndex::Bytes.fingerprint_hash(hasher),
-    //         Schema::Buffer => SchemaTypeIndex::Buffer.fingerprint_hash(hasher),
-    //         Schema::String => SchemaTypeIndex::String.fingerprint_hash(hasher),
-    //         Schema::StaticArray(inner) => inner.fingerprint_hash(hasher),
-    //         Schema::DynamicArray(inner) => inner.fingerprint_hash(hasher),
-    //         Schema::Map(inner) => inner.fingerprint_hash(hasher),
-    //         Schema::RecordRef(inner) => inner.fingerprint_hash(hasher),
-    //         Schema::Record(inner) => inner.fingerprint_hash(hasher),
-    //         Schema::Enum(inner) => inner.fingerprint_hash(hasher),
-    //         Schema::Fixed(inner) => inner.fingerprint_hash(hasher),
-    //         //TODO: Union?
-    //     }
-    // }
-
-    // pub fn fingerprint(&self) -> SchemaFingerprint {
-    //     let mut hasher = siphasher::sip128::SipHasher::default();
-    //     self.fingerprint_hash(&mut hasher);
-    //     SchemaFingerprint(hasher.finish128().as_u128())
-    // }
-
     pub fn is_nullable(&self) -> bool {
         match self {
             Schema::Nullable(_) => true,
@@ -301,28 +265,4 @@ impl Schema {
             _ => None
         }
     }
-
-    //
-    // pub fn find_property_path_schema<T: AsRef<str>>(&self, path: &[T]) -> Option<&Schema> {
-    //     let mut schema = self;
-    //
-    //     for path_element in path {
-    //         let s = schema.find_property_schema(path_element);
-    //         if let Some(s) = s {
-    //             schema = s;
-    //         } else {
-    //             return None;
-    //         }
-    //     }
-    //
-    //     Some(schema)
-    // }
-    //
-    // pub fn as_record(&self) -> Option<&SchemaRecord> {
-    //     if let Schema::Record(x) = self {
-    //         Some(x)
-    //     } else {
-    //         None
-    //     }
-    // }
 }

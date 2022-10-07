@@ -10,7 +10,7 @@ use notify::{watcher, DebouncedEvent, RecommendedWatcher, RecursiveMode, Watcher
 use crate::error::{Error, Result};
 //use futures_channel::mpsc::UnboundedSender;
 use base::hashing::HashMap;
-use futures_channel::mpsc::{UnboundedSender};
+use futures_channel::mpsc::UnboundedSender;
 
 pub fn canonicalize_path(path: &Path) -> PathBuf {
     use path_slash::{PathBufExt, PathExt};
@@ -86,9 +86,12 @@ pub(crate) fn file_metadata(metadata: &fs::Metadata) -> FileMetadata {
 
 impl DirWatcher {
     // Starts a watcher running on the given paths
-    pub fn from_path_iter<'a, T>(paths: T, chan: UnboundedSender<FileEvent>) -> Result<DirWatcher>
-        where
-            T: IntoIterator<Item = &'a Path>,
+    pub fn from_path_iter<'a, T>(
+        paths: T,
+        chan: UnboundedSender<FileEvent>,
+    ) -> Result<DirWatcher>
+    where
+        T: IntoIterator<Item = &'a Path>,
     {
         let (tx, rx) = channel();
         let mut asset_watcher = DirWatcher {
@@ -123,9 +126,13 @@ impl DirWatcher {
     }
 
     // Visit all files, call handle_notify_event() passing the event created by the provided callback
-    fn scan_directory<F>(&mut self, dir: &Path, evt_create: &F) -> Result<()>
-        where
-            F: Fn(PathBuf) -> DebouncedEvent,
+    fn scan_directory<F>(
+        &mut self,
+        dir: &Path,
+        evt_create: &F,
+    ) -> Result<()>
+    where
+        F: Fn(PathBuf) -> DebouncedEvent,
     {
         let canonical_dir = canonicalize_path(dir);
         self.asset_tx
@@ -138,9 +145,13 @@ impl DirWatcher {
         result
     }
 
-    fn scan_directory_recurse<F>(&mut self, dir: &Path, evt_create: &F) -> Result<()>
-        where
-            F: Fn(PathBuf) -> DebouncedEvent,
+    fn scan_directory_recurse<F>(
+        &mut self,
+        dir: &Path,
+        evt_create: &F,
+    ) -> Result<()>
+    where
+        F: Fn(PathBuf) -> DebouncedEvent,
     {
         match fs::read_dir(dir) {
             Err(ref e) if e.kind() == io::ErrorKind::NotFound => {}
@@ -201,7 +212,7 @@ impl DirWatcher {
                         Error::RescanRequired => {
                             for dir in &self.dirs.clone() {
                                 if let Err(err) =
-                                self.scan_directory(dir, &|path| DebouncedEvent::Create(path))
+                                    self.scan_directory(dir, &|path| DebouncedEvent::Create(path))
                                 {
                                     self.asset_tx
                                         .unbounded_send(FileEvent::FileError(err))
@@ -227,7 +238,10 @@ impl DirWatcher {
         }
     }
 
-    fn watch(&mut self, path: &Path) -> Result<bool> {
+    fn watch(
+        &mut self,
+        path: &Path,
+    ) -> Result<bool> {
         let refs = *self.watch_refs.get(path).unwrap_or(&0);
         match refs {
             0 => {
@@ -246,7 +260,10 @@ impl DirWatcher {
         Ok(false)
     }
 
-    fn unwatch(&mut self, path: &Path) -> Result<bool> {
+    fn unwatch(
+        &mut self,
+        path: &Path,
+    ) -> Result<bool> {
         let refs = *self.watch_refs.get(path).unwrap_or(&0);
         if refs == 1 {
             self.watcher.unwatch(path)?;
@@ -310,16 +327,16 @@ impl DirWatcher {
                             .map_err(|_| Error::SendError)?;
                     }
                     Err(Error::Notify(notify::Error::Generic(text)))
-                    if text == "Input watch path is neither a file nor a directory." =>
-                        {
-                            // skip the symlink if it's not a valid path
-                        }
+                        if text == "Input watch path is neither a file nor a directory." =>
+                    {
+                        // skip the symlink if it's not a valid path
+                    }
                     Err(Error::Notify(notify::Error::PathNotFound)) => {}
                     Err(Error::IO(err)) | Err(Error::Notify(notify::Error::Io(err)))
-                    if err.kind() == std::io::ErrorKind::NotFound =>
-                        {
-                            // skip the symlink if it no longer exists or can't be watched
-                        }
+                        if err.kind() == std::io::ErrorKind::NotFound =>
+                    {
+                        // skip the symlink if it no longer exists or can't be watched
+                    }
                     Err(err) => {
                         return Err(err);
                     }

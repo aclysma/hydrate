@@ -1,6 +1,6 @@
 use super::Schema;
-use std::hash::{Hasher};
 use crate::schema::SchemaTypeIndex;
+use std::hash::Hasher;
 
 #[derive(Clone, Debug)]
 pub struct SchemaMap {
@@ -9,11 +9,14 @@ pub struct SchemaMap {
 }
 
 impl SchemaMap {
-    pub fn new(key_type: Box<Schema>, value_type: Box<Schema>) -> Self {
+    pub fn new(
+        key_type: Box<Schema>,
+        value_type: Box<Schema>,
+    ) -> Self {
         //TODO: Check key_type is not an undesirable type (i.e. must be hashable)
         SchemaMap {
             key_type,
-            value_type
+            value_type,
         }
     }
 

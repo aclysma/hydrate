@@ -1,8 +1,8 @@
+use crate::AppState;
 use rafx::api::*;
 use rafx::framework::render_features::*;
 use rafx::framework::*;
 use std::sync::Arc;
-use crate::AppState;
 
 #[derive(Debug, Clone, Copy)]
 struct DebugVertex {
@@ -52,9 +52,7 @@ impl Renderer {
             height: window_size.height,
         };
 
-        let api = unsafe {
-            RafxApi::new(window, &Default::default())
-        }?;
+        let api = unsafe { RafxApi::new(window, &Default::default()) }?;
         let device_context = api.device_context();
 
         let render_registry = RenderRegistryBuilder::default()

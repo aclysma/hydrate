@@ -1,6 +1,6 @@
 use super::Schema;
-use std::hash::{Hash, Hasher};
 use crate::schema::SchemaTypeIndex;
+use std::hash::{Hash, Hasher};
 
 #[derive(Clone, Debug)]
 pub struct SchemaDynamicArray {
@@ -8,12 +8,8 @@ pub struct SchemaDynamicArray {
 }
 
 impl SchemaDynamicArray {
-    pub(crate) fn new(
-        item_type: Box<Schema>,
-    ) -> Self {
-        SchemaDynamicArray {
-            item_type,
-        }
+    pub(crate) fn new(item_type: Box<Schema>) -> Self {
+        SchemaDynamicArray { item_type }
     }
 
     pub fn item_type(&self) -> &Schema {

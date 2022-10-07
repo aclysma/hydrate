@@ -1,8 +1,8 @@
+use crate::schema::SchemaTypeIndex;
+use crate::SchemaFingerprint;
 use std::hash::{Hash, Hasher};
 use std::ops::Deref;
 use std::sync::Arc;
-use crate::schema::SchemaTypeIndex;
-use crate::SchemaFingerprint;
 
 #[derive(Debug)]
 pub struct SchemaFixedInner {
@@ -14,7 +14,7 @@ pub struct SchemaFixedInner {
 
 #[derive(Clone, Debug)]
 pub struct SchemaFixed {
-    inner: Arc<SchemaFixedInner>
+    inner: Arc<SchemaFixedInner>,
 }
 
 impl Deref for SchemaFixed {
@@ -26,16 +26,21 @@ impl Deref for SchemaFixed {
 }
 
 impl SchemaFixed {
-    pub fn new(name: String, fingerprint: SchemaFingerprint, aliases: Box<[String]>, length: usize) -> Self {
+    pub fn new(
+        name: String,
+        fingerprint: SchemaFingerprint,
+        aliases: Box<[String]>,
+        length: usize,
+    ) -> Self {
         let inner = SchemaFixedInner {
             name,
             fingerprint,
             aliases,
-            length
+            length,
         };
 
         SchemaFixed {
-            inner: Arc::new(inner)
+            inner: Arc::new(inner),
         }
     }
 

@@ -1,6 +1,6 @@
-use std::path::PathBuf;
 use log::MetadataBuilder;
 use serde_json::Value as JsonValue;
+use std::path::PathBuf;
 
 use nexdb::*;
 
@@ -49,10 +49,7 @@ fn main() {
     //
     // });
 
-    let path = PathBuf::from(concat!(
-        env!("CARGO_MANIFEST_DIR"),
-        "/examples/schema"
-    ));
+    let path = PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/examples/schema"));
 
     let mut linker = SchemaLinker::default();
     linker.add_source_dir(path, "*.json").unwrap();
@@ -62,5 +59,4 @@ fn main() {
     //linker.finish();
 
     println!("{}", env!("CARGO_MANIFEST_DIR"));
-
 }

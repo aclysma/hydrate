@@ -1,29 +1,36 @@
+use crate::schema::SchemaTypeIndex;
+use crate::SchemaFingerprint;
 use std::hash::{Hash, Hasher};
 use std::ops::Deref;
 use std::sync::Arc;
-use crate::schema::SchemaTypeIndex;
-use crate::SchemaFingerprint;
 
 #[derive(Debug)]
 pub struct SchemaEnumSymbol {
     name: String,
     aliases: Box<[String]>,
-    value: i32
+    value: i32,
 }
 
 impl SchemaEnumSymbol {
-    pub(crate) fn fingerprint_hash<T: Hasher>(&self, hasher: &mut T) {
+    pub(crate) fn fingerprint_hash<T: Hasher>(
+        &self,
+        hasher: &mut T,
+    ) {
         self.name.hash(hasher);
         self.value.hash(hasher);
     }
 }
 
 impl SchemaEnumSymbol {
-    pub fn new(name: String, aliases: Box<[String]>, value: i32) -> Self {
+    pub fn new(
+        name: String,
+        aliases: Box<[String]>,
+        value: i32,
+    ) -> Self {
         SchemaEnumSymbol {
             name,
             aliases,
-            value
+            value,
         }
     }
 
@@ -41,12 +48,12 @@ pub struct SchemaEnumInner {
     name: String,
     fingerprint: SchemaFingerprint,
     aliases: Box<[String]>,
-    symbols: Box<[SchemaEnumSymbol]>
+    symbols: Box<[SchemaEnumSymbol]>,
 }
 
 #[derive(Clone, Debug)]
 pub struct SchemaEnum {
-    inner: Arc<SchemaEnumInner>
+    inner: Arc<SchemaEnumInner>,
 }
 
 impl Deref for SchemaEnum {
@@ -58,7 +65,12 @@ impl Deref for SchemaEnum {
 }
 
 impl SchemaEnum {
-    pub fn new(name: String, fingerprint: SchemaFingerprint, aliases: Box<[String]>, symbols: Box<[SchemaEnumSymbol]>) -> Self {
+    pub fn new(
+        name: String,
+        fingerprint: SchemaFingerprint,
+        aliases: Box<[String]>,
+        symbols: Box<[SchemaEnumSymbol]>,
+    ) -> Self {
         // Check symbols are sorted
         for i in 0..symbols.len() - 1 {
             assert!(symbols[i].value < symbols[i + 1].value);
@@ -75,11 +87,11 @@ impl SchemaEnum {
             name,
             fingerprint,
             aliases,
-            symbols
+            symbols,
         };
 
         SchemaEnum {
-            inner: Arc::new(inner)
+            inner: Arc::new(inner),
         }
     }
 

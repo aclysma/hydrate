@@ -6,7 +6,6 @@ use imgui_support::ImguiManager;
 
 mod imgui_themes;
 
-mod test_data_refdb;
 mod test_data_nexdb;
 
 mod draw_ui;
@@ -16,18 +15,11 @@ mod draw_ui_inspector_nexdb;
 mod app;
 use app::AppState;
 
-use refdb::*;
-
-
 // Creates a window and runs the event loop.
 pub fn run() {
-    let test_data_refdb = test_data_refdb::setup_test_data();
     let test_data_nexdb = test_data_nexdb::setup_test_data();
 
-    let mut app_state = AppState {
-        test_data_refdb,
-        test_data_nexdb
-    };
+    let mut app_state = AppState { test_data_nexdb };
 
     // Create the winit event loop
     let event_loop = winit::event_loop::EventLoop::<()>::with_user_event();
@@ -77,14 +69,14 @@ pub fn run() {
             //
             winit::event::Event::WindowEvent {
                 event:
-                winit::event::WindowEvent::KeyboardInput {
-                    input:
-                    winit::event::KeyboardInput {
-                        virtual_keycode: Some(winit::event::VirtualKeyCode::Escape),
+                    winit::event::WindowEvent::KeyboardInput {
+                        input:
+                            winit::event::KeyboardInput {
+                                virtual_keycode: Some(winit::event::VirtualKeyCode::Escape),
+                                ..
+                            },
                         ..
                     },
-                    ..
-                },
                 ..
             } => *control_flow = winit::event_loop::ControlFlow::Exit,
 
@@ -103,9 +95,7 @@ pub fn run() {
                 imgui_manager.begin_frame(&window);
                 draw_ui::draw_imgui(&imgui_manager, &mut app_state);
                 imgui_manager.render(&window);
-                if let Err(e) =
-                renderer.draw(&window, imgui_manager.draw_data(), &app_state)
-                {
+                if let Err(e) = renderer.draw(&window, imgui_manager.draw_data(), &app_state) {
                     println!("Error during draw: {:?}", e);
                     *control_flow = winit::event_loop::ControlFlow::Exit
                 }

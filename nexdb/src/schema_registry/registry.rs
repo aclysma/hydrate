@@ -1,10 +1,8 @@
-
+use crate::{HashMap, HashSet, Schema, SchemaFingerprint, Value};
+use siphasher::sip128::Hasher128;
 use std::hash::{Hash, Hasher};
 use std::path::Path;
-use siphasher::sip128::Hasher128;
 use uuid::Uuid;
-use crate::{SchemaFingerprint, Value, HashMap, Schema, HashSet};
-
 
 #[derive(Default)]
 struct SchemaRegistry {
@@ -21,9 +19,7 @@ impl SchemaRegistry {
         // Ingest all types, verify no bad data or collisions with existing data
     }
 
-    pub fn save_schema_cache_to_dir() {
-
-    }
+    pub fn save_schema_cache_to_dir() {}
 
     pub fn load_current_schemas_from_dir() {
         // all schemas are loaded, reffing each other by name
@@ -43,11 +39,7 @@ impl SchemaRegistry {
         // 5. Merge data with existing data
     }
 
-    pub fn read_schemas_from_file() {
+    pub fn read_schemas_from_file() {}
 
-    }
-
-    pub fn read_schema_object() {
-
-    }
+    pub fn read_schema_object() {}
 }

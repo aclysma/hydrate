@@ -10,7 +10,7 @@ pub struct SchemaInterfaceInner {
 
 #[derive(Clone, Debug)]
 pub struct SchemaInterface {
-    inner: Arc<SchemaInterfaceInner>
+    inner: Arc<SchemaInterfaceInner>,
 }
 
 impl Deref for SchemaInterface {
@@ -22,14 +22,14 @@ impl Deref for SchemaInterface {
 }
 
 impl SchemaInterface {
-    pub fn new(name: String, aliases: Box<[String]>) -> Self {
-        let inner = SchemaInterfaceInner {
-            name,
-            aliases
-        };
+    pub fn new(
+        name: String,
+        aliases: Box<[String]>,
+    ) -> Self {
+        let inner = SchemaInterfaceInner { name, aliases };
 
         SchemaInterface {
-            inner: Arc::new(inner)
+            inner: Arc::new(inner),
         }
     }
 }

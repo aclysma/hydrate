@@ -1,13 +1,12 @@
-
-use std::hash::{Hash, Hasher};
-use std::path::Path;
-use siphasher::sip128::Hasher128;
-use uuid::Uuid;
-use super::schema_def::*;
-use crate::{HashMap, HashSet, SchemaDefParserError, SchemaFingerprint, SchemaNamedType};
-use super::record_type_builder::*;
 use super::enum_type_builder::*;
 use super::fixed_type_builder::*;
+use super::record_type_builder::*;
+use super::schema_def::*;
+use crate::{HashMap, HashSet, SchemaDefParserError, SchemaFingerprint, SchemaNamedType};
+use siphasher::sip128::Hasher128;
+use std::hash::{Hash, Hasher};
+use std::path::Path;
+use uuid::Uuid;
 
 #[derive(Debug)]
 pub enum SchemaLinkerError {
@@ -34,7 +33,6 @@ impl From<SchemaDefValidationError> for SchemaLinkerError {
 
 pub type SchemaLinkerResult<T> = Result<T, SchemaLinkerError>;
 
-
 #[derive(Default)]
 pub struct SchemaLinker {
     types: HashMap<String, SchemaDefNamedType>,
@@ -46,36 +44,61 @@ pub struct SchemaLinker {
 }
 
 impl SchemaLinker {
-    fn add_named_type(&mut self, named_type: SchemaDefNamedType) -> SchemaLinkerResult<()> {
+    fn add_named_type(
+        &mut self,
+        named_type: SchemaDefNamedType,
+    ) -> SchemaLinkerResult<()> {
         log::debug!("Adding type {}", named_type.type_name());
         if self.types.contains_key(named_type.type_name()) {
-            Err(SchemaLinkerError::String(format!("Type name {} has already been used", named_type.type_name())))?;
+            Err(SchemaLinkerError::String(format!(
+                "Type name {} has already been used",
+                named_type.type_name()
+            )))?;
         }
 
         if self.type_aliases.contains_key(named_type.type_name()) {
-            Err(SchemaLinkerError::String(format!("Type name {} has already been used", named_type.type_name())))?;
+            Err(SchemaLinkerError::String(format!(
+                "Type name {} has already been used",
+                named_type.type_name()
+            )))?;
         }
 
         for alias in named_type.aliases() {
             if self.types.contains_key(alias) {
-                Err(SchemaLinkerError::String(format!("Type name {} has already been used", alias)))?;
+                Err(SchemaLinkerError::String(format!(
+                    "Type name {} has already been used",
+                    alias
+                )))?;
             }
 
             if self.type_aliases.contains_key(alias) {
-                Err(SchemaLinkerError::String(format!("Type name {} has already been used", alias)))?;
+                Err(SchemaLinkerError::String(format!(
+                    "Type name {} has already been used",
+                    alias
+                )))?;
             }
         }
 
         for alias in named_type.aliases() {
-            self.type_aliases.insert(alias.to_string(), named_type.type_name().to_string());
+            self.type_aliases
+                .insert(alias.to_string(), named_type.type_name().to_string());
         }
         //let schema_def = SchemaDefType::NamedType(named_type.type_name().to_string());
-        self.types.insert(named_type.type_name().to_string(), named_type);
+        self.types
+            .insert(named_type.type_name().to_string(), named_type);
         Ok(())
     }
 
-    pub fn add_source_dir<PathT: AsRef<Path>, PatternT: AsRef<str>>(&mut self, path: PathT, pattern: PatternT) -> SchemaLinkerResult<()> {
-        log::info!("Adding schema source dir {:?} with pattern {:?}", path.as_ref(), pattern.as_ref());
+    pub fn add_source_dir<PathT: AsRef<Path>, PatternT: AsRef<str>>(
+        &mut self,
+        path: PathT,
+        pattern: PatternT,
+    ) -> SchemaLinkerResult<()> {
+        log::info!(
+            "Adding schema source dir {:?} with pattern {:?}",
+            path.as_ref(),
+            pattern.as_ref()
+        );
         let walker = globwalk::GlobWalkerBuilder::new(path.as_ref(), pattern.as_ref())
             .file_type(globwalk::FileType::FILE)
             .build()
@@ -88,10 +111,15 @@ impl SchemaLinker {
             let json_value: serde_json::Value = serde_json::from_str(&schema_str).unwrap();
             //println!("VALUE {:#?}", value);
 
-            let json_objects = json_value.as_array().ok_or_else(|| SchemaLinkerError::Str("Schema file must be an array of json objects"))?;
+            let json_objects = json_value.as_array().ok_or_else(|| {
+                SchemaLinkerError::Str("Schema file must be an array of json objects")
+            })?;
 
             for json_object in json_objects {
-                let named_type = super::schema_def::parse_json_schema_def(&json_object, &format!("[{}]", file.path().display()))?;
+                let named_type = super::schema_def::parse_json_schema_def(
+                    &json_object,
+                    &format!("[{}]", file.path().display()),
+                )?;
                 self.add_named_type(named_type)?;
             }
         }
@@ -99,13 +127,21 @@ impl SchemaLinker {
         Ok(())
     }
 
-    pub fn register_record_type<F: Fn(&mut RecordTypeBuilder)>(&mut self, name: impl Into<String>, f: F) -> SchemaLinkerResult<()> {
+    pub fn register_record_type<F: Fn(&mut RecordTypeBuilder)>(
+        &mut self,
+        name: impl Into<String>,
+        f: F,
+    ) -> SchemaLinkerResult<()> {
         let mut builder = RecordTypeBuilder::default();
         (f)(&mut builder);
 
         let mut fields = Vec::with_capacity(builder.fields.len());
         for builder_field in builder.fields {
-            fields.push(SchemaDefRecordField::new(builder_field.name, builder_field.aliases, builder_field.field_type)?);
+            fields.push(SchemaDefRecordField::new(
+                builder_field.name,
+                builder_field.aliases,
+                builder_field.field_type,
+            )?);
         }
 
         let name = name.into();
@@ -114,14 +150,21 @@ impl SchemaLinker {
         self.add_named_type(named_type)
     }
 
-    pub fn register_enum_type<F: Fn(&mut EnumTypeBuilder)>(&mut self, name: impl Into<String>, f: F) -> SchemaLinkerResult<()> {
+    pub fn register_enum_type<F: Fn(&mut EnumTypeBuilder)>(
+        &mut self,
+        name: impl Into<String>,
+        f: F,
+    ) -> SchemaLinkerResult<()> {
         let mut builder = EnumTypeBuilder::default();
         (f)(&mut builder);
 
-
         let mut symbols = Vec::with_capacity(builder.symbols.len());
         for builder_field in builder.symbols {
-            symbols.push(SchemaDefEnumSymbol::new(builder_field.name, builder_field.aliases, builder_field.value)?);
+            symbols.push(SchemaDefEnumSymbol::new(
+                builder_field.name,
+                builder_field.aliases,
+                builder_field.value,
+            )?);
         }
 
         symbols.sort_by_key(|x| x.value);
@@ -133,7 +176,12 @@ impl SchemaLinker {
         self.add_named_type(named_type)
     }
 
-    pub fn register_fixed_type<F: Fn(&mut FixedTypeBuilder)>(&mut self, name: impl Into<String>, length: usize, f: F) -> SchemaLinkerResult<()> {
+    pub fn register_fixed_type<F: Fn(&mut FixedTypeBuilder)>(
+        &mut self,
+        name: impl Into<String>,
+        length: usize,
+        f: F,
+    ) -> SchemaLinkerResult<()> {
         let mut builder = FixedTypeBuilder::default();
         (f)(&mut builder);
 
@@ -199,7 +247,6 @@ impl SchemaLinker {
             schemas_by_name.insert(type_name.to_string(), SchemaFingerprint(fingerprint));
         }
 
-
         for (_type_name, named_type) in self.types {
             let fingerprint = schemas_by_name.get(named_type.type_name()).unwrap();
             let schema = named_type.to_schema(&schemas_by_name);
@@ -208,7 +255,7 @@ impl SchemaLinker {
 
         Ok(LinkedSchemas {
             schemas_by_name,
-            schemas
+            schemas,
         })
     }
 }

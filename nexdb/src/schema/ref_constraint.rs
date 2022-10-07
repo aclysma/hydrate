@@ -1,7 +1,7 @@
-use super::SchemaRecord;
 use super::SchemaInterface;
-use std::hash::{Hash, Hasher};
+use super::SchemaRecord;
 use crate::schema::SchemaTypeIndex;
+use std::hash::{Hash, Hasher};
 
 #[derive(Clone, Debug)]
 pub enum SchemaRefConstraint {
@@ -9,6 +9,4 @@ pub enum SchemaRefConstraint {
     Interface(SchemaInterface),
 }
 
-impl SchemaRefConstraint {
-
-}
+impl SchemaRefConstraint {}

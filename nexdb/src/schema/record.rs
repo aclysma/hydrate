@@ -1,11 +1,11 @@
 use super::Schema;
+use crate::schema::SchemaTypeIndex;
+use crate::{SchemaFingerprint, SchemaId};
+use siphasher::sip128::Hasher128;
 use std::hash::{Hash, Hasher};
 use std::ops::Deref;
 use std::sync::Arc;
-use siphasher::sip128::Hasher128;
 use uuid::Uuid;
-use crate::{SchemaFingerprint, SchemaId};
-use crate::schema::SchemaTypeIndex;
 
 #[derive(Debug)]
 pub struct SchemaRecordField {
@@ -19,12 +19,11 @@ impl SchemaRecordField {
         name: String,
         aliases: Box<[String]>,
         field_schema: Schema,
-
     ) -> Self {
         SchemaRecordField {
             name,
             aliases,
-            field_schema
+            field_schema,
         }
     }
 
@@ -47,7 +46,7 @@ pub struct SchemaRecordInner {
 
 #[derive(Clone, Debug)]
 pub struct SchemaRecord {
-    inner: Arc<SchemaRecordInner>
+    inner: Arc<SchemaRecordInner>,
 }
 
 impl Deref for SchemaRecord {
@@ -59,7 +58,12 @@ impl Deref for SchemaRecord {
 }
 
 impl SchemaRecord {
-    pub fn new(name: String, fingerprint: SchemaFingerprint, aliases: Box<[String]>, fields: Box<[SchemaRecordField]>) -> Self {
+    pub fn new(
+        name: String,
+        fingerprint: SchemaFingerprint,
+        aliases: Box<[String]>,
+        fields: Box<[SchemaRecordField]>,
+    ) -> Self {
         // Check names are unique
         for i in 0..fields.len() {
             for j in 0..i {
@@ -71,11 +75,11 @@ impl SchemaRecord {
             name,
             fingerprint,
             aliases,
-            fields
+            fields,
         };
 
         SchemaRecord {
-            inner: Arc::new(inner)
+            inner: Arc::new(inner),
         }
     }
 
@@ -95,7 +99,10 @@ impl SchemaRecord {
         &*self.fields
     }
 
-    pub fn field_schema(&self, field_name: impl AsRef<str>) -> Option<&Schema> {
+    pub fn field_schema(
+        &self,
+        field_name: impl AsRef<str>,
+    ) -> Option<&Schema> {
         for field in &*self.fields {
             if field.name == field_name.as_ref() {
                 return Some(&field.field_schema);

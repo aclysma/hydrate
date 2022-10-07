@@ -1,7 +1,6 @@
 [workspace]
 members = [
     "m3",
-    "refdb",
     "conduit",
     "base",
     "asset-engine",

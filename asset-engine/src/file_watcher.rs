@@ -1,3 +1,4 @@
+use notify::Watcher;
 use std::{
     collections::HashMap,
     fs, io,
@@ -5,7 +6,6 @@ use std::{
     sync::mpsc,
     time::{Duration, UNIX_EPOCH},
 };
-use notify::Watcher;
 
 use crate::error::{Error, Result};
 
@@ -97,9 +97,12 @@ pub(crate) fn file_metadata(metadata: &fs::Metadata) -> FileMetadata {
 
 impl DirWatcher {
     // Starts a watcher running on the given paths
-    pub fn from_path_iter<'a, T>(paths: T, chan: crossbeam_channel::Sender<FileEvent>) -> Result<DirWatcher>
-        where
-            T: IntoIterator<Item = &'a Path>,
+    pub fn from_path_iter<'a, T>(
+        paths: T,
+        chan: crossbeam_channel::Sender<FileEvent>,
+    ) -> Result<DirWatcher>
+    where
+        T: IntoIterator<Item = &'a Path>,
     {
         let (tx, rx) = mpsc::channel();
         let mut asset_watcher = DirWatcher {
@@ -134,9 +137,13 @@ impl DirWatcher {
     }
 
     // Visit all files, call handle_notify_event() passing the event created by the provided callback
-    fn scan_directory<F>(&mut self, dir: &Path, evt_create: &F) -> Result<()>
-        where
-            F: Fn(PathBuf) -> notify::DebouncedEvent,
+    fn scan_directory<F>(
+        &mut self,
+        dir: &Path,
+        evt_create: &F,
+    ) -> Result<()>
+    where
+        F: Fn(PathBuf) -> notify::DebouncedEvent,
     {
         let canonical_dir = canonicalize_path(dir);
         self.asset_tx
@@ -149,9 +156,13 @@ impl DirWatcher {
         result
     }
 
-    fn scan_directory_recurse<F>(&mut self, dir: &Path, evt_create: &F) -> Result<()>
-        where
-            F: Fn(PathBuf) -> notify::DebouncedEvent,
+    fn scan_directory_recurse<F>(
+        &mut self,
+        dir: &Path,
+        evt_create: &F,
+    ) -> Result<()>
+    where
+        F: Fn(PathBuf) -> notify::DebouncedEvent,
     {
         match fs::read_dir(dir) {
             Err(ref e) if e.kind() == io::ErrorKind::NotFound => {}
@@ -164,9 +175,7 @@ impl DirWatcher {
                         Ok(entry) => {
                             let evt = self.handle_notify_event(evt_create(entry.path()), true)?;
                             if let Some(evt) = evt {
-                                self.asset_tx
-                                    .send(evt)
-                                    .map_err(|_| Error::SendError)?;
+                                self.asset_tx.send(evt).map_err(|_| Error::SendError)?;
                             }
                             let metadata;
                             match entry.metadata() {
@@ -189,7 +198,8 @@ impl DirWatcher {
     pub fn run(&mut self) {
         // Emit a Create for every path recursively
         for dir in &self.dirs.clone() {
-            if let Err(err) = self.scan_directory(dir, &|path| notify::DebouncedEvent::Create(path)) {
+            if let Err(err) = self.scan_directory(dir, &|path| notify::DebouncedEvent::Create(path))
+            {
                 self.asset_tx
                     .send(FileEvent::FileError(err))
                     .expect("Failed to send file error event. Ironic...");
@@ -211,9 +221,9 @@ impl DirWatcher {
                         // may be a limit on the OS) we have to reset to good state bu scanning everything
                         Error::RescanRequired => {
                             for dir in &self.dirs.clone() {
-                                if let Err(err) =
-                                self.scan_directory(dir, &|path| notify::DebouncedEvent::Create(path))
-                                {
+                                if let Err(err) = self.scan_directory(dir, &|path| {
+                                    notify::DebouncedEvent::Create(path)
+                                }) {
                                     self.asset_tx
                                         .send(FileEvent::FileError(err))
                                         .expect("Failed to send file error event");
@@ -238,7 +248,10 @@ impl DirWatcher {
         }
     }
 
-    fn watch(&mut self, path: &Path) -> Result<bool> {
+    fn watch(
+        &mut self,
+        path: &Path,
+    ) -> Result<bool> {
         let refs = *self.watch_refs.get(path).unwrap_or(&0);
         match refs {
             0 => {
@@ -257,7 +270,10 @@ impl DirWatcher {
         Ok(false)
     }
 
-    fn unwatch(&mut self, path: &Path) -> Result<bool> {
+    fn unwatch(
+        &mut self,
+        path: &Path,
+    ) -> Result<bool> {
         let refs = *self.watch_refs.get(path).unwrap_or(&0);
         if refs == 1 {
             self.watcher.unwatch(path)?;
@@ -292,7 +308,9 @@ impl DirWatcher {
                 match self.unwatch(&to_unwatch) {
                     Ok(unwatched) => {
                         if unwatched {
-                            self.scan_directory(&to_unwatch, &|p| notify::DebouncedEvent::Remove(p))?;
+                            self.scan_directory(&to_unwatch, &|p| {
+                                notify::DebouncedEvent::Remove(p)
+                            })?;
                         }
                         self.symlink_map.remove(src);
                         self.asset_tx
@@ -313,7 +331,9 @@ impl DirWatcher {
                 match self.watch(&link_path) {
                     Ok(watched) => {
                         if watched {
-                            self.scan_directory(&link_path, &|p| notify::DebouncedEvent::Create(p))?;
+                            self.scan_directory(&link_path, &|p| {
+                                notify::DebouncedEvent::Create(p)
+                            })?;
                         }
                         self.symlink_map.insert(dst.clone(), link_path.clone());
                         self.asset_tx
@@ -321,16 +341,16 @@ impl DirWatcher {
                             .map_err(|_| Error::SendError)?;
                     }
                     Err(Error::Notify(notify::Error::Generic(text)))
-                    if text == "Input watch path is neither a file nor a directory." =>
-                        {
-                            // skip the symlink if it's not a valid path
-                        }
+                        if text == "Input watch path is neither a file nor a directory." =>
+                    {
+                        // skip the symlink if it's not a valid path
+                    }
                     Err(Error::Notify(notify::Error::PathNotFound)) => {}
                     Err(Error::IO(err)) | Err(Error::Notify(notify::Error::Io(err)))
-                    if err.kind() == std::io::ErrorKind::NotFound =>
-                        {
-                            // skip the symlink if it no longer exists or can't be watched
-                        }
+                        if err.kind() == std::io::ErrorKind::NotFound =>
+                    {
+                        // skip the symlink if it no longer exists or can't be watched
+                    }
                     Err(err) => {
                         return Err(err);
                     }

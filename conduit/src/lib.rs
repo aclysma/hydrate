@@ -1,6 +1,3 @@
-
-
-
 // We have a bunch of nodes
 // - They can set up threads/events to wake themselves up
 // - They can be notified when data has been modified
@@ -35,7 +32,6 @@
 // - if a file matches any data query, upload it
 // - update metadata
 
-
 // Process for ingest and processing:
 // - We have a list of directories that we will watch
 // - We maintain a list of the full file system state (manifest)
@@ -68,49 +64,22 @@
 // Caching processing results - Every time we write processed data to S3, we hash the inputs that
 //   produced it. When we start processing, we check if the hash already exists.
 
-
 mod dir_watcher;
 mod error;
 
 use base::hashing::{HashMap, HashSet};
-use std::sync::Arc;
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 
 const PROCESS_NAME_INGEST: &str = "ingest";
 const PROCESS_NAME_TRANSFORM: &str = "transform";
 const PROCESS_NAME_EXPORT: &str = "export";
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 //
-struct PipelineData {
-}
+struct PipelineData {}
 
 // tags? data type? location? guid? recipe to recreate? how it was created? Reference to full data?
-struct PipelineDataMeta {
-}
-
+struct PipelineDataMeta {}
 
 // a query for data sources
 // examples:
@@ -145,17 +114,15 @@ struct ProcessInstanceId(uuid::Uuid);
 struct PipelineProcessId(uuid::Uuid);
 
 struct DataQuery {
-    from_pipeline_process: PipelineProcessId
+    from_pipeline_process: PipelineProcessId,
 }
 
 struct DataStore {
-    data: HashMap<uuid::Uuid, Arc<Vec<u8>>>
+    data: HashMap<uuid::Uuid, Arc<Vec<u8>>>,
 }
 
 impl DataStore {
-    fn insert(data: Vec<u8>) {
-
-    }
+    fn insert(data: Vec<u8>) {}
 }
 
 // This is shared across all locally processes
@@ -180,13 +147,12 @@ impl DataStore {
 //
 //}
 
-
-
 pub fn run() {
     //TODO: Do we want to use futures_channel, crossbeam, or something else?
     let (tx, mut rx) = futures_channel::mpsc::unbounded();
     let to_watch = vec![PathBuf::from("/Users/philipd/dev/rust/rafx/demo/assets")];
-    let mut watcher = dir_watcher::DirWatcher::from_path_iter(to_watch.iter().map(|p| Path::new(p)), tx).unwrap();
+    let mut watcher =
+        dir_watcher::DirWatcher::from_path_iter(to_watch.iter().map(|p| Path::new(p)), tx).unwrap();
     std::thread::spawn(move || watcher.run());
     loop {
         let next = rx.try_next();
@@ -196,20 +162,13 @@ pub fn run() {
         dbg!(next);
     }
 
-
-
     let d = Vec::<u8>::default();
 
-
-
-
-
-
     //let mut pipeline = PipelineManager::default();
-//    // Ingest process
-//    pipeline.add_process(PipelineProcess::new(input_query, what_do_do));
-//    // Transform process
-//    pipeline.add_process(PipelineProcess::new(input_query, what_do_do));
-//    // Export process
-//    pipeline.add_process(PipelineProcess::new(input_query, what_do_do));
+    //    // Ingest process
+    //    pipeline.add_process(PipelineProcess::new(input_query, what_do_do));
+    //    // Transform process
+    //    pipeline.add_process(PipelineProcess::new(input_query, what_do_do));
+    //    // Export process
+    //    pipeline.add_process(PipelineProcess::new(input_query, what_do_do));
 }

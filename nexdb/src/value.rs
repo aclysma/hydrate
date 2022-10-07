@@ -1,15 +1,15 @@
-use crate::{BufferId, HashMap, Schema, SchemaFingerprint, SchemaId, SchemaNamedType};
 use crate::ObjectId;
 use crate::Value::RecordRef;
+use crate::{BufferId, HashMap, Schema, SchemaFingerprint, SchemaId, SchemaNamedType};
 
 #[derive(Clone, Debug)]
 pub struct ValueMap {
-    properties: HashMap<Value, Value>
+    properties: HashMap<Value, Value>,
 }
 
 #[derive(Clone, Debug, Default)]
 pub struct ValueRecord {
-    properties: HashMap<String, Value>
+    properties: HashMap<String, Value>,
 }
 /*
 impl ValueRecord {
@@ -52,7 +52,10 @@ pub enum Value {
 }
 
 impl Value {
-    pub fn default_for_schema(schema: &Schema, named_types: &HashMap<SchemaFingerprint, SchemaNamedType>) -> Self {
+    pub fn default_for_schema(
+        schema: &Schema,
+        named_types: &HashMap<SchemaFingerprint, SchemaNamedType>,
+    ) -> Self {
         match schema {
             Schema::Nullable(inner) => Value::Nullable(Default::default()),
             Schema::Boolean => Value::Boolean(Default::default()),
@@ -93,7 +96,11 @@ impl Value {
         }
     }
 
-    pub fn matches_schema(&self, schema: &Schema, named_types: &HashMap<SchemaFingerprint, SchemaNamedType>) -> bool {
+    pub fn matches_schema(
+        &self,
+        schema: &Schema,
+        named_types: &HashMap<SchemaFingerprint, SchemaNamedType>,
+    ) -> bool {
         match self {
             Value::Nullable(inner_value) => {
                 match schema {
@@ -105,8 +112,8 @@ impl Value {
                             // value is null, that's allowed
                             true
                         }
-                    },
-                    _ => false
+                    }
+                    _ => false,
                 }
             }
             Value::Boolean(_) => schema.is_boolean(),
@@ -119,56 +126,50 @@ impl Value {
             Value::Bytes(_) => schema.is_bytes(),
             Value::Buffer(_) => schema.is_buffer(),
             Value::String(_) => schema.is_string(),
-            Value::StaticArray(inner_values) => {
-                match schema {
-                    Schema::StaticArray(inner_schema) => {
-                        if inner_schema.length != inner_values.len() {
-                            return false
-                        }
+            Value::StaticArray(inner_values) => match schema {
+                Schema::StaticArray(inner_schema) => {
+                    if inner_schema.length != inner_values.len() {
+                        return false;
+                    }
 
-                        for value in inner_values {
-                            if !value.matches_schema(&*inner_schema.item_type, named_types) {
-                                return false;
-                            }
+                    for value in inner_values {
+                        if !value.matches_schema(&*inner_schema.item_type, named_types) {
+                            return false;
                         }
+                    }
 
-                        true
-                    },
-                    _ => false
+                    true
                 }
-            }
-            Value::DynamicArray(inner_values) => {
-                match schema {
-                    Schema::DynamicArray(inner_schema) => {
-                        for inner_value in inner_values {
-                            if !inner_value.matches_schema(inner_schema.item_type(), named_types) {
-                                return false
-                            }
+                _ => false,
+            },
+            Value::DynamicArray(inner_values) => match schema {
+                Schema::DynamicArray(inner_schema) => {
+                    for inner_value in inner_values {
+                        if !inner_value.matches_schema(inner_schema.item_type(), named_types) {
+                            return false;
+                        }
+                    }
+
+                    true
+                }
+                _ => false,
+            },
+            Value::Map(inner_value) => match schema {
+                Schema::Map(inner_schema) => {
+                    for (k, v) in &inner_value.properties {
+                        if !k.matches_schema(inner_schema.key_type(), named_types) {
+                            return false;
                         }
 
-                        true
-                    },
-                    _ => false
-                }
-            }
-            Value::Map(inner_value) => {
-                match schema {
-                    Schema::Map(inner_schema) => {
-                        for (k, v) in &inner_value.properties {
-                            if !k.matches_schema(inner_schema.key_type(), named_types) {
-                                return false;
-                            }
-
-                            if !v.matches_schema(inner_schema.value_type(), named_types) {
-                                return false;
-                            }
+                        if !v.matches_schema(inner_schema.value_type(), named_types) {
+                            return false;
                         }
+                    }
 
-                        true
-                    },
-                    _ => false
+                    true
                 }
-            }
+                _ => false,
+            },
             Value::RecordRef(_) => unimplemented!(),
             Value::Record(inner_value) => {
                 // All value properties must exist and match in the schema. However we allow the
@@ -199,47 +200,42 @@ impl Value {
 
                                 true
                             }
-                            _ => false
+                            _ => false,
                         }
-                    },
-                    _ => false
+                    }
+                    _ => false,
                 }
-            },
-            Value::Enum(inner_value) => {
-                match schema {
-                    Schema::NamedType(named_type_id) => {
-                        let named_type = named_types.get(named_type_id).unwrap();
-                        match named_type {
-                            SchemaNamedType::Enum(inner_schema) => {
-                                for option in inner_schema.symbols() {
-                                    if option.name() == inner_value.symbol_name {
-                                        return true;
-                                    }
+            }
+            Value::Enum(inner_value) => match schema {
+                Schema::NamedType(named_type_id) => {
+                    let named_type = named_types.get(named_type_id).unwrap();
+                    match named_type {
+                        SchemaNamedType::Enum(inner_schema) => {
+                            for option in inner_schema.symbols() {
+                                if option.name() == inner_value.symbol_name {
+                                    return true;
                                 }
+                            }
 
-                                false
-                            },
-                            _ => false
+                            false
                         }
-                    },
-                    _ => false
+                        _ => false,
+                    }
                 }
-            }
-            Value::Fixed(value) => {
-                match schema {
-                    Schema::NamedType(named_type_id) => {
-
-                        let named_type = named_types.get(named_type_id).unwrap();
-                        match named_type {
-                            SchemaNamedType::Fixed(inner_schema) => {
-                                value.len() == inner_schema.length()
-                            },
-                            _ => false
+                _ => false,
+            },
+            Value::Fixed(value) => match schema {
+                Schema::NamedType(named_type_id) => {
+                    let named_type = named_types.get(named_type_id).unwrap();
+                    match named_type {
+                        SchemaNamedType::Fixed(inner_schema) => {
+                            value.len() == inner_schema.length()
                         }
-                    },
-                    _ => false
+                        _ => false,
+                    }
                 }
-            }
+                _ => false,
+            },
         }
     }
 
@@ -249,28 +245,28 @@ impl Value {
     pub fn is_nullable(&self) -> bool {
         match self {
             Value::Nullable(_) => true,
-            _ => false
+            _ => false,
         }
     }
 
     pub fn is_null(&self) -> bool {
         match self {
             Value::Nullable(None) => true,
-            _ => false
+            _ => false,
         }
     }
 
     pub fn as_nullable(&self) -> Option<Option<&Value>> {
         match self {
             Value::Nullable(x) => Some(x.as_ref().map(|x| x.as_ref())),
-            _ => None
+            _ => None,
         }
     }
 
     pub fn as_nullable_mut(&mut self) -> Option<Option<&mut Value>> {
         match self {
             Value::Nullable(x) => Some(x.as_mut().map(|x| x.as_mut())),
-            _ => None
+            _ => None,
         }
     }
 
@@ -280,18 +276,21 @@ impl Value {
     pub fn is_boolean(&self) -> bool {
         match self {
             Value::Boolean(_) => true,
-            _ => false
+            _ => false,
         }
     }
 
     pub fn as_boolean(&self) -> Option<bool> {
         match self {
             Value::Boolean(x) => Some(*x),
-            _ => None
+            _ => None,
         }
     }
 
-    pub fn set_boolean(&mut self, value: bool) {
+    pub fn set_boolean(
+        &mut self,
+        value: bool,
+    ) {
         *self = Value::Boolean(value);
     }
 
@@ -301,7 +300,7 @@ impl Value {
     pub fn is_i32(&self) -> bool {
         match self {
             Value::I32(_) => true,
-            _ => false
+            _ => false,
         }
     }
 
@@ -313,11 +312,14 @@ impl Value {
             Value::U64(x) => Some(*x as i32),
             Value::F32(x) => Some(*x as i32),
             Value::F64(x) => Some(*x as i32),
-            _ => None
+            _ => None,
         }
     }
 
-    pub fn set_i32(&mut self, value: i32) {
+    pub fn set_i32(
+        &mut self,
+        value: i32,
+    ) {
         *self = Value::I32(value);
     }
 
@@ -341,7 +343,7 @@ impl Value {
     pub fn is_u32(&self) -> bool {
         match self {
             Value::U32(_) => true,
-            _ => false
+            _ => false,
         }
     }
 
@@ -353,11 +355,14 @@ impl Value {
             Value::U64(x) => Some(*x as u32),
             Value::F32(x) => Some(*x as u32),
             Value::F64(x) => Some(*x as u32),
-            _ => None
+            _ => None,
         }
     }
 
-    pub fn set_u32(&mut self, value: u32) {
+    pub fn set_u32(
+        &mut self,
+        value: u32,
+    ) {
         *self = Value::U32(value);
     }
 
@@ -367,7 +372,7 @@ impl Value {
     pub fn is_i64(&self) -> bool {
         match self {
             Value::I64(_) => true,
-            _ => false
+            _ => false,
         }
     }
 
@@ -379,11 +384,14 @@ impl Value {
             Value::U64(x) => Some(*x as i64),
             Value::F32(x) => Some(*x as i64),
             Value::F64(x) => Some(*x as i64),
-            _ => None
+            _ => None,
         }
     }
 
-    pub fn set_i64(&mut self, value: i64) {
+    pub fn set_i64(
+        &mut self,
+        value: i64,
+    ) {
         *self = Value::I64(value);
     }
 
@@ -393,7 +401,7 @@ impl Value {
     pub fn is_u64(&self) -> bool {
         match self {
             Value::U64(_) => true,
-            _ => false
+            _ => false,
         }
     }
 
@@ -405,11 +413,14 @@ impl Value {
             Value::U64(x) => Some(*x as u64),
             Value::F32(x) => Some(*x as u64),
             Value::F64(x) => Some(*x as u64),
-            _ => None
+            _ => None,
         }
     }
 
-    pub fn set_u64(&mut self, value: u64) {
+    pub fn set_u64(
+        &mut self,
+        value: u64,
+    ) {
         *self = Value::U64(value);
     }
 
@@ -419,7 +430,7 @@ impl Value {
     pub fn is_f32(&self) -> bool {
         match self {
             Value::F32(_) => true,
-            _ => false
+            _ => false,
         }
     }
 
@@ -431,11 +442,14 @@ impl Value {
             Value::U64(x) => Some(*x as f32),
             Value::F32(x) => Some(*x),
             Value::F64(x) => Some(*x as f32),
-            _ => None
+            _ => None,
         }
     }
 
-    pub fn set_f32(&mut self, value: f32) {
+    pub fn set_f32(
+        &mut self,
+        value: f32,
+    ) {
         *self = Value::F32(value);
     }
 
@@ -445,7 +459,7 @@ impl Value {
     pub fn is_f64(&self) -> bool {
         match self {
             Value::F64(_) => true,
-            _ => false
+            _ => false,
         }
     }
 
@@ -457,11 +471,14 @@ impl Value {
             Value::U64(x) => Some(*x as f64),
             Value::F32(x) => Some(*x as f64),
             Value::F64(x) => Some(*x),
-            _ => None
+            _ => None,
         }
     }
 
-    pub fn set_f64(&mut self, value: f64) {
+    pub fn set_f64(
+        &mut self,
+        value: f64,
+    ) {
         *self = Value::F64(value);
     }
 
@@ -479,18 +496,21 @@ impl Value {
     pub fn is_string(&self) -> bool {
         match self {
             Value::String(_) => true,
-            _ => false
+            _ => false,
         }
     }
 
     pub fn as_string(&self) -> Option<&str> {
         match self {
             Value::String(x) => Some(&*x),
-            _ => None
+            _ => None,
         }
     }
 
-    pub fn set_string(&mut self, value: String) {
+    pub fn set_string(
+        &mut self,
+        value: String,
+    ) {
         *self = Value::String(value);
     }
 
@@ -516,18 +536,21 @@ impl Value {
     pub fn is_record(&self) -> bool {
         match self {
             Value::Record(_) => true,
-            _ => false
+            _ => false,
         }
     }
 
     pub fn as_record(&self) -> Option<&ValueRecord> {
         match self {
             Value::Record(x) => Some(&*x),
-            _ => None
+            _ => None,
         }
     }
 
-    pub fn set_record(&mut self, value: ValueRecord) {
+    pub fn set_record(
+        &mut self,
+        value: ValueRecord,
+    ) {
         *self = Value::Record(value);
     }
 

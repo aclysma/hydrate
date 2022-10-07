@@ -1,13 +1,14 @@
-use std::convert::TryInto;
+use super::draw_ui_inspector_nexdb::*;
 use crate::app::AppState;
-use imgui::sys::{igDragFloat, igDragScalar, igInputDouble, ImGuiDataType__ImGuiDataType_Double, ImGuiInputTextFlags__ImGuiInputTextFlags_None, ImVec2};
 use crate::imgui_support::ImguiManager;
 use imgui::im_str;
-use super::draw_ui_inspector_nexdb::*;
+use imgui::sys::{
+    igDragFloat, igDragScalar, igInputDouble, ImGuiDataType__ImGuiDataType_Double,
+    ImGuiInputTextFlags__ImGuiInputTextFlags_None, ImVec2,
+};
+use std::convert::TryInto;
 
-fn draw_menu_bar(
-    ui: &imgui::Ui
-) {
+fn draw_menu_bar(ui: &imgui::Ui) {
     ui.main_menu_bar(|| {
         ui.menu(im_str!("File"), || {
             imgui::MenuItem::new(im_str!("New")).build(ui);
@@ -21,7 +22,7 @@ fn draw_property_style<F: FnOnce(&imgui::Ui)>(
     ui: &imgui::Ui,
     property_inherited: bool,
     property_overridden: bool,
-    f: F
+    f: F,
 ) {
     let inherited_style_token = if property_inherited {
         Some(ui.push_style_color(imgui::StyleColor::Text, [0.2, 0.2, 0.2, 1.0]))
@@ -38,132 +39,11 @@ fn draw_property_style<F: FnOnce(&imgui::Ui)>(
     (f)(ui);
 }
 
-fn draw_inspector_refdb(
-    ui: &imgui::Ui,
-    db: &mut refdb::ObjectDb,
-    object_id: refdb::ObjectId,
+fn splitter(
+    vertical: bool,
+    size1: &mut f32,
+    size2: &mut f32,
 ) {
-    use refdb::*;
-
-    //ui.text(im_str!("Start"));
-
-    // let header_text = &im_str!("header_text");
-    // let content_region = ui.window_content_region_max();
-    // let id_token = ui.push_id("some_id");
-    // let draw_children = unsafe {
-    //     imgui::sys::igCollapsingHeaderTreeNodeFlags(
-    //         header_text.as_ptr(),
-    //         imgui::sys::ImGuiTreeNodeFlags_DefaultOpen as i32
-    //             | imgui::sys::ImGuiTreeNodeFlags_AllowItemOverlap as i32,
-    //     )
-    // };
-    //
-    // ui.same_line_with_pos(content_region[0] - 50.0);
-    //
-    // if ui.small_button(im_str!("Delete")) {
-    //     // delete
-    // } else if draw_children {
-    //     ui.indent();
-    //
-    //     ui.text(im_str!("child"));
-    //
-    //     ui.unindent();
-    // }
-    //
-    // id_token.pop();
-
-    let type_id = db.type_id_of_object(object_id);
-    let ty = db.object_type(type_id);
-    let property_count = ty.properties.len();
-
-    for i in 0..property_count {
-        let property_index = PropertyIndex::from_index(i);
-
-        let property_inherited = db.is_property_inherited(object_id, property_index);
-        // let style_token = if property_overridden {
-        //     Some(ui.push_style_color(imgui::StyleColor::Text, [1.0, 1.0, 0.0, 1.0]))
-        // } else {
-        //     None
-        // };
-
-        let p = &db.object_type(type_id).properties[i];
-        let property_im_str = im_str!("{}", &p.name);
-        match p.property_type {
-            PropertyType::U64 => {
-                draw_property_style(ui, property_inherited, false, |ui| {
-                    let mut v = db.get_u64(object_id, property_index).unwrap();
-                    let modified = imgui::Drag::new(&property_im_str).build(ui, &mut v);
-                    if modified {
-                        db.set_u64(object_id, property_index, v);
-                    }
-                });
-            }
-            PropertyType::F32 => {
-                draw_property_style(ui, property_inherited, false, |ui| {
-                    let mut v = db.get_f32(object_id, property_index).unwrap();
-                    let modified = imgui::Drag::new(&property_im_str).build(ui, &mut v);
-
-
-
-                    unsafe {
-                        if imgui::sys::igBeginPopupContextItem(std::ptr::null(), imgui::sys::ImGuiPopupFlags_MouseButtonRight as _) {
-                            if imgui::MenuItem::new(im_str!("Clear Override")).build(ui) {
-                                db.clear_property_override(object_id, property_index);
-                            }
-
-                            if imgui::MenuItem::new(im_str!("Apply Override")).build(ui) {
-                                db.apply_property_override_to_prototype(object_id, property_index);
-                            }
-
-                            imgui::sys::igEndPopup();
-                        }
-                    }
-
-                    if modified {
-                        db.set_f32(object_id, property_index, v);
-                    }
-                });
-            }
-            PropertyType::Subobject(_) => {
-                ui.text(im_str!("{}", p.name));
-                ui.indent();
-                let id_token = ui.push_id(&p.name);
-                let subobject = db.get_subobject(object_id, property_index).unwrap();
-                draw_inspector_refdb(ui, db, subobject);
-                id_token.pop();
-                ui.unindent();
-            },
-            PropertyType::SubobjectSet(_) => {
-                ui.text(im_str!("UNHANDLED SET {}", p.name));
-            }
-        }
-        //drop(style_token);
-    }
-
-
-
-
-    // let mut value = 0.0;
-    // ui.input_float(im_str!("Value 1"), &mut value).build();
-    // ui.input_float(im_str!("Value 2"), &mut value).build();
-    // ui.input_float(im_str!("Value 3"), &mut value).build();
-    //
-    // imgui::Slider::new(im_str!("slider na asdfasdf asdf asdf asd fasdf asdf asdf"))
-    //     .range(std::ops::RangeInclusive::new(0.0, 100.0))
-    //     .build(ui, &mut value);
-    //
-    //
-    // ui.indent();
-    // let g = ui.begin_group();
-    // ui.input_float(im_str!("Value 4"), &mut value).build();
-    // ui.input_float(im_str!("Value 5"), &mut value).build();
-    // g.end();
-    // ui.unindent();
-    //
-    // ui.text(im_str!("End"));
-}
-
-fn splitter(vertical: bool, size1: &mut f32, size2: &mut f32) {
     let thickness = 4.0;
     let min_size1 = 10.0;
     let min_size2 = 10.0;
@@ -204,16 +84,29 @@ fn splitter(vertical: bool, size1: &mut f32, size2: &mut f32) {
         } else {
             imgui::sys::ImGuiAxis_ImGuiAxis_Y
         };
-        imgui::sys::igSplitterBehavior(bb, to_c_id(id), axis, size1, size2, min_size1, min_size2, 0.0, 0.0);
+        imgui::sys::igSplitterBehavior(
+            bb,
+            to_c_id(id),
+            axis,
+            size1,
+            size2,
+            min_size1,
+            min_size2,
+            0.0,
+            0.0,
+        );
     }
 }
 
 fn draw_asset_browser_splitter(
     ui: &imgui::Ui,
-    db: &mut refdb::ObjectDb,
+    db: &mut nexdb::Database,
 ) {
     unsafe {
-        imgui::sys::igPushStyleVar_Vec2(imgui::sys::ImGuiStyleVar_WindowPadding as _, ImVec2::new(0.0, 0.0));
+        imgui::sys::igPushStyleVar_Vec2(
+            imgui::sys::ImGuiStyleVar_WindowPadding as _,
+            ImVec2::new(0.0, 0.0),
+        );
     }
 
     let window_token = imgui::Window::new(im_str!("Asset Browser"))
@@ -235,12 +128,7 @@ fn draw_asset_browser_splitter(
 
             let child1_id = imgui::Id::from(im_str!("Child1"));
             let child1_cid = to_c_id(child1_id);
-            imgui::sys::igBeginChildID(
-                child1_cid,
-                imgui::sys::ImVec2::new(size1, -1.0),
-                true,
-                0
-            );
+            imgui::sys::igBeginChildID(child1_cid, imgui::sys::ImVec2::new(size1, -1.0), true, 0);
 
             ui.text("child1");
             ui.text("child2");
@@ -252,12 +140,7 @@ fn draw_asset_browser_splitter(
 
             let child1_id = imgui::Id::from(im_str!("Child2"));
             let child1_cid = to_c_id(child1_id);
-            imgui::sys::igBeginChildID(
-                child1_cid,
-                imgui::sys::ImVec2::new(size2, -1.0),
-                true,
-                0
-            );
+            imgui::sys::igBeginChildID(child1_cid, imgui::sys::ImVec2::new(size2, -1.0), true, 0);
 
             ui.text("child2");
             ui.text("child3");
@@ -265,15 +148,13 @@ fn draw_asset_browser_splitter(
             imgui::sys::igEndChild();
         }
 
-
         window_token.end();
     }
-
 }
 
 fn draw_asset_browser_dock_space(
     ui: &imgui::Ui,
-    db: &mut refdb::ObjectDb,
+    db: &mut nexdb::Database,
 ) {
     unsafe {
         //let main_viewport = imgui::sys::igGetMainViewport();
@@ -282,7 +163,10 @@ fn draw_asset_browser_dock_space(
 
         //imgui::sys::igPushStyleVar_Float(imgui::sys::ImGuiStyleVar_WindowRounding as _, 0.0);
         //imgui::sys::igPushStyleVar_Float(imgui::sys::ImGuiStyleVar_WindowBorderSize as _, 0.0);
-        imgui::sys::igPushStyleVar_Vec2(imgui::sys::ImGuiStyleVar_WindowPadding as _, ImVec2::new(0.0, 0.0));
+        imgui::sys::igPushStyleVar_Vec2(
+            imgui::sys::ImGuiStyleVar_WindowPadding as _,
+            ImVec2::new(0.0, 0.0),
+        );
 
         let asset_browser_window_token = imgui::Window::new(im_str!("Asset Browser"))
             //.position([work_pos.x, work_pos.y], imgui::Condition::Always)
@@ -317,18 +201,18 @@ fn draw_asset_browser_dock_space(
             work_size.x -= work_pos.x;
             work_size.y -= work_pos.y;
 
-            if imgui::sys::igDockBuilderGetNode(asset_browser_dockspace_id) == std::ptr::null_mut() {
+            if imgui::sys::igDockBuilderGetNode(asset_browser_dockspace_id) == std::ptr::null_mut()
+            {
                 println!("SET UP DOCK");
                 imgui::sys::igDockBuilderRemoveNode(asset_browser_dockspace_id);
                 imgui::sys::igDockBuilderAddNode(
                     asset_browser_dockspace_id,
-                    0
-                    // imgui::sys::ImGuiDockNodeFlagsPrivate__ImGuiDockNodeFlags_DockSpace |
-                    //      imgui::sys::ImGuiDockNodeFlagsPrivate__ImGuiDockNodeFlags_NoWindowMenuButton |
-                    //      imgui::sys::ImGuiDockNodeFlagsPrivate__ImGuiDockNodeFlags_NoCloseButton |
-                    //     imgui::sys::ImGuiDockNodeFlagsPrivate__ImGuiDockNodeFlags_NoDocking |
-                    //     imgui::sys::ImGuiDockNodeFlagsPrivate__ImGuiDockNodeFlags_NoDockingSplitMe |
-                    //     imgui::sys::ImGuiDockNodeFlagsPrivate__ImGuiDockNodeFlags_NoTabBar
+                    0, // imgui::sys::ImGuiDockNodeFlagsPrivate__ImGuiDockNodeFlags_DockSpace |
+                       //      imgui::sys::ImGuiDockNodeFlagsPrivate__ImGuiDockNodeFlags_NoWindowMenuButton |
+                       //      imgui::sys::ImGuiDockNodeFlagsPrivate__ImGuiDockNodeFlags_NoCloseButton |
+                       //     imgui::sys::ImGuiDockNodeFlagsPrivate__ImGuiDockNodeFlags_NoDocking |
+                       //     imgui::sys::ImGuiDockNodeFlagsPrivate__ImGuiDockNodeFlags_NoDockingSplitMe |
+                       //     imgui::sys::ImGuiDockNodeFlagsPrivate__ImGuiDockNodeFlags_NoTabBar
                 );
                 imgui::sys::igDockBuilderSetNodeSize(asset_browser_dockspace_id, work_size);
 
@@ -339,11 +223,17 @@ fn draw_asset_browser_dock_space(
                     imgui::sys::ImGuiDir_Left,
                     0.5,
                     &mut left_dockspace_id as _,
-                    &mut right_dockspace_id as _
+                    &mut right_dockspace_id as _,
                 );
 
-                imgui::sys::igDockBuilderDockWindow(im_str!("AssetTree").as_ptr(), left_dockspace_id);
-                imgui::sys::igDockBuilderDockWindow(im_str!("AssetPane").as_ptr(), right_dockspace_id);
+                imgui::sys::igDockBuilderDockWindow(
+                    im_str!("AssetTree").as_ptr(),
+                    left_dockspace_id,
+                );
+                imgui::sys::igDockBuilderDockWindow(
+                    im_str!("AssetPane").as_ptr(),
+                    right_dockspace_id,
+                );
 
                 (*imgui::sys::igDockBuilderGetNode(asset_browser_dockspace_id)).SharedFlags |= imgui::sys::ImGuiDockNodeFlagsPrivate__ImGuiDockNodeFlags_NoTabBar | imgui::sys::ImGuiDockNodeFlagsPrivate__ImGuiDockNodeFlags_NoDocking | imgui::sys::ImGuiDockNodeFlagsPrivate__ImGuiDockNodeFlags_NoDockingSplitMe;
                 (*imgui::sys::igDockBuilderGetNode(left_dockspace_id)).LocalFlags |= imgui::sys::ImGuiDockNodeFlagsPrivate__ImGuiDockNodeFlags_NoTabBar | imgui::sys::ImGuiDockNodeFlagsPrivate__ImGuiDockNodeFlags_NoDocking | imgui::sys::ImGuiDockNodeFlagsPrivate__ImGuiDockNodeFlags_NoDockingSplitMe| imgui::sys::ImGuiDockNodeFlagsPrivate__ImGuiDockNodeFlags_NoDockingSplitOther;
@@ -353,14 +243,27 @@ fn draw_asset_browser_dock_space(
             }
 
             let current_window = imgui::sys::igGetCurrentWindow();
-            println!("About to set up dock node {:?}", (*current_window).DockNodeAsHost);
+            println!(
+                "About to set up dock node {:?}",
+                (*current_window).DockNodeAsHost
+            );
             //imgui::sys::igDockSpace(asset_browser_dockspace_id, ImVec2::new(0.0, 0.0), imgui::sys::ImGuiDockNodeFlags__ImGuiDockNodeFlags_KeepAliveOnly as _, std::ptr::null());
-            imgui::sys::igDockSpace(asset_browser_dockspace_id, ImVec2::new(0.0, 0.0), 0, std::ptr::null());
+            imgui::sys::igDockSpace(
+                asset_browser_dockspace_id,
+                ImVec2::new(0.0, 0.0),
+                0,
+                std::ptr::null(),
+            );
             let current_window = imgui::sys::igGetCurrentWindow();
             println!("Set up dock node {:?}", (*current_window).DockNodeAsHost);
             //asset_browser_window_token.end();
         } else {
-            imgui::sys::igDockSpace(asset_browser_dockspace_id, ImVec2::new(0.0, 0.0), imgui::sys::ImGuiDockNodeFlags__ImGuiDockNodeFlags_KeepAliveOnly as _, std::ptr::null());
+            imgui::sys::igDockSpace(
+                asset_browser_dockspace_id,
+                ImVec2::new(0.0, 0.0),
+                imgui::sys::ImGuiDockNodeFlags__ImGuiDockNodeFlags_KeepAliveOnly as _,
+                std::ptr::null(),
+            );
         }
 
         //imgui::sys::igPopStyleVar(3);
@@ -370,7 +273,7 @@ fn draw_asset_browser_dock_space(
 
 fn draw_asset_browser_dock_space_windows(
     ui: &imgui::Ui,
-    db: &mut refdb::ObjectDb,
+    db: &mut nexdb::Database,
 ) {
     unsafe {
         let window_token = imgui::Window::new(im_str!("AssetTree"))
@@ -420,12 +323,23 @@ fn draw_2_pane_view(
 
         imgui::sys::igPushStyleVar_Float(imgui::sys::ImGuiStyleVar_WindowRounding as _, 0.0);
         imgui::sys::igPushStyleVar_Float(imgui::sys::ImGuiStyleVar_WindowBorderSize as _, 0.0);
-        imgui::sys::igPushStyleVar_Vec2(imgui::sys::ImGuiStyleVar_WindowPadding as _, ImVec2::new(0.0, 0.0));
+        imgui::sys::igPushStyleVar_Vec2(
+            imgui::sys::ImGuiStyleVar_WindowPadding as _,
+            ImVec2::new(0.0, 0.0),
+        );
 
         let root_window_token = imgui::Window::new(im_str!("Root Window"))
             .position([work_pos.x, work_pos.y], imgui::Condition::Always)
             .size([work_size.x, work_size.y], imgui::Condition::Always)
-            .flags(imgui::WindowFlags::NO_TITLE_BAR | imgui::WindowFlags::NO_COLLAPSE | imgui::WindowFlags::NO_RESIZE | imgui::WindowFlags::NO_MOVE | imgui::WindowFlags::NO_DOCKING | imgui::WindowFlags::NO_BRING_TO_FRONT_ON_FOCUS | imgui::WindowFlags::NO_NAV_FOCUS)
+            .flags(
+                imgui::WindowFlags::NO_TITLE_BAR
+                    | imgui::WindowFlags::NO_COLLAPSE
+                    | imgui::WindowFlags::NO_RESIZE
+                    | imgui::WindowFlags::NO_MOVE
+                    | imgui::WindowFlags::NO_DOCKING
+                    | imgui::WindowFlags::NO_BRING_TO_FRONT_ON_FOCUS
+                    | imgui::WindowFlags::NO_NAV_FOCUS,
+            )
             .draw_background(false)
             .resizable(false)
             .begin(ui);
@@ -447,7 +361,10 @@ fn draw_2_pane_view(
             if imgui::sys::igDockBuilderGetNode(root_dockspace_id) == std::ptr::null_mut() {
                 println!("SET UP DOCK");
                 imgui::sys::igDockBuilderRemoveNode(root_dockspace_id);
-                imgui::sys::igDockBuilderAddNode(root_dockspace_id, imgui::sys::ImGuiDockNodeFlagsPrivate__ImGuiDockNodeFlags_DockSpace);
+                imgui::sys::igDockBuilderAddNode(
+                    root_dockspace_id,
+                    imgui::sys::ImGuiDockNodeFlagsPrivate__ImGuiDockNodeFlags_DockSpace,
+                );
                 imgui::sys::igDockBuilderSetNodeSize(root_dockspace_id, (*main_viewport).WorkSize);
 
                 let mut right_dockspace_id = 0;
@@ -457,15 +374,26 @@ fn draw_2_pane_view(
                     imgui::sys::ImGuiDir_Left,
                     0.5,
                     &mut left_dockspace_id as _,
-                    &mut right_dockspace_id as _
+                    &mut right_dockspace_id as _,
                 );
 
-                imgui::sys::igDockBuilderDockWindow(im_str!("Prototype").as_ptr(), left_dockspace_id);
-                imgui::sys::igDockBuilderDockWindow(im_str!("Instance").as_ptr(), right_dockspace_id);
+                imgui::sys::igDockBuilderDockWindow(
+                    im_str!("Prototype").as_ptr(),
+                    left_dockspace_id,
+                );
+                imgui::sys::igDockBuilderDockWindow(
+                    im_str!("Instance").as_ptr(),
+                    right_dockspace_id,
+                );
                 imgui::sys::igDockBuilderFinish(root_dockspace_id);
             }
 
-            imgui::sys::igDockSpace(root_dockspace_id, ImVec2::new(0.0, 0.0), 0, std::ptr::null());
+            imgui::sys::igDockSpace(
+                root_dockspace_id,
+                ImVec2::new(0.0, 0.0),
+                0,
+                std::ptr::null(),
+            );
             root_window_token.end();
         }
 
@@ -482,7 +410,11 @@ fn draw_2_pane_view(
 
         if let Some(window_token) = window_token {
             //draw_inspector_refdb(ui, &mut app_state.test_data_refdb.db, app_state.test_data_refdb.prototype_obj);
-            draw_inspector_nexdb(ui, &mut app_state.test_data_nexdb.db, app_state.test_data_nexdb.prototype_obj);
+            draw_inspector_nexdb(
+                ui,
+                &mut app_state.test_data_nexdb.db,
+                app_state.test_data_nexdb.prototype_obj,
+            );
             window_token.end();
         }
 
@@ -493,10 +425,13 @@ fn draw_2_pane_view(
 
         if let Some(window_token) = window_token {
             //draw_inspector_refdb(ui, &mut app_state.test_data_refdb.db, app_state.test_data_refdb.instance_obj);
-            draw_inspector_nexdb(ui, &mut app_state.test_data_nexdb.db, app_state.test_data_nexdb.instance_obj);
+            draw_inspector_nexdb(
+                ui,
+                &mut app_state.test_data_nexdb.db,
+                app_state.test_data_nexdb.instance_obj,
+            );
             window_token.end();
         }
-
     }
 }
 
@@ -511,11 +446,22 @@ fn draw_3_pane_view(
 
         imgui::sys::igPushStyleVar_Float(imgui::sys::ImGuiStyleVar_WindowRounding as _, 0.0);
         imgui::sys::igPushStyleVar_Float(imgui::sys::ImGuiStyleVar_WindowBorderSize as _, 0.0);
-        imgui::sys::igPushStyleVar_Vec2(imgui::sys::ImGuiStyleVar_WindowPadding as _, ImVec2::new(0.0, 0.0));
+        imgui::sys::igPushStyleVar_Vec2(
+            imgui::sys::ImGuiStyleVar_WindowPadding as _,
+            ImVec2::new(0.0, 0.0),
+        );
         let root_window_token = imgui::Window::new(im_str!("Root Window"))
             .position([work_pos.x, work_pos.y], imgui::Condition::Always)
             .size([work_size.x, work_size.y], imgui::Condition::Always)
-            .flags(imgui::WindowFlags::NO_TITLE_BAR | imgui::WindowFlags::NO_COLLAPSE | imgui::WindowFlags::NO_RESIZE | imgui::WindowFlags::NO_MOVE | imgui::WindowFlags::NO_DOCKING | imgui::WindowFlags::NO_BRING_TO_FRONT_ON_FOCUS | imgui::WindowFlags::NO_NAV_FOCUS)
+            .flags(
+                imgui::WindowFlags::NO_TITLE_BAR
+                    | imgui::WindowFlags::NO_COLLAPSE
+                    | imgui::WindowFlags::NO_RESIZE
+                    | imgui::WindowFlags::NO_MOVE
+                    | imgui::WindowFlags::NO_DOCKING
+                    | imgui::WindowFlags::NO_BRING_TO_FRONT_ON_FOCUS
+                    | imgui::WindowFlags::NO_NAV_FOCUS,
+            )
             .draw_background(false)
             .resizable(false)
             .begin(ui);
@@ -537,7 +483,10 @@ fn draw_3_pane_view(
             if imgui::sys::igDockBuilderGetNode(root_dockspace_id) == std::ptr::null_mut() {
                 println!("SET UP DOCK");
                 imgui::sys::igDockBuilderRemoveNode(root_dockspace_id);
-                imgui::sys::igDockBuilderAddNode(root_dockspace_id, imgui::sys::ImGuiDockNodeFlagsPrivate__ImGuiDockNodeFlags_DockSpace);
+                imgui::sys::igDockBuilderAddNode(
+                    root_dockspace_id,
+                    imgui::sys::ImGuiDockNodeFlagsPrivate__ImGuiDockNodeFlags_DockSpace,
+                );
                 imgui::sys::igDockBuilderSetNodeSize(root_dockspace_id, (*main_viewport).WorkSize);
 
                 let mut center_dockspace_id = root_dockspace_id;
@@ -547,7 +496,7 @@ fn draw_3_pane_view(
                     imgui::sys::ImGuiDir_Left,
                     0.2,
                     &mut left_dockspace_id as _,
-                    &mut center_dockspace_id as _
+                    &mut center_dockspace_id as _,
                 );
 
                 let mut bottom_dockspace_id = 0u32;
@@ -559,40 +508,47 @@ fn draw_3_pane_view(
                     &mut center_dockspace_id as *mut _,
                 );
 
-                imgui::sys::igDockBuilderDockWindow(im_str!("Demo Window 1").as_ptr(), center_dockspace_id);
-                imgui::sys::igDockBuilderDockWindow(im_str!("Demo Window 2").as_ptr(), left_dockspace_id);
-                imgui::sys::igDockBuilderDockWindow(im_str!("Demo Window 3").as_ptr(), bottom_dockspace_id);
+                imgui::sys::igDockBuilderDockWindow(
+                    im_str!("Demo Window 1").as_ptr(),
+                    center_dockspace_id,
+                );
+                imgui::sys::igDockBuilderDockWindow(
+                    im_str!("Demo Window 2").as_ptr(),
+                    left_dockspace_id,
+                );
+                imgui::sys::igDockBuilderDockWindow(
+                    im_str!("Demo Window 3").as_ptr(),
+                    bottom_dockspace_id,
+                );
                 imgui::sys::igDockBuilderFinish(root_dockspace_id);
             }
 
-            imgui::sys::igDockSpace(root_dockspace_id, ImVec2::new(0.0, 0.0), 0, std::ptr::null());
+            imgui::sys::igDockSpace(
+                root_dockspace_id,
+                ImVec2::new(0.0, 0.0),
+                0,
+                std::ptr::null(),
+            );
 
             root_window_token.end();
         }
 
         imgui::sys::igPopStyleVar(3);
 
-
         imgui::Window::new(im_str!("Demo Window 2"))
             //.position([550.0, 100.0], imgui::Condition::Once)
             .size([300.0, 400.0], imgui::Condition::Once)
-            .build(ui, || {
-
-            });
+            .build(ui, || {});
 
         imgui::Window::new(im_str!("Demo Window 3"))
             //.position([550.0, 100.0], imgui::Condition::Once)
             .size([300.0, 400.0], imgui::Condition::Once)
-            .build(ui, || {
-
-            });
+            .build(ui, || {});
 
         imgui::Window::new(im_str!("Demo Window 1"))
             //.position([150.0, 100.0], imgui::Condition::Once)
             .size([300.0, 400.0], imgui::Condition::Once)
-            .build(ui, || {
-
-            });
+            .build(ui, || {});
     }
 }
 

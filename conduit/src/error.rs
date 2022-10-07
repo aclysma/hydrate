@@ -5,21 +5,21 @@ pub enum Error {
     Notify(notify::Error),
     IO(io::Error),
     RescanRequired,
-//    Lmdb(lmdb::Error),
-//    Capnp(capnp::Error),
-//    NotInSchema(capnp::NotInSchema),
-//    BincodeError(bincode::ErrorKind),
-//    RonError(ron::Error),
-//    ErasedSerde(erased_serde::Error),
-//    MetaDeError(PathBuf, ron::Error),
-//    SetLoggerError(log::SetLoggerError),
-//    UuidLength,
+    //    Lmdb(lmdb::Error),
+    //    Capnp(capnp::Error),
+    //    NotInSchema(capnp::NotInSchema),
+    //    BincodeError(bincode::ErrorKind),
+    //    RonError(ron::Error),
+    //    ErasedSerde(erased_serde::Error),
+    //    MetaDeError(PathBuf, ron::Error),
+    //    SetLoggerError(log::SetLoggerError),
+    //    UuidLength,
     RecvError,
     SendError,
     Exit,
-//    ImporterError(distill_importer::Error),
-//    StrUtf8Error(str::Utf8Error),
-//    Custom(String),
+    //    ImporterError(distill_importer::Error),
+    //    StrUtf8Error(str::Utf8Error),
+    //    Custom(String),
 }
 
 pub type Result<T> = std::result::Result<T, Error>;
@@ -30,48 +30,51 @@ impl std::error::Error for Error {
             Error::Notify(ref e) => Some(e),
             Error::IO(ref e) => Some(e),
             Error::RescanRequired => None,
-//            Error::Lmdb(ref e) => Some(e),
-//            Error::Capnp(ref e) => Some(e),
-//            Error::NotInSchema(ref e) => Some(e),
-//            Error::BincodeError(ref e) => Some(e),
-//            Error::ErasedSerde(ref e) => Some(e),
-//            Error::RonError(ref e) => Some(e),
-//            Error::MetaDeError(_, ref e) => Some(e),
-//            Error::SetLoggerError(ref e) => Some(e),
-//            Error::UuidLength => None,
+            //            Error::Lmdb(ref e) => Some(e),
+            //            Error::Capnp(ref e) => Some(e),
+            //            Error::NotInSchema(ref e) => Some(e),
+            //            Error::BincodeError(ref e) => Some(e),
+            //            Error::ErasedSerde(ref e) => Some(e),
+            //            Error::RonError(ref e) => Some(e),
+            //            Error::MetaDeError(_, ref e) => Some(e),
+            //            Error::SetLoggerError(ref e) => Some(e),
+            //            Error::UuidLength => None,
             Error::RecvError => None,
             Error::SendError => None,
             Error::Exit => None,
-//            Error::ImporterError(ref e) => Some(e),
-//            Error::StrUtf8Error(ref e) => Some(e),
-//            Error::Custom(ref _e) => None,
+            //            Error::ImporterError(ref e) => Some(e),
+            //            Error::StrUtf8Error(ref e) => Some(e),
+            //            Error::Custom(ref _e) => None,
         }
     }
 }
 impl fmt::Display for Error {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    fn fmt(
+        &self,
+        f: &mut fmt::Formatter<'_>,
+    ) -> fmt::Result {
         match *self {
             Error::Notify(ref e) => e.fmt(f),
             Error::IO(ref e) => e.fmt(f),
             Error::RescanRequired => write!(f, "{}", self),
-//            Error::Lmdb(ref e) => e.fmt(f),
-//            Error::Capnp(ref e) => e.fmt(f),
-//            Error::NotInSchema(ref e) => e.fmt(f),
-//            Error::BincodeError(ref e) => e.fmt(f),
-//            Error::ErasedSerde(ref e) => e.fmt(f),
-//            Error::RonError(ref e) => e.fmt(f),
-//            Error::MetaDeError(ref path, ref e) => {
-//                write!(f, "metadata {} ", path.display())?;
-//                e.fmt(f)
-//            }
-//            Error::SetLoggerError(ref e) => e.fmt(f),
-//            Error::UuidLength => write!(f, "{}", self),
+            //            Error::Lmdb(ref e) => e.fmt(f),
+            //            Error::Capnp(ref e) => e.fmt(f),
+            //            Error::NotInSchema(ref e) => e.fmt(f),
+            //            Error::BincodeError(ref e) => e.fmt(f),
+            //            Error::ErasedSerde(ref e) => e.fmt(f),
+            //            Error::RonError(ref e) => e.fmt(f),
+            //            Error::MetaDeError(ref path, ref e) => {
+            //                write!(f, "metadata {} ", path.display())?;
+            //                e.fmt(f)
+            //            }
+            //            Error::SetLoggerError(ref e) => e.fmt(f),
+            //            Error::UuidLength => write!(f, "{}", self),
             Error::RecvError => write!(f, "{}", self),
             Error::SendError => write!(f, "{}", self),
             Error::Exit => write!(f, "{}", self),
-//            Error::ImporterError(ref e) => e.fmt(f),
-//            Error::StrUtf8Error(ref e) => e.fmt(f),
-//            Error::Custom(ref s) => f.write_str(s.as_str()),
+            //            Error::ImporterError(ref e) => e.fmt(f),
+            //            Error::StrUtf8Error(ref e) => e.fmt(f),
+            //            Error::Custom(ref s) => f.write_str(s.as_str()),
         }
     }
 }

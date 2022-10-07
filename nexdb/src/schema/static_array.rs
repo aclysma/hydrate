@@ -1,11 +1,11 @@
 use super::Schema;
-use std::hash::{Hash, Hasher};
 use crate::schema::SchemaTypeIndex;
+use std::hash::{Hash, Hasher};
 
 #[derive(Clone, Debug)]
 pub struct SchemaStaticArray {
     pub(crate) item_type: Box<Schema>,
-    pub(crate) length: usize
+    pub(crate) length: usize,
 }
 
 impl SchemaStaticArray {
@@ -13,10 +13,7 @@ impl SchemaStaticArray {
         item_type: Box<Schema>,
         length: usize,
     ) -> Self {
-        SchemaStaticArray {
-            item_type,
-            length
-        }
+        SchemaStaticArray { item_type, length }
     }
 
     pub fn item_type(&self) -> &Schema {

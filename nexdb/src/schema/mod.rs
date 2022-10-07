@@ -1,4 +1,3 @@
-
 mod dynamic_array;
 pub use dynamic_array::*;
 
@@ -23,10 +22,10 @@ pub use ref_constraint::*;
 mod static_array;
 pub use static_array::*;
 
-use std::hash::{Hash, Hasher};
-use siphasher::sip128::Hasher128;
-use crate::{SchemaDefNamedType, SchemaFingerprint, Value};
 use crate::HashMap;
+use crate::{SchemaDefNamedType, SchemaFingerprint, Value};
+use siphasher::sip128::Hasher128;
+use std::hash::{Hash, Hasher};
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub struct SchemaId(u128);
@@ -56,7 +55,10 @@ enum SchemaTypeIndex {
 }
 
 impl SchemaTypeIndex {
-    pub(crate) fn fingerprint_hash<T: Hasher>(&self, hasher: &mut T) {
+    pub(crate) fn fingerprint_hash<T: Hasher>(
+        &self,
+        hasher: &mut T,
+    ) {
         (*self as u32).hash(hasher);
     }
 }
@@ -135,108 +137,112 @@ pub enum Schema {
     Map(SchemaMap),
     RecordRef(SchemaRefConstraint),
     /// Named type, it could be an enum, record, etc.
-    NamedType(SchemaFingerprint)
+    NamedType(SchemaFingerprint),
 }
 
 impl Schema {
     pub fn is_nullable(&self) -> bool {
         match self {
             Schema::Nullable(_) => true,
-            _ => false
+            _ => false,
         }
     }
 
     pub fn is_boolean(&self) -> bool {
         match self {
             Schema::Boolean => true,
-            _ => false
+            _ => false,
         }
     }
 
     pub fn is_i32(&self) -> bool {
         match self {
             Schema::I32 => true,
-            _ => false
+            _ => false,
         }
     }
 
     pub fn is_u32(&self) -> bool {
         match self {
             Schema::U32 => true,
-            _ => false
+            _ => false,
         }
     }
 
     pub fn is_i64(&self) -> bool {
         match self {
             Schema::I64 => true,
-            _ => false
+            _ => false,
         }
     }
 
     pub fn is_u64(&self) -> bool {
         match self {
             Schema::U64 => true,
-            _ => false
+            _ => false,
         }
     }
 
     pub fn is_f32(&self) -> bool {
         match self {
             Schema::F32 => true,
-            _ => false
+            _ => false,
         }
     }
 
     pub fn is_f64(&self) -> bool {
         match self {
             Schema::F64 => true,
-            _ => false
+            _ => false,
         }
     }
 
     pub fn is_bytes(&self) -> bool {
         match self {
             Schema::Bytes => true,
-            _ => false
+            _ => false,
         }
     }
 
     pub fn is_buffer(&self) -> bool {
         match self {
             Schema::Buffer => true,
-            _ => false
+            _ => false,
         }
     }
 
     pub fn is_string(&self) -> bool {
         match self {
             Schema::String => true,
-            _ => false
+            _ => false,
         }
     }
 
     pub fn is_static_array(&self) -> bool {
         match self {
             Schema::StaticArray(_) => true,
-            _ => false
+            _ => false,
         }
     }
 
     pub fn is_dynamic_array(&self) -> bool {
         match self {
             Schema::DynamicArray(_) => true,
-            _ => false
+            _ => false,
         }
     }
 
-    pub fn find_property_schema<'a>(&'a self, name: impl AsRef<str>, named_types: &'a HashMap<SchemaFingerprint, SchemaNamedType>) -> Option<&'a Schema> {
+    pub fn find_property_schema<'a>(
+        &'a self,
+        name: impl AsRef<str>,
+        named_types: &'a HashMap<SchemaFingerprint, SchemaNamedType>,
+    ) -> Option<&'a Schema> {
         match self {
             Schema::Nullable(x) => {
                 if name.as_ref() == "value" {
                     Some(&*x)
                 } else {
-                     None
+                    None
                 }
             }
             Schema::NamedType(named_type_id) => {
@@ -246,23 +252,21 @@ impl Schema {
                     SchemaNamedType::Enum(_) => None,
                     SchemaNamedType::Fixed(_) => None,
                 }
-            },
+            }
             Schema::StaticArray(x) => {
                 if name.as_ref().parse::<u32>().is_ok() {
                     Some(x.item_type())
                 } else {
                     None
                 }
-            },
+            }
             Schema::DynamicArray(x) => {
                 // We are not picky about the index being a number as the Object DB/property
                 // handling uses UUIDs to ID each object, we just don't show the IDs to users
                 Some(x.item_type())
-            },
-            Schema::Map(x) => {
-                Some(x.value_type())
-            },
-            _ => None
+            }
+            Schema::Map(x) => Some(x.value_type()),
+            _ => None,
         }
     }
 }

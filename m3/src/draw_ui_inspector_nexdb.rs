@@ -3,6 +3,7 @@ use crate::app::AppState;
 use imgui::sys::{igDragFloat, igDragScalar, igInputDouble, ImGuiDataType__ImGuiDataType_Double, ImGuiInputTextFlags__ImGuiInputTextFlags_None, ImVec2};
 use crate::imgui_support::ImguiManager;
 use imgui::im_str;
+use nexdb::Schema;
 
 fn draw_property_style<F: FnOnce(&imgui::Ui)>(
     ui: &imgui::Ui,
@@ -40,7 +41,8 @@ fn draw_inspector_simple_property<F: FnOnce(&imgui::Ui, nexdb::Value) -> Option<
         if let Some(value) = db.resolve_property(object_id, &property_path) {
             value.clone()
         } else {
-            Value::default_for_schema(schema).clone()
+            db.default_value_for_schema(schema)
+            //Value::default_for_schema(schema).clone()
         }
     } else {
         db.get_property_override(object_id, &property_path).unwrap().clone()
@@ -393,29 +395,58 @@ fn draw_inspector_nexdb_property(
         }
         Schema::Map(_) => {}
         Schema::RecordRef(_) => {}
-        Schema::Record(record) => {
-            if property_path.is_empty() || imgui::CollapsingHeader::new(&im_str!("{}", property_name)).build(ui) {
-                ui.indent();
-                for field in record.fields() {
-                    let field_path = if !property_path.is_empty() {
-                        format!("{}.{}", property_path, field.name())
-                    } else {
-                        field.name().to_string()
-                    };
 
-                    let id_token = ui.push_id(field.name());
-                    draw_inspector_nexdb_property(ui, db, object_id, &field_path, field.name(), field.field_schema());
-                    id_token.pop();
+        Schema::NamedType(named_type_fingerprint) => {
+            let named_type = db.find_named_type_by_fingerprint(*named_type_fingerprint).unwrap().clone();
+            match named_type {
+                SchemaNamedType::Record(record) => {
+                    if property_path.is_empty() || imgui::CollapsingHeader::new(&im_str!("{}", property_name)).build(ui) {
+                        ui.indent();
+                        for field in record.fields() {
+                            let field_path = if !property_path.is_empty() {
+                                format!("{}.{}", property_path, field.name())
+                            } else {
+                                field.name().to_string()
+                            };
+
+                            let id_token = ui.push_id(field.name());
+                            draw_inspector_nexdb_property(ui, db, object_id, &field_path, field.name(), field.field_schema());
+                            id_token.pop();
+                        }
+                        ui.unindent();
+                    }
                 }
-                ui.unindent();
+                SchemaNamedType::Enum(_) => {
+
+                }
+                SchemaNamedType::Fixed(_) => {
+
+                }
             }
         }
-        Schema::Enum(_) => {
-
-        }
-        Schema::Fixed(_) => {
-
-        }
+        // Schema::Record(record) => {
+        //     if property_path.is_empty() || imgui::CollapsingHeader::new(&im_str!("{}", property_name)).build(ui) {
+        //         ui.indent();
+        //         for field in record.fields() {
+        //             let field_path = if !property_path.is_empty() {
+        //                 format!("{}.{}", property_path, field.name())
+        //             } else {
+        //                 field.name().to_string()
+        //             };
+        //
+        //             let id_token = ui.push_id(field.name());
+        //             draw_inspector_nexdb_property(ui, db, object_id, &field_path, field.name(), field.field_schema());
+        //             id_token.pop();
+        //         }
+        //         ui.unindent();
+        //     }
+        // }
+        // Schema::Enum(_) => {
+        //
+        // }
+        // Schema::Fixed(_) => {
+        //
+        // }
     }
 }
 
@@ -425,5 +456,5 @@ pub fn draw_inspector_nexdb(
     object_id: nexdb::ObjectId,
 ) {
     let schema = db.object_schema(object_id).clone();
-    draw_inspector_nexdb_property(ui, db, object_id, "", "", &schema);
+    draw_inspector_nexdb_property(ui, db, object_id, "", "", &Schema::NamedType(schema.fingerprint()));
 }

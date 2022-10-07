@@ -16,7 +16,7 @@ impl SchemaDynamicArray {
         }
     }
 
-    pub(crate) fn item_type(&self) -> &Schema {
+    pub fn item_type(&self) -> &Schema {
         &*self.item_type
     }
 }

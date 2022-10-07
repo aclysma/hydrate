@@ -69,6 +69,7 @@ impl SchemaLinker {
         for alias in named_type.aliases() {
             self.type_aliases.insert(alias.to_string(), named_type.type_name().to_string());
         }
+        //let schema_def = SchemaDefType::NamedType(named_type.type_name().to_string());
         self.types.insert(named_type.type_name().to_string(), named_type);
         Ok(())
     }
@@ -107,12 +108,10 @@ impl SchemaLinker {
             fields.push(SchemaDefRecordField::new(builder_field.name, builder_field.aliases, builder_field.field_type)?);
         }
 
-        let schema_record = SchemaDefRecord::new(name.into(), builder.aliases, fields)?;
+        let name = name.into();
+        let schema_record = SchemaDefRecord::new(name.clone(), builder.aliases, fields)?;
         let named_type = SchemaDefNamedType::Record(schema_record);
-        self.add_named_type(named_type)?;
-        Ok(())
-
-        //schema_record
+        self.add_named_type(named_type)
     }
 
     pub fn register_enum_type<F: Fn(&mut EnumTypeBuilder)>(&mut self, name: impl Into<String>, f: F) -> SchemaLinkerResult<()> {
@@ -126,26 +125,23 @@ impl SchemaLinker {
         }
 
         symbols.sort_by_key(|x| x.value);
-        let schema_enum = SchemaDefEnum::new(name.into(), builder.aliases, symbols)?;
+
+        let name = name.into();
+        let schema_enum = SchemaDefEnum::new(name.clone(), builder.aliases, symbols)?;
 
         let named_type = SchemaDefNamedType::Enum(schema_enum);
-        self.add_named_type(named_type)?;
-        Ok(())
-
-        //schema_enum
+        self.add_named_type(named_type)
     }
 
     pub fn register_fixed_type<F: Fn(&mut FixedTypeBuilder)>(&mut self, name: impl Into<String>, length: usize, f: F) -> SchemaLinkerResult<()> {
         let mut builder = FixedTypeBuilder::default();
         (f)(&mut builder);
 
-        let schema_fixed = SchemaDefFixed::new(name.into(), builder.aliases, length)?;
+        let name = name.into();
+        let schema_fixed = SchemaDefFixed::new(name.clone(), builder.aliases, length)?;
 
         let named_type = SchemaDefNamedType::Fixed(schema_fixed);
-        self.add_named_type(named_type)?;
-        Ok(())
-
-        //schema_fixed
+        self.add_named_type(named_type)
     }
 
     pub(crate) fn finish(mut self) -> SchemaLinkerResult<LinkedSchemas> {

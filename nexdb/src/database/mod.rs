@@ -64,6 +64,9 @@ impl Database {
         self.schemas.get(&fingerprint)
     }
 
+    pub fn default_value_for_schema(&self, schema: &Schema) -> Value {
+        Value::default_for_schema(schema, &self.schemas)
+    }
 
 
     fn insert_object(&mut self, obj_info: DatabaseObjectInfo) -> ObjectId {
@@ -178,7 +181,6 @@ impl Database {
 
         for (i, path_segment) in split_path[0..split_path.len() - 1].iter().enumerate() { //.as_ref().split(".").enumerate() {
             let s = schema.find_property_schema(path_segment, named_types)?;
-            println!("path segment {} is schema {:?}", path_segment, s);
             //println!("  next schema {:?}", s);
 
             // current path needs to be verified as existing
@@ -426,8 +428,6 @@ impl Database {
             &mut map_ancestors,
             &mut accessed_dynamic_array_keys
         ).unwrap();
-
-        println!("Path {} schema is {:?}", path.as_ref(), property_schema);
 
         for checked_property in &nullable_ancestors {
             if self.resolve_is_null(object, checked_property) != Some(false) {

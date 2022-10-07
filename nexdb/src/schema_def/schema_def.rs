@@ -1,7 +1,6 @@
 use crate::{
     HashMap, HashSet, Schema, SchemaDynamicArray, SchemaEnum, SchemaEnumSymbol, SchemaFingerprint,
-    SchemaFixed, SchemaMap, SchemaNamedType, SchemaRecord, SchemaRecordField, SchemaStaticArray,
-    Value,
+    SchemaFixed, SchemaMap, SchemaNamedType, SchemaRecord, SchemaRecordField, SchemaStaticArray
 };
 use siphasher::sip128::Hasher128;
 use std::hash::{Hash, Hasher};

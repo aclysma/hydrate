@@ -23,7 +23,7 @@ mod static_array;
 pub use static_array::*;
 
 use crate::HashMap;
-use crate::{SchemaDefNamedType, SchemaFingerprint, Value};
+use crate::{SchemaFingerprint, Value};
 use siphasher::sip128::Hasher128;
 use std::hash::{Hash, Hasher};
 

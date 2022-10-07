@@ -1,0 +1,68 @@
+[
+  {
+    "type": "record",
+    "name": "AllFields",
+    "fields": [
+      {
+        "name": "nullable_bool",
+        "type": {
+          "name": "nullable",
+          "inner_type": "bool"
+        }
+      },
+      {
+        "name": "nullable_vec3",
+        "type": {
+          "name": "nullable",
+          "inner_type": "Vec3"
+        }
+      },
+      {
+        "name": "boolean",
+        "type": "bool"
+      },
+      {
+        "name": "i32",
+        "type": "i32"
+      },
+      {
+        "name": "i64",
+        "type": "i64"
+      },
+      {
+        "name": "u32",
+        "type": "u32"
+      },
+      {
+        "name": "u64",
+        "type": "u64"
+      },
+      {
+        "name": "f32",
+        "type": "f32"
+      },
+      {
+        "name": "f64",
+        "type": "f64"
+      },
+      {
+        "name": "string",
+        "type": "string"
+      },
+      {
+        "name": "dynamic_array_i32",
+        "type": {
+          "name": "dynamic_array",
+          "inner_type": "i32"
+        }
+      },
+      {
+        "name": "dynamic_array_vec3",
+        "type": {
+          "name": "dynamic_array",
+          "inner_type": "Vec3"
+        }
+      }
+    ]
+  }
+]

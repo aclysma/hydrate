@@ -30,14 +30,13 @@ impl BufferId {
     }
 }
 
-mod schema_registry;
-pub use schema_registry::*;
-
 mod schema;
 pub use schema::*;
 
-mod value;
-pub use value::*;
+mod schema_def;
+pub use schema_def::*;
+
+pub use database::value::*;
 
 mod database;
 pub use database::*;

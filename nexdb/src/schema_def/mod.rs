@@ -1,9 +1,6 @@
 mod schema_def;
 pub use schema_def::*;
 
-mod registry;
-pub use registry::*;
-
 mod schema_linker;
 pub use schema_linker::*;
 

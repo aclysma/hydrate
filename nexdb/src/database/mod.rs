@@ -1,11 +1,13 @@
 use super::schema::*;
-use super::value::*;
 use super::{HashMap, HashSet, ObjectId, SchemaFingerprint};
 use std::io::BufRead;
 use std::str::FromStr;
 use uuid::Uuid;
 
 use crate::{BufferId, SchemaLinker, SchemaLinkerResult};
+
+pub mod value;
+pub use value::Value;
 
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub enum NullOverride {

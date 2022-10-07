@@ -1,0 +1,24 @@
+[
+  {
+    "type": "record",
+    "name": "Transform",
+    "fields": [
+      {
+        "name": "all_fields",
+        "type": "AllFields"
+      },
+      {
+        "name": "position",
+        "type": "Vec3"
+      },
+      {
+        "name": "rotation",
+        "type": "Vec4"
+      },
+      {
+        "name": "scale",
+        "type": "Vec3"
+      }
+    ]
+  }
+]

@@ -1,4 +1,5 @@
 // https://github.com/ocornut/imgui/issues/707 "yet another dark theme"
+#[rustfmt::skip]
 pub fn yet_another_dark_theme(style: &mut imgui::Style) {
     // https://github.com/ocornut/imgui/issues/707 "yet another dark theme"
     style.frame_rounding = 4.0;
@@ -54,6 +55,7 @@ pub fn yet_another_dark_theme(style: &mut imgui::Style) {
 }
 
 // https://github.com/ocornut/imgui/issues/707 "charcoal"
+#[rustfmt::skip]
 pub fn charcoal_theme(style: &mut imgui::Style) {
     style[imgui::StyleColor::Text]                   = [1.000, 1.000, 1.000, 1.000];
     style[imgui::StyleColor::TextDisabled]           = [0.500, 0.500, 0.500, 1.000];
@@ -119,6 +121,7 @@ pub fn charcoal_theme(style: &mut imgui::Style) {
 }
 
 // https://github.com/ocornut/imgui/issues/707 "corporate_gray"
+#[rustfmt::skip]
 pub fn corporate_gray_theme(style: &mut imgui::Style) {
     // 0 = FLAT APPEARENCE
     // 1 = MORE "3D" LOOK
@@ -206,8 +209,7 @@ pub fn corporate_gray_theme(style: &mut imgui::Style) {
     */
 }
 
-
-
+#[rustfmt::skip]
 pub fn custom_theme(style: &mut imgui::Style) {
     yet_another_dark_theme(style);
 

@@ -194,9 +194,6 @@ impl Database {
         //TODO: Escape map keys (and probably avoid path strings anyways)
         let split_path: Vec<_> = path.as_ref().split(".").collect();
 
-        //println!("property_schema_and_parents_to_check_for_replace_mode {}", path.as_ref());
-        // Iterate the path segments to find
-
         let mut parent_is_dynamic_array = false;
 
         for (i, path_segment) in split_path[0..split_path.len() - 1].iter().enumerate() {
@@ -327,10 +324,8 @@ impl Database {
             &mut accessed_dynamic_array_keys,
         )
         .unwrap();
-        println!("SCHEMA OF PATH {} IS {:?}", path.as_ref(), property_schema);
 
         if !property_schema.is_nullable() {
-            panic!("not nullable");
             return None;
         }
 
@@ -394,10 +389,11 @@ impl Database {
         //TODO: Should we check for null in path ancestors?
         //TODO: Only allow setting on values that exist, in particular, dynamic array overrides
         if !value.matches_schema(&property_schema, &self.schemas) {
-            panic!(
+            log::debug!(
                 "Value {:?} doesn't match schema {:?}",
                 value, property_schema
             );
+            return false;
         }
 
         // Contains the path segments that we need to check for being null

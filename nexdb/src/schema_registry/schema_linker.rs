@@ -230,8 +230,6 @@ impl SchemaLinker {
 
             named_type.collect_all_related_types(&mut related_types);
 
-            println!("{} relies on {:?}", named_type.type_name(), related_types);
-
             let mut related_types: Vec<_> = related_types.into_iter().collect();
             related_types.sort();
 
@@ -241,10 +239,10 @@ impl SchemaLinker {
                 let partial_hash = partial_hashes.get(related_type).unwrap();
                 partial_hash.hash(&mut hasher);
             }
-            let fingerprint = hasher.finish128().as_u128();
+            let fingerprint = SchemaFingerprint(hasher.finish128().as_u128());
 
-            println!("type {} fingerprint is {}", type_name, fingerprint);
-            schemas_by_name.insert(type_name.to_string(), SchemaFingerprint(fingerprint));
+            log::debug!("type {} fingerprint is {}", type_name, fingerprint.as_uuid());
+            schemas_by_name.insert(type_name.to_string(), fingerprint);
         }
 
         for (_type_name, named_type) in self.types {

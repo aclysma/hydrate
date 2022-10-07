@@ -562,7 +562,7 @@ fn draw_inspector_nexdb_property(
             }
         }
         Schema::Map(_) => {}
-        Schema::RecordRef(_) => {}
+        //Schema::RecordRef(_) => {}
 
         Schema::NamedType(named_type_fingerprint) => {
             let named_type = db

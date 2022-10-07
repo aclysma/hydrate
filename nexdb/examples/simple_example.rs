@@ -58,5 +58,27 @@ fn main() {
     db.add_linked_types(linker);
     //linker.finish();
 
+    let vec3_type = db.find_named_type("Vec3").unwrap().as_record().unwrap().clone();
+
+    let vec3_obj = db.new_object(&vec3_type);
+    db.set_property_override(vec3_obj, "x", Value::F32(10.0));
+    db.set_property_override(vec3_obj, "y", Value::F32(20.0));
+    db.set_property_override(vec3_obj, "z", Value::F32(30.0));
+
+
+    let aabb_type = db.find_named_type("AABB").unwrap().as_record().unwrap().clone();
+    let aabb_obj = db.new_object(&aabb_type);
+    db.set_property_override(aabb_obj, "min.x", Value::F32(10.0));
+    db.set_property_override(aabb_obj, "min.y", Value::F32(20.0));
+    db.set_property_override(aabb_obj, "min.z", Value::F32(30.0));
+
+    db.set_property_override(aabb_obj, "max.x", Value::F32(40.0));
+    db.set_property_override(aabb_obj, "max.y", Value::F32(50.0));
+    db.set_property_override(aabb_obj, "max.z", Value::F32(60.0));
+
+    SchemaCacheSingleFile::store(&db, PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/examples/schema_cache/cache.json")));
+
+    DataStorageJsonSingleFile::store(&db, PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/examples/data/database.json")));
+
     println!("{}", env!("CARGO_MANIFEST_DIR"));
 }

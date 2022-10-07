@@ -48,6 +48,10 @@ impl SchemaFixed {
         &self.name
     }
 
+    pub fn aliases(&self) -> &[String] {
+        &*self.aliases
+    }
+
     pub fn length(&self) -> usize {
         self.length
     }

@@ -38,6 +38,10 @@ impl SchemaEnumSymbol {
         &self.name
     }
 
+    pub fn aliases(&self) -> &[String] {
+        &self.aliases
+    }
+
     pub fn value(&self) -> i32 {
         self.value
     }
@@ -97,6 +101,10 @@ impl SchemaEnum {
 
     pub fn name(&self) -> &str {
         &self.name
+    }
+
+    pub fn aliases(&self) -> &[String] {
+        &self.aliases
     }
 
     pub fn symbols(&self) -> &[SchemaEnumSymbol] {

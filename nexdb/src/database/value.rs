@@ -73,7 +73,7 @@ impl Value {
             Schema::Map(inner) => Value::Map(ValueMap {
                 properties: Default::default()
             }),
-            Schema::RecordRef(inner) => Value::RecordRef(ObjectId::null()),
+            //Schema::RecordRef(inner) => Value::RecordRef(ObjectId::null()),
             Schema::NamedType(named_type_id) => {
                 let named_type = named_types.get(named_type_id).unwrap();
                 match named_type {

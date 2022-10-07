@@ -36,7 +36,11 @@ pub use schema::*;
 mod schema_def;
 pub use schema_def::*;
 
-pub use database::value::*;
-
 mod database;
 pub use database::*;
+
+mod schema_cache;
+pub use schema_cache::*;
+
+mod data_storage;
+pub use data_storage::*;

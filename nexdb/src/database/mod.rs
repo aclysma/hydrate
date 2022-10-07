@@ -16,12 +16,12 @@ pub enum NullOverride {
 }
 
 pub struct DatabaseObjectInfo {
-    schema: SchemaNamedType, // Will always be a SchemaRecord
-    prototype: Option<ObjectId>,
-    properties: HashMap<String, Value>,
-    property_null_overrides: HashMap<String, NullOverride>,
-    properties_in_replace_mode: HashSet<String>,
-    dynamic_array_entries: HashMap<String, Vec<Uuid>>,
+    pub(crate) schema: SchemaNamedType, // Will always be a SchemaRecord
+    pub(crate) prototype: Option<ObjectId>,
+    pub(crate) properties: HashMap<String, Value>,
+    pub(crate) property_null_overrides: HashMap<String, NullOverride>,
+    pub(crate) properties_in_replace_mode: HashSet<String>,
+    pub(crate) dynamic_array_entries: HashMap<String, Vec<Uuid>>,
 }
 
 //TODO: Delete unused property data when path ancestor is null or in replace mode
@@ -40,6 +40,14 @@ pub struct Database {
 }
 
 impl Database {
+    pub fn schemas(&self) -> &HashMap<SchemaFingerprint, SchemaNamedType> {
+        &self.schemas
+    }
+
+    pub(crate) fn objects(&self) -> &HashMap<ObjectId, DatabaseObjectInfo> {
+        &self.objects
+    }
+
     pub fn add_linked_types(
         &mut self,
         mut linker: SchemaLinker,

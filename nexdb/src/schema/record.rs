@@ -31,6 +31,10 @@ impl SchemaRecordField {
         &self.name
     }
 
+    pub fn aliases(&self) -> &[String] {
+        &self.aliases
+    }
+
     pub fn field_schema(&self) -> &Schema {
         &self.field_schema
     }
@@ -83,16 +87,16 @@ impl SchemaRecord {
         }
     }
 
-    // pub fn create_from_def(&self, &schema_def: SchemaDefNamedType, schemas_by_name: &HashMap<String, SchemaFingerprint>) -> SchemaRecord {
-    //
-    // }
+    pub fn name(&self) -> &str {
+        &self.name
+    }
 
     pub fn fingerprint(&self) -> SchemaFingerprint {
         self.fingerprint
     }
 
-    pub fn name(&self) -> &str {
-        &self.name
+    pub fn aliases(&self) -> &[String] {
+        &*self.aliases
     }
 
     pub fn fields(&self) -> &[SchemaRecordField] {

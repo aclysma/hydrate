@@ -80,6 +80,14 @@ impl SchemaNamedType {
         }
     }
 
+    pub fn name(&self) -> &str {
+        match self {
+            SchemaNamedType::Record(x) => x.name(),
+            SchemaNamedType::Enum(x) => x.name(),
+            SchemaNamedType::Fixed(x) => x.name(),
+        }
+    }
+
     pub fn as_record(&self) -> Option<&SchemaRecord> {
         match self {
             SchemaNamedType::Record(x) => Some(x),
@@ -135,7 +143,7 @@ pub enum Schema {
     StaticArray(SchemaStaticArray),
     DynamicArray(SchemaDynamicArray),
     Map(SchemaMap),
-    RecordRef(SchemaRefConstraint),
+    //RecordRef(SchemaRefConstraint),
     /// Named type, it could be an enum, record, etc.
     NamedType(SchemaFingerprint),
 }

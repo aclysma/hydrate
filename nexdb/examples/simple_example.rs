@@ -76,9 +76,13 @@ fn main() {
     db.set_property_override(aabb_obj, "max.y", Value::F32(50.0));
     db.set_property_override(aabb_obj, "max.z", Value::F32(60.0));
 
-    SchemaCacheSingleFile::store(&db, PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/examples/schema_cache/cache.json")));
+    //SchemaCacheSingleFile::store(&db, PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/examples/schema_cache/cache.json")));
 
-    DataStorageJsonSingleFile::store(&db, PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/examples/data/database.json")));
+    //DataStorageJsonSingleFile::store(&db, PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/examples/data/database.json")));
+    let data = DataStorageJsonSingleFile::store_string(&db);
+    println!("Data: {}", data);
+    DataStorageJsonSingleFile::load_string(&mut db, &data);
+
 
     println!("{}", env!("CARGO_MANIFEST_DIR"));
 }

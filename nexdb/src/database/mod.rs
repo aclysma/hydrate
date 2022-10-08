@@ -9,6 +9,39 @@ use crate::{BufferId, SchemaLinker, SchemaLinkerResult};
 pub mod value;
 pub use value::Value;
 
+// pub struct ArchivedObject {
+//     object_id: Uuid,
+//     schema: Uuid,
+//     schema_name: String,
+//     prototype: Uuid,
+//     properties: HashMap<String, Value>
+// }
+//
+// impl ArchivedObject {
+//     pub fn archive(object_id: ObjectId, object: &DatabaseObjectInfo) -> ArchivedObject {
+//         // Store simple properties
+//         let mut properties: HashMap<String, Value> = Default::default();
+//         for (key, value) in &object.properties {
+//             properties.insert(key.clone(), value.clone());
+//         }
+//
+//         // Store nullable status as a property
+//
+//         // Store replace mode as a property
+//
+//         // Store dynamic array entries as a property
+//
+//         ArchivedObject {
+//             object_id: Uuid::from_u128(object_id.0),
+//             schema: object.schema.fingerprint().as_uuid(),
+//             schema_name: object.schema.name().to_string(),
+//             prototype: object.prototype.map(|x| Uuid::from_u128(x.0)).unwrap(),
+//             properties
+//         }
+//     }
+// }
+
+
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub enum NullOverride {
     SetNull,
@@ -135,6 +168,26 @@ impl Database {
         };
 
         self.insert_object(obj)
+    }
+
+    pub(crate) fn restore_object(
+        &mut self,
+        object_id: ObjectId,
+        schema: SchemaFingerprint,
+        schema_name: String,
+        prototype: Option<ObjectId>,
+    ) {
+        let schema = self.schemas.get(&schema).unwrap();
+        let obj = DatabaseObjectInfo {
+            schema: schema.clone(),
+            prototype,
+            properties: Default::default(),
+            property_null_overrides: Default::default(),
+            properties_in_replace_mode: Default::default(),
+            dynamic_array_entries: Default::default(),
+        };
+
+        self.insert_object(obj);
     }
 
     pub fn object_schema(

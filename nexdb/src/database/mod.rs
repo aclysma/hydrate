@@ -4,7 +4,7 @@ use std::io::BufRead;
 use std::str::FromStr;
 use uuid::Uuid;
 
-use crate::{BufferId, SchemaLinker, SchemaLinkerResult};
+use crate::{BufferId, HashMapKeys, SchemaLinker, SchemaLinkerResult};
 
 pub mod value;
 pub use value::Value;
@@ -69,10 +69,14 @@ pub enum OverrideBehavior {
 pub struct Database {
     schemas_by_name: HashMap<String, SchemaFingerprint>,
     schemas: HashMap<SchemaFingerprint, SchemaNamedType>,
-    pub(crate) objects: HashMap<ObjectId, DatabaseObjectInfo>,
+    objects: HashMap<ObjectId, DatabaseObjectInfo>,
 }
 
 impl Database {
+    pub fn all_objects<'a>(&'a self) -> HashMapKeys<'a, ObjectId, DatabaseObjectInfo> {
+        self.objects.keys()
+    }
+
     pub fn schemas(&self) -> &HashMap<SchemaFingerprint, SchemaNamedType> {
         &self.schemas
     }
@@ -91,7 +95,8 @@ impl Database {
 
         for (k, v) in linked.schemas {
             let old = self.schemas.insert(k, v);
-            assert!(old.is_none());
+            //assert!(old.is_none());
+            //TODO: Assert schemas are the same
         }
 
         for (k, v) in linked.schemas_by_name {
@@ -219,6 +224,14 @@ impl Database {
     //
     //     self.insert_object(obj);
     // }
+
+    pub fn object_prototype(
+        &self,
+        object: ObjectId
+    ) -> Option<ObjectId> {
+        let o = self.objects.get(&object).unwrap();
+        o.prototype
+    }
 
     pub fn object_schema(
         &self,

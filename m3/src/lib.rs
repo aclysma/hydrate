@@ -1,4 +1,6 @@
 mod renderer;
+
+use std::path::PathBuf;
 use renderer::Renderer;
 
 mod imgui_support;
@@ -14,10 +16,11 @@ mod draw_ui_inspector_nexdb;
 
 mod app;
 use app::AppState;
+use nexdb::{DataStorageJsonSingleFile, SchemaCacheSingleFile};
 
 // Creates a window and runs the event loop.
 pub fn run() {
-    let test_data_nexdb = test_data_nexdb::setup_test_data();
+    let test_data_nexdb = test_data_nexdb::TestData::load_or_create();
 
     let mut app_state = AppState { test_data_nexdb };
 
@@ -55,6 +58,20 @@ pub fn run() {
     event_loop.run(move |event, _window_target, control_flow| {
         imgui_manager.handle_event(&window, &event);
 
+        fn save_state(database: &nexdb::Database) {
+
+            let data_file_path = PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/out/data_file_out.json"));
+            log::debug!("write data to {:?}", data_file_path);
+            let data = DataStorageJsonSingleFile::store_string(database);
+            std::fs::write(data_file_path, data).unwrap();
+
+            let schema_cache_file_path = PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/out/schema_cache_file_out.json"));
+            log::debug!("write schema cache to {:?}", schema_cache_file_path);
+            let schema_cache = SchemaCacheSingleFile::store_string(database);
+            std::fs::write(schema_cache_file_path, schema_cache).unwrap();
+
+        }
+
         match event {
             //
             // Halt if the user requests to close the window
@@ -62,7 +79,11 @@ pub fn run() {
             winit::event::Event::WindowEvent {
                 event: winit::event::WindowEvent::CloseRequested,
                 ..
-            } => *control_flow = winit::event_loop::ControlFlow::Exit,
+            } => {
+                println!("I should save");
+                save_state(&app_state.test_data_nexdb.db);
+                *control_flow = winit::event_loop::ControlFlow::Exit
+            }
 
             //
             // Close if the escape key is hit
@@ -78,7 +99,11 @@ pub fn run() {
                         ..
                     },
                 ..
-            } => *control_flow = winit::event_loop::ControlFlow::Exit,
+            } => {
+                println!("I should save");
+                save_state(&app_state.test_data_nexdb.db);
+                *control_flow = winit::event_loop::ControlFlow::Exit
+            }
 
             //
             // Request a redraw any time we finish processing events

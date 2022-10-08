@@ -2,6 +2,7 @@
 // extern crate core;
 
 pub type HashMap<K, V> = std::collections::HashMap<K, V, ahash::RandomState>;
+pub type HashMapKeys<'a, K, V> = std::collections::hash_map::Keys<'a, K, V>;
 pub type HashSet<T> = std::collections::HashSet<T, ahash::RandomState>;
 
 use uuid::Uuid;

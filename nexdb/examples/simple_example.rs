@@ -58,7 +58,7 @@ fn main() {
         (schema_cache, data)
     };
 
-    println!("---------------------");
+    println!("--------------------- Restoring with linker");
     {
         let mut linker2 = SchemaLinker::default();
         linker2.add_source_dir(path, "*.json").unwrap();
@@ -74,7 +74,7 @@ fn main() {
         assert_eq!(schema_cache, schema_cache2);
     }
 
-    println!("---------------------");
+    println!("--------------------- Restoring with schema cache");
     {
         let mut db3 = Database::default();
         SchemaCacheSingleFile::load_string(&mut db3, &schema_cache);
@@ -89,39 +89,9 @@ fn main() {
         assert_eq!(schema_cache, schema_cache3);
     }
 
-    // {
-    //     let mut linker2 = SchemaCacheSingleFile::();
-    //     linker2.add_source_dir(path, "*.json").unwrap();
-    //
-    //     let mut db2 = Database::default();
-    //     db2.add_linked_types(linker2);
-    //     DataStorageJsonSingleFile::load_string(&mut db2, &data);
-    //     let data2 = DataStorageJsonSingleFile::store_string(&db2);
-    //     println!("Data2: {}", data2);
-    //     assert_eq!(data, data2);
-    // }
+    let data_file_path = PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/examples/data/data_file_out.json"));
+    std::fs::write(data_file_path, data).unwrap();
 
-
-
-
-
-    //SchemaCacheSingleFile::store(&db, PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/examples/schema_cache/cache.json")));
-
-    //DataStorageJsonSingleFile::store(&db, PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/examples/data/database.json")));
-    //let data = DataStorageJsonSingleFile::store_string(&db);
-    // println!("Data: {}", data);
-    //
-    //
-    // let mut linker2 = SchemaLinker::default();
-    // linker2.add_source_dir(path, "*.json").unwrap();
-    //
-    // let mut db2 = Database::default();
-    // db2.add_linked_types(linker2);
-    // DataStorageJsonSingleFile::load_string(&mut db2, &data);
-    // let data2 = DataStorageJsonSingleFile::store_string(&db2);
-    // println!("Data2: {}", data2);
-    // assert_eq!(data, data2);
-    //
-    //
-    // println!("{}", env!("CARGO_MANIFEST_DIR"));
+    let schema_cache_file_path = PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/examples/schema_cache/schema_cache_file_out.json"));
+    std::fs::write(schema_cache_file_path, schema_cache).unwrap();
 }

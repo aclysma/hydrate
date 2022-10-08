@@ -1,0 +1,44 @@
+{
+  "objects": [
+    {
+      "object_id": "17f99a37-2102-4fea-8db0-3fd956a4a219",
+      "schema": "f2fb60c0-9253-e4f4-9ee0-e1717a8bf9dd",
+      "schema_name": "Vec3",
+      "prototype": null,
+      "properties": {
+        "x": 10.0,
+        "y": 20.0,
+        "z": 30.0
+      }
+    },
+    {
+      "object_id": "88087000-bc5f-4060-90ac-1ab60c2e16a1",
+      "schema": "d43a4b3d-5b16-b169-43e4-4c10d170e2ed",
+      "schema_name": "AABB",
+      "prototype": null,
+      "properties": {
+        "max.x": 40.0,
+        "max.y": 50.0,
+        "max.z": 60.0,
+        "min.x": 10.0,
+        "min.y": 20.0,
+        "min.z": 30.0
+      }
+    },
+    {
+      "object_id": "cd083fed-9821-463d-b9e1-7126226c9994",
+      "schema": "3792c325-8139-c74d-27e0-d58edfccfec3",
+      "schema_name": "DynArrayNullableTest",
+      "prototype": null,
+      "properties": {
+        "dyn_array": [
+          "73a873f7-c83c-4738-831a-364cfe28c78b",
+          "d3801dc4-9e48-4bab-9b78-ae03d691ef10"
+        ],
+        "dyn_array.d3801dc4-9e48-4bab-9b78-ae03d691ef10.null_override": "SetNonNull",
+        "dyn_array.d3801dc4-9e48-4bab-9b78-ae03d691ef10.value": 10.0,
+        "dyn_array.replace": true
+      }
+    }
+  ]
+}

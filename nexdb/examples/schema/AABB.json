@@ -1,0 +1,34 @@
+[
+  {
+    "type": "record",
+    "name": "AABB",
+    "aliases": [],
+    "fields": [
+      {
+        "name": "min",
+        "type": "Vec3"
+      },
+      {
+        "name": "max",
+        "type": "Vec3"
+      },
+      {
+        "name": "nullable_field",
+        "type": {
+          "name": "nullable",
+          "inner_type": {
+            "name": "nullable",
+            "inner_type": "AABB"
+          }
+        }
+      },
+      {
+        "name": "dynamic_array",
+        "type": {
+          "name": "dynamic_array",
+          "inner_type": "AABB"
+        }
+      }
+    ]
+  }
+]

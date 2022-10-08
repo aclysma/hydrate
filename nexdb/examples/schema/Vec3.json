@@ -1,0 +1,21 @@
+[
+  {
+    "type": "record",
+    "name": "Vec3",
+    "aliases": ["vec3"],
+    "fields": [
+      {
+        "name": "x",
+        "type": "f32"
+      },
+      {
+        "name": "y",
+        "type": "f32"
+      },
+      {
+        "name": "z",
+        "type": "f32"
+      }
+    ]
+  }
+]

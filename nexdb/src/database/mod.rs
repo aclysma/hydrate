@@ -198,28 +198,28 @@ impl Database {
         &o.schema
     }
 
-    fn property_schema(
-        schema: &SchemaNamedType,
-        path: impl AsRef<str>,
-        named_types: &HashMap<SchemaFingerprint, SchemaNamedType>,
-    ) -> Option<Schema> {
-        let mut schema = Schema::NamedType(schema.fingerprint());
-
-        //TODO: Escape map keys (and probably avoid path strings anyways)
-        let split_path = path.as_ref().split(".");
-
-        // Iterate the path segments to find
-        for path_segment in split_path {
-            let s = schema.find_property_schema(path_segment, named_types);
-            if let Some(s) = s {
-                schema = s.clone();
-            } else {
-                return None;
-            }
-        }
-
-        Some(schema)
-    }
+    // pub(crate) fn property_schema(
+    //     schema: &SchemaNamedType,
+    //     path: impl AsRef<str>,
+    //     named_types: &HashMap<SchemaFingerprint, SchemaNamedType>,
+    // ) -> Option<Schema> {
+    //     let mut schema = Schema::NamedType(schema.fingerprint());
+    //
+    //     //TODO: Escape map keys (and probably avoid path strings anyways)
+    //     let split_path = path.as_ref().split(".");
+    //
+    //     // Iterate the path segments to find
+    //     for path_segment in split_path {
+    //         let s = schema.find_property_schema(path_segment, named_types);
+    //         if let Some(s) = s {
+    //             schema = s.clone();
+    //         } else {
+    //             return None;
+    //         }
+    //     }
+    //
+    //     Some(schema)
+    // }
 
     fn truncate_property_path(
         path: impl AsRef<str>,
@@ -316,7 +316,7 @@ impl Database {
         path: impl AsRef<str>,
     ) -> Option<NullOverride> {
         let mut object_schema = self.object_schema(object);
-        let property_schema = Self::property_schema(object_schema, &path, &self.schemas).unwrap();
+        let property_schema = object_schema.find_property_schema(&path, &self.schemas).unwrap();
 
         if property_schema.is_nullable() {
             let obj = self.objects.get(&object).unwrap();
@@ -333,7 +333,7 @@ impl Database {
         null_override: NullOverride,
     ) {
         let mut object_schema = self.object_schema(object);
-        let property_schema = Self::property_schema(object_schema, &path, &self.schemas).unwrap();
+        let property_schema = object_schema.find_property_schema(&path, &self.schemas).unwrap();
 
         if property_schema.is_nullable() {
             let obj = self.objects.get_mut(&object).unwrap();
@@ -348,7 +348,7 @@ impl Database {
         path: impl AsRef<str>,
     ) {
         let mut object_schema = self.object_schema(object);
-        let property_schema = Self::property_schema(object_schema, &path, &self.schemas).unwrap();
+        let property_schema = object_schema.find_property_schema(&path, &self.schemas).unwrap();
 
         if property_schema.is_nullable() {
             let obj = self.objects.get_mut(&object).unwrap();
@@ -447,7 +447,7 @@ impl Database {
     ) -> bool {
         let mut object_schema = self.object_schema(object);
         let mut property_schema =
-            Self::property_schema(object_schema, &path, &self.schemas).unwrap();
+            object_schema.find_property_schema(&path, &self.schemas).unwrap();
 
         //TODO: Should we check for null in path ancestors?
         //TODO: Only allow setting on values that exist, in particular, dynamic array overrides
@@ -585,7 +585,7 @@ impl Database {
         path: impl AsRef<str>,
     ) -> &[Uuid] {
         let mut object_schema = self.object_schema(object);
-        let property_schema = Self::property_schema(object_schema, &path, &self.schemas).unwrap();
+        let property_schema = object_schema.find_property_schema(&path, &self.schemas).unwrap();
 
         if !property_schema.is_dynamic_array() {
             panic!("get_dynamic_array_overrides only allowed on dynamic arrays");
@@ -605,7 +605,7 @@ impl Database {
         path: impl AsRef<str>,
     ) -> Uuid {
         let mut object_schema = self.object_schema(object).clone();
-        let property_schema = Self::property_schema(&object_schema, &path, &self.schemas).unwrap();
+        let property_schema = object_schema.find_property_schema(&path, &self.schemas).unwrap();
 
         if !property_schema.is_dynamic_array() {
             panic!("add_dynamic_array_override only allowed on dynamic arrays");
@@ -628,7 +628,7 @@ impl Database {
         element_id: Uuid,
     ) {
         let mut object_schema = self.object_schema(object).clone();
-        let property_schema = Self::property_schema(&object_schema, &path, &self.schemas).unwrap();
+        let property_schema = object_schema.find_property_schema(&path, &self.schemas).unwrap();
 
         if !property_schema.is_dynamic_array() {
             panic!("remove_dynamic_array_override only allowed on dynamic arrays");
@@ -760,7 +760,7 @@ impl Database {
         path: impl AsRef<str>,
     ) -> OverrideBehavior {
         let object = self.objects.get(&object).unwrap();
-        let property_schema = Self::property_schema(&object.schema, &path, &self.schemas).unwrap();
+        let property_schema = object.schema.find_property_schema(&path, &self.schemas).unwrap();
 
         match property_schema {
             Schema::DynamicArray(_) | Schema::Map(_) => {
@@ -781,7 +781,7 @@ impl Database {
         behavior: OverrideBehavior,
     ) {
         let object = self.objects.get_mut(&object).unwrap();
-        let property_schema = Self::property_schema(&object.schema, &path, &self.schemas).unwrap();
+        let property_schema = object.schema.find_property_schema(&path, &self.schemas).unwrap();
 
         match property_schema {
             Schema::DynamicArray(_) | Schema::Map(_) => {

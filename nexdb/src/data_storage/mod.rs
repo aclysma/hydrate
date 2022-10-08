@@ -51,14 +51,6 @@ fn store_object_into_properties(
 ) {
     match schema {
         Schema::Nullable(inner_schema) => {
-            //TODO: Scrape separately, so we save even if path ancestor is nulled?
-            // Save null override
-            // if let Some(null_override) = database.get_null_override(object_id, path) {
-            //     let null_override_path = format!("{}.null_override", path);
-            //     let null_override_value = null_override_to_string_value(null_override);
-            //     stored_object.properties.insert(null_override_path, serde_json::Value::from(null_override_value.to_string()));
-            // }
-
             // Save value
             if database.resolve_is_null(object_id, path) == Some(false) {
                 let value_path = format!("{}.value", path);
@@ -81,12 +73,6 @@ fn store_object_into_properties(
             unimplemented!();
         }
         Schema::DynamicArray(dynamic_array) => {
-            //TODO: Scrape separately, so we save even if path ancestor is nulled?
-            // if database.get_override_behavior(object_id, path) == OverrideBehavior::Replace {
-            //     let null_override_path = format!("{}.replace", path);
-            //     stored_object.properties.insert(null_override_path, serde_json::Value::from(true));
-            // }
-
             let elements = database.get_dynamic_array_overrides(object_id, path);
             for element_id in elements {
                 let element_path = format!("{}.{}", path, element_id);
@@ -136,13 +122,6 @@ fn restore_object_from_properties(
 
     match schema {
         Schema::Nullable(inner_schema) => {
-            // restore null override
-            // let null_override_path = format!("{}.null_override", path);
-            // if let Some(null_override_str) = stored_object.properties.get(&null_override_path) {
-            //     let null_override = string_to_null_override_value(null_override_str.as_str().unwrap()).unwrap();
-            //     database.set_null_override(object_id, path, null_override);
-            // }
-
             // Restore value
             let value_path = format!("{}.value", path);
             restore_object_from_properties(database, object_id, stored_object, &*inner_schema, &value_path, max_path_length);
@@ -223,7 +202,7 @@ fn restore_object_from_properties(
             let elements = stored_object.properties.get(path).unwrap().as_array().unwrap();
             for element in elements {
                 let element_id = element.as_str().unwrap();
-                database.add_dynamic_array_override(object_id, element_id);
+                database.add_dynamic_array_override(object_id, path);
 
                 restore_object_from_properties(database, object_id, stored_object, dynamic_array.item_type(), &format!("{}.{}", path, element_id), max_path_length);
             }
@@ -295,7 +274,6 @@ pub struct DataStorageJsonSingleFile {
 
 impl DataStorageJsonSingleFile {
     pub fn store_string(database: &Database) -> String {
-
         let mut stored_objects = Vec::with_capacity(database.objects().len());
 
         for (id, obj) in database.objects() {
@@ -308,7 +286,6 @@ impl DataStorageJsonSingleFile {
                 properties: Default::default()
             };
 
-            // property_null_overrides
             for (path, null_override) in &obj.property_null_overrides {
                 stored_object.properties.insert(format!("{}.null_override", path), serde_json::Value::from(null_override_to_string_value(*null_override)));
             }
@@ -323,8 +300,14 @@ impl DataStorageJsonSingleFile {
                 stored_object.properties.insert(path.to_string(), elements_json_array);
             }
 
-            let schema = Schema::NamedType(obj.schema.fingerprint());
-            store_object_into_properties(database, *id, &mut stored_object, &schema, "");
+            for (k, v) in &obj.properties {
+                stored_object.properties.insert(k.to_string(), property_value_to_json(v));
+            }
+
+            //Alternative way via walking through schema
+            //let schema = Schema::NamedType(obj.schema.fingerprint());
+            //store_object_into_properties(database, *id, &mut stored_object, &schema, "");
+
             stored_objects.push(stored_object);
         }
 
@@ -334,7 +317,6 @@ impl DataStorageJsonSingleFile {
 
         serde_json::to_string_pretty(&storage).unwrap()
     }
-
 
     pub fn load_string(database: &mut Database, json: &str) {
         let reloaded: DataStorageJsonSingleFile = serde_json::from_str(json).unwrap();
@@ -351,17 +333,74 @@ impl DataStorageJsonSingleFile {
                 stored_object.prototype.as_ref().map(|x| ObjectId(x.as_uuid().as_u128()))
             );
 
-            let schema = Schema::NamedType(schema_fingerprint);
-
             // We use the max path length to ensure we stop recursing through types when we know no properties will exist
             let mut max_path_length = 0;
             for (k, _) in &stored_object.properties {
                 max_path_length = max_path_length.max(k.len());
             }
 
-            restore_object_from_properties(database, object_id, stored_object, &schema, "", max_path_length);
+            //let schema = Schema::NamedType(schema_fingerprint);
+            let named_type = database.find_named_type_by_fingerprint(schema_fingerprint).unwrap().clone();
+
+            //Alternative way via walking through schema
+            //restore_object_from_properties(database, object_id, stored_object, &schema, "", max_path_length);
+
+            for (path, value) in &stored_object.properties {
+                //println!("path {}", path);
+                //let property_parent_char_index = path.rfind('.');
+                let split_path = path.rsplit_once('.');
+                let parent_path = split_path.map(|x| x.0);
+                let path_end = split_path.map(|x| x.1);
+
+                // if let Some(path_end) = path_end {
+                //     let parent_schema = named_type.find_property_schema(parent_path, database.schemas()).unwrap();
+                //
+                //     match path_end {
+                //         "null_override" => {
+                //             let null_override = string_to_null_override_value(value.as_str().unwrap()).unwrap();
+                //             database.set_null_override(object_id, path, null_override);
+                //         },
+                //         "replace" => {
+                //
+                //         }
+                //         _ => {
+                //             // just set property?
+                //         }
+                //     }
+                // } else {
+                //     // just set property?
+                // }
+
+
+                if let Some((parent_path, path_end)) = split_path {
+                    //println!("parent {} end {}", parent_path, path_end);
+                    //Database::property_schema()
+
+                    // match path_end {
+                    //     "null_override" => {
+                    //
+                    //     },
+                    //     _ => {}
+                    // }
+
+                    let parent_schema = named_type.find_property_schema(parent_path, database.schemas()).unwrap();
+                    if parent_schema.is_nullable() && path_end == "null_override" {
+                        let null_override = string_to_null_override_value(value.as_str().unwrap()).unwrap();
+                        database.set_null_override(object_id, path, null_override);
+                    }
+
+                    if parent_schema.is_dynamic_array() && path_end == "replace" {
+                        if value.as_bool() == Some(true) {
+                            database.set_override_behavior(object_id, path, OverrideBehavior::Replace);
+                        } else {
+                            database.set_override_behavior(object_id, path, OverrideBehavior::Append);
+                        }
+                    }
+                }
+                // if let Some(property_parent_char_index) = property_parent_char_index {
+                //
+                // }
+            }
         }
-
-
     }
 }

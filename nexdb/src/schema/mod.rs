@@ -109,6 +109,30 @@ impl SchemaNamedType {
         }
     }
 
+
+    pub fn find_property_schema(
+        &self,
+        path: impl AsRef<str>,
+        named_types: &HashMap<SchemaFingerprint, SchemaNamedType>,
+    ) -> Option<Schema> {
+        let mut schema = Schema::NamedType(self.fingerprint());
+
+        //TODO: Escape map keys (and probably avoid path strings anyways)
+        let split_path = path.as_ref().split(".");
+
+        // Iterate the path segments to find
+        for path_segment in split_path {
+            let s = schema.find_property_schema(path_segment, named_types);
+            if let Some(s) = s {
+                schema = s.clone();
+            } else {
+                return None;
+            }
+        }
+
+        Some(schema)
+    }
+
     // pub fn create_from_def(&self, &schema_def: SchemaDefNamedType, schemas_by_name: &HashMap<SchemaFingerprint, SchemaNamedType>) -> SchemaNamedType {
     //     match schema_def {
     //         SchemaDefNamedType::Record(def) => {
@@ -239,6 +263,29 @@ impl Schema {
             _ => false,
         }
     }
+
+    // pub fn find_property_schema_by_path(
+    //     schema: &SchemaNamedType,
+    //     path: impl AsRef<str>,
+    //     named_types: &HashMap<SchemaFingerprint, SchemaNamedType>,
+    // ) -> Option<Schema> {
+    //     let mut schema = Schema::NamedType(schema.fingerprint());
+    //
+    //     //TODO: Escape map keys (and probably avoid path strings anyways)
+    //     let split_path = path.as_ref().split(".");
+    //
+    //     // Iterate the path segments to find
+    //     for path_segment in split_path {
+    //         let s = schema.find_property_schema(path_segment, named_types);
+    //         if let Some(s) = s {
+    //             schema = s.clone();
+    //         } else {
+    //             return None;
+    //         }
+    //     }
+    //
+    //     Some(schema)
+    // }
 
     pub fn find_property_schema<'a>(
         &'a self,

@@ -1,8 +1,10 @@
+use std::collections::HashSet;
 use std::path::Path;
 use std::str::FromStr;
 use uuid::Uuid;
-use crate::{Database, HashMap, NullOverride, ObjectId, OverrideBehavior, Schema, SchemaFingerprint, SchemaNamedType, Value};
+use crate::{Database, DatabaseObjectInfo, HashMap, NullOverride, ObjectId, OverrideBehavior, Schema, SchemaFingerprint, SchemaNamedType, Value};
 use serde::{Serialize, Deserialize};
+use serde_json::Number;
 
 fn property_value_to_json(value: &Value) -> serde_json::Value {
     match value {
@@ -24,6 +26,53 @@ fn property_value_to_json(value: &Value) -> serde_json::Value {
         Value::Record(_) => unimplemented!(),
         Value::Enum(_) => unimplemented!(),
         Value::Fixed(_) => unimplemented!(),
+    }
+}
+
+fn json_to_property_value_with_schema(schema: &Schema, value: &serde_json::Value) -> Value {
+    match schema {
+        Schema::Nullable(_) => unimplemented!(),
+        Schema::Boolean => Value::Boolean(value.as_bool().unwrap()),
+        Schema::I32 => Value::I32(value.as_i64().unwrap() as i32),
+        Schema::I64 => Value::I64(value.as_i64().unwrap()),
+        Schema::U32 => Value::U32(value.as_u64().unwrap() as u32),
+        Schema::U64 => Value::U64(value.as_u64().unwrap()),
+        Schema::F32 => Value::F32(value.as_f64().unwrap() as f32),
+        Schema::F64 => Value::F64(value.as_f64().unwrap()),
+        Schema::Bytes => unimplemented!(),
+        Schema::Buffer => unimplemented!(),
+        Schema::String => Value::String(value.as_str().unwrap().to_string()),
+        Schema::StaticArray(_) => unimplemented!(),
+        Schema::DynamicArray(_) => unimplemented!(),
+        Schema::Map(_) => unimplemented!(),
+        Schema::NamedType(_) => unimplemented!(),
+    }
+}
+
+fn json_to_property_value_without_schema(value: &serde_json::Value) -> Value {
+    match value {
+        serde_json::Value::Null => unimplemented!(),
+        serde_json::Value::Bool(x) => Value::Boolean(*x),
+        serde_json::Value::Number(number) => {
+            if let Some(v) = number.as_u64() {
+                Value::U64(v)
+            } else if let Some(v) = number.as_i64() {
+                Value::I64(v)
+            } else {
+                Value::F64(number.as_f64().unwrap())
+            }
+        },
+        serde_json::Value::String(x) => Value::String(x.to_string()),
+        serde_json::Value::Array(x) => unimplemented!(),
+        serde_json::Value::Object(x) => unimplemented!(),
+    }
+}
+
+fn json_to_property_value(schema: Option<&Schema>, value: &serde_json::Value) -> Value {
+    if let Some(schema) = schema {
+        json_to_property_value_with_schema(schema, value)
+    } else {
+        json_to_property_value_without_schema(value)
     }
 }
 
@@ -322,16 +371,36 @@ impl DataStorageJsonSingleFile {
         let reloaded: DataStorageJsonSingleFile = serde_json::from_str(json).unwrap();
 
         for stored_object in &reloaded.objects {
-            let schema_fingerprint = SchemaFingerprint(stored_object.schema.as_u128());
             let object_id = ObjectId(stored_object.object_id.as_u128());
 
+            let schema_fingerprint = SchemaFingerprint(stored_object.schema.as_u128());
+            let object_schema = database.schemas().get(&schema_fingerprint).unwrap().clone();
+
+            let prototype = stored_object.prototype.as_ref().map(|x| ObjectId(x.as_uuid().as_u128()));
+
+            let mut properties: HashMap<String, Value> = Default::default();
+            let mut property_null_overrides: HashMap<String, NullOverride> = Default::default();
+            let mut properties_in_replace_mode: HashSet<String> = Default::default();
+            let mut dynamic_array_entries: HashMap<String, HashSet<Uuid>> = Default::default();
+
+            // let mut object = DatabaseObjectInfo {
+            //     schema: object_schema,
+            //     prototype,
+            //     properties: Default::default(),
+            //     property_null_overrides: Default::default(),
+            //     properties_in_replace_mode: Default::default(),
+            //     dynamic_array_entries: Default::default(),
+            // };
+
             log::debug!("Restore object {}", stored_object.object_id);
-            database.restore_object(
-                object_id,
-                schema_fingerprint,
-                stored_object.schema_name.clone(),
-                stored_object.prototype.as_ref().map(|x| ObjectId(x.as_uuid().as_u128()))
-            );
+            // database.restore_object(
+            //     object_id,
+            //     schema_fingerprint,
+            //     stored_object.schema_name.clone(),
+            //     stored_object.prototype.as_ref().map(|x| ObjectId(x.as_uuid().as_u128()))
+            // );
+            let named_type = database.find_named_type_by_fingerprint(schema_fingerprint).unwrap().clone();
+            //let object = database.objects.get_mut(&object_id).unwrap();
 
             // We use the max path length to ensure we stop recursing through types when we know no properties will exist
             let mut max_path_length = 0;
@@ -340,10 +409,10 @@ impl DataStorageJsonSingleFile {
             }
 
             //let schema = Schema::NamedType(schema_fingerprint);
-            let named_type = database.find_named_type_by_fingerprint(schema_fingerprint).unwrap().clone();
 
             //Alternative way via walking through schema
             //restore_object_from_properties(database, object_id, stored_object, &schema, "", max_path_length);
+
 
             for (path, value) in &stored_object.properties {
                 //println!("path {}", path);
@@ -352,55 +421,60 @@ impl DataStorageJsonSingleFile {
                 let parent_path = split_path.map(|x| x.0);
                 let path_end = split_path.map(|x| x.1);
 
-                // if let Some(path_end) = path_end {
-                //     let parent_schema = named_type.find_property_schema(parent_path, database.schemas()).unwrap();
-                //
-                //     match path_end {
-                //         "null_override" => {
-                //             let null_override = string_to_null_override_value(value.as_str().unwrap()).unwrap();
-                //             database.set_null_override(object_id, path, null_override);
-                //         },
-                //         "replace" => {
-                //
-                //         }
-                //         _ => {
-                //             // just set property?
-                //         }
-                //     }
-                // } else {
-                //     // just set property?
-                // }
-
+                let mut property_handled = false;
 
                 if let Some((parent_path, path_end)) = split_path {
-                    //println!("parent {} end {}", parent_path, path_end);
-                    //Database::property_schema()
-
-                    // match path_end {
-                    //     "null_override" => {
-                    //
-                    //     },
-                    //     _ => {}
-                    // }
-
                     let parent_schema = named_type.find_property_schema(parent_path, database.schemas()).unwrap();
                     if parent_schema.is_nullable() && path_end == "null_override" {
                         let null_override = string_to_null_override_value(value.as_str().unwrap()).unwrap();
-                        database.set_null_override(object_id, path, null_override);
+                        //database.set_null_override(object_id, path, null_override);
+                        property_null_overrides.insert(parent_path.to_string(), null_override);
+                        property_handled = true;
                     }
 
                     if parent_schema.is_dynamic_array() && path_end == "replace" {
+                        // if value.as_bool() == Some(true) {
+                        //     database.set_override_behavior(object_id, path, OverrideBehavior::Replace);
+                        // } else {
+                        //     database.set_override_behavior(object_id, path, OverrideBehavior::Append);
+                        // }
+
                         if value.as_bool() == Some(true) {
-                            database.set_override_behavior(object_id, path, OverrideBehavior::Replace);
-                        } else {
-                            database.set_override_behavior(object_id, path, OverrideBehavior::Append);
+                            properties_in_replace_mode.insert(parent_path.to_string());
                         }
+
+                        property_handled = true;
                     }
                 }
-                // if let Some(property_parent_char_index) = property_parent_char_index {
-                //
-                // }
+
+                if !property_handled {
+                    println!("finding path {}", path);
+                    let property_schema = named_type.find_property_schema(path, database.schemas()).unwrap();
+                    if property_schema.is_dynamic_array() {
+                        let json_array = value.as_array().unwrap();
+                        for json_array_element in json_array {
+                            let element = json_array_element.as_str().unwrap();
+                            let element = Uuid::from_str(element).unwrap();
+                            let existing_entries = dynamic_array_entries.entry(path.to_string()).or_default();
+                            if !existing_entries.contains(&element){
+                                existing_entries.insert(element);
+                            }
+                        }
+                    } else {
+                        properties.insert(path.to_string(), json_to_property_value_with_schema(&property_schema, value));
+                    }
+                }
             }
+
+            let mut object = DatabaseObjectInfo {
+                schema: object_schema,
+                prototype,
+                properties: Default::default(),
+                property_null_overrides: Default::default(),
+                properties_in_replace_mode: Default::default(),
+                dynamic_array_entries: Default::default(),
+            };
+            database.insert_object(object);
         }
     }
 }

@@ -69,7 +69,7 @@ pub enum OverrideBehavior {
 pub struct Database {
     schemas_by_name: HashMap<String, SchemaFingerprint>,
     schemas: HashMap<SchemaFingerprint, SchemaNamedType>,
-    objects: HashMap<ObjectId, DatabaseObjectInfo>,
+    pub(crate) objects: HashMap<ObjectId, DatabaseObjectInfo>,
 }
 
 impl Database {
@@ -126,7 +126,7 @@ impl Database {
         Value::default_for_schema(schema, &self.schemas)
     }
 
-    fn insert_object(
+    pub(crate) fn insert_object(
         &mut self,
         obj_info: DatabaseObjectInfo,
     ) -> ObjectId {
@@ -170,25 +170,25 @@ impl Database {
         self.insert_object(obj)
     }
 
-    pub(crate) fn restore_object(
-        &mut self,
-        object_id: ObjectId,
-        schema: SchemaFingerprint,
-        schema_name: String,
-        prototype: Option<ObjectId>,
-    ) {
-        let schema = self.schemas.get(&schema).unwrap();
-        let obj = DatabaseObjectInfo {
-            schema: schema.clone(),
-            prototype,
-            properties: Default::default(),
-            property_null_overrides: Default::default(),
-            properties_in_replace_mode: Default::default(),
-            dynamic_array_entries: Default::default(),
-        };
-
-        self.insert_object(obj);
-    }
+    // pub(crate) fn restore_object(
+    //     &mut self,
+    //     object_id: ObjectId,
+    //     schema: SchemaFingerprint,
+    //     schema_name: String,
+    //     prototype: Option<ObjectId>,
+    // ) {
+    //     let schema = self.schemas.get(&schema).unwrap();
+    //     let obj = DatabaseObjectInfo {
+    //         schema: schema.clone(),
+    //         prototype,
+    //         properties: Default::default(),
+    //         property_null_overrides: Default::default(),
+    //         properties_in_replace_mode: Default::default(),
+    //         dynamic_array_entries: Default::default(),
+    //     };
+    //
+    //     self.insert_object(obj);
+    // }
 
     pub fn object_schema(
         &self,

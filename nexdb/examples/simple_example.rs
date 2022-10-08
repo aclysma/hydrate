@@ -1,6 +1,7 @@
 use log::MetadataBuilder;
 use serde_json::Value as JsonValue;
 use std::path::PathBuf;
+use serde_json::Value::Null;
 
 use nexdb::*;
 
@@ -75,6 +76,20 @@ fn main() {
     db.set_property_override(aabb_obj, "max.x", Value::F32(40.0));
     db.set_property_override(aabb_obj, "max.y", Value::F32(50.0));
     db.set_property_override(aabb_obj, "max.z", Value::F32(60.0));
+
+
+    let dyn_array_type = db.find_named_type("DynArrayNullableTest").unwrap().as_record().unwrap().clone();
+    let dyn_array_obj = db.new_object(&dyn_array_type);
+
+    let element1 = db.add_dynamic_array_override(dyn_array_obj, "dyn_array");
+    let element2 = db.add_dynamic_array_override(dyn_array_obj, "dyn_array");
+
+    db.set_override_behavior(dyn_array_obj, "dyn_array", OverrideBehavior::Replace);
+    db.set_null_override(dyn_array_obj, format!("dyn_array.{}", element1), NullOverride::SetNonNull);
+    db.set_property_override(dyn_array_obj, format!("dyn_array.{}.value", element1), Value::F32(10.0));
+
+
+
 
     //SchemaCacheSingleFile::store(&db, PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/examples/schema_cache/cache.json")));
 

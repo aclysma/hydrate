@@ -324,7 +324,17 @@ impl DataStorageJsonSingleFile {
     pub fn store_string(database: &Database) -> String {
         let mut stored_objects = Vec::with_capacity(database.objects().len());
 
-        for (id, obj) in database.objects() {
+        //TODO: Visit objects in order sorted by ID
+        let mut sorted_object_ids: Vec<_> = database.objects().keys().map(|x| x.0).collect();
+        sorted_object_ids.sort();
+
+        for id in sorted_object_ids {
+            let id = ObjectId(id);
+            let obj = database.objects().get(&id).unwrap();
+
+        //}
+
+        //for (id, obj) in database.objects() {
             //let mut properties: HashMap<String, serde_json::Value> = Default::default();
             let mut stored_object = DataStorageJsonObject {
                 object_id: Uuid::from_u128(id.0),
@@ -343,7 +353,9 @@ impl DataStorageJsonSingleFile {
             }
 
             for (path, elements) in &obj.dynamic_array_entries {
-                let elements_json: Vec<_> = elements.iter().map(|x| serde_json::Value::from(x.to_string())).collect();
+                let mut sorted_elements = elements.clone();
+                sorted_elements.sort();
+                let elements_json: Vec<_> = sorted_elements.iter().map(|x| serde_json::Value::from(x.to_string())).collect();
                 let elements_json_array = serde_json::Value::from(elements_json);
                 stored_object.properties.insert(path.to_string(), elements_json_array);
             }

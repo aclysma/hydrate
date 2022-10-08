@@ -1,7 +1,7 @@
 use std::path::{Path, PathBuf};
 use serde::{Serialize, Deserialize};
 use uuid::Uuid;
-use crate::{Database, HashMap, Schema, SchemaDynamicArray, SchemaEnum, SchemaEnumSymbol, SchemaFingerprint, SchemaFixed, SchemaMap, SchemaNamedType, SchemaRecord, SchemaRecordField, SchemaStaticArray};
+use crate::{Database, HashMap, Schema, SchemaDynamicArray, SchemaEnum, SchemaEnumSymbol, SchemaFingerprint, SchemaFixed, SchemaLinker, SchemaMap, SchemaNamedType, SchemaRecord, SchemaRecordField, SchemaStaticArray};
 
 #[derive(Debug, Serialize, Deserialize)]
 struct CachedSchemaStaticArray {
@@ -16,6 +16,10 @@ impl CachedSchemaStaticArray {
             length: schema.length
         }
     }
+
+    fn to_schema(self) -> SchemaStaticArray {
+        SchemaStaticArray::new(Box::new(self.item_type.to_schema()), self.length)
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -28,6 +32,10 @@ impl CachedSchemaDynamicArray {
         CachedSchemaDynamicArray {
             item_type: Box::new(CachedSchema::new_from_schema(schema.item_type())),
         }
+    }
+
+    fn to_schema(self) -> SchemaDynamicArray {
+        SchemaDynamicArray::new(Box::new(self.item_type.to_schema()))
     }
 }
 
@@ -44,6 +52,10 @@ impl CachedSchemaMap {
             key_type: Box::new(CachedSchema::new_from_schema(schema.key_type())),
             value_type: Box::new(CachedSchema::new_from_schema(schema.value_type())),
         }
+    }
+
+    fn to_schema(self) -> SchemaMap {
+        SchemaMap::new(Box::new(self.key_type.to_schema()), Box::new(self.value_type.to_schema()))
     }
 }
 
@@ -62,6 +74,10 @@ impl CachedSchemaRecordField {
             aliases: schema.aliases().iter().cloned().collect(),
             field_schema: Box::new(CachedSchema::new_from_schema(schema.field_schema()))
         }
+    }
+
+    fn to_schema(self) -> SchemaRecordField {
+        SchemaRecordField::new(self.name, self.aliases.into_boxed_slice(), self.field_schema.to_schema())
     }
 }
 
@@ -88,6 +104,15 @@ impl CachedSchemaRecord {
             fields
         }
     }
+
+    fn to_schema(self) -> SchemaRecord {
+        let mut fields = Vec::with_capacity(self.fields.len());
+        for field in self.fields {
+            fields.push(field.to_schema());
+        }
+
+        SchemaRecord::new(self.name, SchemaFingerprint(self.fingerprint.as_u128()), self.aliases.into_boxed_slice(), fields.into_boxed_slice())
+    }
 }
 
 
@@ -106,6 +131,10 @@ impl CachedSchemaEnumSymbol {
             aliases: schema.aliases().iter().cloned().collect(),
             value: schema.value()
         }
+    }
+
+    fn to_schema(self) -> SchemaEnumSymbol {
+        SchemaEnumSymbol::new(self.name, self.aliases.into_boxed_slice(), self.value)
     }
 }
 
@@ -132,6 +161,15 @@ impl CachedSchemaEnum {
             symbols
         }
     }
+
+    fn to_schema(self) -> SchemaEnum {
+        let mut symbols = Vec::with_capacity(self.symbols.len());
+        for symbol in self.symbols {
+            symbols.push(symbol.to_schema());
+        }
+
+        SchemaEnum::new(self.name, SchemaFingerprint(self.fingerprint.as_u128()), self.aliases.into_boxed_slice(), symbols.into_boxed_slice())
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -152,6 +190,10 @@ impl CachedSchemaFixed {
             length: schema.length()
         }
     }
+
+    fn to_schema(self) -> SchemaFixed {
+        SchemaFixed::new(self.name, SchemaFingerprint(self.fingerprint.as_u128()), self.aliases.into_boxed_slice(), self.length)
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -162,11 +204,27 @@ enum CachedSchemaNamedType {
 }
 
 impl CachedSchemaNamedType {
+    fn fingerprint(&self) -> Uuid {
+        match self {
+            CachedSchemaNamedType::Record(x) => x.fingerprint,
+            CachedSchemaNamedType::Enum(x) => x.fingerprint,
+            CachedSchemaNamedType::Fixed(x) => x.fingerprint,
+        }
+    }
+
     fn new_from_schema(schema: &SchemaNamedType) -> CachedSchemaNamedType {
         match schema {
             SchemaNamedType::Record(x) => CachedSchemaNamedType::Record(CachedSchemaRecord::new_from_schema(x)),
             SchemaNamedType::Enum(x) => CachedSchemaNamedType::Enum(CachedSchemaEnum::new_from_schema(x)),
             SchemaNamedType::Fixed(x) => CachedSchemaNamedType::Fixed(CachedSchemaFixed::new_from_schema(x)),
+        }
+    }
+
+    fn to_schema(self) -> SchemaNamedType {
+        match self {
+            CachedSchemaNamedType::Record(x) => SchemaNamedType::Record(x.to_schema()),
+            CachedSchemaNamedType::Enum(x) => SchemaNamedType::Enum(x.to_schema()),
+            CachedSchemaNamedType::Fixed(x) => SchemaNamedType::Fixed(x.to_schema()),
         }
     }
 }
@@ -218,35 +276,57 @@ impl CachedSchema {
             Schema::NamedType(x) => CachedSchema::NamedType(x.as_uuid()),
         }
     }
+
+    fn to_schema(self) -> Schema {
+        match self {
+            CachedSchema::Nullable(x) => Schema::Nullable(Box::new(x.to_schema())),
+            CachedSchema::Boolean => Schema::Boolean,
+            CachedSchema::I32 => Schema::I32,
+            CachedSchema::I64 => Schema::I64,
+            CachedSchema::U32 => Schema::U32,
+            CachedSchema::U64 => Schema::U64,
+            CachedSchema::F32 => Schema::F32,
+            CachedSchema::F64 => Schema::F64,
+            CachedSchema::Bytes => Schema::Bytes,
+            CachedSchema::Buffer => Schema::Buffer,
+            CachedSchema::String => Schema::String,
+            CachedSchema::StaticArray(x) => Schema::StaticArray(x.to_schema()),
+            CachedSchema::DynamicArray(x) => Schema::DynamicArray(x.to_schema()),
+            CachedSchema::Map(x) => Schema::Map(x.to_schema()),
+            CachedSchema::NamedType(x) => Schema::NamedType(SchemaFingerprint(x.as_u128())),
+        }
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct SchemaCacheSingleFile {
-    cached_schemas: Vec<CachedSchemaNamedType>//HashMap<String, CachedSchemaNamedType>
+    cached_schemas: Vec<CachedSchemaNamedType>
 }
 
 impl SchemaCacheSingleFile {
-    pub fn store<T: AsRef<Path>>(database: &Database, path: T) {
+    pub fn store_string(database: &Database) -> String {
         let mut cached_schemas: Vec<CachedSchemaNamedType> = Default::default();
 
         for (_, schema) in database.schemas() {
             cached_schemas.push(CachedSchemaNamedType::new_from_schema(schema));
         }
 
+        cached_schemas.sort_by_key(|x| x.fingerprint());
+
         let cache = SchemaCacheSingleFile {
             cached_schemas
         };
 
-        let json = serde_json::to_string_pretty(&cache).unwrap();
-        println!("JSON {}", json);
+        serde_json::to_string_pretty(&cache).unwrap()
+    }
 
-        let reloaded: SchemaCacheSingleFile = serde_json::from_str(&json).unwrap();
-        println!("RELOADED {:?}", reloaded);
+    pub fn load_string(database: &mut Database, cache: &str) {
+        let cache: SchemaCacheSingleFile = serde_json::from_str(cache).unwrap();
 
-        let json2 = serde_json::to_string_pretty(&reloaded).unwrap();
-        println!("JSON {}", json);
-
-        assert_eq!(json, json2);
+        for cached_schema in cache.cached_schemas {
+            let schema = cached_schema.to_schema();
+            database.restore_named_type(schema);
+        }
     }
 }
 

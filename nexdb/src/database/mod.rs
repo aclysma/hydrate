@@ -193,6 +193,13 @@ impl Database {
         self.objects.insert(object_id, obj);
     }
 
+    pub(crate) fn restore_named_type(
+        &mut self,
+        named_type: SchemaNamedType
+    ) {
+        self.schemas.insert(named_type.fingerprint(), named_type);
+    }
+
     // pub(crate) fn restore_object(
     //     &mut self,
     //     object_id: ObjectId,

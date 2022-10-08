@@ -1,8 +1,7 @@
-use std::collections::HashSet;
 use std::path::Path;
 use std::str::FromStr;
 use uuid::Uuid;
-use crate::{Database, DatabaseObjectInfo, HashMap, NullOverride, ObjectId, OverrideBehavior, Schema, SchemaFingerprint, SchemaNamedType, Value};
+use crate::{Database, DatabaseObjectInfo, HashMap, NullOverride, ObjectId, OverrideBehavior, Schema, SchemaFingerprint, SchemaNamedType, Value, HashSet};
 use serde::{Serialize, Deserialize};
 use serde_json::Number;
 
@@ -415,8 +414,6 @@ impl DataStorageJsonSingleFile {
 
 
             for (path, value) in &stored_object.properties {
-                //println!("path {}", path);
-                //let property_parent_char_index = path.rfind('.');
                 let split_path = path.rsplit_once('.');
                 let parent_path = split_path.map(|x| x.0);
                 let path_end = split_path.map(|x| x.1);
@@ -428,18 +425,14 @@ impl DataStorageJsonSingleFile {
                     if parent_schema.is_nullable() && path_end == "null_override" {
                         let null_override = string_to_null_override_value(value.as_str().unwrap()).unwrap();
                         //database.set_null_override(object_id, path, null_override);
+                        log::debug!("set null override {} to {:?}", parent_path, null_override);
                         property_null_overrides.insert(parent_path.to_string(), null_override);
                         property_handled = true;
                     }
 
                     if parent_schema.is_dynamic_array() && path_end == "replace" {
-                        // if value.as_bool() == Some(true) {
-                        //     database.set_override_behavior(object_id, path, OverrideBehavior::Replace);
-                        // } else {
-                        //     database.set_override_behavior(object_id, path, OverrideBehavior::Append);
-                        // }
-
                         if value.as_bool() == Some(true) {
+                            log::debug!("set property {} to replace", parent_path);
                             properties_in_replace_mode.insert(parent_path.to_string());
                         }
 
@@ -448,7 +441,6 @@ impl DataStorageJsonSingleFile {
                 }
 
                 if !property_handled {
-                    println!("finding path {}", path);
                     let property_schema = named_type.find_property_schema(path, database.schemas()).unwrap();
                     if property_schema.is_dynamic_array() {
                         let json_array = value.as_array().unwrap();
@@ -457,24 +449,32 @@ impl DataStorageJsonSingleFile {
                             let element = Uuid::from_str(element).unwrap();
                             let existing_entries = dynamic_array_entries.entry(path.to_string()).or_default();
                             if !existing_entries.contains(&element){
+                                log::debug!("add dynamic array element {} to {:?}", element, path);
                                 existing_entries.insert(element);
                             }
                         }
                     } else {
-                        properties.insert(path.to_string(), json_to_property_value_with_schema(&property_schema, value));
+                        let v = json_to_property_value_with_schema(&property_schema, value);
+                        log::debug!("set {} to {:?}", path, v);
+                        properties.insert(path.to_string(), v);
                     }
                 }
             }
 
-            let mut object = DatabaseObjectInfo {
-                schema: object_schema,
+            let mut dynamic_array_entries_as_vec: HashMap<String, Vec<Uuid>> = Default::default();
+            for (k, v) in dynamic_array_entries {
+                dynamic_array_entries_as_vec.insert(k, v.into_iter().collect());
+            }
+
+            database.restore_object(
+                object_id,
                 prototype,
-                properties: Default::default(),
-                property_null_overrides: Default::default(),
-                properties_in_replace_mode: Default::default(),
-                dynamic_array_entries: Default::default(),
-            };
-            database.insert_object(object);
+                schema_fingerprint,
+                properties,
+                property_null_overrides,
+                properties_in_replace_mode,
+                dynamic_array_entries_as_vec
+            );
         }
     }
 }

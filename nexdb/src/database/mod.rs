@@ -170,6 +170,29 @@ impl Database {
         self.insert_object(obj)
     }
 
+    pub(crate) fn restore_object(
+        &mut self,
+        object_id: ObjectId,
+        prototype: Option<ObjectId>,
+        schema: SchemaFingerprint,
+        properties: HashMap<String, Value>,
+        property_null_overrides: HashMap<String, NullOverride>,
+        properties_in_replace_mode: HashSet<String>,
+        dynamic_array_entries: HashMap<String, Vec<Uuid>>,
+    ) {
+        let schema = self.schemas.get(&schema).unwrap();
+        let obj = DatabaseObjectInfo {
+            schema: schema.clone(),
+            prototype,
+            properties,
+            property_null_overrides,
+            properties_in_replace_mode,
+            dynamic_array_entries,
+        };
+
+        self.objects.insert(object_id, obj);
+    }
+
     // pub(crate) fn restore_object(
     //     &mut self,
     //     object_id: ObjectId,

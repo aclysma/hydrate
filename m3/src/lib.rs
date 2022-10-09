@@ -8,12 +8,11 @@ use imgui_support::ImguiManager;
 mod test_data;
 mod imgui_support;
 mod ui;
-mod draw_ui;
-mod draw_ui2;
 
 mod app;
 use app::AppState;
 use nexdb::{DataStorageJsonSingleFile, SchemaCacheSingleFile};
+use ui::draw_ui;
 
 // Creates a window and runs the event loop.
 pub fn run() {

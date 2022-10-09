@@ -219,7 +219,7 @@ pub fn assets_window_right(
                 is::igTableSetupColumn(im_str!("").as_ptr(), is::ImGuiTableColumnFlags__ImGuiTableColumnFlags_WidthFixed as _, item_size as _, 0);
             }
 
-            for i in 0..40000 {
+            for i in 0..200 {
                 is::igTableNextColumn();
 
                 is::igGetContentRegionAvail(&mut content_available_region);
@@ -229,7 +229,7 @@ pub fn assets_window_right(
                 is::igGetItemRectMin(&mut min);
                 is::igGetItemRectMax(&mut max);
                 //(*is::igGetWindowDrawList()).
-                is::ImDrawList_AddRect(is::igGetWindowDrawList(), min, max, 0xFFFFFFFF, 0.0, 0, 0.0);
+                is::ImDrawList_AddRect(is::igGetWindowDrawList(), min, max, 0xFF333333, 0.0, 0, 2.0);
 
             }
 

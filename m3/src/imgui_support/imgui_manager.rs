@@ -291,7 +291,7 @@ fn init_imgui(window: &winit::window::Window) -> imgui::Context {
         //     style.colors[col] = imgui_gamma_to_linear(style.colors[col]);
         // }
 
-        crate::imgui_themes::vsdark_theme(style);
+        crate::imgui_support::themes::vsdark_theme(style);
         //crate::imgui_themes::custom_theme(style);
         for col in 0..style.colors.len() {
             style.colors[col] = imgui_gamma_to_linear(style.colors[col]);
@@ -305,7 +305,7 @@ fn init_imgui(window: &winit::window::Window) -> imgui::Context {
     let scale_factor = window.scale_factor().round();
     let font_size = (16.0 * scale_factor) as f32;
     imgui.fonts().add_font(&[imgui::FontSource::TtfData {
-        data: include_bytes!("../../fonts/mplus-1p-regular.ttf"),
+        data: include_bytes!("../../../fonts/mplus-1p-regular.ttf"),
         size_pixels: font_size,
         config: None,
     }]);

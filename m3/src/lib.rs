@@ -3,13 +3,10 @@ mod renderer;
 use std::path::PathBuf;
 use renderer::Renderer;
 
-mod imgui_support;
 use imgui_support::ImguiManager;
 
-mod imgui_themes;
-
 mod test_data;
-
+mod imgui_support;
 mod ui;
 mod draw_ui;
 mod draw_ui2;
@@ -20,7 +17,7 @@ use nexdb::{DataStorageJsonSingleFile, SchemaCacheSingleFile};
 
 // Creates a window and runs the event loop.
 pub fn run() {
-    let test_data_nexdb = test_data::TestData::load_or_create();
+    let test_data_nexdb = test_data::TestData::load_or_init_empty();
 
     let mut app_state = AppState::new(test_data_nexdb);
 

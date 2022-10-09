@@ -8,9 +8,21 @@ pub struct TestData {
 }
 
 impl TestData {
-    fn create() -> Self {
+    fn schema_def_path() -> PathBuf {
+        PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/data/schema"))
+    }
+
+    fn data_file_path() -> PathBuf {
+        PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/data/data_file.json"))
+    }
+
+    fn schema_cache_file_path() -> PathBuf {
+        PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/data/schema_cache_file.json"))
+    }
+
+    fn init_empty_database() -> Self {
         let mut linker = nexdb::SchemaLinker::default();
-        let path = PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/src/schema"));
+        let path = Self::schema_def_path();
         linker.add_source_dir(&path, "*.json").unwrap();
 
         let mut db = nexdb::Database::default();
@@ -62,20 +74,12 @@ impl TestData {
         }
     }
 
-    fn data_file_path() -> PathBuf {
-        PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/out/data_file_out.json"))
-    }
-
-    fn schema_cache_file_path() -> PathBuf {
-        PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/out/schema_cache_file_out.json"))
-    }
-
     fn try_load() -> Option<Self> {
         let schema_cache_str = std::fs::read_to_string(Self::schema_cache_file_path()).ok()?;
         let data_str = std::fs::read_to_string(Self::data_file_path()).ok()?;
 
         let mut linker = nexdb::SchemaLinker::default();
-        let path = PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/src/schema"));
+        let path = Self::schema_def_path();
         linker.add_source_dir(&path, "*.json").unwrap();
 
         let mut db = nexdb::Database::default();
@@ -104,37 +108,23 @@ impl TestData {
         }
     }
 
-    pub fn load_or_create() -> Self {
+    pub fn load_or_init_empty() -> Self {
         if let Some(loaded) = Self::try_load() {
             loaded
         } else {
-            Self::create()
+            Self::init_empty_database()
         }
     }
 
-    // fn save(&self) {
-    //     let data_file_path = Self::data_file_path();
-    //     log::debug!("write data to {:?}", data_file_path);
-    //     let data = DataStorageJsonSingleFile::store_string(&self.db);
-    //     std::fs::write(data_file_path, data).unwrap();
-    //
-    //     let schema_cache_file_path = Self::schema_cache_file_path();
-    //     log::debug!("write schema cache to {:?}", schema_cache_file_path);
-    //     let schema_cache = SchemaCacheSingleFile::store_string(&self.db);
-    //     std::fs::write(schema_cache_file_path, schema_cache).unwrap();
-    // }
-
-
     pub fn save(&self) {
-        let data_file_path = PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/out/data_file_out.json"));
+        let data_file_path = Self::data_file_path();
         log::debug!("saving data to {:?}", data_file_path);
         let data = DataStorageJsonSingleFile::store_string(&self.db);
         std::fs::write(data_file_path, data).unwrap();
 
-        let schema_cache_file_path = PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/out/schema_cache_file_out.json"));
+        let schema_cache_file_path = Self::schema_cache_file_path();
         log::debug!("saving schema cache to {:?}", schema_cache_file_path);
         let schema_cache = SchemaCacheSingleFile::store_string(&self.db);
         std::fs::write(schema_cache_file_path, schema_cache).unwrap();
-
     }
 }

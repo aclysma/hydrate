@@ -57,10 +57,11 @@ pub fn draw_assets_dockspace(
     }
 }
 
-pub fn draw_dockspace(
+fn draw_root_dockspace(
     ui: &imgui::Ui,
     app_state: &mut AppState,
 ) {
+
     unsafe {
         let root_dockspace_id = is::igDockSpaceOverViewport(is::igGetMainViewport(), 0, std::ptr::null());
         if app_state.redock_windows {
@@ -83,6 +84,13 @@ pub fn draw_dockspace(
             is::igDockBuilderFinish(root_dockspace_id);
         }
     }
+}
+
+pub fn draw_view(
+    ui: &imgui::Ui,
+    app_state: &mut AppState,
+) {
+    draw_root_dockspace(ui, app_state);
 
     let window_token = imgui::Window::new(&ImString::new(WINDOW_NAME_PROPERTIES))
         .begin(ui);

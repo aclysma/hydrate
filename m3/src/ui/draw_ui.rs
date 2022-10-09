@@ -39,6 +39,11 @@ pub fn draw_imgui(
             draw_menu_bar(ui, app_state);
             //crate::ui::views::draw_2_pane_view::draw_2_pane_view(ui, app_state);
             //crate::ui::views::draw_3_pane_view::draw_3_pane_view(ui, app_state);
+            let mut show_demo = true;
+            unsafe {
+                imgui::sys::igShowDemoWindow(&mut show_demo);
+            }
+
         });
     }
 }

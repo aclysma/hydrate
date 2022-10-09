@@ -52,16 +52,102 @@ pub fn draw_assets_dockspace(
     }
 }
 
+fn default_flags() -> imgui::TreeNodeFlags {
+    imgui::TreeNodeFlags::OPEN_ON_DOUBLE_CLICK | imgui::TreeNodeFlags::OPEN_ON_ARROW
+}
+
+fn leaf_flags() -> imgui::TreeNodeFlags {
+    imgui::TreeNodeFlags::LEAF | default_flags()
+}
+
+fn context_menu<F: FnOnce(&imgui::Ui)>(ui: &imgui::Ui, f: F) {
+    unsafe {
+        if imgui::sys::igBeginPopupContextItem(
+            std::ptr::null(),
+            imgui::sys::ImGuiPopupFlags_MouseButtonRight as _,
+        ) {
+            (f)(ui);
+            imgui::sys::igEndPopup();
+        }
+    }
+}
+
+pub fn assets_tree_file_system_data_source_loaded(
+    ui: &imgui::Ui,
+    app_state: &AppState,
+    ds: &crate::data_source::FileSystemDataSource,
+    loaded_state: &crate::data_source::FileSystemLoadedState
+) {
+    for file in loaded_state.files() {
+        //let id = ImString::new(file.path().file_name().unwrap().to_string_lossy());
+        let id = im_str!("\u{e872} {}", file.path().file_name().unwrap().to_string_lossy());
+        imgui::TreeNode::new(&id).flags(leaf_flags()).build(ui, || {
+            // A single file
+        });
+
+        //
+        // context_menu(ui, |ui| {
+        //
+        // });
+    }
+}
+
+pub fn assets_tree_file_system_data_source(
+    ui: &imgui::Ui,
+    app_state: &AppState,
+    ds: &crate::data_source::FileSystemDataSource
+) {
+    if let Some(loaded_state) = ds.loaded_state() {
+        assets_tree_file_system_data_source_loaded(ui, app_state, ds, loaded_state);
+    }
+}
+
+pub fn assets_tree(
+    ui: &imgui::Ui,
+    app_state: &mut AppState,
+) {
+    //assets_tree_file_system_data_source(ui, app_state, &app_state.file_system_ds);
+
+    let root_path = app_state.file_system_ds.root_path();
+    //ui.button(im_str!("\u{fd74} Add"));
+    //ui.button(im_str!("\u{e8b1} Add"));
+    //ui.button(im_str!("\u{e8b1} Add"));
+
+    let id = im_str!("\u{e916} {}", root_path.to_string_lossy());
+
+    let ds_tree_node = imgui::TreeNode::new(&id).flags(default_flags());
+    let token = ds_tree_node.push(ui);
+
+    context_menu(ui, |ui| {
+        if app_state.file_system_ds.loaded_state().is_some() {
+            if imgui::MenuItem::new(im_str!("Unload")).build(ui) {
+                //TODO: Unload
+            }
+        } else {
+            if imgui::MenuItem::new(im_str!("Load")).build(ui) {
+                //TODO: Load
+            }
+        }
+    });
+
+    if let Some(token) = token {
+        assets_tree_file_system_data_source(ui, app_state, &app_state.file_system_ds);
+    }
+    //
+    //
+    // //let id = ImString::new(root_path.to_string_lossy());
+    // imgui::TreeNode::new(&id).flags(default_flags()).build(ui, || {
+    //
+    //     // The data source
+    //     assets_tree_file_system_data_source(ui, app_state, &app_state.file_system_ds);
+    // });
+}
+
 pub fn assets_window_left(
     ui: &imgui::Ui,
     app_state: &mut AppState,
 ) {
-    //ui.text(im_str!("assets left"));
-    if let Some(loaded_state) = app_state.file_system_ds.loaded_state() {
-        for file in loaded_state.files() {
-            ui.text(file.path().to_string_lossy());
-        }
-    }
+    assets_tree(ui, app_state);
 }
 
 pub fn draw_assets_dockspace_and_window(

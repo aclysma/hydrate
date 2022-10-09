@@ -35,6 +35,10 @@ impl FileSystemDataSource {
         }
     }
 
+    pub fn root_path(&self) -> &Path {
+        &self.root_path
+    }
+
     pub fn load(&mut self) {
         log::info!(
             "Adding schema source dir {:?}",
@@ -70,5 +74,9 @@ impl FileSystemDataSource {
 
     pub fn loaded_state(&self) -> Option<&FileSystemLoadedState> {
         self.loaded_state.as_ref()
+    }
+
+    pub fn loaded_state_mut(&mut self) -> Option<&mut FileSystemLoadedState> {
+        self.loaded_state.as_mut()
     }
 }

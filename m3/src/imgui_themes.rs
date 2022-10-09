@@ -54,6 +54,82 @@ pub fn yet_another_dark_theme(style: &mut imgui::Style) {
     style[imgui::StyleColor::ModalWindowDimBg] = [0.80, 0.80, 0.80, 0.35];
 }
 
+#[rustfmt::skip]
+pub fn vsdark_theme(style: &mut imgui::Style) {
+    // https://github.com/ocornut/imgui/issues/707 "yet another dark theme"
+    style.window_rounding = 0.0;
+    style.child_rounding = 0.0;
+    style.frame_rounding = 0.0;
+    style.grab_rounding = 0.0;
+    style.popup_rounding = 0.0;
+    style.scrollbar_rounding = 0.0;
+    style.tab_rounding = 0.0;
+
+    fn rgb_to_4xf32(r: f32, g: f32, b: f32) -> [f32; 4] {
+        [r / 255.0, g / 255.0, b / 255.0, 1.0]
+    }
+
+    let bg_color = rgb_to_4xf32(37.0, 37.0, 38.0);
+    let light_bg_color = rgb_to_4xf32(82.0, 82.0, 85.0);
+    let very_light_bg_color = rgb_to_4xf32(90.0, 90.0, 95.0);
+
+    let panel_color = rgb_to_4xf32(51.0, 51.0, 55.0);
+    let panel_hover_color = rgb_to_4xf32(29.0, 151.0, 236.0);
+    let panel_active_color = rgb_to_4xf32(0.0, 119.0, 200.0);
+
+    let text_color = rgb_to_4xf32(255.0, 255.0, 255.0);
+    let text_disabled_color = rgb_to_4xf32(151.0, 151.0, 151.0);
+    let border_color = rgb_to_4xf32(78.0, 78.0, 78.0);
+
+    style[imgui::StyleColor::Text]                 = text_color;
+    style[imgui::StyleColor::TextDisabled]         = text_disabled_color;
+    style[imgui::StyleColor::TextSelectedBg]       = panel_active_color;
+    style[imgui::StyleColor::WindowBg]             = bg_color;
+    style[imgui::StyleColor::ChildBg]              = bg_color;
+    style[imgui::StyleColor::PopupBg]              = bg_color;
+    style[imgui::StyleColor::Border]               = border_color;
+    style[imgui::StyleColor::BorderShadow]         = border_color;
+    style[imgui::StyleColor::FrameBg]              = panel_color;
+    style[imgui::StyleColor::FrameBgHovered]       = panel_hover_color;
+    style[imgui::StyleColor::FrameBgActive]        = panel_active_color;
+    style[imgui::StyleColor::TitleBg]              = bg_color;
+    style[imgui::StyleColor::TitleBgActive]        = bg_color;
+    style[imgui::StyleColor::TitleBgCollapsed]     = bg_color;
+    style[imgui::StyleColor::MenuBarBg]            = panel_color;
+    style[imgui::StyleColor::ScrollbarBg]          = panel_color;
+    style[imgui::StyleColor::ScrollbarGrab]        = light_bg_color;
+    style[imgui::StyleColor::ScrollbarGrabHovered] = very_light_bg_color;
+    style[imgui::StyleColor::ScrollbarGrabActive]  = very_light_bg_color;
+    style[imgui::StyleColor::CheckMark]            = panel_active_color;
+    style[imgui::StyleColor::SliderGrab]           = panel_hover_color;
+    style[imgui::StyleColor::SliderGrabActive]     = panel_active_color;
+    style[imgui::StyleColor::Button]               = panel_color;
+    style[imgui::StyleColor::ButtonHovered]        = panel_hover_color;
+    style[imgui::StyleColor::ButtonActive]         = panel_hover_color;
+    style[imgui::StyleColor::Header]               = panel_color;
+    style[imgui::StyleColor::HeaderHovered]        = panel_hover_color;
+    style[imgui::StyleColor::HeaderActive]         = panel_active_color;
+    style[imgui::StyleColor::Separator]            = border_color;
+    style[imgui::StyleColor::SeparatorHovered]     = border_color;
+    style[imgui::StyleColor::SeparatorActive]      = border_color;
+    style[imgui::StyleColor::ResizeGrip]           = bg_color;
+    style[imgui::StyleColor::ResizeGripHovered]    = panel_color;
+    style[imgui::StyleColor::ResizeGripActive]     = light_bg_color;
+    style[imgui::StyleColor::PlotLines]            = panel_active_color;
+    style[imgui::StyleColor::PlotLinesHovered]     = panel_hover_color;
+    style[imgui::StyleColor::PlotHistogram]        = panel_active_color;
+    style[imgui::StyleColor::PlotHistogramHovered] = panel_hover_color;
+    //style[imgui::StyleColor::ModalWindowDarkening] = bg_color;
+    style[imgui::StyleColor::DragDropTarget]       = bg_color;
+    style[imgui::StyleColor::NavHighlight]         = bg_color;
+    style[imgui::StyleColor::DockingPreview]       = panel_active_color;
+    style[imgui::StyleColor::Tab]                  = bg_color;
+    style[imgui::StyleColor::TabActive]            = panel_active_color;
+    style[imgui::StyleColor::TabUnfocused]         = bg_color;
+    style[imgui::StyleColor::TabUnfocusedActive]   = panel_active_color;
+    style[imgui::StyleColor::TabHovered]           = panel_hover_color;
+}
+
 // https://github.com/ocornut/imgui/issues/707 "charcoal"
 #[rustfmt::skip]
 pub fn charcoal_theme(style: &mut imgui::Style) {
@@ -243,5 +319,4 @@ pub fn custom_theme(style: &mut imgui::Style) {
     style[imgui::StyleColor::TabActive] = unconvert_imgui_gamma_to_linear([9.0/255.0, 20.0/255.0, 27.0/255.0, 1.0]);
     style[imgui::StyleColor::TabUnfocusedActive] = unconvert_imgui_gamma_to_linear([9.0/255.0, 20.0/255.0, 27.0/255.0, 1.0]);
     style[imgui::StyleColor::TitleBg] = unconvert_imgui_gamma_to_linear([1.0/255.0, 2.0/255.0, 3.0/255.0, 1.0]);
-
 }

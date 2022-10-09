@@ -7,18 +7,8 @@
       "prototype": null,
       "properties": {
         "all_fields.boolean": true,
-        "all_fields.dynamic_array_i32": [
-          "16d52bd1-4d98-42cc-8d02-d71df5b7f874",
-          "77f45a96-0ec2-44f4-a1fa-7d41c4c698c0"
-        ],
-        "all_fields.dynamic_array_i32.16d52bd1-4d98-42cc-8d02-d71df5b7f874": 19,
-        "all_fields.dynamic_array_i32.77f45a96-0ec2-44f4-a1fa-7d41c4c698c0": 132,
-        "all_fields.dynamic_array_vec3": [
-          "c4767e9b-0aaa-4fdc-a35d-6a5c9489b0f8",
-          "fac05265-2fbf-475d-a155-b382cdeef864"
-        ],
-        "all_fields.dynamic_array_vec3.fac05265-2fbf-475d-a155-b382cdeef864.x": 12.0,
         "all_fields.i32": 101,
+        "all_fields.i64": 307,
         "all_fields.nullable_vec3.null_override": "SetNonNull",
         "all_fields.string": "safdsf",
         "all_fields.u32": 91,
@@ -33,37 +23,18 @@
         "Uuid": "cc0d28dc-1cac-4094-b3b7-105363b3cdad"
       },
       "properties": {
-        "all_fields.dynamic_array_i32": [
-          "25479029-cd32-4ac3-8cc6-40fbc4105542",
-          "a2d35429-b7a1-444e-86c8-a5bd477477a2",
-          "de0a8ce8-9771-480a-846c-3a8fd4e6eef9"
-        ],
-        "all_fields.dynamic_array_i32.77f45a96-0ec2-44f4-a1fa-7d41c4c698c0": 232,
-        "all_fields.dynamic_array_i32.a2d35429-b7a1-444e-86c8-a5bd477477a2": 57,
-        "all_fields.dynamic_array_i32.de0a8ce8-9771-480a-846c-3a8fd4e6eef9": 47,
-        "all_fields.dynamic_array_vec3": [
-          "7f2f4317-4836-4f90-b4b5-d1a8e437ca7a",
-          "9840221a-28bc-4c2e-b777-2cbcfbbc6956",
-          "e03080c3-33d9-4361-a09a-5131e59cc93d"
-        ],
-        "all_fields.dynamic_array_vec3.c4767e9b-0aaa-4fdc-a35d-6a5c9489b0f8.y": 40.0,
-        "all_fields.dynamic_array_vec3.e03080c3-33d9-4361-a09a-5131e59cc93d.x": 121.0,
-        "all_fields.dynamic_array_vec3.e03080c3-33d9-4361-a09a-5131e59cc93d.z": 36.0,
-        "all_fields.dynamic_array_vec3.fac05265-2fbf-475d-a155-b382cdeef864.y": 90.0,
-        "all_fields.dynamic_array_vec3.fac05265-2fbf-475d-a155-b382cdeef864.z": 65.0,
         "all_fields.f32": 101.0,
         "all_fields.f64": 55.0,
-        "all_fields.i32": 165,
-        "all_fields.i64": 50,
+        "all_fields.i32": 33,
         "all_fields.nullable_bool.null_override": "SetNonNull",
         "all_fields.nullable_bool.value": true,
-        "all_fields.nullable_vec3.value.y": 35.0,
+        "all_fields.nullable_vec3.value.y": -52.0,
         "all_fields.nullable_vec3.value.z": 37.0,
         "all_fields.string": "safdsfsdf",
-        "all_fields.u32": 175,
+        "all_fields.u32": 126,
         "all_fields.u64": 188,
         "position.x": 27.0,
-        "position.y": 28.0,
+        "position.y": 215.0,
         "position.z": 53.0,
         "scale.x": 31.0,
         "scale.y": 45.0,

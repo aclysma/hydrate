@@ -3,6 +3,6 @@ pub struct AppState {
     // pub db: ObjectDb,
     // pub prototype_obj: ObjectId,
     // pub instance_obj: ObjectId,
-    pub test_data_nexdb: crate::test_data_nexdb::TestData,
+    pub test_data_nexdb: crate::test_data::TestData,
     //TODO: New DB type here, update draw_2_pane_view to call draw_inspector with new data
 }

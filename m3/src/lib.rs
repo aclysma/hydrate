@@ -8,11 +8,11 @@ use imgui_support::ImguiManager;
 
 mod imgui_themes;
 
-mod test_data_nexdb;
+mod test_data;
 
 mod draw_ui;
 mod draw_ui2;
-mod draw_ui_inspector_nexdb;
+mod draw_ui_inspector;
 
 mod app;
 use app::AppState;
@@ -20,7 +20,7 @@ use nexdb::{DataStorageJsonSingleFile, SchemaCacheSingleFile};
 
 // Creates a window and runs the event loop.
 pub fn run() {
-    let test_data_nexdb = test_data_nexdb::TestData::load_or_create();
+    let test_data_nexdb = test_data::TestData::load_or_create();
 
     let mut app_state = AppState { test_data_nexdb };
 

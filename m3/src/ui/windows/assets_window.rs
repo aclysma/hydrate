@@ -144,6 +144,19 @@ fn size_of_button(text: &imgui::ImStr, size: ImVec2) -> ImVec2 {
     }
 }
 
+
+fn text_centered(text: &imgui::ImStr) {
+    unsafe {
+        let mut available = ImVec2::zero();
+        is::igGetContentRegionAvail(&mut available);
+        let mut text_size = ImVec2::zero();
+        is::igCalcTextSize(&mut text_size, text.as_ptr(), std::ptr::null(), true, available.x);
+        is::igSetCursorPosX(is::igGetCursorPosX() + ((available.x - text_size.x) * 0.5));
+        is::igTextWrapped(text.as_ptr());
+    }
+
+}
+
 pub fn assets_window_left(
     ui: &imgui::Ui,
     app_state: &mut AppState,
@@ -231,28 +244,15 @@ pub fn assets_window_right(
                 //(*is::igGetWindowDrawList()).
                 is::ImDrawList_AddRect(is::igGetWindowDrawList(), min, max, 0xFF333333, 0.0, 0, 2.0);
 
+                text_centered(&im_str!("very_long_file_{}.txt", i));
             }
 
             is::igEndTable();
         }
 
-
-
         is::igEndChild();
         is::igEndChild();
-
-
-
-
     }
-
-    //let id = imgui::Id::from("##asdfs");
-    // is::igBeginChi
-
-
-
-
-
 }
 
 pub fn draw_assets_dockspace_and_window(

@@ -132,11 +132,17 @@ pub fn draw_assets_dockspace(
 
 fn size_of_button(text: &imgui::ImStr, size: ImVec2) -> ImVec2 {
     unsafe {
-        let style = &(*is::igGetCurrentContext()).Style;
+        //let style = &(*is::igGetCurrentContext()).Style;
+        let style = &(*is::igGetStyle());
+
+
         let mut text_size = ImVec2::zero();
         is::igCalcTextSize(&mut text_size, text.as_ptr(), std::ptr::null(), true, 0.0);
+        println!("text size {}", text_size.x);
         let mut item_size = ImVec2::zero();
-        is::igCalcItemSize(&mut item_size, size, text_size.x * 2.0, text_size.y + style.FramePadding.y * 2.0);
+        is::igCalcItemSize(&mut item_size, size, text_size.x + style.FramePadding.x * 2.0, text_size.y + style.FramePadding.y * 2.0);
+        println!("pad {} {}", style.FramePadding.x, style.FramePadding.y);
+        println!("item size {}", item_size.x);
         item_size
     }
 }
@@ -159,9 +165,10 @@ pub fn assets_window_right(
         is::igBeginChild_Str(im_str!("##AssetBrowserContents").as_ptr(), content_available_region, false, 0);
 
         is::igGetContentRegionAvail(&mut content_available_region);
-        let padding = (*is::igGetCurrentContext()).Style.CellPadding;
+        let padding = (*is::igGetStyle()).CellPadding;
+        let scroll_bar_width = (*is::igGetStyle()).ScrollbarSize;
         let item_size = 128;
-        let mut columns = (content_available_region.x as i32 / (item_size + (2.0 * padding.x) as i32));
+        let mut columns = ((content_available_region.x - scroll_bar_width) as i32 / (item_size + (2.0 * padding.x) as i32));
         columns = columns.max(1);
 
         ui.button(im_str!("asd1"));
@@ -169,7 +176,31 @@ pub fn assets_window_right(
         ui.button(im_str!("asd2"));;
         ui.same_line();
         ui.button(im_str!("asd3"));
-        //ui.same_line();
+        ui.same_line();
+
+        let mut b1 = size_of_button(im_str!("ButtonRight 1"), ImVec2::zero());
+        let mut b2 = size_of_button(im_str!("ButtonRight 2"), ImVec2::zero());
+        let mut b3 = size_of_button(im_str!("ButtonRight 3"), ImVec2::zero());
+
+        is::igGetContentRegionAvail(&mut content_available_region);
+        let available_width = content_available_region.x;
+
+        //let available_width = is::igGetWindowContentRegionWidth();
+        let spacing = (*is::igGetStyle()).ItemSpacing;
+        // 3 buttons = gap between two of them
+        let required_space_for_rhs_buttons = (b1.x + b2.x + b3.x) + (2.0 * spacing.x);
+        is::igSetCursorPosX(is::igGetCursorPosX() + (available_width - required_space_for_rhs_buttons));
+
+        println!("width {} {} {} {}", b1.x, b2.x, b3.x, spacing.x);
+
+        ui.button(im_str!("ButtonRight 1"));
+        ui.same_line();
+        ui.button(im_str!("ButtonRight 2"));;
+        ui.same_line();
+        ui.button(im_str!("ButtonRight 3"));
+
+
+
 
         //TODO: Right-aligned buttons
 

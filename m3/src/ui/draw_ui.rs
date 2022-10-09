@@ -34,10 +34,10 @@ pub fn draw_imgui(
     //
     {
         imgui_manager.with_ui(|ui: &mut imgui::Ui| {
-            crate::ui::views::draw_editor_view::draw_dockspace(ui, app_state);
+            //crate::ui::views::draw_editor_view::draw_dockspace(ui, app_state);
             //crate::ui::views::draw_assets_view::draw_view(ui, app_state);
             draw_menu_bar(ui, app_state);
-            //crate::ui::views::draw_2_pane_view::draw_2_pane_view(ui, app_state);
+            crate::ui::views::draw_2_pane_view::draw_2_pane_view(ui, app_state);
             //crate::ui::views::draw_3_pane_view::draw_3_pane_view(ui, app_state);
         });
     }

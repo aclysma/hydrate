@@ -11,7 +11,7 @@
         "all_fields.i64": 307,
         "all_fields.nullable_vec3.null_override": "SetNonNull",
         "all_fields.string": "safdsf",
-        "all_fields.u32": 91,
+        "all_fields.u32": 220,
         "all_fields.u64": 126
       }
     },

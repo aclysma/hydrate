@@ -5,6 +5,7 @@ use renderer::Renderer;
 
 use imgui_support::ImguiManager;
 
+mod data_source;
 mod test_data;
 mod imgui_support;
 mod ui;
@@ -46,6 +47,9 @@ pub fn run() {
         println!("Error during renderer construction: {:?}", e);
         return;
     }
+
+    let ds_path = PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/data/schema"));
+    let ds = crate::data_source::FileSystemDataSource::new(ds_path);
 
     let mut renderer = renderer.unwrap();
 

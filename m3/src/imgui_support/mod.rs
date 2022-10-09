@@ -102,6 +102,7 @@ pub fn init_imgui_manager(window: &winit::window::Window) -> ImguiManager {
     );
 
     imgui_context.io_mut().config_flags |= imgui::ConfigFlags::DOCKING_ENABLE;
+    imgui_context.io_mut().backend_flags |= imgui::BackendFlags::RENDERER_HAS_VTX_OFFSET;
 
     ImguiManager::new(imgui_context, imgui_platform)
 }

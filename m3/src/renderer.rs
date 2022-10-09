@@ -301,6 +301,8 @@ impl Renderer {
             let mut vertex_buffers = Vec::default();
             let mut index_buffers = Vec::default();
             for draw_list in draw_data.draw_lists() {
+
+
                 let vertex_buffer_size = draw_list.vtx_buffer().len() as u64
                     * std::mem::size_of::<imgui::DrawVert>() as u64;
 
@@ -403,6 +405,7 @@ impl Renderer {
                                 imgui::DrawCmdParams {
                                     clip_rect,
                                     //texture_id,
+                                    vtx_offset,
                                     ..
                                 },
                         } => {
@@ -436,7 +439,7 @@ impl Renderer {
                             command_buffer.cmd_draw_indexed(
                                 element_end_index - element_begin_index,
                                 element_begin_index,
-                                0,
+                                vtx_offset as _,
                             )?;
 
                             element_begin_index = element_end_index;

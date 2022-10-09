@@ -138,11 +138,8 @@ fn size_of_button(text: &imgui::ImStr, size: ImVec2) -> ImVec2 {
 
         let mut text_size = ImVec2::zero();
         is::igCalcTextSize(&mut text_size, text.as_ptr(), std::ptr::null(), true, 0.0);
-        println!("text size {}", text_size.x);
         let mut item_size = ImVec2::zero();
         is::igCalcItemSize(&mut item_size, size, text_size.x + style.FramePadding.x * 2.0, text_size.y + style.FramePadding.y * 2.0);
-        println!("pad {} {}", style.FramePadding.x, style.FramePadding.y);
-        println!("item size {}", item_size.x);
         item_size
     }
 }
@@ -158,9 +155,11 @@ pub fn assets_window_right(
     ui: &imgui::Ui,
     app_state: &mut AppState,
 ) {
-    //ui.text(im_str!("assets right"));
     let mut content_available_region = ImVec2::zero();
     unsafe {
+        //
+        // Draw the top bar
+        //
         is::igGetContentRegionAvail(&mut content_available_region);
         is::igBeginChild_Str(im_str!("##AssetBrowserContents").as_ptr(), content_available_region, false, 0);
 
@@ -176,37 +175,40 @@ pub fn assets_window_right(
         ui.button(im_str!("asd2"));;
         ui.same_line();
         ui.button(im_str!("asd3"));
-        ui.same_line();
 
+        // Determine size of the buttons and spacing between them
         let mut b1 = size_of_button(im_str!("ButtonRight 1"), ImVec2::zero());
         let mut b2 = size_of_button(im_str!("ButtonRight 2"), ImVec2::zero());
         let mut b3 = size_of_button(im_str!("ButtonRight 3"), ImVec2::zero());
-
-        is::igGetContentRegionAvail(&mut content_available_region);
-        let available_width = content_available_region.x;
-
-        //let available_width = is::igGetWindowContentRegionWidth();
         let spacing = (*is::igGetStyle()).ItemSpacing;
-        // 3 buttons = gap between two of them
         let required_space_for_rhs_buttons = (b1.x + b2.x + b3.x) + (2.0 * spacing.x);
-        is::igSetCursorPosX(is::igGetCursorPosX() + (available_width - required_space_for_rhs_buttons));
 
-        println!("width {} {} {} {}", b1.x, b2.x, b3.x, spacing.x);
-
-        ui.button(im_str!("ButtonRight 1"));
+        // Call same_line here so that we can get remaining x space on this line
         ui.same_line();
-        ui.button(im_str!("ButtonRight 2"));;
-        ui.same_line();
-        ui.button(im_str!("ButtonRight 3"));
+        is::igGetContentRegionAvail(&mut content_available_region);
 
+        // If there's enough space, draw, otherwise draw a dummy object
+        if content_available_region.x > required_space_for_rhs_buttons {
+            //is::igSetCursorPosX(is::igGetCursorPosX() + (content_available_region.x - required_space_for_rhs_buttons));
+            ui.same_line_with_pos(is::igGetCursorPosX() + (content_available_region.x - required_space_for_rhs_buttons));
+            ui.button(im_str!("ButtonRight 1"));
+            ui.same_line();
+            ui.button(im_str!("ButtonRight 2"));;
+            ui.same_line();
+            ui.button(im_str!("ButtonRight 3"));
+        } else {
+            // We called same line above, but there isn't enough room to draw anything. So draw a 0x0 to consume the same_line call
+            ui.dummy([0.0, 0.0]);
+        }
 
-
-
-        //TODO: Right-aligned buttons
-
+        //
+        // Separator for top menu and grid of assets
+        //
         ui.separator();
 
-
+        //
+        // Grid of assets
+        //
         is::igGetContentRegionAvail(&mut content_available_region);
         is::igBeginChild_Str(im_str!("##AssetBrowserContentsTable").as_ptr(), content_available_region, false, 0);
         let outer_size = ImVec2::zero();
@@ -217,7 +219,7 @@ pub fn assets_window_right(
                 is::igTableSetupColumn(im_str!("").as_ptr(), is::ImGuiTableColumnFlags__ImGuiTableColumnFlags_WidthFixed as _, item_size as _, 0);
             }
 
-            for i in 0..400 {
+            for i in 0..40000 {
                 is::igTableNextColumn();
 
                 is::igGetContentRegionAvail(&mut content_available_region);

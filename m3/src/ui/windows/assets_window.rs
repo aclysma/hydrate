@@ -52,6 +52,18 @@ pub fn draw_assets_dockspace(
     }
 }
 
+pub fn assets_window_left(
+    ui: &imgui::Ui,
+    app_state: &mut AppState,
+) {
+    //ui.text(im_str!("assets left"));
+    if let Some(loaded_state) = app_state.file_system_ds.loaded_state() {
+        for file in loaded_state.files() {
+            ui.text(file.path().to_string_lossy());
+        }
+    }
+}
+
 pub fn draw_assets_dockspace_and_window(
     ui: &imgui::Ui,
     app_state: &mut AppState,
@@ -82,7 +94,7 @@ pub fn draw_assets_dockspace_and_window(
             .begin(ui);
 
         if let Some(inner_window_token) = inner_window_token {
-            ui.text(im_str!("assets left"));
+            assets_window_left(ui, app_state);
             inner_window_token.end();
         }
 

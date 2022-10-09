@@ -1,4 +1,4 @@
-use super::draw_ui_inspector::*;
+use crate::ui::components::draw_ui_inspector::*;
 use crate::app::AppState;
 use crate::imgui_support::ImguiManager;
 use imgui::im_str;
@@ -7,7 +7,7 @@ use imgui::sys::{
     ImGuiInputTextFlags__ImGuiInputTextFlags_None, ImVec2,
 };
 use std::convert::TryInto;
-use crate::draw_dockspace::draw_dockspace;
+use crate::ui::views::draw_editor_view::draw_dockspace;
 
 fn draw_menu_bar(
     ui: &imgui::Ui,
@@ -34,11 +34,11 @@ pub fn draw_imgui(
     //
     {
         imgui_manager.with_ui(|ui: &mut imgui::Ui| {
-            draw_dockspace(ui, app_state);
+            //crate::draw_editor_dockspace::draw_dockspace(ui, app_state);
+            //crate::ui::views::draw_assets_view::draw_dockspace(ui, app_state);
             draw_menu_bar(ui, app_state);
-            //draw_2_pane_view(ui, app_state);
             //super::draw_2_pane_view::draw_2_pane_view(ui, app_state);
-            //super::draw_3_pane_view::draw_3_pane_view(ui, app_state);
+            //crate::ui::views::draw_3_pane_view::draw_3_pane_view(ui, app_state);
         });
     }
 }

@@ -10,12 +10,9 @@ mod imgui_themes;
 
 mod test_data;
 
+mod ui;
 mod draw_ui;
 mod draw_ui2;
-mod draw_2_pane_view;
-mod draw_3_pane_view;
-mod draw_dockspace;
-mod draw_ui_inspector;
 
 mod app;
 use app::AppState;

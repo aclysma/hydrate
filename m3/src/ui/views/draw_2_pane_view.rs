@@ -1,4 +1,5 @@
-use super::draw_ui_inspector::*;
+use crate::ui::components::draw_ui_inspector::*;
+
 use crate::app::AppState;
 use crate::imgui_support::ImguiManager;
 use imgui::im_str;

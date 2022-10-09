@@ -292,6 +292,7 @@ fn init_imgui(window: &winit::window::Window) -> imgui::Context {
         // }
 
         crate::imgui_themes::vsdark_theme(style);
+        //crate::imgui_themes::custom_theme(style);
         for col in 0..style.colors.len() {
             style.colors[col] = imgui_gamma_to_linear(style.colors[col]);
         }

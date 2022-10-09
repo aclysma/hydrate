@@ -12,6 +12,9 @@ mod test_data;
 
 mod draw_ui;
 mod draw_ui2;
+mod draw_2_pane_view;
+mod draw_3_pane_view;
+mod draw_dockspace;
 mod draw_ui_inspector;
 
 mod app;
@@ -22,7 +25,7 @@ use nexdb::{DataStorageJsonSingleFile, SchemaCacheSingleFile};
 pub fn run() {
     let test_data_nexdb = test_data::TestData::load_or_create();
 
-    let mut app_state = AppState { test_data_nexdb };
+    let mut app_state = AppState::new(test_data_nexdb);
 
     // Create the winit event loop
     let event_loop = winit::event_loop::EventLoop::<()>::with_user_event();
@@ -30,7 +33,7 @@ pub fn run() {
     // Set up the coordinate system to be fixed at 900x600, and use this as the default window size
     // This means the drawing code can be written as though the window is always 900x600. The
     // output will be automatically scaled so that it's always visible.
-    let logical_size = winit::dpi::LogicalSize::new(900.0, 600.0);
+    let logical_size = winit::dpi::LogicalSize::new(1800.0, 1000.0);
 
     // Create a single window
     let window = winit::window::WindowBuilder::new()
@@ -58,20 +61,6 @@ pub fn run() {
     event_loop.run(move |event, _window_target, control_flow| {
         imgui_manager.handle_event(&window, &event);
 
-        fn save_state(database: &nexdb::Database) {
-
-            let data_file_path = PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/out/data_file_out.json"));
-            log::debug!("write data to {:?}", data_file_path);
-            let data = DataStorageJsonSingleFile::store_string(database);
-            std::fs::write(data_file_path, data).unwrap();
-
-            let schema_cache_file_path = PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/out/schema_cache_file_out.json"));
-            log::debug!("write schema cache to {:?}", schema_cache_file_path);
-            let schema_cache = SchemaCacheSingleFile::store_string(database);
-            std::fs::write(schema_cache_file_path, schema_cache).unwrap();
-
-        }
-
         match event {
             //
             // Halt if the user requests to close the window
@@ -80,8 +69,8 @@ pub fn run() {
                 event: winit::event::WindowEvent::CloseRequested,
                 ..
             } => {
-                println!("I should save");
-                save_state(&app_state.test_data_nexdb.db);
+                app_state.test_data_nexdb.save();
+                //save_state(&app_state.test_data_nexdb.db);
                 *control_flow = winit::event_loop::ControlFlow::Exit
             }
 
@@ -100,8 +89,8 @@ pub fn run() {
                     },
                 ..
             } => {
-                println!("I should save");
-                save_state(&app_state.test_data_nexdb.db);
+                app_state.test_data_nexdb.save();
+                //save_state(&app_state.test_data_nexdb.db);
                 *control_flow = winit::event_loop::ControlFlow::Exit
             }
 

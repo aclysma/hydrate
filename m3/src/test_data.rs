@@ -112,15 +112,29 @@ impl TestData {
         }
     }
 
-    fn save(&self) {
-        let data_file_path = Self::data_file_path();
-        log::debug!("write data to {:?}", data_file_path);
+    // fn save(&self) {
+    //     let data_file_path = Self::data_file_path();
+    //     log::debug!("write data to {:?}", data_file_path);
+    //     let data = DataStorageJsonSingleFile::store_string(&self.db);
+    //     std::fs::write(data_file_path, data).unwrap();
+    //
+    //     let schema_cache_file_path = Self::schema_cache_file_path();
+    //     log::debug!("write schema cache to {:?}", schema_cache_file_path);
+    //     let schema_cache = SchemaCacheSingleFile::store_string(&self.db);
+    //     std::fs::write(schema_cache_file_path, schema_cache).unwrap();
+    // }
+
+
+    pub fn save(&self) {
+        let data_file_path = PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/out/data_file_out.json"));
+        log::debug!("saving data to {:?}", data_file_path);
         let data = DataStorageJsonSingleFile::store_string(&self.db);
         std::fs::write(data_file_path, data).unwrap();
 
-        let schema_cache_file_path = Self::schema_cache_file_path();
-        log::debug!("write schema cache to {:?}", schema_cache_file_path);
+        let schema_cache_file_path = PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/out/schema_cache_file_out.json"));
+        log::debug!("saving schema cache to {:?}", schema_cache_file_path);
         let schema_cache = SchemaCacheSingleFile::store_string(&self.db);
         std::fs::write(schema_cache_file_path, schema_cache).unwrap();
+
     }
 }

@@ -22,6 +22,11 @@ fn draw_menu_bar(
                 app_state.redock_windows = true;
             }
         });
+        ui.menu(im_str!("Debug"), || {
+            if imgui::MenuItem::new(im_str!("Toggle ImGui Demo Window")).build(ui) {
+                app_state.show_imgui_demo_window = !app_state.show_imgui_demo_window;
+            }
+        })
     });
 }
 
@@ -39,11 +44,12 @@ pub fn draw_imgui(
             draw_menu_bar(ui, app_state);
             //crate::ui::views::draw_2_pane_view::draw_2_pane_view(ui, app_state);
             //crate::ui::views::draw_3_pane_view::draw_3_pane_view(ui, app_state);
-            let mut show_demo = true;
-            unsafe {
-                imgui::sys::igShowDemoWindow(&mut show_demo);
-            }
 
+            if app_state.show_imgui_demo_window {
+                unsafe {
+                    imgui::sys::igShowDemoWindow(&mut app_state.show_imgui_demo_window);
+                }
+            }
         });
     }
 }

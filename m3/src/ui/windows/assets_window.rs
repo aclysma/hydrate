@@ -2,55 +2,11 @@ use crate::ui::components::draw_ui_inspector::*;
 use crate::app::AppState;
 use crate::imgui_support::ImguiManager;
 use imgui::{im_str, ImStr, ImString};
-use imgui::sys::{
-    igDragFloat, igDragScalar, igInputDouble, ImGuiDataType__ImGuiDataType_Double,
-    ImGuiInputTextFlags__ImGuiInputTextFlags_None, ImVec2,
-};
+use imgui::sys::{igDragFloat, igDragScalar, igInputDouble, ImGuiDataType__ImGuiDataType_Double, ImGuiInputTextFlags__ImGuiInputTextFlags_None, ImGuiTableFlags__ImGuiTableFlags_NoPadOuterX, ImVec2};
 use std::convert::TryInto;
 use std::ffi::CString;
 use imgui::sys as is;
 
-pub fn draw_assets_dockspace(
-    ui: &imgui::Ui,
-    app_state: &mut AppState,
-) {
-    unsafe {
-        let window = imgui::sys::igGetCurrentWindow();
-        let mut work_size = (*window).Size;
-        // Subtract 22 to account for tabs above. This gets rid of the scroll bar.
-        work_size.y -= 22.0;
-
-        // Get the ID for WINDOW_NAME_ASSETS
-        let assets_window_id = (*is::igGetCurrentWindow()).ID;
-        let root_assets_dockspace_id = is::igDockSpace(assets_window_id, work_size, 0, std::ptr::null_mut());
-
-        // The first time through, set up the left/right panes of the asset browser so that they are pinned inside the asset browser window
-        // and nothing can dock inside them
-        if app_state.redock_windows {
-            let mut assets_main = root_assets_dockspace_id;
-            is::igDockBuilderAddNode(
-                assets_main,
-                is::ImGuiDockNodeFlagsPrivate__ImGuiDockNodeFlags_DockSpace |
-                    imgui::sys::ImGuiDockNodeFlagsPrivate__ImGuiDockNodeFlags_NoDocking |
-                    imgui::sys::ImGuiDockNodeFlagsPrivate__ImGuiDockNodeFlags_NoDockingSplitMe);
-
-            // We hardcode a 1.0 size ratio here because the first run, width will be the window's init size rather than the actual size.
-            // The window width is 300, so ratio = 1 results in left pane being 300 pixels wide.
-            is::igDockBuilderSetNodeSize(root_assets_dockspace_id, work_size);
-            let assets_left = is::igDockBuilderSplitNode(assets_main, is::ImGuiDir_Left, 1.0, std::ptr::null_mut(), &mut assets_main);
-
-            // Assign windows to dock nodes
-            is::igDockBuilderDockWindow(ImString::new(crate::ui::WINDOW_NAME_ASSETS_LEFT).as_ptr(), assets_left);
-            is::igDockBuilderDockWindow(ImString::new(crate::ui::WINDOW_NAME_ASSETS_RIGHT).as_ptr(), assets_main);
-
-            // Don't draw tab bars on the left/right panes
-            (*imgui::sys::igDockBuilderGetNode(assets_left)).LocalFlags |= imgui::sys::ImGuiDockNodeFlagsPrivate__ImGuiDockNodeFlags_NoTabBar;
-            (*imgui::sys::igDockBuilderGetNode(assets_main)).LocalFlags |= imgui::sys::ImGuiDockNodeFlagsPrivate__ImGuiDockNodeFlags_NoTabBar;
-
-            is::igDockBuilderFinish(root_assets_dockspace_id);
-        }
-    }
-}
 
 fn default_flags() -> imgui::TreeNodeFlags {
     imgui::TreeNodeFlags::OPEN_ON_DOUBLE_CLICK | imgui::TreeNodeFlags::OPEN_ON_ARROW
@@ -109,9 +65,6 @@ pub fn assets_tree(
     //assets_tree_file_system_data_source(ui, app_state, &app_state.file_system_ds);
 
     let root_path = app_state.file_system_ds.root_path();
-    //ui.button(im_str!("\u{fd74} Add"));
-    //ui.button(im_str!("\u{e8b1} Add"));
-    //ui.button(im_str!("\u{e8b1} Add"));
 
     let id = im_str!("\u{e916} {}", root_path.to_string_lossy());
 
@@ -133,14 +86,59 @@ pub fn assets_tree(
     if let Some(token) = token {
         assets_tree_file_system_data_source(ui, app_state, &app_state.file_system_ds);
     }
-    //
-    //
-    // //let id = ImString::new(root_path.to_string_lossy());
-    // imgui::TreeNode::new(&id).flags(default_flags()).build(ui, || {
-    //
-    //     // The data source
-    //     assets_tree_file_system_data_source(ui, app_state, &app_state.file_system_ds);
-    // });
+}
+
+pub fn draw_assets_dockspace(
+    ui: &imgui::Ui,
+    app_state: &mut AppState,
+) {
+    unsafe {
+        let window = imgui::sys::igGetCurrentWindow();
+        let mut work_size = (*window).Size;
+        // Subtract 22 to account for tabs above. This gets rid of the scroll bar.
+        work_size.y -= 22.0;
+
+        // Get the ID for WINDOW_NAME_ASSETS
+        let assets_window_id = (*is::igGetCurrentWindow()).ID;
+        let root_assets_dockspace_id = is::igDockSpace(assets_window_id, work_size, 0, std::ptr::null_mut());
+
+        // The first time through, set up the left/right panes of the asset browser so that they are pinned inside the asset browser window
+        // and nothing can dock inside them
+        if app_state.redock_windows {
+            let mut assets_main = root_assets_dockspace_id;
+            is::igDockBuilderAddNode(
+                assets_main,
+                is::ImGuiDockNodeFlagsPrivate__ImGuiDockNodeFlags_DockSpace |
+                    imgui::sys::ImGuiDockNodeFlagsPrivate__ImGuiDockNodeFlags_NoDocking |
+                    imgui::sys::ImGuiDockNodeFlagsPrivate__ImGuiDockNodeFlags_NoDockingSplitMe);
+
+            // We hardcode a 1.0 size ratio here because the first run, width will be the window's init size rather than the actual size.
+            // The window width is 300, so ratio = 1 results in left pane being 300 pixels wide.
+            is::igDockBuilderSetNodeSize(root_assets_dockspace_id, work_size);
+            let assets_left = is::igDockBuilderSplitNode(assets_main, is::ImGuiDir_Left, 1.0, std::ptr::null_mut(), &mut assets_main);
+
+            // Assign windows to dock nodes
+            is::igDockBuilderDockWindow(ImString::new(crate::ui::WINDOW_NAME_ASSETS_LEFT).as_ptr(), assets_left);
+            is::igDockBuilderDockWindow(ImString::new(crate::ui::WINDOW_NAME_ASSETS_RIGHT).as_ptr(), assets_main);
+
+            // Don't draw tab bars on the left/right panes
+            (*imgui::sys::igDockBuilderGetNode(assets_left)).LocalFlags |= imgui::sys::ImGuiDockNodeFlagsPrivate__ImGuiDockNodeFlags_NoTabBar;
+            (*imgui::sys::igDockBuilderGetNode(assets_main)).LocalFlags |= imgui::sys::ImGuiDockNodeFlagsPrivate__ImGuiDockNodeFlags_NoTabBar;
+
+            is::igDockBuilderFinish(root_assets_dockspace_id);
+        }
+    }
+}
+
+fn size_of_button(text: &imgui::ImStr, size: ImVec2) -> ImVec2 {
+    unsafe {
+        let style = &(*is::igGetCurrentContext()).Style;
+        let mut text_size = ImVec2::zero();
+        is::igCalcTextSize(&mut text_size, text.as_ptr(), std::ptr::null(), true, 0.0);
+        let mut item_size = ImVec2::zero();
+        is::igCalcItemSize(&mut item_size, size, text_size.x * 2.0, text_size.y + style.FramePadding.y * 2.0);
+        item_size
+    }
 }
 
 pub fn assets_window_left(
@@ -148,6 +146,80 @@ pub fn assets_window_left(
     app_state: &mut AppState,
 ) {
     assets_tree(ui, app_state);
+}
+
+pub fn assets_window_right(
+    ui: &imgui::Ui,
+    app_state: &mut AppState,
+) {
+    //ui.text(im_str!("assets right"));
+    let mut content_available_region = ImVec2::zero();
+    unsafe {
+        is::igGetContentRegionAvail(&mut content_available_region);
+        is::igBeginChild_Str(im_str!("##AssetBrowserContents").as_ptr(), content_available_region, false, 0);
+
+        is::igGetContentRegionAvail(&mut content_available_region);
+        let padding = (*is::igGetCurrentContext()).Style.CellPadding;
+        let item_size = 128;
+        let mut columns = (content_available_region.x as i32 / (item_size + (2.0 * padding.x) as i32));
+        columns = columns.max(1);
+
+        ui.button(im_str!("asd1"));
+        ui.same_line();
+        ui.button(im_str!("asd2"));;
+        ui.same_line();
+        ui.button(im_str!("asd3"));
+        //ui.same_line();
+
+        //TODO: Right-aligned buttons
+
+        ui.separator();
+
+
+        is::igGetContentRegionAvail(&mut content_available_region);
+        is::igBeginChild_Str(im_str!("##AssetBrowserContentsTable").as_ptr(), content_available_region, false, 0);
+        let outer_size = ImVec2::zero();
+        let width = 0.0;
+        if is::igBeginTable(im_str!("contents").as_ptr(), columns, is::ImGuiTableFlags__ImGuiTableFlags_NoPadOuterX as _, ImVec2::zero(), 0.0) {
+
+            for i in 0..columns {
+                is::igTableSetupColumn(im_str!("").as_ptr(), is::ImGuiTableColumnFlags__ImGuiTableColumnFlags_WidthFixed as _, item_size as _, 0);
+            }
+
+            for i in 0..400 {
+                is::igTableNextColumn();
+
+                is::igGetContentRegionAvail(&mut content_available_region);
+                is::igInvisibleButton(im_str!("SomeAsset {}", i).as_ptr(), ImVec2::new(item_size as _, item_size as _), 0 as _);
+                let mut min = ImVec2::zero();
+                let mut max = ImVec2::zero();
+                is::igGetItemRectMin(&mut min);
+                is::igGetItemRectMax(&mut max);
+                //(*is::igGetWindowDrawList()).
+                is::ImDrawList_AddRect(is::igGetWindowDrawList(), min, max, 0xFFFFFFFF, 0.0, 0, 0.0);
+
+            }
+
+            is::igEndTable();
+        }
+
+
+
+        is::igEndChild();
+        is::igEndChild();
+
+
+
+
+    }
+
+    //let id = imgui::Id::from("##asdfs");
+    // is::igBeginChi
+
+
+
+
+
 }
 
 pub fn draw_assets_dockspace_and_window(
@@ -189,7 +261,7 @@ pub fn draw_assets_dockspace_and_window(
             .begin(ui);
 
         if let Some(inner_window_token) = inner_window_token {
-            ui.text(im_str!("assets right"));
+            assets_window_right(ui, app_state);
             inner_window_token.end();
         }
 

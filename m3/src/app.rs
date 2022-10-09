@@ -10,6 +10,7 @@ pub struct AppState {
     pub redock_windows: bool,
     pub file_system_ds: FileSystemDataSource,
     pub test_data_nexdb: TestData,
+    pub show_imgui_demo_window: bool,
     //TODO: New DB type here, update draw_2_pane_view to call draw_inspector with new data
 }
 
@@ -18,7 +19,8 @@ impl AppState {
         AppState {
             redock_windows: true,
             file_system_ds,
-            test_data_nexdb: test_data
+            test_data_nexdb: test_data,
+            show_imgui_demo_window: false
         }
     }
 }

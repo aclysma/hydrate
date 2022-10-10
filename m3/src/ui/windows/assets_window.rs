@@ -7,6 +7,19 @@ use std::convert::TryInto;
 use std::ffi::CString;
 use imgui::sys as is;
 
+fn mock_drag_source(ui: &imgui::Ui) {
+    imgui::DragDropSource::new(im_str!("MOCK_SOURCE"))
+        .begin_payload(ui, "some_text");
+}
+
+fn mock_drag_target(ui: &imgui::Ui) {
+    if let Some(target) = imgui::DragDropTarget::new(ui) {
+        if let Some(payload) = target.accept_payload::<&'static str>(im_str!("MOCK_SOURCE"), imgui::DragDropFlags::empty()) {
+            println!("received payload {:?}", payload.unwrap());
+        }
+    }
+}
+
 
 fn default_flags() -> imgui::TreeNodeFlags {
     imgui::TreeNodeFlags::OPEN_ON_DOUBLE_CLICK | imgui::TreeNodeFlags::OPEN_ON_ARROW
@@ -40,6 +53,8 @@ pub fn assets_tree_file_system_data_source_loaded(
         imgui::TreeNode::new(&id).flags(leaf_flags()).build(ui, || {
             // A single file
         });
+
+        mock_drag_target(ui);
 
         //
         // context_menu(ui, |ui| {
@@ -243,8 +258,10 @@ pub fn assets_window_right(
                 is::igGetItemRectMax(&mut max);
                 //(*is::igGetWindowDrawList()).
                 is::ImDrawList_AddRect(is::igGetWindowDrawList(), min, max, 0xFF333333, 0.0, 0, 2.0);
+                mock_drag_source(ui);
 
                 text_centered(&im_str!("very_long_file_{}.txt", i));
+                //mock_drag_source(ui);
             }
 
             is::igEndTable();

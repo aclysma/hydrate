@@ -42,6 +42,7 @@ pub fn run() {
 
     // Initialize imgui
     let imgui_manager = imgui_support::init_imgui_manager(&window);
+    let mut imnodes_example_editor = imgui_manager.new_imnodes_editor();
 
     // Create the renderer, which will draw to the window
     let renderer = Renderer::new(&window, imgui_manager.font_atlas_texture());
@@ -105,7 +106,7 @@ pub fn run() {
             //
             winit::event::Event::RedrawRequested(_window_id) => {
                 imgui_manager.begin_frame(&window);
-                draw_ui::draw_imgui(&imgui_manager, &mut app_state);
+                draw_ui::draw_imgui(&imgui_manager, &mut imnodes_example_editor, &mut app_state);
                 imgui_manager.render(&window);
                 if let Err(e) = renderer.draw(&window, imgui_manager.draw_data(), &app_state) {
                     println!("Error during draw: {:?}", e);

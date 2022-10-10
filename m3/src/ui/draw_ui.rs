@@ -32,14 +32,15 @@ fn draw_menu_bar(
 
 pub fn draw_imgui(
     imgui_manager: &ImguiManager,
+    imnodes_editor: &mut imnodes::EditorContext,
     app_state: &mut AppState,
 ) {
     //
     //Draw an inspect window for the example struct
     //
     {
-        imgui_manager.with_ui(|ui: &mut imgui::Ui| {
-            crate::ui::views::draw_editor_view::draw_dockspace(ui, app_state);
+        imgui_manager.with_ui(|ui, imnodes_context| {
+            crate::ui::views::draw_editor_view::draw_dockspace(ui, imnodes_editor, app_state);
             //crate::ui::views::draw_assets_view::draw_view(ui, app_state);
             draw_menu_bar(ui, app_state);
             //crate::ui::views::draw_2_pane_view::draw_2_pane_view(ui, app_state);

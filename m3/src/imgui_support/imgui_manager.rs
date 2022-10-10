@@ -7,6 +7,7 @@ use std::sync::Mutex;
 // this object is Send but not Sync
 struct Inner {
     context: imgui::Context,
+    imnodes_context: imnodes::Context,
 
     // Pointer to the font atlas. Assuming no direct calls to C imgui interface, this pointer is
     // valid as long as context is not destroyed
@@ -55,6 +56,7 @@ impl ImguiManager {
     // imgui and winit platform are expected to be pre-configured
     pub fn new(
         mut imgui_context: imgui::Context,
+        mut imnodes_context: imnodes::Context,
         platform: imgui_winit_support::WinitPlatform,
     ) -> Self {
         // Ensure font atlas is built and cache a pointer to it
@@ -76,6 +78,7 @@ impl ImguiManager {
         ImguiManager {
             inner: Arc::new(Mutex::new(Inner {
                 context: imgui_context,
+                imnodes_context,
                 font_atlas_texture,
                 ui: None,
                 platform,
@@ -126,14 +129,55 @@ impl ImguiManager {
         (f)(&mut inner.context);
     }
 
+    pub fn new_imnodes_editor(&self) -> imnodes::EditorContext {
+        let inner = self.inner.lock().unwrap();
+        let editor = inner.imnodes_context.create_editor();
+
+        editor.set_style_colors_dark();
+        //editor.set_style_colors_classic();
+        //editor.set_style_colors_light();
+
+        // Fix gamma on all the colors
+        for color in &mut editor.get_style().colors {
+            // Fix incorrect colors with sRGB framebuffer
+            fn imgui_gamma_to_linear(col: [f32; 4]) -> [f32; 4] {
+                let x = col[0].powf(2.2);
+                let y = col[1].powf(2.2);
+                let z = col[2].powf(2.2);
+                let w = col[3];//1.0 - (1.0 - col[3]).powf(2.2);
+                [x, y, z, w]
+            }
+
+            let a = ((*color & 0xFF000000) >> 24) as f32 / 255.0;
+            let r = ((*color & 0x00FF0000) >> 16) as f32 / 255.0;
+            let g = ((*color & 0x0000FF00) >> 8) as f32 / 255.0;
+            let b = (*color & 0x000000FF) as f32 / 255.0;
+
+            let linear = imgui_gamma_to_linear([r, g, b, a]);
+
+            let mut new_color = 0u32;
+            new_color |= ((linear[3] * 255.0) as u32) << 24;
+            new_color |= ((linear[0] * 255.0) as u32) << 16;
+            new_color |= ((linear[1] * 255.0) as u32) << 8;
+            new_color |= ((linear[2] * 255.0) as u32);
+
+            *color = new_color;
+        }
+
+        editor.get_style().colors[imnodes::ColorStyle::GridBackground as usize] = 0xFF090909;
+        editor.get_style().colors[imnodes::ColorStyle::GridLine as usize] = 0xFF181818;
+
+        editor
+    }
+
     // Allows access to the ui without the caller needing to be aware of locking. A frame must be started
     pub fn with_ui<F>(
         &self,
         f: F,
     ) where
-        F: FnOnce(&mut imgui::Ui),
+        F: FnOnce(&mut imgui::Ui, &mut imnodes::Context),
     {
-        let inner = self.inner.lock().unwrap();
+        let mut inner = self.inner.lock().unwrap();
 
         if inner.ui.is_none() {
             log::warn!("Tried to use imgui ui when a frame was not started");
@@ -142,7 +186,7 @@ impl ImguiManager {
 
         if let Some(ui) = inner.ui {
             unsafe {
-                (f)(&mut *ui);
+                (f)(&mut *ui, &mut inner.imnodes_context);
             }
         }
     }

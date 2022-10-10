@@ -48,56 +48,56 @@ pub fn draw_dockspace(
     draw_root_dockspace(ui, app_state);
 
 
-    let window_token = imgui::Window::new(&ImString::new(crate::ui::WINDOW_NAME_DOC_CONTENTS))
-        .begin(ui);
-
-    if let Some(window_token) = window_token {
-        let mut id_gen = imnodes_editor.new_identifier_generator();
-        imnodes::editor(imnodes_editor, |mut editor| {
-            let node_id1 = id_gen.next_node();
-            node_id1.set_position(0.0, 0.0, imnodes::CoordinateSystem::GridSpace);
-            let out_pin1 = id_gen.next_output_pin();
-            editor.add_node(node_id1, |mut node| {
-                node.add_titlebar(|| {
-                    ui.text(im_str!("simple node"));
-                });
-
-                node.add_input(id_gen.next_input_pin(), imnodes::PinShape::Circle, || {
-                    ui.text(im_str!("input"));
-                });
-
-                node.add_output(out_pin1, imnodes::PinShape::QuadFilled, || {
-                    ui.text(im_str!("output"));
-                });
-            });
-
-            let node_id2 = id_gen.next_node();
-            node_id2.set_position(200.0, 0.0, imnodes::CoordinateSystem::GridSpace);
-            let in_pin1 = id_gen.next_input_pin();
-            editor.add_node(node_id2, |mut node| {
-                node.add_titlebar(|| {
-                    ui.text(im_str!("another node"));
-                });
-
-                node.add_input(in_pin1, imnodes::PinShape::Circle, || {
-                    ui.text(im_str!("input"));
-                });
-
-                node.add_output(id_gen.next_output_pin(), imnodes::PinShape::QuadFilled, || {
-                    ui.text(im_str!("output"));
-                });
-            });
-
-            let link = id_gen.next_link();
-            editor.add_link(link, in_pin1, out_pin1);
-
-
-        });
-
-
-
-        window_token.end();
-    }
+    // let window_token = imgui::Window::new(&ImString::new(crate::ui::WINDOW_NAME_DOC_CONTENTS))
+    //     .begin(ui);
+    //
+    // if let Some(window_token) = window_token {
+    //     let mut id_gen = imnodes_editor.new_identifier_generator();
+    //     imnodes::editor(imnodes_editor, |mut editor| {
+    //         let node_id1 = id_gen.next_node();
+    //         node_id1.set_position(0.0, 0.0, imnodes::CoordinateSystem::GridSpace);
+    //         let out_pin1 = id_gen.next_output_pin();
+    //         editor.add_node(node_id1, |mut node| {
+    //             node.add_titlebar(|| {
+    //                 ui.text(im_str!("simple node"));
+    //             });
+    //
+    //             node.add_input(id_gen.next_input_pin(), imnodes::PinShape::Circle, || {
+    //                 ui.text(im_str!("input"));
+    //             });
+    //
+    //             node.add_output(out_pin1, imnodes::PinShape::QuadFilled, || {
+    //                 ui.text(im_str!("output"));
+    //             });
+    //         });
+    //
+    //         let node_id2 = id_gen.next_node();
+    //         node_id2.set_position(200.0, 0.0, imnodes::CoordinateSystem::GridSpace);
+    //         let in_pin1 = id_gen.next_input_pin();
+    //         editor.add_node(node_id2, |mut node| {
+    //             node.add_titlebar(|| {
+    //                 ui.text(im_str!("another node"));
+    //             });
+    //
+    //             node.add_input(in_pin1, imnodes::PinShape::Circle, || {
+    //                 ui.text(im_str!("input"));
+    //             });
+    //
+    //             node.add_output(id_gen.next_output_pin(), imnodes::PinShape::QuadFilled, || {
+    //                 ui.text(im_str!("output"));
+    //             });
+    //         });
+    //
+    //         let link = id_gen.next_link();
+    //         editor.add_link(link, in_pin1, out_pin1);
+    //
+    //
+    //     });
+    //
+    //
+    //
+    //     window_token.end();
+    // }
 
     let window_token = imgui::Window::new(&ImString::new(crate::ui::WINDOW_NAME_PROPERTIES))
         .begin(ui);

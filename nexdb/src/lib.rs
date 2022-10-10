@@ -3,6 +3,7 @@
 
 pub type HashMap<K, V> = std::collections::HashMap<K, V, ahash::RandomState>;
 pub type HashMapKeys<'a, K, V> = std::collections::hash_map::Keys<'a, K, V>;
+pub type HashMapValues<'a, K, V> = std::collections::hash_map::Values<'a, K, V>;
 pub type HashSet<T> = std::collections::HashSet<T, ahash::RandomState>;
 
 use uuid::Uuid;
@@ -20,6 +21,10 @@ pub struct ObjectId(u128);
 impl ObjectId {
     pub fn null() -> Self {
         ObjectId(0)
+    }
+
+    pub fn as_uuid(&self) -> Uuid {
+        Uuid::from_u128(self.0)
     }
 }
 
@@ -45,3 +50,6 @@ pub use schema_cache::*;
 
 mod data_storage;
 pub use data_storage::*;
+
+mod data_source;
+pub use data_source::*;

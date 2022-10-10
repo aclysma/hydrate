@@ -378,7 +378,8 @@ impl DataStorageJsonSingleFile {
         serde_json::to_string_pretty(&storage).unwrap()
     }
 
-    pub fn load_string(database: &mut Database, json: &str) {
+    pub fn load_string(database: &mut Database, json: &str) -> Vec<ObjectId> {
+        let mut loaded_objects = Vec::default();
         let reloaded: DataStorageJsonSingleFile = serde_json::from_str(json).unwrap();
 
         for stored_object in &reloaded.objects {
@@ -487,6 +488,10 @@ impl DataStorageJsonSingleFile {
                 properties_in_replace_mode,
                 dynamic_array_entries_as_vec
             );
+
+            loaded_objects.push(object_id);
         }
+
+        loaded_objects
     }
 }

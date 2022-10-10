@@ -13,7 +13,7 @@ impl TestData {
     }
 
     fn data_file_path() -> PathBuf {
-        PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/data/data_source/data_file.json"))
+        PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/data/data_source/data_file.nxt"))
     }
 
     fn schema_cache_file_path() -> PathBuf {

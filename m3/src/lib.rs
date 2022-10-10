@@ -17,13 +17,13 @@ use ui::draw_ui;
 
 // Creates a window and runs the event loop.
 pub fn run() {
-    let test_data_nexdb = test_data::TestData::load_or_init_empty();
+    let mut test_data_nexdb = test_data::TestData::load_or_init_empty();
 
     let ds_path = PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/data/data_source"));
-    let mut file_system_ds = crate::data_source::FileSystemDataSource::new(ds_path);
-    file_system_ds.load();
+    let mut file_system_package = crate::data_source::FileSystemPackage::new(ds_path);
+    file_system_package.load(&mut test_data_nexdb.db);
 
-    let mut app_state = AppState::new(file_system_ds, test_data_nexdb);
+    let mut app_state = AppState::new(file_system_package, test_data_nexdb);
 
     // Create the winit event loop
     let event_loop = winit::event_loop::EventLoop::<()>::with_user_event();
@@ -35,7 +35,7 @@ pub fn run() {
 
     // Create a single window
     let window = winit::window::WindowBuilder::new()
-        .with_title("M3")
+        .with_title("Prototype")
         .with_inner_size(logical_size)
         .build(&event_loop)
         .expect("Failed to create window");

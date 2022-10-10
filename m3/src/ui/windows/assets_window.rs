@@ -44,12 +44,12 @@ fn context_menu<F: FnOnce(&imgui::Ui)>(ui: &imgui::Ui, f: F) {
 pub fn assets_tree_file_system_data_source_loaded(
     ui: &imgui::Ui,
     app_state: &AppState,
-    ds: &crate::data_source::FileSystemDataSource,
-    loaded_state: &crate::data_source::FileSystemLoadedState
+    package: &crate::data_source::FileSystemPackage,
+    data_source: &nexdb::FileSystemDataSource
 ) {
-    for file in loaded_state.files() {
+    for (path, file_state) in data_source.file_states() {
         //let id = ImString::new(file.path().file_name().unwrap().to_string_lossy());
-        let id = im_str!("\u{e872} {}", file.path().file_name().unwrap().to_string_lossy());
+        let id = im_str!("\u{e872} {}", path.file_name().unwrap().to_string_lossy());
         imgui::TreeNode::new(&id).flags(leaf_flags()).build(ui, || {
             // A single file
         });
@@ -66,10 +66,10 @@ pub fn assets_tree_file_system_data_source_loaded(
 pub fn assets_tree_file_system_data_source(
     ui: &imgui::Ui,
     app_state: &AppState,
-    ds: &crate::data_source::FileSystemDataSource
+    package: &crate::data_source::FileSystemPackage
 ) {
-    if let Some(loaded_state) = ds.loaded_state() {
-        assets_tree_file_system_data_source_loaded(ui, app_state, ds, loaded_state);
+    if let Some(data_source) = package.data_source() {
+        assets_tree_file_system_data_source_loaded(ui, app_state, package, data_source);
     }
 }
 
@@ -79,7 +79,7 @@ pub fn assets_tree(
 ) {
     //assets_tree_file_system_data_source(ui, app_state, &app_state.file_system_ds);
 
-    let root_path = app_state.file_system_ds.root_path();
+    let root_path = app_state.file_system_package.root_path();
 
     let id = im_str!("\u{e916} {}", root_path.to_string_lossy());
 
@@ -87,7 +87,7 @@ pub fn assets_tree(
     let token = ds_tree_node.push(ui);
 
     context_menu(ui, |ui| {
-        if app_state.file_system_ds.loaded_state().is_some() {
+        if app_state.file_system_package.data_source().is_some() {
             if imgui::MenuItem::new(im_str!("Unload")).build(ui) {
                 //TODO: Unload
             }
@@ -99,7 +99,8 @@ pub fn assets_tree(
     });
 
     if let Some(token) = token {
-        assets_tree_file_system_data_source(ui, app_state, &app_state.file_system_ds);
+        // this would eventually loop over packages, so we are passing it in explicitly
+        assets_tree_file_system_data_source(ui, app_state, &app_state.file_system_package);
     }
 }
 
@@ -179,25 +180,35 @@ pub fn assets_window_left(
     assets_tree(ui, app_state);
 }
 
-pub fn assets_window_right(
+pub fn draw_asset(
+    ui: &imgui::Ui,
+    app_state: &mut AppState,
+    name: &ImStr,
+    item_size: u32
+) {
+    unsafe {
+        let mut content_available_region = ImVec2::zero();
+        is::igGetContentRegionAvail(&mut content_available_region);
+        is::igInvisibleButton(name.as_ptr(), ImVec2::new(item_size as _, item_size as _), 0 as _);
+        let mut min = ImVec2::zero();
+        let mut max = ImVec2::zero();
+        is::igGetItemRectMin(&mut min);
+        is::igGetItemRectMax(&mut max);
+        //(*is::igGetWindowDrawList()).
+        is::ImDrawList_AddRect(is::igGetWindowDrawList(), min, max, 0xFF333333, 0.0, 0, 2.0);
+        mock_drag_source(ui);
+
+        text_centered(name);
+        //mock_drag_source(ui);
+    }
+}
+
+
+pub fn assets_window_right_header(
     ui: &imgui::Ui,
     app_state: &mut AppState,
 ) {
-    let mut content_available_region = ImVec2::zero();
     unsafe {
-        //
-        // Draw the top bar
-        //
-        is::igGetContentRegionAvail(&mut content_available_region);
-        is::igBeginChild_Str(im_str!("##AssetBrowserContents").as_ptr(), content_available_region, false, 0);
-
-        is::igGetContentRegionAvail(&mut content_available_region);
-        let padding = (*is::igGetStyle()).CellPadding;
-        let scroll_bar_width = (*is::igGetStyle()).ScrollbarSize;
-        let item_size = 128;
-        let mut columns = ((content_available_region.x - scroll_bar_width) as i32 / (item_size + (2.0 * padding.x) as i32));
-        columns = columns.max(1);
-
         ui.button(im_str!("asd1"));
         ui.same_line();
         ui.button(im_str!("asd2"));;
@@ -213,6 +224,8 @@ pub fn assets_window_right(
 
         // Call same_line here so that we can get remaining x space on this line
         ui.same_line();
+
+        let mut content_available_region = ImVec2::zero();
         is::igGetContentRegionAvail(&mut content_available_region);
 
         // If there's enough space, draw, otherwise draw a dummy object
@@ -228,15 +241,43 @@ pub fn assets_window_right(
             // We called same line above, but there isn't enough room to draw anything. So draw a 0x0 to consume the same_line call
             ui.dummy([0.0, 0.0]);
         }
+    }
+}
+
+pub fn assets_window_right(
+    ui: &imgui::Ui,
+    app_state: &mut AppState,
+
+) {
+    let mut content_available_region = ImVec2::zero();
+    unsafe {
+        //
+        // Draw the top bar
+        //
+        is::igGetContentRegionAvail(&mut content_available_region);
+        is::igBeginChild_Str(im_str!("##AssetBrowserContents").as_ptr(), content_available_region, false, 0);
+
+        assets_window_right_header(ui, app_state);
 
         //
         // Separator for top menu and grid of assets
         //
         ui.separator();
 
+
         //
         // Grid of assets
         //
+
+        // Determine number of columns
+        is::igGetContentRegionAvail(&mut content_available_region);
+        let padding = (*is::igGetStyle()).CellPadding;
+        let scroll_bar_width = (*is::igGetStyle()).ScrollbarSize;
+        let item_size = 128u32;
+        let mut columns = ((content_available_region.x - scroll_bar_width) as i32 / (item_size as i32 + (2.0 * padding.x) as i32));
+        columns = columns.max(1);
+
+        // Set up the table
         is::igGetContentRegionAvail(&mut content_available_region);
         is::igBeginChild_Str(im_str!("##AssetBrowserContentsTable").as_ptr(), content_available_region, false, 0);
         let outer_size = ImVec2::zero();
@@ -247,22 +288,36 @@ pub fn assets_window_right(
                 is::igTableSetupColumn(im_str!("").as_ptr(), is::ImGuiTableColumnFlags__ImGuiTableColumnFlags_WidthFixed as _, item_size as _, 0);
             }
 
-            for i in 0..200 {
+            // for i in 0..200 {
+            //     is::igTableNextColumn();
+            //
+            //     let name = im_str!("SomeAsset {}", i);
+            //     draw_asset(ui, app_state, &name, item_size);
+            // }
+
+
+
+
+            let mut filtered_objects = Vec::default();
+            if let Some(data_source) = app_state.file_system_package.data_source() {
+                for kvp in data_source.object_locations() {
+                    filtered_objects.push((*kvp.0, kvp.1.to_path_buf()));
+                }
+            }
+
+            for (k, v) in filtered_objects {
                 is::igTableNextColumn();
 
-                is::igGetContentRegionAvail(&mut content_available_region);
-                is::igInvisibleButton(im_str!("SomeAsset {}", i).as_ptr(), ImVec2::new(item_size as _, item_size as _), 0 as _);
-                let mut min = ImVec2::zero();
-                let mut max = ImVec2::zero();
-                is::igGetItemRectMin(&mut min);
-                is::igGetItemRectMax(&mut max);
-                //(*is::igGetWindowDrawList()).
-                is::ImDrawList_AddRect(is::igGetWindowDrawList(), min, max, 0xFF333333, 0.0, 0, 2.0);
-                mock_drag_source(ui);
-
-                text_centered(&im_str!("very_long_file_{}.txt", i));
-                //mock_drag_source(ui);
+                let name = im_str!("{} {}", v.file_name().unwrap().to_string_lossy(), k.as_uuid());
+                draw_asset(ui, app_state, &name, item_size);
             }
+
+            // for i in 0..200 {
+            //     is::igTableNextColumn();
+            //
+            //     let name = im_str!("SomeAsset {}", i);
+            //     draw_asset(ui, app_state, &name, item_size);
+            // }
 
             is::igEndTable();
         }

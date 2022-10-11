@@ -1,4 +1,4 @@
-use crate::app::AppState;
+use crate::app_state::AppState;
 use crate::imgui_support::ImguiManager;
 use imgui::im_str;
 use imgui::sys::{
@@ -574,7 +574,11 @@ fn draw_inspector_nexdb_property(
                     if property_path.is_empty()
                         || imgui::CollapsingHeader::new(&im_str!("{}", property_name)).build(ui)
                     {
-                        ui.indent();
+                        // Don't indent if we are at root level
+                        if !property_path.is_empty() {
+                            ui.indent();
+                        }
+
                         for field in record.fields() {
                             let field_path = if !property_path.is_empty() {
                                 format!("{}.{}", property_path, field.name())
@@ -593,7 +597,11 @@ fn draw_inspector_nexdb_property(
                             );
                             id_token.pop();
                         }
-                        ui.unindent();
+
+                        // Don't indent if we are at root level
+                        if !property_path.is_empty() {
+                            ui.unindent();
+                        }
                     }
                 }
                 SchemaNamedType::Enum(_) => {}
@@ -631,12 +639,16 @@ pub fn draw_inspector_nexdb(
     object_id: nexdb::ObjectId,
 ) {
     let schema = db.object_schema(object_id).clone();
-    draw_inspector_nexdb_property(
-        ui,
-        db,
-        object_id,
-        "",
-        "",
-        &Schema::NamedType(schema.fingerprint()),
-    );
+    if let Some(schema) = schema {
+        draw_inspector_nexdb_property(
+            ui,
+            db,
+            object_id,
+            "",
+            "",
+            &Schema::NamedType(schema.fingerprint()),
+        );
+    } else {
+        ui.text("WARNING: Could not find schema");
+    }
 }

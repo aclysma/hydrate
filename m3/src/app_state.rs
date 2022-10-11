@@ -15,7 +15,9 @@ pub struct AssetBrowserTreeState {
 
 #[derive(Default)]
 pub struct AssetBrowserGridState {
-    pub selected_items: HashSet<String>,
+    pub selected_items: HashSet<ObjectId>,
+    pub first_selected: Option<ObjectId>,
+    pub last_selected: Option<ObjectId>,
 }
 
 #[derive(Default)]

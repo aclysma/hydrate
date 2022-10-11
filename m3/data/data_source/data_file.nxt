@@ -7,12 +7,13 @@
       "prototype": null,
       "properties": {
         "all_fields.boolean": true,
-        "all_fields.i32": 101,
+        "all_fields.i32": 236,
         "all_fields.i64": 307,
         "all_fields.nullable_vec3.null_override": "SetNonNull",
         "all_fields.string": "safdsf",
         "all_fields.u32": 220,
-        "all_fields.u64": 126
+        "all_fields.u64": 126,
+        "position.x": 193.0
       }
     },
     {
@@ -25,7 +26,6 @@
       "properties": {
         "all_fields.f32": 101.0,
         "all_fields.f64": 55.0,
-        "all_fields.i32": 33,
         "all_fields.nullable_bool.null_override": "SetNonNull",
         "all_fields.nullable_bool.value": true,
         "all_fields.nullable_vec3.value.y": -52.0,
@@ -33,7 +33,6 @@
         "all_fields.string": "safdsfsdf",
         "all_fields.u32": 126,
         "all_fields.u64": 188,
-        "position.x": 27.0,
         "position.y": 215.0,
         "position.z": 53.0,
         "scale.x": 31.0,

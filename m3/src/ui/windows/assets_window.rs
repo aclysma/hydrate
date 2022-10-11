@@ -1,11 +1,14 @@
 use crate::ui::components::draw_ui_inspector::*;
-use crate::app::{ActiveToolRegion, AppState, UiState};
+use crate::app_state::{ActiveToolRegion, AppState, UiState};
 use crate::imgui_support::ImguiManager;
 use imgui::{im_str, ImStr, ImString, TreeNodeFlags};
 use imgui::sys::{igDragFloat, igDragScalar, igInputDouble, ImGuiDataType__ImGuiDataType_Double, ImGuiInputTextFlags__ImGuiInputTextFlags_None, ImGuiTableFlags__ImGuiTableFlags_NoPadOuterX, ImGuiTreeNodeFlags__ImGuiTreeNodeFlags_Selected, ImVec2};
 use std::convert::TryInto;
 use std::ffi::CString;
+use std::path::PathBuf;
 use imgui::sys as is;
+use uuid::Uuid;
+use nexdb::ObjectId;
 
 fn mock_drag_source(ui: &imgui::Ui) {
     imgui::DragDropSource::new(im_str!("MOCK_SOURCE"))
@@ -65,16 +68,62 @@ fn try_select_tree_node(
 fn try_select_grid_item(
     ui: &imgui::Ui,
     ui_state: &mut UiState,
-    id: &ImStr,
+    items: &[(ObjectId, PathBuf)],
+    index: usize,
+    id: ObjectId,
 ) {
-    if ui.is_item_clicked() && !ui.is_item_toggled_open() {
+    let mut grid_state = &mut ui_state.asset_browser_state.grid_state;
+
+    let is_selected = if grid_state.selected_items.contains(&id) {
+        // If the item is already selected, we may be dragging. So more complex logic to determine if user
+        // is single-clicking or dragging
+        let drag_delta = ui.mouse_drag_delta();
+        ui.is_item_hovered() && ui.is_mouse_released(imgui::MouseButton::Left) && drag_delta[0] < 1.0 && drag_delta[1] < 1.0
+    } else {
+        // It's not selected, so user isn't dragging. Just look for mouse down
+        ui.is_item_clicked()
+    };
+
+    if is_selected {
         ui_state.active_tool_region = Some(ActiveToolRegion::AssetBrowserGrid);
-        if !ui.io().key_super {
-            println!("clear selection");
-            ui_state.asset_browser_state.grid_state.selected_items.clear();
+
+        if grid_state.first_selected.is_none() {
         }
 
-        ui_state.asset_browser_state.grid_state.selected_items.insert(id.to_string());
+        if ui.io().key_super {
+            if grid_state.first_selected.is_none() {
+                grid_state.first_selected = Some(id);
+            }
+            grid_state.last_selected = Some(id);
+            grid_state.selected_items.insert(id);
+        } else if ui.io().key_shift {
+            if grid_state.first_selected.is_none() {
+                grid_state.first_selected = Some(id);
+            }
+            grid_state.last_selected = Some(id);
+
+            let mut index_of_first = items.iter().position(|x| Some(x.0) == grid_state.first_selected).unwrap();
+            let mut index_of_last = items.iter().position(|x| Some(x.0) == grid_state.last_selected).unwrap();
+
+            if index_of_first > index_of_last {
+                std::mem::swap(&mut index_of_first, &mut index_of_last);
+            }
+
+            grid_state.selected_items.clear();
+            for i in index_of_first..=index_of_last {
+                grid_state.selected_items.insert(items[i].0);
+            }
+
+            //TODO: we need to find range between first/last
+            grid_state.selected_items.insert(id);
+        } else {
+            // clear selection and single-select
+            grid_state.first_selected = Some(id);
+            grid_state.last_selected = Some(id);
+            grid_state.selected_items.clear();
+            grid_state.selected_items.insert(id);
+        }
+
     }
 }
 
@@ -239,7 +288,6 @@ fn text_centered(text: &imgui::ImStr) {
         is::igSetCursorPosX(is::igGetCursorPosX() + ((available.x - text_size.x) * 0.5));
         is::igTextWrapped(text.as_ptr());
     }
-
 }
 
 pub fn assets_window_left(
@@ -252,12 +300,16 @@ pub fn assets_window_left(
 pub fn draw_asset(
     ui: &imgui::Ui,
     app_state: &mut AppState,
-    name: &ImStr,
+    items: &[(ObjectId, PathBuf)],
+    //name: &ImStr,
+    index: usize,
     item_size: u32
 ) {
+    let id = items[index].0;
+    let name = im_str!("{}", items[index].0.as_uuid());
     let mut clicked = false;
 
-    let stack_token = ui.push_id(name);
+    let stack_token = ui.push_id(&name);
 
     // Non-active tool
     // let selected_color = if app_state.ui_state.active_tool_region == Some(ActiveToolRegion::AssetBrowserGrid) {
@@ -275,16 +327,16 @@ pub fn draw_asset(
         ui.group(|| {
             let mut content_available_region = ImVec2::zero();
             let content_available_region = ui.content_region_avail();
-            ui.invisible_button(name, [item_size as _, item_size as _]);
+            ui.invisible_button(&name, [item_size as _, item_size as _]);
             let min = ui.item_rect_min();
             let max = ui.item_rect_max();
             draw_list.add_rect(min, max, imgui::ImColor32::from_rgb_f32s(0.2, 0.2, 0.2)).build();
             mock_drag_source(ui);
 
-            text_centered(name);
+            text_centered(&name);
         });
 
-        if app_state.ui_state.asset_browser_state.grid_state.selected_items.contains(name.to_str()) {
+        if app_state.ui_state.asset_browser_state.grid_state.selected_items.contains(&id) {
             // Draw background
             split.set_current(0);
             let min = ui.item_rect_min();
@@ -295,7 +347,7 @@ pub fn draw_asset(
 
     });
 
-    try_select_grid_item(ui, &mut app_state.ui_state, name);
+    try_select_grid_item(ui, &mut app_state.ui_state, items, index, id);
 
     // if ui.is_item_clicked() {
     //     println!("asset {:?} clicked", name);
@@ -304,9 +356,9 @@ pub fn draw_asset(
 
     stack_token.end();
 
-    context_menu(ui, Some(name), |ui| {
+    context_menu(ui, Some(&name), |ui| {
         if imgui::MenuItem::new(&im_str!("Save {}", name)).build(ui) {
-            log::info!("safe asset {}", name);
+            log::info!("safe asset {}", &name);
         }
     });
 }
@@ -393,14 +445,12 @@ pub fn assets_window_right(
                 is::igTableSetupColumn(im_str!("").as_ptr(), is::ImGuiTableColumnFlags__ImGuiTableColumnFlags_WidthFixed as _, item_size as _, 0);
             }
 
-            for i in 0..200 {
-                is::igTableNextColumn();
-
-                let name = im_str!("SomeAsset {}", i);
-                draw_asset(ui, app_state, &name, item_size);
-            }
-
             let mut filtered_objects = Vec::default();
+
+            // mock placeholder
+            // for i in 0..200 {
+            //     filtered_objects.push((ObjectId(i), PathBuf::from("testpath")));
+            // }
 
             for file_system_package in &app_state.file_system_packages {
                 if let Some(data_source) = file_system_package.data_source() {
@@ -410,11 +460,11 @@ pub fn assets_window_right(
                 }
             }
 
-            for (k, v) in filtered_objects {
+            for i in 0..filtered_objects.len() {
                 is::igTableNextColumn();
 
-                let name = im_str!("{} {}", v.file_name().unwrap().to_string_lossy(), k.as_uuid());
-                draw_asset(ui, app_state, &name, item_size);
+                let name = im_str!("{} {}", filtered_objects[i].1.file_name().unwrap().to_string_lossy(), filtered_objects[i].0.as_uuid());
+                draw_asset(ui, app_state, &filtered_objects, i, item_size);
             }
 
             is::igEndTable();

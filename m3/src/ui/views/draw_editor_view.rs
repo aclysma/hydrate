@@ -1,5 +1,5 @@
 use crate::ui::components::draw_ui_inspector::*;
-use crate::app::AppState;
+use crate::app_state::AppState;
 use crate::imgui_support::ImguiManager;
 use imgui::{im_str, ImStr, ImString};
 use imgui::sys::{
@@ -103,7 +103,8 @@ pub fn draw_dockspace(
         .begin(ui);
 
     if let Some(window_token) = window_token {
-        ui.text(im_str!("properties"));
+        crate::ui::windows::properties_window::draw_properties_window(ui, app_state);
+
         window_token.end();
     }
 

@@ -239,9 +239,8 @@ impl Database {
     pub fn object_schema(
         &self,
         object: ObjectId,
-    ) -> &SchemaNamedType {
-        let o = self.objects.get(&object).unwrap();
-        &o.schema
+    ) -> Option<&SchemaNamedType> {
+        self.objects.get(&object).map(|x| &x.schema)
     }
 
     // pub(crate) fn property_schema(
@@ -361,7 +360,7 @@ impl Database {
         object: ObjectId,
         path: impl AsRef<str>,
     ) -> Option<NullOverride> {
-        let mut object_schema = self.object_schema(object);
+        let mut object_schema = self.object_schema(object).unwrap();
         let property_schema = object_schema.find_property_schema(&path, &self.schemas).unwrap();
 
         if property_schema.is_nullable() {
@@ -378,7 +377,7 @@ impl Database {
         path: impl AsRef<str>,
         null_override: NullOverride,
     ) {
-        let mut object_schema = self.object_schema(object);
+        let mut object_schema = self.object_schema(object).unwrap();
         let property_schema = object_schema.find_property_schema(&path, &self.schemas).unwrap();
 
         if property_schema.is_nullable() {
@@ -393,7 +392,7 @@ impl Database {
         object: ObjectId,
         path: impl AsRef<str>,
     ) {
-        let mut object_schema = self.object_schema(object);
+        let mut object_schema = self.object_schema(object).unwrap();
         let property_schema = object_schema.find_property_schema(&path, &self.schemas).unwrap();
 
         if property_schema.is_nullable() {
@@ -410,7 +409,7 @@ impl Database {
         path: impl AsRef<str>,
     ) -> Option<bool> {
         let mut object_id = Some(object);
-        let mut object_schema = self.object_schema(object);
+        let mut object_schema = self.object_schema(object).unwrap();
 
         // Contains the path segments that we need to check for being null
         let mut nullable_ancestors = vec![];
@@ -491,7 +490,7 @@ impl Database {
         path: impl AsRef<str>,
         value: Value,
     ) -> bool {
-        let mut object_schema = self.object_schema(object);
+        let mut object_schema = self.object_schema(object).unwrap();
         let mut property_schema =
             object_schema.find_property_schema(&path, &self.schemas).unwrap();
 
@@ -574,7 +573,7 @@ impl Database {
         path: impl AsRef<str>,
     ) -> Option<Value> {
         let mut object_id = Some(object);
-        let mut object_schema = self.object_schema(object);
+        let mut object_schema = self.object_schema(object).unwrap();
 
         // Contains the path segments that we need to check for being null
         let mut nullable_ancestors = vec![];
@@ -630,7 +629,7 @@ impl Database {
         object: ObjectId,
         path: impl AsRef<str>,
     ) -> &[Uuid] {
-        let mut object_schema = self.object_schema(object);
+        let mut object_schema = self.object_schema(object).unwrap();
         let property_schema = object_schema.find_property_schema(&path, &self.schemas).unwrap();
 
         if !property_schema.is_dynamic_array() {
@@ -650,7 +649,7 @@ impl Database {
         object: ObjectId,
         path: impl AsRef<str>,
     ) -> Uuid {
-        let mut object_schema = self.object_schema(object).clone();
+        let mut object_schema = self.object_schema(object).unwrap().clone();
         let property_schema = object_schema.find_property_schema(&path, &self.schemas).unwrap();
 
         if !property_schema.is_dynamic_array() {
@@ -673,7 +672,7 @@ impl Database {
         path: impl AsRef<str>,
         element_id: Uuid,
     ) {
-        let mut object_schema = self.object_schema(object).clone();
+        let mut object_schema = self.object_schema(object).unwrap().clone();
         let property_schema = object_schema.find_property_schema(&path, &self.schemas).unwrap();
 
         if !property_schema.is_dynamic_array() {
@@ -750,7 +749,7 @@ impl Database {
         object: ObjectId,
         path: impl AsRef<str>,
     ) -> Box<[Uuid]> {
-        let mut object_schema = self.object_schema(object);
+        let mut object_schema = self.object_schema(object).unwrap();
 
         // Contains the path segments that we need to check for being null
         let mut nullable_ancestors = vec![];

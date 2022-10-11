@@ -10,8 +10,8 @@ mod test_data;
 mod imgui_support;
 mod ui;
 
-mod app;
-use app::AppState;
+mod app_state;
+use app_state::AppState;
 use nexdb::{DataStorageJsonSingleFile, SchemaCacheSingleFile};
 use ui::draw_ui;
 

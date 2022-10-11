@@ -1,5 +1,5 @@
 use crate::ObjectId;
-use crate::Value::RecordRef;
+use crate::Value::ObjectRef;
 use crate::{BufferId, HashMap, Schema, SchemaFingerprint, SchemaId, SchemaNamedType};
 
 #[derive(Clone, Debug)]
@@ -45,7 +45,7 @@ pub enum Value {
     StaticArray(Vec<Value>),
     DynamicArray(Vec<Value>),
     Map(ValueMap),
-    RecordRef(ObjectId),
+    ObjectRef(ObjectId),
     Record(ValueRecord),
     Enum(ValueEnum),
     Fixed(Box<[u8]>),
@@ -74,6 +74,7 @@ impl Value {
                 properties: Default::default()
             }),
             //Schema::RecordRef(inner) => Value::RecordRef(ObjectId::null()),
+            Schema::ObjectRef(inner) => Value::ObjectRef(ObjectId::null()),
             Schema::NamedType(named_type_id) => {
                 let named_type = named_types.get(named_type_id).unwrap();
                 match named_type {
@@ -170,7 +171,10 @@ impl Value {
                 }
                 _ => false,
             },
-            Value::RecordRef(_) => unimplemented!(),
+            Value::ObjectRef(_) => {
+                //TODO: Validate type
+                schema.is_object_ref()
+            },
             Value::Record(inner_value) => {
                 // All value properties must exist and match in the schema. However we allow the
                 // value to be missing properties in the schema
@@ -527,8 +531,28 @@ impl Value {
     //
 
     //
-    // RecordRef
+    // ObjectRef
     //
+    pub fn is_object_ref(&self) -> bool {
+        match self {
+            Value::ObjectRef(_) => true,
+            _ => false,
+        }
+    }
+
+    pub fn as_object_ref(&self) -> Option<ObjectId> {
+        match self {
+            Value::ObjectRef(x) => Some(*x),
+            _ => None,
+        }
+    }
+
+    pub fn set_object_ref(
+        &mut self,
+        value: ObjectId,
+    ) {
+        *self = Value::ObjectRef(value);
+    }
 
     //
     // Record

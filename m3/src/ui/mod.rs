@@ -2,6 +2,7 @@ pub mod views;
 pub mod windows;
 pub mod components;
 pub mod draw_ui;
+pub mod asset_browser_grid_drag_drop;
 
 const WINDOW_NAME_DOC_OUTLINE: &str = "DocumentOutlineWindow";
 const WINDOW_NAME_DOC_CONTENTS: &str = "DocumentContents";

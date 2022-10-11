@@ -168,6 +168,7 @@ pub enum Schema {
     DynamicArray(SchemaDynamicArray),
     Map(SchemaMap),
     //RecordRef(SchemaRefConstraint),
+    ObjectRef(SchemaFingerprint),
     /// Named type, it could be an enum, record, etc.
     NamedType(SchemaFingerprint),
 }
@@ -260,6 +261,13 @@ impl Schema {
     pub fn is_dynamic_array(&self) -> bool {
         match self {
             Schema::DynamicArray(_) => true,
+            _ => false,
+        }
+    }
+
+    pub fn is_object_ref(&self) -> bool {
+        match self {
+            Schema::ObjectRef(_) => true,
             _ => false,
         }
     }

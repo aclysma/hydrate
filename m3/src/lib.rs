@@ -6,7 +6,7 @@ use renderer::Renderer;
 use imgui_support::ImguiManager;
 
 mod data_source;
-mod test_data;
+mod db_state;
 mod imgui_support;
 mod ui;
 
@@ -17,7 +17,7 @@ use ui::draw_ui;
 
 // Creates a window and runs the event loop.
 pub fn run() {
-    let mut test_data_nexdb = test_data::TestData::load_or_init_empty();
+    let mut test_data_nexdb = db_state::DbState::load_or_init_empty();
 
     let ds_path = PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/data/data_source"));
     let mut file_system_package = crate::data_source::FileSystemPackage::new(ds_path);

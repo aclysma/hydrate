@@ -5,8 +5,9 @@ use imgui::sys::{
     igDragFloat, igDragScalar, igInputDouble, ImGuiDataType__ImGuiDataType_Double,
     ImGuiInputTextFlags__ImGuiInputTextFlags_None, ImVec2,
 };
-use nexdb::Schema;
+use nexdb::{Database, Schema};
 use std::convert::TryInto;
+use crate::ui::asset_browser_grid_drag_drop::AssetBrowserGridPayload;
 
 fn draw_property_style<F: FnOnce(&imgui::Ui)>(
     ui: &imgui::Ui,
@@ -31,7 +32,7 @@ fn draw_property_style<F: FnOnce(&imgui::Ui)>(
 
 fn draw_inspector_simple_property<F: FnOnce(&imgui::Ui, nexdb::Value) -> Option<nexdb::Value>>(
     ui: &imgui::Ui,
-    db: &mut nexdb::Database,
+    db: &mut Database,
     object_id: nexdb::ObjectId,
     property_path: &str,
     property_name: &str,
@@ -79,7 +80,7 @@ fn draw_inspector_simple_property<F: FnOnce(&imgui::Ui, nexdb::Value) -> Option<
 
 fn draw_inspector_simple_property_bool(
     ui: &imgui::Ui,
-    db: &mut nexdb::Database,
+    app_state: &mut AppState,
     object_id: nexdb::ObjectId,
     property_path: &str,
     property_name: &str,
@@ -90,7 +91,7 @@ fn draw_inspector_simple_property_bool(
 
     draw_inspector_simple_property(
         ui,
-        db,
+        &mut app_state.test_data_nexdb.db,
         object_id,
         property_path,
         property_name,
@@ -111,7 +112,7 @@ fn draw_inspector_simple_property_bool(
 
 fn draw_inspector_simple_property_i32(
     ui: &imgui::Ui,
-    db: &mut nexdb::Database,
+    app_state: &mut AppState,
     object_id: nexdb::ObjectId,
     property_path: &str,
     property_name: &str,
@@ -122,7 +123,7 @@ fn draw_inspector_simple_property_i32(
 
     draw_inspector_simple_property(
         ui,
-        db,
+        &mut app_state.test_data_nexdb.db,
         object_id,
         property_path,
         property_name,
@@ -143,7 +144,7 @@ fn draw_inspector_simple_property_i32(
 
 fn draw_inspector_simple_property_u32(
     ui: &imgui::Ui,
-    db: &mut nexdb::Database,
+    app_state: &mut AppState,
     object_id: nexdb::ObjectId,
     property_path: &str,
     property_name: &str,
@@ -154,7 +155,7 @@ fn draw_inspector_simple_property_u32(
 
     draw_inspector_simple_property(
         ui,
-        db,
+        &mut app_state.test_data_nexdb.db,
         object_id,
         property_path,
         property_name,
@@ -175,7 +176,7 @@ fn draw_inspector_simple_property_u32(
 
 fn draw_inspector_simple_property_i64(
     ui: &imgui::Ui,
-    db: &mut nexdb::Database,
+    app_state: &mut AppState,
     object_id: nexdb::ObjectId,
     property_path: &str,
     property_name: &str,
@@ -186,7 +187,7 @@ fn draw_inspector_simple_property_i64(
 
     draw_inspector_simple_property(
         ui,
-        db,
+        &mut app_state.test_data_nexdb.db,
         object_id,
         property_path,
         property_name,
@@ -207,7 +208,7 @@ fn draw_inspector_simple_property_i64(
 
 fn draw_inspector_simple_property_u64(
     ui: &imgui::Ui,
-    db: &mut nexdb::Database,
+    app_state: &mut AppState,
     object_id: nexdb::ObjectId,
     property_path: &str,
     property_name: &str,
@@ -218,7 +219,7 @@ fn draw_inspector_simple_property_u64(
 
     draw_inspector_simple_property(
         ui,
-        db,
+        &mut app_state.test_data_nexdb.db,
         object_id,
         property_path,
         property_name,
@@ -239,7 +240,7 @@ fn draw_inspector_simple_property_u64(
 
 fn draw_inspector_simple_property_f32(
     ui: &imgui::Ui,
-    db: &mut nexdb::Database,
+    app_state: &mut AppState,
     object_id: nexdb::ObjectId,
     property_path: &str,
     property_name: &str,
@@ -250,7 +251,7 @@ fn draw_inspector_simple_property_f32(
 
     draw_inspector_simple_property(
         ui,
-        db,
+        &mut app_state.test_data_nexdb.db,
         object_id,
         property_path,
         property_name,
@@ -271,7 +272,7 @@ fn draw_inspector_simple_property_f32(
 
 fn draw_inspector_simple_property_f64(
     ui: &imgui::Ui,
-    db: &mut nexdb::Database,
+    app_state: &mut AppState,
     object_id: nexdb::ObjectId,
     property_path: &str,
     property_name: &str,
@@ -282,7 +283,7 @@ fn draw_inspector_simple_property_f64(
 
     draw_inspector_simple_property(
         ui,
-        db,
+        &mut app_state.test_data_nexdb.db,
         object_id,
         property_path,
         property_name,
@@ -303,7 +304,7 @@ fn draw_inspector_simple_property_f64(
 
 fn draw_inspector_simple_property_string(
     ui: &imgui::Ui,
-    db: &mut nexdb::Database,
+    app_state: &mut AppState,
     object_id: nexdb::ObjectId,
     property_path: &str,
     property_name: &str,
@@ -314,7 +315,7 @@ fn draw_inspector_simple_property_string(
 
     draw_inspector_simple_property(
         ui,
-        db,
+        &mut app_state.test_data_nexdb.db,
         object_id,
         property_path,
         property_name,
@@ -336,15 +337,87 @@ fn draw_inspector_simple_property_string(
     )
 }
 
+fn draw_inspector_object_ref(
+    ui: &imgui::Ui,
+    app_state: &mut AppState,
+    object_id: nexdb::ObjectId,
+    property_path: &str,
+    property_name: &str,
+    schema: &nexdb::Schema,
+    property_inherited: bool,
+) {
+    use nexdb::*;
+
+    let ui_state = &app_state.ui_state;
+    let db = &mut app_state.test_data_nexdb.db;
+
+    draw_inspector_simple_property(
+        ui,
+        db,
+        object_id,
+        property_path,
+        property_name,
+        schema,
+        property_inherited,
+        |ui, value| {
+            let mut v = value.as_object_ref().unwrap();
+            let property_im_str = im_str!("{}", &property_name);
+            let mut value = im_str!("{}", v.as_uuid());
+            imgui::InputText::new(ui, &property_im_str, &mut value).read_only(true).build();
+
+            if let Some(payload) = crate::ui::asset_browser_grid_drag_drop::asset_browser_grid_drag_target(ui, &ui_state.asset_browser_state.grid_state) {
+                match payload {
+                    AssetBrowserGridPayload::Single(object_id) => {
+                        Some(Value::ObjectRef(object_id))
+                    }
+                    AssetBrowserGridPayload::AllSelected => {
+                        None
+                    }
+                }
+            } else {
+                None
+            }
+
+            // if modified {
+            //     Some(Value::String(value.to_string()))
+            // } else {
+            //     None
+            // }
+        },
+    )
+
+    // draw_inspector_simple_property(
+    //     ui,
+    //     db,
+    //     object_id,
+    //     property_path,
+    //     property_name,
+    //     schema,
+    //     property_inherited,
+    //     |ui, value| {
+    //         let mut v = value.as_f32().unwrap();
+    //         let property_im_str = im_str!("{}", &property_name);
+    //         let modified = imgui::Drag::new(&property_im_str).build(ui, &mut v);
+    //         if modified {
+    //             Some(Value::F32(v))
+    //         } else {
+    //             None
+    //         }
+    //     },
+    // )
+}
+
 fn draw_inspector_nexdb_property(
     ui: &imgui::Ui,
-    db: &mut nexdb::Database,
+    app_state: &mut AppState,
     object_id: nexdb::ObjectId,
     property_path: &str,
     property_name: &str,
     schema: &nexdb::Schema,
 ) {
     use nexdb::*;
+
+    let db = &mut app_state.test_data_nexdb.db;
 
     match schema {
         Schema::Nullable(inner_schema) => {
@@ -389,7 +462,7 @@ fn draw_inspector_nexdb_property(
                     let id_token = ui.push_id(&inner_property_path);
                     draw_inspector_nexdb_property(
                         ui,
-                        db,
+                        app_state,
                         object_id,
                         &inner_property_path,
                         "value",
@@ -406,7 +479,7 @@ fn draw_inspector_nexdb_property(
             draw_property_style(ui, property_inherited, false, |ui| {
                 draw_inspector_simple_property_bool(
                     ui,
-                    db,
+                    app_state,
                     object_id,
                     property_path,
                     property_name,
@@ -420,7 +493,7 @@ fn draw_inspector_nexdb_property(
             draw_property_style(ui, property_inherited, false, |ui| {
                 draw_inspector_simple_property_i32(
                     ui,
-                    db,
+                    app_state,
                     object_id,
                     property_path,
                     property_name,
@@ -434,7 +507,7 @@ fn draw_inspector_nexdb_property(
             draw_property_style(ui, property_inherited, false, |ui| {
                 draw_inspector_simple_property_i64(
                     ui,
-                    db,
+                    app_state,
                     object_id,
                     property_path,
                     property_name,
@@ -448,7 +521,7 @@ fn draw_inspector_nexdb_property(
             draw_property_style(ui, property_inherited, false, |ui| {
                 draw_inspector_simple_property_u32(
                     ui,
-                    db,
+                    app_state,
                     object_id,
                     property_path,
                     property_name,
@@ -462,7 +535,7 @@ fn draw_inspector_nexdb_property(
             draw_property_style(ui, property_inherited, false, |ui| {
                 draw_inspector_simple_property_u64(
                     ui,
-                    db,
+                    app_state,
                     object_id,
                     property_path,
                     property_name,
@@ -476,7 +549,7 @@ fn draw_inspector_nexdb_property(
             draw_property_style(ui, property_inherited, false, |ui| {
                 draw_inspector_simple_property_f32(
                     ui,
-                    db,
+                    app_state,
                     object_id,
                     property_path,
                     property_name,
@@ -490,7 +563,7 @@ fn draw_inspector_nexdb_property(
             draw_property_style(ui, property_inherited, false, |ui| {
                 draw_inspector_simple_property_f64(
                     ui,
-                    db,
+                    app_state,
                     object_id,
                     property_path,
                     property_name,
@@ -506,7 +579,7 @@ fn draw_inspector_nexdb_property(
             draw_property_style(ui, property_inherited, false, |ui| {
                 draw_inspector_simple_property_string(
                     ui,
-                    db,
+                    app_state,
                     object_id,
                     property_path,
                     property_name,
@@ -534,7 +607,7 @@ fn draw_inspector_nexdb_property(
                     let id_token = ui.push_id(&field_path);
                     draw_inspector_nexdb_property(
                         ui,
-                        db,
+                        app_state,
                         object_id,
                         &field_path,
                         &id.to_string(),
@@ -549,7 +622,7 @@ fn draw_inspector_nexdb_property(
                     let id_token = ui.push_id(&field_path);
                     draw_inspector_nexdb_property(
                         ui,
-                        db,
+                        app_state,
                         object_id,
                         &field_path,
                         &id.to_string(),
@@ -564,6 +637,21 @@ fn draw_inspector_nexdb_property(
         Schema::Map(_) => {}
         //Schema::RecordRef(_) => {}
 
+        Schema::ObjectRef(named_type_fingerprint) => {
+            let property_inherited = !db.has_property_override(object_id, &property_path);
+            draw_property_style(ui, property_inherited, false, |ui| {
+                draw_inspector_object_ref(
+                    ui,
+                    app_state,
+                    object_id,
+                    property_path,
+                    property_name,
+                    schema,
+                    property_inherited,
+                );
+            });
+
+        }
         Schema::NamedType(named_type_fingerprint) => {
             let named_type = db
                 .find_named_type_by_fingerprint(*named_type_fingerprint)
@@ -589,7 +677,7 @@ fn draw_inspector_nexdb_property(
                             let id_token = ui.push_id(field.name());
                             draw_inspector_nexdb_property(
                                 ui,
-                                db,
+                                app_state,
                                 object_id,
                                 &field_path,
                                 field.name(),
@@ -635,14 +723,14 @@ fn draw_inspector_nexdb_property(
 
 pub fn draw_inspector_nexdb(
     ui: &imgui::Ui,
-    db: &mut nexdb::Database,
+    app_state: &mut AppState,
     object_id: nexdb::ObjectId,
 ) {
-    let schema = db.object_schema(object_id).clone();
+    let schema = app_state.test_data_nexdb.db.object_schema(object_id).clone();
     if let Some(schema) = schema {
         draw_inspector_nexdb_property(
             ui,
-            db,
+            app_state,
             object_id,
             "",
             "",

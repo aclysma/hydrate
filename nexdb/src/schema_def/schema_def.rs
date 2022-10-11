@@ -463,11 +463,8 @@ pub enum SchemaDefType {
     StaticArray(SchemaDefStaticArray),
     DynamicArray(SchemaDefDynamicArray),
     Map(SchemaDefMap),
-    //RecordRef(SchemaDefTypeName),
-    NamedType(String), // Record(SchemaDefTypeName),
-                       // Enum(SchemaDefTypeName),
-                       // Fixed(SchemaDefTypeName),
-                       // union?
+    ObjectRef(String), // name of the type
+    NamedType(String), // name of the type
 }
 
 impl SchemaDefType {
@@ -490,6 +487,12 @@ impl SchemaDefType {
             SchemaDefType::StaticArray(x) => x.apply_type_aliases(aliases),
             SchemaDefType::DynamicArray(x) => x.apply_type_aliases(aliases),
             SchemaDefType::Map(x) => x.apply_type_aliases(aliases),
+            SchemaDefType::ObjectRef(x) => {
+                let alias = aliases.get(x);
+                if let Some(alias) = alias {
+                    *x = alias.clone();
+                }
+            },
             SchemaDefType::NamedType(x) => {
                 let alias = aliases.get(x);
                 if let Some(alias) = alias {
@@ -518,6 +521,9 @@ impl SchemaDefType {
             SchemaDefType::StaticArray(x) => x.collect_all_related_types(types),
             SchemaDefType::DynamicArray(x) => x.collect_all_related_types(types),
             SchemaDefType::Map(x) => x.collect_all_related_types(types),
+            SchemaDefType::ObjectRef(x) => {
+                types.insert(x.clone());
+            }
             SchemaDefType::NamedType(x) => {
                 types.insert(x.clone());
             }
@@ -555,6 +561,10 @@ impl SchemaDefType {
                 "Map".hash(hasher);
                 x.partial_hash(hasher);
             }
+            SchemaDefType::ObjectRef(x) => {
+                "ObjectRef".hash(hasher);
+                x.hash(hasher);
+            }
             SchemaDefType::NamedType(x) => {
                 "NamedType".hash(hasher);
                 x.hash(hasher);
@@ -581,6 +591,7 @@ impl SchemaDefType {
             SchemaDefType::StaticArray(x) => Schema::StaticArray(x.to_schema(named_types)),
             SchemaDefType::DynamicArray(x) => Schema::DynamicArray(x.to_schema(named_types)),
             SchemaDefType::Map(x) => Schema::Map(x.to_schema(named_types)),
+            SchemaDefType::ObjectRef(x) => Schema::ObjectRef(*named_types.get(&x).unwrap()),
             SchemaDefType::NamedType(x) => Schema::NamedType(*named_types.get(&x).unwrap()),
         }
     }
@@ -733,8 +744,30 @@ fn parse_json_schema_type_ref(
         "map" => {
             unimplemented!()
         }
-        "record_ref" => {
-            unimplemented!()
+        "object_ref" => {
+            //unimplemented!()
+
+            let inner_type = json_value.get("inner_type").ok_or_else(|| {
+                SchemaDefParserError::String(format!(
+                    "{}All dynamic_array types must has an inner_type",
+                    error_prefix
+                ))
+            })?;
+            let inner_type = parse_json_schema_type_ref(inner_type, error_prefix)?;
+            match inner_type {
+                SchemaDefType::NamedType(x) => {
+                    SchemaDefType::ObjectRef(x)
+                },
+                _ => {
+                    Err(SchemaDefParserError::String(format!(
+                        "{}All object_ref types must has an inner_type that is not a built-in type",
+                        error_prefix
+                    )))?;
+
+                    // We will error above
+                    unreachable!();
+                }
+            }
         }
         // StaticArray(SchemaDefStaticArray),
         // DynamicArray(SchemaDefDynamicArray),

@@ -21,7 +21,7 @@ fn property_value_to_json(value: &Value) -> serde_json::Value {
         Value::StaticArray(_) => unimplemented!(),
         Value::DynamicArray(_) => unimplemented!(),
         Value::Map(_) => unimplemented!(),
-        Value::RecordRef(_) => unimplemented!(),
+        Value::ObjectRef(x) => serde_json::Value::from(x.as_uuid().to_string()),
         Value::Record(_) => unimplemented!(),
         Value::Enum(_) => unimplemented!(),
         Value::Fixed(_) => unimplemented!(),
@@ -44,6 +44,7 @@ fn json_to_property_value_with_schema(schema: &Schema, value: &serde_json::Value
         Schema::StaticArray(_) => unimplemented!(),
         Schema::DynamicArray(_) => unimplemented!(),
         Schema::Map(_) => unimplemented!(),
+        Schema::ObjectRef(_) => Value::ObjectRef(ObjectId(Uuid::parse_str(value.as_str().unwrap()).unwrap().as_u128())),
         Schema::NamedType(_) => unimplemented!(),
     }
 }
@@ -129,6 +130,12 @@ fn store_object_into_properties(
         }
         Schema::Map(_) => {
             unimplemented!();
+        }
+        Schema::ObjectRef(_) => {
+            let value = database.get_property_override(object_id, path);
+            if let Some(value) = value {
+                stored_object.properties.insert(path.to_string(), property_value_to_json(value));
+            }
         }
         Schema::NamedType(named_type) => {
             let named_type = database.find_named_type_by_fingerprint(*named_type).unwrap().clone();
@@ -257,6 +264,14 @@ fn restore_object_from_properties(
         }
         Schema::Map(_) => {
             unimplemented!();
+        }
+        Schema::ObjectRef(_) => {
+            let value = stored_object.properties.get(path);
+            if let Some(value) = value {
+                log::debug!("restore f64 {} from {}", path, value);
+                let uuid = Uuid::parse_str(value.as_str().unwrap()).unwrap();
+                database.set_property_override(object_id, path, Value::ObjectRef(ObjectId(uuid.as_u128())));
+            }
         }
         Schema::NamedType(named_type) => {
             let named_type = database.find_named_type_by_fingerprint(*named_type).unwrap().clone();

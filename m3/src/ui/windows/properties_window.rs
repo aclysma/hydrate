@@ -22,7 +22,7 @@ pub fn draw_properties_window_single_select(
         ui.text(format!("Prototype: {}", prototype.as_uuid()));
     }
 
-    crate::ui::components::draw_ui_inspector::draw_inspector_nexdb(ui, &mut app_state.test_data_nexdb.db, object_id);
+    crate::ui::components::draw_ui_inspector::draw_inspector_nexdb(ui, app_state, object_id);
 }
 
 pub fn draw_properties_window(

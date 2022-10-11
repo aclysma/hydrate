@@ -1,5 +1,5 @@
 use crate::ui::components::draw_ui_inspector::*;
-use crate::app_state::{ActiveToolRegion, AppState, UiState};
+use crate::app_state::{ActiveToolRegion, AppState, AssetBrowserGridState, AssetBrowserState, UiState};
 use crate::imgui_support::ImguiManager;
 use imgui::{im_str, ImStr, ImString, TreeNodeFlags};
 use imgui::sys::{igDragFloat, igDragScalar, igInputDouble, ImGuiDataType__ImGuiDataType_Double, ImGuiInputTextFlags__ImGuiInputTextFlags_None, ImGuiTableFlags__ImGuiTableFlags_NoPadOuterX, ImGuiTreeNodeFlags__ImGuiTreeNodeFlags_Selected, ImVec2};
@@ -10,18 +10,6 @@ use imgui::sys as is;
 use uuid::Uuid;
 use nexdb::ObjectId;
 
-fn mock_drag_source(ui: &imgui::Ui) {
-    imgui::DragDropSource::new(im_str!("MOCK_SOURCE"))
-        .begin_payload(ui, "some_text");
-}
-
-fn mock_drag_target(ui: &imgui::Ui) {
-    if let Some(target) = imgui::DragDropTarget::new(ui) {
-        if let Some(payload) = target.accept_payload::<&'static str>(im_str!("MOCK_SOURCE"), imgui::DragDropFlags::empty()) {
-            println!("received payload {:?}", payload.unwrap());
-        }
-    }
-}
 
 
 fn default_flags() -> imgui::TreeNodeFlags {
@@ -74,15 +62,15 @@ fn try_select_grid_item(
 ) {
     let mut grid_state = &mut ui_state.asset_browser_state.grid_state;
 
-    let is_selected = if grid_state.selected_items.contains(&id) {
+    //let is_selected = if grid_state.selected_items.contains(&id) {
         // If the item is already selected, we may be dragging. So more complex logic to determine if user
         // is single-clicking or dragging
         let drag_delta = ui.mouse_drag_delta();
-        ui.is_item_hovered() && ui.is_mouse_released(imgui::MouseButton::Left) && drag_delta[0] < 1.0 && drag_delta[1] < 1.0
-    } else {
+        let is_selected = ui.is_item_hovered() && ui.is_mouse_released(imgui::MouseButton::Left) && drag_delta[0] < 1.0 && drag_delta[1] < 1.0;
+    //} else {
         // It's not selected, so user isn't dragging. Just look for mouse down
-        ui.is_item_clicked()
-    };
+    //    ui.is_item_clicked()
+    //};
 
     if is_selected {
         ui_state.active_tool_region = Some(ActiveToolRegion::AssetBrowserGrid);
@@ -153,7 +141,7 @@ pub fn assets_tree_file_system_data_source_loaded(
 
             try_select_tree_node(ui, &mut app_state.ui_state, &id);
 
-            mock_drag_target(ui);
+            crate::ui::asset_browser_grid_drag_drop::asset_browser_grid_drag_target(ui, &app_state.ui_state.asset_browser_state.grid_state);
 
 
             context_menu(ui, Some(&id), |ui| {
@@ -331,7 +319,7 @@ pub fn draw_asset(
             let min = ui.item_rect_min();
             let max = ui.item_rect_max();
             draw_list.add_rect(min, max, imgui::ImColor32::from_rgb_f32s(0.2, 0.2, 0.2)).build();
-            mock_drag_source(ui);
+            crate::ui::asset_browser_grid_drag_drop::asset_browser_grid_drag_source(ui, &app_state.ui_state.asset_browser_state.grid_state, id);
 
             text_centered(&name);
         });
@@ -342,7 +330,6 @@ pub fn draw_asset(
             let min = ui.item_rect_min();
             let max = ui.item_rect_max();
             draw_list.add_rect_filled_multicolor(min, max, selected_color, selected_color, selected_color, selected_color);
-            println!("{:?} {:?}", min, max);
         }
 
     });

@@ -4,6 +4,13 @@
     "name": "AllFields",
     "fields": [
       {
+        "name": "reference",
+        "type": {
+          "name": "object_ref",
+          "inner_type": "Vec3"
+        }
+      },
+      {
         "name": "nullable_bool",
         "type": {
           "name": "nullable",

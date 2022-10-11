@@ -1,6 +1,6 @@
 use nexdb::{HashSet, ObjectId};
 use crate::data_source::{FileSystemPackage};
-use crate::test_data::TestData;
+use crate::db_state::DbState;
 
 #[derive(PartialEq)]
 pub enum ActiveToolRegion {
@@ -53,12 +53,12 @@ pub struct DataState {
 // This struct is a simple example of something that can be inspected
 pub struct AppState {
     pub file_system_packages: Vec<FileSystemPackage>,
-    pub test_data_nexdb: TestData,
+    pub test_data_nexdb: DbState,
     pub ui_state: UiState
 }
 
 impl AppState {
-    pub fn new(file_system_packages: Vec<FileSystemPackage>, test_data: TestData) -> Self {
+    pub fn new(file_system_packages: Vec<FileSystemPackage>, test_data: DbState) -> Self {
         AppState {
             file_system_packages,
             test_data_nexdb: test_data,

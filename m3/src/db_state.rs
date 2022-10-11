@@ -1,13 +1,11 @@
 use std::path::PathBuf;
 use nexdb::{DataStorageJsonSingleFile, Schema, SchemaCacheSingleFile, SchemaDefType};
 
-pub struct TestData {
+pub struct DbState {
     pub db: nexdb::Database,
-    pub prototype_obj: nexdb::ObjectId,
-    pub instance_obj: nexdb::ObjectId,
 }
 
-impl TestData {
+impl DbState {
     fn schema_def_path() -> PathBuf {
         PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/data/schema"))
     }
@@ -67,10 +65,8 @@ impl TestData {
         let instance_array_element_3 =
             db.add_dynamic_array_override(instance_obj, "all_fields.dynamic_array_vec3");
 
-        TestData {
+        DbState {
             db,
-            prototype_obj,
-            instance_obj,
         }
     }
 
@@ -88,24 +84,9 @@ impl TestData {
 
         db.add_linked_types(linker).unwrap();
 
-        let mut prototype_and_instance = None;
-        for object in db.all_objects() {
-            let prototype = db.object_prototype(*object);
-            if let Some(prototype) = prototype {
-                prototype_and_instance = Some((prototype, *object));
-                break;
-            }
-        }
-
-        if let Some((prototype_obj, instance_obj)) = prototype_and_instance {
-            Some(TestData {
-                db,
-                prototype_obj,
-                instance_obj,
-            })
-        } else {
-            None
-        }
+        Some(DbState {
+            db
+        })
     }
 
     pub fn load_or_init_empty() -> Self {

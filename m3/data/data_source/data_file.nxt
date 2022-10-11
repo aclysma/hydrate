@@ -1,43 +1,40 @@
 {
   "objects": [
     {
-      "object_id": "cc0d28dc-1cac-4094-b3b7-105363b3cdad",
-      "schema": "c93af141-6634-43a8-cfbf-6d6fa952e8c0",
+      "object_id": "6301f625-1370-4712-a90c-5f9beadf4e16",
+      "schema": "4fec8abd-0c1f-2468-2104-0ee0720c7206",
       "schema_name": "Transform",
-      "prototype": null,
+      "prototype": {
+        "Uuid": "a702a318-f59a-4736-b0a1-ef1d53572622"
+      },
       "properties": {
-        "all_fields.boolean": true,
-        "all_fields.i32": 236,
-        "all_fields.i64": 307,
-        "all_fields.nullable_vec3.null_override": "SetNonNull",
-        "all_fields.string": "safdsf",
-        "all_fields.u32": 220,
-        "all_fields.u64": 126,
-        "position.x": 193.0
+        "all_fields.dynamic_array_i32": [
+          "2ed91308-e029-44df-868d-584424806881",
+          "74b27510-707d-457a-82ec-df89c5af1a62",
+          "b7d33245-7b67-4b4e-b90f-3322d503ad95"
+        ],
+        "all_fields.dynamic_array_vec3": [
+          "42ba6e9c-5627-4eab-a167-85013ba5615b",
+          "762034a3-fbad-4f8b-961c-46e37fb6b0ba",
+          "8e4f310f-9a33-47fe-b9ea-139e1a8559cb"
+        ]
       }
     },
     {
-      "object_id": "ed8af6bb-0047-4917-ac3b-2ce31e7690fd",
-      "schema": "c93af141-6634-43a8-cfbf-6d6fa952e8c0",
+      "object_id": "a702a318-f59a-4736-b0a1-ef1d53572622",
+      "schema": "4fec8abd-0c1f-2468-2104-0ee0720c7206",
       "schema_name": "Transform",
-      "prototype": {
-        "Uuid": "cc0d28dc-1cac-4094-b3b7-105363b3cdad"
-      },
+      "prototype": null,
       "properties": {
-        "all_fields.f32": 101.0,
-        "all_fields.f64": 55.0,
-        "all_fields.nullable_bool.null_override": "SetNonNull",
-        "all_fields.nullable_bool.value": true,
-        "all_fields.nullable_vec3.value.y": -52.0,
-        "all_fields.nullable_vec3.value.z": 37.0,
-        "all_fields.string": "safdsfsdf",
-        "all_fields.u32": 126,
-        "all_fields.u64": 188,
-        "position.y": 215.0,
-        "position.z": 53.0,
-        "scale.x": 31.0,
-        "scale.y": 45.0,
-        "scale.z": 29.0
+        "all_fields.dynamic_array_i32": [
+          "749e1866-375a-4fde-8c69-8a65fe13a095",
+          "8ce05740-4902-46b1-b2cc-25db2301e3db"
+        ],
+        "all_fields.dynamic_array_vec3": [
+          "0870cdd9-c5ab-448a-8174-efb84320f6e4",
+          "be0532dc-6724-4509-a52e-15c398c55fd0"
+        ],
+        "all_fields.reference": "6301f625-1370-4712-a90c-5f9beadf4e16"
       }
     }
   ]

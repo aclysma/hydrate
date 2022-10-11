@@ -16,7 +16,7 @@ fn draw_root_dockspace(
 ) {
     unsafe {
         let root_dockspace_id = is::igDockSpaceOverViewport(is::igGetMainViewport(), 0, std::ptr::null());
-        if app_state.redock_windows {
+        if app_state.ui_state.redock_windows {
             let work_size = (*is::igGetMainViewport()).WorkSize;
 
             // Setup root node
@@ -117,5 +117,5 @@ pub fn draw_dockspace(
         window_token.end();
     }
 
-    app_state.redock_windows = false;
+    app_state.ui_state.redock_windows = false;
 }

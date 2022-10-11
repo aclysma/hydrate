@@ -23,7 +23,7 @@ pub fn run() {
     let mut file_system_package = crate::data_source::FileSystemPackage::new(ds_path);
     file_system_package.load(&mut test_data_nexdb.db);
 
-    let mut app_state = AppState::new(file_system_package, test_data_nexdb);
+    let mut app_state = AppState::new(vec![file_system_package], test_data_nexdb);
 
     // Create the winit event loop
     let event_loop = winit::event_loop::EventLoop::<()>::with_user_event();

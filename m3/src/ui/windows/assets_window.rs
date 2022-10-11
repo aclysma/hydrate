@@ -1,8 +1,8 @@
 use crate::ui::components::draw_ui_inspector::*;
-use crate::app::AppState;
+use crate::app::{ActiveToolRegion, AppState, UiState};
 use crate::imgui_support::ImguiManager;
-use imgui::{im_str, ImStr, ImString};
-use imgui::sys::{igDragFloat, igDragScalar, igInputDouble, ImGuiDataType__ImGuiDataType_Double, ImGuiInputTextFlags__ImGuiInputTextFlags_None, ImGuiTableFlags__ImGuiTableFlags_NoPadOuterX, ImVec2};
+use imgui::{im_str, ImStr, ImString, TreeNodeFlags};
+use imgui::sys::{igDragFloat, igDragScalar, igInputDouble, ImGuiDataType__ImGuiDataType_Double, ImGuiInputTextFlags__ImGuiInputTextFlags_None, ImGuiTableFlags__ImGuiTableFlags_NoPadOuterX, ImGuiTreeNodeFlags__ImGuiTreeNodeFlags_Selected, ImVec2};
 use std::convert::TryInto;
 use std::ffi::CString;
 use imgui::sys as is;
@@ -29,10 +29,15 @@ fn leaf_flags() -> imgui::TreeNodeFlags {
     imgui::TreeNodeFlags::LEAF | default_flags()
 }
 
-fn context_menu<F: FnOnce(&imgui::Ui)>(ui: &imgui::Ui, f: F) {
+fn context_menu<F: FnOnce(&imgui::Ui)>(ui: &imgui::Ui, str_id: Option<&ImStr>, f: F) {
+    let id = if let Some(str_id) = str_id {
+        str_id.as_ptr()
+    } else {
+        std::ptr::null()
+    };
     unsafe {
         if imgui::sys::igBeginPopupContextItem(
-            std::ptr::null(),
+            id,
             imgui::sys::ImGuiPopupFlags_MouseButtonRight as _,
         ) {
             (f)(ui);
@@ -41,35 +46,119 @@ fn context_menu<F: FnOnce(&imgui::Ui)>(ui: &imgui::Ui, f: F) {
     }
 }
 
+fn try_select_tree_node(
+    ui: &imgui::Ui,
+    ui_state: &mut UiState,
+    id: &ImStr,
+) {
+    if ui.is_item_clicked() && !ui.is_item_toggled_open() {
+        ui_state.active_tool_region = Some(ActiveToolRegion::AssetBrowserTree);
+        if !ui.io().key_super {
+            println!("clear selection");
+            ui_state.asset_browser_state.tree_state.selected_items.clear();
+        }
+
+        ui_state.asset_browser_state.tree_state.selected_items.insert(id.to_string());
+    }
+}
+
+fn try_select_grid_item(
+    ui: &imgui::Ui,
+    ui_state: &mut UiState,
+    id: &ImStr,
+) {
+    if ui.is_item_clicked() && !ui.is_item_toggled_open() {
+        ui_state.active_tool_region = Some(ActiveToolRegion::AssetBrowserGrid);
+        if !ui.io().key_super {
+            println!("clear selection");
+            ui_state.asset_browser_state.grid_state.selected_items.clear();
+        }
+
+        ui_state.asset_browser_state.grid_state.selected_items.insert(id.to_string());
+    }
+}
+
 pub fn assets_tree_file_system_data_source_loaded(
     ui: &imgui::Ui,
-    app_state: &AppState,
-    package: &crate::data_source::FileSystemPackage,
-    data_source: &nexdb::FileSystemDataSource
+    app_state: &mut AppState,
+    file_system_package_index: usize
 ) {
-    for (path, file_state) in data_source.file_states() {
-        //let id = ImString::new(file.path().file_name().unwrap().to_string_lossy());
-        let id = im_str!("\u{e872} {}", path.file_name().unwrap().to_string_lossy());
-        imgui::TreeNode::new(&id).flags(leaf_flags()).build(ui, || {
-            // A single file
-        });
+    let package = &mut app_state.file_system_packages[file_system_package_index];
+    if let Some(data_source) = package.data_source() {
+        for (path, file_state) in data_source.file_states() {
+            //let id = ImString::new(file.path().file_name().unwrap().to_string_lossy());
+            let id = im_str!("\u{e872} {}", path.file_name().unwrap().to_string_lossy());
+            // imgui::TreeNode::new(&id).flags(leaf_flags()).build(ui, || {
+            //     // A single file
+            // });
 
-        mock_drag_target(ui);
+            let mut flags = leaf_flags();
 
-        //
-        // context_menu(ui, |ui| {
-        //
-        // });
+            let is_selected = app_state.ui_state.asset_browser_state.tree_state.selected_items.contains(&id.to_string());
+            if is_selected {
+                flags |= TreeNodeFlags::SELECTED;
+            }
+
+            let doc_tree_node = imgui::TreeNode::new(&id).flags(flags);
+            let token = doc_tree_node.push(ui);
+
+            try_select_tree_node(ui, &mut app_state.ui_state, &id);
+
+            mock_drag_target(ui);
+
+
+            context_menu(ui, Some(&id), |ui| {
+                if imgui::MenuItem::new(im_str!("Save")).build(ui) {
+                    log::info!("Save {:?}", path);
+                }
+            });
+
+            // no contents to draw
+            drop(token);
+        }
     }
 }
 
 pub fn assets_tree_file_system_data_source(
     ui: &imgui::Ui,
-    app_state: &AppState,
-    package: &crate::data_source::FileSystemPackage
+    app_state: &mut AppState,
+    file_system_package_index: usize
 ) {
-    if let Some(data_source) = package.data_source() {
-        assets_tree_file_system_data_source_loaded(ui, app_state, package, data_source);
+    let package = &app_state.file_system_packages[file_system_package_index];
+    let root_path = package.root_path();
+
+    let id = im_str!("\u{e916} {}", root_path.to_string_lossy());
+
+    let mut flags = default_flags();
+
+    let is_selected = app_state.ui_state.asset_browser_state.tree_state.selected_items.contains(&id.to_string());
+    if is_selected {
+        flags |= TreeNodeFlags::SELECTED;
+    }
+
+    let ds_tree_node = imgui::TreeNode::new(&id).flags(flags);
+    let token = ds_tree_node.push(ui);
+
+    try_select_tree_node(ui, &mut app_state.ui_state, &id);
+    context_menu(ui, Some(&id), |ui| {
+        if package.data_source().is_some() {
+            if imgui::MenuItem::new(im_str!("Unload")).build(ui) {
+                //TODO: Unload
+                log::info!("unload {}", root_path.to_string_lossy());
+            }
+        } else {
+            if imgui::MenuItem::new(im_str!("Load")).build(ui) {
+                //TODO: Load
+                log::info!("load {}", root_path.to_string_lossy());
+            }
+        }
+    });
+
+    if let Some(token) = token {
+        let loaded = package.data_source().is_some();
+        if loaded {
+            assets_tree_file_system_data_source_loaded(ui, app_state, file_system_package_index);
+        }
     }
 }
 
@@ -79,28 +168,8 @@ pub fn assets_tree(
 ) {
     //assets_tree_file_system_data_source(ui, app_state, &app_state.file_system_ds);
 
-    let root_path = app_state.file_system_package.root_path();
-
-    let id = im_str!("\u{e916} {}", root_path.to_string_lossy());
-
-    let ds_tree_node = imgui::TreeNode::new(&id).flags(default_flags());
-    let token = ds_tree_node.push(ui);
-
-    context_menu(ui, |ui| {
-        if app_state.file_system_package.data_source().is_some() {
-            if imgui::MenuItem::new(im_str!("Unload")).build(ui) {
-                //TODO: Unload
-            }
-        } else {
-            if imgui::MenuItem::new(im_str!("Load")).build(ui) {
-                //TODO: Load
-            }
-        }
-    });
-
-    if let Some(token) = token {
-        // this would eventually loop over packages, so we are passing it in explicitly
-        assets_tree_file_system_data_source(ui, app_state, &app_state.file_system_package);
+    for file_system_package_index in 0..app_state.file_system_packages.len() {
+        assets_tree_file_system_data_source(ui, app_state, file_system_package_index);
     }
 }
 
@@ -120,7 +189,7 @@ pub fn draw_assets_dockspace(
 
         // The first time through, set up the left/right panes of the asset browser so that they are pinned inside the asset browser window
         // and nothing can dock inside them
-        if app_state.redock_windows {
+        if app_state.ui_state.redock_windows {
             let mut assets_main = root_assets_dockspace_id;
             is::igDockBuilderAddNode(
                 assets_main,
@@ -186,21 +255,60 @@ pub fn draw_asset(
     name: &ImStr,
     item_size: u32
 ) {
-    unsafe {
-        let mut content_available_region = ImVec2::zero();
-        is::igGetContentRegionAvail(&mut content_available_region);
-        is::igInvisibleButton(name.as_ptr(), ImVec2::new(item_size as _, item_size as _), 0 as _);
-        let mut min = ImVec2::zero();
-        let mut max = ImVec2::zero();
-        is::igGetItemRectMin(&mut min);
-        is::igGetItemRectMax(&mut max);
-        //(*is::igGetWindowDrawList()).
-        is::ImDrawList_AddRect(is::igGetWindowDrawList(), min, max, 0xFF333333, 0.0, 0, 2.0);
-        mock_drag_source(ui);
+    let mut clicked = false;
 
-        text_centered(name);
-        //mock_drag_source(ui);
-    }
+    let stack_token = ui.push_id(name);
+
+    // Non-active tool
+    // let selected_color = if app_state.ui_state.active_tool_region == Some(ActiveToolRegion::AssetBrowserGrid) {
+    //     ui.style_color(imgui::StyleColor::ScrollbarGrabActive)
+    // } else {
+    //     ui.style_color(imgui::StyleColor::ScrollbarGrab)
+    // };
+    let selected_color = ui.style_color(imgui::StyleColor::Header);
+
+    let draw_list = ui.get_window_draw_list();
+    draw_list.channels_split(2, |split| {
+        // Draw foreground
+        split.set_current(1);
+
+        ui.group(|| {
+            let mut content_available_region = ImVec2::zero();
+            let content_available_region = ui.content_region_avail();
+            ui.invisible_button(name, [item_size as _, item_size as _]);
+            let min = ui.item_rect_min();
+            let max = ui.item_rect_max();
+            draw_list.add_rect(min, max, imgui::ImColor32::from_rgb_f32s(0.2, 0.2, 0.2)).build();
+            mock_drag_source(ui);
+
+            text_centered(name);
+        });
+
+        if app_state.ui_state.asset_browser_state.grid_state.selected_items.contains(name.to_str()) {
+            // Draw background
+            split.set_current(0);
+            let min = ui.item_rect_min();
+            let max = ui.item_rect_max();
+            draw_list.add_rect_filled_multicolor(min, max, selected_color, selected_color, selected_color, selected_color);
+            println!("{:?} {:?}", min, max);
+        }
+
+    });
+
+    try_select_grid_item(ui, &mut app_state.ui_state, name);
+
+    // if ui.is_item_clicked() {
+    //     println!("asset {:?} clicked", name);
+    //     app_state.ui_state.active_tool_region = Some(ActiveToolRegion::AssetBrowserGrid);
+    // }
+
+    stack_token.end();
+
+    context_menu(ui, Some(name), |ui| {
+        if imgui::MenuItem::new(&im_str!("Save {}", name)).build(ui) {
+            log::info!("safe asset {}", name);
+        }
+    });
 }
 
 
@@ -208,39 +316,37 @@ pub fn assets_window_right_header(
     ui: &imgui::Ui,
     app_state: &mut AppState,
 ) {
-    unsafe {
-        ui.button(im_str!("asd1"));
+    ui.button(im_str!("asd1"));
+    ui.same_line();
+    ui.button(im_str!("asd2"));;
+    ui.same_line();
+    ui.button(im_str!("asd3"));
+
+    // Determine size of the buttons and spacing between them
+    let mut b1 = size_of_button(im_str!("ButtonRight 1"), ImVec2::zero());
+    let mut b2 = size_of_button(im_str!("ButtonRight 2"), ImVec2::zero());
+    let mut b3 = size_of_button(im_str!("ButtonRight 3"), ImVec2::zero());
+    let spacing = unsafe {
+        (*is::igGetStyle()).ItemSpacing
+    };
+    let required_space_for_rhs_buttons = (b1.x + b2.x + b3.x) + (2.0 * spacing.x);
+
+    // Call same_line here so that we can get remaining x space on this line
+    ui.same_line();
+
+    let content_available_region = ui.content_region_avail();
+
+    // If there's enough space, draw, otherwise draw a dummy object
+    if content_available_region[0] > required_space_for_rhs_buttons {
+        ui.same_line_with_pos(ui.cursor_pos()[0] + (content_available_region[0] - required_space_for_rhs_buttons));
+        ui.button(im_str!("ButtonRight 1"));
         ui.same_line();
-        ui.button(im_str!("asd2"));;
+        ui.button(im_str!("ButtonRight 2"));;
         ui.same_line();
-        ui.button(im_str!("asd3"));
-
-        // Determine size of the buttons and spacing between them
-        let mut b1 = size_of_button(im_str!("ButtonRight 1"), ImVec2::zero());
-        let mut b2 = size_of_button(im_str!("ButtonRight 2"), ImVec2::zero());
-        let mut b3 = size_of_button(im_str!("ButtonRight 3"), ImVec2::zero());
-        let spacing = (*is::igGetStyle()).ItemSpacing;
-        let required_space_for_rhs_buttons = (b1.x + b2.x + b3.x) + (2.0 * spacing.x);
-
-        // Call same_line here so that we can get remaining x space on this line
-        ui.same_line();
-
-        let mut content_available_region = ImVec2::zero();
-        is::igGetContentRegionAvail(&mut content_available_region);
-
-        // If there's enough space, draw, otherwise draw a dummy object
-        if content_available_region.x > required_space_for_rhs_buttons {
-            //is::igSetCursorPosX(is::igGetCursorPosX() + (content_available_region.x - required_space_for_rhs_buttons));
-            ui.same_line_with_pos(is::igGetCursorPosX() + (content_available_region.x - required_space_for_rhs_buttons));
-            ui.button(im_str!("ButtonRight 1"));
-            ui.same_line();
-            ui.button(im_str!("ButtonRight 2"));;
-            ui.same_line();
-            ui.button(im_str!("ButtonRight 3"));
-        } else {
-            // We called same line above, but there isn't enough room to draw anything. So draw a 0x0 to consume the same_line call
-            ui.dummy([0.0, 0.0]);
-        }
+        ui.button(im_str!("ButtonRight 3"));
+    } else {
+        // We called same line above, but there isn't enough room to draw anything. So draw a 0x0 to consume the same_line call
+        ui.dummy([0.0, 0.0]);
     }
 }
 
@@ -283,25 +389,24 @@ pub fn assets_window_right(
         let outer_size = ImVec2::zero();
         let width = 0.0;
         if is::igBeginTable(im_str!("contents").as_ptr(), columns, is::ImGuiTableFlags__ImGuiTableFlags_NoPadOuterX as _, ImVec2::zero(), 0.0) {
-
-            for i in 0..columns {
+            for _ in 0..columns {
                 is::igTableSetupColumn(im_str!("").as_ptr(), is::ImGuiTableColumnFlags__ImGuiTableColumnFlags_WidthFixed as _, item_size as _, 0);
             }
 
-            // for i in 0..200 {
-            //     is::igTableNextColumn();
-            //
-            //     let name = im_str!("SomeAsset {}", i);
-            //     draw_asset(ui, app_state, &name, item_size);
-            // }
+            for i in 0..200 {
+                is::igTableNextColumn();
 
-
-
+                let name = im_str!("SomeAsset {}", i);
+                draw_asset(ui, app_state, &name, item_size);
+            }
 
             let mut filtered_objects = Vec::default();
-            if let Some(data_source) = app_state.file_system_package.data_source() {
-                for kvp in data_source.object_locations() {
-                    filtered_objects.push((*kvp.0, kvp.1.to_path_buf()));
+
+            for file_system_package in &app_state.file_system_packages {
+                if let Some(data_source) = file_system_package.data_source() {
+                    for kvp in data_source.object_locations() {
+                        filtered_objects.push((*kvp.0, kvp.1.to_path_buf()));
+                    }
                 }
             }
 
@@ -311,13 +416,6 @@ pub fn assets_window_right(
                 let name = im_str!("{} {}", v.file_name().unwrap().to_string_lossy(), k.as_uuid());
                 draw_asset(ui, app_state, &name, item_size);
             }
-
-            // for i in 0..200 {
-            //     is::igTableNextColumn();
-            //
-            //     let name = im_str!("SomeAsset {}", i);
-            //     draw_asset(ui, app_state, &name, item_size);
-            // }
 
             is::igEndTable();
         }

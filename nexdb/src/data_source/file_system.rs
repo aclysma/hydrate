@@ -2,20 +2,8 @@ use std::ffi::OsStr;
 use std::path::{Path, PathBuf};
 use crate::{ObjectId, HashSet, HashMap, Database};
 
-// We should scan for refreshed states on files
-// - Files we don't open or reference can be ignored, but we should show files being added/removed
-// - Assets (textures, meshes, etc.) that are in memory should be hot-reloaded
-// - nexdb files (nxt, nxb) should prompt user to reload
-//
-// nexdb files (nxt, nxb) are assumed to be related to the project and loaded
-// other files are only loaded if a nexdb file references it to define settings for using it.
-// generally a nexdb file will have matching name (i.e. cat.png -> cat.png.nxt)
-// no reason we can't support multiple .nxt pointing to same file (so if you want to use a texture
-// multiple ways
-// need a way for nxt schemas to identify assets? should this be a special type?
-// how do nxt/asset pairs produce cooked data? how is that data referenced?
-// maybe db supports special objects that are derived from other objects (so we don't save them as
-// source data)
+
+
 
 #[derive(Debug)]
 pub struct FileState {

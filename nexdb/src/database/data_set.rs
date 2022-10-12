@@ -451,26 +451,26 @@ impl DataSet {
 
     pub fn remove_property_override(
         &mut self,
-        object: ObjectId,
+        object_id: ObjectId,
         path: impl AsRef<str>,
     ) -> Option<Value> {
-        let mut obj = self.objects.get_mut(&object).unwrap();
-        obj.properties.remove(path.as_ref())
+        let mut object = self.objects.get_mut(&object_id).unwrap();
+        object.properties.remove(path.as_ref())
     }
 
     pub fn apply_property_override_to_prototype(
         &mut self,
         schema_set: &SchemaSet,
-        object: ObjectId,
+        object_id: ObjectId,
         path: impl AsRef<str>,
     ) {
-        let obj = self.objects.get(&object).unwrap();
-        let prototype = obj.prototype;
+        let object = self.objects.get(&object_id).unwrap();
+        let prototype_id = object.prototype;
 
-        if let Some(prototype) = prototype {
-            let v = self.remove_property_override(object, path.as_ref());
+        if let Some(prototype_id) = prototype_id {
+            let v = self.remove_property_override(object_id, path.as_ref());
             if let Some(v) = v {
-                self.set_property_override(schema_set, prototype, path, v);
+                self.set_property_override(schema_set, prototype_id, path, v);
             }
         }
     }
@@ -478,11 +478,10 @@ impl DataSet {
     pub fn resolve_property(
         &self,
         schema_set: &SchemaSet,
-        object: ObjectId,
+        object_id: ObjectId,
         path: impl AsRef<str>,
     ) -> Option<Value> {
-        let mut object_id = Some(object);
-        let mut object_schema = self.object_schema(object).unwrap();
+        let mut object_schema = self.object_schema(object_id).unwrap();
 
         // Contains the path segments that we need to check for being null
         let mut nullable_ancestors = vec![];
@@ -507,26 +506,27 @@ impl DataSet {
             .unwrap();
 
         for checked_property in &nullable_ancestors {
-            if self.resolve_is_null(schema_set, object, checked_property) != Some(false) {
+            if self.resolve_is_null(schema_set, object_id, checked_property) != Some(false) {
                 return None;
             }
         }
 
         for (path, key) in &accessed_dynamic_array_keys {
-            let dynamic_array_entries = self.resolve_dynamic_array(schema_set, object, path);
+            let dynamic_array_entries = self.resolve_dynamic_array(schema_set, object_id, path);
             if !dynamic_array_entries.contains(&Uuid::from_str(key).unwrap()) {
                 return None;
             }
         }
 
-        while let Some(obj_id) = object_id {
-            let obj = self.objects.get(&obj_id).unwrap();
+        let mut prototype_id = Some(object_id);
+        while let Some(prototype_id_iter) = prototype_id {
+            let obj = self.objects.get(&prototype_id_iter).unwrap();
 
             if let Some(value) = obj.properties.get(path.as_ref()) {
                 return Some(value.clone());
             }
 
-            object_id = obj.prototype;
+            prototype_id = obj.prototype;
         }
 
         //TODO: Return schema default value
@@ -536,18 +536,18 @@ impl DataSet {
     pub fn get_dynamic_array_overrides(
         &self,
         schema_set: &SchemaSet,
-        object: ObjectId,
+        object_id: ObjectId,
         path: impl AsRef<str>,
     ) -> &[Uuid] {
-        let mut object_schema = self.object_schema(object).unwrap();
-        let property_schema = object_schema.find_property_schema(&path, schema_set.schemas()).unwrap();
+        let object = self.objects.get(&object_id).unwrap();
+        let property_schema = object.schema.find_property_schema(&path, schema_set.schemas()).unwrap();
 
         if !property_schema.is_dynamic_array() {
             panic!("get_dynamic_array_overrides only allowed on dynamic arrays");
         }
 
-        let obj = self.objects.get(&object).unwrap();
-        if let Some(overrides) = obj.dynamic_array_entries.get(path.as_ref()) {
+        let object = self.objects.get(&object_id).unwrap();
+        if let Some(overrides) = object.dynamic_array_entries.get(path.as_ref()) {
             &*overrides
         } else {
             &[]
@@ -557,18 +557,17 @@ impl DataSet {
     pub fn add_dynamic_array_override(
         &mut self,
         schema_set: &SchemaSet,
-        object: ObjectId,
+        object_id: ObjectId,
         path: impl AsRef<str>,
     ) -> Uuid {
-        let mut object_schema = self.object_schema(object).unwrap().clone();
-        let property_schema = object_schema.find_property_schema(&path, schema_set.schemas()).unwrap();
+        let mut object = self.objects.get_mut(&object_id).unwrap();
+        let property_schema = object.schema.find_property_schema(&path, schema_set.schemas()).unwrap();
 
         if !property_schema.is_dynamic_array() {
             panic!("add_dynamic_array_override only allowed on dynamic arrays");
         }
 
-        let mut obj = self.objects.get_mut(&object).unwrap();
-        let entry = obj
+        let entry = object
             .dynamic_array_entries
             .entry(path.as_ref().to_string())
             .or_insert(Default::default());
@@ -580,19 +579,18 @@ impl DataSet {
     pub fn remove_dynamic_array_override(
         &mut self,
         schema_set: &SchemaSet,
-        object: ObjectId,
+        object_id: ObjectId,
         path: impl AsRef<str>,
         element_id: Uuid,
     ) {
-        let mut object_schema = self.object_schema(object).unwrap().clone();
-        let property_schema = object_schema.find_property_schema(&path, schema_set.schemas()).unwrap();
+        let object = self.objects.get_mut(&object_id).unwrap();
+        let property_schema = object.schema.find_property_schema(&path, schema_set.schemas()).unwrap();
 
         if !property_schema.is_dynamic_array() {
             panic!("remove_dynamic_array_override only allowed on dynamic arrays");
         }
 
-        let mut obj = self.objects.get_mut(&object).unwrap();
-        if let Some(override_list) = obj.dynamic_array_entries.get_mut(path.as_ref()) {
+        if let Some(override_list) = object.dynamic_array_entries.get_mut(path.as_ref()) {
             let index = override_list.iter().position(|x| *x == element_id);
             if let Some(index) = index {
                 override_list.remove(index);
@@ -659,10 +657,10 @@ impl DataSet {
     pub fn resolve_dynamic_array(
         &self,
         schema_set: &SchemaSet,
-        object: ObjectId,
+        object_id: ObjectId,
         path: impl AsRef<str>,
     ) -> Box<[Uuid]> {
-        let mut object_schema = self.object_schema(object).unwrap();
+        let mut object_schema = self.object_schema(object_id).unwrap();
 
         // Contains the path segments that we need to check for being null
         let mut nullable_ancestors = vec![];
@@ -687,13 +685,13 @@ impl DataSet {
         }
 
         for checked_property in &nullable_ancestors {
-            if self.resolve_is_null(schema_set, object, checked_property) != Some(false) {
+            if self.resolve_is_null(schema_set, object_id, checked_property) != Some(false) {
                 return vec![].into_boxed_slice();
             }
         }
 
         for (path, key) in &accessed_dynamic_array_keys {
-            let dynamic_array_entries = self.resolve_dynamic_array(schema_set, object, path);
+            let dynamic_array_entries = self.resolve_dynamic_array(schema_set, object_id, path);
             if !dynamic_array_entries.contains(&Uuid::from_str(key).unwrap()) {
                 return vec![].into_boxed_slice();
             }
@@ -701,7 +699,7 @@ impl DataSet {
 
         let mut resolved_entries = vec![];
         self.do_resolve_dynamic_array(
-            object,
+            object_id,
             path.as_ref(),
             &nullable_ancestors,
             &dynamic_array_ancestors,
@@ -715,10 +713,10 @@ impl DataSet {
     pub fn get_override_behavior(
         &self,
         schema_set: &SchemaSet,
-        object: ObjectId,
+        object_id: ObjectId,
         path: impl AsRef<str>,
     ) -> OverrideBehavior {
-        let object = self.objects.get(&object).unwrap();
+        let object = self.objects.get(&object_id).unwrap();
         let property_schema = object.schema.find_property_schema(&path, schema_set.schemas()).unwrap();
 
         match property_schema {
@@ -736,11 +734,11 @@ impl DataSet {
     pub fn set_override_behavior(
         &mut self,
         schema_set: &SchemaSet,
-        object: ObjectId,
+        object_id: ObjectId,
         path: impl AsRef<str>,
         behavior: OverrideBehavior,
     ) {
-        let object = self.objects.get_mut(&object).unwrap();
+        let object = self.objects.get_mut(&object_id).unwrap();
         let property_schema = object.schema.find_property_schema(&path, schema_set.schemas()).unwrap();
 
         match property_schema {

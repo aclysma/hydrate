@@ -134,17 +134,17 @@ impl DataSet {
 
     pub fn object_prototype(
         &self,
-        object: ObjectId
+        object_id: ObjectId
     ) -> Option<ObjectId> {
-        let o = self.objects.get(&object).unwrap();
-        o.prototype
+        let object = self.objects.get(&object_id).unwrap();
+        object.prototype
     }
 
     pub fn object_schema(
         &self,
-        object: ObjectId,
+        object_id: ObjectId,
     ) -> Option<&SchemaRecord> {
-        self.objects.get(&object).map(|x| &x.schema)
+        self.objects.get(&object_id).map(|x| &x.schema)
     }
 
     // pub(crate) fn property_schema(
@@ -262,11 +262,10 @@ impl DataSet {
     pub fn get_null_override(
         &self,
         schema_set: &SchemaSet,
-        object: ObjectId,
+        object_id: ObjectId,
         path: impl AsRef<str>,
     ) -> Option<NullOverride> {
-        //let mut object_schema = self.object_schema(object).unwrap();
-        let object = self.objects.get(&object).unwrap();
+        let object = self.objects.get(&object_id).unwrap();
         let property_schema = object.schema.find_property_schema(&path, schema_set.schemas()).unwrap();
 
         if property_schema.is_nullable() {
@@ -279,16 +278,15 @@ impl DataSet {
     pub fn set_null_override(
         &mut self,
         schema_set: &SchemaSet,
-        object: ObjectId,
+        object_id: ObjectId,
         path: impl AsRef<str>,
         null_override: NullOverride,
     ) {
-        let mut object_schema = self.object_schema(object).unwrap();
-        let property_schema = object_schema.find_property_schema(&path, schema_set.schemas()).unwrap();
+        let mut object = self.objects.get_mut(&object_id).unwrap();
+        let property_schema = object.schema.find_property_schema(&path, schema_set.schemas()).unwrap();
 
         if property_schema.is_nullable() {
-            let obj = self.objects.get_mut(&object).unwrap();
-            obj.property_null_overrides
+            object.property_null_overrides
                 .insert(path.as_ref().to_string(), null_override);
         }
     }
@@ -296,15 +294,14 @@ impl DataSet {
     pub fn remove_null_override(
         &mut self,
         schema_set: &SchemaSet,
-        object: ObjectId,
+        object_id: ObjectId,
         path: impl AsRef<str>,
     ) {
-        let mut object_schema = self.object_schema(object).unwrap();
-        let property_schema = object_schema.find_property_schema(&path, schema_set.schemas()).unwrap();
+        let mut object = self.objects.get_mut(&object_id).unwrap();
+        let property_schema = object.schema.find_property_schema(&path, schema_set.schemas()).unwrap();
 
         if property_schema.is_nullable() {
-            let obj = self.objects.get_mut(&object).unwrap();
-            obj.property_null_overrides.remove(path.as_ref());
+            object.property_null_overrides.remove(path.as_ref());
         }
     }
 
@@ -313,11 +310,10 @@ impl DataSet {
     pub fn resolve_is_null(
         &self,
         schema_set: &SchemaSet,
-        object: ObjectId,
+        object_id: ObjectId,
         path: impl AsRef<str>,
     ) -> Option<bool> {
-        let mut object_id = Some(object);
-        let mut object_schema = self.object_schema(object).unwrap();
+        let mut object_schema = self.object_schema(object_id).unwrap();
 
         // Contains the path segments that we need to check for being null
         let mut nullable_ancestors = vec![];
@@ -346,26 +342,28 @@ impl DataSet {
         }
 
         for checked_property in &nullable_ancestors {
-            if self.resolve_is_null(schema_set, object, checked_property) != Some(false) {
+            if self.resolve_is_null(schema_set, object_id, checked_property) != Some(false) {
                 return None;
             }
         }
 
         for (path, key) in &accessed_dynamic_array_keys {
-            let dynamic_array_entries = self.resolve_dynamic_array(schema_set, object, path);
+            let dynamic_array_entries = self.resolve_dynamic_array(schema_set, object_id, path);
             if !dynamic_array_entries.contains(&Uuid::from_str(key).unwrap()) {
                 return None;
             }
         }
 
-        while let Some(obj_id) = object_id {
-            let obj = self.objects.get(&obj_id).unwrap();
+        // Recursively look for a null override
+        let mut prototype_id = Some(object_id);
+        while let Some(prototype_id_iter) = prototype_id {
+            let obj = self.objects.get(&prototype_id_iter).unwrap();
 
             if let Some(value) = obj.property_null_overrides.get(path.as_ref()) {
                 return Some(*value == NullOverride::SetNull);
             }
 
-            object_id = obj.prototype;
+            prototype_id = obj.prototype;
         }
 
         //TODO: Return schema default value
@@ -374,32 +372,32 @@ impl DataSet {
 
     pub fn has_property_override(
         &self,
-        object: ObjectId,
+        object_id: ObjectId,
         path: impl AsRef<str>,
     ) -> bool {
-        self.get_property_override(object, path).is_some()
+        self.get_property_override(object_id, path).is_some()
     }
 
     // Just gets if this object has a property without checking prototype chain for fallback or returning a default
     // Returning none means it is not overridden
     pub fn get_property_override(
         &self,
-        object: ObjectId,
+        object_id: ObjectId,
         path: impl AsRef<str>,
     ) -> Option<&Value> {
-        let obj = self.objects.get(&object).unwrap();
-        obj.properties.get(path.as_ref())
+        let object = self.objects.get(&object_id).unwrap();
+        object.properties.get(path.as_ref())
     }
 
     // Just sets a property on this object, making it overridden, or replacing the existing override
     pub fn set_property_override(
         &mut self,
         schema_set: &SchemaSet,
-        object: ObjectId,
+        object_id: ObjectId,
         path: impl AsRef<str>,
         value: Value,
     ) -> bool {
-        let mut object_schema = self.object_schema(object).unwrap();
+        let mut object_schema = self.object_schema(object_id).unwrap();
         let mut property_schema =
             object_schema.find_property_schema(&path, schema_set.schemas()).unwrap();
 
@@ -434,19 +432,19 @@ impl DataSet {
             .unwrap();
 
         for checked_property in &nullable_ancestors {
-            if self.resolve_is_null(schema_set, object, checked_property) != Some(false) {
+            if self.resolve_is_null(schema_set, object_id, checked_property) != Some(false) {
                 return false;
             }
         }
 
         for (path, key) in &accessed_dynamic_array_keys {
-            let dynamic_array_entries = self.resolve_dynamic_array(schema_set, object, path);
+            let dynamic_array_entries = self.resolve_dynamic_array(schema_set, object_id, path);
             if !dynamic_array_entries.contains(&Uuid::from_str(key).unwrap()) {
                 return false;
             }
         }
 
-        let obj = self.objects.get_mut(&object).unwrap();
+        let obj = self.objects.get_mut(&object_id).unwrap();
         obj.properties.insert(path.as_ref().to_string(), value);
         true
     }

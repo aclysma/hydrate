@@ -17,7 +17,9 @@
           "42ba6e9c-5627-4eab-a167-85013ba5615b",
           "762034a3-fbad-4f8b-961c-46e37fb6b0ba",
           "8e4f310f-9a33-47fe-b9ea-139e1a8559cb"
-        ]
+        ],
+        "all_fields.nullable_bool.null_override": "SetNonNull",
+        "all_fields.nullable_bool.value": true
       }
     },
     {

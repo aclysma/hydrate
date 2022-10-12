@@ -325,29 +325,7 @@ impl SchemaCacheSingleFile {
 
     pub fn load_string(database: &mut Database, cache: &str) {
         let cache: SchemaCacheSingleFile = serde_json::from_str(cache).unwrap();
-
-        for cached_schema in cache.cached_schemas {
-            let schema = cached_schema.to_schema();
-            database.restore_named_type(schema);
-        }
+        let schemas: Vec<_> = cache.cached_schemas.into_iter().map(|x| x.to_schema()).collect();
+        database.restore_named_types(schemas);
     }
 }
-
-// pub trait SchemaCache {
-//     fn load(&self);
-//     fn store(&self, database: &Database);
-// }
-//
-// struct SchemaCacheSingleFile {
-//     path: PathBuf
-// }
-//
-// impl SchemaCache for SchemaCacheSingleFile {
-//     fn load(&self) {
-//         todo!()
-//     }
-//
-//     fn store(&self, database: &Database) {
-//
-//     }
-// }

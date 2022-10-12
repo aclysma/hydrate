@@ -122,7 +122,7 @@ impl SchemaNamedType {
 
         // Iterate the path segments to find
         for path_segment in split_path {
-            let s = schema.find_property_schema(path_segment, named_types);
+            let s = schema.find_field_schema(path_segment, named_types);
             if let Some(s) = s {
                 schema = s.clone();
             } else {
@@ -295,7 +295,31 @@ impl Schema {
     //     Some(schema)
     // }
 
-    pub fn find_property_schema<'a>(
+    // This recursively finds the schema through a full path
+    pub fn find_property_schema(
+        &self,
+        path: impl AsRef<str>,
+        named_types: &HashMap<SchemaFingerprint, SchemaNamedType>,
+    ) -> Option<Schema> {
+        let mut schema = self;
+        //TODO: Escape map keys (and probably avoid path strings anyways)
+        let split_path = path.as_ref().split(".");
+
+        // Iterate the path segments to find
+        for path_segment in split_path {
+            let s = self.find_field_schema(path_segment, named_types);
+            if let Some(s) = s {
+                schema = s;
+            } else {
+                return None;
+            }
+        }
+
+        Some(schema.clone())
+    }
+
+    // This looks for direct decendent field with given name
+    pub fn find_field_schema<'a>(
         &'a self,
         name: impl AsRef<str>,
         named_types: &'a HashMap<SchemaFingerprint, SchemaNamedType>,

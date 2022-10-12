@@ -9,8 +9,19 @@ pub enum NullOverride {
     SetNonNull,
 }
 
-pub struct DatabaseObjectInfo {
-    pub(crate) schema: SchemaNamedType, // Will always be a SchemaRecord
+#[derive(Debug, Copy, Clone, PartialEq)]
+pub enum OverrideBehavior {
+    Append,
+    Replace,
+}
+
+pub struct DataObjectDelta {
+
+}
+
+#[derive(Clone)]
+pub struct DataObjectInfo {
+    pub(crate) schema: SchemaRecord, // Will always be a SchemaRecord
     pub(crate) prototype: Option<ObjectId>,
     pub(crate) properties: HashMap<String, Value>,
     pub(crate) property_null_overrides: HashMap<String, NullOverride>,
@@ -18,29 +29,23 @@ pub struct DatabaseObjectInfo {
     pub(crate) dynamic_array_entries: HashMap<String, Vec<Uuid>>,
 }
 
-#[derive(Debug, Copy, Clone, PartialEq)]
-pub enum OverrideBehavior {
-    Append,
-    Replace,
-}
-
 #[derive(Default)]
 pub struct DataSet {
-    objects: HashMap<ObjectId, DatabaseObjectInfo>,
+    objects: HashMap<ObjectId, DataObjectInfo>,
 }
 
 impl DataSet {
-    pub fn all_objects<'a>(&'a self) -> HashMapKeys<'a, ObjectId, DatabaseObjectInfo> {
+    pub fn all_objects<'a>(&'a self) -> HashMapKeys<'a, ObjectId, DataObjectInfo> {
         self.objects.keys()
     }
 
-    pub(crate) fn objects(&self) -> &HashMap<ObjectId, DatabaseObjectInfo> {
+    pub(crate) fn objects(&self) -> &HashMap<ObjectId, DataObjectInfo> {
         &self.objects
     }
 
     pub(crate) fn insert_object(
         &mut self,
-        obj_info: DatabaseObjectInfo,
+        obj_info: DataObjectInfo,
     ) -> ObjectId {
         let id = ObjectId(uuid::Uuid::new_v4().as_u128());
         let old = self.objects.insert(id, obj_info);
@@ -53,8 +58,8 @@ impl DataSet {
         &mut self,
         schema: &SchemaRecord,
     ) -> ObjectId {
-        let obj = DatabaseObjectInfo {
-            schema: SchemaNamedType::Record(schema.clone()),
+        let obj = DataObjectInfo {
+            schema: schema.clone(),
             prototype: None,
             properties: Default::default(),
             property_null_overrides: Default::default(),
@@ -70,7 +75,7 @@ impl DataSet {
         prototype: ObjectId,
     ) -> ObjectId {
         let prototype_info = self.objects.get(&prototype).unwrap();
-        let obj = DatabaseObjectInfo {
+        let obj = DataObjectInfo {
             schema: prototype_info.schema.clone(),
             prototype: Some(prototype),
             properties: Default::default(),
@@ -94,8 +99,9 @@ impl DataSet {
         dynamic_array_entries: HashMap<String, Vec<Uuid>>,
     ) {
         let schema = schema_set.schemas().get(&schema).unwrap();
-        let obj = DatabaseObjectInfo {
-            schema: schema.clone(),
+        let schema_record = schema.as_record().cloned().unwrap();
+        let obj = DataObjectInfo {
+            schema: schema_record,
             prototype,
             properties,
             property_null_overrides,
@@ -137,7 +143,7 @@ impl DataSet {
     pub fn object_schema(
         &self,
         object: ObjectId,
-    ) -> Option<&SchemaNamedType> {
+    ) -> Option<&SchemaRecord> {
         self.objects.get(&object).map(|x| &x.schema)
     }
 
@@ -187,7 +193,7 @@ impl DataSet {
     }
 
     fn property_schema_and_path_ancestors_to_check<'a>(
-        named_type: &'a SchemaNamedType,
+        named_type: &'a SchemaRecord,
         path: impl AsRef<str>,
         named_types: &HashMap<SchemaFingerprint, SchemaNamedType>,
         nullable_ancestors: &mut Vec<String>,
@@ -204,7 +210,7 @@ impl DataSet {
 
         for (i, path_segment) in split_path[0..split_path.len() - 1].iter().enumerate() {
             //.as_ref().split(".").enumerate() {
-            let s = schema.find_property_schema(path_segment, named_types)?;
+            let s = schema.find_field_schema(path_segment, named_types)?;
             //println!("  next schema {:?}", s);
 
             // current path needs to be verified as existing
@@ -246,7 +252,7 @@ impl DataSet {
 
         if let Some(last_path_segment) = split_path.last() {
             schema = schema
-                .find_property_schema(split_path.last().unwrap(), named_types)?
+                .find_field_schema(split_path.last().unwrap(), named_types)?
                 .clone();
         }
 
@@ -259,12 +265,12 @@ impl DataSet {
         object: ObjectId,
         path: impl AsRef<str>,
     ) -> Option<NullOverride> {
-        let mut object_schema = self.object_schema(object).unwrap();
-        let property_schema = object_schema.find_property_schema(&path, schema_set.schemas()).unwrap();
+        //let mut object_schema = self.object_schema(object).unwrap();
+        let object = self.objects.get(&object).unwrap();
+        let property_schema = object.schema.find_property_schema(&path, schema_set.schemas()).unwrap();
 
         if property_schema.is_nullable() {
-            let obj = self.objects.get(&object).unwrap();
-            obj.property_null_overrides.get(path.as_ref()).copied()
+            object.property_null_overrides.get(path.as_ref()).copied()
         } else {
             None
         }
@@ -752,5 +758,14 @@ impl DataSet {
             }
             _ => panic!("unexpected schema type"),
         }
+    }
+
+    pub fn copy_from(
+        &mut self,
+        other: &DataSet,
+        object_id: ObjectId
+    ) {
+        let object = other.objects.get(&object_id).cloned().unwrap();
+        self.objects.insert(object_id, object);
     }
 }

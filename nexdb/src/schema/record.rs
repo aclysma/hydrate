@@ -1,6 +1,6 @@
 use super::Schema;
 use crate::schema::SchemaTypeIndex;
-use crate::{SchemaFingerprint, SchemaId};
+use crate::{HashMap, SchemaFingerprint, SchemaId, SchemaNamedType};
 use siphasher::sip128::Hasher128;
 use std::hash::{Hash, Hasher};
 use std::ops::Deref;
@@ -114,5 +114,13 @@ impl SchemaRecord {
         }
 
         None
+    }
+
+    pub fn find_property_schema(
+        &self,
+        path: impl AsRef<str>,
+        named_types: &HashMap<SchemaFingerprint, SchemaNamedType>,
+    ) -> Option<Schema> {
+        SchemaNamedType::Record(self.clone()).find_property_schema(path, named_types)
     }
 }

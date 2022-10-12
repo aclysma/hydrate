@@ -12,7 +12,7 @@ pub use value::Value;
 use crate::database::schema_set::SchemaSet;
 
 mod data_set;
-pub use data_set::DatabaseObjectInfo;
+pub use data_set::DataObjectInfo;
 pub use data_set::OverrideBehavior;
 pub use data_set::NullOverride;
 use crate::database::data_set::DataSet;
@@ -23,6 +23,36 @@ mod schema_set;
 mod tests;
 
 //TODO: Delete unused property data when path ancestor is null or in replace mode
+
+pub struct TransactionDiffs {
+
+}
+
+pub struct Transaction {
+    schema_set: Arc<SchemaSet>,
+    before: DataSet,
+    after: DataSet,
+}
+
+impl Transaction {
+    pub fn add_object(&mut self, baseline: &DataSet) {
+
+    }
+
+    pub fn create_diffs() {
+
+    }
+}
+
+// Delta
+// Added
+// Removed
+
+
+//TODO: Should we make a struct that refs the schema/data? We could have transactions and databases
+// return the temp struct with refs and move all the functions to that
+
+
 
 #[derive(Default)]
 pub struct Database {
@@ -89,17 +119,17 @@ impl Database {
         &self.data_set
     }
 
-    pub fn all_objects<'a>(&'a self) -> HashMapKeys<'a, ObjectId, DatabaseObjectInfo> {
+    pub fn all_objects<'a>(&'a self) -> HashMapKeys<'a, ObjectId, DataObjectInfo> {
         self.data_set.all_objects()
     }
 
-    pub(crate) fn objects(&self) -> &HashMap<ObjectId, DatabaseObjectInfo> {
+    pub(crate) fn objects(&self) -> &HashMap<ObjectId, DataObjectInfo> {
         self.data_set.objects()
     }
 
     pub(crate) fn insert_object(
         &mut self,
-        obj_info: DatabaseObjectInfo,
+        obj_info: DataObjectInfo,
     ) -> ObjectId {
         self.data_set.insert_object(obj_info)
     }
@@ -141,7 +171,7 @@ impl Database {
     pub fn object_schema(
         &self,
         object: ObjectId,
-    ) -> Option<&SchemaNamedType> {
+    ) -> Option<&SchemaRecord> {
         self.data_set.object_schema(object)
     }
 

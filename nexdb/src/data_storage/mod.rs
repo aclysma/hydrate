@@ -1,7 +1,7 @@
 use std::path::Path;
 use std::str::FromStr;
 use uuid::Uuid;
-use crate::{Database, DatabaseObjectInfo, HashMap, NullOverride, ObjectId, OverrideBehavior, Schema, SchemaFingerprint, SchemaNamedType, Value, HashSet};
+use crate::{Database, DataObjectInfo, HashMap, NullOverride, ObjectId, OverrideBehavior, Schema, SchemaFingerprint, SchemaNamedType, Value, HashSet};
 use serde::{Serialize, Deserialize};
 use serde_json::Number;
 

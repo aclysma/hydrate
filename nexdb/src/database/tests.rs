@@ -399,10 +399,9 @@
         );
         let uuid2 = db.add_dynamic_array_override(obj, "array");
         let prop2 = format!("array.{}.x", uuid2);
-        assert_eq!(
-            db.resolve_dynamic_array(obj, "array"),
-            vec![uuid1, uuid2].into_boxed_slice()
-        );
+        let resolved = db.resolve_dynamic_array(obj, "array");
+        assert!(resolved.contains(&uuid1));
+        assert!(resolved.contains(&uuid2));
 
         assert_eq!(
             db.resolve_property(obj, &prop1).unwrap().as_f32().unwrap(),

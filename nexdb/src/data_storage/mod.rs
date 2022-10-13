@@ -123,9 +123,11 @@ fn store_object_into_properties(
         }
         Schema::DynamicArray(dynamic_array) => {
             let elements = database.get_dynamic_array_overrides(object_id, path);
-            for element_id in elements {
-                let element_path = format!("{}.{}", path, element_id);
-                store_object_into_properties(database, object_id, stored_object, dynamic_array.item_type(), &element_path);
+            if let Some(elements) = elements {
+                for element_id in elements {
+                    let element_path = format!("{}.{}", path, element_id);
+                    store_object_into_properties(database, object_id, stored_object, dynamic_array.item_type(), &element_path);
+                }
             }
         }
         Schema::Map(_) => {
@@ -368,7 +370,7 @@ impl DataStorageJsonSingleFile {
             }
 
             for (path, elements) in &obj.dynamic_array_entries {
-                let mut sorted_elements = elements.clone();
+                let mut sorted_elements: Vec<_> = elements.iter().copied().collect();
                 sorted_elements.sort();
                 let elements_json: Vec<_> = sorted_elements.iter().map(|x| serde_json::Value::from(x.to_string())).collect();
                 let elements_json_array = serde_json::Value::from(elements_json);
@@ -489,7 +491,7 @@ impl DataStorageJsonSingleFile {
                 }
             }
 
-            let mut dynamic_array_entries_as_vec: HashMap<String, Vec<Uuid>> = Default::default();
+            let mut dynamic_array_entries_as_vec: HashMap<String, HashSet<Uuid>> = Default::default();
             for (k, v) in dynamic_array_entries {
                 dynamic_array_entries_as_vec.insert(k, v.into_iter().collect());
             }

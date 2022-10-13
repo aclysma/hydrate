@@ -2,6 +2,23 @@ use crate::ObjectId;
 use crate::Value::ObjectRef;
 use crate::{BufferId, HashMap, Schema, SchemaFingerprint, SchemaId, SchemaNamedType};
 
+#[derive(Clone, Debug, PartialEq)]
+pub enum PropertyValue {
+    Boolean(bool),
+    I32(i32),
+    I64(i64),
+    U32(u32),
+    U64(u64),
+    F32(f32),
+    F64(f64),
+    Bytes(Vec<u8>),
+    Buffer(BufferId),
+    String(String),
+    ObjectRef(ObjectId),
+    Enum(ValueEnum),
+    Fixed(Box<[u8]>),
+}
+
 #[derive(Clone, Debug)]
 pub struct ValueMap {
     properties: HashMap<Value, Value>,
@@ -11,6 +28,8 @@ pub struct ValueMap {
 pub struct ValueRecord {
     properties: HashMap<String, Value>,
 }
+
+
 /*
 impl ValueRecord {
     // fn get_property(&self, property_name: impl AsRef<str>) -> Option<&Value> {
@@ -22,7 +41,7 @@ impl ValueRecord {
     }
 }
 */
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct ValueEnum {
     //symbol_index: u32,
     symbol_name: String,
@@ -585,4 +604,43 @@ impl Value {
     //
     // Fixed
     //
+
+
+    pub fn as_property_value(&self) -> Option<PropertyValue> {
+        match self {
+            Value::Boolean(x) => Some(PropertyValue::Boolean(*x)),
+            Value::I32(x) => Some(PropertyValue::I32(*x)),
+            Value::I64(x) => Some(PropertyValue::I64(*x)),
+            Value::U32(x) => Some(PropertyValue::U32(*x)),
+            Value::U64(x) => Some(PropertyValue::U64(*x)),
+            Value::F32(x) => Some(PropertyValue::F32(*x)),
+            Value::F64(x) => Some(PropertyValue::F64(*x)),
+            Value::Bytes(x) => Some(PropertyValue::Bytes(x.clone())),
+            Value::Buffer(x) => Some(PropertyValue::Buffer(*x)),
+            Value::String(x) => Some(PropertyValue::String(x.clone())),
+            Value::ObjectRef(x) => Some(PropertyValue::ObjectRef(*x)),
+            Value::Enum(x) => Some(PropertyValue::Enum(x.clone())),
+            Value::Fixed(x) => Some(PropertyValue::Fixed(x.clone())),
+            _ => None
+        }
+    }
+
+    pub fn are_matching_property_values(lhs: &Value, rhs: &Value) -> bool {
+        match (lhs, rhs) {
+            (Value::Boolean(lhs), Value::Boolean(rhs)) => *lhs == *rhs,
+            (Value::I32(lhs), Value::I32(rhs)) => *lhs == *rhs,
+            (Value::I64(lhs), Value::I64(rhs)) => *lhs == *rhs,
+            (Value::U32(lhs), Value::U32(rhs)) => *lhs == *rhs,
+            (Value::U64(lhs), Value::U64(rhs)) => *lhs == *rhs,
+            (Value::F32(lhs), Value::F32(rhs)) => *lhs == *rhs,
+            (Value::F64(lhs), Value::F64(rhs)) => *lhs == *rhs,
+            (Value::Bytes(lhs), Value::Bytes(rhs)) => *lhs == *rhs,
+            (Value::Buffer(lhs), Value::Buffer(rhs)) => *lhs == *rhs,
+            (Value::String(lhs), Value::String(rhs)) => *lhs == *rhs,
+            (Value::ObjectRef(lhs), Value::ObjectRef(rhs)) => *lhs == *rhs,
+            (Value::Enum(lhs), Value::Enum(rhs)) => *lhs == *rhs,
+            (Value::Fixed(lhs), Value::Fixed(rhs)) => *lhs == *rhs,
+            _ => false
+        }
+    }
 }

@@ -5,7 +5,7 @@ use std::str::FromStr;
 use std::sync::Arc;
 use uuid::Uuid;
 
-use crate::{BufferId, HashMapKeys, SchemaLinker, SchemaLinkerResult};
+use crate::{BufferId, HashMapKeys, HashSetIter, SchemaLinker, SchemaLinkerResult};
 
 pub mod value;
 pub use value::Value;
@@ -156,7 +156,7 @@ impl Database {
         properties: HashMap<String, Value>,
         property_null_overrides: HashMap<String, NullOverride>,
         properties_in_replace_mode: HashSet<String>,
-        dynamic_array_entries: HashMap<String, Vec<Uuid>>,
+        dynamic_array_entries: HashMap<String, HashSet<Uuid>>,
     ) {
         self.data_set.restore_object(&self.schema_set, object_id, prototype, schema, properties, property_null_overrides, properties_in_replace_mode, dynamic_array_entries)
     }
@@ -260,11 +260,11 @@ impl Database {
         self.data_set.resolve_property(&self.schema_set, object_id, path)
     }
 
-    pub fn get_dynamic_array_overrides(
-        &self,
+    pub fn get_dynamic_array_overrides<'a>(
+        &'a self,
         object_id: ObjectId,
         path: impl AsRef<str>,
-    ) -> &[Uuid] {
+    ) -> Option<HashSetIter<'a, Uuid>> {
         self.data_set.get_dynamic_array_overrides(&self.schema_set, object_id, path)
     }
 

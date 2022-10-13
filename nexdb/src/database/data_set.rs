@@ -1,7 +1,8 @@
 use std::str::FromStr;
 use uuid::Uuid;
-use crate::{HashMap, HashMapKeys, HashSet, ObjectId, Schema, SchemaFingerprint, SchemaNamedType, SchemaRecord, Value};
+use crate::{HashMap, HashMapKeys, HashSet, HashSetIter, ObjectId, Schema, SchemaFingerprint, SchemaNamedType, SchemaRecord, Value};
 use crate::database::schema_set::SchemaSet;
+use crate::value::PropertyValue;
 
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub enum NullOverride {
@@ -26,7 +27,7 @@ pub struct DataObjectInfo {
     pub(crate) properties: HashMap<String, Value>,
     pub(crate) property_null_overrides: HashMap<String, NullOverride>,
     pub(crate) properties_in_replace_mode: HashSet<String>,
-    pub(crate) dynamic_array_entries: HashMap<String, Vec<Uuid>>,
+    pub(crate) dynamic_array_entries: HashMap<String, HashSet<Uuid>>,
 }
 
 #[derive(Default)]
@@ -96,7 +97,7 @@ impl DataSet {
         properties: HashMap<String, Value>,
         property_null_overrides: HashMap<String, NullOverride>,
         properties_in_replace_mode: HashSet<String>,
-        dynamic_array_entries: HashMap<String, Vec<Uuid>>,
+        dynamic_array_entries: HashMap<String, HashSet<Uuid>>,
     ) {
         let schema = schema_set.schemas().get(&schema).unwrap();
         let schema_record = schema.as_record().cloned().unwrap();
@@ -533,12 +534,12 @@ impl DataSet {
         Some(Value::default_for_schema(&property_schema, schema_set.schemas()).clone())
     }
 
-    pub fn get_dynamic_array_overrides(
-        &self,
+    pub fn get_dynamic_array_overrides<'a>(
+        &'a self,
         schema_set: &SchemaSet,
         object_id: ObjectId,
         path: impl AsRef<str>,
-    ) -> &[Uuid] {
+    ) -> Option<HashSetIter<'a, Uuid>> {
         let object = self.objects.get(&object_id).unwrap();
         let property_schema = object.schema.find_property_schema(&path, schema_set.schemas()).unwrap();
 
@@ -548,9 +549,9 @@ impl DataSet {
 
         let object = self.objects.get(&object_id).unwrap();
         if let Some(overrides) = object.dynamic_array_entries.get(path.as_ref()) {
-            &*overrides
+            Some(overrides.iter())
         } else {
-            &[]
+            None
         }
     }
 
@@ -572,7 +573,10 @@ impl DataSet {
             .entry(path.as_ref().to_string())
             .or_insert(Default::default());
         let new_uuid = Uuid::new_v4();
-        entry.push(new_uuid);
+        let already_existed = !entry.insert(new_uuid);
+        if already_existed {
+            panic!("Already existed")
+        }
         new_uuid
     }
 
@@ -591,11 +595,8 @@ impl DataSet {
         }
 
         if let Some(override_list) = object.dynamic_array_entries.get_mut(path.as_ref()) {
-            let index = override_list.iter().position(|x| *x == element_id);
-            if let Some(index) = index {
-                override_list.remove(index);
-            } else {
-                panic!("override not found");
+            if !override_list.remove(&element_id) {
+                panic!("Could not find override")
             }
         }
     }
@@ -763,5 +764,187 @@ impl DataSet {
     ) {
         let object = other.objects.get(&object_id).cloned().unwrap();
         self.objects.insert(object_id, object);
+    }
+}
+
+pub struct DynamicArrayEntryDelta {
+    key: String,
+    add: Vec<Uuid>,
+    remove: Vec<Uuid>
+}
+
+#[derive(Default)]
+pub struct ObjectDelta {
+    set_prototype: Option<Option<ObjectId>>,
+    set_properties: Vec<(String, PropertyValue)>,
+    remove_properties: Vec<String>,
+    set_null_overrides: Vec<(String, NullOverride)>,
+    remove_null_overrides: Vec<String>,
+    add_properties_in_replace_mode: Vec<String>,
+    remove_properties_in_replace_mode: Vec<String>,
+    dynamic_array_entry_deltas: Vec<DynamicArrayEntryDelta>,
+}
+
+impl ObjectDelta {
+    pub fn new(
+        before_data_set: &DataSet,
+        before_object_id: ObjectId,
+        after_data_set: DataSet,
+        after_object_id: ObjectId,
+    ) {
+        let before_obj = before_data_set.objects.get(&before_object_id).unwrap();
+        let after_obj = after_data_set.objects.get(&after_object_id).unwrap();
+
+        // pub(crate) properties_in_replace_mode: HashSet<String>,
+        // pub(crate) dynamic_array_entries: HashMap<String, Vec<Uuid>>,
+
+        assert_eq!(before_obj.schema.fingerprint(), after_obj.schema.fingerprint());
+
+        let mut apply_diff = ObjectDelta::default();
+        let mut revert_diff = ObjectDelta::default();
+
+        //
+        // Prototype
+        //
+        if before_obj.prototype != after_obj.prototype {
+            apply_diff.set_prototype = Some(after_obj.prototype);
+            revert_diff.set_prototype = Some(before_obj.prototype);
+        }
+
+        //
+        // Properties
+        //
+        for (key, before_value) in &before_obj.properties {
+            if let Some(after_value) = after_obj.properties.get(key) {
+                if !Value::are_matching_property_values(before_value, after_value) {
+                    // Value was changed
+                    apply_diff.set_properties.push((key.clone(), after_value.as_property_value().unwrap()));
+                    revert_diff.set_properties.push((key.clone(), before_value.as_property_value().unwrap()));
+                } else {
+                    // No change
+                }
+            } else {
+                // Property was removed
+                apply_diff.remove_properties.push(key.clone());
+                revert_diff.set_properties.push((key.clone(), before_value.as_property_value().unwrap()));
+            }
+        }
+
+        for (key, after_value) in &after_obj.properties {
+            if !before_obj.properties.contains_key(key) {
+                // Property was added
+                apply_diff.set_properties.push((key.clone(), after_value.as_property_value().unwrap()));
+                revert_diff.remove_properties.push(key.clone());
+            }
+        }
+
+
+        //
+        // Null Overrides
+        //
+        for (key, &before_value) in &before_obj.property_null_overrides {
+            if let Some(after_value) = after_obj.property_null_overrides.get(key).copied() {
+                if before_value != after_value {
+                    // Value was changed
+                    apply_diff.set_null_overrides.push((key.clone(), after_value));
+                    revert_diff.set_null_overrides.push((key.clone(), before_value));
+                } else {
+                    // No change
+                }
+            } else {
+                // Property was removed
+                apply_diff.remove_null_overrides.push(key.clone());
+                revert_diff.set_null_overrides.push((key.clone(), before_value));
+            }
+        }
+
+        for (key, &after_value) in &after_obj.property_null_overrides {
+            if !before_obj.property_null_overrides.contains_key(key) {
+                // Property was added
+                apply_diff.set_null_overrides.push((key.clone(), after_value));
+                revert_diff.remove_properties.push(key.clone());
+            }
+        }
+
+        //
+        // Properties in replace mode
+        //
+        for replace_mode_property in &before_obj.properties_in_replace_mode {
+            if after_obj.properties_in_replace_mode.contains(replace_mode_property) {
+                // Replace mode disabled
+                apply_diff.remove_properties_in_replace_mode.push(replace_mode_property.clone());
+                revert_diff.add_properties_in_replace_mode.push(replace_mode_property.clone());
+            }
+        }
+
+        for replace_mode_property in &after_obj.properties_in_replace_mode {
+            if before_obj.properties_in_replace_mode.contains(replace_mode_property) {
+                // Replace mode enabled
+                apply_diff.add_properties_in_replace_mode.push(replace_mode_property.clone());
+                revert_diff.remove_properties_in_replace_mode.push(replace_mode_property.clone());
+            }
+        }
+
+        //
+        // Dynamic Array Entries
+        //
+        for (key, old_entries) in &before_obj.dynamic_array_entries {
+            if let Some(new_entries) = after_obj.dynamic_array_entries.get(key) {
+                // Diff the hashes
+                let mut added_entries = Vec::default();
+                let mut removed_entries = Vec::default();
+
+                for old_entry in old_entries {
+                    if !new_entries.contains(&old_entry) {
+                        removed_entries.push(*old_entry);
+                    }
+                }
+
+                for new_entry in new_entries {
+                    if !old_entries.contains(&new_entry) {
+                        added_entries.push(*new_entry);
+                    }
+                }
+
+                apply_diff.dynamic_array_entry_deltas.push(DynamicArrayEntryDelta {
+                    key: key.clone(),
+                    add: added_entries.clone(),
+                    remove: removed_entries.clone(),
+                });
+                revert_diff.dynamic_array_entry_deltas.push(DynamicArrayEntryDelta {
+                    key: key.clone(),
+                    add: removed_entries,
+                    remove: added_entries,
+                });
+            } else {
+                // All of them were removed
+                apply_diff.dynamic_array_entry_deltas.push(DynamicArrayEntryDelta {
+                    key: key.clone(),
+                    add: Default::default(),
+                    remove: old_entries.iter().copied().collect(),
+                });
+                revert_diff.dynamic_array_entry_deltas.push(DynamicArrayEntryDelta {
+                    key: key.clone(),
+                    add: old_entries.iter().copied().collect(),
+                    remove: Default::default(),
+                });
+            }
+        }
+
+        for (key, new_entries) in &after_obj.dynamic_array_entries {
+            if !before_obj.dynamic_array_entries.contains_key(key) {
+                // All of them were added
+                apply_diff.dynamic_array_entry_deltas.push(DynamicArrayEntryDelta {
+                    key: key.clone(),
+                    add: new_entries.iter().copied().collect(),
+                    remove: Default::default(),
+                });
+                revert_diff.dynamic_array_entry_deltas.push(DynamicArrayEntryDelta {
+                    key: key.clone(),
+                    add: Default::default(),
+                    remove: new_entries.iter().copied().collect(),
+                });
+            }
+        }
     }
 }

@@ -773,8 +773,10 @@ pub struct DynamicArrayEntryDelta {
     remove: Vec<Uuid>
 }
 
+
+
 #[derive(Default)]
-pub struct ObjectDelta {
+pub struct ObjectDiff {
     set_prototype: Option<Option<ObjectId>>,
     set_properties: Vec<(String, PropertyValue)>,
     remove_properties: Vec<String>,
@@ -785,23 +787,44 @@ pub struct ObjectDelta {
     dynamic_array_entry_deltas: Vec<DynamicArrayEntryDelta>,
 }
 
-impl ObjectDelta {
-    pub fn new(
+impl ObjectDiff {
+    pub fn has_change(&self) -> bool {
+        self.set_prototype.is_some() ||
+            !self.set_properties.is_empty() ||
+            !self.remove_properties.is_empty() ||
+            !self.set_null_overrides.is_empty() ||
+            !self.remove_null_overrides.is_empty() ||
+            !self.add_properties_in_replace_mode.is_empty() ||
+            !self.add_properties_in_replace_mode.is_empty() ||
+            !self.remove_properties_in_replace_mode.is_empty() ||
+            !self.dynamic_array_entry_deltas.is_empty()
+    }
+}
+
+pub struct ObjectDiffSet {
+    pub apply_diff: ObjectDiff,
+    pub revert_diff: ObjectDiff,
+}
+
+impl ObjectDiffSet {
+    pub fn has_change(&self) -> bool {
+        // assume if apply has no changes, neither does revert
+        self.apply_diff.has_change()
+    }
+
+    pub fn diff_objects(
         before_data_set: &DataSet,
         before_object_id: ObjectId,
-        after_data_set: DataSet,
+        after_data_set: &DataSet,
         after_object_id: ObjectId,
-    ) {
+    ) -> Self {
         let before_obj = before_data_set.objects.get(&before_object_id).unwrap();
         let after_obj = after_data_set.objects.get(&after_object_id).unwrap();
 
-        // pub(crate) properties_in_replace_mode: HashSet<String>,
-        // pub(crate) dynamic_array_entries: HashMap<String, Vec<Uuid>>,
-
         assert_eq!(before_obj.schema.fingerprint(), after_obj.schema.fingerprint());
 
-        let mut apply_diff = ObjectDelta::default();
-        let mut revert_diff = ObjectDelta::default();
+        let mut apply_diff = ObjectDiff::default();
+        let mut revert_diff = ObjectDiff::default();
 
         //
         // Prototype
@@ -870,7 +893,7 @@ impl ObjectDelta {
         // Properties in replace mode
         //
         for replace_mode_property in &before_obj.properties_in_replace_mode {
-            if after_obj.properties_in_replace_mode.contains(replace_mode_property) {
+            if !after_obj.properties_in_replace_mode.contains(replace_mode_property) {
                 // Replace mode disabled
                 apply_diff.remove_properties_in_replace_mode.push(replace_mode_property.clone());
                 revert_diff.add_properties_in_replace_mode.push(replace_mode_property.clone());
@@ -878,7 +901,7 @@ impl ObjectDelta {
         }
 
         for replace_mode_property in &after_obj.properties_in_replace_mode {
-            if before_obj.properties_in_replace_mode.contains(replace_mode_property) {
+            if !before_obj.properties_in_replace_mode.contains(replace_mode_property) {
                 // Replace mode enabled
                 apply_diff.add_properties_in_replace_mode.push(replace_mode_property.clone());
                 revert_diff.remove_properties_in_replace_mode.push(replace_mode_property.clone());
@@ -906,45 +929,56 @@ impl ObjectDelta {
                     }
                 }
 
-                apply_diff.dynamic_array_entry_deltas.push(DynamicArrayEntryDelta {
-                    key: key.clone(),
-                    add: added_entries.clone(),
-                    remove: removed_entries.clone(),
-                });
-                revert_diff.dynamic_array_entry_deltas.push(DynamicArrayEntryDelta {
-                    key: key.clone(),
-                    add: removed_entries,
-                    remove: added_entries,
-                });
+                if !added_entries.is_empty() || !removed_entries.is_empty() {
+                    apply_diff.dynamic_array_entry_deltas.push(DynamicArrayEntryDelta {
+                        key: key.clone(),
+                        add: added_entries.clone(),
+                        remove: removed_entries.clone(),
+                    });
+                    revert_diff.dynamic_array_entry_deltas.push(DynamicArrayEntryDelta {
+                        key: key.clone(),
+                        add: removed_entries,
+                        remove: added_entries,
+                    });
+                }
             } else {
-                // All of them were removed
-                apply_diff.dynamic_array_entry_deltas.push(DynamicArrayEntryDelta {
-                    key: key.clone(),
-                    add: Default::default(),
-                    remove: old_entries.iter().copied().collect(),
-                });
-                revert_diff.dynamic_array_entry_deltas.push(DynamicArrayEntryDelta {
-                    key: key.clone(),
-                    add: old_entries.iter().copied().collect(),
-                    remove: Default::default(),
-                });
+                if !old_entries.is_empty() {
+                    // All of them were removed
+                    apply_diff.dynamic_array_entry_deltas.push(DynamicArrayEntryDelta {
+                        key: key.clone(),
+                        add: Default::default(),
+                        remove: old_entries.iter().copied().collect(),
+                    });
+                    revert_diff.dynamic_array_entry_deltas.push(DynamicArrayEntryDelta {
+                        key: key.clone(),
+                        add: old_entries.iter().copied().collect(),
+                        remove: Default::default(),
+                    });
+                }
             }
         }
 
         for (key, new_entries) in &after_obj.dynamic_array_entries {
-            if !before_obj.dynamic_array_entries.contains_key(key) {
-                // All of them were added
-                apply_diff.dynamic_array_entry_deltas.push(DynamicArrayEntryDelta {
-                    key: key.clone(),
-                    add: new_entries.iter().copied().collect(),
-                    remove: Default::default(),
-                });
-                revert_diff.dynamic_array_entry_deltas.push(DynamicArrayEntryDelta {
-                    key: key.clone(),
-                    add: Default::default(),
-                    remove: new_entries.iter().copied().collect(),
-                });
+            if !new_entries.is_empty() {
+                if !before_obj.dynamic_array_entries.contains_key(key) {
+                    // All of them were added
+                    apply_diff.dynamic_array_entry_deltas.push(DynamicArrayEntryDelta {
+                        key: key.clone(),
+                        add: new_entries.iter().copied().collect(),
+                        remove: Default::default(),
+                    });
+                    revert_diff.dynamic_array_entry_deltas.push(DynamicArrayEntryDelta {
+                        key: key.clone(),
+                        add: Default::default(),
+                        remove: new_entries.iter().copied().collect(),
+                    });
+                }
             }
+        }
+
+        ObjectDiffSet {
+            apply_diff,
+            revert_diff,
         }
     }
 }

@@ -15,7 +15,7 @@ mod data_set;
 pub use data_set::DataObjectInfo;
 pub use data_set::OverrideBehavior;
 pub use data_set::NullOverride;
-use crate::database::data_set::DataSet;
+use crate::database::data_set::{DataSet, ObjectDiff, ObjectDiffSet};
 
 mod schema_set;
 
@@ -51,6 +51,290 @@ impl Transaction {
 
 //TODO: Should we make a struct that refs the schema/data? We could have transactions and databases
 // return the temp struct with refs and move all the functions to that
+
+#[derive(Default)]
+pub struct TransactionDiff {
+    creates: Vec<DataObjectInfo>,
+    deletes: Vec<ObjectId>,
+    changes: HashMap<ObjectId, ObjectDiff>
+}
+
+
+
+pub struct TransactionDiffSet {
+    apply_diff: TransactionDiff,
+    revert_diff: TransactionDiff,
+}
+
+
+
+
+// Transaction that holds exclusive access for the data and will directly commit changes. It can
+// compare directly against the original dataset for changes
+pub struct ImmediateTransaction<'a> {
+    schema_set: Arc<SchemaSet>,
+    before: &'a DataSet,
+    after: DataSet,
+    tracked_objects: HashSet<ObjectId>,
+}
+
+impl<'a> ImmediateTransaction<'a> {
+    pub fn create_diff_set(&self) -> TransactionDiffSet {
+        let mut apply_diff = TransactionDiff::default();
+        let mut revert_diff = TransactionDiff::default();
+
+        // Check for created objects
+        for &object_id in &self.tracked_objects {
+            let existed_before = self.before.objects().contains_key(&object_id);
+            let existed_after = self.after.objects().contains_key(&object_id);
+            if existed_before {
+                if existed_after {
+                    // changed
+                    let diff = ObjectDiffSet::diff_objects(self.before, object_id,  &self.after, object_id);
+                    if diff.has_change() {
+                        apply_diff.changes.insert(object_id, diff.apply_diff);
+                        revert_diff.changes.insert(object_id, diff.revert_diff);
+                    }
+                } else {
+                    // deleted
+                    apply_diff.deletes.push(object_id);
+                    revert_diff.creates.push(self.before.objects().get(&object_id).unwrap().clone());
+                }
+            } else if existed_after {
+                // created
+                apply_diff.creates.push(self.after.objects().get(&object_id).unwrap().clone());
+                revert_diff.deletes.push(object_id);
+            }
+        }
+
+        TransactionDiffSet {
+            apply_diff,
+            revert_diff
+        }
+    }
+
+    fn data_set_for_read(&self, object_id: ObjectId) -> &DataSet {
+        if !self.tracked_objects.contains(&object_id) {
+            &self.before
+        } else {
+            &self.after
+        }
+    }
+
+    fn data_set_for_write(&mut self, object_id: ObjectId) -> &mut DataSet {
+        if !self.after.objects().contains_key(&object_id) {
+            self.after.copy_from(self.before, object_id);
+        }
+        &mut self.after
+    }
+
+    pub fn new_object(
+        &mut self,
+        schema: &SchemaRecord,
+    ) -> ObjectId {
+        let object_id = self.after.new_object(schema);
+        self.tracked_objects.insert(object_id);
+        object_id
+    }
+
+    pub fn new_object_from_prototype(
+        &mut self,
+        prototype: ObjectId,
+    ) -> ObjectId {
+        let object_id = self.after.new_object_from_prototype(prototype);
+        self.tracked_objects.insert(object_id);
+        object_id
+    }
+
+    pub(crate) fn restore_object(
+        &mut self,
+        object_id: ObjectId,
+        prototype: Option<ObjectId>,
+        schema: SchemaFingerprint,
+        properties: HashMap<String, Value>,
+        property_null_overrides: HashMap<String, NullOverride>,
+        properties_in_replace_mode: HashSet<String>,
+        dynamic_array_entries: HashMap<String, HashSet<Uuid>>,
+    ) {
+        self.after.restore_object(&self.schema_set, object_id, prototype, schema, properties, property_null_overrides, properties_in_replace_mode, dynamic_array_entries);
+        self.tracked_objects.insert(object_id);
+    }
+
+    pub fn object_prototype(
+        &self,
+        object_id: ObjectId
+    ) -> Option<ObjectId> {
+        self.data_set_for_read(object_id).object_prototype(object_id)
+    }
+
+    pub fn object_schema(
+        &self,
+        object_id: ObjectId,
+    ) -> Option<&SchemaRecord> {
+        self.data_set_for_read(object_id).object_schema(object_id)
+    }
+
+    pub fn get_null_override(
+        &self,
+        object_id: ObjectId,
+        path: impl AsRef<str>,
+    ) -> Option<NullOverride> {
+        self.data_set_for_read(object_id).get_null_override(&self.schema_set, object_id, path)
+    }
+
+    pub fn set_null_override(
+        &mut self,
+        object_id: ObjectId,
+        path: impl AsRef<str>,
+        null_override: NullOverride,
+    ) {
+        let schema_set = self.schema_set.clone();
+        self.data_set_for_write(object_id).set_null_override(&schema_set, object_id, path, null_override)
+    }
+
+    pub fn remove_null_override(
+        &mut self,
+        object_id: ObjectId,
+        path: impl AsRef<str>,
+    ) {
+        let schema_set = self.schema_set.clone();
+        self.data_set_for_write(object_id).remove_null_override(&schema_set, object_id, path)
+    }
+
+    pub fn resolve_is_null(
+        &self,
+        object_id: ObjectId,
+        path: impl AsRef<str>,
+    ) -> Option<bool> {
+        self.data_set_for_read(object_id).resolve_is_null(&self.schema_set, object_id, path)
+    }
+
+    pub fn has_property_override(
+        &self,
+        object_id: ObjectId,
+        path: impl AsRef<str>,
+    ) -> bool {
+        self.data_set_for_read(object_id).has_property_override(object_id, path)
+    }
+
+    // Just gets if this object has a property without checking prototype chain for fallback or returning a default
+    // Returning none means it is not overridden
+    pub fn get_property_override(
+        &self,
+        object_id: ObjectId,
+        path: impl AsRef<str>,
+    ) -> Option<&Value> {
+        self.data_set_for_read(object_id).get_property_override(object_id, path)
+    }
+
+    // Just sets a property on this object, making it overridden, or replacing the existing override
+    pub fn set_property_override(
+        &mut self,
+        object_id: ObjectId,
+        path: impl AsRef<str>,
+        value: Value,
+    ) -> bool {
+        let schema_set = self.schema_set.clone();
+        self.data_set_for_write(object_id).set_property_override(&schema_set, object_id, path, value)
+    }
+
+    pub fn remove_property_override(
+        &mut self,
+        object_id: ObjectId,
+        path: impl AsRef<str>,
+    ) -> Option<Value> {
+        self.data_set_for_write(object_id).remove_property_override(object_id, path)
+    }
+
+    pub fn apply_property_override_to_prototype(
+        &mut self,
+        object_id: ObjectId,
+        path: impl AsRef<str>,
+    ) {
+        let schema_set = self.schema_set.clone();
+        self.data_set_for_write(object_id).apply_property_override_to_prototype(&schema_set, object_id, path)
+    }
+
+    pub fn resolve_property(
+        &self,
+        object_id: ObjectId,
+        path: impl AsRef<str>,
+    ) -> Option<Value> {
+        self.data_set_for_read(object_id).resolve_property(&self.schema_set, object_id, path)
+    }
+
+    pub fn get_dynamic_array_overrides(
+        &self,
+        object_id: ObjectId,
+        path: impl AsRef<str>,
+    ) -> Option<HashSetIter<Uuid>> {
+        self.data_set_for_read(object_id).get_dynamic_array_overrides(&self.schema_set, object_id, path)
+    }
+
+    pub fn add_dynamic_array_override(
+        &mut self,
+        object_id: ObjectId,
+        path: impl AsRef<str>,
+    ) -> Uuid {
+        let schema_set = self.schema_set.clone();
+        self.data_set_for_write(object_id).add_dynamic_array_override(&schema_set, object_id, path)
+    }
+
+    pub fn remove_dynamic_array_override(
+        &mut self,
+        object_id: ObjectId,
+        path: impl AsRef<str>,
+        element_id: Uuid,
+    ) {
+        let schema_set = self.schema_set.clone();
+        self.data_set_for_write(object_id).remove_dynamic_array_override(&schema_set, object_id, path, element_id)
+    }
+
+    pub fn resolve_dynamic_array(
+        &self,
+        object_id: ObjectId,
+        path: impl AsRef<str>,
+    ) -> Box<[Uuid]> {
+        self.data_set_for_read(object_id).resolve_dynamic_array(&self.schema_set, object_id, path)
+    }
+
+    pub fn get_override_behavior(
+        &self,
+        object_id: ObjectId,
+        path: impl AsRef<str>,
+    ) -> OverrideBehavior {
+        self.data_set_for_read(object_id).get_override_behavior(&self.schema_set, object_id, path)
+    }
+
+    pub fn set_override_behavior(
+        &mut self,
+        object_id: ObjectId,
+        path: impl AsRef<str>,
+        behavior: OverrideBehavior,
+    ) {
+        let schema_set = self.schema_set.clone();
+        self.data_set_for_write(object_id).set_override_behavior(&schema_set, object_id, path, behavior)
+    }
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -260,11 +544,11 @@ impl Database {
         self.data_set.resolve_property(&self.schema_set, object_id, path)
     }
 
-    pub fn get_dynamic_array_overrides<'a>(
-        &'a self,
+    pub fn get_dynamic_array_overrides(
+        &self,
         object_id: ObjectId,
         path: impl AsRef<str>,
-    ) -> Option<HashSetIter<'a, Uuid>> {
+    ) -> Option<HashSetIter<Uuid>> {
         self.data_set.get_dynamic_array_overrides(&self.schema_set, object_id, path)
     }
 

@@ -20,7 +20,9 @@
         ],
         "all_fields.nullable_bool.null_override": "SetNonNull",
         "all_fields.nullable_bool.value": true,
-        "all_fields.reference": "a702a318-f59a-4736-b0a1-ef1d53572622"
+        "all_fields.reference": "a702a318-f59a-4736-b0a1-ef1d53572622",
+        "all_fields.u32": 98,
+        "all_fields.u64": 66
       }
     },
     {
@@ -29,6 +31,7 @@
       "schema_name": "Transform",
       "prototype": null,
       "properties": {
+        "all_fields.boolean": false,
         "all_fields.dynamic_array_i32": [
           "749e1866-375a-4fde-8c69-8a65fe13a095",
           "8ce05740-4902-46b1-b2cc-25db2301e3db"

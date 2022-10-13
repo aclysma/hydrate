@@ -22,6 +22,13 @@ fn draw_menu_bar(
                 app_state.ui_state.redock_windows = true;
             }
         });
+        ui.menu(im_str!("Edit"), || {
+            if imgui::MenuItem::new(im_str!("Undo")).build(ui) {
+                if let Some(undo_step) = app_state.undo_queue.pop() {
+                    undo_step.revert_diff.apply(app_state.test_data_nexdb.db.data_set_mut());
+                }
+            }
+        });
         ui.menu(im_str!("Debug"), || {
             if imgui::MenuItem::new(im_str!("Toggle ImGui Demo Window")).build(ui) {
                 app_state.ui_state.show_imgui_demo_window = !app_state.ui_state.show_imgui_demo_window;

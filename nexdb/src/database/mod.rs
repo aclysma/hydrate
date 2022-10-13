@@ -52,21 +52,99 @@ impl Transaction {
 //TODO: Should we make a struct that refs the schema/data? We could have transactions and databases
 // return the temp struct with refs and move all the functions to that
 
-#[derive(Default)]
+#[derive(Default, Debug)]
 pub struct TransactionDiff {
     creates: Vec<DataObjectInfo>,
     deletes: Vec<ObjectId>,
     changes: HashMap<ObjectId, ObjectDiff>
 }
 
+impl TransactionDiff {
+    pub fn has_changes(&self) -> bool {
+        !self.creates.is_empty() || !self.deletes.is_empty() || !self.changes.is_empty()
+    }
 
+    pub fn apply(&self, data_set: &mut DataSet) {
+        for create in &self.creates {
+            data_set.insert_object(create.clone());
+        }
 
-pub struct TransactionDiffSet {
-    apply_diff: TransactionDiff,
-    revert_diff: TransactionDiff,
+        for delete in &self.deletes {
+            data_set.delete_object(*delete);
+        }
+
+        for (object_id, v) in &self.changes {
+            if let Some(object) = data_set.objects_mut().get_mut(object_id) {
+                v.apply(object);
+            }
+        }
+    }
 }
 
 
+#[derive(Debug)]
+pub struct TransactionDiffSet {
+    pub apply_diff: TransactionDiff,
+    pub revert_diff: TransactionDiff,
+}
+
+impl TransactionDiffSet {
+    pub fn has_changes(&self) -> bool {
+        // assume if apply has no changes, neither does revert
+        self.apply_diff.has_changes()
+    }
+
+    pub fn diff_data_set(before: &DataSet, after: &DataSet, tracked_objects: &HashSet<ObjectId>) -> Self {
+        let mut apply_diff = TransactionDiff::default();
+        let mut revert_diff = TransactionDiff::default();
+
+        // Check for created objects
+        for &object_id in tracked_objects {
+            let existed_before = before.objects().contains_key(&object_id);
+            let existed_after = after.objects().contains_key(&object_id);
+            if existed_before {
+                if existed_after {
+                    // changed
+                    let diff = ObjectDiffSet::diff_objects(before, object_id,  &after, object_id);
+                    if diff.has_changes() {
+                        apply_diff.changes.insert(object_id, diff.apply_diff);
+                        revert_diff.changes.insert(object_id, diff.revert_diff);
+                    }
+                } else {
+                    // deleted
+                    apply_diff.deletes.push(object_id);
+                    revert_diff.creates.push(before.objects().get(&object_id).unwrap().clone());
+                }
+            } else if existed_after {
+                // created
+                apply_diff.creates.push(after.objects().get(&object_id).unwrap().clone());
+                revert_diff.deletes.push(object_id);
+            }
+        }
+
+        TransactionDiffSet {
+            apply_diff,
+            revert_diff
+        }
+    }
+}
+
+pub struct DeferredTransaction {
+    schema_set: Arc<SchemaSet>,
+    after: DataSet,
+    tracked_objects: HashSet<ObjectId>,
+}
+
+impl DeferredTransaction {
+    pub fn resume(self, data_set: &DataSet) -> ImmediateTransaction {
+        ImmediateTransaction {
+            schema_set: self.schema_set,
+            before: data_set,
+            after: self.after,
+            tracked_objects: self.tracked_objects
+        }
+    }
+}
 
 
 // Transaction that holds exclusive access for the data and will directly commit changes. It can
@@ -79,38 +157,47 @@ pub struct ImmediateTransaction<'a> {
 }
 
 impl<'a> ImmediateTransaction<'a> {
+    pub fn defer(self) -> DeferredTransaction {
+        DeferredTransaction {
+            schema_set: self.schema_set,
+            after: self.after,
+            tracked_objects: self.tracked_objects
+        }
+    }
+
     pub fn create_diff_set(&self) -> TransactionDiffSet {
-        let mut apply_diff = TransactionDiff::default();
-        let mut revert_diff = TransactionDiff::default();
-
-        // Check for created objects
-        for &object_id in &self.tracked_objects {
-            let existed_before = self.before.objects().contains_key(&object_id);
-            let existed_after = self.after.objects().contains_key(&object_id);
-            if existed_before {
-                if existed_after {
-                    // changed
-                    let diff = ObjectDiffSet::diff_objects(self.before, object_id,  &self.after, object_id);
-                    if diff.has_change() {
-                        apply_diff.changes.insert(object_id, diff.apply_diff);
-                        revert_diff.changes.insert(object_id, diff.revert_diff);
-                    }
-                } else {
-                    // deleted
-                    apply_diff.deletes.push(object_id);
-                    revert_diff.creates.push(self.before.objects().get(&object_id).unwrap().clone());
-                }
-            } else if existed_after {
-                // created
-                apply_diff.creates.push(self.after.objects().get(&object_id).unwrap().clone());
-                revert_diff.deletes.push(object_id);
-            }
-        }
-
-        TransactionDiffSet {
-            apply_diff,
-            revert_diff
-        }
+        TransactionDiffSet::diff_data_set(self.before, &self.after, &self.tracked_objects)
+        // let mut apply_diff = TransactionDiff::default();
+        // let mut revert_diff = TransactionDiff::default();
+        //
+        // // Check for created objects
+        // for &object_id in &self.tracked_objects {
+        //     let existed_before = self.before.objects().contains_key(&object_id);
+        //     let existed_after = self.after.objects().contains_key(&object_id);
+        //     if existed_before {
+        //         if existed_after {
+        //             // changed
+        //             let diff = ObjectDiffSet::diff_objects(self.before, object_id,  &self.after, object_id);
+        //             if diff.has_changes() {
+        //                 apply_diff.changes.insert(object_id, diff.apply_diff);
+        //                 revert_diff.changes.insert(object_id, diff.revert_diff);
+        //             }
+        //         } else {
+        //             // deleted
+        //             apply_diff.deletes.push(object_id);
+        //             revert_diff.creates.push(self.before.objects().get(&object_id).unwrap().clone());
+        //         }
+        //     } else if existed_after {
+        //         // created
+        //         apply_diff.creates.push(self.after.objects().get(&object_id).unwrap().clone());
+        //         revert_diff.deletes.push(object_id);
+        //     }
+        // }
+        //
+        // TransactionDiffSet {
+        //     apply_diff,
+        //     revert_diff
+        // }
     }
 
     fn data_set_for_read(&self, object_id: ObjectId) -> &DataSet {
@@ -122,11 +209,66 @@ impl<'a> ImmediateTransaction<'a> {
     }
 
     fn data_set_for_write(&mut self, object_id: ObjectId) -> &mut DataSet {
-        if !self.after.objects().contains_key(&object_id) {
+        if !self.tracked_objects.contains(&object_id) {
             self.after.copy_from(self.before, object_id);
+            self.tracked_objects.insert(object_id);
         }
+
+        if let Some(prototype) = self.after.objects().get(&object_id).unwrap().prototype {
+            // add the prototype
+            self.data_set_for_write(prototype);
+        }
+
         &mut self.after
     }
+
+
+
+
+
+
+
+
+
+
+
+    //
+    // Schema-related functions
+    //
+    pub(crate) fn schema_set(&self) -> &SchemaSet {
+        &self.schema_set
+    }
+
+    pub fn schemas(&self) -> &HashMap<SchemaFingerprint, SchemaNamedType> {
+        &self.schema_set.schemas()
+    }
+
+    pub fn find_named_type(
+        &self,
+        name: impl AsRef<str>,
+    ) -> Option<&SchemaNamedType> {
+        self.schema_set.find_named_type(name)
+    }
+
+    pub fn find_named_type_by_fingerprint(
+        &self,
+        fingerprint: SchemaFingerprint,
+    ) -> Option<&SchemaNamedType> {
+        self.schema_set.find_named_type_by_fingerprint(fingerprint)
+    }
+
+    pub fn default_value_for_schema(
+        &self,
+        schema: &Schema,
+    ) -> Value {
+        self.schema_set.default_value_for_schema(schema)
+    }
+
+
+
+
+
+
 
     pub fn new_object(
         &mut self,
@@ -345,10 +487,20 @@ pub struct Database {
 }
 
 impl Database {
+    pub fn create_immediate_transaction(&self) -> ImmediateTransaction {
+        ImmediateTransaction {
+            schema_set: self.schema_set.clone(),
+            before: &self.data_set,
+            after: Default::default(),
+            tracked_objects: Default::default()
+        }
+    }
+
+
     //
     // Schema-related functions
     //
-    pub(crate) fn schema_set(&self) -> &SchemaSet {
+    pub fn schema_set(&self) -> &SchemaSet {
         &self.schema_set
     }
 
@@ -399,8 +551,12 @@ impl Database {
     //
     // Data-related functions
     //
-    pub(crate) fn data_set(&self) -> &DataSet {
+    pub fn data_set(&self) -> &DataSet {
         &self.data_set
+    }
+
+    pub fn data_set_mut(&mut self) -> &mut DataSet {
+        &mut self.data_set
     }
 
     pub fn all_objects<'a>(&'a self) -> HashMapKeys<'a, ObjectId, DataObjectInfo> {

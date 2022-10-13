@@ -1,4 +1,4 @@
-use nexdb::{HashSet, ObjectId};
+use nexdb::{DeferredTransaction, HashSet, ObjectId, TransactionDiffSet};
 use crate::data_source::{FileSystemPackage};
 use crate::db_state::DbState;
 
@@ -46,15 +46,18 @@ impl Default for UiState {
     }
 }
 
-pub struct DataState {
-
+pub struct DeferredTransactionState {
+    key: String,
+    transaction: DeferredTransaction
 }
 
 // This struct is a simple example of something that can be inspected
 pub struct AppState {
     pub file_system_packages: Vec<FileSystemPackage>,
     pub test_data_nexdb: DbState,
-    pub ui_state: UiState
+    pub ui_state: UiState,
+    pub deferred_transaction: Option<DeferredTransactionState>,
+    pub undo_queue: Vec<TransactionDiffSet>,
 }
 
 impl AppState {
@@ -63,6 +66,25 @@ impl AppState {
             file_system_packages,
             test_data_nexdb: test_data,
             ui_state: UiState::default(),
+            deferred_transaction: None,
+            undo_queue: Default::default()
         }
+    }
+
+    pub fn give_deferred_transaction(&mut self, key: String, transaction: DeferredTransaction) {
+        self.deferred_transaction = Some(DeferredTransactionState {
+            key,
+            transaction
+        })
+    }
+
+    pub fn try_resume_transaction(&mut self, key: &str) -> Option<DeferredTransaction> {
+        if let Some(deferred_transaction) = self.deferred_transaction.take() {
+            if deferred_transaction.key == key {
+                return Some(deferred_transaction.transaction)
+            }
+        }
+
+        None
     }
 }

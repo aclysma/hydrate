@@ -20,7 +20,7 @@ pub struct DataObjectDelta {
 
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct DataObjectInfo {
     pub(crate) schema: SchemaRecord, // Will always be a SchemaRecord
     pub(crate) prototype: Option<ObjectId>,
@@ -44,6 +44,10 @@ impl DataSet {
         &self.objects
     }
 
+    pub(crate) fn objects_mut(&mut self) -> &mut HashMap<ObjectId, DataObjectInfo> {
+        &mut self.objects
+    }
+
     pub(crate) fn insert_object(
         &mut self,
         obj_info: DataObjectInfo,
@@ -53,6 +57,14 @@ impl DataSet {
         assert!(old.is_none());
 
         id
+    }
+
+    pub fn delete_object(
+        &mut self,
+        object_id: ObjectId
+    ) {
+        //TODO: Kill subobjects too
+        self.objects.remove(&object_id);
     }
 
     pub fn new_object(
@@ -767,6 +779,7 @@ impl DataSet {
     }
 }
 
+#[derive(Debug)]
 pub struct DynamicArrayEntryDelta {
     key: String,
     add: Vec<Uuid>,
@@ -775,7 +788,7 @@ pub struct DynamicArrayEntryDelta {
 
 
 
-#[derive(Default)]
+#[derive(Default, Debug)]
 pub struct ObjectDiff {
     set_prototype: Option<Option<ObjectId>>,
     set_properties: Vec<(String, PropertyValue)>,
@@ -788,16 +801,79 @@ pub struct ObjectDiff {
 }
 
 impl ObjectDiff {
-    pub fn has_change(&self) -> bool {
+    pub fn has_changes(&self) -> bool {
         self.set_prototype.is_some() ||
             !self.set_properties.is_empty() ||
             !self.remove_properties.is_empty() ||
             !self.set_null_overrides.is_empty() ||
             !self.remove_null_overrides.is_empty() ||
             !self.add_properties_in_replace_mode.is_empty() ||
-            !self.add_properties_in_replace_mode.is_empty() ||
             !self.remove_properties_in_replace_mode.is_empty() ||
             !self.dynamic_array_entry_deltas.is_empty()
+    }
+
+    pub fn apply(&self, object: &mut DataObjectInfo) {
+        if let Some(set_prototype) = self.set_prototype {
+            object.prototype = set_prototype;
+        }
+
+        for (k, v) in &self.set_properties {
+            object.properties.insert(k.clone(), v.as_value());
+        }
+
+        for k in &self.remove_properties {
+            object.properties.remove(k);
+        }
+
+        for (k, v) in &self.set_null_overrides {
+            object.property_null_overrides.insert(k.clone(), *v);
+        }
+
+        for k in &self.remove_properties {
+            object.property_null_overrides.remove(k);
+        }
+
+        for k in &self.add_properties_in_replace_mode {
+            object.properties_in_replace_mode.insert(k.clone());
+        }
+
+        for k in &self.remove_properties_in_replace_mode {
+            object.properties_in_replace_mode.remove(k);
+        }
+
+        for delta in &self.dynamic_array_entry_deltas {
+            if !delta.add.is_empty() {
+                //
+                // Path where we add keys: We may need to create the entry in the map. Won't need to remove it
+                //
+                let existing_entries = if let Some(existing_entries) = object.dynamic_array_entries.get_mut(&delta.key) {
+                    existing_entries
+                } else {
+                    object.dynamic_array_entries.entry(delta.key.clone()).or_default()
+                };
+
+                for k in &delta.add {
+                    existing_entries.insert(*k);
+                }
+
+                for k in &delta.remove {
+                    existing_entries.remove(k);
+                }
+            } else if !delta.remove.is_empty() {
+                //
+                // Path where we don't add keys but we remove keys: We may need to delete the entry in the map. Won't need to add it
+                //
+                if let Some(existing_entries) = object.dynamic_array_entries.get_mut(&delta.key) {
+                    for k in &delta.remove {
+                        existing_entries.remove(k);
+                    }
+
+                    if existing_entries.is_empty() {
+                        object.dynamic_array_entries.remove(&delta.key);
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -807,9 +883,9 @@ pub struct ObjectDiffSet {
 }
 
 impl ObjectDiffSet {
-    pub fn has_change(&self) -> bool {
+    pub fn has_changes(&self) -> bool {
         // assume if apply has no changes, neither does revert
-        self.apply_diff.has_change()
+        self.apply_diff.has_changes()
     }
 
     pub fn diff_objects(
@@ -885,7 +961,7 @@ impl ObjectDiffSet {
             if !before_obj.property_null_overrides.contains_key(key) {
                 // Property was added
                 apply_diff.set_null_overrides.push((key.clone(), after_value));
-                revert_diff.remove_properties.push(key.clone());
+                revert_diff.remove_null_overrides.push(key.clone());
             }
         }
 

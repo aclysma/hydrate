@@ -19,6 +19,27 @@ pub enum PropertyValue {
     Fixed(Box<[u8]>),
 }
 
+impl PropertyValue {
+    pub fn as_value(&self) -> Value {
+        match self {
+            PropertyValue::Boolean(x) => Value::Boolean(*x),
+            PropertyValue::I32(x) => Value::I32(*x),
+            PropertyValue::I64(x) => Value::I64(*x),
+            PropertyValue::U32(x) => Value::U32(*x),
+            PropertyValue::U64(x) => Value::U64(*x),
+            PropertyValue::F32(x) => Value::F32(*x),
+            PropertyValue::F64(x) => Value::F64(*x),
+            PropertyValue::Bytes(x) => Value::Bytes(x.clone()),
+            PropertyValue::Buffer(x) => Value::Buffer(*x),
+            PropertyValue::String(x) => Value::String(x.clone()),
+            PropertyValue::ObjectRef(x) => Value::ObjectRef(*x),
+            PropertyValue::Enum(x) => Value::Enum(x.clone()),
+            PropertyValue::Fixed(x) => Value::Fixed(x.clone()),
+        }
+    }
+}
+
+
 #[derive(Clone, Debug)]
 pub struct ValueMap {
     properties: HashMap<Value, Value>,

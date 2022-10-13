@@ -19,7 +19,8 @@
           "8e4f310f-9a33-47fe-b9ea-139e1a8559cb"
         ],
         "all_fields.nullable_bool.null_override": "SetNonNull",
-        "all_fields.nullable_bool.value": true
+        "all_fields.nullable_bool.value": true,
+        "all_fields.reference": "a702a318-f59a-4736-b0a1-ef1d53572622"
       }
     },
     {

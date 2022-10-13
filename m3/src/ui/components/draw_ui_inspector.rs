@@ -592,10 +592,7 @@ fn draw_inspector_nexdb_property(
         Schema::DynamicArray(array) => {
             let resolve = db.resolve_dynamic_array(object_id, &property_path);
             let overrides: Vec<_> = db
-                .get_dynamic_array_overrides(object_id, &property_path)
-                .iter()
-                .cloned()
-                .collect();
+                .get_dynamic_array_overrides(object_id, &property_path).map(|x| x.cloned().collect()).unwrap_or_default();
 
             ui.text(im_str!("{}", property_name));
             if imgui::CollapsingHeader::new(&im_str!("elements")).build(ui) {
@@ -617,7 +614,7 @@ fn draw_inspector_nexdb_property(
                     index += 1;
                 }
 
-                for id in &overrides {
+                for id in overrides {
                     let field_path = format!("{}.{}", property_path, id);
                     let id_token = ui.push_id(&field_path);
                     draw_inspector_nexdb_property(

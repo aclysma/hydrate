@@ -68,7 +68,7 @@ pub fn run() {
                 event: winit::event::WindowEvent::CloseRequested,
                 ..
             } => {
-                app_state.test_data_nexdb.save();
+                app_state.db_state.save();
                 //save_state(&app_state.test_data_nexdb.db);
                 *control_flow = winit::event_loop::ControlFlow::Exit
             }
@@ -88,7 +88,7 @@ pub fn run() {
                     },
                 ..
             } => {
-                app_state.test_data_nexdb.save();
+                app_state.db_state.save();
                 //save_state(&app_state.test_data_nexdb.db);
                 *control_flow = winit::event_loop::ControlFlow::Exit
             }

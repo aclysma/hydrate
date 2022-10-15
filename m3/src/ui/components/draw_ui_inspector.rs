@@ -873,14 +873,14 @@ pub fn draw_inspector_nexdb(
 ) {
     let mut transaction = if let Some(transaction) = app_state.try_resume_transaction("inspector") {
         println!("resuming");
-        transaction.resume(app_state.test_data_nexdb.db.data_set())
+        transaction.resume(app_state.db_state.db.data_set())
     } else {
-        app_state.test_data_nexdb.db.create_immediate_transaction()
+        app_state.db_state.db.create_immediate_transaction()
     };
 
     let ui_state = &mut app_state.ui_state;
     //let mut transaction = app_state.test_data_nexdb.db.create_immediate_transaction();
-    let schema = app_state.test_data_nexdb.db.object_schema(object_id).clone();
+    let schema = app_state.db_state.db.object_schema(object_id).clone();
     let mut is_editing = false;
     let mut is_editing_complete = false;
 
@@ -917,12 +917,12 @@ pub fn draw_inspector_nexdb(
         // Save it
     } else {
         // Finish transaction, push to undo queue
-        let transaction = transaction.resume(&app_state.test_data_nexdb.db.data_set());
+        let transaction = transaction.resume(&app_state.db_state.db.data_set());
         let diff_set = transaction.create_diff_set();
         if diff_set.has_changes() {
             println!("edit complete");
             //println!("diff set is {:#?}", diff_set);
-            diff_set.apply_diff.apply(&mut app_state.test_data_nexdb.db.data_set_mut());
+            diff_set.apply_diff.apply(&mut app_state.db_state.db.data_set_mut());
             app_state.undo_queue.push(diff_set);
         }
     }

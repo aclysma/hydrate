@@ -54,7 +54,7 @@ pub struct DeferredTransactionState {
 // This struct is a simple example of something that can be inspected
 pub struct AppState {
     pub file_system_packages: Vec<FileSystemPackage>,
-    pub test_data_nexdb: DbState,
+    pub db_state: DbState,
     pub ui_state: UiState,
     pub deferred_transaction: Option<DeferredTransactionState>,
     pub undo_queue: Vec<TransactionDiffSet>,
@@ -64,7 +64,7 @@ impl AppState {
     pub fn new(file_system_packages: Vec<FileSystemPackage>, test_data: DbState) -> Self {
         AppState {
             file_system_packages,
-            test_data_nexdb: test_data,
+            db_state: test_data,
             ui_state: UiState::default(),
             deferred_transaction: None,
             undo_queue: Default::default()

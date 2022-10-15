@@ -5,7 +5,7 @@ use imgui::sys::{
     igDragFloat, igDragScalar, igInputDouble, ImGuiDataType__ImGuiDataType_Double,
     ImGuiInputTextFlags__ImGuiInputTextFlags_None, ImVec2,
 };
-use nexdb::{Database, ImmediateTransaction, Schema, Transaction, DataSetDiffSet};
+use nexdb::{Database, Schema, DataSetDiffSet};
 use std::convert::TryInto;
 use crate::ui::asset_browser_grid_drag_drop::AssetBrowserGridPayload;
 
@@ -33,7 +33,7 @@ fn draw_property_style<F: FnOnce(&imgui::Ui)>(
 fn draw_inspector_simple_property<F: FnOnce(&imgui::Ui, nexdb::Value) -> Option<nexdb::Value>>(
     ui: &imgui::Ui,
     ui_state: &UiState,
-    transaction: &mut ImmediateTransaction,
+    db: &mut Database,
     object_id: nexdb::ObjectId,
     property_path: &str,
     property_name: &str,
@@ -43,14 +43,14 @@ fn draw_inspector_simple_property<F: FnOnce(&imgui::Ui, nexdb::Value) -> Option<
 ) {
     use nexdb::*;
     let mut v = if property_inherited {
-        if let Some(value) = transaction.resolve_property(object_id, &property_path) {
+        if let Some(value) = db.resolve_property(object_id, &property_path) {
             value.clone()
         } else {
-            transaction.default_value_for_schema(schema)
+            db.default_value_for_schema(schema)
             //Value::default_for_schema(schema).clone()
         }
     } else {
-        transaction.get_property_override(object_id, &property_path)
+        db.get_property_override(object_id, &property_path)
             .unwrap()
             .clone()
     };
@@ -63,11 +63,11 @@ fn draw_inspector_simple_property<F: FnOnce(&imgui::Ui, nexdb::Value) -> Option<
             imgui::sys::ImGuiPopupFlags_MouseButtonRight as _,
         ) {
             if imgui::MenuItem::new(im_str!("Clear Override")).build(ui) {
-                transaction.remove_property_override(object_id, &property_path);
+                db.remove_property_override(object_id, &property_path);
             }
 
             if imgui::MenuItem::new(im_str!("Apply Override")).build(ui) {
-                transaction.apply_property_override_to_prototype(object_id, &property_path);
+                db.apply_property_override_to_prototype(object_id, &property_path);
             }
 
             imgui::sys::igEndPopup();
@@ -75,14 +75,14 @@ fn draw_inspector_simple_property<F: FnOnce(&imgui::Ui, nexdb::Value) -> Option<
     }
 
     if let Some(new_value) = new_value {
-        transaction.set_property_override(object_id, &property_path, new_value);
+        db.set_property_override(object_id, &property_path, new_value);
     }
 }
 
 fn draw_inspector_simple_property_bool(
     ui: &imgui::Ui,
     ui_state: &mut UiState,
-    transaction: &mut ImmediateTransaction,
+    db: &mut Database,
     is_editing: &mut bool,
     is_editing_complete: &mut bool,
     object_id: nexdb::ObjectId,
@@ -96,7 +96,7 @@ fn draw_inspector_simple_property_bool(
     draw_inspector_simple_property(
         ui,
         ui_state,
-        transaction,
+        db,
         object_id,
         property_path,
         property_name,
@@ -127,7 +127,7 @@ fn draw_inspector_simple_property_bool(
 fn draw_inspector_simple_property_i32(
     ui: &imgui::Ui,
     ui_state: &mut UiState,
-    transaction: &mut ImmediateTransaction,
+    db: &mut Database,
     is_editing: &mut bool,
     is_editing_complete: &mut bool,
     object_id: nexdb::ObjectId,
@@ -141,7 +141,7 @@ fn draw_inspector_simple_property_i32(
     draw_inspector_simple_property(
         ui,
         ui_state,
-        transaction,
+        db,
         object_id,
         property_path,
         property_name,
@@ -153,7 +153,7 @@ fn draw_inspector_simple_property_i32(
             let modified = imgui::Drag::new(&property_im_str).build(ui, &mut v);
 
             if ui.is_item_active() {
-                println!("active");
+                //println!("active");
                 *is_editing = true;
             }
 
@@ -173,7 +173,7 @@ fn draw_inspector_simple_property_i32(
 fn draw_inspector_simple_property_u32(
     ui: &imgui::Ui,
     ui_state: &mut UiState,
-    transaction: &mut ImmediateTransaction,
+    db: &mut Database,
     is_editing: &mut bool,
     is_editing_complete: &mut bool,
     object_id: nexdb::ObjectId,
@@ -187,7 +187,7 @@ fn draw_inspector_simple_property_u32(
     draw_inspector_simple_property(
         ui,
         ui_state,
-        transaction,
+        db,
         object_id,
         property_path,
         property_name,
@@ -218,7 +218,7 @@ fn draw_inspector_simple_property_u32(
 fn draw_inspector_simple_property_i64(
     ui: &imgui::Ui,
     ui_state: &mut UiState,
-    transaction: &mut ImmediateTransaction,
+    db: &mut Database,
     is_editing: &mut bool,
     is_editing_complete: &mut bool,
     object_id: nexdb::ObjectId,
@@ -232,7 +232,7 @@ fn draw_inspector_simple_property_i64(
     draw_inspector_simple_property(
         ui,
         ui_state,
-        transaction,
+        db,
         object_id,
         property_path,
         property_name,
@@ -263,7 +263,7 @@ fn draw_inspector_simple_property_i64(
 fn draw_inspector_simple_property_u64(
     ui: &imgui::Ui,
     ui_state: &mut UiState,
-    transaction: &mut ImmediateTransaction,
+    db: &mut Database,
     is_editing: &mut bool,
     is_editing_complete: &mut bool,
     object_id: nexdb::ObjectId,
@@ -277,7 +277,7 @@ fn draw_inspector_simple_property_u64(
     draw_inspector_simple_property(
         ui,
         ui_state,
-        transaction,
+        db,
         object_id,
         property_path,
         property_name,
@@ -308,7 +308,7 @@ fn draw_inspector_simple_property_u64(
 fn draw_inspector_simple_property_f32(
     ui: &imgui::Ui,
     ui_state: &mut UiState,
-    transaction: &mut ImmediateTransaction,
+    db: &mut Database,
     is_editing: &mut bool,
     is_editing_complete: &mut bool,
     object_id: nexdb::ObjectId,
@@ -322,7 +322,7 @@ fn draw_inspector_simple_property_f32(
     draw_inspector_simple_property(
         ui,
         ui_state,
-        transaction,
+        db,
         object_id,
         property_path,
         property_name,
@@ -353,7 +353,7 @@ fn draw_inspector_simple_property_f32(
 fn draw_inspector_simple_property_f64(
     ui: &imgui::Ui,
     ui_state: &mut UiState,
-    transaction: &mut ImmediateTransaction,
+    db: &mut Database,
     is_editing: &mut bool,
     is_editing_complete: &mut bool,
     object_id: nexdb::ObjectId,
@@ -367,7 +367,7 @@ fn draw_inspector_simple_property_f64(
     draw_inspector_simple_property(
         ui,
         ui_state,
-        transaction,
+        db,
         object_id,
         property_path,
         property_name,
@@ -398,7 +398,7 @@ fn draw_inspector_simple_property_f64(
 fn draw_inspector_simple_property_string(
     ui: &imgui::Ui,
     ui_state: &mut UiState,
-    transaction: &mut ImmediateTransaction,
+    db: &mut Database,
     is_editing: &mut bool,
     is_editing_complete: &mut bool,
     object_id: nexdb::ObjectId,
@@ -412,7 +412,7 @@ fn draw_inspector_simple_property_string(
     draw_inspector_simple_property(
         ui,
         ui_state,
-        transaction,
+        db,
         object_id,
         property_path,
         property_name,
@@ -446,7 +446,7 @@ fn draw_inspector_simple_property_string(
 fn draw_inspector_object_ref(
     ui: &imgui::Ui,
     ui_state: &mut UiState,
-    transaction: &mut ImmediateTransaction,
+    db: &mut Database,
     is_editing: &mut bool,
     is_editing_complete: &mut bool,
     object_id: nexdb::ObjectId,
@@ -460,7 +460,7 @@ fn draw_inspector_object_ref(
     draw_inspector_simple_property(
         ui,
         ui_state,
-        transaction,
+        db,
         object_id,
         property_path,
         property_name,
@@ -518,7 +518,7 @@ fn draw_inspector_object_ref(
 fn draw_inspector_nexdb_property(
     ui: &imgui::Ui,
     ui_state: &mut UiState,
-    transaction: &mut ImmediateTransaction,
+    db: &mut Database,
     is_editing: &mut bool,
     is_editing_complete: &mut bool,
     object_id: nexdb::ObjectId,
@@ -530,8 +530,8 @@ fn draw_inspector_nexdb_property(
 
     match schema {
         Schema::Nullable(inner_schema) => {
-            let property_inherited = !transaction.get_null_override(object_id, &property_path).is_some();
-            let mut is_nulled = transaction
+            let property_inherited = !db.get_null_override(object_id, &property_path).is_some();
+            let mut is_nulled = db
                 .resolve_is_null(object_id, &property_path)
                 .unwrap_or(true);
 
@@ -544,19 +544,19 @@ fn draw_inspector_nexdb_property(
 
                 if is_nulled {
                     if ui.button(im_str!("Set Non-Null")) {
-                        transaction.set_null_override(object_id, property_path, NullOverride::SetNonNull);
+                        db.set_null_override(object_id, property_path, NullOverride::SetNonNull);
                         is_nulled = false;
                     }
                 } else {
                     if ui.button(im_str!("Set Null")) {
-                        transaction.set_null_override(object_id, property_path, NullOverride::SetNull);
+                        db.set_null_override(object_id, property_path, NullOverride::SetNull);
                         is_nulled = true;
                     }
                 }
 
                 ui.same_line();
                 if ui.button(im_str!("Inherit Null Status")) {
-                    transaction.remove_null_override(object_id, property_path);
+                    db.remove_null_override(object_id, property_path);
                 }
 
                 if !is_nulled {
@@ -572,7 +572,7 @@ fn draw_inspector_nexdb_property(
                     draw_inspector_nexdb_property(
                         ui,
                         ui_state,
-                        transaction,
+                        db,
                         is_editing,
                         is_editing_complete,
                         object_id,
@@ -587,12 +587,12 @@ fn draw_inspector_nexdb_property(
             }
         }
         Schema::Boolean => {
-            let property_inherited = !transaction.has_property_override(object_id, &property_path);
+            let property_inherited = !db.has_property_override(object_id, &property_path);
             draw_property_style(ui, property_inherited, false, |ui| {
                 draw_inspector_simple_property_bool(
                     ui,
                     ui_state,
-                    transaction,
+                    db,
                     is_editing,
                     is_editing_complete,
                     object_id,
@@ -604,12 +604,12 @@ fn draw_inspector_nexdb_property(
             });
         }
         Schema::I32 => {
-            let property_inherited = !transaction.has_property_override(object_id, &property_path);
+            let property_inherited = !db.has_property_override(object_id, &property_path);
             draw_property_style(ui, property_inherited, false, |ui| {
                 draw_inspector_simple_property_i32(
                     ui,
                     ui_state,
-                    transaction,
+                    db,
                     is_editing,
                     is_editing_complete,
                     object_id,
@@ -621,12 +621,12 @@ fn draw_inspector_nexdb_property(
             });
         }
         Schema::I64 => {
-            let property_inherited = !transaction.has_property_override(object_id, &property_path);
+            let property_inherited = !db.has_property_override(object_id, &property_path);
             draw_property_style(ui, property_inherited, false, |ui| {
                 draw_inspector_simple_property_i64(
                     ui,
                     ui_state,
-                    transaction,
+                    db,
                     is_editing,
                     is_editing_complete,
                     object_id,
@@ -638,12 +638,12 @@ fn draw_inspector_nexdb_property(
             });
         }
         Schema::U32 => {
-            let property_inherited = !transaction.has_property_override(object_id, &property_path);
+            let property_inherited = !db.has_property_override(object_id, &property_path);
             draw_property_style(ui, property_inherited, false, |ui| {
                 draw_inspector_simple_property_u32(
                     ui,
                     ui_state,
-                    transaction,
+                    db,
                     is_editing,
                     is_editing_complete,
                     object_id,
@@ -655,12 +655,12 @@ fn draw_inspector_nexdb_property(
             });
         }
         Schema::U64 => {
-            let property_inherited = !transaction.has_property_override(object_id, &property_path);
+            let property_inherited = !db.has_property_override(object_id, &property_path);
             draw_property_style(ui, property_inherited, false, |ui| {
                 draw_inspector_simple_property_u64(
                     ui,
                     ui_state,
-                    transaction,
+                    db,
                     is_editing,
                     is_editing_complete,
                     object_id,
@@ -672,12 +672,12 @@ fn draw_inspector_nexdb_property(
             });
         }
         Schema::F32 => {
-            let property_inherited = !transaction.has_property_override(object_id, &property_path);
+            let property_inherited = !db.has_property_override(object_id, &property_path);
             draw_property_style(ui, property_inherited, false, |ui| {
                 draw_inspector_simple_property_f32(
                     ui,
                     ui_state,
-                    transaction,
+                    db,
                     is_editing,
                     is_editing_complete,
                     object_id,
@@ -689,12 +689,12 @@ fn draw_inspector_nexdb_property(
             });
         }
         Schema::F64 => {
-            let property_inherited = !transaction.has_property_override(object_id, &property_path);
+            let property_inherited = !db.has_property_override(object_id, &property_path);
             draw_property_style(ui, property_inherited, false, |ui| {
                 draw_inspector_simple_property_f64(
                     ui,
                     ui_state,
-                    transaction,
+                    db,
                     is_editing,
                     is_editing_complete,
                     object_id,
@@ -708,12 +708,12 @@ fn draw_inspector_nexdb_property(
         Schema::Bytes => {}
         Schema::Buffer => {}
         Schema::String => {
-            let property_inherited = !transaction.has_property_override(object_id, &property_path);
+            let property_inherited = !db.has_property_override(object_id, &property_path);
             draw_property_style(ui, property_inherited, false, |ui| {
                 draw_inspector_simple_property_string(
                     ui,
                     ui_state,
-                    transaction,
+                    db,
                     is_editing,
                     is_editing_complete,
                     object_id,
@@ -726,8 +726,8 @@ fn draw_inspector_nexdb_property(
         }
         Schema::StaticArray(_) => {}
         Schema::DynamicArray(array) => {
-            let resolve = transaction.resolve_dynamic_array(object_id, &property_path);
-            let overrides: Vec<_> = transaction
+            let resolve = db.resolve_dynamic_array(object_id, &property_path);
+            let overrides: Vec<_> = db
                 .get_dynamic_array_overrides(object_id, &property_path).map(|x| x.cloned().collect()).unwrap_or_default();
 
             ui.text(im_str!("{}", property_name));
@@ -741,7 +741,7 @@ fn draw_inspector_nexdb_property(
                     draw_inspector_nexdb_property(
                         ui,
                         ui_state,
-                        transaction,
+                        db,
                         is_editing,
                         is_editing_complete,
                         object_id,
@@ -759,7 +759,7 @@ fn draw_inspector_nexdb_property(
                     draw_inspector_nexdb_property(
                         ui,
                         ui_state,
-                        transaction,
+                        db,
                         is_editing,
                         is_editing_complete,
                         object_id,
@@ -777,12 +777,12 @@ fn draw_inspector_nexdb_property(
         //Schema::RecordRef(_) => {}
 
         Schema::ObjectRef(named_type_fingerprint) => {
-            let property_inherited = !transaction.has_property_override(object_id, &property_path);
+            let property_inherited = !db.has_property_override(object_id, &property_path);
             draw_property_style(ui, property_inherited, false, |ui| {
                 draw_inspector_object_ref(
                     ui,
                     ui_state,
-                    transaction,
+                    db,
                     is_editing,
                     is_editing_complete,
                     object_id,
@@ -795,7 +795,7 @@ fn draw_inspector_nexdb_property(
 
         }
         Schema::NamedType(named_type_fingerprint) => {
-            let named_type = transaction
+            let named_type = db
                 .find_named_type_by_fingerprint(*named_type_fingerprint)
                 .unwrap()
                 .clone();
@@ -820,7 +820,7 @@ fn draw_inspector_nexdb_property(
                             draw_inspector_nexdb_property(
                                 ui,
                                 ui_state,
-                                transaction,
+                                db,
                                 is_editing,
                                 is_editing_complete,
                                 object_id,
@@ -870,81 +870,29 @@ pub fn draw_inspector_nexdb(
     ui: &imgui::Ui,
     app_state: &mut AppState,
     object_id: nexdb::ObjectId,
-) {/*
-    let mut transaction = if let Some(transaction) = app_state.try_resume_transaction("inspector") {
-        println!("resuming");
-        transaction.resume(app_state.db_state.db.data_set())
-    } else {
-        app_state.db_state.db.create_immediate_transaction()
-    };
-
+) {
     let ui_state = &mut app_state.ui_state;
-    //let mut transaction = app_state.test_data_nexdb.db.create_immediate_transaction();
-    let schema = app_state.db_state.db.object_schema(object_id).clone();
-    let mut is_editing = false;
-    let mut is_editing_complete = false;
+    app_state.db_state.db.with_undo_context("PropertyInspector", |db| {
+        let schema = db.object_schema(object_id).clone();
+        let mut is_editing = false;
+        let mut is_editing_complete = false;
 
-    if let Some(schema) = schema {
-        draw_inspector_nexdb_property(
-            ui,
-            ui_state,
-            &mut transaction,
-            &mut is_editing,
-            &mut is_editing_complete,
-            object_id,
-            "",
-            "",
-            &Schema::NamedType(schema.fingerprint()),
-        );
-    } else {
-        ui.text("WARNING: Could not find schema");
-    }
-
-    let transaction = transaction.defer();
-    //TODO: Determine when the user commits a value. And also apply changes/push onto undo queue
-
-
-    // convert immediate transaction to saved transaction
-    // convert back to immediate
-    // keep making edits
-    // create diffs
-    // push diffs onto queue
-    if is_editing && !is_editing_complete {
-        // Persist transaction for next frame
-        println!("editing");
-        app_state.give_deferred_transaction("inspector".to_string(), transaction);
-        // Save it
-    } else {
-        // Finish transaction, push to undo queue
-        let transaction = transaction.resume(&app_state.db_state.db.data_set());
-        let diff_set = transaction.create_diff_set();
-        if diff_set.has_changes() {
-            println!("edit complete");
-            //println!("diff set is {:#?}", diff_set);
-            diff_set.apply_diff.apply(&mut app_state.db_state.db.data_set_mut());
-            app_state.undo_queue.push(diff_set);
+        if let Some(schema) = schema {
+            draw_inspector_nexdb_property(
+                ui,
+                ui_state,
+                db,
+                &mut is_editing,
+                &mut is_editing_complete,
+                object_id,
+                "",
+                "",
+                &Schema::NamedType(schema.fingerprint()),
+            );
+        } else {
+            ui.text("WARNING: Could not find schema");
         }
-    }
 
-*/
-
-
-    // if is_editing_complete {
-    //     // Finish transaction, push to undo queue
-    //     println!("edit complete");
-    //     let transaction = transaction.resume(&app_state.test_data_nexdb.db.data_set());
-    //     let diff_set = transaction.create_diff_set();
-    //     if diff_set.has_changes() {
-    //         //println!("diff set is {:#?}", diff_set);
-    //         diff_set.apply_diff.apply(&mut app_state.test_data_nexdb.db.data_set_mut());
-    //         app_state.undo_queue.push(diff_set);
-    //     }
-    // } else if is_editing {
-    //     // Persist transaction for next frame
-    //     println!("editing");
-    //     app_state.give_deferred_transaction("inspector".to_string(), transaction);
-    //     // Save it
-    // }
-
-
+        is_editing && !is_editing_complete
+    });
 }

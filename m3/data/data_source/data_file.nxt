@@ -18,6 +18,7 @@
           "762034a3-fbad-4f8b-961c-46e37fb6b0ba",
           "8e4f310f-9a33-47fe-b9ea-139e1a8559cb"
         ],
+        "all_fields.i32": 358,
         "all_fields.nullable_bool.null_override": "SetNonNull",
         "all_fields.nullable_bool.value": true,
         "all_fields.reference": "a702a318-f59a-4736-b0a1-ef1d53572622",
@@ -40,6 +41,7 @@
           "0870cdd9-c5ab-448a-8174-efb84320f6e4",
           "be0532dc-6724-4509-a52e-15c398c55fd0"
         ],
+        "all_fields.i32": 394,
         "all_fields.reference": "6301f625-1370-4712-a90c-5f9beadf4e16"
       }
     }

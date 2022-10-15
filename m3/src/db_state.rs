@@ -1,8 +1,9 @@
 use std::path::PathBuf;
-use nexdb::{DataStorageJsonSingleFile, Schema, SchemaCacheSingleFile, SchemaDefType};
+use nexdb::{DataStorageJsonSingleFile, Schema, SchemaCacheSingleFile, SchemaDefType, UndoStack};
 
 pub struct DbState {
     pub db: nexdb::Database,
+    pub undo_stack: nexdb::UndoStack,
 }
 
 impl DbState {
@@ -23,7 +24,8 @@ impl DbState {
         let path = Self::schema_def_path();
         linker.add_source_dir(&path, "*.json").unwrap();
 
-        let mut db = nexdb::Database::default();
+        let mut undo_stack = UndoStack::default();
+        let mut db = nexdb::Database::new(&undo_stack);
         if let Some(schema_cache) = std::fs::read_to_string(Self::schema_cache_file_path()).ok() {
             SchemaCacheSingleFile::load_string(&mut db, &schema_cache);
         }
@@ -66,6 +68,7 @@ impl DbState {
             db.add_dynamic_array_override(instance_obj, "all_fields.dynamic_array_vec3");
 
         DbState {
+            undo_stack,
             db,
         }
     }
@@ -78,13 +81,15 @@ impl DbState {
         let path = Self::schema_def_path();
         linker.add_source_dir(&path, "*.json").unwrap();
 
-        let mut db = nexdb::Database::default();
+        let mut undo_stack = UndoStack::default();
+        let mut db = nexdb::Database::new(&undo_stack);
         SchemaCacheSingleFile::load_string(&mut db, &schema_cache_str);
         DataStorageJsonSingleFile::load_string(&mut db, &data_str);
 
         db.add_linked_types(linker).unwrap();
 
         Some(DbState {
+            undo_stack,
             db
         })
     }

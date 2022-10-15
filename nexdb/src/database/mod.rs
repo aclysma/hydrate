@@ -1,8 +1,10 @@
+use std::collections::VecDeque;
 use super::schema::*;
 use super::{HashMap, HashSet, ObjectId, SchemaFingerprint};
 use std::io::BufRead;
 use std::str::FromStr;
-use std::sync::Arc;
+use std::sync::{Arc, mpsc};
+use std::sync::mpsc::{Receiver, Sender};
 use uuid::Uuid;
 
 use crate::{BufferId, HashMapKeys, HashSetIter, SchemaLinker, SchemaLinkerResult};
@@ -20,7 +22,7 @@ pub use data_set::DataSet;
 mod diff;
 use diff::ObjectDiffSet;
 pub use diff::DataSetDiffSet;
-
+use crate::database::diff::DataSetDiff;
 
 
 mod schema_set;
@@ -33,235 +35,184 @@ mod tests;
 //TODO: Should we make a struct that refs the schema/data? We could have transactions and databases
 // return the temp struct with refs and move all the functions to that
 
+pub struct UndoStack {
+    undo_chain: Vec<DataSetDiffSet>,
+    competed_context_rx: Receiver<DataSetDiffSet>,
+    competed_context_tx: Sender<DataSetDiffSet>,
+}
+
+impl Default for UndoStack {
+    fn default() -> Self {
+        let (tx, rx) = mpsc::channel();
+        UndoStack {
+            undo_chain: Default::default(),
+            competed_context_tx: tx,
+            competed_context_rx: rx
+        }
+    }
+}
+
+impl UndoStack {
+    fn drain_rx(&mut self) {
+        while let Ok(diff) = self.competed_context_rx.try_recv() {
+            self.undo_chain.push(diff);
+        }
+    }
+
+    pub fn undo(&mut self, db: &mut Database) {
+        self.drain_rx();
+
+        let popped = self.undo_chain.pop();
+        if let Some(popped) = popped {
+            popped.revert_diff.apply(&mut db.data_set);
+        }
+    }
+}
+
+
 
 // Transaction that holds exclusive access for the data and will directly commit changes. It can
 // compare directly against the original dataset for changes
 pub struct UndoContext {
     before_state: DataSet,
     tracked_objects: HashSet<ObjectId>,
+    context_name: Option<&'static str>,
+    completed_context_tx: Sender<DataSetDiffSet>
 }
 
 impl UndoContext {
+    fn new(undo_stack: &UndoStack) -> Self {
+        UndoContext {
+            before_state: Default::default(),
+            tracked_objects: Default::default(),
+            context_name: Default::default(),
+            completed_context_tx: undo_stack.competed_context_tx.clone(),
+        }
+    }
+
+    // Call after adding a new object
     fn track_new_object(&mut self, object_id: ObjectId) {
-        self.tracked_objects.insert(object_id);
-    }
-
-    fn track_existing_object(&mut self, after_state: &DataSet, object_id: ObjectId) {
-        //TODO: Preserve sub-objects?
-        if !self.tracked_objects.contains(&object_id) {
+        if self.context_name.is_some() {
             self.tracked_objects.insert(object_id);
-            self.before_state.copy_from(&after_state, object_id);
         }
     }
 
-    pub fn revert(self, after_state: &mut DataSet) {
-        // Overwrite all the objects in the new set with our data
-        for (object_id, object) in self.before_state.objects {
-            after_state.objects.insert(object_id, object);
+    // Call before editing or deleting an object
+    fn track_existing_object(&mut self, after_state: &DataSet, object_id: ObjectId) {
+        if self.context_name.is_some() {
+            //TODO: Preserve sub-objects?
+            if !self.tracked_objects.contains(&object_id) {
+                println!("track object");
+                self.tracked_objects.insert(object_id);
+                self.before_state.copy_from(&after_state, object_id);
+            }
         }
     }
 
-    pub fn commit(self, after_state: &DataSet) -> DataSetDiffSet {
-        DataSetDiffSet::diff_data_set(&self.before_state, &after_state, &self.tracked_objects)
+    fn begin_context(&mut self, after_state: &DataSet, name: &'static str) {
+        if self.context_name == Some(name) {
+            // don't need to do anything, we can append to the current context
+        } else {
+            // commit the context that's in flight, if one exists
+            if self.context_name.is_some() {
+                // This won't do anything if there's nothing to send
+                self.commit_context(after_state);
+            }
+
+            self.context_name = Some(name);
+        }
     }
 
-    pub fn new_object(
-        &mut self,
-        schema: &SchemaRecord,
-        after_state: &mut DataSet
-    ) -> ObjectId {
-        let object_id = after_state.new_object(schema);
-        self.track_new_object(object_id);
-        object_id
+    fn end_context(&mut self, after_state: &DataSet, name: &'static str, allow_resume: bool) {
+        if !allow_resume {
+            // This won't do anything if there's nothing to send
+            self.commit_context(after_state);
+        }
     }
 
-    pub fn new_object_from_prototype(
-        &mut self,
-        after_state: &mut DataSet,
-        prototype: ObjectId,
-    ) -> ObjectId {
-        let object_id = after_state.new_object_from_prototype(prototype);
-        self.tracked_objects.insert(object_id);
-        object_id
+    fn cancel_context(&mut self, after_state: &mut DataSet) {
+        if !self.tracked_objects.is_empty() {
+            // Overwrite all the objects in the new set with old data
+            let mut objects = Default::default();
+            std::mem::swap(&mut objects, &mut self.before_state.objects);
+            for (object_id, object) in objects {
+                after_state.objects.insert(object_id, object);
+            }
+
+            // Delete any tracked objects that aren't in the old data
+            after_state.objects.retain(|k, v| self.tracked_objects.contains(k) && !self.before_state.objects.contains_key(k));
+
+            self.before_state = Default::default();
+            self.tracked_objects.clear();
+        }
     }
 
-    pub fn delete_object(
-        &mut self,
-        after_state: &mut DataSet,
-        object_id: ObjectId
-    ) {
-        //TODO: Deleting object may requires more objects to be touched to remove references to it
-        self.preserve_object(after_state, object_id);
-        after_state.delete_object(object_id);
-    }
+    fn commit_context(&mut self, after_state: &DataSet) {
+        if !self.tracked_objects.is_empty() {
+            // Make a diff and send it if it has changes
+            let diff_set = DataSetDiffSet::diff_data_set(&self.before_state, &after_state, &self.tracked_objects);
+            if diff_set.has_changes() {
+                println!("Sending change {:#?}", diff_set);
+                self.completed_context_tx.send(diff_set).unwrap();
+            }
 
-    pub(crate) fn restore_object(
-        &mut self,
-        schema_set: &SchemaSet,
-        after_state: &mut DataSet,
-        object_id: ObjectId,
-        prototype: Option<ObjectId>,
-        schema: SchemaFingerprint,
-        properties: HashMap<String, Value>,
-        property_null_overrides: HashMap<String, NullOverride>,
-        properties_in_replace_mode: HashSet<String>,
-        dynamic_array_entries: HashMap<String, HashSet<Uuid>>,
-    ) {
-        self.preserve_object(after_state, object_id);
-        after_state.restore_object(schema_set, object_id, prototype, schema, properties, property_null_overrides, properties_in_replace_mode, dynamic_array_entries);
-    }
-
-    pub fn set_null_override(
-        &mut self,
-        schema_set: &SchemaSet,
-        after_state: &mut DataSet,
-        object_id: ObjectId,
-        path: impl AsRef<str>,
-        null_override: NullOverride,
-    ) {
-        self.preserve_object(after_state, object_id);
-        after_state.set_null_override(schema_set, object_id, path, null_override)
-    }
-
-    pub fn remove_null_override(
-        &mut self,
-        schema_set: &SchemaSet,
-        after_state: &mut DataSet,
-        object_id: ObjectId,
-        path: impl AsRef<str>,
-    ) {
-        self.preserve_object(after_state, object_id);
-        after_state.remove_null_override(&schema_set, object_id, path)
-    }
-
-    // Just sets a property on this object, making it overridden, or replacing the existing override
-    pub fn set_property_override(
-        &mut self,
-        after_state: &mut DataSet,
-        object_id: ObjectId,
-        path: impl AsRef<str>,
-        value: Value,
-    ) -> bool {
-        self.preserve_object(after_state, object_id);
-        let schema_set = self.schema_set.clone();
-        after_state.set_property_override(&schema_set, object_id, path, value)
-    }
-
-    pub fn remove_property_override(
-        &mut self,
-        after_state: &mut DataSet,
-        object_id: ObjectId,
-        path: impl AsRef<str>,
-    ) -> Option<Value> {
-        self.preserve_object(after_state, object_id);
-        after_state.remove_property_override(object_id, path)
-    }
-
-    pub fn apply_property_override_to_prototype(
-        &mut self,
-        schema_set: &SchemaSet,
-        after_state: &mut DataSet,
-        object_id: ObjectId,
-        path: impl AsRef<str>,
-    ) {
-        self.preserve_object(after_state, object_id);
-        after_state.apply_property_override_to_prototype(schema_set, object_id, path)
-    }
-
-    pub fn add_dynamic_array_override(
-        &mut self,
-        schema_set: &SchemaSet,
-        after_state: &mut DataSet,
-        object_id: ObjectId,
-        path: impl AsRef<str>,
-    ) -> Uuid {
-        self.preserve_object(after_state, object_id);
-        after_state.add_dynamic_array_override(schema_set, object_id, path)
-    }
-
-    pub fn remove_dynamic_array_override(
-        &mut self,
-        schema_set: &SchemaSet,
-        after_state: &mut DataSet,
-        object_id: ObjectId,
-        path: impl AsRef<str>,
-        element_id: Uuid,
-    ) {
-        self.preserve_object(after_state, object_id);
-        after_state.remove_dynamic_array_override(schema_set, object_id, path, element_id)
-    }
-
-    pub fn set_override_behavior(
-        &mut self,
-        schema_set: &SchemaSet,
-        after_state: &mut DataSet,
-        object_id: ObjectId,
-        path: impl AsRef<str>,
-        behavior: OverrideBehavior,
-    ) {
-        self.preserve_object(after_state, object_id);
-        after_state.set_override_behavior(schema_set, object_id, path, behavior)
+            self.before_state = Default::default();
+            self.tracked_objects.clear();
+        }
     }
 }
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-// pub struct UndoContext {
-//     before_state: DataSet,
-//     tracked_objects: HashSet<ObjectId>,
-// }
+// Editor Context
+// - Used to edit objects in isolation (for example, a node graph)
+// - Expected that edited objects won't be modified by anything else
+//   - Might get away with applying diffs, but may result in unintuitive behavior
+// - Expected that non-edited objects *may* be modified, but not in a way that is incompatible with the edited objects
+//   - Or, make a copy of non-edited objects
+// - Maybe end-user needs to decide if they want to read new/old data?
 //
+// Undo Context
+// - Used to demarcate changes that should conceptually be treated as a single operation
+// - An undo context is labeled with a string. Within the context, multiple edits can be made
+// - An undo context *may* be left in a "resumable" state. If we make modifications with an undo context
+//   of the same name, we append to that undo context
+// - If an edit is made with an undo context that doesn't match an existing "resumable" undo context,
+//   we commit that context and carry on with the operation under a new undo context
+// - A wrapper around dataset that understands undo contexts will produce a queue of finished undo
+//   contexts, which contain revert/apply diffs
+// - These undo contexts can be pushed onto a single global queue or a per-document queue
 
 
 
-
-
-
-
-#[derive(Default)]
 pub struct Database {
     schema_set: Arc<SchemaSet>,
     data_set: DataSet,
+    undo_context: UndoContext,
+    completed_context_tx: Sender<DataSetDiffSet>,
 }
 
 impl Database {
-    // pub fn create_immediate_transaction(&self) -> ImmediateTransaction {
-    //     ImmediateTransaction {
-    //         schema_set: self.schema_set.clone(),
-    //         before: &self.data_set,
-    //         after: Default::default(),
-    //         tracked_objects: Default::default()
-    //     }
+
+    pub fn new(undo_stack: &UndoStack) -> Self {
+        Database {
+            schema_set: Default::default(),
+            data_set: Default::default(),
+            undo_context: UndoContext::new(undo_stack),
+            completed_context_tx: undo_stack.competed_context_tx.clone(),
+        }
+    }
+
+    //TODO: Change to use an enum instead of bool
+    pub fn with_undo_context<F: FnOnce(&mut Self) -> bool>(&mut self, name: &'static str, f: F) {
+        self.undo_context.begin_context(&self.data_set, name);
+        let allow_resume = (f)(self);
+        self.undo_context.end_context(&self.data_set, name, allow_resume);
+    }
+
+
+    // pub fn apply_diff(&mut self, diff: &DataSetDiff) {
+    //     diff.apply(&mut self.data_set);
     // }
-
-    pub fn begin_transaction() {
-
-    }
-
-    pub fn revert_transaction() {
-        unimplemented!();
-    }
-
-    pub fn commit_transaction() -> DataSetDiffSet {
-        unimplemented!();
-    }
-
-    pub fn apply_diff() {
-
-    }
-
 
 
 
@@ -323,9 +274,9 @@ impl Database {
         &self.data_set
     }
 
-    pub fn data_set_mut(&mut self) -> &mut DataSet {
-        &mut self.data_set
-    }
+    // pub fn data_set_mut(&mut self) -> &mut DataSet {
+    //     &mut self.data_set
+    // }
 
     pub fn all_objects<'a>(&'a self) -> HashMapKeys<'a, ObjectId, DataObjectInfo> {
         self.data_set.all_objects()
@@ -335,25 +286,31 @@ impl Database {
         self.data_set.objects()
     }
 
-    pub(crate) fn insert_object(
-        &mut self,
-        obj_info: DataObjectInfo,
-    ) -> ObjectId {
-        self.data_set.insert_object(obj_info)
-    }
+    // pub(crate) fn insert_object(
+    //     &mut self,
+    //     obj_info: DataObjectInfo,
+    // ) -> ObjectId {
+    //     let object_id = self.data_set.insert_object(obj_info);
+    //     self.undo_context.track_new_object(object_id);
+    //     object_id
+    // }
 
     pub fn new_object(
         &mut self,
         schema: &SchemaRecord,
     ) -> ObjectId {
-        self.data_set.new_object(schema)
+        let object_id = self.data_set.new_object(schema);
+        self.undo_context.track_new_object(object_id);
+        object_id
     }
 
     pub fn new_object_from_prototype(
         &mut self,
         prototype: ObjectId,
     ) -> ObjectId {
-        self.data_set.new_object_from_prototype(prototype)
+        let object_id = self.data_set.new_object_from_prototype(prototype);
+        self.undo_context.track_new_object(object_id);
+        object_id
     }
 
     pub(crate) fn restore_object(
@@ -366,7 +323,8 @@ impl Database {
         properties_in_replace_mode: HashSet<String>,
         dynamic_array_entries: HashMap<String, HashSet<Uuid>>,
     ) {
-        self.data_set.restore_object(&self.schema_set, object_id, prototype, schema, properties, property_null_overrides, properties_in_replace_mode, dynamic_array_entries)
+        self.data_set.restore_object(&self.schema_set, object_id, prototype, schema, properties, property_null_overrides, properties_in_replace_mode, dynamic_array_entries);
+        self.undo_context.track_new_object(object_id);
     }
 
     pub fn object_prototype(
@@ -397,6 +355,7 @@ impl Database {
         path: impl AsRef<str>,
         null_override: NullOverride,
     ) {
+        self.undo_context.track_existing_object(&self.data_set, object_id);
         self.data_set.set_null_override(&self.schema_set, object_id, path, null_override)
     }
 
@@ -405,6 +364,7 @@ impl Database {
         object_id: ObjectId,
         path: impl AsRef<str>,
     ) {
+        self.undo_context.track_existing_object(&self.data_set, object_id);
         self.data_set.remove_null_override(&self.schema_set, object_id, path)
     }
 
@@ -441,6 +401,7 @@ impl Database {
         path: impl AsRef<str>,
         value: Value,
     ) -> bool {
+        self.undo_context.track_existing_object(&self.data_set, object_id);
         self.data_set.set_property_override(&self.schema_set, object_id, path, value)
     }
 
@@ -449,6 +410,7 @@ impl Database {
         object_id: ObjectId,
         path: impl AsRef<str>,
     ) -> Option<Value> {
+        self.undo_context.track_existing_object(&self.data_set, object_id);
         self.data_set.remove_property_override(object_id, path)
     }
 
@@ -457,6 +419,7 @@ impl Database {
         object_id: ObjectId,
         path: impl AsRef<str>,
     ) {
+        self.undo_context.track_existing_object(&self.data_set, object_id);
         self.data_set.apply_property_override_to_prototype(&self.schema_set, object_id, path)
     }
 
@@ -481,6 +444,7 @@ impl Database {
         object_id: ObjectId,
         path: impl AsRef<str>,
     ) -> Uuid {
+        self.undo_context.track_existing_object(&self.data_set, object_id);
         self.data_set.add_dynamic_array_override(&self.schema_set, object_id, path)
     }
 
@@ -490,6 +454,7 @@ impl Database {
         path: impl AsRef<str>,
         element_id: Uuid,
     ) {
+        self.undo_context.track_existing_object(&self.data_set, object_id);
         self.data_set.remove_dynamic_array_override(&self.schema_set, object_id, path, element_id)
     }
 
@@ -515,6 +480,7 @@ impl Database {
         path: impl AsRef<str>,
         behavior: OverrideBehavior,
     ) {
+        self.undo_context.track_existing_object(&self.data_set, object_id);
         self.data_set.set_override_behavior(&self.schema_set, object_id, path, behavior)
     }
 }

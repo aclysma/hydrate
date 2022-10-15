@@ -1,7 +1,7 @@
 use std::path::{Path, PathBuf};
 use serde::{Serialize, Deserialize};
 use uuid::Uuid;
-use crate::{Database, HashMap, Schema, SchemaDynamicArray, SchemaEnum, SchemaEnumSymbol, SchemaFingerprint, SchemaFixed, SchemaLinker, SchemaMap, SchemaNamedType, SchemaRecord, SchemaRecordField, SchemaStaticArray};
+use crate::{HashMap, Schema, SchemaDynamicArray, SchemaEnum, SchemaEnumSymbol, SchemaFingerprint, SchemaFixed, SchemaLinker, SchemaMap, SchemaNamedType, SchemaRecord, SchemaRecordField, SchemaSet, SchemaStaticArray};
 
 #[derive(Debug, Serialize, Deserialize)]
 struct CachedSchemaStaticArray {
@@ -307,10 +307,10 @@ pub struct SchemaCacheSingleFile {
 }
 
 impl SchemaCacheSingleFile {
-    pub fn store_string(database: &Database) -> String {
+    pub fn store_string(schema_set: &SchemaSet) -> String {
         let mut cached_schemas: Vec<CachedSchemaNamedType> = Default::default();
 
-        for (_, schema) in database.schemas() {
+        for (_, schema) in schema_set.schemas() {
             cached_schemas.push(CachedSchemaNamedType::new_from_schema(schema));
         }
 
@@ -323,9 +323,9 @@ impl SchemaCacheSingleFile {
         serde_json::to_string_pretty(&cache).unwrap()
     }
 
-    pub fn load_string(database: &mut Database, cache: &str) {
+    pub fn load_string(schema_set: &mut SchemaSet, cache: &str) {
         let cache: SchemaCacheSingleFile = serde_json::from_str(cache).unwrap();
         let schemas: Vec<_> = cache.cached_schemas.into_iter().map(|x| x.to_schema()).collect();
-        database.restore_named_types(schemas);
+        schema_set.restore_named_types(schemas);
     }
 }

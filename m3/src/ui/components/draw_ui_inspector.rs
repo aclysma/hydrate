@@ -46,7 +46,7 @@ fn draw_inspector_simple_property<F: FnOnce(&imgui::Ui, nexdb::Value) -> Option<
         if let Some(value) = db.resolve_property(object_id, &property_path) {
             value.clone()
         } else {
-            db.default_value_for_schema(schema)
+            db.schema_set().default_value_for_schema(schema)
             //Value::default_for_schema(schema).clone()
         }
     } else {

@@ -1,5 +1,6 @@
 use std::path::PathBuf;
-use nexdb::{DataStorageJsonSingleFile, Schema, SchemaCacheSingleFile, SchemaDefType, UndoStack};
+use std::sync::Arc;
+use nexdb::{DataStorageJsonSingleFile, Schema, SchemaCacheSingleFile, SchemaDefType, SchemaSet, UndoStack};
 
 pub struct DbState {
     pub db: nexdb::Database,
@@ -20,17 +21,20 @@ impl DbState {
     }
 
     fn init_empty_database() -> Self {
+
+        let mut schema_set = nexdb::SchemaSet::default();
+
         let mut linker = nexdb::SchemaLinker::default();
         let path = Self::schema_def_path();
         linker.add_source_dir(&path, "*.json").unwrap();
+        schema_set.add_linked_types(linker).unwrap();
 
-        let mut undo_stack = UndoStack::default();
-        let mut db = nexdb::Database::new(&undo_stack);
         if let Some(schema_cache) = std::fs::read_to_string(Self::schema_cache_file_path()).ok() {
-            SchemaCacheSingleFile::load_string(&mut db, &schema_cache);
+            SchemaCacheSingleFile::load_string(&mut schema_set, &schema_cache);
         }
 
-        db.add_linked_types(linker).unwrap();
+        let mut undo_stack = UndoStack::default();
+        let mut db = nexdb::Database::new(Arc::new(schema_set), &undo_stack);
 
         let transform_schema_object = db
             .find_named_type("Transform")
@@ -77,16 +81,19 @@ impl DbState {
         let schema_cache_str = std::fs::read_to_string(Self::schema_cache_file_path()).ok()?;
         let data_str = std::fs::read_to_string(Self::data_file_path()).ok()?;
 
+        let mut schema_set = SchemaSet::default();
+
         let mut linker = nexdb::SchemaLinker::default();
         let path = Self::schema_def_path();
         linker.add_source_dir(&path, "*.json").unwrap();
+        schema_set.add_linked_types(linker).unwrap();
+
+        SchemaCacheSingleFile::load_string(&mut schema_set, &schema_cache_str);
 
         let mut undo_stack = UndoStack::default();
-        let mut db = nexdb::Database::new(&undo_stack);
-        SchemaCacheSingleFile::load_string(&mut db, &schema_cache_str);
-        DataStorageJsonSingleFile::load_string(&mut db, &data_str);
+        let mut db = nexdb::Database::new(Arc::new(schema_set), &undo_stack);
 
-        db.add_linked_types(linker).unwrap();
+        DataStorageJsonSingleFile::load_string(&mut db, &data_str);
 
         Some(DbState {
             undo_stack,
@@ -110,7 +117,7 @@ impl DbState {
 
         let schema_cache_file_path = Self::schema_cache_file_path();
         log::debug!("saving schema cache to {:?}", schema_cache_file_path);
-        let schema_cache = SchemaCacheSingleFile::store_string(&self.db);
+        let schema_cache = SchemaCacheSingleFile::store_string(self.db.schema_set());
         std::fs::write(schema_cache_file_path, schema_cache).unwrap();
     }
 }

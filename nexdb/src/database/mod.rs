@@ -2,16 +2,16 @@ use std::collections::VecDeque;
 use super::schema::*;
 use super::{HashMap, HashSet, ObjectId, SchemaFingerprint};
 use std::io::BufRead;
+use std::path::PathBuf;
 use std::str::FromStr;
 use std::sync::{Arc, mpsc};
 use std::sync::mpsc::{Receiver, Sender};
 use uuid::Uuid;
 
-use crate::{BufferId, HashMapKeys, HashSetIter, SchemaLinker, SchemaLinkerResult};
+use crate::{HashMapKeys, HashSetIter};
 
 pub mod value;
 pub use value::Value;
-use crate::database::schema_set::SchemaSet;
 
 mod data_set;
 pub use data_set::DataObjectInfo;
@@ -19,13 +19,14 @@ pub use data_set::OverrideBehavior;
 pub use data_set::NullOverride;
 pub use data_set::DataSet;
 
+mod schema_set;
+pub use schema_set::SchemaSet;
+
+
 mod diff;
 use diff::ObjectDiffSet;
+use diff::DataSetDiff;
 pub use diff::DataSetDiffSet;
-use crate::database::diff::DataSetDiff;
-
-
-mod schema_set;
 
 #[cfg(test)]
 mod tests;
@@ -34,6 +35,12 @@ mod tests;
 
 //TODO: Should we make a struct that refs the schema/data? We could have transactions and databases
 // return the temp struct with refs and move all the functions to that
+
+//TODO: Read-only sources? For things like network cache. Could only sync files we edit and overlay
+// files source over net cache source, etc.
+
+
+
 
 pub struct UndoStack {
     undo_chain: Vec<DataSetDiffSet>,
@@ -67,6 +74,8 @@ impl UndoStack {
             popped.revert_diff.apply(&mut db.data_set);
         }
     }
+
+    //TODO: Implement undo/redo properly
 }
 
 
@@ -109,24 +118,29 @@ impl UndoContext {
         }
     }
 
-    fn begin_context(&mut self, after_state: &DataSet, name: &'static str) {
+    fn has_open_context(&self) -> bool {
+        self.context_name.is_some()
+    }
+
+
+    fn begin_context(&mut self, after_state: &DataSet, name: &'static str, modified_objects: &mut HashSet<ObjectId>) {
         if self.context_name == Some(name) {
             // don't need to do anything, we can append to the current context
         } else {
             // commit the context that's in flight, if one exists
             if self.context_name.is_some() {
                 // This won't do anything if there's nothing to send
-                self.commit_context(after_state);
+                self.commit_context(after_state, modified_objects);
             }
 
             self.context_name = Some(name);
         }
     }
 
-    fn end_context(&mut self, after_state: &DataSet, name: &'static str, allow_resume: bool) {
+    fn end_context(&mut self, after_state: &DataSet, name: &'static str, allow_resume: bool, modified_objects: &mut HashSet<ObjectId>) {
         if !allow_resume {
             // This won't do anything if there's nothing to send
-            self.commit_context(after_state);
+            self.commit_context(after_state, modified_objects);
         }
     }
 
@@ -147,13 +161,17 @@ impl UndoContext {
         }
     }
 
-    fn commit_context(&mut self, after_state: &DataSet) {
+    fn commit_context(&mut self, after_state: &DataSet, modified_objects: &mut HashSet<ObjectId>) {
         if !self.tracked_objects.is_empty() {
             // Make a diff and send it if it has changes
             let diff_set = DataSetDiffSet::diff_data_set(&self.before_state, &after_state, &self.tracked_objects);
             if diff_set.has_changes() {
                 println!("Sending change {:#?}", diff_set);
                 self.completed_context_tx.send(diff_set).unwrap();
+            }
+
+            for object in &self.tracked_objects {
+                modified_objects.insert(*object);
             }
 
             self.before_state = Default::default();
@@ -183,30 +201,67 @@ impl UndoContext {
 // - These undo contexts can be pushed onto a single global queue or a per-document queue
 
 
-
+//TODO: Rename to EditContext
 pub struct Database {
     schema_set: Arc<SchemaSet>,
     data_set: DataSet,
     undo_context: UndoContext,
     completed_context_tx: Sender<DataSetDiffSet>,
+    modified_objects: HashSet<ObjectId>,
 }
 
 impl Database {
+    // Call after adding a new object
+    fn track_new_object(&mut self, object_id: ObjectId) {
+        if self.undo_context.has_open_context() {
+            self.undo_context.track_new_object(object_id);
+        } else {
+            self.modified_objects.insert(object_id);
+        }
+    }
 
-    pub fn new(undo_stack: &UndoStack) -> Self {
+    // Call before editing or deleting an object
+    fn track_existing_object(&mut self, object_id: ObjectId) {
+        if self.undo_context.has_open_context() {
+            self.undo_context.track_existing_object(&mut self.data_set, object_id);
+        } else {
+            self.modified_objects.insert(object_id);
+        }
+    }
+
+    pub fn is_object_modified(&mut self, object_id: ObjectId) {
+        self.modified_objects.contains(&object_id);
+    }
+
+    pub fn new(schema_set: Arc<SchemaSet>, undo_stack: &UndoStack) -> Self {
         Database {
-            schema_set: Default::default(),
+            schema_set,
             data_set: Default::default(),
             undo_context: UndoContext::new(undo_stack),
             completed_context_tx: undo_stack.competed_context_tx.clone(),
+            modified_objects: Default::default(),
+        }
+    }
+
+    pub fn new_with_data(schema_set: Arc<SchemaSet>, undo_stack: &UndoStack) -> Self {
+        Database {
+            schema_set,
+            data_set: Default::default(),
+            undo_context: UndoContext::new(undo_stack),
+            completed_context_tx: undo_stack.competed_context_tx.clone(),
+            modified_objects: Default::default(),
         }
     }
 
     //TODO: Change to use an enum instead of bool
     pub fn with_undo_context<F: FnOnce(&mut Self) -> bool>(&mut self, name: &'static str, f: F) {
-        self.undo_context.begin_context(&self.data_set, name);
+        self.undo_context.begin_context(&self.data_set, name, &mut self.modified_objects);
         let allow_resume = (f)(self);
-        self.undo_context.end_context(&self.data_set, name, allow_resume);
+        self.undo_context.end_context(&self.data_set, name, allow_resume, &mut self.modified_objects);
+    }
+
+    pub fn commit_pending_undo_context(&mut self) {
+        self.undo_context.commit_context(&mut self.data_set, &mut self.modified_objects);
     }
 
 
@@ -240,32 +295,32 @@ impl Database {
     ) -> Option<&SchemaNamedType> {
         self.schema_set.find_named_type_by_fingerprint(fingerprint)
     }
-
-    pub fn default_value_for_schema(
-        &self,
-        schema: &Schema,
-    ) -> Value {
-        self.schema_set.default_value_for_schema(schema)
-    }
-
-    pub fn add_linked_types(
-        &mut self,
-        linker: SchemaLinker,
-    ) -> SchemaLinkerResult<()> {
-        let mut schemas = (*self.schema_set).clone();
-        schemas.add_linked_types(linker)?;
-        self.schema_set = Arc::new(schemas);
-        Ok(())
-    }
-
-    pub(crate) fn restore_named_types(
-        &mut self,
-        named_types: Vec<SchemaNamedType>
-    ) {
-        let mut schemas = (*self.schema_set).clone();
-        schemas.restore_named_types(named_types);
-        self.schema_set = Arc::new(schemas);
-    }
+    //
+    // pub fn default_value_for_schema(
+    //     &self,
+    //     schema: &Schema,
+    // ) -> Value {
+    //     self.schema_set.default_value_for_schema(schema)
+    // }
+    //
+    // pub fn add_linked_types(
+    //     &mut self,
+    //     linker: SchemaLinker,
+    // ) -> SchemaLinkerResult<()> {
+    //     let mut schemas = (*self.schema_set).clone();
+    //     schemas.add_linked_types(linker)?;
+    //     self.schema_set = Arc::new(schemas);
+    //     Ok(())
+    // }
+    //
+    // pub(crate) fn restore_named_types(
+    //     &mut self,
+    //     named_types: Vec<SchemaNamedType>
+    // ) {
+    //     let mut schemas = (*self.schema_set).clone();
+    //     schemas.restore_named_types(named_types);
+    //     self.schema_set = Arc::new(schemas);
+    // }
 
     //
     // Data-related functions

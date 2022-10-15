@@ -30,164 +30,75 @@ mod tests;
 
 //TODO: Delete unused property data when path ancestor is null or in replace mode
 
-pub struct TransactionDiffs {
-
-}
-
-pub struct Transaction {
-    schema_set: Arc<SchemaSet>,
-    before: DataSet,
-    after: DataSet,
-}
-
-impl Transaction {
-    pub fn add_object(&mut self, baseline: &DataSet) {
-
-    }
-
-    pub fn create_diffs() {
-
-    }
-}
-
-// Delta
-// Added
-// Removed
-
-
 //TODO: Should we make a struct that refs the schema/data? We could have transactions and databases
 // return the temp struct with refs and move all the functions to that
-
-pub struct DeferredTransaction {
-    schema_set: Arc<SchemaSet>,
-    after: DataSet,
-    tracked_objects: HashSet<ObjectId>,
-}
-
-impl DeferredTransaction {
-    pub fn resume(self, data_set: &DataSet) -> ImmediateTransaction {
-        ImmediateTransaction {
-            schema_set: self.schema_set,
-            before: data_set,
-            after: self.after,
-            tracked_objects: self.tracked_objects
-        }
-    }
-}
 
 
 // Transaction that holds exclusive access for the data and will directly commit changes. It can
 // compare directly against the original dataset for changes
-pub struct ImmediateTransaction<'a> {
-    schema_set: Arc<SchemaSet>,
-    before: &'a DataSet,
-    after: DataSet,
+pub struct UndoContext {
+    before_state: DataSet,
     tracked_objects: HashSet<ObjectId>,
 }
 
-impl<'a> ImmediateTransaction<'a> {
-    pub fn defer(self) -> DeferredTransaction {
-        DeferredTransaction {
-            schema_set: self.schema_set,
-            after: self.after,
-            tracked_objects: self.tracked_objects
-        }
+impl UndoContext {
+    fn track_new_object(&mut self, object_id: ObjectId) {
+        self.tracked_objects.insert(object_id);
     }
 
-    pub fn create_diff_set(&self) -> DataSetDiffSet {
-        DataSetDiffSet::diff_data_set(self.before, &self.after, &self.tracked_objects)
-    }
-
-    fn data_set_for_read(&self, object_id: ObjectId) -> &DataSet {
+    fn track_existing_object(&mut self, after_state: &DataSet, object_id: ObjectId) {
+        //TODO: Preserve sub-objects?
         if !self.tracked_objects.contains(&object_id) {
-            &self.before
-        } else {
-            &self.after
-        }
-    }
-
-    fn data_set_for_write(&mut self, object_id: ObjectId) -> &mut DataSet {
-        if !self.tracked_objects.contains(&object_id) {
-            self.after.copy_from(self.before, object_id);
             self.tracked_objects.insert(object_id);
+            self.before_state.copy_from(&after_state, object_id);
         }
+    }
 
-        if let Some(prototype) = self.after.objects().get(&object_id).unwrap().prototype {
-            // add the prototype
-            self.data_set_for_write(prototype);
+    pub fn revert(self, after_state: &mut DataSet) {
+        // Overwrite all the objects in the new set with our data
+        for (object_id, object) in self.before_state.objects {
+            after_state.objects.insert(object_id, object);
         }
-
-        &mut self.after
     }
 
-
-
-
-
-
-
-
-
-
-
-    //
-    // Schema-related functions
-    //
-    pub(crate) fn schema_set(&self) -> &SchemaSet {
-        &self.schema_set
+    pub fn commit(self, after_state: &DataSet) -> DataSetDiffSet {
+        DataSetDiffSet::diff_data_set(&self.before_state, &after_state, &self.tracked_objects)
     }
-
-    pub fn schemas(&self) -> &HashMap<SchemaFingerprint, SchemaNamedType> {
-        &self.schema_set.schemas()
-    }
-
-    pub fn find_named_type(
-        &self,
-        name: impl AsRef<str>,
-    ) -> Option<&SchemaNamedType> {
-        self.schema_set.find_named_type(name)
-    }
-
-    pub fn find_named_type_by_fingerprint(
-        &self,
-        fingerprint: SchemaFingerprint,
-    ) -> Option<&SchemaNamedType> {
-        self.schema_set.find_named_type_by_fingerprint(fingerprint)
-    }
-
-    pub fn default_value_for_schema(
-        &self,
-        schema: &Schema,
-    ) -> Value {
-        self.schema_set.default_value_for_schema(schema)
-    }
-
-
-
-
-
-
 
     pub fn new_object(
         &mut self,
         schema: &SchemaRecord,
+        after_state: &mut DataSet
     ) -> ObjectId {
-        let object_id = self.after.new_object(schema);
-        self.tracked_objects.insert(object_id);
+        let object_id = after_state.new_object(schema);
+        self.track_new_object(object_id);
         object_id
     }
 
     pub fn new_object_from_prototype(
         &mut self,
+        after_state: &mut DataSet,
         prototype: ObjectId,
     ) -> ObjectId {
-        let object_id = self.after.new_object_from_prototype(prototype);
+        let object_id = after_state.new_object_from_prototype(prototype);
         self.tracked_objects.insert(object_id);
         object_id
     }
 
+    pub fn delete_object(
+        &mut self,
+        after_state: &mut DataSet,
+        object_id: ObjectId
+    ) {
+        //TODO: Deleting object may requires more objects to be touched to remove references to it
+        self.preserve_object(after_state, object_id);
+        after_state.delete_object(object_id);
+    }
+
     pub(crate) fn restore_object(
         &mut self,
+        schema_set: &SchemaSet,
+        after_state: &mut DataSet,
         object_id: ObjectId,
         prototype: Option<ObjectId>,
         schema: SchemaFingerprint,
@@ -196,164 +107,100 @@ impl<'a> ImmediateTransaction<'a> {
         properties_in_replace_mode: HashSet<String>,
         dynamic_array_entries: HashMap<String, HashSet<Uuid>>,
     ) {
-        self.after.restore_object(&self.schema_set, object_id, prototype, schema, properties, property_null_overrides, properties_in_replace_mode, dynamic_array_entries);
-        self.tracked_objects.insert(object_id);
-    }
-
-    pub fn object_prototype(
-        &self,
-        object_id: ObjectId
-    ) -> Option<ObjectId> {
-        self.data_set_for_read(object_id).object_prototype(object_id)
-    }
-
-    pub fn object_schema(
-        &self,
-        object_id: ObjectId,
-    ) -> Option<&SchemaRecord> {
-        self.data_set_for_read(object_id).object_schema(object_id)
-    }
-
-    pub fn get_null_override(
-        &self,
-        object_id: ObjectId,
-        path: impl AsRef<str>,
-    ) -> Option<NullOverride> {
-        self.data_set_for_read(object_id).get_null_override(&self.schema_set, object_id, path)
+        self.preserve_object(after_state, object_id);
+        after_state.restore_object(schema_set, object_id, prototype, schema, properties, property_null_overrides, properties_in_replace_mode, dynamic_array_entries);
     }
 
     pub fn set_null_override(
         &mut self,
+        schema_set: &SchemaSet,
+        after_state: &mut DataSet,
         object_id: ObjectId,
         path: impl AsRef<str>,
         null_override: NullOverride,
     ) {
-        let schema_set = self.schema_set.clone();
-        self.data_set_for_write(object_id).set_null_override(&schema_set, object_id, path, null_override)
+        self.preserve_object(after_state, object_id);
+        after_state.set_null_override(schema_set, object_id, path, null_override)
     }
 
     pub fn remove_null_override(
         &mut self,
+        schema_set: &SchemaSet,
+        after_state: &mut DataSet,
         object_id: ObjectId,
         path: impl AsRef<str>,
     ) {
-        let schema_set = self.schema_set.clone();
-        self.data_set_for_write(object_id).remove_null_override(&schema_set, object_id, path)
-    }
-
-    pub fn resolve_is_null(
-        &self,
-        object_id: ObjectId,
-        path: impl AsRef<str>,
-    ) -> Option<bool> {
-        self.data_set_for_read(object_id).resolve_is_null(&self.schema_set, object_id, path)
-    }
-
-    pub fn has_property_override(
-        &self,
-        object_id: ObjectId,
-        path: impl AsRef<str>,
-    ) -> bool {
-        self.data_set_for_read(object_id).has_property_override(object_id, path)
-    }
-
-    // Just gets if this object has a property without checking prototype chain for fallback or returning a default
-    // Returning none means it is not overridden
-    pub fn get_property_override(
-        &self,
-        object_id: ObjectId,
-        path: impl AsRef<str>,
-    ) -> Option<&Value> {
-        self.data_set_for_read(object_id).get_property_override(object_id, path)
+        self.preserve_object(after_state, object_id);
+        after_state.remove_null_override(&schema_set, object_id, path)
     }
 
     // Just sets a property on this object, making it overridden, or replacing the existing override
     pub fn set_property_override(
         &mut self,
+        after_state: &mut DataSet,
         object_id: ObjectId,
         path: impl AsRef<str>,
         value: Value,
     ) -> bool {
+        self.preserve_object(after_state, object_id);
         let schema_set = self.schema_set.clone();
-        self.data_set_for_write(object_id).set_property_override(&schema_set, object_id, path, value)
+        after_state.set_property_override(&schema_set, object_id, path, value)
     }
 
     pub fn remove_property_override(
         &mut self,
+        after_state: &mut DataSet,
         object_id: ObjectId,
         path: impl AsRef<str>,
     ) -> Option<Value> {
-        self.data_set_for_write(object_id).remove_property_override(object_id, path)
+        self.preserve_object(after_state, object_id);
+        after_state.remove_property_override(object_id, path)
     }
 
     pub fn apply_property_override_to_prototype(
         &mut self,
+        schema_set: &SchemaSet,
+        after_state: &mut DataSet,
         object_id: ObjectId,
         path: impl AsRef<str>,
     ) {
-        let schema_set = self.schema_set.clone();
-        self.data_set_for_write(object_id).apply_property_override_to_prototype(&schema_set, object_id, path)
-    }
-
-    pub fn resolve_property(
-        &self,
-        object_id: ObjectId,
-        path: impl AsRef<str>,
-    ) -> Option<Value> {
-        self.data_set_for_read(object_id).resolve_property(&self.schema_set, object_id, path)
-    }
-
-    pub fn get_dynamic_array_overrides(
-        &self,
-        object_id: ObjectId,
-        path: impl AsRef<str>,
-    ) -> Option<HashSetIter<Uuid>> {
-        self.data_set_for_read(object_id).get_dynamic_array_overrides(&self.schema_set, object_id, path)
+        self.preserve_object(after_state, object_id);
+        after_state.apply_property_override_to_prototype(schema_set, object_id, path)
     }
 
     pub fn add_dynamic_array_override(
         &mut self,
+        schema_set: &SchemaSet,
+        after_state: &mut DataSet,
         object_id: ObjectId,
         path: impl AsRef<str>,
     ) -> Uuid {
-        let schema_set = self.schema_set.clone();
-        self.data_set_for_write(object_id).add_dynamic_array_override(&schema_set, object_id, path)
+        self.preserve_object(after_state, object_id);
+        after_state.add_dynamic_array_override(schema_set, object_id, path)
     }
 
     pub fn remove_dynamic_array_override(
         &mut self,
+        schema_set: &SchemaSet,
+        after_state: &mut DataSet,
         object_id: ObjectId,
         path: impl AsRef<str>,
         element_id: Uuid,
     ) {
-        let schema_set = self.schema_set.clone();
-        self.data_set_for_write(object_id).remove_dynamic_array_override(&schema_set, object_id, path, element_id)
-    }
-
-    pub fn resolve_dynamic_array(
-        &self,
-        object_id: ObjectId,
-        path: impl AsRef<str>,
-    ) -> Box<[Uuid]> {
-        self.data_set_for_read(object_id).resolve_dynamic_array(&self.schema_set, object_id, path)
-    }
-
-    pub fn get_override_behavior(
-        &self,
-        object_id: ObjectId,
-        path: impl AsRef<str>,
-    ) -> OverrideBehavior {
-        self.data_set_for_read(object_id).get_override_behavior(&self.schema_set, object_id, path)
+        self.preserve_object(after_state, object_id);
+        after_state.remove_dynamic_array_override(schema_set, object_id, path, element_id)
     }
 
     pub fn set_override_behavior(
         &mut self,
+        schema_set: &SchemaSet,
+        after_state: &mut DataSet,
         object_id: ObjectId,
         path: impl AsRef<str>,
         behavior: OverrideBehavior,
     ) {
-        let schema_set = self.schema_set.clone();
-        self.data_set_for_write(object_id).set_override_behavior(&schema_set, object_id, path, behavior)
+        self.preserve_object(after_state, object_id);
+        after_state.set_override_behavior(schema_set, object_id, path, behavior)
     }
 }
 
@@ -371,11 +218,11 @@ impl<'a> ImmediateTransaction<'a> {
 
 
 
-pub struct UndoContext {
-    before_state: DataSet,
-    tracked_objects: HashSet<ObjectId>,
-}
-
+// pub struct UndoContext {
+//     before_state: DataSet,
+//     tracked_objects: HashSet<ObjectId>,
+// }
+//
 
 
 
@@ -387,7 +234,6 @@ pub struct UndoContext {
 pub struct Database {
     schema_set: Arc<SchemaSet>,
     data_set: DataSet,
-
 }
 
 impl Database {
@@ -399,6 +245,22 @@ impl Database {
     //         tracked_objects: Default::default()
     //     }
     // }
+
+    pub fn begin_transaction() {
+
+    }
+
+    pub fn revert_transaction() {
+        unimplemented!();
+    }
+
+    pub fn commit_transaction() -> DataSetDiffSet {
+        unimplemented!();
+    }
+
+    pub fn apply_diff() {
+
+    }
 
 
 

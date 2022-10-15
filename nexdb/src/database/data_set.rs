@@ -59,12 +59,29 @@ impl DataSet {
         id
     }
 
-    pub fn delete_object(
+    pub(crate) fn restore_object(
         &mut self,
-        object_id: ObjectId
+        schema_set: &SchemaSet,
+        object_id: ObjectId,
+        prototype: Option<ObjectId>,
+        schema: SchemaFingerprint,
+        properties: HashMap<String, Value>,
+        property_null_overrides: HashMap<String, NullOverride>,
+        properties_in_replace_mode: HashSet<String>,
+        dynamic_array_entries: HashMap<String, HashSet<Uuid>>,
     ) {
-        //TODO: Kill subobjects too
-        self.objects.remove(&object_id);
+        let schema = schema_set.schemas().get(&schema).unwrap();
+        let schema_record = schema.as_record().cloned().unwrap();
+        let obj = DataObjectInfo {
+            schema: schema_record,
+            prototype,
+            properties,
+            property_null_overrides,
+            properties_in_replace_mode,
+            dynamic_array_entries,
+        };
+
+        self.objects.insert(object_id, obj);
     }
 
     pub fn new_object(
@@ -100,50 +117,23 @@ impl DataSet {
         self.insert_object(obj)
     }
 
-    pub(crate) fn restore_object(
+    pub fn delete_object(
         &mut self,
-        schema_set: &SchemaSet,
-        object_id: ObjectId,
-        prototype: Option<ObjectId>,
-        schema: SchemaFingerprint,
-        properties: HashMap<String, Value>,
-        property_null_overrides: HashMap<String, NullOverride>,
-        properties_in_replace_mode: HashSet<String>,
-        dynamic_array_entries: HashMap<String, HashSet<Uuid>>,
+        object_id: ObjectId
     ) {
-        let schema = schema_set.schemas().get(&schema).unwrap();
-        let schema_record = schema.as_record().cloned().unwrap();
-        let obj = DataObjectInfo {
-            schema: schema_record,
-            prototype,
-            properties,
-            property_null_overrides,
-            properties_in_replace_mode,
-            dynamic_array_entries,
-        };
-
-        self.objects.insert(object_id, obj);
+        //TODO: Kill subobjects too
+        //TODO: Write tombstone?
+        self.objects.remove(&object_id);
     }
 
-    // pub(crate) fn restore_object(
-    //     &mut self,
-    //     object_id: ObjectId,
-    //     schema: SchemaFingerprint,
-    //     schema_name: String,
-    //     prototype: Option<ObjectId>,
-    // ) {
-    //     let schema = self.schemas.get(&schema).unwrap();
-    //     let obj = DatabaseObjectInfo {
-    //         schema: schema.clone(),
-    //         prototype,
-    //         properties: Default::default(),
-    //         property_null_overrides: Default::default(),
-    //         properties_in_replace_mode: Default::default(),
-    //         dynamic_array_entries: Default::default(),
-    //     };
-    //
-    //     self.insert_object(obj);
-    // }
+    pub fn copy_from(
+        &mut self,
+        other: &DataSet,
+        object_id: ObjectId
+    ) {
+        let object = other.objects.get(&object_id).cloned().unwrap();
+        self.objects.insert(object_id, object);
+    }
 
     pub fn object_prototype(
         &self,
@@ -159,29 +149,6 @@ impl DataSet {
     ) -> Option<&SchemaRecord> {
         self.objects.get(&object_id).map(|x| &x.schema)
     }
-
-    // pub(crate) fn property_schema(
-    //     schema: &SchemaNamedType,
-    //     path: impl AsRef<str>,
-    //     named_types: &HashMap<SchemaFingerprint, SchemaNamedType>,
-    // ) -> Option<Schema> {
-    //     let mut schema = Schema::NamedType(schema.fingerprint());
-    //
-    //     //TODO: Escape map keys (and probably avoid path strings anyways)
-    //     let split_path = path.as_ref().split(".");
-    //
-    //     // Iterate the path segments to find
-    //     for path_segment in split_path {
-    //         let s = schema.find_property_schema(path_segment, named_types);
-    //         if let Some(s) = s {
-    //             schema = s.clone();
-    //         } else {
-    //             return None;
-    //         }
-    //     }
-    //
-    //     Some(schema)
-    // }
 
     fn truncate_property_path(
         path: impl AsRef<str>,
@@ -546,12 +513,12 @@ impl DataSet {
         Some(Value::default_for_schema(&property_schema, schema_set.schemas()).clone())
     }
 
-    pub fn get_dynamic_array_overrides<'a>(
-        &'a self,
+    pub fn get_dynamic_array_overrides(
+        &self,
         schema_set: &SchemaSet,
         object_id: ObjectId,
         path: impl AsRef<str>,
-    ) -> Option<HashSetIter<'a, Uuid>> {
+    ) -> Option<HashSetIter<Uuid>> {
         let object = self.objects.get(&object_id).unwrap();
         let property_schema = object.schema.find_property_schema(&path, schema_set.schemas()).unwrap();
 
@@ -767,14 +734,5 @@ impl DataSet {
             }
             _ => panic!("unexpected schema type"),
         }
-    }
-
-    pub fn copy_from(
-        &mut self,
-        other: &DataSet,
-        object_id: ObjectId
-    ) {
-        let object = other.objects.get(&object_id).cloned().unwrap();
-        self.objects.insert(object_id, object);
     }
 }

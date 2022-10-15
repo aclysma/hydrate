@@ -5,7 +5,7 @@ use imgui::sys::{
     igDragFloat, igDragScalar, igInputDouble, ImGuiDataType__ImGuiDataType_Double,
     ImGuiInputTextFlags__ImGuiInputTextFlags_None, ImVec2,
 };
-use nexdb::{Database, ImmediateTransaction, Schema, Transaction, TransactionDiffSet};
+use nexdb::{Database, ImmediateTransaction, Schema, Transaction, DataSetDiffSet};
 use std::convert::TryInto;
 use crate::ui::asset_browser_grid_drag_drop::AssetBrowserGridPayload;
 
@@ -870,7 +870,7 @@ pub fn draw_inspector_nexdb(
     ui: &imgui::Ui,
     app_state: &mut AppState,
     object_id: nexdb::ObjectId,
-) {
+) {/*
     let mut transaction = if let Some(transaction) = app_state.try_resume_transaction("inspector") {
         println!("resuming");
         transaction.resume(app_state.db_state.db.data_set())
@@ -901,7 +901,6 @@ pub fn draw_inspector_nexdb(
     }
 
     let transaction = transaction.defer();
-
     //TODO: Determine when the user commits a value. And also apply changes/push onto undo queue
 
 
@@ -927,6 +926,7 @@ pub fn draw_inspector_nexdb(
         }
     }
 
+*/
 
 
     // if is_editing_complete {

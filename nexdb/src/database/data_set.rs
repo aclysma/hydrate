@@ -1,8 +1,87 @@
+use std::path::{Path, PathBuf};
 use std::str::FromStr;
 use uuid::Uuid;
 use crate::{HashMap, HashMapKeys, HashSet, HashSetIter, ObjectId, Schema, SchemaFingerprint, SchemaNamedType, SchemaRecord, Value};
 use crate::database::schema_set::SchemaSet;
 use crate::value::PropertyValue;
+
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+pub struct ObjectSourceId(Uuid);
+
+impl ObjectSourceId {
+    pub fn new() -> Self {
+        ObjectSourceId(Uuid::new_v4())
+    }
+
+    pub fn uuid(&self) -> &Uuid {
+        &self.0
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct ObjectPath(String);
+
+impl ObjectPath {
+    pub fn new(s: &str) -> Self {
+        ObjectPath(s.to_string())
+    }
+
+    pub fn root() -> Self {
+        ObjectPath("db:/".to_string())
+    }
+
+    pub fn join(&self, rhs: &ObjectPath) -> ObjectPath {
+        if self.0.ends_with("/") {
+            ObjectPath(format!("{}{}", self.0, rhs.0))
+        } else {
+            ObjectPath(format!("{}/{}", self.0, rhs.0))
+        }
+    }
+
+    pub fn strip_prefix(&self, prefix: &ObjectPath) -> Option<ObjectPath> {
+        self.0.strip_prefix(&prefix.0).map(|x| ObjectPath(x.to_string()))
+    }
+
+    pub fn as_string(&self) -> &str {
+        &self.0
+    }
+}
+
+impl From<&str> for ObjectPath {
+    fn from(s: &str) -> Self {
+        ObjectPath(s.to_string())
+    }
+}
+
+impl From<String> for ObjectPath {
+    fn from(s: String) -> Self {
+        ObjectPath(s)
+    }
+}
+
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct ObjectLocation {
+    source: ObjectSourceId,
+    path: ObjectPath
+}
+
+impl ObjectLocation {
+    pub fn new(source: ObjectSourceId, path: ObjectPath) -> Self {
+        ObjectLocation {
+            source,
+            path
+        }
+    }
+
+    pub fn source(&self) -> ObjectSourceId {
+        self.source
+    }
+
+    pub fn path(&self) -> &ObjectPath {
+        &self.path
+    }
+}
 
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub enum NullOverride {
@@ -23,6 +102,7 @@ pub struct DataObjectDelta {
 #[derive(Clone, Debug)]
 pub struct DataObjectInfo {
     pub(crate) schema: SchemaRecord, // Will always be a SchemaRecord
+    pub(crate) object_location: ObjectLocation,
     pub(crate) prototype: Option<ObjectId>,
     pub(crate) properties: HashMap<String, Value>,
     pub(crate) property_null_overrides: HashMap<String, NullOverride>,
@@ -61,8 +141,9 @@ impl DataSet {
 
     pub(crate) fn restore_object(
         &mut self,
-        schema_set: &SchemaSet,
         object_id: ObjectId,
+        object_location: ObjectLocation,
+        schema_set: &SchemaSet,
         prototype: Option<ObjectId>,
         schema: SchemaFingerprint,
         properties: HashMap<String, Value>,
@@ -74,6 +155,7 @@ impl DataSet {
         let schema_record = schema.as_record().cloned().unwrap();
         let obj = DataObjectInfo {
             schema: schema_record,
+            object_location,
             prototype,
             properties,
             property_null_overrides,
@@ -86,10 +168,12 @@ impl DataSet {
 
     pub fn new_object(
         &mut self,
+        object_location: ObjectLocation,
         schema: &SchemaRecord,
     ) -> ObjectId {
         let obj = DataObjectInfo {
             schema: schema.clone(),
+            object_location,
             prototype: None,
             properties: Default::default(),
             property_null_overrides: Default::default(),
@@ -102,11 +186,13 @@ impl DataSet {
 
     pub fn new_object_from_prototype(
         &mut self,
+        object_location: ObjectLocation,
         prototype: ObjectId,
     ) -> ObjectId {
         let prototype_info = self.objects.get(&prototype).unwrap();
         let obj = DataObjectInfo {
             schema: prototype_info.schema.clone(),
+            object_location,
             prototype: Some(prototype),
             properties: Default::default(),
             property_null_overrides: Default::default(),

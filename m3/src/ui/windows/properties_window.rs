@@ -10,7 +10,7 @@ pub fn draw_properties_window_single_select(
     object_id: ObjectId
 ) {
     ui.text(format!("Object: {}", object_id.as_uuid()));
-    if let Some(prototype) = app_state.db_state.db.object_prototype(object_id) {
+    if let Some(prototype) = app_state.db_state.editor_model.root_context().object_prototype(object_id) {
         if ui.button(im_str!(">>")) {
             let mut grid_state = &mut app_state.ui_state.asset_browser_state.grid_state;
             grid_state.first_selected = Some(prototype);

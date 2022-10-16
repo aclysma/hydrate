@@ -120,6 +120,7 @@ pub fn assets_tree_file_system_data_source_loaded(
     app_state: &mut AppState,
     file_system_package_index: usize
 ) {
+    /*
     let package = &mut app_state.file_system_packages[file_system_package_index];
     if let Some(data_source) = package.data_source() {
         for (path, file_state) in data_source.file_states() {
@@ -154,6 +155,7 @@ pub fn assets_tree_file_system_data_source_loaded(
             drop(token);
         }
     }
+    */
 }
 
 pub fn assets_tree_file_system_data_source(
@@ -161,6 +163,7 @@ pub fn assets_tree_file_system_data_source(
     app_state: &mut AppState,
     file_system_package_index: usize
 ) {
+    /*
     let package = &app_state.file_system_packages[file_system_package_index];
     let root_path = package.root_path();
 
@@ -197,6 +200,7 @@ pub fn assets_tree_file_system_data_source(
             assets_tree_file_system_data_source_loaded(ui, app_state, file_system_package_index);
         }
     }
+    */
 }
 
 pub fn assets_tree(
@@ -204,10 +208,11 @@ pub fn assets_tree(
     app_state: &mut AppState,
 ) {
     //assets_tree_file_system_data_source(ui, app_state, &app_state.file_system_ds);
-
+/*
     for file_system_package_index in 0..app_state.file_system_packages.len() {
         assets_tree_file_system_data_source(ui, app_state, file_system_package_index);
     }
+ */
 }
 
 pub fn draw_assets_dockspace(
@@ -394,6 +399,7 @@ pub fn assets_window_right(
     app_state: &mut AppState,
 
 ) {
+    /*
     let mut content_available_region = ImVec2::zero();
     unsafe {
         //
@@ -460,6 +466,7 @@ pub fn assets_window_right(
         is::igEndChild();
         is::igEndChild();
     }
+     */
 }
 
 pub fn draw_assets_dockspace_and_window(

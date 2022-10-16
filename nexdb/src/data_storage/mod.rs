@@ -1,7 +1,7 @@
 use std::path::Path;
 use std::str::FromStr;
 use uuid::Uuid;
-use crate::{Database, DataObjectInfo, HashMap, NullOverride, ObjectId, OverrideBehavior, Schema, SchemaFingerprint, SchemaNamedType, Value, HashSet};
+use crate::{Database, DataObjectInfo, HashMap, NullOverride, ObjectId, OverrideBehavior, Schema, SchemaFingerprint, SchemaNamedType, Value, HashSet, ObjectLocation};
 use serde::{Serialize, Deserialize};
 use serde_json::Number;
 
@@ -338,7 +338,7 @@ pub struct DataStorageJsonSingleFile {
 }
 
 impl DataStorageJsonSingleFile {
-    pub fn store_string(database: &Database) -> String {
+    pub fn store_string(database: &Database, objects: &[ObjectId]) -> String {
         let mut stored_objects = Vec::with_capacity(database.objects().len());
 
         //TODO: Visit objects in order sorted by ID
@@ -395,7 +395,7 @@ impl DataStorageJsonSingleFile {
         serde_json::to_string_pretty(&storage).unwrap()
     }
 
-    pub fn load_string(database: &mut Database, json: &str) -> Vec<ObjectId> {
+    pub fn load_string(database: &mut Database, object_location: ObjectLocation, json: &str) -> Vec<ObjectId> {
         let mut loaded_objects = Vec::default();
         let reloaded: DataStorageJsonSingleFile = serde_json::from_str(json).unwrap();
 
@@ -498,6 +498,7 @@ impl DataStorageJsonSingleFile {
 
             database.restore_object(
                 object_id,
+                object_location.clone(),
                 prototype,
                 schema_fingerprint,
                 properties,

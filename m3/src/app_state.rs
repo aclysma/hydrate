@@ -1,7 +1,6 @@
 use std::collections::VecDeque;
 use std::sync::Arc;
 use nexdb::{HashSet, ObjectId, DataSetDiffSet, UndoStack};
-use crate::data_source::{FileSystemPackage};
 use crate::db_state::DbState;
 
 #[derive(PartialEq)]
@@ -50,16 +49,15 @@ impl Default for UiState {
 
 // This struct is a simple example of something that can be inspected
 pub struct AppState {
-    pub file_system_packages: Vec<FileSystemPackage>,
+    //pub file_system_packages: Vec<FileSystemPackage>,
     pub db_state: DbState,
     pub ui_state: UiState,
 }
 
 impl AppState {
-    pub fn new(file_system_packages: Vec<FileSystemPackage>, test_data: DbState) -> Self {
+    pub fn new(db_state: DbState) -> Self {
         AppState {
-            file_system_packages,
-            db_state: test_data,
+            db_state,
             ui_state: UiState::default(),
         }
     }

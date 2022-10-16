@@ -1,48 +1,39 @@
 {
   "objects": [
     {
-      "object_id": "6301f625-1370-4712-a90c-5f9beadf4e16",
+      "object_id": "e5207121-34df-4f06-8729-672b2aa5a3f6",
       "schema": "4fec8abd-0c1f-2468-2104-0ee0720c7206",
       "schema_name": "Transform",
       "prototype": {
-        "Uuid": "a702a318-f59a-4736-b0a1-ef1d53572622"
+        "Uuid": "f5f74d69-1d9a-4903-a6e3-3da22b7b7eab"
       },
       "properties": {
         "all_fields.dynamic_array_i32": [
-          "2ed91308-e029-44df-868d-584424806881",
-          "74b27510-707d-457a-82ec-df89c5af1a62",
-          "b7d33245-7b67-4b4e-b90f-3322d503ad95"
+          "2384337c-d472-4ead-bc05-b905bb11e461",
+          "5223dd3a-d40e-4937-9c10-45b495e92f85",
+          "9cf06e34-2801-425c-94d0-46d7712ce27f"
         ],
         "all_fields.dynamic_array_vec3": [
-          "42ba6e9c-5627-4eab-a167-85013ba5615b",
-          "762034a3-fbad-4f8b-961c-46e37fb6b0ba",
-          "8e4f310f-9a33-47fe-b9ea-139e1a8559cb"
-        ],
-        "all_fields.i32": 376,
-        "all_fields.nullable_bool.null_override": "SetNonNull",
-        "all_fields.nullable_bool.value": true,
-        "all_fields.reference": "a702a318-f59a-4736-b0a1-ef1d53572622",
-        "all_fields.u32": 98,
-        "all_fields.u64": 66
+          "6d590814-1070-4226-8383-c739bd4ee38f",
+          "b879074e-8fb3-4127-a04b-b0391ab17047",
+          "fbc3f73c-da2b-4337-ac25-4143ba53d376"
+        ]
       }
     },
     {
-      "object_id": "a702a318-f59a-4736-b0a1-ef1d53572622",
+      "object_id": "f5f74d69-1d9a-4903-a6e3-3da22b7b7eab",
       "schema": "4fec8abd-0c1f-2468-2104-0ee0720c7206",
       "schema_name": "Transform",
       "prototype": null,
       "properties": {
-        "all_fields.boolean": false,
         "all_fields.dynamic_array_i32": [
-          "749e1866-375a-4fde-8c69-8a65fe13a095",
-          "8ce05740-4902-46b1-b2cc-25db2301e3db"
+          "3c3e8f2a-e4ff-44dc-afc2-23c7aa5e7d7f",
+          "cc7f9d64-918d-42ef-b10d-b72f49f5f736"
         ],
         "all_fields.dynamic_array_vec3": [
-          "0870cdd9-c5ab-448a-8174-efb84320f6e4",
-          "be0532dc-6724-4509-a52e-15c398c55fd0"
-        ],
-        "all_fields.i32": 417,
-        "all_fields.reference": "6301f625-1370-4712-a90c-5f9beadf4e16"
+          "a452992d-9866-4d76-a850-de0f5fec81e6",
+          "cbb733a0-60fb-4474-aaa8-9268f1637659"
+        ]
       }
     }
   ]

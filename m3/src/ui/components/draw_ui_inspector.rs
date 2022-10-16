@@ -872,7 +872,7 @@ pub fn draw_inspector_nexdb(
     object_id: nexdb::ObjectId,
 ) {
     let ui_state = &mut app_state.ui_state;
-    app_state.db_state.db.with_undo_context("PropertyInspector", |db| {
+    app_state.db_state.editor_model.root_context_mut().with_undo_context("PropertyInspector", |db| {
         let schema = db.object_schema(object_id).clone();
         let mut is_editing = false;
         let mut is_editing_complete = false;

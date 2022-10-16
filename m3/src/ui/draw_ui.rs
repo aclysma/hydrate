@@ -27,7 +27,7 @@ fn draw_menu_bar(
                 // if let Some(undo_step) = app_state.db_state.undo_stack.pop() {
                 //     undo_step.revert_diff.apply(app_state.db_state.db.data_set_mut());
                 // }
-                app_state.db_state.undo_stack.undo(&mut app_state.db_state.db);
+                app_state.db_state.editor_model.undo();//undo_stack.undo(&mut app_state.db_state.db);
             }
         });
         ui.menu(im_str!("Debug"), || {

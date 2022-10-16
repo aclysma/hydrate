@@ -1,6 +1,7 @@
 use std::ffi::OsStr;
 use std::path::{Path, PathBuf};
-use crate::{ObjectId, HashSet, HashMap, Database};
+use uuid::Uuid;
+use crate::{ObjectId, HashSet, HashMap, Database, ObjectLocation, ObjectPath, ObjectSourceId};
 
 
 
@@ -20,20 +21,30 @@ impl FileState {
 }
 
 pub struct FileSystemDataSource {
-    root_path: PathBuf,
+    object_source_id: ObjectSourceId,
+    mount_path: ObjectPath,
+    file_system_root_path: PathBuf,
     file_states: HashMap<PathBuf, FileState>,
-    object_locations: HashMap<ObjectId, PathBuf>,
+    //object_locations: HashMap<ObjectId, PathBuf>,
 }
 
 impl FileSystemDataSource {
-    pub fn new<T: Into<PathBuf>>(root_path: T, db: &mut Database) -> Self {
-        let root_path = root_path.into();
+    pub fn new<RootPathT: Into<PathBuf>>(
+        file_system_root_path: RootPathT,
+        mount_path: ObjectPath,
+        db: &mut Database
+    ) -> Self {
+        assert!(mount_path.as_string().ends_with("/"));
+
+        let object_source_id = ObjectSourceId::new();
+        let file_system_root_path = file_system_root_path.into();
         log::info!(
-            "Creating file system data source {:?}",
-            root_path
+            "Creating file system data source {:?} at mount point {:?}",
+            file_system_root_path,
+            mount_path
         );
 
-        let walker = globwalk::GlobWalkerBuilder::new(&root_path, "*")
+        let walker = globwalk::GlobWalkerBuilder::new(&file_system_root_path, "*")
             .file_type(globwalk::FileType::FILE)
             .build()
             .unwrap();
@@ -59,35 +70,71 @@ impl FileSystemDataSource {
 
         let mut object_locations: HashMap<ObjectId, PathBuf> = Default::default();
 
-        for (k, v) in &file_states {
-            if let Some(extension) = k.extension() {
+        for (file_path, v) in &file_states {
+            if let Some(extension) = file_path.extension() {
                 if extension == OsStr::new("nxt") {
                     // nexdb text file
-                    let contents = std::fs::read_to_string(k).unwrap();
-                    let objects = crate::data_storage::DataStorageJsonSingleFile::load_string(db, &contents);
-                    for object in objects {
-                        object_locations.insert(object, k.to_path_buf());
-                    }
+
+
+
+                    //TODO: Support mounting to a logical directory?
+                    let object_location = Self::do_file_system_path_to_location(object_source_id, &mount_path, &file_system_root_path, file_path).unwrap();
+                    let contents = std::fs::read_to_string(file_path).unwrap();
+
+                    let objects = crate::data_storage::DataStorageJsonSingleFile::load_string(db, object_location, &contents);
+                    // for object in objects {
+                    //     object_locations.insert(object, file_path.to_path_buf());
+                    // }
+
+
+                    log::info!("Loaded {} objects from {:?}", objects.len(), file_path);
                 }
             }
         }
 
         FileSystemDataSource {
-            root_path: root_path.into(),
+            object_source_id,
+            mount_path,
+            file_system_root_path: file_system_root_path.into(),
             file_states,
-            object_locations
+            //object_locations
         }
     }
 
-    pub fn root_path(&self) -> &Path {
-        &self.root_path
+    fn do_file_system_path_to_location(object_source_id: ObjectSourceId, mount_path: &ObjectPath, file_system_root_path: &Path, file_path: &Path) -> Option<ObjectLocation> {
+        let relative_path_from_root = file_path.strip_prefix(file_system_root_path).ok()?.to_str()?;
+        let virtual_path = mount_path.join(&relative_path_from_root.into());
+        Some(ObjectLocation::new(object_source_id, virtual_path))
+    }
+
+    pub fn file_system_path_to_location(&self, path: &Path) -> Option<ObjectLocation> {
+        Self::do_file_system_path_to_location(self.object_source_id, &self.mount_path, &self.file_system_root_path, path)
+    }
+
+    pub fn location_to_file_system_path(&self, object_location: &ObjectLocation) -> Option<PathBuf> {
+        println!("object location: {:?}", object_location);
+        println!("stripping {:?}", self.mount_path);
+        let path = object_location.path().strip_prefix(&self.mount_path)?;
+        println!("path will be {:?}", path);
+        let relative_file_path = Path::new(path.as_string());
+        let absolute_file_path = self.file_system_root_path.join(relative_file_path);
+        assert!(absolute_file_path.starts_with(&self.file_system_root_path));
+        Some(absolute_file_path)
+    }
+
+    pub fn file_system_root_path(&self) -> &Path {
+        &self.file_system_root_path
     }
 
     pub fn file_states(&self) -> &HashMap<PathBuf, FileState> {
         &self.file_states
     }
 
-    pub fn object_locations(&self) -> &HashMap<ObjectId, PathBuf> {
-        &self.object_locations
+    // pub fn object_locations(&self) -> &HashMap<ObjectId, PathBuf> {
+    //     &self.object_locations
+    // }
+
+    pub fn object_source_id(&self) -> ObjectSourceId {
+        self.object_source_id
     }
 }

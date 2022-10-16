@@ -18,6 +18,9 @@ pub use data_set::DataObjectInfo;
 pub use data_set::OverrideBehavior;
 pub use data_set::NullOverride;
 pub use data_set::DataSet;
+pub use data_set::ObjectPath;
+pub use data_set::ObjectSourceId;
+pub use data_set::ObjectLocation;
 
 mod schema_set;
 pub use schema_set::SchemaSet;
@@ -229,7 +232,7 @@ impl Database {
         }
     }
 
-    pub fn is_object_modified(&mut self, object_id: ObjectId) {
+    pub fn is_object_modified(&self, object_id: ObjectId) {
         self.modified_objects.contains(&object_id);
     }
 
@@ -352,25 +355,43 @@ impl Database {
 
     pub fn new_object(
         &mut self,
+        object_location: ObjectLocation,
         schema: &SchemaRecord,
     ) -> ObjectId {
-        let object_id = self.data_set.new_object(schema);
+        let object_id = self.data_set.new_object(object_location, schema);
         self.undo_context.track_new_object(object_id);
         object_id
     }
 
     pub fn new_object_from_prototype(
         &mut self,
+        object_location: ObjectLocation,
         prototype: ObjectId,
     ) -> ObjectId {
-        let object_id = self.data_set.new_object_from_prototype(prototype);
+        let object_id = self.data_set.new_object_from_prototype(object_location, prototype);
         self.undo_context.track_new_object(object_id);
         object_id
+    }
+
+    pub fn import_objects(&mut self, data_set: DataSet) {
+        for (k, v) in data_set.objects {
+            self.restore_object(
+                k,
+                v.object_location,
+                v.prototype,
+                v.schema.fingerprint(),
+                v.properties,
+                v.property_null_overrides,
+                v.properties_in_replace_mode,
+                v.dynamic_array_entries
+            );
+        }
     }
 
     pub(crate) fn restore_object(
         &mut self,
         object_id: ObjectId,
+        object_location: ObjectLocation,
         prototype: Option<ObjectId>,
         schema: SchemaFingerprint,
         properties: HashMap<String, Value>,
@@ -378,7 +399,7 @@ impl Database {
         properties_in_replace_mode: HashSet<String>,
         dynamic_array_entries: HashMap<String, HashSet<Uuid>>,
     ) {
-        self.data_set.restore_object(&self.schema_set, object_id, prototype, schema, properties, property_null_overrides, properties_in_replace_mode, dynamic_array_entries);
+        self.data_set.restore_object(object_id, object_location, &self.schema_set, prototype, schema, properties, property_null_overrides, properties_in_replace_mode, dynamic_array_entries);
         self.undo_context.track_new_object(object_id);
     }
 

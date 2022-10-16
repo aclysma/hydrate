@@ -37,7 +37,8 @@
         ],
         "all_fields.i32": 39,
         "all_fields.nullable_bool.null_override": "SetNonNull",
-        "all_fields.nullable_vec3.null_override": "SetNonNull"
+        "all_fields.nullable_vec3.null_override": "SetNonNull",
+        "all_fields.reference": "f4a01b32-54ff-49fe-af97-0af4cb344fec"
       }
     }
   ]

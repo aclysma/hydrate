@@ -122,6 +122,11 @@ impl EditContext {
             .commit_context(&mut self.data_set, &mut self.modified_objects);
     }
 
+    pub fn cancel_pending_undo_context(&mut self) {
+        self.undo_context
+            .cancel_context(&mut self.data_set);
+    }
+
     // pub fn apply_diff(&mut self, diff: &DataSetDiff) {
     //     diff.apply(&mut self.data_set);
     // }
@@ -217,7 +222,7 @@ impl EditContext {
         schema: &SchemaRecord,
     ) -> ObjectId {
         let object_id = self.data_set.new_object(object_location, schema);
-        self.undo_context.track_new_object(object_id);
+        self.track_new_object(object_id);
         object_id
     }
 
@@ -229,7 +234,7 @@ impl EditContext {
         let object_id = self
             .data_set
             .new_object_from_prototype(object_location, prototype);
-        self.undo_context.track_new_object(object_id);
+        self.track_new_object(object_id);
         object_id
     }
 
@@ -273,7 +278,15 @@ impl EditContext {
             properties_in_replace_mode,
             dynamic_array_entries,
         );
-        self.undo_context.track_new_object(object_id);
+        self.track_new_object(object_id);
+    }
+
+    pub fn delete_object(
+        &mut self,
+        object_id: ObjectId,
+    ) {
+        self.track_existing_object(object_id);
+        self.data_set.delete_object(object_id);
     }
 
     pub fn object_prototype(
@@ -305,8 +318,7 @@ impl EditContext {
         path: impl AsRef<str>,
         null_override: NullOverride,
     ) {
-        self.undo_context
-            .track_existing_object(&self.data_set, object_id);
+        self.track_existing_object(object_id);
         self.data_set
             .set_null_override(&self.schema_set, object_id, path, null_override)
     }
@@ -316,8 +328,7 @@ impl EditContext {
         object_id: ObjectId,
         path: impl AsRef<str>,
     ) {
-        self.undo_context
-            .track_existing_object(&self.data_set, object_id);
+        self.track_existing_object(object_id);
         self.data_set
             .remove_null_override(&self.schema_set, object_id, path)
     }
@@ -356,8 +367,7 @@ impl EditContext {
         path: impl AsRef<str>,
         value: Value,
     ) -> bool {
-        self.undo_context
-            .track_existing_object(&self.data_set, object_id);
+        self.track_existing_object(object_id);
         self.data_set
             .set_property_override(&self.schema_set, object_id, path, value)
     }
@@ -367,8 +377,7 @@ impl EditContext {
         object_id: ObjectId,
         path: impl AsRef<str>,
     ) -> Option<Value> {
-        self.undo_context
-            .track_existing_object(&self.data_set, object_id);
+        self.track_existing_object(object_id);
         self.data_set.remove_property_override(object_id, path)
     }
 
@@ -377,8 +386,7 @@ impl EditContext {
         object_id: ObjectId,
         path: impl AsRef<str>,
     ) {
-        self.undo_context
-            .track_existing_object(&self.data_set, object_id);
+        self.track_existing_object(object_id);
         self.data_set
             .apply_property_override_to_prototype(&self.schema_set, object_id, path)
     }
@@ -406,8 +414,7 @@ impl EditContext {
         object_id: ObjectId,
         path: impl AsRef<str>,
     ) -> Uuid {
-        self.undo_context
-            .track_existing_object(&self.data_set, object_id);
+        self.track_existing_object(object_id);
         self.data_set
             .add_dynamic_array_override(&self.schema_set, object_id, path)
     }
@@ -418,8 +425,7 @@ impl EditContext {
         path: impl AsRef<str>,
         element_id: Uuid,
     ) {
-        self.undo_context
-            .track_existing_object(&self.data_set, object_id);
+        self.track_existing_object(object_id);
         self.data_set
             .remove_dynamic_array_override(&self.schema_set, object_id, path, element_id)
     }
@@ -448,8 +454,7 @@ impl EditContext {
         path: impl AsRef<str>,
         behavior: OverrideBehavior,
     ) {
-        self.undo_context
-            .track_existing_object(&self.data_set, object_id);
+        self.track_existing_object(object_id);
         self.data_set
             .set_override_behavior(&self.schema_set, object_id, path, behavior)
     }

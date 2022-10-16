@@ -191,9 +191,11 @@ impl UndoContext {
                 self.tracked_objects.contains(k) && !self.before_state.objects.contains_key(k)
             });
 
-            self.before_state = Default::default();
             self.tracked_objects.clear();
         }
+
+        self.before_state = Default::default();
+        self.context_name = None;
     }
 
     pub(crate) fn commit_context(
@@ -220,8 +222,10 @@ impl UndoContext {
                 modified_objects.insert(*object);
             }
 
-            self.before_state = Default::default();
             self.tracked_objects.clear();
         }
+
+        self.before_state = Default::default();
+        self.context_name = None;
     }
 }

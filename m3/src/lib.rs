@@ -10,6 +10,7 @@ mod ui;
 mod app_state;
 use app_state::AppState;
 use ui::draw_ui;
+use crate::app_state::QueuedActions;
 
 // Creates a window and runs the event loop.
 pub fn run() {
@@ -64,9 +65,10 @@ pub fn run() {
                 event: winit::event::WindowEvent::CloseRequested,
                 ..
             } => {
-                app_state.db_state.save();
+                app_state.action_queue.queue_action(QueuedActions::Quit);
+                //app_state.db_state.save();
                 //save_state(&app_state.test_data_nexdb.db);
-                *control_flow = winit::event_loop::ControlFlow::Exit
+                //*control_flow = winit::event_loop::ControlFlow::Exit
             }
 
             //
@@ -84,17 +86,23 @@ pub fn run() {
                     },
                 ..
             } => {
-                app_state.db_state.save();
+                //app_state.db_state.save();
+                app_state.action_queue.queue_action(QueuedActions::Quit);
                 //save_state(&app_state.test_data_nexdb.db);
-                *control_flow = winit::event_loop::ControlFlow::Exit
+                //*control_flow = winit::event_loop::ControlFlow::Exit
             }
 
             //
             // Request a redraw any time we finish processing events
             //
             winit::event::Event::MainEventsCleared => {
-                // Queue a RedrawRequested event.
-                window.request_redraw();
+                app_state.process_queued_actions();
+                if app_state.ready_to_quit() {
+                    *control_flow = winit::event_loop::ControlFlow::Exit
+                } else {
+                    // Queue a RedrawRequested event.
+                    window.request_redraw();
+                }
             }
 
             //

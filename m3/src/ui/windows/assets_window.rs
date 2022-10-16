@@ -2,7 +2,7 @@ use crate::app_state::{
     ActiveToolRegion, AppState, AssetBrowserGridState, AssetBrowserState, UiState,
 };
 use crate::imgui_support::ImguiManager;
-use imgui::sys as is;
+use imgui::{StyleColor, sys as is};
 use imgui::sys::{
     igDragFloat, igDragScalar, igInputDouble, ImGuiDataType__ImGuiDataType_Double,
     ImGuiInputTextFlags__ImGuiInputTextFlags_None, ImGuiTableFlags__ImGuiTableFlags_NoPadOuterX,
@@ -147,7 +147,11 @@ pub fn assets_tree_node(
     tree_node: &LocationTreeNode
 ) {
     let id = im_str!("{}", tree_node.path.as_string());
-    let label = im_str!("{}", child_name);
+    let label = if tree_node.has_changes {
+        im_str!("{}*", child_name)
+    } else {
+        im_str!("{}", child_name)
+    };
     let is_selected = ui_state.asset_browser_state.tree_state.selected_items.contains(&tree_node.path);
 
     let mut flags = if tree_node.children.is_empty() {
@@ -342,6 +346,7 @@ fn text_centered(text: &imgui::ImStr) {
         );
         is::igSetCursorPosX(is::igGetCursorPosX() + ((available.x - text_size.x) * 0.5));
         is::igTextWrapped(text.as_ptr());
+
     }
 }
 
@@ -361,7 +366,14 @@ pub fn draw_asset(
     item_size: u32,
 ) {
     let id = items[index].0;
-    let name = im_str!("{}", items[index].0.as_uuid());
+    let location = &items[index].1;
+    let is_modified = app_state.db_state.editor_model.root_edit_context().is_object_modified(id);
+
+    let name = if is_modified {
+        im_str!("{}*", items[index].0.as_uuid())
+    } else {
+        im_str!("{}", items[index].0.as_uuid())
+    };
 
     let stack_token = ui.push_id(&name);
 
@@ -393,7 +405,15 @@ pub fn draw_asset(
                 id,
             );
 
+            let color = if is_modified {
+                [1.0, 1.0, 0.0, 1.0]
+            } else {
+                [1.0, 1.0, 1.0, 1.0]
+            };
+
+            let style = ui.push_style_color(StyleColor::Text, color);
             text_centered(&name);
+            style.pop();
         });
 
         if app_state
@@ -419,6 +439,12 @@ pub fn draw_asset(
     });
 
     try_select_grid_item(ui, &mut app_state.ui_state, items, index, id);
+
+    if ui.is_item_hovered() && !ui.is_mouse_dragging(imgui::MouseButton::Left) {
+        ui.tooltip(|| {
+            ui.text(im_str!("Path: {}", location.path().as_string()));
+        });
+    }
 
     // if ui.is_item_clicked() {
     //     println!("asset {:?} clicked", name);

@@ -68,6 +68,21 @@ impl EditorModel {
         object_source_id
     }
 
+    fn find_unsaved_paths(&self) -> HashSet<ObjectPath> {
+        let root_edit_context = self.edit_contexts.get(self.root_edit_context_key).unwrap();
+        let modified_objects =  &root_edit_context.modified_objects;
+
+        let mut dirty_locations: HashSet<ObjectPath> = Default::default();
+
+        for modified_object in modified_objects {
+            let object_info = root_edit_context.objects().get(modified_object).unwrap();
+            let location = object_info.object_location().clone();
+            dirty_locations.insert(location.path().clone());
+        }
+
+        dirty_locations
+    }
+
     pub fn save_root_edit_context(&mut self) {
         //
         // Ensure pending edits are flushed to the data set so that our modified objects list is fully up to date
@@ -76,7 +91,7 @@ impl EditorModel {
         root_edit_context.commit_pending_undo_context();
 
         //
-        // Take the contents of the modified object list, leaving the edit context
+        // Take the contents of the modified object list, leaving the edit context with a cleared list
         //
         let mut modified_objects = HashSet::default();
         std::mem::swap(&mut modified_objects, &mut root_edit_context.modified_objects);
@@ -111,6 +126,66 @@ impl EditorModel {
             let file_path = source.location_to_file_system_path(&location).unwrap();
             std::fs::write(file_path, data).unwrap();
         }
+    }
+
+    pub fn revert_root_edit_context(&mut self) {
+        //
+        // Ensure pending edits are cleared
+        //
+        let mut root_edit_context = self.edit_contexts.get_mut(self.root_edit_context_key).unwrap();
+        root_edit_context.cancel_pending_undo_context();
+
+        //
+        // Take the contents of the modified object list, leaving the edit context with a cleared list
+        //
+        let mut modified_objects = HashSet::default();
+        std::mem::swap(&mut modified_objects, &mut root_edit_context.modified_objects);
+
+        //
+        // Build a list of locations (i.e. files) we need to revert
+        //
+        let mut locations_to_revert = HashMap::default();
+        for modified_object in modified_objects {
+            let object_info = root_edit_context.objects().get(&modified_object).unwrap();
+            let location = object_info.object_location().clone();
+            locations_to_revert.insert(location, Vec::default());
+        }
+
+        //
+        // Build a list of object IDs that need to be reverted (including deleting new objects
+        //
+        for (object_id, object_info) in root_edit_context.objects() {
+            let location = object_info.object_location();
+            if let Some(objects) = locations_to_revert.get_mut(location) {
+                objects.push(*object_id);
+            }
+        }
+
+        //
+        // Reload the files from disk, deleting objects that are not present in them
+        //
+        for (location, object_ids) in locations_to_revert {
+            let source = self.data_sources.get(&location.source()).unwrap();
+            let file_path = source.location_to_file_system_path(&location).unwrap();
+            let data = std::fs::read_to_string(file_path).unwrap();
+
+            for object in object_ids {
+                root_edit_context.delete_object(object);
+            }
+
+            crate::data_storage::DataStorageJsonSingleFile::load_string(root_edit_context, location, &data);
+
+            //let source = self.data_sources.get(&location.source()).unwrap();
+            //std::fs::write(file_path, data).unwrap();
+        }
+
+        //
+        // Clear modified objects list since we reloaded everything from disk
+        //
+        //root_edit_context.cancel_pending_undo_context();
+        root_edit_context.modified_objects.clear();
+        root_edit_context.cancel_pending_undo_context();
+        self.refresh_location_tree();
     }
 
     pub fn close_file_system_source(
@@ -179,7 +254,8 @@ impl EditorModel {
             all_paths.insert(path.clone());
         }
 
-        self.location_tree.rebuild(&all_paths);
+        let unsaved_paths = self.find_unsaved_paths();
+        self.location_tree.rebuild(&all_paths, &unsaved_paths);
     }
 
     pub fn cached_location_tree(&self) -> &LocationTree {

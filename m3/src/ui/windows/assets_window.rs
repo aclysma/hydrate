@@ -9,7 +9,7 @@ use imgui::sys::{
     ImGuiTreeNodeFlags__ImGuiTreeNodeFlags_Selected, ImVec2,
 };
 use imgui::{im_str, ImStr, ImString, TreeNodeFlags};
-use nexdb::{HashSet, ObjectId, ObjectLocation, ObjectPath};
+use nexdb::{HashSet, LocationTreeNode, ObjectId, ObjectLocation, ObjectPath};
 use std::convert::TryInto;
 use std::ffi::CString;
 use std::path::PathBuf;
@@ -238,21 +238,42 @@ pub fn assets_tree(
 
  */
 
+
+pub fn assets_tree_node(
+    ui: &imgui::Ui,
+    app_state: &AppState,
+    child_name: &str,
+    tree_node: &LocationTreeNode
+) {
+    if tree_node.children.is_empty() || child_name.ends_with("/") {
+        ui.text(child_name);
+    } else {
+        ui.text(format!("{}/", child_name))
+    }
+
+    ui.indent();
+    for (child_name, child) in &tree_node.children {
+        assets_tree_node(ui, app_state, child_name, child);
+    }
+    ui.unindent();
+}
+
 pub fn assets_tree(
     ui: &imgui::Ui,
     app_state: &mut AppState,
 ) {
-    let mut paths: HashSet<ObjectPath> = Default::default();
-    for (object_id, object_info) in app_state.db_state.editor_model.root_edit_context().objects() {
-        paths.insert(object_info.object_location().path().clone());
+    app_state.db_state.editor_model.refresh_location_tree();
+    let tree = app_state.db_state.editor_model.cached_location_tree();
+
+    let show_root = true;
+    if show_root {
+        assets_tree_node(ui, app_state, "db:/", &tree.root_node);
+    } else {
+        for (child_name, child) in &tree.root_node.children {
+            assets_tree_node(ui, app_state, child_name,child);
+        }
     }
 
-    let mut paths: Vec<ObjectPath> = paths.into_iter().collect();
-    paths.sort_by(|lhs, rhs| lhs.as_string().cmp(rhs.as_string()));
-
-    for path in paths {
-        ui.text(path.as_string());
-    }
 }
 
 pub fn draw_assets_dockspace(

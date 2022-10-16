@@ -1,6 +1,6 @@
 use crate::edit_context::EditContext;
 use crate::editor::undo::UndoStack;
-use crate::{DataSet, FileSystemDataSource, HashMap, HashSet, ObjectId, ObjectLocation, ObjectPath, ObjectSourceId, SchemaSet};
+use crate::{DataSet, FileSystemDataSource, HashMap, HashSet, LocationTree, LocationTreeNode, ObjectId, ObjectLocation, ObjectPath, ObjectSourceId, SchemaSet};
 use slotmap::DenseSlotMap;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -13,6 +13,7 @@ pub struct EditorModel {
     edit_contexts: DenseSlotMap<EditContextKey, EditContext>,
     //TODO: slot_map?
     data_sources: HashMap<ObjectSourceId, FileSystemDataSource>,
+    location_tree: LocationTree,
 }
 
 impl EditorModel {
@@ -30,6 +31,7 @@ impl EditorModel {
             root_edit_context_key,
             edit_contexts,
             data_sources: Default::default(),
+            location_tree: Default::default(),
         }
     }
 
@@ -168,5 +170,19 @@ impl EditorModel {
 
     pub fn redo(&mut self) {
         self.undo_stack.redo(&mut self.edit_contexts)
+    }
+
+    pub fn refresh_location_tree(&mut self) {
+        let mut all_paths = HashSet::default();
+        for (object_id, info) in &self.edit_contexts.get(self.root_edit_context_key).unwrap().data_set.objects {
+            let path = info.object_location.path();
+            all_paths.insert(path.clone());
+        }
+
+        self.location_tree.rebuild(&all_paths);
+    }
+
+    pub fn cached_location_tree(&self) -> &LocationTree {
+        &self.location_tree
     }
 }

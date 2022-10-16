@@ -15,7 +15,7 @@ fn main() {
 
     let (schema_cache, data) = {
         let mut linker = SchemaLinker::default();
-        linker.add_source_dir(path.clone(), "*.json").unwrap();
+        linker.add_source_dir(path.clone(), "**.json").unwrap();
 
         let mut schema_set = SchemaSet::default();
         schema_set.add_linked_types(linker).unwrap();
@@ -87,7 +87,7 @@ fn main() {
     println!("--------------------- Restoring with linker");
     {
         let mut linker2 = SchemaLinker::default();
-        linker2.add_source_dir(path, "*.json").unwrap();
+        linker2.add_source_dir(path, "**.json").unwrap();
 
         let mut schema_set = SchemaSet::default();
         schema_set.add_linked_types(linker2).unwrap();

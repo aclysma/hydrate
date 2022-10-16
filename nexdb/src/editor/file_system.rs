@@ -31,7 +31,9 @@ impl FileSystemDataSource {
         mount_path: ObjectPath,
         edit_context: &mut EditContext,
     ) -> Self {
+        // Mount path should end in exactly one slash (we append paths to the end of it)
         assert!(mount_path.as_string().ends_with("/"));
+        assert!(!mount_path.as_string().ends_with("//"));
 
         let object_source_id = ObjectSourceId::new();
         let file_system_root_path = file_system_root_path.into();
@@ -41,7 +43,7 @@ impl FileSystemDataSource {
             mount_path
         );
 
-        let walker = globwalk::GlobWalkerBuilder::new(&file_system_root_path, "*")
+        let walker = globwalk::GlobWalkerBuilder::new(&file_system_root_path, "**")
             .file_type(globwalk::FileType::FILE)
             .build()
             .unwrap();
@@ -49,7 +51,7 @@ impl FileSystemDataSource {
         let mut file_states: HashMap<PathBuf, FileState> = Default::default();
 
         for file_path in walker {
-            println!("path {:?}", file_path);
+            println!("walk path {:?}", file_path);
             let file = file_path.unwrap();
             //file.
             let metadata = std::fs::metadata(file.path()).unwrap();
@@ -115,7 +117,7 @@ impl FileSystemDataSource {
             .strip_prefix(file_system_root_path)
             .ok()?
             .to_str()?;
-        let virtual_path = mount_path.join(&relative_path_from_root.into());
+        let virtual_path = mount_path.join(relative_path_from_root);
         Some(ObjectLocation::new(object_source_id, virtual_path))
     }
 

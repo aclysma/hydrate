@@ -32,7 +32,7 @@ impl DbState {
     }
 
     fn mount_path() -> ObjectPath {
-        ObjectPath::root().join(&ObjectPath::new("data/"))
+        ObjectPath::root()//;.join("db:/")
     }
 
     fn load_schema() -> SchemaSet {
@@ -40,7 +40,7 @@ impl DbState {
 
         let mut linker = nexdb::SchemaLinker::default();
         let path = Self::schema_def_path();
-        linker.add_source_dir(&path, "*.json").unwrap();
+        linker.add_source_dir(&path, "**.json").unwrap();
         schema_set.add_linked_types(linker).unwrap();
 
         if let Some(schema_cache_str) = std::fs::read_to_string(Self::schema_cache_file_path()).ok()
@@ -163,7 +163,7 @@ impl DbState {
 
         let mut linker = nexdb::SchemaLinker::default();
         let path = Self::schema_def_path();
-        linker.add_source_dir(&path, "*.json").unwrap();
+        linker.add_source_dir(&path, "**.json").unwrap();
         schema_set.add_linked_types(linker).unwrap();
 
         SchemaCacheSingleFile::load_string(&mut schema_set, &schema_cache_str);

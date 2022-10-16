@@ -8,3 +8,6 @@ pub use editor_model::{EditContextKey, EditorModel};
 
 mod undo;
 pub use undo::UndoStack;
+
+mod location_tree;
+pub use location_tree::*;

@@ -3,7 +3,7 @@ use crate::{
     HashMap, HashMapKeys, HashSet, HashSetIter, ObjectId, Schema, SchemaFingerprint,
     SchemaNamedType, SchemaRecord, Value,
 };
-use std::str::FromStr;
+use std::str::{FromStr, Split};
 use uuid::Uuid;
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
@@ -37,12 +37,12 @@ impl ObjectPath {
 
     pub fn join(
         &self,
-        rhs: &ObjectPath,
+        rhs: &str,
     ) -> ObjectPath {
         if self.0.ends_with("/") {
-            ObjectPath(format!("{}{}", self.0, rhs.0))
+            ObjectPath(format!("{}{}", self.0, rhs))
         } else {
-            ObjectPath(format!("{}/{}", self.0, rhs.0))
+            ObjectPath(format!("{}/{}", self.0, rhs))
         }
     }
 
@@ -53,6 +53,13 @@ impl ObjectPath {
         self.0
             .strip_prefix(&prefix.0)
             .map(|x| ObjectPath(x.to_string()))
+    }
+
+    pub fn split_components(
+        &self
+    ) -> Vec<&str> {
+        //let split = self.strip_prefix(&Self::root()).unwrap();
+        self.0.split("/").collect()
     }
 
     pub fn as_string(&self) -> &str {

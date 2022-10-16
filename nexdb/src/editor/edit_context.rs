@@ -2,12 +2,8 @@ use std::sync::mpsc::Sender;
 use std::sync::Arc;
 use uuid::Uuid;
 
-use crate::editor::undo::{UndoContext, UndoStack};
-use crate::{
-    DataObjectInfo, DataSet, DataSetDiffSet, HashMap, HashMapKeys, HashSet, HashSetIter,
-    NullOverride, ObjectId, ObjectLocation, OverrideBehavior, SchemaFingerprint, SchemaNamedType,
-    SchemaRecord, SchemaSet, Value,
-};
+use crate::editor::undo::{CompletedUndoContextMessage, UndoContext, UndoStack};
+use crate::{DataObjectInfo, DataSet, DataSetDiffSet, EditContextKey, HashMap, HashMapKeys, HashSet, HashSetIter, NullOverride, ObjectId, ObjectLocation, OverrideBehavior, SchemaFingerprint, SchemaNamedType, SchemaRecord, SchemaSet, Value};
 
 //TODO: Delete unused property data when path ancestor is null or in replace mode
 
@@ -37,11 +33,12 @@ use crate::{
 // - These undo contexts can be pushed onto a single global queue or a per-document queue
 
 pub struct EditContext {
+    edit_context_key: EditContextKey,
     schema_set: Arc<SchemaSet>,
     pub(super) data_set: DataSet,
     undo_context: UndoContext,
-    completed_context_tx: Sender<DataSetDiffSet>,
-    modified_objects: HashSet<ObjectId>,
+    completed_undo_context_tx: Sender<CompletedUndoContextMessage>,
+    pub(super) modified_objects: HashSet<ObjectId>,
 }
 
 impl EditContext {
@@ -73,32 +70,36 @@ impl EditContext {
     pub fn is_object_modified(
         &self,
         object_id: ObjectId,
-    ) {
-        self.modified_objects.contains(&object_id);
+    ) -> bool {
+        self.modified_objects.contains(&object_id)
     }
 
     pub fn new(
+        edit_context_key: EditContextKey,
         schema_set: Arc<SchemaSet>,
         undo_stack: &UndoStack,
     ) -> Self {
         EditContext {
+            edit_context_key,
             schema_set,
             data_set: Default::default(),
-            undo_context: UndoContext::new(undo_stack),
-            completed_context_tx: undo_stack.competed_context_tx().clone(),
+            undo_context: UndoContext::new(undo_stack, edit_context_key),
+            completed_undo_context_tx: undo_stack.completed_undo_context_tx().clone(),
             modified_objects: Default::default(),
         }
     }
 
     pub fn new_with_data(
+        edit_context_key: EditContextKey,
         schema_set: Arc<SchemaSet>,
         undo_stack: &UndoStack,
     ) -> Self {
         EditContext {
+            edit_context_key,
             schema_set,
             data_set: Default::default(),
-            undo_context: UndoContext::new(undo_stack),
-            completed_context_tx: undo_stack.competed_context_tx().clone(),
+            undo_context: UndoContext::new(undo_stack, edit_context_key),
+            completed_undo_context_tx: undo_stack.completed_undo_context_tx().clone(),
             modified_objects: Default::default(),
         }
     }

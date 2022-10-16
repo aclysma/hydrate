@@ -1,8 +1,9 @@
 use std::sync::mpsc;
 use std::sync::mpsc::{Receiver, Sender};
+use slotmap::{DenseSlotMap, SlotMap};
 
 use crate::edit_context::EditContext;
-use crate::{DataSet, DataSetDiffSet, HashSet, ObjectId};
+use crate::{DataSet, DataSetDiffSet, EditContextKey, HashSet, ObjectId};
 
 //TODO: Delete unused property data when path ancestor is null or in replace mode
 
@@ -12,10 +13,19 @@ use crate::{DataSet, DataSetDiffSet, HashSet, ObjectId};
 //TODO: Read-only sources? For things like network cache. Could only sync files we edit and overlay
 // files source over net cache source, etc.
 
+pub struct CompletedUndoContextMessage {
+    edit_context_key: EditContextKey,
+    diff_set: DataSetDiffSet,
+}
+
 pub struct UndoStack {
-    undo_chain: Vec<DataSetDiffSet>,
-    competed_context_rx: Receiver<DataSetDiffSet>,
-    competed_context_tx: Sender<DataSetDiffSet>,
+    undo_chain: Vec<CompletedUndoContextMessage>,
+    // Undo/Redo will decrease/increase this value, using apply/revert diffs to move backward and
+    // forward. Appending new diffs will truncate the chain at current position and push a new
+    // step on the chain. Zero means we have undone everything or there are no steps to undo.
+    current_undo_index: usize,
+    completed_undo_context_tx: Sender<CompletedUndoContextMessage>,
+    completed_undo_context_rx: Receiver<CompletedUndoContextMessage>,
 }
 
 impl Default for UndoStack {
@@ -23,54 +33,83 @@ impl Default for UndoStack {
         let (tx, rx) = mpsc::channel();
         UndoStack {
             undo_chain: Default::default(),
-            competed_context_tx: tx,
-            competed_context_rx: rx,
+            current_undo_index: 0,
+            completed_undo_context_tx: tx,
+            completed_undo_context_rx: rx,
         }
     }
 }
 
 impl UndoStack {
-    pub fn competed_context_tx(&self) -> &Sender<DataSetDiffSet> {
-        &self.competed_context_tx
+    pub fn completed_undo_context_tx(&self) -> &Sender<CompletedUndoContextMessage> {
+        &self.completed_undo_context_tx
     }
 
+    // This pulls incoming steps off the receive queue. These diffs have already been applied, so
+    // we mainly just use this to drop undone steps that can no longer be used, and to place them
+    // on the end of the chain
     fn drain_rx(&mut self) {
-        while let Ok(diff) = self.competed_context_rx.try_recv() {
+        while let Ok(diff) = self.completed_undo_context_rx.try_recv() {
+            self.undo_chain.truncate(self.current_undo_index);
             self.undo_chain.push(diff);
+            self.current_undo_index += 1;
         }
     }
 
     pub fn undo(
         &mut self,
-        edit_context: &mut EditContext,
+        edit_contexts: &mut DenseSlotMap<EditContextKey, EditContext>
     ) {
+        // If we have any incoming steps, consume them now
         self.drain_rx();
 
-        let popped = self.undo_chain.pop();
-        if let Some(popped) = popped {
-            popped.revert_diff.apply(&mut edit_context.data_set);
+        // if we undo the first step in the chain (i.e. our undo index is currently 1), we want to
+        // use the revert diff in the 0th index of the chain
+        if self.current_undo_index > 0 {
+            if let Some(current_step) = self.undo_chain.get(self.current_undo_index - 1) {
+                let data_set = &mut edit_contexts.get_mut(current_step.edit_context_key).unwrap().data_set;
+                current_step.diff_set.revert_diff.apply(data_set);
+                self.current_undo_index -= 1;
+            }
         }
     }
 
-    //TODO: Implement undo/redo properly
+    pub fn redo(
+        &mut self,
+        edit_contexts: &mut DenseSlotMap<EditContextKey, EditContext>
+    ) {
+        // If we have any incoming steps, consume them now
+        self.drain_rx();
+
+        // if we redo the first step in the chain (i.e. our undo index is currently 0), we want to
+        // use the apply diff in the 0th index of the chain. If our current step is == length of
+        // chain, we have no more steps available to redo
+        if let Some(current_step) = self.undo_chain.get(self.current_undo_index) {
+            let data_set = &mut edit_contexts.get_mut(current_step.edit_context_key).unwrap().data_set;
+            current_step.diff_set.apply_diff.apply(data_set);
+            self.current_undo_index += 1;
+        }
+    }
 }
 
 // Transaction that holds exclusive access for the data and will directly commit changes. It can
 // compare directly against the original dataset for changes
 pub struct UndoContext {
+    edit_context_key: EditContextKey,
     before_state: DataSet,
     tracked_objects: HashSet<ObjectId>,
     context_name: Option<&'static str>,
-    completed_context_tx: Sender<DataSetDiffSet>,
+    completed_undo_context_tx: Sender<CompletedUndoContextMessage>,
 }
 
 impl UndoContext {
-    pub(crate) fn new(undo_stack: &UndoStack) -> Self {
+    pub(crate) fn new(undo_stack: &UndoStack, edit_context_key: EditContextKey) -> Self {
         UndoContext {
+            edit_context_key,
             before_state: Default::default(),
             tracked_objects: Default::default(),
             context_name: Default::default(),
-            completed_context_tx: undo_stack.competed_context_tx.clone(),
+            completed_undo_context_tx: undo_stack.completed_undo_context_tx.clone(),
         }
     }
 
@@ -171,7 +210,10 @@ impl UndoContext {
             );
             if diff_set.has_changes() {
                 println!("Sending change {:#?}", diff_set);
-                self.completed_context_tx.send(diff_set).unwrap();
+                self.completed_undo_context_tx.send(CompletedUndoContextMessage {
+                    edit_context_key: self.edit_context_key,
+                    diff_set
+                }).unwrap();
             }
 
             for object in &self.tracked_objects {

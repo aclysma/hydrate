@@ -17,10 +17,10 @@ fn draw_menu_bar(
         });
         ui.menu(im_str!("Edit"), || {
             if imgui::MenuItem::new(im_str!("Undo")).build(ui) {
-                // if let Some(undo_step) = app_state.db_state.undo_stack.pop() {
-                //     undo_step.revert_diff.apply(app_state.db_state.db.data_set_mut());
-                // }
                 app_state.db_state.editor_model.undo(); //undo_stack.undo(&mut app_state.db_state.db);
+            }
+            if imgui::MenuItem::new(im_str!("Redo")).build(ui) {
+                app_state.db_state.editor_model.redo(); //undo_stack.undo(&mut app_state.db_state.db);
             }
         });
         ui.menu(im_str!("Debug"), || {

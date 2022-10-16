@@ -152,7 +152,7 @@ impl DbState {
             "all_fields.dynamic_array_vec3",
         );
 
-        edit_model.root_context_mut().import_objects(db);
+        edit_model.root_edit_context_mut().import_objects(db);
         edit_model
     }
 
@@ -170,7 +170,7 @@ impl DbState {
 
         let mut editor_model = EditorModel::new(Arc::new(schema_set));
         editor_model.open_file_system_source(Self::data_source_path(), Self::mount_path());
-        if editor_model.root_context().all_objects().len() == 0 {
+        if editor_model.root_edit_context().all_objects().len() == 0 {
             None
         } else {
             Some(editor_model)
@@ -193,6 +193,6 @@ impl DbState {
         let schema_cache = SchemaCacheSingleFile::store_string(self.editor_model.schema_set());
         std::fs::write(schema_cache_file_path, schema_cache).unwrap();
 
-        self.editor_model.save_root_context();
+        self.editor_model.save_root_edit_context();
     }
 }

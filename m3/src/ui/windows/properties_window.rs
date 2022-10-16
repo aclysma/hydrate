@@ -12,7 +12,7 @@ pub fn draw_properties_window_single_select(
     if let Some(prototype) = app_state
         .db_state
         .editor_model
-        .root_context()
+        .root_edit_context()
         .object_prototype(object_id)
     {
         if ui.button(im_str!(">>")) {

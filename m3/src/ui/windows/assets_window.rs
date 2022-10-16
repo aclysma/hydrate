@@ -243,7 +243,7 @@ pub fn assets_tree(
     app_state: &mut AppState,
 ) {
     let mut paths: HashSet<ObjectPath> = Default::default();
-    for (object_id, object_info) in app_state.db_state.editor_model.root_context().objects() {
+    for (object_id, object_info) in app_state.db_state.editor_model.root_edit_context().objects() {
         paths.insert(object_info.object_location().path().clone());
     }
 
@@ -556,7 +556,7 @@ pub fn assets_window_right(
             //     }
             // }
 
-            for (k, v) in app_state.db_state.editor_model.root_context().objects() {
+            for (k, v) in app_state.db_state.editor_model.root_edit_context().objects() {
                 filtered_objects.push((*k, v.object_location().clone()));
             }
 

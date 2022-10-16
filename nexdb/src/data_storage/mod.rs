@@ -1,8 +1,11 @@
+use crate::edit_context::Database;
+use crate::{
+    HashMap, HashSet, NullOverride, ObjectId, ObjectLocation, OverrideBehavior, Schema,
+    SchemaFingerprint, SchemaNamedType, Value,
+};
+use serde::{Deserialize, Serialize};
 use std::str::FromStr;
 use uuid::Uuid;
-use crate::{HashMap, NullOverride, ObjectId, OverrideBehavior, Schema, SchemaFingerprint, SchemaNamedType, Value, HashSet, ObjectLocation};
-use serde::{Serialize, Deserialize};
-use crate::edit_context::Database;
 
 fn property_value_to_json(value: &Value) -> serde_json::Value {
     match value {
@@ -27,7 +30,10 @@ fn property_value_to_json(value: &Value) -> serde_json::Value {
     }
 }
 
-fn json_to_property_value_with_schema(schema: &Schema, value: &serde_json::Value) -> Value {
+fn json_to_property_value_with_schema(
+    schema: &Schema,
+    value: &serde_json::Value,
+) -> Value {
     match schema {
         Schema::Nullable(_) => unimplemented!(),
         Schema::Boolean => Value::Boolean(value.as_bool().unwrap()),
@@ -43,7 +49,9 @@ fn json_to_property_value_with_schema(schema: &Schema, value: &serde_json::Value
         Schema::StaticArray(_) => unimplemented!(),
         Schema::DynamicArray(_) => unimplemented!(),
         Schema::Map(_) => unimplemented!(),
-        Schema::ObjectRef(_) => Value::ObjectRef(ObjectId(Uuid::parse_str(value.as_str().unwrap()).unwrap().as_u128())),
+        Schema::ObjectRef(_) => Value::ObjectRef(ObjectId(
+            Uuid::parse_str(value.as_str().unwrap()).unwrap().as_u128(),
+        )),
         Schema::NamedType(_) => unimplemented!(),
     }
 }
@@ -60,14 +68,17 @@ fn json_to_property_value_without_schema(value: &serde_json::Value) -> Value {
             } else {
                 Value::F64(number.as_f64().unwrap())
             }
-        },
+        }
         serde_json::Value::String(x) => Value::String(x.to_string()),
         serde_json::Value::Array(_) => unimplemented!(),
         serde_json::Value::Object(_) => unimplemented!(),
     }
 }
 
-fn json_to_property_value(schema: Option<&Schema>, value: &serde_json::Value) -> Value {
+fn json_to_property_value(
+    schema: Option<&Schema>,
+    value: &serde_json::Value,
+) -> Value {
     if let Some(schema) = schema {
         json_to_property_value_with_schema(schema, value)
     } else {
@@ -75,7 +86,7 @@ fn json_to_property_value(schema: Option<&Schema>, value: &serde_json::Value) ->
     }
 }
 
-fn null_override_to_string_value(null_override: NullOverride) -> &'static str{
+fn null_override_to_string_value(null_override: NullOverride) -> &'static str {
     match null_override {
         NullOverride::SetNull => "SetNull",
         NullOverride::SetNonNull => "SetNonNull",
@@ -86,7 +97,7 @@ fn string_to_null_override_value(s: &str) -> Option<NullOverride> {
     match s {
         "SetNull" => Some(NullOverride::SetNull),
         "SetNonNull" => Some(NullOverride::SetNonNull),
-        _ => None
+        _ => None,
     }
 }
 
@@ -102,13 +113,28 @@ fn store_object_into_properties(
             // Save value
             if database.resolve_is_null(object_id, path) == Some(false) {
                 let value_path = format!("{}.value", path);
-                store_object_into_properties(database, object_id, stored_object, &*inner_schema, &value_path);
+                store_object_into_properties(
+                    database,
+                    object_id,
+                    stored_object,
+                    &*inner_schema,
+                    &value_path,
+                );
             }
         }
-        Schema::Boolean | Schema::I32 | Schema::I64 | Schema::U32 | Schema::U64 | Schema::F32 | Schema::F64 | Schema::String => {
+        Schema::Boolean
+        | Schema::I32
+        | Schema::I64
+        | Schema::U32
+        | Schema::U64
+        | Schema::F32
+        | Schema::F64
+        | Schema::String => {
             let value = database.get_property_override(object_id, path);
             if let Some(value) = value {
-                stored_object.properties.insert(path.to_string(), property_value_to_json(value));
+                stored_object
+                    .properties
+                    .insert(path.to_string(), property_value_to_json(value));
             }
         }
         Schema::Bytes => {
@@ -125,7 +151,13 @@ fn store_object_into_properties(
             if let Some(elements) = elements {
                 for element_id in elements {
                     let element_path = format!("{}.{}", path, element_id);
-                    store_object_into_properties(database, object_id, stored_object, dynamic_array.item_type(), &element_path);
+                    store_object_into_properties(
+                        database,
+                        object_id,
+                        stored_object,
+                        dynamic_array.item_type(),
+                        &element_path,
+                    );
                 }
             }
         }
@@ -135,11 +167,16 @@ fn store_object_into_properties(
         Schema::ObjectRef(_) => {
             let value = database.get_property_override(object_id, path);
             if let Some(value) = value {
-                stored_object.properties.insert(path.to_string(), property_value_to_json(value));
+                stored_object
+                    .properties
+                    .insert(path.to_string(), property_value_to_json(value));
             }
         }
         Schema::NamedType(named_type) => {
-            let named_type = database.find_named_type_by_fingerprint(*named_type).unwrap().clone();
+            let named_type = database
+                .find_named_type_by_fingerprint(*named_type)
+                .unwrap()
+                .clone();
             match named_type {
                 SchemaNamedType::Record(record) => {
                     for field in record.fields() {
@@ -148,7 +185,13 @@ fn store_object_into_properties(
                         } else {
                             format!("{}.{}", path, field.name())
                         };
-                        store_object_into_properties(database, object_id, stored_object, field.field_schema(), &field_path);
+                        store_object_into_properties(
+                            database,
+                            object_id,
+                            stored_object,
+                            field.field_schema(),
+                            &field_path,
+                        );
                     }
                 }
                 SchemaNamedType::Enum(_) => {
@@ -168,7 +211,7 @@ fn restore_object_from_properties(
     stored_object: &DataStorageJsonObject,
     schema: &Schema,
     path: &str,
-    max_path_length: usize
+    max_path_length: usize,
 ) {
     // Cyclical types can cause unbounded depth of properties, so limit ourselves to the
     // known max length of paths we will load.
@@ -180,55 +223,90 @@ fn restore_object_from_properties(
         Schema::Nullable(inner_schema) => {
             // Restore value
             let value_path = format!("{}.value", path);
-            restore_object_from_properties(database, object_id, stored_object, &*inner_schema, &value_path, max_path_length);
+            restore_object_from_properties(
+                database,
+                object_id,
+                stored_object,
+                &*inner_schema,
+                &value_path,
+                max_path_length,
+            );
         }
         Schema::Boolean => {
             let value = stored_object.properties.get(path);
             if let Some(value) = value {
                 log::debug!("restore bool {} from {}", path, value);
-                database.set_property_override(object_id, path, Value::Boolean(value.as_bool().unwrap()));
+                database.set_property_override(
+                    object_id,
+                    path,
+                    Value::Boolean(value.as_bool().unwrap()),
+                );
             }
         }
         Schema::I32 => {
             let value = stored_object.properties.get(path);
             if let Some(value) = value {
                 log::debug!("restore u32 {} from {}", path, value);
-                database.set_property_override(object_id, path, Value::I32(value.as_i64().unwrap() as i32));
+                database.set_property_override(
+                    object_id,
+                    path,
+                    Value::I32(value.as_i64().unwrap() as i32),
+                );
             }
         }
         Schema::I64 => {
             let value = stored_object.properties.get(path);
             if let Some(value) = value {
                 log::debug!("restore u64 {} from {}", path, value);
-                database.set_property_override(object_id, path, Value::I64(value.as_i64().unwrap()));
+                database.set_property_override(
+                    object_id,
+                    path,
+                    Value::I64(value.as_i64().unwrap()),
+                );
             }
         }
         Schema::U32 => {
             let value = stored_object.properties.get(path);
             if let Some(value) = value {
                 log::debug!("restore u32 {} from {}", path, value);
-                database.set_property_override(object_id, path, Value::U32(value.as_u64().unwrap() as u32));
+                database.set_property_override(
+                    object_id,
+                    path,
+                    Value::U32(value.as_u64().unwrap() as u32),
+                );
             }
         }
         Schema::U64 => {
             let value = stored_object.properties.get(path);
             if let Some(value) = value {
                 log::debug!("restore u64 {} from {}", path, value);
-                database.set_property_override(object_id, path, Value::U64(value.as_u64().unwrap()));
+                database.set_property_override(
+                    object_id,
+                    path,
+                    Value::U64(value.as_u64().unwrap()),
+                );
             }
         }
         Schema::F32 => {
             let value = stored_object.properties.get(path);
             if let Some(value) = value {
                 log::debug!("restore f32 {} from {}", path, value);
-                database.set_property_override(object_id, path, Value::F32(value.as_f64().unwrap() as f32));
+                database.set_property_override(
+                    object_id,
+                    path,
+                    Value::F32(value.as_f64().unwrap() as f32),
+                );
             }
         }
         Schema::F64 => {
             let value = stored_object.properties.get(path);
             if let Some(value) = value {
                 log::debug!("restore f64 {} from {}", path, value);
-                database.set_property_override(object_id, path, Value::F32(value.as_f64().unwrap() as f32));
+                database.set_property_override(
+                    object_id,
+                    path,
+                    Value::F32(value.as_f64().unwrap() as f32),
+                );
             }
         }
         Schema::Bytes => {
@@ -241,7 +319,11 @@ fn restore_object_from_properties(
             let value = stored_object.properties.get(path);
             if let Some(value) = value {
                 log::debug!("restore string {} from {}", path, value);
-                database.set_property_override(object_id, path, Value::String(value.as_str().unwrap().to_string()));
+                database.set_property_override(
+                    object_id,
+                    path,
+                    Value::String(value.as_str().unwrap().to_string()),
+                );
             }
         }
         Schema::StaticArray(_) => {
@@ -255,12 +337,24 @@ fn restore_object_from_properties(
                 }
             }
 
-            let elements = stored_object.properties.get(path).unwrap().as_array().unwrap();
+            let elements = stored_object
+                .properties
+                .get(path)
+                .unwrap()
+                .as_array()
+                .unwrap();
             for element in elements {
                 let element_id = element.as_str().unwrap();
                 database.add_dynamic_array_override(object_id, path);
 
-                restore_object_from_properties(database, object_id, stored_object, dynamic_array.item_type(), &format!("{}.{}", path, element_id), max_path_length);
+                restore_object_from_properties(
+                    database,
+                    object_id,
+                    stored_object,
+                    dynamic_array.item_type(),
+                    &format!("{}.{}", path, element_id),
+                    max_path_length,
+                );
             }
         }
         Schema::Map(_) => {
@@ -271,11 +365,18 @@ fn restore_object_from_properties(
             if let Some(value) = value {
                 log::debug!("restore f64 {} from {}", path, value);
                 let uuid = Uuid::parse_str(value.as_str().unwrap()).unwrap();
-                database.set_property_override(object_id, path, Value::ObjectRef(ObjectId(uuid.as_u128())));
+                database.set_property_override(
+                    object_id,
+                    path,
+                    Value::ObjectRef(ObjectId(uuid.as_u128())),
+                );
             }
         }
         Schema::NamedType(named_type) => {
-            let named_type = database.find_named_type_by_fingerprint(*named_type).unwrap().clone();
+            let named_type = database
+                .find_named_type_by_fingerprint(*named_type)
+                .unwrap()
+                .clone();
             match named_type {
                 SchemaNamedType::Record(record) => {
                     for field in record.fields() {
@@ -284,7 +385,14 @@ fn restore_object_from_properties(
                         } else {
                             format!("{}.{}", path, field.name())
                         };
-                        restore_object_from_properties(database, object_id, stored_object, field.field_schema(), &field_path, max_path_length);
+                        restore_object_from_properties(
+                            database,
+                            object_id,
+                            stored_object,
+                            field.field_schema(),
+                            &field_path,
+                            max_path_length,
+                        );
                     }
                 }
                 SchemaNamedType::Enum(_) => {
@@ -298,9 +406,12 @@ fn restore_object_from_properties(
     }
 }
 
-fn ordered_map<S>(value: &HashMap<String, serde_json::Value>, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
+fn ordered_map<S>(
+    value: &HashMap<String, serde_json::Value>,
+    serializer: S,
+) -> Result<S::Ok, S::Error>
+where
+    S: serde::Serializer,
 {
     let ordered: std::collections::BTreeMap<_, _> = value.iter().collect();
     ordered.serialize(serializer)
@@ -308,17 +419,16 @@ fn ordered_map<S>(value: &HashMap<String, serde_json::Value>, serializer: S) -> 
 
 #[derive(Debug, Serialize, Deserialize)]
 enum ObjectReference {
-    Uuid(Uuid)
+    Uuid(Uuid),
 }
 
 impl ObjectReference {
     pub fn as_uuid(&self) -> Uuid {
         match self {
-            ObjectReference::Uuid(uuid) => *uuid
+            ObjectReference::Uuid(uuid) => *uuid,
         }
     }
 }
-
 
 #[derive(Debug, Serialize, Deserialize)]
 struct DataStorageJsonObject {
@@ -330,14 +440,16 @@ struct DataStorageJsonObject {
     properties: HashMap<String, serde_json::Value>,
 }
 
-
 #[derive(Debug, Serialize, Deserialize)]
 pub struct DataStorageJsonSingleFile {
-    objects: Vec<DataStorageJsonObject>
+    objects: Vec<DataStorageJsonObject>,
 }
 
 impl DataStorageJsonSingleFile {
-    pub fn store_string(database: &Database, objects: &[ObjectId]) -> String {
+    pub fn store_string(
+        database: &Database,
+        objects: &[ObjectId],
+    ) -> String {
         let mut stored_objects = Vec::with_capacity(database.objects().len());
 
         //TODO: Visit objects in order sorted by ID
@@ -350,36 +462,50 @@ impl DataStorageJsonSingleFile {
         for id in sorted_object_ids {
             let obj = database.objects().get(&id).unwrap();
 
-        //}
+            //}
 
-        //for (id, obj) in database.objects() {
+            //for (id, obj) in database.objects() {
             //let mut properties: HashMap<String, serde_json::Value> = Default::default();
             let mut stored_object = DataStorageJsonObject {
                 object_id: Uuid::from_u128(id.0),
                 schema: obj.schema.fingerprint().as_uuid(),
                 schema_name: obj.schema.name().to_string(),
-                prototype: obj.prototype.map(|x| ObjectReference::Uuid(Uuid::from_u128(x.0))),
-                properties: Default::default()
+                prototype: obj
+                    .prototype
+                    .map(|x| ObjectReference::Uuid(Uuid::from_u128(x.0))),
+                properties: Default::default(),
             };
 
             for (path, null_override) in &obj.property_null_overrides {
-                stored_object.properties.insert(format!("{}.null_override", path), serde_json::Value::from(null_override_to_string_value(*null_override)));
+                stored_object.properties.insert(
+                    format!("{}.null_override", path),
+                    serde_json::Value::from(null_override_to_string_value(*null_override)),
+                );
             }
 
             for path in &obj.properties_in_replace_mode {
-                stored_object.properties.insert(format!("{}.replace", path), serde_json::Value::from(true));
+                stored_object
+                    .properties
+                    .insert(format!("{}.replace", path), serde_json::Value::from(true));
             }
 
             for (path, elements) in &obj.dynamic_array_entries {
                 let mut sorted_elements: Vec<_> = elements.iter().copied().collect();
                 sorted_elements.sort();
-                let elements_json: Vec<_> = sorted_elements.iter().map(|x| serde_json::Value::from(x.to_string())).collect();
+                let elements_json: Vec<_> = sorted_elements
+                    .iter()
+                    .map(|x| serde_json::Value::from(x.to_string()))
+                    .collect();
                 let elements_json_array = serde_json::Value::from(elements_json);
-                stored_object.properties.insert(path.to_string(), elements_json_array);
+                stored_object
+                    .properties
+                    .insert(path.to_string(), elements_json_array);
             }
 
             for (k, v) in &obj.properties {
-                stored_object.properties.insert(k.to_string(), property_value_to_json(v));
+                stored_object
+                    .properties
+                    .insert(k.to_string(), property_value_to_json(v));
             }
 
             //Alternative way via walking through schema
@@ -390,13 +516,17 @@ impl DataStorageJsonSingleFile {
         }
 
         let storage = DataStorageJsonSingleFile {
-            objects: stored_objects
+            objects: stored_objects,
         };
 
         serde_json::to_string_pretty(&storage).unwrap()
     }
 
-    pub fn load_string(database: &mut Database, object_location: ObjectLocation, json: &str) -> Vec<ObjectId> {
+    pub fn load_string(
+        database: &mut Database,
+        object_location: ObjectLocation,
+        json: &str,
+    ) -> Vec<ObjectId> {
         let mut loaded_objects = Vec::default();
         let reloaded: DataStorageJsonSingleFile = serde_json::from_str(json).unwrap();
 
@@ -406,7 +536,10 @@ impl DataStorageJsonSingleFile {
             let schema_fingerprint = SchemaFingerprint(stored_object.schema.as_u128());
             //let object_schema = database.schemas().get(&schema_fingerprint).unwrap().clone();
 
-            let prototype = stored_object.prototype.as_ref().map(|x| ObjectId(x.as_uuid().as_u128()));
+            let prototype = stored_object
+                .prototype
+                .as_ref()
+                .map(|x| ObjectId(x.as_uuid().as_u128()));
 
             let mut properties: HashMap<String, Value> = Default::default();
             let mut property_null_overrides: HashMap<String, NullOverride> = Default::default();
@@ -429,7 +562,10 @@ impl DataStorageJsonSingleFile {
             //     stored_object.schema_name.clone(),
             //     stored_object.prototype.as_ref().map(|x| ObjectId(x.as_uuid().as_u128()))
             // );
-            let named_type = database.find_named_type_by_fingerprint(schema_fingerprint).unwrap().clone();
+            let named_type = database
+                .find_named_type_by_fingerprint(schema_fingerprint)
+                .unwrap()
+                .clone();
             //let object = database.objects.get_mut(&object_id).unwrap();
 
             // We use the max path length to ensure we stop recursing through types when we know no properties will exist
@@ -443,7 +579,6 @@ impl DataStorageJsonSingleFile {
             //Alternative way via walking through schema
             //restore_object_from_properties(database, object_id, stored_object, &schema, "", max_path_length);
 
-
             for (path, value) in &stored_object.properties {
                 let split_path = path.rsplit_once('.');
                 //let parent_path = split_path.map(|x| x.0);
@@ -452,9 +587,12 @@ impl DataStorageJsonSingleFile {
                 let mut property_handled = false;
 
                 if let Some((parent_path, path_end)) = split_path {
-                    let parent_schema = named_type.find_property_schema(parent_path, database.schemas()).unwrap();
+                    let parent_schema = named_type
+                        .find_property_schema(parent_path, database.schemas())
+                        .unwrap();
                     if parent_schema.is_nullable() && path_end == "null_override" {
-                        let null_override = string_to_null_override_value(value.as_str().unwrap()).unwrap();
+                        let null_override =
+                            string_to_null_override_value(value.as_str().unwrap()).unwrap();
                         //database.set_null_override(object_id, path, null_override);
                         log::debug!("set null override {} to {:?}", parent_path, null_override);
                         property_null_overrides.insert(parent_path.to_string(), null_override);
@@ -472,14 +610,17 @@ impl DataStorageJsonSingleFile {
                 }
 
                 if !property_handled {
-                    let property_schema = named_type.find_property_schema(path, database.schemas()).unwrap();
+                    let property_schema = named_type
+                        .find_property_schema(path, database.schemas())
+                        .unwrap();
                     if property_schema.is_dynamic_array() {
                         let json_array = value.as_array().unwrap();
                         for json_array_element in json_array {
                             let element = json_array_element.as_str().unwrap();
                             let element = Uuid::from_str(element).unwrap();
-                            let existing_entries = dynamic_array_entries.entry(path.to_string()).or_default();
-                            if !existing_entries.contains(&element){
+                            let existing_entries =
+                                dynamic_array_entries.entry(path.to_string()).or_default();
+                            if !existing_entries.contains(&element) {
                                 log::debug!("add dynamic array element {} to {:?}", element, path);
                                 existing_entries.insert(element);
                             }
@@ -492,7 +633,8 @@ impl DataStorageJsonSingleFile {
                 }
             }
 
-            let mut dynamic_array_entries_as_vec: HashMap<String, HashSet<Uuid>> = Default::default();
+            let mut dynamic_array_entries_as_vec: HashMap<String, HashSet<Uuid>> =
+                Default::default();
             for (k, v) in dynamic_array_entries {
                 dynamic_array_entries_as_vec.insert(k, v.into_iter().collect());
             }
@@ -505,7 +647,7 @@ impl DataStorageJsonSingleFile {
                 properties,
                 property_null_overrides,
                 properties_in_replace_mode,
-                dynamic_array_entries_as_vec
+                dynamic_array_entries_as_vec,
             );
 
             loaded_objects.push(object_id);

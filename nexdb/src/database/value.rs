@@ -38,7 +38,6 @@ impl PropertyValue {
     }
 }
 
-
 #[derive(Clone, Debug)]
 pub struct ValueMap {
     properties: HashMap<Value, Value>,
@@ -48,7 +47,6 @@ pub struct ValueMap {
 pub struct ValueRecord {
     properties: HashMap<String, Value>,
 }
-
 
 /*
 impl ValueRecord {
@@ -213,7 +211,7 @@ impl Value {
             Value::ObjectRef(_) => {
                 //TODO: Validate type
                 schema.is_object_ref()
-            },
+            }
             Value::Record(inner_value) => {
                 // All value properties must exist and match in the schema. However we allow the
                 // value to be missing properties in the schema
@@ -625,7 +623,6 @@ impl Value {
     // Fixed
     //
 
-
     pub fn as_property_value(&self) -> Option<PropertyValue> {
         match self {
             Value::Boolean(x) => Some(PropertyValue::Boolean(*x)),
@@ -641,11 +638,14 @@ impl Value {
             Value::ObjectRef(x) => Some(PropertyValue::ObjectRef(*x)),
             Value::Enum(x) => Some(PropertyValue::Enum(x.clone())),
             Value::Fixed(x) => Some(PropertyValue::Fixed(x.clone())),
-            _ => None
+            _ => None,
         }
     }
 
-    pub fn are_matching_property_values(lhs: &Value, rhs: &Value) -> bool {
+    pub fn are_matching_property_values(
+        lhs: &Value,
+        rhs: &Value,
+    ) -> bool {
         match (lhs, rhs) {
             (Value::Boolean(lhs), Value::Boolean(rhs)) => *lhs == *rhs,
             (Value::I32(lhs), Value::I32(rhs)) => *lhs == *rhs,
@@ -660,7 +660,7 @@ impl Value {
             (Value::ObjectRef(lhs), Value::ObjectRef(rhs)) => *lhs == *rhs,
             (Value::Enum(lhs), Value::Enum(rhs)) => *lhs == *rhs,
             (Value::Fixed(lhs), Value::Fixed(rhs)) => *lhs == *rhs,
-            _ => false
+            _ => false,
         }
     }
 }

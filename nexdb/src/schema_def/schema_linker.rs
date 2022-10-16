@@ -241,7 +241,11 @@ impl SchemaLinker {
             }
             let fingerprint = SchemaFingerprint(hasher.finish128().as_u128());
 
-            log::debug!("type {} fingerprint is {}", type_name, fingerprint.as_uuid());
+            log::debug!(
+                "type {} fingerprint is {}",
+                type_name,
+                fingerprint.as_uuid()
+            );
             schemas_by_name.insert(type_name.to_string(), fingerprint);
         }
 

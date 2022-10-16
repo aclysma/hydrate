@@ -1,11 +1,13 @@
+use crate::edit_context::Database;
+use crate::editor::undo::UndoStack;
+use crate::{
+    DataSet, FileSystemDataSource, HashMap, ObjectId, ObjectLocation, ObjectPath, ObjectSourceId,
+    SchemaSet,
+};
+use slotmap::DenseSlotMap;
 use std::path::PathBuf;
 use std::sync::Arc;
-use slotmap::DenseSlotMap;
-use crate::edit_context::Database;
-use crate::{DataSet, FileSystemDataSource, HashMap, ObjectId, ObjectLocation, ObjectPath, ObjectSourceId, SchemaSet};
-use crate::editor::undo::UndoStack;
 slotmap::new_key_type! { pub struct EditContextKey; }
-
 
 // pub struct EditContext {
 //     database: Database,
@@ -43,7 +45,7 @@ pub struct EditorModel {
     root_context_key: EditContextKey,
     edit_contexts: DenseSlotMap<EditContextKey, Database>,
     //TODO: slot_map?
-    data_sources: HashMap<ObjectSourceId, FileSystemDataSource>
+    data_sources: HashMap<ObjectSourceId, FileSystemDataSource>,
 }
 
 impl EditorModel {
@@ -58,7 +60,7 @@ impl EditorModel {
             undo_stack,
             root_context_key,
             edit_contexts,
-            data_sources: Default::default()
+            data_sources: Default::default(),
         }
     }
 
@@ -74,11 +76,18 @@ impl EditorModel {
         self.edit_contexts.get_mut(self.root_context_key).unwrap()
     }
 
-    pub fn file_system_data_source(&mut self, object_source_id: ObjectSourceId) -> Option<&FileSystemDataSource> {
+    pub fn file_system_data_source(
+        &mut self,
+        object_source_id: ObjectSourceId,
+    ) -> Option<&FileSystemDataSource> {
         self.data_sources.get(&object_source_id)
     }
 
-    pub fn open_file_system_source<RootPathT: Into<PathBuf>>(&mut self, root_path: RootPathT, mount_path: ObjectPath) -> ObjectSourceId {
+    pub fn open_file_system_source<RootPathT: Into<PathBuf>>(
+        &mut self,
+        root_path: RootPathT,
+        mount_path: ObjectPath,
+    ) -> ObjectSourceId {
         let root_context = self.root_context_mut();
         let root_path = root_path.into();
         println!("MOUNT PATH {:?}", mount_path);
@@ -101,28 +110,31 @@ impl EditorModel {
         let database = self.root_context();
         for (id, object) in database.objects() {
             //nexdb::
-            objects_by_location.entry(object.object_location.clone()).or_default().push(*id);
+            objects_by_location
+                .entry(object.object_location.clone())
+                .or_default()
+                .push(*id);
         }
         println!("found objects to save {:#?}", objects_by_location);
 
         for (location, object_ids) in objects_by_location {
-            let data = crate::data_storage::DataStorageJsonSingleFile::store_string(database, &object_ids);
+            let data =
+                crate::data_storage::DataStorageJsonSingleFile::store_string(database, &object_ids);
             let source = self.data_sources.get(&location.source()).unwrap();
             let file_path = source.location_to_file_system_path(&location).unwrap();
             //TODO: mark as written?
-
 
             println!("STORE DATA {:?} -> {:?}\n{}", location, file_path, data);
             std::fs::write(file_path, data).unwrap();
         }
 
-
-
-
         //crate::data_storage::DataStorageJsonSingleFile::store_string()
     }
 
-    pub fn close_file_system_source(&mut self, object_source_id: ObjectSourceId) {
+    pub fn close_file_system_source(
+        &mut self,
+        object_source_id: ObjectSourceId,
+    ) {
         // kill edit contexts or fail
 
         // clear root_context of data from this source
@@ -133,7 +145,10 @@ impl EditorModel {
     }
 
     // We don't support new - expected that you create objects in root context and then open them
-    pub fn open_edit_context(&mut self, objects: &[ObjectId]) {
+    pub fn open_edit_context(
+        &mut self,
+        objects: &[ObjectId],
+    ) {
         //let new_db = Database::new(self.schema_set.clone(), &self.undo_stack);
         let root_db = self.edit_contexts.get(self.root_context_key).unwrap();
         let mut data_set = DataSet::default();
@@ -156,7 +171,5 @@ impl EditorModel {
         //self.undo_stack.undo()
     }
 
-    pub fn redo(&mut self) {
-
-    }
+    pub fn redo(&mut self) {}
 }

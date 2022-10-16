@@ -20,7 +20,7 @@ fn init_imgui(window: &winit::window::Window) -> ImguiContext {
             let x = col[0].powf(2.2);
             let y = col[1].powf(2.2);
             let z = col[2].powf(2.2);
-            let w = col[3];//1.0 - (1.0 - col[3]).powf(2.2);
+            let w = col[3]; //1.0 - (1.0 - col[3]).powf(2.2);
             [x, y, z, w]
         }
 
@@ -43,7 +43,6 @@ fn init_imgui(window: &winit::window::Window) -> ImguiContext {
     // otherwise. This might or might not be what you want in a real application.
     let scale_factor = window.scale_factor().round();
     let font_size = (16.0 * scale_factor) as f32;
-
 
     let feather_ttf = {
         // https://pixinvent.com/apex-angular-4-bootstrap-admin-template/html-demo-4/icons-feather.html
@@ -89,8 +88,9 @@ fn init_imgui(window: &winit::window::Window) -> ImguiContext {
         config: None,
     };
 
-    imgui_context.fonts().add_font(&[mplus_ttf, feather_ttf, material_ttf]);
-
+    imgui_context
+        .fonts()
+        .add_font(&[mplus_ttf, feather_ttf, material_ttf]);
 
     imgui_context.io_mut().font_global_scale = (1.0 / scale_factor) as f32;
 
@@ -102,7 +102,8 @@ fn init_imgui(window: &winit::window::Window) -> ImguiContext {
 
 pub fn init_imgui_manager(window: &winit::window::Window) -> ImguiManager {
     let mut imgui_context = init_imgui(&window);
-    let mut imgui_platform = imgui_winit_support::WinitPlatform::init(&mut imgui_context.imgui_context);
+    let mut imgui_platform =
+        imgui_winit_support::WinitPlatform::init(&mut imgui_context.imgui_context);
 
     imgui_platform.attach_window(
         imgui_context.imgui_context.io_mut(),
@@ -111,7 +112,12 @@ pub fn init_imgui_manager(window: &winit::window::Window) -> ImguiManager {
     );
 
     imgui_context.imgui_context.io_mut().config_flags |= imgui::ConfigFlags::DOCKING_ENABLE;
-    imgui_context.imgui_context.io_mut().backend_flags |= imgui::BackendFlags::RENDERER_HAS_VTX_OFFSET;
+    imgui_context.imgui_context.io_mut().backend_flags |=
+        imgui::BackendFlags::RENDERER_HAS_VTX_OFFSET;
 
-    ImguiManager::new(imgui_context.imgui_context, imgui_context.imnodes_context, imgui_platform)
+    ImguiManager::new(
+        imgui_context.imgui_context,
+        imgui_context.imnodes_context,
+        imgui_platform,
+    )
 }

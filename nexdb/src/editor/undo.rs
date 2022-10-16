@@ -1,9 +1,8 @@
 use std::sync::mpsc;
 use std::sync::mpsc::{Receiver, Sender};
 
-use crate::{DataSet, DataSetDiffSet, HashSet, ObjectId};
 use crate::edit_context::Database;
-
+use crate::{DataSet, DataSetDiffSet, HashSet, ObjectId};
 
 //TODO: Delete unused property data when path ancestor is null or in replace mode
 
@@ -12,9 +11,6 @@ use crate::edit_context::Database;
 
 //TODO: Read-only sources? For things like network cache. Could only sync files we edit and overlay
 // files source over net cache source, etc.
-
-
-
 
 pub struct UndoStack {
     undo_chain: Vec<DataSetDiffSet>,
@@ -28,7 +24,7 @@ impl Default for UndoStack {
         UndoStack {
             undo_chain: Default::default(),
             competed_context_tx: tx,
-            competed_context_rx: rx
+            competed_context_rx: rx,
         }
     }
 }
@@ -44,7 +40,10 @@ impl UndoStack {
         }
     }
 
-    pub fn undo(&mut self, db: &mut Database) {
+    pub fn undo(
+        &mut self,
+        db: &mut Database,
+    ) {
         self.drain_rx();
 
         let popped = self.undo_chain.pop();
@@ -56,15 +55,13 @@ impl UndoStack {
     //TODO: Implement undo/redo properly
 }
 
-
-
 // Transaction that holds exclusive access for the data and will directly commit changes. It can
 // compare directly against the original dataset for changes
 pub struct UndoContext {
     before_state: DataSet,
     tracked_objects: HashSet<ObjectId>,
     context_name: Option<&'static str>,
-    completed_context_tx: Sender<DataSetDiffSet>
+    completed_context_tx: Sender<DataSetDiffSet>,
 }
 
 impl UndoContext {
@@ -78,14 +75,21 @@ impl UndoContext {
     }
 
     // Call after adding a new object
-    pub(crate) fn track_new_object(&mut self, object_id: ObjectId) {
+    pub(crate) fn track_new_object(
+        &mut self,
+        object_id: ObjectId,
+    ) {
         if self.context_name.is_some() {
             self.tracked_objects.insert(object_id);
         }
     }
 
     // Call before editing or deleting an object
-    pub(crate) fn track_existing_object(&mut self, after_state: &DataSet, object_id: ObjectId) {
+    pub(crate) fn track_existing_object(
+        &mut self,
+        after_state: &DataSet,
+        object_id: ObjectId,
+    ) {
         if self.context_name.is_some() {
             //TODO: Preserve sub-objects?
             if !self.tracked_objects.contains(&object_id) {
@@ -96,12 +100,16 @@ impl UndoContext {
         }
     }
 
-    pub(crate)  fn has_open_context(&self) -> bool {
+    pub(crate) fn has_open_context(&self) -> bool {
         self.context_name.is_some()
     }
 
-
-    pub(crate) fn begin_context(&mut self, after_state: &DataSet, name: &'static str, modified_objects: &mut HashSet<ObjectId>) {
+    pub(crate) fn begin_context(
+        &mut self,
+        after_state: &DataSet,
+        name: &'static str,
+        modified_objects: &mut HashSet<ObjectId>,
+    ) {
         if self.context_name == Some(name) {
             // don't need to do anything, we can append to the current context
         } else {
@@ -115,14 +123,22 @@ impl UndoContext {
         }
     }
 
-    pub(crate) fn end_context(&mut self, after_state: &DataSet, allow_resume: bool, modified_objects: &mut HashSet<ObjectId>) {
+    pub(crate) fn end_context(
+        &mut self,
+        after_state: &DataSet,
+        allow_resume: bool,
+        modified_objects: &mut HashSet<ObjectId>,
+    ) {
         if !allow_resume {
             // This won't do anything if there's nothing to send
             self.commit_context(after_state, modified_objects);
         }
     }
 
-    pub(crate) fn cancel_context(&mut self, after_state: &mut DataSet) {
+    pub(crate) fn cancel_context(
+        &mut self,
+        after_state: &mut DataSet,
+    ) {
         if !self.tracked_objects.is_empty() {
             // Overwrite all the objects in the new set with old data
             let mut objects = Default::default();
@@ -132,17 +148,27 @@ impl UndoContext {
             }
 
             // Delete any tracked objects that aren't in the old data
-            after_state.objects.retain(|k, _| self.tracked_objects.contains(k) && !self.before_state.objects.contains_key(k));
+            after_state.objects.retain(|k, _| {
+                self.tracked_objects.contains(k) && !self.before_state.objects.contains_key(k)
+            });
 
             self.before_state = Default::default();
             self.tracked_objects.clear();
         }
     }
 
-    pub(crate) fn commit_context(&mut self, after_state: &DataSet, modified_objects: &mut HashSet<ObjectId>) {
+    pub(crate) fn commit_context(
+        &mut self,
+        after_state: &DataSet,
+        modified_objects: &mut HashSet<ObjectId>,
+    ) {
         if !self.tracked_objects.is_empty() {
             // Make a diff and send it if it has changes
-            let diff_set = DataSetDiffSet::diff_data_set(&self.before_state, &after_state, &self.tracked_objects);
+            let diff_set = DataSetDiffSet::diff_data_set(
+                &self.before_state,
+                &after_state,
+                &self.tracked_objects,
+            );
             if diff_set.has_changes() {
                 println!("Sending change {:#?}", diff_set);
                 self.completed_context_tx.send(diff_set).unwrap();

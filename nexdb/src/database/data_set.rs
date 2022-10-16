@@ -1,7 +1,10 @@
+use crate::SchemaSet;
+use crate::{
+    HashMap, HashMapKeys, HashSet, HashSetIter, ObjectId, Schema, SchemaFingerprint,
+    SchemaNamedType, SchemaRecord, Value,
+};
 use std::str::FromStr;
 use uuid::Uuid;
-use crate::{HashMap, HashMapKeys, HashSet, HashSetIter, ObjectId, Schema, SchemaFingerprint, SchemaNamedType, SchemaRecord, Value};
-use crate::SchemaSet;
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub struct ObjectSourceId(Uuid);
@@ -28,7 +31,10 @@ impl ObjectPath {
         ObjectPath("db:/".to_string())
     }
 
-    pub fn join(&self, rhs: &ObjectPath) -> ObjectPath {
+    pub fn join(
+        &self,
+        rhs: &ObjectPath,
+    ) -> ObjectPath {
         if self.0.ends_with("/") {
             ObjectPath(format!("{}{}", self.0, rhs.0))
         } else {
@@ -36,8 +42,13 @@ impl ObjectPath {
         }
     }
 
-    pub fn strip_prefix(&self, prefix: &ObjectPath) -> Option<ObjectPath> {
-        self.0.strip_prefix(&prefix.0).map(|x| ObjectPath(x.to_string()))
+    pub fn strip_prefix(
+        &self,
+        prefix: &ObjectPath,
+    ) -> Option<ObjectPath> {
+        self.0
+            .strip_prefix(&prefix.0)
+            .map(|x| ObjectPath(x.to_string()))
     }
 
     pub fn as_string(&self) -> &str {
@@ -57,19 +68,18 @@ impl From<String> for ObjectPath {
     }
 }
 
-
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct ObjectLocation {
     source: ObjectSourceId,
-    path: ObjectPath
+    path: ObjectPath,
 }
 
 impl ObjectLocation {
-    pub fn new(source: ObjectSourceId, path: ObjectPath) -> Self {
-        ObjectLocation {
-            source,
-            path
-        }
+    pub fn new(
+        source: ObjectSourceId,
+        path: ObjectPath,
+    ) -> Self {
+        ObjectLocation { source, path }
     }
 
     pub fn source(&self) -> ObjectSourceId {
@@ -93,9 +103,7 @@ pub enum OverrideBehavior {
     Replace,
 }
 
-pub struct DataObjectDelta {
-
-}
+pub struct DataObjectDelta {}
 
 #[derive(Clone, Debug)]
 pub struct DataObjectInfo {
@@ -209,7 +217,7 @@ impl DataSet {
 
     pub fn delete_object(
         &mut self,
-        object_id: ObjectId
+        object_id: ObjectId,
     ) {
         //TODO: Kill subobjects too
         //TODO: Write tombstone?
@@ -219,7 +227,7 @@ impl DataSet {
     pub fn copy_from(
         &mut self,
         other: &DataSet,
-        object_id: ObjectId
+        object_id: ObjectId,
     ) {
         let object = other.objects.get(&object_id).cloned().unwrap();
         self.objects.insert(object_id, object);
@@ -227,7 +235,7 @@ impl DataSet {
 
     pub fn object_prototype(
         &self,
-        object_id: ObjectId
+        object_id: ObjectId,
     ) -> Option<ObjectId> {
         let object = self.objects.get(&object_id).unwrap();
         object.prototype
@@ -336,7 +344,10 @@ impl DataSet {
         path: impl AsRef<str>,
     ) -> Option<NullOverride> {
         let object = self.objects.get(&object_id).unwrap();
-        let property_schema = object.schema.find_property_schema(&path, schema_set.schemas()).unwrap();
+        let property_schema = object
+            .schema
+            .find_property_schema(&path, schema_set.schemas())
+            .unwrap();
 
         if property_schema.is_nullable() {
             object.property_null_overrides.get(path.as_ref()).copied()
@@ -353,10 +364,14 @@ impl DataSet {
         null_override: NullOverride,
     ) {
         let object = self.objects.get_mut(&object_id).unwrap();
-        let property_schema = object.schema.find_property_schema(&path, schema_set.schemas()).unwrap();
+        let property_schema = object
+            .schema
+            .find_property_schema(&path, schema_set.schemas())
+            .unwrap();
 
         if property_schema.is_nullable() {
-            object.property_null_overrides
+            object
+                .property_null_overrides
                 .insert(path.as_ref().to_string(), null_override);
         }
     }
@@ -368,7 +383,10 @@ impl DataSet {
         path: impl AsRef<str>,
     ) {
         let object = self.objects.get_mut(&object_id).unwrap();
-        let property_schema = object.schema.find_property_schema(&path, schema_set.schemas()).unwrap();
+        let property_schema = object
+            .schema
+            .find_property_schema(&path, schema_set.schemas())
+            .unwrap();
 
         if property_schema.is_nullable() {
             object.property_null_overrides.remove(path.as_ref());
@@ -405,7 +423,7 @@ impl DataSet {
             &mut map_ancestors,
             &mut accessed_dynamic_array_keys,
         )
-            .unwrap();
+        .unwrap();
 
         if !property_schema.is_nullable() {
             return None;
@@ -468,15 +486,17 @@ impl DataSet {
         value: Value,
     ) -> bool {
         let object_schema = self.object_schema(object_id).unwrap();
-        let property_schema =
-            object_schema.find_property_schema(&path, schema_set.schemas()).unwrap();
+        let property_schema = object_schema
+            .find_property_schema(&path, schema_set.schemas())
+            .unwrap();
 
         //TODO: Should we check for null in path ancestors?
         //TODO: Only allow setting on values that exist, in particular, dynamic array overrides
         if !value.matches_schema(&property_schema, schema_set.schemas()) {
             log::debug!(
                 "Value {:?} doesn't match schema {:?}",
-                value, property_schema
+                value,
+                property_schema
             );
             return false;
         }
@@ -498,7 +518,8 @@ impl DataSet {
             &mut dynamic_array_ancestors,
             &mut map_ancestors,
             &mut accessed_dynamic_array_keys,
-        ).unwrap();
+        )
+        .unwrap();
 
         for checked_property in &nullable_ancestors {
             if self.resolve_is_null(schema_set, object_id, checked_property) != Some(false) {
@@ -572,7 +593,7 @@ impl DataSet {
             &mut map_ancestors,
             &mut accessed_dynamic_array_keys,
         )
-            .unwrap();
+        .unwrap();
 
         for checked_property in &nullable_ancestors {
             if self.resolve_is_null(schema_set, object_id, checked_property) != Some(false) {
@@ -609,7 +630,10 @@ impl DataSet {
         path: impl AsRef<str>,
     ) -> Option<HashSetIter<Uuid>> {
         let object = self.objects.get(&object_id).unwrap();
-        let property_schema = object.schema.find_property_schema(&path, schema_set.schemas()).unwrap();
+        let property_schema = object
+            .schema
+            .find_property_schema(&path, schema_set.schemas())
+            .unwrap();
 
         if !property_schema.is_dynamic_array() {
             panic!("get_dynamic_array_overrides only allowed on dynamic arrays");
@@ -630,7 +654,10 @@ impl DataSet {
         path: impl AsRef<str>,
     ) -> Uuid {
         let object = self.objects.get_mut(&object_id).unwrap();
-        let property_schema = object.schema.find_property_schema(&path, schema_set.schemas()).unwrap();
+        let property_schema = object
+            .schema
+            .find_property_schema(&path, schema_set.schemas())
+            .unwrap();
 
         if !property_schema.is_dynamic_array() {
             panic!("add_dynamic_array_override only allowed on dynamic arrays");
@@ -656,7 +683,10 @@ impl DataSet {
         element_id: Uuid,
     ) {
         let object = self.objects.get_mut(&object_id).unwrap();
-        let property_schema = object.schema.find_property_schema(&path, schema_set.schemas()).unwrap();
+        let property_schema = object
+            .schema
+            .find_property_schema(&path, schema_set.schemas())
+            .unwrap();
 
         if !property_schema.is_dynamic_array() {
             panic!("remove_dynamic_array_override only allowed on dynamic arrays");
@@ -786,7 +816,10 @@ impl DataSet {
         path: impl AsRef<str>,
     ) -> OverrideBehavior {
         let object = self.objects.get(&object_id).unwrap();
-        let property_schema = object.schema.find_property_schema(&path, schema_set.schemas()).unwrap();
+        let property_schema = object
+            .schema
+            .find_property_schema(&path, schema_set.schemas())
+            .unwrap();
 
         match property_schema {
             Schema::DynamicArray(_) | Schema::Map(_) => {
@@ -808,7 +841,10 @@ impl DataSet {
         behavior: OverrideBehavior,
     ) {
         let object = self.objects.get_mut(&object_id).unwrap();
-        let property_schema = object.schema.find_property_schema(&path, schema_set.schemas()).unwrap();
+        let property_schema = object
+            .schema
+            .find_property_schema(&path, schema_set.schemas())
+            .unwrap();
 
         match property_schema {
             Schema::DynamicArray(_) | Schema::Map(_) => {

@@ -1,10 +1,13 @@
-use std::sync::Arc;
 use std::sync::mpsc::Sender;
+use std::sync::Arc;
 use uuid::Uuid;
 
-use crate::{DataObjectInfo, DataSet, DataSetDiffSet, HashMap, HashMapKeys, HashSet, HashSetIter, NullOverride, ObjectId, ObjectLocation, OverrideBehavior, SchemaFingerprint, SchemaNamedType, SchemaRecord, SchemaSet, Value};
 use crate::editor::undo::{UndoContext, UndoStack};
-
+use crate::{
+    DataObjectInfo, DataSet, DataSetDiffSet, HashMap, HashMapKeys, HashSet, HashSetIter,
+    NullOverride, ObjectId, ObjectLocation, OverrideBehavior, SchemaFingerprint, SchemaNamedType,
+    SchemaRecord, SchemaSet, Value,
+};
 
 //TODO: Delete unused property data when path ancestor is null or in replace mode
 
@@ -13,7 +16,6 @@ use crate::editor::undo::{UndoContext, UndoStack};
 
 //TODO: Read-only sources? For things like network cache. Could only sync files we edit and overlay
 // files source over net cache source, etc.
-
 
 // Editor Context
 // - Used to edit objects in isolation (for example, a node graph)
@@ -34,7 +36,6 @@ use crate::editor::undo::{UndoContext, UndoStack};
 //   contexts, which contain revert/apply diffs
 // - These undo contexts can be pushed onto a single global queue or a per-document queue
 
-
 //TODO: Rename to EditContext
 pub struct Database {
     schema_set: Arc<SchemaSet>,
@@ -46,7 +47,10 @@ pub struct Database {
 
 impl Database {
     // Call after adding a new object
-    fn track_new_object(&mut self, object_id: ObjectId) {
+    fn track_new_object(
+        &mut self,
+        object_id: ObjectId,
+    ) {
         if self.undo_context.has_open_context() {
             self.undo_context.track_new_object(object_id);
         } else {
@@ -55,19 +59,29 @@ impl Database {
     }
 
     // Call before editing or deleting an object
-    fn track_existing_object(&mut self, object_id: ObjectId) {
+    fn track_existing_object(
+        &mut self,
+        object_id: ObjectId,
+    ) {
         if self.undo_context.has_open_context() {
-            self.undo_context.track_existing_object(&mut self.data_set, object_id);
+            self.undo_context
+                .track_existing_object(&mut self.data_set, object_id);
         } else {
             self.modified_objects.insert(object_id);
         }
     }
 
-    pub fn is_object_modified(&self, object_id: ObjectId) {
+    pub fn is_object_modified(
+        &self,
+        object_id: ObjectId,
+    ) {
         self.modified_objects.contains(&object_id);
     }
 
-    pub fn new(schema_set: Arc<SchemaSet>, undo_stack: &UndoStack) -> Self {
+    pub fn new(
+        schema_set: Arc<SchemaSet>,
+        undo_stack: &UndoStack,
+    ) -> Self {
         Database {
             schema_set,
             data_set: Default::default(),
@@ -77,7 +91,10 @@ impl Database {
         }
     }
 
-    pub fn new_with_data(schema_set: Arc<SchemaSet>, undo_stack: &UndoStack) -> Self {
+    pub fn new_with_data(
+        schema_set: Arc<SchemaSet>,
+        undo_stack: &UndoStack,
+    ) -> Self {
         Database {
             schema_set,
             data_set: Default::default(),
@@ -88,22 +105,26 @@ impl Database {
     }
 
     //TODO: Change to use an enum instead of bool
-    pub fn with_undo_context<F: FnOnce(&mut Self) -> bool>(&mut self, name: &'static str, f: F) {
-        self.undo_context.begin_context(&self.data_set, name, &mut self.modified_objects);
+    pub fn with_undo_context<F: FnOnce(&mut Self) -> bool>(
+        &mut self,
+        name: &'static str,
+        f: F,
+    ) {
+        self.undo_context
+            .begin_context(&self.data_set, name, &mut self.modified_objects);
         let allow_resume = (f)(self);
-        self.undo_context.end_context(&self.data_set, allow_resume, &mut self.modified_objects);
+        self.undo_context
+            .end_context(&self.data_set, allow_resume, &mut self.modified_objects);
     }
 
     pub fn commit_pending_undo_context(&mut self) {
-        self.undo_context.commit_context(&mut self.data_set, &mut self.modified_objects);
+        self.undo_context
+            .commit_context(&mut self.data_set, &mut self.modified_objects);
     }
-
 
     // pub fn apply_diff(&mut self, diff: &DataSetDiff) {
     //     diff.apply(&mut self.data_set);
     // }
-
-
 
     //
     // Schema-related functions
@@ -205,12 +226,17 @@ impl Database {
         object_location: ObjectLocation,
         prototype: ObjectId,
     ) -> ObjectId {
-        let object_id = self.data_set.new_object_from_prototype(object_location, prototype);
+        let object_id = self
+            .data_set
+            .new_object_from_prototype(object_location, prototype);
         self.undo_context.track_new_object(object_id);
         object_id
     }
 
-    pub fn import_objects(&mut self, data_set: DataSet) {
+    pub fn import_objects(
+        &mut self,
+        data_set: DataSet,
+    ) {
         for (k, v) in data_set.objects {
             self.restore_object(
                 k,
@@ -220,7 +246,7 @@ impl Database {
                 v.properties,
                 v.property_null_overrides,
                 v.properties_in_replace_mode,
-                v.dynamic_array_entries
+                v.dynamic_array_entries,
             );
         }
     }
@@ -236,13 +262,23 @@ impl Database {
         properties_in_replace_mode: HashSet<String>,
         dynamic_array_entries: HashMap<String, HashSet<Uuid>>,
     ) {
-        self.data_set.restore_object(object_id, object_location, &self.schema_set, prototype, schema, properties, property_null_overrides, properties_in_replace_mode, dynamic_array_entries);
+        self.data_set.restore_object(
+            object_id,
+            object_location,
+            &self.schema_set,
+            prototype,
+            schema,
+            properties,
+            property_null_overrides,
+            properties_in_replace_mode,
+            dynamic_array_entries,
+        );
         self.undo_context.track_new_object(object_id);
     }
 
     pub fn object_prototype(
         &self,
-        object_id: ObjectId
+        object_id: ObjectId,
     ) -> Option<ObjectId> {
         self.data_set.object_prototype(object_id)
     }
@@ -259,7 +295,8 @@ impl Database {
         object_id: ObjectId,
         path: impl AsRef<str>,
     ) -> Option<NullOverride> {
-        self.data_set.get_null_override(&self.schema_set, object_id, path)
+        self.data_set
+            .get_null_override(&self.schema_set, object_id, path)
     }
 
     pub fn set_null_override(
@@ -268,8 +305,10 @@ impl Database {
         path: impl AsRef<str>,
         null_override: NullOverride,
     ) {
-        self.undo_context.track_existing_object(&self.data_set, object_id);
-        self.data_set.set_null_override(&self.schema_set, object_id, path, null_override)
+        self.undo_context
+            .track_existing_object(&self.data_set, object_id);
+        self.data_set
+            .set_null_override(&self.schema_set, object_id, path, null_override)
     }
 
     pub fn remove_null_override(
@@ -277,8 +316,10 @@ impl Database {
         object_id: ObjectId,
         path: impl AsRef<str>,
     ) {
-        self.undo_context.track_existing_object(&self.data_set, object_id);
-        self.data_set.remove_null_override(&self.schema_set, object_id, path)
+        self.undo_context
+            .track_existing_object(&self.data_set, object_id);
+        self.data_set
+            .remove_null_override(&self.schema_set, object_id, path)
     }
 
     pub fn resolve_is_null(
@@ -286,7 +327,8 @@ impl Database {
         object_id: ObjectId,
         path: impl AsRef<str>,
     ) -> Option<bool> {
-        self.data_set.resolve_is_null(&self.schema_set, object_id, path)
+        self.data_set
+            .resolve_is_null(&self.schema_set, object_id, path)
     }
 
     pub fn has_property_override(
@@ -314,8 +356,10 @@ impl Database {
         path: impl AsRef<str>,
         value: Value,
     ) -> bool {
-        self.undo_context.track_existing_object(&self.data_set, object_id);
-        self.data_set.set_property_override(&self.schema_set, object_id, path, value)
+        self.undo_context
+            .track_existing_object(&self.data_set, object_id);
+        self.data_set
+            .set_property_override(&self.schema_set, object_id, path, value)
     }
 
     pub fn remove_property_override(
@@ -323,7 +367,8 @@ impl Database {
         object_id: ObjectId,
         path: impl AsRef<str>,
     ) -> Option<Value> {
-        self.undo_context.track_existing_object(&self.data_set, object_id);
+        self.undo_context
+            .track_existing_object(&self.data_set, object_id);
         self.data_set.remove_property_override(object_id, path)
     }
 
@@ -332,8 +377,10 @@ impl Database {
         object_id: ObjectId,
         path: impl AsRef<str>,
     ) {
-        self.undo_context.track_existing_object(&self.data_set, object_id);
-        self.data_set.apply_property_override_to_prototype(&self.schema_set, object_id, path)
+        self.undo_context
+            .track_existing_object(&self.data_set, object_id);
+        self.data_set
+            .apply_property_override_to_prototype(&self.schema_set, object_id, path)
     }
 
     pub fn resolve_property(
@@ -341,7 +388,8 @@ impl Database {
         object_id: ObjectId,
         path: impl AsRef<str>,
     ) -> Option<Value> {
-        self.data_set.resolve_property(&self.schema_set, object_id, path)
+        self.data_set
+            .resolve_property(&self.schema_set, object_id, path)
     }
 
     pub fn get_dynamic_array_overrides(
@@ -349,7 +397,8 @@ impl Database {
         object_id: ObjectId,
         path: impl AsRef<str>,
     ) -> Option<HashSetIter<Uuid>> {
-        self.data_set.get_dynamic_array_overrides(&self.schema_set, object_id, path)
+        self.data_set
+            .get_dynamic_array_overrides(&self.schema_set, object_id, path)
     }
 
     pub fn add_dynamic_array_override(
@@ -357,8 +406,10 @@ impl Database {
         object_id: ObjectId,
         path: impl AsRef<str>,
     ) -> Uuid {
-        self.undo_context.track_existing_object(&self.data_set, object_id);
-        self.data_set.add_dynamic_array_override(&self.schema_set, object_id, path)
+        self.undo_context
+            .track_existing_object(&self.data_set, object_id);
+        self.data_set
+            .add_dynamic_array_override(&self.schema_set, object_id, path)
     }
 
     pub fn remove_dynamic_array_override(
@@ -367,8 +418,10 @@ impl Database {
         path: impl AsRef<str>,
         element_id: Uuid,
     ) {
-        self.undo_context.track_existing_object(&self.data_set, object_id);
-        self.data_set.remove_dynamic_array_override(&self.schema_set, object_id, path, element_id)
+        self.undo_context
+            .track_existing_object(&self.data_set, object_id);
+        self.data_set
+            .remove_dynamic_array_override(&self.schema_set, object_id, path, element_id)
     }
 
     pub fn resolve_dynamic_array(
@@ -376,7 +429,8 @@ impl Database {
         object_id: ObjectId,
         path: impl AsRef<str>,
     ) -> Box<[Uuid]> {
-        self.data_set.resolve_dynamic_array(&self.schema_set, object_id, path)
+        self.data_set
+            .resolve_dynamic_array(&self.schema_set, object_id, path)
     }
 
     pub fn get_override_behavior(
@@ -384,7 +438,8 @@ impl Database {
         object_id: ObjectId,
         path: impl AsRef<str>,
     ) -> OverrideBehavior {
-        self.data_set.get_override_behavior(&self.schema_set, object_id, path)
+        self.data_set
+            .get_override_behavior(&self.schema_set, object_id, path)
     }
 
     pub fn set_override_behavior(
@@ -393,7 +448,9 @@ impl Database {
         path: impl AsRef<str>,
         behavior: OverrideBehavior,
     ) {
-        self.undo_context.track_existing_object(&self.data_set, object_id);
-        self.data_set.set_override_behavior(&self.schema_set, object_id, path, behavior)
+        self.undo_context
+            .track_existing_object(&self.data_set, object_id);
+        self.data_set
+            .set_override_behavior(&self.schema_set, object_id, path, behavior)
     }
 }

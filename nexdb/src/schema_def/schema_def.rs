@@ -1,6 +1,6 @@
 use crate::{
     HashMap, HashSet, Schema, SchemaDynamicArray, SchemaEnum, SchemaEnumSymbol, SchemaFingerprint,
-    SchemaFixed, SchemaMap, SchemaNamedType, SchemaRecord, SchemaRecordField, SchemaStaticArray
+    SchemaFixed, SchemaMap, SchemaNamedType, SchemaRecord, SchemaRecordField, SchemaStaticArray,
 };
 use std::hash::{Hash, Hasher};
 
@@ -309,9 +309,7 @@ impl SchemaDefEnumSymbol {
         self.value.hash(hasher);
     }
 
-    fn to_schema(
-        self,
-    ) -> SchemaEnumSymbol {
+    fn to_schema(self) -> SchemaEnumSymbol {
         SchemaEnumSymbol::new(
             self.symbol_name,
             self.aliases.into_boxed_slice(),
@@ -488,7 +486,7 @@ impl SchemaDefType {
                 if let Some(alias) = alias {
                     *x = alias.clone();
                 }
-            },
+            }
             SchemaDefType::NamedType(x) => {
                 let alias = aliases.get(x);
                 if let Some(alias) = alias {
@@ -751,9 +749,7 @@ fn parse_json_schema_type_ref(
             })?;
             let inner_type = parse_json_schema_type_ref(inner_type, error_prefix)?;
             match inner_type {
-                SchemaDefType::NamedType(x) => {
-                    SchemaDefType::ObjectRef(x)
-                },
+                SchemaDefType::NamedType(x) => SchemaDefType::ObjectRef(x),
                 _ => {
                     Err(SchemaDefParserError::String(format!(
                         "{}All object_ref types must has an inner_type that is not a built-in type",

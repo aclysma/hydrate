@@ -108,7 +108,6 @@ impl SchemaNamedType {
         }
     }
 
-
     pub fn find_property_schema(
         &self,
         path: impl AsRef<str>,

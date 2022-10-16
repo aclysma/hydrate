@@ -1,12 +1,11 @@
+use nexdb::{DataSet, EditorModel, ObjectPath, SchemaCacheSingleFile, SchemaSet};
 use std::path::PathBuf;
 use std::sync::Arc;
-use nexdb::{DataSet, EditorModel, ObjectPath, SchemaCacheSingleFile, SchemaSet};
-
 
 pub struct DbState {
     //pub db: nexdb::Database,
     //pub undo_stack: nexdb::UndoStack,
-    pub editor_model: EditorModel
+    pub editor_model: EditorModel,
 }
 
 impl DbState {
@@ -19,11 +18,17 @@ impl DbState {
     }
 
     fn data_file_path() -> PathBuf {
-        PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/data/data_source/data_file.nxt"))
+        PathBuf::from(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/data/data_source/data_file.nxt"
+        ))
     }
 
     fn schema_cache_file_path() -> PathBuf {
-        PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/data/schema_cache_file.json"))
+        PathBuf::from(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/data/schema_cache_file.json"
+        ))
     }
 
     fn mount_path() -> ObjectPath {
@@ -38,7 +43,8 @@ impl DbState {
         linker.add_source_dir(&path, "*.json").unwrap();
         schema_set.add_linked_types(linker).unwrap();
 
-        if let Some(schema_cache_str) = std::fs::read_to_string(Self::schema_cache_file_path()).ok() {
+        if let Some(schema_cache_str) = std::fs::read_to_string(Self::schema_cache_file_path()).ok()
+        {
             SchemaCacheSingleFile::load_string(&mut schema_set, &schema_cache_str);
         }
 
@@ -53,8 +59,11 @@ impl DbState {
         let mut db = DataSet::default();
 
         let mut edit_model = EditorModel::new(schema_set.clone());
-        let objects_source_id = edit_model.open_file_system_source(Self::data_source_path(), Self::mount_path());
-        let file_system = edit_model.file_system_data_source(objects_source_id).unwrap();
+        let objects_source_id =
+            edit_model.open_file_system_source(Self::data_source_path(), Self::mount_path());
+        let file_system = edit_model
+            .file_system_data_source(objects_source_id)
+            .unwrap();
 
         let transform_schema_object = schema_set
             .find_named_type("Transform")
@@ -65,33 +74,83 @@ impl DbState {
 
         //let data_path = Self::data_file_path()
 
-        let prototype_obj = db.new_object(file_system.file_system_path_to_location(&Self::data_file_path()).unwrap(), &transform_schema_object);
-        let instance_obj = db.new_object_from_prototype(file_system.file_system_path_to_location(&Self::data_file_path()).unwrap(), prototype_obj);
+        let prototype_obj = db.new_object(
+            file_system
+                .file_system_path_to_location(&Self::data_file_path())
+                .unwrap(),
+            &transform_schema_object,
+        );
+        let instance_obj = db.new_object_from_prototype(
+            file_system
+                .file_system_path_to_location(&Self::data_file_path())
+                .unwrap(),
+            prototype_obj,
+        );
 
-        db.set_property_override(&schema_set, prototype_obj, "position.x", nexdb::Value::F64(10.0));
-        db.set_property_override(&schema_set, instance_obj, "position.x", nexdb::Value::F64(20.0));
+        db.set_property_override(
+            &schema_set,
+            prototype_obj,
+            "position.x",
+            nexdb::Value::F64(10.0),
+        );
+        db.set_property_override(
+            &schema_set,
+            instance_obj,
+            "position.x",
+            nexdb::Value::F64(20.0),
+        );
 
-        let _prototype_array_element_1 =
-            db.add_dynamic_array_override(&schema_set, prototype_obj, "all_fields.dynamic_array_i32");
-        let _prototype_array_element_2 =
-            db.add_dynamic_array_override(&schema_set, prototype_obj, "all_fields.dynamic_array_i32");
-        let _instance_array_element_1 =
-            db.add_dynamic_array_override(&schema_set, instance_obj, "all_fields.dynamic_array_i32");
-        let _instance_array_element_2 =
-            db.add_dynamic_array_override(&schema_set, instance_obj, "all_fields.dynamic_array_i32");
-        let _instance_array_element_3 =
-            db.add_dynamic_array_override(&schema_set, instance_obj, "all_fields.dynamic_array_i32");
+        let _prototype_array_element_1 = db.add_dynamic_array_override(
+            &schema_set,
+            prototype_obj,
+            "all_fields.dynamic_array_i32",
+        );
+        let _prototype_array_element_2 = db.add_dynamic_array_override(
+            &schema_set,
+            prototype_obj,
+            "all_fields.dynamic_array_i32",
+        );
+        let _instance_array_element_1 = db.add_dynamic_array_override(
+            &schema_set,
+            instance_obj,
+            "all_fields.dynamic_array_i32",
+        );
+        let _instance_array_element_2 = db.add_dynamic_array_override(
+            &schema_set,
+            instance_obj,
+            "all_fields.dynamic_array_i32",
+        );
+        let _instance_array_element_3 = db.add_dynamic_array_override(
+            &schema_set,
+            instance_obj,
+            "all_fields.dynamic_array_i32",
+        );
 
-        let _prototype_array_element_1 =
-            db.add_dynamic_array_override(&schema_set, prototype_obj, "all_fields.dynamic_array_vec3");
-        let _prototype_array_element_2 =
-            db.add_dynamic_array_override(&schema_set, prototype_obj, "all_fields.dynamic_array_vec3");
-        let _instance_array_element_1 =
-            db.add_dynamic_array_override(&schema_set, instance_obj, "all_fields.dynamic_array_vec3");
-        let _instance_array_element_2 =
-            db.add_dynamic_array_override(&schema_set, instance_obj, "all_fields.dynamic_array_vec3");
-        let _instance_array_element_3 =
-            db.add_dynamic_array_override(&schema_set, instance_obj, "all_fields.dynamic_array_vec3");
+        let _prototype_array_element_1 = db.add_dynamic_array_override(
+            &schema_set,
+            prototype_obj,
+            "all_fields.dynamic_array_vec3",
+        );
+        let _prototype_array_element_2 = db.add_dynamic_array_override(
+            &schema_set,
+            prototype_obj,
+            "all_fields.dynamic_array_vec3",
+        );
+        let _instance_array_element_1 = db.add_dynamic_array_override(
+            &schema_set,
+            instance_obj,
+            "all_fields.dynamic_array_vec3",
+        );
+        let _instance_array_element_2 = db.add_dynamic_array_override(
+            &schema_set,
+            instance_obj,
+            "all_fields.dynamic_array_vec3",
+        );
+        let _instance_array_element_3 = db.add_dynamic_array_override(
+            &schema_set,
+            instance_obj,
+            "all_fields.dynamic_array_vec3",
+        );
 
         edit_model.root_context_mut().import_objects(db);
         edit_model
@@ -125,9 +184,7 @@ impl DbState {
             Self::init_empty_model()
         };
 
-        Self {
-            editor_model
-        }
+        Self { editor_model }
     }
 
     pub fn save(&mut self) {

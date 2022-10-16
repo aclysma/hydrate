@@ -1,12 +1,12 @@
-use uuid::Uuid;
-use crate::{DataObjectInfo, DataSet, HashMap, HashSet, NullOverride, ObjectId, Value};
 use crate::value::PropertyValue;
+use crate::{DataObjectInfo, DataSet, HashMap, HashSet, NullOverride, ObjectId, Value};
+use uuid::Uuid;
 
 #[derive(Debug)]
 pub struct DynamicArrayEntryDelta {
     key: String,
     add: Vec<Uuid>,
-    remove: Vec<Uuid>
+    remove: Vec<Uuid>,
 }
 
 #[derive(Default, Debug)]
@@ -23,17 +23,20 @@ pub struct ObjectDiff {
 
 impl ObjectDiff {
     pub fn has_changes(&self) -> bool {
-        self.set_prototype.is_some() ||
-            !self.set_properties.is_empty() ||
-            !self.remove_properties.is_empty() ||
-            !self.set_null_overrides.is_empty() ||
-            !self.remove_null_overrides.is_empty() ||
-            !self.add_properties_in_replace_mode.is_empty() ||
-            !self.remove_properties_in_replace_mode.is_empty() ||
-            !self.dynamic_array_entry_deltas.is_empty()
+        self.set_prototype.is_some()
+            || !self.set_properties.is_empty()
+            || !self.remove_properties.is_empty()
+            || !self.set_null_overrides.is_empty()
+            || !self.remove_null_overrides.is_empty()
+            || !self.add_properties_in_replace_mode.is_empty()
+            || !self.remove_properties_in_replace_mode.is_empty()
+            || !self.dynamic_array_entry_deltas.is_empty()
     }
 
-    pub fn apply(&self, object: &mut DataObjectInfo) {
+    pub fn apply(
+        &self,
+        object: &mut DataObjectInfo,
+    ) {
         if let Some(set_prototype) = self.set_prototype {
             object.prototype = set_prototype;
         }
@@ -67,10 +70,15 @@ impl ObjectDiff {
                 //
                 // Path where we add keys: We may need to create the entry in the map. Won't need to remove it
                 //
-                let existing_entries = if let Some(existing_entries) = object.dynamic_array_entries.get_mut(&delta.key) {
+                let existing_entries = if let Some(existing_entries) =
+                    object.dynamic_array_entries.get_mut(&delta.key)
+                {
                     existing_entries
                 } else {
-                    object.dynamic_array_entries.entry(delta.key.clone()).or_default()
+                    object
+                        .dynamic_array_entries
+                        .entry(delta.key.clone())
+                        .or_default()
                 };
 
                 for k in &delta.add {
@@ -118,7 +126,10 @@ impl ObjectDiffSet {
         let before_obj = before_data_set.objects.get(&before_object_id).unwrap();
         let after_obj = after_data_set.objects.get(&after_object_id).unwrap();
 
-        assert_eq!(before_obj.schema.fingerprint(), after_obj.schema.fingerprint());
+        assert_eq!(
+            before_obj.schema.fingerprint(),
+            after_obj.schema.fingerprint()
+        );
 
         let mut apply_diff = ObjectDiff::default();
         let mut revert_diff = ObjectDiff::default();
@@ -138,26 +149,33 @@ impl ObjectDiffSet {
             if let Some(after_value) = after_obj.properties.get(key) {
                 if !Value::are_matching_property_values(before_value, after_value) {
                     // Value was changed
-                    apply_diff.set_properties.push((key.clone(), after_value.as_property_value().unwrap()));
-                    revert_diff.set_properties.push((key.clone(), before_value.as_property_value().unwrap()));
+                    apply_diff
+                        .set_properties
+                        .push((key.clone(), after_value.as_property_value().unwrap()));
+                    revert_diff
+                        .set_properties
+                        .push((key.clone(), before_value.as_property_value().unwrap()));
                 } else {
                     // No change
                 }
             } else {
                 // Property was removed
                 apply_diff.remove_properties.push(key.clone());
-                revert_diff.set_properties.push((key.clone(), before_value.as_property_value().unwrap()));
+                revert_diff
+                    .set_properties
+                    .push((key.clone(), before_value.as_property_value().unwrap()));
             }
         }
 
         for (key, after_value) in &after_obj.properties {
             if !before_obj.properties.contains_key(key) {
                 // Property was added
-                apply_diff.set_properties.push((key.clone(), after_value.as_property_value().unwrap()));
+                apply_diff
+                    .set_properties
+                    .push((key.clone(), after_value.as_property_value().unwrap()));
                 revert_diff.remove_properties.push(key.clone());
             }
         }
-
 
         //
         // Null Overrides
@@ -166,22 +184,30 @@ impl ObjectDiffSet {
             if let Some(after_value) = after_obj.property_null_overrides.get(key).copied() {
                 if before_value != after_value {
                     // Value was changed
-                    apply_diff.set_null_overrides.push((key.clone(), after_value));
-                    revert_diff.set_null_overrides.push((key.clone(), before_value));
+                    apply_diff
+                        .set_null_overrides
+                        .push((key.clone(), after_value));
+                    revert_diff
+                        .set_null_overrides
+                        .push((key.clone(), before_value));
                 } else {
                     // No change
                 }
             } else {
                 // Property was removed
                 apply_diff.remove_null_overrides.push(key.clone());
-                revert_diff.set_null_overrides.push((key.clone(), before_value));
+                revert_diff
+                    .set_null_overrides
+                    .push((key.clone(), before_value));
             }
         }
 
         for (key, &after_value) in &after_obj.property_null_overrides {
             if !before_obj.property_null_overrides.contains_key(key) {
                 // Property was added
-                apply_diff.set_null_overrides.push((key.clone(), after_value));
+                apply_diff
+                    .set_null_overrides
+                    .push((key.clone(), after_value));
                 revert_diff.remove_null_overrides.push(key.clone());
             }
         }
@@ -190,18 +216,32 @@ impl ObjectDiffSet {
         // Properties in replace mode
         //
         for replace_mode_property in &before_obj.properties_in_replace_mode {
-            if !after_obj.properties_in_replace_mode.contains(replace_mode_property) {
+            if !after_obj
+                .properties_in_replace_mode
+                .contains(replace_mode_property)
+            {
                 // Replace mode disabled
-                apply_diff.remove_properties_in_replace_mode.push(replace_mode_property.clone());
-                revert_diff.add_properties_in_replace_mode.push(replace_mode_property.clone());
+                apply_diff
+                    .remove_properties_in_replace_mode
+                    .push(replace_mode_property.clone());
+                revert_diff
+                    .add_properties_in_replace_mode
+                    .push(replace_mode_property.clone());
             }
         }
 
         for replace_mode_property in &after_obj.properties_in_replace_mode {
-            if !before_obj.properties_in_replace_mode.contains(replace_mode_property) {
+            if !before_obj
+                .properties_in_replace_mode
+                .contains(replace_mode_property)
+            {
                 // Replace mode enabled
-                apply_diff.add_properties_in_replace_mode.push(replace_mode_property.clone());
-                revert_diff.remove_properties_in_replace_mode.push(replace_mode_property.clone());
+                apply_diff
+                    .add_properties_in_replace_mode
+                    .push(replace_mode_property.clone());
+                revert_diff
+                    .remove_properties_in_replace_mode
+                    .push(replace_mode_property.clone());
             }
         }
 
@@ -227,30 +267,38 @@ impl ObjectDiffSet {
                 }
 
                 if !added_entries.is_empty() || !removed_entries.is_empty() {
-                    apply_diff.dynamic_array_entry_deltas.push(DynamicArrayEntryDelta {
-                        key: key.clone(),
-                        add: added_entries.clone(),
-                        remove: removed_entries.clone(),
-                    });
-                    revert_diff.dynamic_array_entry_deltas.push(DynamicArrayEntryDelta {
-                        key: key.clone(),
-                        add: removed_entries,
-                        remove: added_entries,
-                    });
+                    apply_diff
+                        .dynamic_array_entry_deltas
+                        .push(DynamicArrayEntryDelta {
+                            key: key.clone(),
+                            add: added_entries.clone(),
+                            remove: removed_entries.clone(),
+                        });
+                    revert_diff
+                        .dynamic_array_entry_deltas
+                        .push(DynamicArrayEntryDelta {
+                            key: key.clone(),
+                            add: removed_entries,
+                            remove: added_entries,
+                        });
                 }
             } else {
                 if !old_entries.is_empty() {
                     // All of them were removed
-                    apply_diff.dynamic_array_entry_deltas.push(DynamicArrayEntryDelta {
-                        key: key.clone(),
-                        add: Default::default(),
-                        remove: old_entries.iter().copied().collect(),
-                    });
-                    revert_diff.dynamic_array_entry_deltas.push(DynamicArrayEntryDelta {
-                        key: key.clone(),
-                        add: old_entries.iter().copied().collect(),
-                        remove: Default::default(),
-                    });
+                    apply_diff
+                        .dynamic_array_entry_deltas
+                        .push(DynamicArrayEntryDelta {
+                            key: key.clone(),
+                            add: Default::default(),
+                            remove: old_entries.iter().copied().collect(),
+                        });
+                    revert_diff
+                        .dynamic_array_entry_deltas
+                        .push(DynamicArrayEntryDelta {
+                            key: key.clone(),
+                            add: old_entries.iter().copied().collect(),
+                            remove: Default::default(),
+                        });
                 }
             }
         }
@@ -259,16 +307,20 @@ impl ObjectDiffSet {
             if !new_entries.is_empty() {
                 if !before_obj.dynamic_array_entries.contains_key(key) {
                     // All of them were added
-                    apply_diff.dynamic_array_entry_deltas.push(DynamicArrayEntryDelta {
-                        key: key.clone(),
-                        add: new_entries.iter().copied().collect(),
-                        remove: Default::default(),
-                    });
-                    revert_diff.dynamic_array_entry_deltas.push(DynamicArrayEntryDelta {
-                        key: key.clone(),
-                        add: Default::default(),
-                        remove: new_entries.iter().copied().collect(),
-                    });
+                    apply_diff
+                        .dynamic_array_entry_deltas
+                        .push(DynamicArrayEntryDelta {
+                            key: key.clone(),
+                            add: new_entries.iter().copied().collect(),
+                            remove: Default::default(),
+                        });
+                    revert_diff
+                        .dynamic_array_entry_deltas
+                        .push(DynamicArrayEntryDelta {
+                            key: key.clone(),
+                            add: Default::default(),
+                            remove: new_entries.iter().copied().collect(),
+                        });
                 }
             }
         }
@@ -284,7 +336,7 @@ impl ObjectDiffSet {
 pub struct DataSetDiff {
     creates: Vec<DataObjectInfo>,
     deletes: Vec<ObjectId>,
-    changes: HashMap<ObjectId, ObjectDiff>
+    changes: HashMap<ObjectId, ObjectDiff>,
 }
 
 impl DataSetDiff {
@@ -292,7 +344,10 @@ impl DataSetDiff {
         !self.creates.is_empty() || !self.deletes.is_empty() || !self.changes.is_empty()
     }
 
-    pub fn apply(&self, data_set: &mut DataSet) {
+    pub fn apply(
+        &self,
+        data_set: &mut DataSet,
+    ) {
         for create in &self.creates {
             data_set.insert_object(create.clone());
         }
@@ -309,7 +364,6 @@ impl DataSetDiff {
     }
 }
 
-
 #[derive(Debug)]
 pub struct DataSetDiffSet {
     pub apply_diff: DataSetDiff,
@@ -322,7 +376,11 @@ impl DataSetDiffSet {
         self.apply_diff.has_changes()
     }
 
-    pub fn diff_data_set(before: &DataSet, after: &DataSet, tracked_objects: &HashSet<ObjectId>) -> Self {
+    pub fn diff_data_set(
+        before: &DataSet,
+        after: &DataSet,
+        tracked_objects: &HashSet<ObjectId>,
+    ) -> Self {
         let mut apply_diff = DataSetDiff::default();
         let mut revert_diff = DataSetDiff::default();
 
@@ -333,7 +391,7 @@ impl DataSetDiffSet {
             if existed_before {
                 if existed_after {
                     // changed
-                    let diff = ObjectDiffSet::diff_objects(before, object_id,  &after, object_id);
+                    let diff = ObjectDiffSet::diff_objects(before, object_id, &after, object_id);
                     if diff.has_changes() {
                         apply_diff.changes.insert(object_id, diff.apply_diff);
                         revert_diff.changes.insert(object_id, diff.revert_diff);
@@ -341,18 +399,22 @@ impl DataSetDiffSet {
                 } else {
                     // deleted
                     apply_diff.deletes.push(object_id);
-                    revert_diff.creates.push(before.objects().get(&object_id).unwrap().clone());
+                    revert_diff
+                        .creates
+                        .push(before.objects().get(&object_id).unwrap().clone());
                 }
             } else if existed_after {
                 // created
-                apply_diff.creates.push(after.objects().get(&object_id).unwrap().clone());
+                apply_diff
+                    .creates
+                    .push(after.objects().get(&object_id).unwrap().clone());
                 revert_diff.deletes.push(object_id);
             }
         }
 
         DataSetDiffSet {
             apply_diff,
-            revert_diff
+            revert_diff,
         }
     }
 }

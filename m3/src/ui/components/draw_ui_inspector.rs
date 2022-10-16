@@ -1,8 +1,8 @@
 use crate::app_state::{AppState, UiState};
-use imgui::im_str;
-use nexdb::{Schema};
-use nexdb::edit_context::Database;
 use crate::ui::asset_browser_grid_drag_drop::AssetBrowserGridPayload;
+use imgui::im_str;
+use nexdb::edit_context::Database;
+use nexdb::Schema;
 
 fn draw_property_style<F: FnOnce(&imgui::Ui)>(
     ui: &imgui::Ui,
@@ -464,17 +464,22 @@ fn draw_inspector_object_ref(
             let v = value.as_object_ref().unwrap();
             let property_im_str = im_str!("{}", &property_name);
             let mut value = im_str!("{}", v.as_uuid());
-            imgui::InputText::new(ui, &property_im_str, &mut value).read_only(true).build();
+            imgui::InputText::new(ui, &property_im_str, &mut value)
+                .read_only(true)
+                .build();
 
-            if let Some(payload) = crate::ui::asset_browser_grid_drag_drop::asset_browser_grid_drag_target(ui, &ui_state.asset_browser_state.grid_state) {
+            if let Some(payload) =
+                crate::ui::asset_browser_grid_drag_drop::asset_browser_grid_drag_target(
+                    ui,
+                    &ui_state.asset_browser_state.grid_state,
+                )
+            {
                 match payload {
                     AssetBrowserGridPayload::Single(object_id) => {
                         *is_editing_complete = true;
                         Some(Value::ObjectRef(object_id))
                     }
-                    AssetBrowserGridPayload::AllSelected => {
-                        None
-                    }
+                    AssetBrowserGridPayload::AllSelected => None,
                 }
             } else {
                 None
@@ -722,7 +727,9 @@ fn draw_inspector_nexdb_property(
         Schema::DynamicArray(array) => {
             let resolve = db.resolve_dynamic_array(object_id, &property_path);
             let overrides: Vec<_> = db
-                .get_dynamic_array_overrides(object_id, &property_path).map(|x| x.cloned().collect()).unwrap_or_default();
+                .get_dynamic_array_overrides(object_id, &property_path)
+                .map(|x| x.cloned().collect())
+                .unwrap_or_default();
 
             ui.text(im_str!("{}", property_name));
             if imgui::CollapsingHeader::new(&im_str!("elements")).build(ui) {
@@ -766,7 +773,6 @@ fn draw_inspector_nexdb_property(
         }
         Schema::Map(_) => {}
         //Schema::RecordRef(_) => {}
-
         Schema::ObjectRef(_named_type_fingerprint) => {
             let property_inherited = !db.has_property_override(object_id, &property_path);
             draw_property_style(ui, property_inherited, false, |ui| {
@@ -783,7 +789,6 @@ fn draw_inspector_nexdb_property(
                     property_inherited,
                 );
             });
-
         }
         Schema::NamedType(named_type_fingerprint) => {
             let named_type = db
@@ -863,27 +868,31 @@ pub fn draw_inspector_nexdb(
     object_id: nexdb::ObjectId,
 ) {
     let ui_state = &mut app_state.ui_state;
-    app_state.db_state.editor_model.root_context_mut().with_undo_context("PropertyInspector", |db| {
-        let schema = db.object_schema(object_id).clone();
-        let mut is_editing = false;
-        let mut is_editing_complete = false;
+    app_state
+        .db_state
+        .editor_model
+        .root_context_mut()
+        .with_undo_context("PropertyInspector", |db| {
+            let schema = db.object_schema(object_id).clone();
+            let mut is_editing = false;
+            let mut is_editing_complete = false;
 
-        if let Some(schema) = schema {
-            draw_inspector_nexdb_property(
-                ui,
-                ui_state,
-                db,
-                &mut is_editing,
-                &mut is_editing_complete,
-                object_id,
-                "",
-                "",
-                &Schema::NamedType(schema.fingerprint()),
-            );
-        } else {
-            ui.text("WARNING: Could not find schema");
-        }
+            if let Some(schema) = schema {
+                draw_inspector_nexdb_property(
+                    ui,
+                    ui_state,
+                    db,
+                    &mut is_editing,
+                    &mut is_editing_complete,
+                    object_id,
+                    "",
+                    "",
+                    &Schema::NamedType(schema.fingerprint()),
+                );
+            } else {
+                ui.text("WARNING: Could not find schema");
+            }
 
-        is_editing && !is_editing_complete
-    });
+            is_editing && !is_editing_complete
+        });
 }

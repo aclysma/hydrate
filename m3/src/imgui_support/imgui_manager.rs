@@ -144,7 +144,7 @@ impl ImguiManager {
                 let x = col[0].powf(2.2);
                 let y = col[1].powf(2.2);
                 let z = col[2].powf(2.2);
-                let w = col[3];//1.0 - (1.0 - col[3]).powf(2.2);
+                let w = col[3]; //1.0 - (1.0 - col[3]).powf(2.2);
                 [x, y, z, w]
             }
 

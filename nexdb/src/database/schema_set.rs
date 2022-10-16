@@ -1,4 +1,6 @@
-use crate::{HashMap, Schema, SchemaFingerprint, SchemaLinker, SchemaLinkerResult, SchemaNamedType, Value};
+use crate::{
+    HashMap, Schema, SchemaFingerprint, SchemaLinker, SchemaLinkerResult, SchemaNamedType, Value,
+};
 
 #[derive(Default, Clone)]
 pub struct SchemaSet {
@@ -59,7 +61,7 @@ impl SchemaSet {
 
     pub(crate) fn restore_named_types(
         &mut self,
-        named_types: Vec<SchemaNamedType>
+        named_types: Vec<SchemaNamedType>,
     ) {
         for named_type in named_types {
             self.schemas.insert(named_type.fingerprint(), named_type);

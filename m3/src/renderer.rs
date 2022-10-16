@@ -302,8 +302,6 @@ impl Renderer {
             let mut vertex_buffers = Vec::default();
             let mut index_buffers = Vec::default();
             for draw_list in draw_data.draw_lists() {
-
-
                 let vertex_buffer_size = draw_list.vtx_buffer().len() as u64
                     * std::mem::size_of::<imgui::DrawVert>() as u64;
 

@@ -1,10 +1,10 @@
-use nexdb::{HashSet, ObjectId};
 use crate::db_state::DbState;
+use nexdb::{HashSet, ObjectId};
 
 #[derive(PartialEq)]
 pub enum ActiveToolRegion {
     AssetBrowserTree,
-    AssetBrowserGrid
+    AssetBrowserGrid,
 }
 
 #[derive(Default)]
@@ -40,7 +40,7 @@ impl Default for UiState {
             asset_browser_state: Default::default(),
 
             redock_windows: true,
-            show_imgui_demo_window: false
+            show_imgui_demo_window: false,
         }
     }
 }

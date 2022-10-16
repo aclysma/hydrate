@@ -1,5 +1,5 @@
 use crate::db_state::DbState;
-use nexdb::{HashSet, ObjectId};
+use nexdb::{HashSet, ObjectId, ObjectPath};
 
 #[derive(PartialEq)]
 pub enum ActiveToolRegion {
@@ -9,7 +9,7 @@ pub enum ActiveToolRegion {
 
 #[derive(Default)]
 pub struct AssetBrowserTreeState {
-    pub selected_items: HashSet<String>,
+    pub selected_items: HashSet<ObjectPath>,
 }
 
 #[derive(Default)]

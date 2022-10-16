@@ -1,6 +1,11 @@
 use std::collections::BTreeMap;
 use crate::{HashSet, ObjectPath};
 
+pub struct LocationTreeNodeKey {
+    name: String,
+}
+
+
 #[derive(Debug)]
 pub struct LocationTreeNode {
     pub path: ObjectPath,

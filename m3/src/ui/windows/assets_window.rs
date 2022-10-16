@@ -13,10 +13,12 @@ use nexdb::{HashSet, LocationTreeNode, ObjectId, ObjectLocation, ObjectPath};
 use std::convert::TryInto;
 use std::ffi::CString;
 use std::path::PathBuf;
+use rafx::api::objc::runtime::Object;
 use uuid::Uuid;
+use crate::db_state::DbState;
 
 fn default_flags() -> imgui::TreeNodeFlags {
-    imgui::TreeNodeFlags::OPEN_ON_DOUBLE_CLICK | imgui::TreeNodeFlags::OPEN_ON_ARROW
+    imgui::TreeNodeFlags::OPEN_ON_DOUBLE_CLICK | imgui::TreeNodeFlags::OPEN_ON_ARROW | imgui::TreeNodeFlags::SPAN_AVAIL_WIDTH
 }
 
 fn leaf_flags() -> imgui::TreeNodeFlags {
@@ -47,7 +49,7 @@ fn context_menu<F: FnOnce(&imgui::Ui)>(
 fn try_select_tree_node(
     ui: &imgui::Ui,
     ui_state: &mut UiState,
-    id: &ImStr,
+    path: &ObjectPath
 ) {
     if ui.is_item_clicked() && !ui.is_item_toggled_open() {
         ui_state.active_tool_region = Some(ActiveToolRegion::AssetBrowserTree);
@@ -64,7 +66,7 @@ fn try_select_tree_node(
             .asset_browser_state
             .tree_state
             .selected_items
-            .insert(id.to_string());
+            .insert(path.clone());
     }
 }
 
@@ -137,125 +139,86 @@ fn try_select_grid_item(
     }
 }
 
-pub fn assets_tree_file_system_data_source_loaded(
+pub fn assets_tree_node(
     ui: &imgui::Ui,
-    app_state: &mut AppState,
-    file_system_package_index: usize,
+    db_state: &DbState,
+    ui_state: &mut UiState,
+    child_name: &str,
+    tree_node: &LocationTreeNode
 ) {
-    /*
-    let package = &mut app_state.file_system_packages[file_system_package_index];
-    if let Some(data_source) = package.data_source() {
-        for (path, file_state) in data_source.file_states() {
-            //let id = ImString::new(file.path().file_name().unwrap().to_string_lossy());
-            let id = im_str!("\u{e872} {}", path.file_name().unwrap().to_string_lossy());
-            // imgui::TreeNode::new(&id).flags(leaf_flags()).build(ui, || {
-            //     // A single file
-            // });
+    let id = im_str!("{}", tree_node.path.as_string());
+    let label = im_str!("{}", child_name);
+    let is_selected = ui_state.asset_browser_state.tree_state.selected_items.contains(&tree_node.path);
 
-            let mut flags = leaf_flags();
+    let mut flags = if tree_node.children.is_empty() {
+        leaf_flags()
+    } else {
+        default_flags()
+    };
 
-            let is_selected = app_state.ui_state.asset_browser_state.tree_state.selected_items.contains(&id.to_string());
-            if is_selected {
-                flags |= TreeNodeFlags::SELECTED;
-            }
-
-            let doc_tree_node = imgui::TreeNode::new(&id).flags(flags);
-            let token = doc_tree_node.push(ui);
-
-            try_select_tree_node(ui, &mut app_state.ui_state, &id);
-
-            crate::ui::asset_browser_grid_drag_drop::asset_browser_grid_drag_target(ui, &app_state.ui_state.asset_browser_state.grid_state);
-
-
-            context_menu(ui, Some(&id), |ui| {
-                if imgui::MenuItem::new(im_str!("Save")).build(ui) {
-                    log::info!("Save {:?}", path);
-                }
-            });
-
-            // no contents to draw
-            drop(token);
-        }
-    }
-    */
-}
-
-pub fn assets_tree_file_system_data_source(
-    ui: &imgui::Ui,
-    app_state: &mut AppState,
-    file_system_package_index: usize,
-) {
-    /*
-    let package = &app_state.file_system_packages[file_system_package_index];
-    let root_path = package.root_path();
-
-    let id = im_str!("\u{e916} {}", root_path.to_string_lossy());
-
-    let mut flags = default_flags();
-
-    let is_selected = app_state.ui_state.asset_browser_state.tree_state.selected_items.contains(&id.to_string());
     if is_selected {
         flags |= TreeNodeFlags::SELECTED;
     }
 
-    let ds_tree_node = imgui::TreeNode::new(&id).flags(flags);
+    let ds_tree_node = imgui::TreeNode::new(&id).label(&label).flags(flags);
     let token = ds_tree_node.push(ui);
 
-    try_select_tree_node(ui, &mut app_state.ui_state, &id);
+    try_select_tree_node(ui, ui_state, &tree_node.path);
     context_menu(ui, Some(&id), |ui| {
-        if package.data_source().is_some() {
-            if imgui::MenuItem::new(im_str!("Unload")).build(ui) {
-                //TODO: Unload
-                log::info!("unload {}", root_path.to_string_lossy());
-            }
-        } else {
-            if imgui::MenuItem::new(im_str!("Load")).build(ui) {
-                //TODO: Load
-                log::info!("load {}", root_path.to_string_lossy());
-            }
+        // if package.data_source().is_some() {
+        //     if imgui::MenuItem::new(im_str!("Unload")).build(ui) {
+        //         //TODO: Unload
+        //         log::info!("unload {}", root_path.to_string_lossy());
+        //     }
+        // } else {
+        //     if imgui::MenuItem::new(im_str!("Load")).build(ui) {
+        //         //TODO: Load
+        //         log::info!("load {}", root_path.to_string_lossy());
+        //     }
+        // }
+
+
+        if imgui::MenuItem::new(im_str!("Temp")).build(ui) {
+            //TODO: Unload
+            log::info!("temp {:?}", &tree_node.path);
         }
     });
 
     if let Some(token) = token {
-        let loaded = package.data_source().is_some();
-        if loaded {
-            assets_tree_file_system_data_source_loaded(ui, app_state, file_system_package_index);
+        // Draw nodes with children first
+        for (child_name, child) in &tree_node.children {
+            if !child.children.is_empty() {
+                assets_tree_node(ui, db_state, ui_state, child_name, child);
+            }
+        }
+
+        // Then draw nodes without children
+        for (child_name, child) in &tree_node.children {
+            if child.children.is_empty() {
+                assets_tree_node(ui, db_state, ui_state, child_name, child);
+            }
         }
     }
-    */
-}
-
-/*
-pub fn assets_tree(
-    ui: &imgui::Ui,
-    app_state: &mut AppState,
-) {
-    //assets_tree_file_system_data_source(ui, app_state, &app_state.file_system_ds);
-    for file_system_package_index in 0..app_state.file_system_packages.len() {
-        assets_tree_file_system_data_source(ui, app_state, file_system_package_index);
-    }
-}
-
- */
 
 
-pub fn assets_tree_node(
-    ui: &imgui::Ui,
-    app_state: &AppState,
-    child_name: &str,
-    tree_node: &LocationTreeNode
-) {
-    if tree_node.children.is_empty() || child_name.ends_with("/") {
-        ui.text(child_name);
-    } else {
-        ui.text(format!("{}/", child_name))
-    }
+    // if let Some(token) = token {
+    //     let loaded = package.data_source().is_some();
+    //     if loaded {
+    //         assets_tree_file_system_data_source_loaded(ui, app_state, file_system_package_index);
+    //     }
+    // }
 
-    ui.indent();
-    for (child_name, child) in &tree_node.children {
-        assets_tree_node(ui, app_state, child_name, child);
-    }
-    ui.unindent();
+    // if tree_node.children.is_empty() || child_name.ends_with("/") {
+    //     ui.text(child_name);
+    // } else {
+    //     ui.text(format!("{}/", child_name))
+    // }
+    //
+    // ui.indent();
+    // for (child_name, child) in &tree_node.children {
+    //     assets_tree_node(ui, app_state, child_name, child);
+    // }
+    // ui.unindent();
 }
 
 pub fn assets_tree(
@@ -267,10 +230,20 @@ pub fn assets_tree(
 
     let show_root = true;
     if show_root {
-        assets_tree_node(ui, app_state, "db:/", &tree.root_node);
+        assets_tree_node(ui, &app_state.db_state, &mut app_state.ui_state, "db:/", &tree.root_node);
     } else {
+        // Draw nodes with children first
         for (child_name, child) in &tree.root_node.children {
-            assets_tree_node(ui, app_state, child_name,child);
+            if !child.children.is_empty() {
+                assets_tree_node(ui, &app_state.db_state, &mut app_state.ui_state, child_name,child);
+            }
+        }
+
+        // Then draw nodes without children
+        for (child_name, child) in &tree.root_node.children {
+            if child.children.is_empty() {
+                assets_tree_node(ui, &app_state.db_state, &mut app_state.ui_state, child_name,child);
+            }
         }
     }
 

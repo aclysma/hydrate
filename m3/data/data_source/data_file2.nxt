@@ -1,7 +1,7 @@
 {
   "objects": [
     {
-      "object_id": "2478d7b1-432f-43b9-a07f-c6ff761faf00",
+      "object_id": "f478d7b1-432f-43b9-a07f-c6ff761faf00",
       "schema": "4fec8abd-0c1f-2468-2104-0ee0720c7206",
       "schema_name": "Transform",
       "prototype": null,
@@ -17,11 +17,11 @@
       }
     },
     {
-      "object_id": "74a01b32-54ff-49fe-af97-0af4cb344fec",
+      "object_id": "f4a01b32-54ff-49fe-af97-0af4cb344fec",
       "schema": "4fec8abd-0c1f-2468-2104-0ee0720c7206",
       "schema_name": "Transform",
       "prototype": {
-        "Uuid": "2478d7b1-432f-43b9-a07f-c6ff761faf00"
+        "Uuid": "f478d7b1-432f-43b9-a07f-c6ff761faf00"
       },
       "properties": {
         "all_fields.dynamic_array_i32": [

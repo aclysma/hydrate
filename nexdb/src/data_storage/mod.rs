@@ -342,11 +342,13 @@ impl DataStorageJsonSingleFile {
         let mut stored_objects = Vec::with_capacity(database.objects().len());
 
         //TODO: Visit objects in order sorted by ID
-        let mut sorted_object_ids: Vec<_> = database.objects().keys().map(|x| x.0).collect();
+        //let mut sorted_object_ids: Vec<_> = database.objects().keys().map(|x| x.0).collect();
+        //sorted_object_ids.sort();
+
+        let mut sorted_object_ids: Vec<_> = objects.iter().copied().collect();
         sorted_object_ids.sort();
 
         for id in sorted_object_ids {
-            let id = ObjectId(id);
             let obj = database.objects().get(&id).unwrap();
 
         //}

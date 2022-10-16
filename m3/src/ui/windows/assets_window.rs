@@ -8,7 +8,7 @@ use std::ffi::CString;
 use std::path::PathBuf;
 use imgui::sys as is;
 use uuid::Uuid;
-use nexdb::ObjectId;
+use nexdb::{HashSet, ObjectId, ObjectLocation, ObjectPath};
 
 
 
@@ -56,7 +56,7 @@ fn try_select_tree_node(
 fn try_select_grid_item(
     ui: &imgui::Ui,
     ui_state: &mut UiState,
-    items: &[(ObjectId, PathBuf)],
+    items: &[(ObjectId, ObjectLocation)],
     index: usize,
     id: ObjectId,
 ) {
@@ -203,16 +203,34 @@ pub fn assets_tree_file_system_data_source(
     */
 }
 
+/*
 pub fn assets_tree(
     ui: &imgui::Ui,
     app_state: &mut AppState,
 ) {
     //assets_tree_file_system_data_source(ui, app_state, &app_state.file_system_ds);
-/*
     for file_system_package_index in 0..app_state.file_system_packages.len() {
         assets_tree_file_system_data_source(ui, app_state, file_system_package_index);
     }
+}
+
  */
+
+pub fn assets_tree(
+    ui: &imgui::Ui,
+    app_state: &mut AppState,
+) {
+    let mut paths: HashSet<ObjectPath> = Default::default();
+    for (object_id, object_info) in app_state.db_state.editor_model.root_context().objects() {
+        paths.insert(object_info.object_location().path().clone());
+    }
+
+    let mut paths: Vec<ObjectPath> = paths.into_iter().collect();
+    paths.sort_by(|lhs, rhs| lhs.as_string().cmp(rhs.as_string()));
+
+    for path in paths {
+        ui.text(path.as_string());
+    }
 }
 
 pub fn draw_assets_dockspace(
@@ -293,7 +311,7 @@ pub fn assets_window_left(
 pub fn draw_asset(
     ui: &imgui::Ui,
     app_state: &mut AppState,
-    items: &[(ObjectId, PathBuf)],
+    items: &[(ObjectId, ObjectLocation)],
     //name: &ImStr,
     index: usize,
     item_size: u32
@@ -399,7 +417,6 @@ pub fn assets_window_right(
     app_state: &mut AppState,
 
 ) {
-    /*
     let mut content_available_region = ImVec2::zero();
     unsafe {
         //
@@ -445,18 +462,24 @@ pub fn assets_window_right(
             //     filtered_objects.push((ObjectId(i), PathBuf::from("testpath")));
             // }
 
-            for file_system_package in &app_state.file_system_packages {
-                if let Some(data_source) = file_system_package.data_source() {
-                    for kvp in data_source.object_locations() {
-                        filtered_objects.push((*kvp.0, kvp.1.to_path_buf()));
-                    }
-                }
+            // for file_system_package in &app_state.db_statefile_system_packages {
+            //     if let Some(data_source) = file_system_package.data_source() {
+            //         for kvp in data_source.object_locations() {
+            //             filtered_objects.push((*kvp.0, kvp.1.to_path_buf()));
+            //         }
+            //     }
+            // }
+
+            for (k, v) in app_state.db_state.editor_model.root_context().objects() {
+                filtered_objects.push((*k, v.object_location().clone()));
             }
+
+
 
             for i in 0..filtered_objects.len() {
                 is::igTableNextColumn();
 
-                let name = im_str!("{} {}", filtered_objects[i].1.file_name().unwrap().to_string_lossy(), filtered_objects[i].0.as_uuid());
+                let name = im_str!("{} {}", filtered_objects[i].1.path().as_string(), filtered_objects[i].0.as_uuid());
                 draw_asset(ui, app_state, &filtered_objects, i, item_size);
             }
 
@@ -466,7 +489,6 @@ pub fn assets_window_right(
         is::igEndChild();
         is::igEndChild();
     }
-     */
 }
 
 pub fn draw_assets_dockspace_and_window(

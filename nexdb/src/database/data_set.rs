@@ -110,6 +110,12 @@ pub struct DataObjectInfo {
     pub(crate) dynamic_array_entries: HashMap<String, HashSet<Uuid>>,
 }
 
+impl DataObjectInfo {
+    pub fn object_location(&self) -> &ObjectLocation {
+        &self.object_location
+    }
+}
+
 #[derive(Default)]
 pub struct DataSet {
     pub(super) objects: HashMap<ObjectId, DataObjectInfo>,

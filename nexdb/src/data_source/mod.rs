@@ -113,6 +113,7 @@ impl EditorModel {
             //nexdb::
             objects_by_location.entry(object.object_location.clone()).or_default().push(*id);
         }
+        println!("found objects to save {:#?}", objects_by_location);
 
         for (location, object_ids) in objects_by_location {
             let data = crate::data_storage::DataStorageJsonSingleFile::store_string(database, &object_ids);

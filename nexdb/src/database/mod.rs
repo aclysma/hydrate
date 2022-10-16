@@ -336,11 +336,17 @@ impl Database {
     //     &mut self.data_set
     // }
 
+    // pub fn objects_with_locations(&self) -> HashMap<ObjectId, &ObjectLocation> {
+    //     self.data_set.objects.iter().map(|(k, v)| {
+    //         (k, &v.object_location)
+    //     })
+    // }
+    //
     pub fn all_objects<'a>(&'a self) -> HashMapKeys<'a, ObjectId, DataObjectInfo> {
         self.data_set.all_objects()
     }
 
-    pub(crate) fn objects(&self) -> &HashMap<ObjectId, DataObjectInfo> {
+    pub fn objects(&self) -> &HashMap<ObjectId, DataObjectInfo> {
         self.data_set.objects()
     }
 

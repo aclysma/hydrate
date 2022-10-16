@@ -17,7 +17,7 @@ impl SchemaFingerprint {
     }
 }
 
-#[derive(Copy, Clone, PartialEq, Eq, Hash, Debug)]
+#[derive(Copy, Clone, PartialEq, Eq, Hash, Debug, Ord, PartialOrd)]
 pub struct ObjectId(pub u128);
 impl ObjectId {
     pub fn null() -> Self {

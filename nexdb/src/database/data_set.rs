@@ -2,7 +2,7 @@ use std::path::{Path, PathBuf};
 use std::str::FromStr;
 use uuid::Uuid;
 use crate::{HashMap, HashMapKeys, HashSet, HashSetIter, ObjectId, Schema, SchemaFingerprint, SchemaNamedType, SchemaRecord, Value};
-use crate::database::schema_set::SchemaSet;
+use crate::SchemaSet;
 use crate::value::PropertyValue;
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
@@ -118,7 +118,7 @@ impl DataObjectInfo {
 
 #[derive(Default)]
 pub struct DataSet {
-    pub(super) objects: HashMap<ObjectId, DataObjectInfo>,
+    pub(crate) objects: HashMap<ObjectId, DataObjectInfo>,
 }
 
 impl DataSet {

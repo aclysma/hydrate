@@ -5,8 +5,9 @@ use imgui::sys::{
     igDragFloat, igDragScalar, igInputDouble, ImGuiDataType__ImGuiDataType_Double,
     ImGuiInputTextFlags__ImGuiInputTextFlags_None, ImVec2,
 };
-use nexdb::{Database, Schema, DataSetDiffSet};
+use nexdb::{Schema, DataSetDiffSet};
 use std::convert::TryInto;
+use nexdb::edit_context::Database;
 use crate::ui::asset_browser_grid_drag_drop::AssetBrowserGridPayload;
 
 fn draw_property_style<F: FnOnce(&imgui::Ui)>(

@@ -1,6 +1,6 @@
 use std::collections::VecDeque;
 use std::sync::Arc;
-use nexdb::{HashSet, ObjectId, DataSetDiffSet, UndoStack};
+use nexdb::{HashSet, ObjectId, DataSetDiffSet};
 use crate::db_state::DbState;
 
 #[derive(PartialEq)]

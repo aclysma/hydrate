@@ -1,9 +1,8 @@
 use std::ffi::OsStr;
 use std::path::{Path, PathBuf};
 use uuid::Uuid;
-use crate::{ObjectId, HashSet, HashMap, Database, ObjectLocation, ObjectPath, ObjectSourceId};
-
-
+use crate::{ObjectId, HashSet, HashMap, ObjectLocation, ObjectPath, ObjectSourceId};
+use crate::edit_context::Database;
 
 
 #[derive(Debug)]

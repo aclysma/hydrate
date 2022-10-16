@@ -1,9 +1,10 @@
 use std::path::Path;
 use std::str::FromStr;
 use uuid::Uuid;
-use crate::{Database, DataObjectInfo, HashMap, NullOverride, ObjectId, OverrideBehavior, Schema, SchemaFingerprint, SchemaNamedType, Value, HashSet, ObjectLocation};
+use crate::{DataObjectInfo, HashMap, NullOverride, ObjectId, OverrideBehavior, Schema, SchemaFingerprint, SchemaNamedType, Value, HashSet, ObjectLocation};
 use serde::{Serialize, Deserialize};
 use serde_json::Number;
+use crate::edit_context::Database;
 
 fn property_value_to_json(value: &Value) -> serde_json::Value {
     match value {

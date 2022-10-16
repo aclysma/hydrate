@@ -1,24 +1,9 @@
-mod file_system;
-
-use std::ops::{Deref, DerefMut};
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::sync::Arc;
-use serde_json::error::Category::Data;
 use slotmap::DenseSlotMap;
-use uuid::Uuid;
-pub use file_system::*;
-use crate::{DataSet, HashMap, HashSet, ObjectId, ObjectLocation, ObjectPath, ObjectSourceId, SchemaSet};
-
-pub mod edit_context;
-use edit_context::Database;
-
-mod editor_model;
-pub use editor_model::{EditorModel, EditContextKey};
-
-mod undo;
-use undo::{UndoContext, UndoStack};
-
-/*
+use crate::edit_context::Database;
+use crate::{DataSet, FileSystemDataSource, HashMap, ObjectId, ObjectLocation, ObjectPath, ObjectSourceId, SchemaSet};
+use crate::data_source::undo::UndoStack;
 slotmap::new_key_type! { pub struct EditContextKey; }
 
 
@@ -175,4 +160,3 @@ impl EditorModel {
 
     }
 }
-*/

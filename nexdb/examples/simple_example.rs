@@ -1,6 +1,3 @@
-use log::MetadataBuilder;
-use serde_json::Value as JsonValue;
-use serde_json::Value::Null;
 use std::path::PathBuf;
 use std::sync::Arc;
 
@@ -64,7 +61,7 @@ fn main() {
         let dyn_array_obj = edit_context.new_object(default_location.clone(), &dyn_array_type);
 
         let element1 = edit_context.add_dynamic_array_override(dyn_array_obj, "dyn_array");
-        let element2 = edit_context.add_dynamic_array_override(dyn_array_obj, "dyn_array");
+        let _element2 = edit_context.add_dynamic_array_override(dyn_array_obj, "dyn_array");
 
         edit_context.set_override_behavior(dyn_array_obj, "dyn_array", OverrideBehavior::Replace);
         edit_context.set_null_override(

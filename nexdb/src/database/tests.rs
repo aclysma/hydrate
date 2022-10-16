@@ -1,7 +1,11 @@
-use crate::{
-    Database, NullOverride, OverrideBehavior, Schema, SchemaDefDynamicArray, SchemaDefType,
-    SchemaDynamicArray, SchemaLinker, SchemaLinkerResult, SchemaRecord, SchemaRecordField, Value,
-};
+use std::sync::Arc;
+use uuid::Uuid;
+use crate::{NullOverride, ObjectLocation, ObjectPath, ObjectSourceId, OverrideBehavior, SchemaDefType, SchemaLinker, SchemaLinkerResult, SchemaSet, UndoStack, Value};
+use crate::edit_context::EditContext;
+
+fn object_location() -> ObjectLocation {
+    ObjectLocation::new(ObjectSourceId::new_with_uuid(Uuid::parse_str("d9597882-c065-426a-bc8d-4e36b005e30f").unwrap()), ObjectPath::new("test.nxt"))
+}
 
 fn create_vec3_schema(linker: &mut SchemaLinker) -> SchemaLinkerResult<()> {
     linker.register_record_type("Vec3", |builder| {
@@ -17,16 +21,21 @@ fn set_struct_values() {
     let mut linker = SchemaLinker::default();
     create_vec3_schema(&mut linker).unwrap();
 
-    let mut db = Database::default();
-    db.add_linked_types(linker).unwrap();
-    let vec3_type = db
+    let mut schema_set = SchemaSet::default();
+    schema_set.add_linked_types(linker).unwrap();
+    let schema_set = Arc::new(schema_set);
+
+    let undo_stack = UndoStack::default();
+    let mut db = EditContext::new(schema_set.clone(), &undo_stack);
+
+    let vec3_type = schema_set
         .find_named_type("Vec3")
         .unwrap()
         .as_record()
         .unwrap()
         .clone();
 
-    let obj = db.new_object(&vec3_type);
+    let obj = db.new_object(object_location(), &vec3_type);
     assert_eq!(
         db.resolve_property(obj, "x").map(|x| x.as_f32()),
         Some(Some(0.0))
@@ -60,17 +69,22 @@ fn set_struct_values_in_struct() {
         })
         .unwrap();
 
-    let mut db = Database::default();
-    db.add_linked_types(linker).unwrap();
+    let mut schema_set = SchemaSet::default();
+    schema_set.add_linked_types(linker).unwrap();
+    let schema_set = Arc::new(schema_set);
+
+    let undo_stack = UndoStack::default();
+    let mut db = EditContext::new(schema_set.clone(), &undo_stack);
+
     //let vec3_type = db.find_named_type("Vec3").unwrap().as_record().unwrap();
-    let outer_struct_type = db
+    let outer_struct_type = schema_set
         .find_named_type("OuterStruct")
         .unwrap()
         .as_record()
         .unwrap()
         .clone();
 
-    let obj = db.new_object(&outer_struct_type);
+    let obj = db.new_object(object_location(), &outer_struct_type);
     assert_eq!(
         db.resolve_property(obj, "a.x").map(|x| x.as_f32()),
         Some(Some(0.0))
@@ -100,17 +114,22 @@ fn set_simple_property_override() {
     let mut linker = SchemaLinker::default();
     create_vec3_schema(&mut linker).unwrap();
 
-    let mut db = Database::default();
-    db.add_linked_types(linker).unwrap();
-    let vec3_type = db
+    let mut schema_set = SchemaSet::default();
+    schema_set.add_linked_types(linker).unwrap();
+    let schema_set = Arc::new(schema_set);
+
+    let undo_stack = UndoStack::default();
+    let mut db = EditContext::new(schema_set.clone(), &undo_stack);
+
+    let vec3_type = schema_set
         .find_named_type("Vec3")
         .unwrap()
         .as_record()
         .unwrap()
         .clone();
 
-    let obj1 = db.new_object(&vec3_type);
-    let obj2 = db.new_object_from_prototype(obj1);
+    let obj1 = db.new_object(object_location(), &vec3_type);
+    let obj2 = db.new_object_from_prototype(object_location(), obj1);
     assert_eq!(
         db.resolve_property(obj1, "x").map(|x| x.as_f32().unwrap()),
         Some(0.0)
@@ -228,17 +247,21 @@ fn property_in_nullable() {
         })
         .unwrap();
 
-    let mut db = Database::default();
-    db.add_linked_types(linker).unwrap();
-    //let vec3_type = db.find_named_type("Vec3").unwrap().as_record().unwrap().clone();
-    let outer_struct_type = db
+    let mut schema_set = SchemaSet::default();
+    schema_set.add_linked_types(linker).unwrap();
+    let schema_set = Arc::new(schema_set);
+
+    let undo_stack = UndoStack::default();
+    let mut db = EditContext::new(schema_set.clone(), &undo_stack);
+
+    let outer_struct_type = schema_set
         .find_named_type("OuterStruct")
         .unwrap()
         .as_record()
         .unwrap()
         .clone();
 
-    let obj = db.new_object(&outer_struct_type);
+    let obj = db.new_object(object_location(), &outer_struct_type);
 
     assert_eq!(db.resolve_is_null(obj, "nullable").unwrap(), true);
     assert_eq!(
@@ -297,17 +320,23 @@ fn nullable_property_in_nullable() {
         })
         .unwrap();
 
-    let mut db = Database::default();
-    db.add_linked_types(linker).unwrap();
+
+    let mut schema_set = SchemaSet::default();
+    schema_set.add_linked_types(linker).unwrap();
+    let schema_set = Arc::new(schema_set);
+
+    let undo_stack = UndoStack::default();
+    let mut db = EditContext::new(schema_set.clone(), &undo_stack);
+
     //let vec3_type = db.find_named_type("Vec3").unwrap().as_record().unwrap();
-    let outer_struct_type = db
+    let outer_struct_type = schema_set
         .find_named_type("OuterStruct")
         .unwrap()
         .as_record()
         .unwrap()
         .clone();
 
-    let obj = db.new_object(&outer_struct_type);
+    let obj = db.new_object(object_location(), &outer_struct_type);
 
     assert_eq!(db.resolve_is_null(obj, "nullable").unwrap(), true);
     // This returns none because parent property is null, so this property should act like it doesn't exist
@@ -376,17 +405,23 @@ fn struct_in_dynamic_array() {
         })
         .unwrap();
 
-    let mut db = Database::default();
-    db.add_linked_types(linker).unwrap();
+
+    let mut schema_set = SchemaSet::default();
+    schema_set.add_linked_types(linker).unwrap();
+    let schema_set = Arc::new(schema_set);
+
+    let undo_stack = UndoStack::default();
+    let mut db = EditContext::new(schema_set.clone(), &undo_stack);
+
     //let vec3_type = db.find_named_type("Vec3").unwrap().as_record().unwrap();
-    let outer_struct_type = db
+    let outer_struct_type = schema_set
         .find_named_type("OuterStruct")
         .unwrap()
         .as_record()
         .unwrap()
         .clone();
 
-    let obj = db.new_object(&outer_struct_type);
+    let obj = db.new_object(object_location(), &outer_struct_type);
 
     assert!(db.resolve_dynamic_array(obj, "array").is_empty());
     let uuid1 = db.add_dynamic_array_override(obj, "array");
@@ -463,18 +498,23 @@ fn dynamic_array_override_behavior() {
         })
         .unwrap();
 
-    let mut db = Database::default();
-    db.add_linked_types(linker).unwrap();
+    let mut schema_set = SchemaSet::default();
+    schema_set.add_linked_types(linker).unwrap();
+    let schema_set = Arc::new(schema_set);
+
+    let undo_stack = UndoStack::default();
+    let mut db = EditContext::new(schema_set.clone(), &undo_stack);
+
     //let vec3_type = db.find_named_type("Vec3").unwrap().as_record().unwrap();
-    let outer_struct_type = db
+    let outer_struct_type = schema_set
         .find_named_type("OuterStruct")
         .unwrap()
         .as_record()
         .unwrap()
         .clone();
 
-    let obj1 = db.new_object(&outer_struct_type);
-    let obj2 = db.new_object_from_prototype(obj1);
+    let obj1 = db.new_object(object_location(), &outer_struct_type);
+    let obj2 = db.new_object_from_prototype(object_location(), obj1);
 
     let item1 = db.add_dynamic_array_override(obj1, "array");
     let item2 = db.add_dynamic_array_override(obj2, "array");

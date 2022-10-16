@@ -7,9 +7,10 @@ pub type HashMapValues<'a, K, V> = std::collections::hash_map::Values<'a, K, V>;
 pub type HashSet<T> = std::collections::HashSet<T, ahash::RandomState>;
 pub type HashSetIter<'a, T> = std::collections::hash_set::Iter<'a, T>;
 
+use std::fmt::{Debug, Formatter};
 use uuid::Uuid;
 
-#[derive(Copy, Clone, PartialEq, Eq, Hash, Debug)]
+#[derive(Copy, Clone, PartialEq, Eq, Hash)]
 pub struct SchemaFingerprint(u128);
 impl SchemaFingerprint {
     pub fn as_uuid(&self) -> Uuid {
@@ -17,7 +18,15 @@ impl SchemaFingerprint {
     }
 }
 
-#[derive(Copy, Clone, PartialEq, Eq, Hash, Debug, Ord, PartialOrd)]
+impl Debug for SchemaFingerprint {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.debug_tuple("SchemaFingerprint")
+            .field(&Uuid::from_u128(self.0))
+            .finish()
+    }
+}
+
+#[derive(Copy, Clone, PartialEq, Eq, Hash, Ord, PartialOrd)]
 pub struct ObjectId(pub u128);
 impl ObjectId {
     pub fn null() -> Self {
@@ -29,11 +38,27 @@ impl ObjectId {
     }
 }
 
-#[derive(Copy, Clone, PartialEq, Eq, Hash, Debug)]
+impl Debug for ObjectId {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.debug_tuple("ObjectId")
+            .field(&Uuid::from_u128(self.0))
+            .finish()
+    }
+}
+
+#[derive(Copy, Clone, PartialEq, Eq, Hash)]
 pub struct BufferId(u128);
 impl BufferId {
     pub fn null() -> Self {
         BufferId(0)
+    }
+}
+
+impl Debug for BufferId {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.debug_tuple("BufferId")
+            .field(&Uuid::from_u128(self.0))
+            .finish()
     }
 }
 

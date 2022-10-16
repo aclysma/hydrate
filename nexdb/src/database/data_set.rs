@@ -14,6 +14,10 @@ impl ObjectSourceId {
         ObjectSourceId(Uuid::new_v4())
     }
 
+    pub(crate) fn new_with_uuid(uuid: Uuid) -> Self {
+        ObjectSourceId(uuid)
+    }
+
     pub fn uuid(&self) -> &Uuid {
         &self.0
     }

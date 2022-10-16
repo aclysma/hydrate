@@ -135,10 +135,7 @@ impl FileSystemDataSource {
         &self,
         object_location: &ObjectLocation,
     ) -> Option<PathBuf> {
-        println!("object location: {:?}", object_location);
-        println!("stripping {:?}", self.mount_path);
         let path = object_location.path().strip_prefix(&self.mount_path)?;
-        println!("path will be {:?}", path);
         let relative_file_path = Path::new(path.as_string());
         let absolute_file_path = self.file_system_root_path.join(relative_file_path);
         assert!(absolute_file_path.starts_with(&self.file_system_root_path));

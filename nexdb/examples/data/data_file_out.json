@@ -1,33 +1,22 @@
 {
   "objects": [
     {
-      "object_id": "9347d864-a270-4f3f-9b47-a66cc73330e2",
-      "schema": "f2fb60c0-9253-e4f4-9ee0-e1717a8bf9dd",
-      "schema_name": "Vec3",
-      "prototype": null,
-      "properties": {
-        "x": 10.0,
-        "y": 20.0,
-        "z": 30.0
-      }
-    },
-    {
-      "object_id": "b18b9701-08c9-4291-9029-b8ce41dbcaa4",
+      "object_id": "812ae06d-15ea-4d89-a2e3-9e4316c9328b",
       "schema": "3792c325-8139-c74d-27e0-d58edfccfec3",
       "schema_name": "DynArrayNullableTest",
       "prototype": null,
       "properties": {
         "dyn_array": [
-          "b7723abd-2042-47f1-9b5b-83e974193dff",
-          "e98acf91-3f73-443e-b3b4-86a7bc15e050"
+          "4e5759d4-884f-4d8c-82d4-4fa3daa46982",
+          "b2e5d237-66e9-4e4b-b4ae-aafc9d1a7816"
         ],
-        "dyn_array.b7723abd-2042-47f1-9b5b-83e974193dff.null_override": "SetNonNull",
-        "dyn_array.b7723abd-2042-47f1-9b5b-83e974193dff.value": 10.0,
+        "dyn_array.4e5759d4-884f-4d8c-82d4-4fa3daa46982.null_override": "SetNonNull",
+        "dyn_array.4e5759d4-884f-4d8c-82d4-4fa3daa46982.value": 10.0,
         "dyn_array.replace": true
       }
     },
     {
-      "object_id": "c49d164e-f550-4cab-8da5-860701eaaca6",
+      "object_id": "f51a76bf-bf58-44a5-a976-ad0393a6b53c",
       "schema": "d43a4b3d-5b16-b169-43e4-4c10d170e2ed",
       "schema_name": "AABB",
       "prototype": null,
@@ -38,6 +27,17 @@
         "min.x": 10.0,
         "min.y": 20.0,
         "min.z": 30.0
+      }
+    },
+    {
+      "object_id": "fb2b213b-1999-40dd-8260-264c052c4bc7",
+      "schema": "f2fb60c0-9253-e4f4-9ee0-e1717a8bf9dd",
+      "schema_name": "Vec3",
+      "prototype": null,
+      "properties": {
+        "x": 10.0,
+        "y": 20.0,
+        "z": 30.0
       }
     }
   ]

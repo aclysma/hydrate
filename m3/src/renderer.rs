@@ -31,6 +31,7 @@ lazy_static::lazy_static! {
 pub struct Renderer {
     // Ordered in drop order
     font_atlas_texture: ResourceArc<ImageViewResource>,
+    #[allow(dead_code)]
     debug_pass: MaterialPass,
     imgui_pass: MaterialPass,
     graphics_queue: RafxQueue,
@@ -190,7 +191,7 @@ impl Renderer {
         &mut self,
         window: &winit::window::Window,
         imgui_draw_data: Option<&imgui::DrawData>,
-        app_state: &AppState,
+        _app_state: &AppState,
     ) -> RafxResult<()> {
         let window_size = window.inner_size();
         let window_size = RafxExtents2D {

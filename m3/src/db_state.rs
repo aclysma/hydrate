@@ -1,6 +1,6 @@
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::sync::Arc;
-use nexdb::{DataSet, DataStorageJsonSingleFile, EditorModel, ObjectLocation, ObjectPath, Schema, SchemaCacheSingleFile, SchemaDefType, SchemaSet};
+use nexdb::{DataSet, EditorModel, ObjectPath, SchemaCacheSingleFile, SchemaSet};
 
 
 pub struct DbState {
@@ -71,26 +71,26 @@ impl DbState {
         db.set_property_override(&schema_set, prototype_obj, "position.x", nexdb::Value::F64(10.0));
         db.set_property_override(&schema_set, instance_obj, "position.x", nexdb::Value::F64(20.0));
 
-        let prototype_array_element_1 =
+        let _prototype_array_element_1 =
             db.add_dynamic_array_override(&schema_set, prototype_obj, "all_fields.dynamic_array_i32");
-        let prototype_array_element_2 =
+        let _prototype_array_element_2 =
             db.add_dynamic_array_override(&schema_set, prototype_obj, "all_fields.dynamic_array_i32");
-        let instance_array_element_1 =
+        let _instance_array_element_1 =
             db.add_dynamic_array_override(&schema_set, instance_obj, "all_fields.dynamic_array_i32");
-        let instance_array_element_2 =
+        let _instance_array_element_2 =
             db.add_dynamic_array_override(&schema_set, instance_obj, "all_fields.dynamic_array_i32");
-        let instance_array_element_3 =
+        let _instance_array_element_3 =
             db.add_dynamic_array_override(&schema_set, instance_obj, "all_fields.dynamic_array_i32");
 
-        let prototype_array_element_1 =
+        let _prototype_array_element_1 =
             db.add_dynamic_array_override(&schema_set, prototype_obj, "all_fields.dynamic_array_vec3");
-        let prototype_array_element_2 =
+        let _prototype_array_element_2 =
             db.add_dynamic_array_override(&schema_set, prototype_obj, "all_fields.dynamic_array_vec3");
-        let instance_array_element_1 =
+        let _instance_array_element_1 =
             db.add_dynamic_array_override(&schema_set, instance_obj, "all_fields.dynamic_array_vec3");
-        let instance_array_element_2 =
+        let _instance_array_element_2 =
             db.add_dynamic_array_override(&schema_set, instance_obj, "all_fields.dynamic_array_vec3");
-        let instance_array_element_3 =
+        let _instance_array_element_3 =
             db.add_dynamic_array_override(&schema_set, instance_obj, "all_fields.dynamic_array_vec3");
 
         edit_model.root_context_mut().import_objects(db);

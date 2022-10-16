@@ -1,13 +1,7 @@
-use std::collections::VecDeque;
-use super::{HashMap, HashSet, ObjectId};
-use std::io::BufRead;
-use std::path::PathBuf;
-use std::str::FromStr;
-use std::sync::{Arc, mpsc};
+use std::sync::mpsc;
 use std::sync::mpsc::{Receiver, Sender};
-use uuid::Uuid;
 
-use crate::{DataObjectInfo, DataSet, DataSetDiffSet, HashMapKeys, HashSetIter, NullOverride, ObjectLocation, OverrideBehavior, SchemaFingerprint, SchemaNamedType, SchemaRecord, SchemaSet, Value};
+use crate::{DataSet, DataSetDiffSet, HashSet, ObjectId};
 use crate::edit_context::Database;
 
 
@@ -121,7 +115,7 @@ impl UndoContext {
         }
     }
 
-    pub(crate) fn end_context(&mut self, after_state: &DataSet, name: &'static str, allow_resume: bool, modified_objects: &mut HashSet<ObjectId>) {
+    pub(crate) fn end_context(&mut self, after_state: &DataSet, allow_resume: bool, modified_objects: &mut HashSet<ObjectId>) {
         if !allow_resume {
             // This won't do anything if there's nothing to send
             self.commit_context(after_state, modified_objects);
@@ -138,7 +132,7 @@ impl UndoContext {
             }
 
             // Delete any tracked objects that aren't in the old data
-            after_state.objects.retain(|k, v| self.tracked_objects.contains(k) && !self.before_state.objects.contains_key(k));
+            after_state.objects.retain(|k, _| self.tracked_objects.contains(k) && !self.before_state.objects.contains_key(k));
 
             self.before_state = Default::default();
             self.tracked_objects.clear();

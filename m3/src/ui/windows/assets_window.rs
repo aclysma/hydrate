@@ -1,4 +1,3 @@
-use crate::ui::components::draw_ui_inspector::*;
 use crate::app_state::{ActiveToolRegion, AppState, AssetBrowserGridState, AssetBrowserState, UiState};
 use crate::imgui_support::ImguiManager;
 use imgui::{im_str, ImStr, ImString, TreeNodeFlags};
@@ -318,7 +317,6 @@ pub fn draw_asset(
 ) {
     let id = items[index].0;
     let name = im_str!("{}", items[index].0.as_uuid());
-    let mut clicked = false;
 
     let stack_token = ui.push_id(&name);
 
@@ -385,9 +383,9 @@ pub fn assets_window_right_header(
     ui.button(im_str!("asd3"));
 
     // Determine size of the buttons and spacing between them
-    let mut b1 = size_of_button(im_str!("ButtonRight 1"), ImVec2::zero());
-    let mut b2 = size_of_button(im_str!("ButtonRight 2"), ImVec2::zero());
-    let mut b3 = size_of_button(im_str!("ButtonRight 3"), ImVec2::zero());
+    let b1 = size_of_button(im_str!("ButtonRight 1"), ImVec2::zero());
+    let b2 = size_of_button(im_str!("ButtonRight 2"), ImVec2::zero());
+    let b3 = size_of_button(im_str!("ButtonRight 3"), ImVec2::zero());
     let spacing = unsafe {
         (*is::igGetStyle()).ItemSpacing
     };

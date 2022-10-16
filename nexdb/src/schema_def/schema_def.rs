@@ -2,10 +2,7 @@ use crate::{
     HashMap, HashSet, Schema, SchemaDynamicArray, SchemaEnum, SchemaEnumSymbol, SchemaFingerprint,
     SchemaFixed, SchemaMap, SchemaNamedType, SchemaRecord, SchemaRecordField, SchemaStaticArray
 };
-use siphasher::sip128::Hasher128;
 use std::hash::{Hash, Hasher};
-use std::path::Path;
-use uuid::Uuid;
 
 #[derive(Debug)]
 pub enum SchemaDefValidationError {
@@ -314,7 +311,6 @@ impl SchemaDefEnumSymbol {
 
     fn to_schema(
         self,
-        named_types: &HashMap<String, SchemaFingerprint>,
     ) -> SchemaEnumSymbol {
         SchemaEnumSymbol::new(
             self.symbol_name,
@@ -347,7 +343,7 @@ impl SchemaDefEnum {
 
     fn apply_type_aliases(
         &mut self,
-        aliases: &HashMap<String, String>,
+        _aliases: &HashMap<String, String>,
     ) {
     }
 
@@ -380,7 +376,7 @@ impl SchemaDefEnum {
 
         let mut symbols = Vec::with_capacity(self.symbols.len());
         for symbol in self.symbols {
-            symbols.push(symbol.to_schema(named_types));
+            symbols.push(symbol.to_schema());
         }
 
         SchemaEnum::new(
@@ -414,7 +410,7 @@ impl SchemaDefFixed {
 
     fn apply_type_aliases(
         &mut self,
-        aliases: &HashMap<String, String>,
+        _aliases: &HashMap<String, String>,
     ) {
     }
 
@@ -678,7 +674,7 @@ fn parse_json_schema_type_ref(
     json_value: &serde_json::Value,
     error_prefix: &str,
 ) -> SchemaDefParserResult<SchemaDefType> {
-    let mut name;
+    let name;
     match json_value {
         serde_json::Value::String(type_name) => {
             name = type_name.as_str();

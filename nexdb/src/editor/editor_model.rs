@@ -3,7 +3,7 @@ use std::sync::Arc;
 use slotmap::DenseSlotMap;
 use crate::edit_context::Database;
 use crate::{DataSet, FileSystemDataSource, HashMap, ObjectId, ObjectLocation, ObjectPath, ObjectSourceId, SchemaSet};
-use crate::data_source::undo::UndoStack;
+use crate::editor::undo::UndoStack;
 slotmap::new_key_type! { pub struct EditContextKey; }
 
 
@@ -79,7 +79,7 @@ impl EditorModel {
     }
 
     pub fn open_file_system_source<RootPathT: Into<PathBuf>>(&mut self, root_path: RootPathT, mount_path: ObjectPath) -> ObjectSourceId {
-        let mut root_context = self.root_context_mut();
+        let root_context = self.root_context_mut();
         let root_path = root_path.into();
         println!("MOUNT PATH {:?}", mount_path);
         let fs = FileSystemDataSource::new(root_path.clone(), mount_path, root_context);

@@ -52,5 +52,5 @@ pub use schema_cache::*;
 mod data_storage;
 pub use data_storage::*;
 
-mod data_source;
-pub use data_source::*;
+mod editor;
+pub use editor::*;

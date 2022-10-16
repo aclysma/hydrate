@@ -1,11 +1,7 @@
 use super::Schema;
-use crate::schema::SchemaTypeIndex;
-use crate::{HashMap, SchemaFingerprint, SchemaId, SchemaNamedType};
-use siphasher::sip128::Hasher128;
-use std::hash::{Hash, Hasher};
+use crate::{HashMap, SchemaFingerprint, SchemaNamedType};
 use std::ops::Deref;
 use std::sync::Arc;
-use uuid::Uuid;
 
 #[derive(Debug)]
 pub struct SchemaRecordField {

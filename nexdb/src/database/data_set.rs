@@ -1,9 +1,7 @@
-use std::path::{Path, PathBuf};
 use std::str::FromStr;
 use uuid::Uuid;
 use crate::{HashMap, HashMapKeys, HashSet, HashSetIter, ObjectId, Schema, SchemaFingerprint, SchemaNamedType, SchemaRecord, Value};
 use crate::SchemaSet;
-use crate::value::PropertyValue;
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub struct ObjectSourceId(Uuid);
@@ -300,17 +298,17 @@ impl DataSet {
             // If it's a map or dynamic array, we need to check for append mode before looking up the prototype chain
             match s {
                 Schema::Nullable(_) => {
-                    let mut shortened_path = Self::truncate_property_path(path.as_ref(), i);
+                    let shortened_path = Self::truncate_property_path(path.as_ref(), i);
                     nullable_ancestors.push(shortened_path);
                 }
                 Schema::DynamicArray(_) => {
-                    let mut shortened_path = Self::truncate_property_path(path.as_ref(), i);
+                    let shortened_path = Self::truncate_property_path(path.as_ref(), i);
                     dynamic_array_ancestors.push(shortened_path.clone());
 
                     parent_is_dynamic_array = true;
                 }
                 Schema::Map(_) => {
-                    let mut shortened_path = Self::truncate_property_path(path.as_ref(), i);
+                    let shortened_path = Self::truncate_property_path(path.as_ref(), i);
                     map_ancestors.push(shortened_path);
                 }
                 _ => {}
@@ -324,7 +322,7 @@ impl DataSet {
 
         if let Some(last_path_segment) = split_path.last() {
             schema = schema
-                .find_field_schema(split_path.last().unwrap(), named_types)?
+                .find_field_schema(last_path_segment, named_types)?
                 .clone();
         }
 
@@ -354,7 +352,7 @@ impl DataSet {
         path: impl AsRef<str>,
         null_override: NullOverride,
     ) {
-        let mut object = self.objects.get_mut(&object_id).unwrap();
+        let object = self.objects.get_mut(&object_id).unwrap();
         let property_schema = object.schema.find_property_schema(&path, schema_set.schemas()).unwrap();
 
         if property_schema.is_nullable() {
@@ -369,7 +367,7 @@ impl DataSet {
         object_id: ObjectId,
         path: impl AsRef<str>,
     ) {
-        let mut object = self.objects.get_mut(&object_id).unwrap();
+        let object = self.objects.get_mut(&object_id).unwrap();
         let property_schema = object.schema.find_property_schema(&path, schema_set.schemas()).unwrap();
 
         if property_schema.is_nullable() {
@@ -385,7 +383,7 @@ impl DataSet {
         object_id: ObjectId,
         path: impl AsRef<str>,
     ) -> Option<bool> {
-        let mut object_schema = self.object_schema(object_id).unwrap();
+        let object_schema = self.object_schema(object_id).unwrap();
 
         // Contains the path segments that we need to check for being null
         let mut nullable_ancestors = vec![];
@@ -469,8 +467,8 @@ impl DataSet {
         path: impl AsRef<str>,
         value: Value,
     ) -> bool {
-        let mut object_schema = self.object_schema(object_id).unwrap();
-        let mut property_schema =
+        let object_schema = self.object_schema(object_id).unwrap();
+        let property_schema =
             object_schema.find_property_schema(&path, schema_set.schemas()).unwrap();
 
         //TODO: Should we check for null in path ancestors?
@@ -492,7 +490,7 @@ impl DataSet {
         // Contains the dynamic arrays we access and what keys are used to access them
         let mut accessed_dynamic_array_keys = vec![];
 
-        let property_schema = Self::property_schema_and_path_ancestors_to_check(
+        let _property_schema = Self::property_schema_and_path_ancestors_to_check(
             object_schema,
             &path,
             schema_set.schemas(),
@@ -500,8 +498,7 @@ impl DataSet {
             &mut dynamic_array_ancestors,
             &mut map_ancestors,
             &mut accessed_dynamic_array_keys,
-        )
-            .unwrap();
+        ).unwrap();
 
         for checked_property in &nullable_ancestors {
             if self.resolve_is_null(schema_set, object_id, checked_property) != Some(false) {
@@ -526,7 +523,7 @@ impl DataSet {
         object_id: ObjectId,
         path: impl AsRef<str>,
     ) -> Option<Value> {
-        let mut object = self.objects.get_mut(&object_id).unwrap();
+        let object = self.objects.get_mut(&object_id).unwrap();
         object.properties.remove(path.as_ref())
     }
 
@@ -553,7 +550,7 @@ impl DataSet {
         object_id: ObjectId,
         path: impl AsRef<str>,
     ) -> Option<Value> {
-        let mut object_schema = self.object_schema(object_id).unwrap();
+        let object_schema = self.object_schema(object_id).unwrap();
 
         // Contains the path segments that we need to check for being null
         let mut nullable_ancestors = vec![];
@@ -632,7 +629,7 @@ impl DataSet {
         object_id: ObjectId,
         path: impl AsRef<str>,
     ) -> Uuid {
-        let mut object = self.objects.get_mut(&object_id).unwrap();
+        let object = self.objects.get_mut(&object_id).unwrap();
         let property_schema = object.schema.find_property_schema(&path, schema_set.schemas()).unwrap();
 
         if !property_schema.is_dynamic_array() {
@@ -732,7 +729,7 @@ impl DataSet {
         object_id: ObjectId,
         path: impl AsRef<str>,
     ) -> Box<[Uuid]> {
-        let mut object_schema = self.object_schema(object_id).unwrap();
+        let object_schema = self.object_schema(object_id).unwrap();
 
         // Contains the path segments that we need to check for being null
         let mut nullable_ancestors = vec![];

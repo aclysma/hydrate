@@ -1,14 +1,9 @@
-use std::collections::VecDeque;
-use super::{HashMap, HashSet, ObjectId};
-use std::io::BufRead;
-use std::path::PathBuf;
-use std::str::FromStr;
-use std::sync::{Arc, mpsc};
-use std::sync::mpsc::{Receiver, Sender};
+use std::sync::Arc;
+use std::sync::mpsc::Sender;
 use uuid::Uuid;
 
-use crate::{DataObjectInfo, DataSet, DataSetDiffSet, HashMapKeys, HashSetIter, NullOverride, ObjectLocation, OverrideBehavior, SchemaFingerprint, SchemaNamedType, SchemaRecord, SchemaSet, Value};
-use crate::data_source::undo::{UndoContext, UndoStack};
+use crate::{DataObjectInfo, DataSet, DataSetDiffSet, HashMap, HashMapKeys, HashSet, HashSetIter, NullOverride, ObjectId, ObjectLocation, OverrideBehavior, SchemaFingerprint, SchemaNamedType, SchemaRecord, SchemaSet, Value};
+use crate::editor::undo::{UndoContext, UndoStack};
 
 
 //TODO: Delete unused property data when path ancestor is null or in replace mode
@@ -96,7 +91,7 @@ impl Database {
     pub fn with_undo_context<F: FnOnce(&mut Self) -> bool>(&mut self, name: &'static str, f: F) {
         self.undo_context.begin_context(&self.data_set, name, &mut self.modified_objects);
         let allow_resume = (f)(self);
-        self.undo_context.end_context(&self.data_set, name, allow_resume, &mut self.modified_objects);
+        self.undo_context.end_context(&self.data_set, allow_resume, &mut self.modified_objects);
     }
 
     pub fn commit_pending_undo_context(&mut self) {

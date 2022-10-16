@@ -1,13 +1,6 @@
-use crate::ui::components::draw_ui_inspector::*;
 use crate::app_state::AppState;
 use crate::imgui_support::ImguiManager;
 use imgui::im_str;
-use imgui::sys::{
-    igDragFloat, igDragScalar, igInputDouble, ImGuiDataType__ImGuiDataType_Double,
-    ImGuiInputTextFlags__ImGuiInputTextFlags_None, ImVec2,
-};
-use std::convert::TryInto;
-use crate::ui::views::draw_editor_view::draw_dockspace;
 
 fn draw_menu_bar(
     ui: &imgui::Ui,
@@ -47,7 +40,7 @@ pub fn draw_imgui(
     //Draw an inspect window for the example struct
     //
     {
-        imgui_manager.with_ui(|ui, imnodes_context| {
+        imgui_manager.with_ui(|ui, _imnodes_context| {
             crate::ui::views::draw_editor_view::draw_dockspace(ui, imnodes_editor, app_state);
             //crate::ui::views::draw_assets_view::draw_view(ui, app_state);
             draw_menu_bar(ui, app_state);

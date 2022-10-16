@@ -1,7 +1,6 @@
-use std::path::{Path, PathBuf};
 use serde::{Serialize, Deserialize};
 use uuid::Uuid;
-use crate::{HashMap, Schema, SchemaDynamicArray, SchemaEnum, SchemaEnumSymbol, SchemaFingerprint, SchemaFixed, SchemaLinker, SchemaMap, SchemaNamedType, SchemaRecord, SchemaRecordField, SchemaSet, SchemaStaticArray};
+use crate::{Schema, SchemaDynamicArray, SchemaEnum, SchemaEnumSymbol, SchemaFingerprint, SchemaFixed, SchemaMap, SchemaNamedType, SchemaRecord, SchemaRecordField, SchemaSet, SchemaStaticArray};
 
 #[derive(Debug, Serialize, Deserialize)]
 struct CachedSchemaStaticArray {

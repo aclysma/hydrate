@@ -56,7 +56,7 @@ impl ImguiManager {
     // imgui and winit platform are expected to be pre-configured
     pub fn new(
         mut imgui_context: imgui::Context,
-        mut imnodes_context: imnodes::Context,
+        imnodes_context: imnodes::Context,
         platform: imgui_winit_support::WinitPlatform,
     ) -> Self {
         // Ensure font atlas is built and cache a pointer to it
@@ -159,7 +159,7 @@ impl ImguiManager {
             new_color |= ((linear[3] * 255.0) as u32) << 24;
             new_color |= ((linear[0] * 255.0) as u32) << 16;
             new_color |= ((linear[1] * 255.0) as u32) << 8;
-            new_color |= ((linear[2] * 255.0) as u32);
+            new_color |= (linear[2] * 255.0) as u32;
 
             *color = new_color;
         }

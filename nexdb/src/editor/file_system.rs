@@ -1,7 +1,6 @@
 use std::ffi::OsStr;
 use std::path::{Path, PathBuf};
-use uuid::Uuid;
-use crate::{ObjectId, HashSet, HashMap, ObjectLocation, ObjectPath, ObjectSourceId};
+use crate::{HashMap, ObjectLocation, ObjectPath, ObjectSourceId};
 use crate::edit_context::Database;
 
 
@@ -67,9 +66,9 @@ impl FileSystemDataSource {
             file_states.insert(file.path().to_path_buf(), file_state);
         }
 
-        let mut object_locations: HashMap<ObjectId, PathBuf> = Default::default();
+        //let mut object_locations: HashMap<ObjectId, PathBuf> = Default::default();
 
-        for (file_path, v) in &file_states {
+        for (file_path, _) in &file_states {
             if let Some(extension) = file_path.extension() {
                 if extension == OsStr::new("nxt") {
                     // nexdb text file

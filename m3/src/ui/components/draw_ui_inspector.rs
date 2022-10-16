@@ -1,12 +1,6 @@
 use crate::app_state::{AppState, UiState};
-use crate::imgui_support::ImguiManager;
 use imgui::im_str;
-use imgui::sys::{
-    igDragFloat, igDragScalar, igInputDouble, ImGuiDataType__ImGuiDataType_Double,
-    ImGuiInputTextFlags__ImGuiInputTextFlags_None, ImVec2,
-};
-use nexdb::{Schema, DataSetDiffSet};
-use std::convert::TryInto;
+use nexdb::{Schema};
 use nexdb::edit_context::Database;
 use crate::ui::asset_browser_grid_drag_drop::AssetBrowserGridPayload;
 
@@ -16,13 +10,13 @@ fn draw_property_style<F: FnOnce(&imgui::Ui)>(
     property_overridden: bool,
     f: F,
 ) {
-    let inherited_style_token = if property_inherited {
+    let _inherited_style_token = if property_inherited {
         Some(ui.push_style_color(imgui::StyleColor::Text, [0.2, 0.2, 0.2, 1.0]))
     } else {
         None
     };
 
-    let overridden_style_token = if property_overridden {
+    let _overridden_style_token = if property_overridden {
         Some(ui.push_style_color(imgui::StyleColor::Text, [1.0, 1.0, 0.0, 1.0]))
     } else {
         None
@@ -33,17 +27,16 @@ fn draw_property_style<F: FnOnce(&imgui::Ui)>(
 
 fn draw_inspector_simple_property<F: FnOnce(&imgui::Ui, nexdb::Value) -> Option<nexdb::Value>>(
     ui: &imgui::Ui,
-    ui_state: &UiState,
+    _ui_state: &UiState,
     db: &mut Database,
     object_id: nexdb::ObjectId,
     property_path: &str,
-    property_name: &str,
+    _property_name: &str,
     schema: &nexdb::Schema,
     property_inherited: bool,
     f: F,
 ) {
-    use nexdb::*;
-    let mut v = if property_inherited {
+    let v = if property_inherited {
         if let Some(value) = db.resolve_property(object_id, &property_path) {
             value.clone()
         } else {
@@ -420,7 +413,7 @@ fn draw_inspector_simple_property_string(
         schema,
         property_inherited,
         |ui, value| {
-            let mut v = value.as_string().unwrap();
+            let v = value.as_string().unwrap();
             let property_im_str = im_str!("{}", &property_name);
             let mut value = im_str!("{}", &v);
             let modified = imgui::InputText::new(ui, &property_im_str, &mut value)
@@ -448,7 +441,7 @@ fn draw_inspector_object_ref(
     ui: &imgui::Ui,
     ui_state: &mut UiState,
     db: &mut Database,
-    is_editing: &mut bool,
+    _is_editing: &mut bool,
     is_editing_complete: &mut bool,
     object_id: nexdb::ObjectId,
     property_path: &str,
@@ -468,7 +461,7 @@ fn draw_inspector_object_ref(
         schema,
         property_inherited,
         |ui, value| {
-            let mut v = value.as_object_ref().unwrap();
+            let v = value.as_object_ref().unwrap();
             let property_im_str = im_str!("{}", &property_name);
             let mut value = im_str!("{}", v.as_uuid());
             imgui::InputText::new(ui, &property_im_str, &mut value).read_only(true).build();
@@ -734,7 +727,6 @@ fn draw_inspector_nexdb_property(
             ui.text(im_str!("{}", property_name));
             if imgui::CollapsingHeader::new(&im_str!("elements")).build(ui) {
                 ui.indent();
-                let mut index = 0;
                 for id in &resolve[0..(resolve.len() - overrides.len())] {
                     // inherited
                     let field_path = format!("{}.{}", property_path, id);
@@ -751,7 +743,6 @@ fn draw_inspector_nexdb_property(
                         array.item_type(),
                     );
                     id_token.pop();
-                    index += 1;
                 }
 
                 for id in overrides {
@@ -769,7 +760,6 @@ fn draw_inspector_nexdb_property(
                         array.item_type(),
                     );
                     id_token.pop();
-                    index += 1;
                 }
                 ui.unindent();
             }
@@ -777,7 +767,7 @@ fn draw_inspector_nexdb_property(
         Schema::Map(_) => {}
         //Schema::RecordRef(_) => {}
 
-        Schema::ObjectRef(named_type_fingerprint) => {
+        Schema::ObjectRef(_named_type_fingerprint) => {
             let property_inherited = !db.has_property_override(object_id, &property_path);
             draw_property_style(ui, property_inherited, false, |ui| {
                 draw_inspector_object_ref(

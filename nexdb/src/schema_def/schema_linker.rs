@@ -4,9 +4,8 @@ use super::record_type_builder::*;
 use super::schema_def::*;
 use crate::{HashMap, HashSet, SchemaDefParserError, SchemaFingerprint, SchemaNamedType};
 use siphasher::sip128::Hasher128;
-use std::hash::{Hash, Hasher};
+use std::hash::Hash;
 use std::path::Path;
-use uuid::Uuid;
 
 #[derive(Debug)]
 pub enum SchemaLinkerError {

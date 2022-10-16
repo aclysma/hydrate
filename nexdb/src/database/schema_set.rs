@@ -37,7 +37,7 @@ impl SchemaSet {
 
     pub fn add_linked_types(
         &mut self,
-        mut linker: SchemaLinker,
+        linker: SchemaLinker,
     ) -> SchemaLinkerResult<()> {
         let linked = linker.finish()?;
 

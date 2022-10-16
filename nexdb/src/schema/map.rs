@@ -1,6 +1,4 @@
 use super::Schema;
-use crate::schema::SchemaTypeIndex;
-use std::hash::Hasher;
 
 #[derive(Clone, Debug)]
 pub struct SchemaMap {

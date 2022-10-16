@@ -1,6 +1,4 @@
 use super::Schema;
-use crate::schema::SchemaTypeIndex;
-use std::hash::{Hash, Hasher};
 
 #[derive(Clone, Debug)]
 pub struct SchemaDynamicArray {

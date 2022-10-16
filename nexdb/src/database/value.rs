@@ -1,6 +1,5 @@
 use crate::ObjectId;
-use crate::Value::ObjectRef;
-use crate::{BufferId, HashMap, Schema, SchemaFingerprint, SchemaId, SchemaNamedType};
+use crate::{BufferId, HashMap, Schema, SchemaFingerprint, SchemaNamedType};
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum PropertyValue {
@@ -97,7 +96,7 @@ impl Value {
         named_types: &HashMap<SchemaFingerprint, SchemaNamedType>,
     ) -> Self {
         match schema {
-            Schema::Nullable(inner) => Value::Nullable(Default::default()),
+            Schema::Nullable(_) => Value::Nullable(Default::default()),
             Schema::Boolean => Value::Boolean(Default::default()),
             Schema::I32 => Value::I32(Default::default()),
             Schema::I64 => Value::I64(Default::default()),
@@ -109,16 +108,16 @@ impl Value {
             Schema::Buffer => Value::Buffer(BufferId::null()),
             Schema::String => Value::String(Default::default()),
             Schema::StaticArray(inner) => Value::StaticArray(vec![Value::default_for_schema(&inner.item_type, named_types); inner.length]),
-            Schema::DynamicArray(inner) => Value::DynamicArray(vec![]),
-            Schema::Map(inner) => Value::Map(ValueMap {
+            Schema::DynamicArray(_) => Value::DynamicArray(vec![]),
+            Schema::Map(_) => Value::Map(ValueMap {
                 properties: Default::default()
             }),
             //Schema::RecordRef(inner) => Value::RecordRef(ObjectId::null()),
-            Schema::ObjectRef(inner) => Value::ObjectRef(ObjectId::null()),
+            Schema::ObjectRef(_) => Value::ObjectRef(ObjectId::null()),
             Schema::NamedType(named_type_id) => {
                 let named_type = named_types.get(named_type_id).unwrap();
                 match named_type {
-                    SchemaNamedType::Record(inner) => Value::Record(ValueRecord {
+                    SchemaNamedType::Record(_) => Value::Record(ValueRecord {
                         properties: Default::default()
                     }),
                     SchemaNamedType::Enum(inner) => Value::Enum(ValueEnum {

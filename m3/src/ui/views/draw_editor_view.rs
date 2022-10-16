@@ -1,17 +1,9 @@
-use crate::ui::components::draw_ui_inspector::*;
 use crate::app_state::AppState;
-use crate::imgui_support::ImguiManager;
-use imgui::{im_str, ImStr, ImString};
-use imgui::sys::{
-    igDragFloat, igDragScalar, igInputDouble, ImGuiDataType__ImGuiDataType_Double,
-    ImGuiInputTextFlags__ImGuiInputTextFlags_None, ImVec2,
-};
-use std::convert::TryInto;
-use std::ffi::CString;
+use imgui::{im_str, ImString};
 use imgui::sys as is;
 
 fn draw_root_dockspace(
-    ui: &imgui::Ui,
+    _ui: &imgui::Ui,
     app_state: &mut AppState,
 ) {
     unsafe {
@@ -42,7 +34,7 @@ fn draw_root_dockspace(
 
 pub fn draw_dockspace(
     ui: &imgui::Ui,
-    imnodes_editor: &mut imnodes::EditorContext,
+    _imnodes_editor: &mut imnodes::EditorContext,
     app_state: &mut AppState,
 ) {
     draw_root_dockspace(ui, app_state);

@@ -1,9 +1,7 @@
-use std::path::Path;
 use std::str::FromStr;
 use uuid::Uuid;
-use crate::{DataObjectInfo, HashMap, NullOverride, ObjectId, OverrideBehavior, Schema, SchemaFingerprint, SchemaNamedType, Value, HashSet, ObjectLocation};
+use crate::{HashMap, NullOverride, ObjectId, OverrideBehavior, Schema, SchemaFingerprint, SchemaNamedType, Value, HashSet, ObjectLocation};
 use serde::{Serialize, Deserialize};
-use serde_json::Number;
 use crate::edit_context::Database;
 
 fn property_value_to_json(value: &Value) -> serde_json::Value {
@@ -64,8 +62,8 @@ fn json_to_property_value_without_schema(value: &serde_json::Value) -> Value {
             }
         },
         serde_json::Value::String(x) => Value::String(x.to_string()),
-        serde_json::Value::Array(x) => unimplemented!(),
-        serde_json::Value::Object(x) => unimplemented!(),
+        serde_json::Value::Array(_) => unimplemented!(),
+        serde_json::Value::Object(_) => unimplemented!(),
     }
 }
 
@@ -251,7 +249,7 @@ fn restore_object_from_properties(
         }
         Schema::DynamicArray(dynamic_array) => {
             let override_behavior_path = format!("{}.replace", path);
-            if let Some(value) = stored_object.properties.get(path) {
+            if let Some(value) = stored_object.properties.get(&override_behavior_path) {
                 if value.as_bool() == Some(true) {
                     database.set_override_behavior(object_id, path, OverrideBehavior::Replace);
                 }
@@ -406,7 +404,7 @@ impl DataStorageJsonSingleFile {
             let object_id = ObjectId(stored_object.object_id.as_u128());
 
             let schema_fingerprint = SchemaFingerprint(stored_object.schema.as_u128());
-            let object_schema = database.schemas().get(&schema_fingerprint).unwrap().clone();
+            //let object_schema = database.schemas().get(&schema_fingerprint).unwrap().clone();
 
             let prototype = stored_object.prototype.as_ref().map(|x| ObjectId(x.as_uuid().as_u128()));
 
@@ -448,8 +446,8 @@ impl DataStorageJsonSingleFile {
 
             for (path, value) in &stored_object.properties {
                 let split_path = path.rsplit_once('.');
-                let parent_path = split_path.map(|x| x.0);
-                let path_end = split_path.map(|x| x.1);
+                //let parent_path = split_path.map(|x| x.0);
+                //let path_end = split_path.map(|x| x.1);
 
                 let mut property_handled = false;
 

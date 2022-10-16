@@ -1,4 +1,4 @@
-use crate::edit_context::Database;
+use crate::edit_context::EditContext;
 use crate::editor::undo::UndoStack;
 use crate::{
     DataSet, FileSystemDataSource, HashMap, ObjectId, ObjectLocation, ObjectPath, ObjectSourceId,
@@ -9,41 +9,11 @@ use std::path::PathBuf;
 use std::sync::Arc;
 slotmap::new_key_type! { pub struct EditContextKey; }
 
-// pub struct EditContext {
-//     database: Database,
-//     //dirty_files: HashSet<PathBuf>,
-//     referenced_files: HashSet<PathBuf>,
-// }
-//
-// impl EditContext {
-//     // pub fn is_object_modified(&self, object_id: ObjectId) {
-//     //     self.database.is_object_modified(object_id);
-//     // }
-//     //
-//     // pub fn import_objects(&mut self, data_set: DataSet) {
-//     //     self.database.import_objects(data_set);
-//     // }
-// }
-//
-// impl Deref for EditContext {
-//     type Target = Database;
-//
-//     fn deref(&self) -> &Self::Target {
-//         &self.database
-//     }
-// }
-//
-// impl DerefMut for EditContext {
-//     fn deref_mut(&mut self) -> &mut Self::Target {
-//         &mut self.database
-//     }
-// }
-
 pub struct EditorModel {
     schema_set: Arc<SchemaSet>,
     undo_stack: UndoStack,
     root_context_key: EditContextKey,
-    edit_contexts: DenseSlotMap<EditContextKey, Database>,
+    edit_contexts: DenseSlotMap<EditContextKey, EditContext>,
     //TODO: slot_map?
     data_sources: HashMap<ObjectSourceId, FileSystemDataSource>,
 }
@@ -51,8 +21,8 @@ pub struct EditorModel {
 impl EditorModel {
     pub fn new(schema_set: Arc<SchemaSet>) -> Self {
         let undo_stack = UndoStack::default();
-        let root_edit_context = Database::new(schema_set.clone(), &undo_stack);
-        let mut edit_contexts: DenseSlotMap<EditContextKey, Database> = Default::default();
+        let root_edit_context = EditContext::new(schema_set.clone(), &undo_stack);
+        let mut edit_contexts: DenseSlotMap<EditContextKey, EditContext> = Default::default();
         let root_context_key = edit_contexts.insert(root_edit_context);
 
         EditorModel {
@@ -68,11 +38,11 @@ impl EditorModel {
         &*self.schema_set
     }
 
-    pub fn root_context(&self) -> &Database {
+    pub fn root_context(&self) -> &EditContext {
         self.edit_contexts.get(self.root_context_key).unwrap()
     }
 
-    pub fn root_context_mut(&mut self) -> &mut Database {
+    pub fn root_context_mut(&mut self) -> &mut EditContext {
         self.edit_contexts.get_mut(self.root_context_key).unwrap()
     }
 
@@ -97,25 +67,17 @@ impl EditorModel {
         object_source_id
     }
 
-    // pub fn save_file_system_source<T: Into<PathBuf>>(&mut self, root_path: T) {
-    //     // write to edited files
-    //     for object
-    //
-    //     // delete files that shouldn't exist anymore
-    // }
-
     pub fn save_root_context(&mut self) {
         let mut objects_by_location: HashMap<ObjectLocation, Vec<ObjectId>> = HashMap::default();
 
         let database = self.root_context();
         for (id, object) in database.objects() {
-            //nexdb::
             objects_by_location
                 .entry(object.object_location.clone())
                 .or_default()
                 .push(*id);
         }
-        println!("found objects to save {:#?}", objects_by_location);
+        //println!("Saving root edit context, found objects to save {:#?}", objects_by_location);
 
         for (location, object_ids) in objects_by_location {
             let data =
@@ -124,11 +86,9 @@ impl EditorModel {
             let file_path = source.location_to_file_system_path(&location).unwrap();
             //TODO: mark as written?
 
-            println!("STORE DATA {:?} -> {:?}\n{}", location, file_path, data);
+            //println!("STORE DATA {:?} -> {:?}\n{}", location, file_path, data);
             std::fs::write(file_path, data).unwrap();
         }
-
-        //crate::data_storage::DataStorageJsonSingleFile::store_string()
     }
 
     pub fn close_file_system_source(
@@ -150,13 +110,13 @@ impl EditorModel {
         objects: &[ObjectId],
     ) {
         //let new_db = Database::new(self.schema_set.clone(), &self.undo_stack);
-        let root_db = self.edit_contexts.get(self.root_context_key).unwrap();
+        let root_edit_context = self.edit_contexts.get(self.root_context_key).unwrap();
         let mut data_set = DataSet::default();
         for object in objects {
-            data_set.copy_from(root_db.data_set(), *object);
+            data_set.copy_from(root_edit_context.data_set(), *object);
         }
 
-        let new_db = Database::new_with_data(self.schema_set.clone(), &self.undo_stack);
+        let new_db = EditContext::new_with_data(self.schema_set.clone(), &self.undo_stack);
     }
 
     // pub fn save_edit_context(&mut self) {

@@ -1,4 +1,4 @@
-use crate::edit_context::Database;
+use crate::edit_context::EditContext;
 use crate::{HashMap, ObjectLocation, ObjectPath, ObjectSourceId};
 use std::ffi::OsStr;
 use std::path::{Path, PathBuf};
@@ -29,7 +29,7 @@ impl FileSystemDataSource {
     pub fn new<RootPathT: Into<PathBuf>>(
         file_system_root_path: RootPathT,
         mount_path: ObjectPath,
-        db: &mut Database,
+        edit_context: &mut EditContext,
     ) -> Self {
         assert!(mount_path.as_string().ends_with("/"));
 
@@ -83,7 +83,7 @@ impl FileSystemDataSource {
                     let contents = std::fs::read_to_string(file_path).unwrap();
 
                     let objects = crate::data_storage::DataStorageJsonSingleFile::load_string(
-                        db,
+                        edit_context,
                         object_location,
                         &contents,
                     );

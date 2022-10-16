@@ -7,3 +7,4 @@ mod editor_model;
 pub use editor_model::{EditContextKey, EditorModel};
 
 mod undo;
+pub use undo::UndoStack;

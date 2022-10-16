@@ -36,8 +36,7 @@ use crate::{
 //   contexts, which contain revert/apply diffs
 // - These undo contexts can be pushed onto a single global queue or a per-document queue
 
-//TODO: Rename to EditContext
-pub struct Database {
+pub struct EditContext {
     schema_set: Arc<SchemaSet>,
     pub(super) data_set: DataSet,
     undo_context: UndoContext,
@@ -45,7 +44,7 @@ pub struct Database {
     modified_objects: HashSet<ObjectId>,
 }
 
-impl Database {
+impl EditContext {
     // Call after adding a new object
     fn track_new_object(
         &mut self,
@@ -82,7 +81,7 @@ impl Database {
         schema_set: Arc<SchemaSet>,
         undo_stack: &UndoStack,
     ) -> Self {
-        Database {
+        EditContext {
             schema_set,
             data_set: Default::default(),
             undo_context: UndoContext::new(undo_stack),
@@ -95,7 +94,7 @@ impl Database {
         schema_set: Arc<SchemaSet>,
         undo_stack: &UndoStack,
     ) -> Self {
-        Database {
+        EditContext {
             schema_set,
             data_set: Default::default(),
             undo_context: UndoContext::new(undo_stack),

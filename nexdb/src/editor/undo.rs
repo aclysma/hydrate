@@ -1,7 +1,7 @@
 use std::sync::mpsc;
 use std::sync::mpsc::{Receiver, Sender};
 
-use crate::edit_context::Database;
+use crate::edit_context::EditContext;
 use crate::{DataSet, DataSetDiffSet, HashSet, ObjectId};
 
 //TODO: Delete unused property data when path ancestor is null or in replace mode
@@ -42,13 +42,13 @@ impl UndoStack {
 
     pub fn undo(
         &mut self,
-        db: &mut Database,
+        edit_context: &mut EditContext,
     ) {
         self.drain_rx();
 
         let popped = self.undo_chain.pop();
         if let Some(popped) = popped {
-            popped.revert_diff.apply(&mut db.data_set);
+            popped.revert_diff.apply(&mut edit_context.data_set);
         }
     }
 

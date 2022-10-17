@@ -37,6 +37,8 @@
           "91d3978e-0c61-49e4-9277-1a80d6f03ff7",
           "e1de144c-06ca-4d4f-adf9-163c2ea69670"
         ],
+        "all_fields.i32": 325,
+        "all_fields.i64": 153,
         "all_fields.nullable_bool.null_override": "SetNonNull",
         "all_fields.nullable_vec3.null_override": "SetNonNull",
         "all_fields.reference": "f4a01b32-54ff-49fe-af97-0af4cb344fec"

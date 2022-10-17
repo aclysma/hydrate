@@ -22,7 +22,8 @@
         "rotation.x": 91.0,
         "rotation.y": 56.0,
         "rotation.z": 56.0,
-        "scale.x": 23.0
+        "scale.x": 178.0,
+        "scale.y": 39.0
       }
     },
     {
@@ -47,7 +48,8 @@
         "all_fields.i64": 3,
         "all_fields.nullable_bool.null_override": "SetNonNull",
         "all_fields.nullable_vec3.null_override": "SetNonNull",
-        "all_fields.u32": 95
+        "all_fields.u32": 95,
+        "scale.y": 97.0
       }
     }
   ]

@@ -1,5 +1,5 @@
 use crate::value::PropertyValue;
-use crate::{DataObjectInfo, DataSet, HashMap, HashSet, NullOverride, ObjectId, Value};
+use crate::{DataObjectInfo, DataSet, HashMap, HashSet, NullOverride, ObjectId, ObjectLocation, SchemaFingerprint, SchemaSet, Value};
 use uuid::Uuid;
 
 #[derive(Debug)]
@@ -334,9 +334,9 @@ impl ObjectDiffSet {
 
 #[derive(Default, Debug)]
 pub struct DataSetDiff {
-    creates: Vec<DataObjectInfo>,
+    creates: Vec<(ObjectId, DataObjectInfo)>,
     deletes: Vec<ObjectId>,
-    changes: HashMap<ObjectId, ObjectDiff>,
+    changes: Vec<(ObjectId, ObjectDiff)>,
 }
 
 impl DataSetDiff {
@@ -347,9 +347,20 @@ impl DataSetDiff {
     pub fn apply(
         &self,
         data_set: &mut DataSet,
+        schema_set: &SchemaSet,
     ) {
-        for create in &self.creates {
-            data_set.insert_object(create.clone());
+        for (id, create) in &self.creates {
+            data_set.restore_object(
+                *id,
+                create.object_location.clone(),
+                schema_set,
+                create.prototype,
+                create.schema.fingerprint(),
+                create.properties.clone(),
+                create.property_null_overrides.clone(),
+                create.properties_in_replace_mode.clone(),
+                create.dynamic_array_entries.clone()
+            );
         }
 
         for delete in &self.deletes {
@@ -360,6 +371,20 @@ impl DataSetDiff {
             if let Some(object) = data_set.objects_mut().get_mut(object_id) {
                 v.apply(object);
             }
+        }
+    }
+
+    pub fn get_modified_objects(&self, modified_objects: &mut HashSet<ObjectId>) {
+        for (id, _) in &self.creates {
+            modified_objects.insert(*id);
+        }
+
+        for id in &self.deletes {
+            modified_objects.insert(*id);
+        }
+
+        for (id, _) in &self.changes {
+            modified_objects.insert(*id);
         }
     }
 }
@@ -393,21 +418,21 @@ impl DataSetDiffSet {
                     // changed
                     let diff = ObjectDiffSet::diff_objects(before, object_id, &after, object_id);
                     if diff.has_changes() {
-                        apply_diff.changes.insert(object_id, diff.apply_diff);
-                        revert_diff.changes.insert(object_id, diff.revert_diff);
+                        apply_diff.changes.push((object_id, diff.apply_diff));
+                        revert_diff.changes.push((object_id, diff.revert_diff));
                     }
                 } else {
                     // deleted
                     apply_diff.deletes.push(object_id);
                     revert_diff
                         .creates
-                        .push(before.objects().get(&object_id).unwrap().clone());
+                        .push((object_id, before.objects().get(&object_id).unwrap().clone()));
                 }
             } else if existed_after {
                 // created
                 apply_diff
                     .creates
-                    .push(after.objects().get(&object_id).unwrap().clone());
+                    .push((object_id, after.objects().get(&object_id).unwrap().clone()));
                 revert_diff.deletes.push(object_id);
             }
         }

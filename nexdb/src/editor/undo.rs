@@ -3,7 +3,7 @@ use std::sync::mpsc::{Receiver, Sender};
 use slotmap::{DenseSlotMap, SlotMap};
 
 use crate::edit_context::EditContext;
-use crate::{DataSet, DataSetDiffSet, EditContextKey, HashSet, ObjectId};
+use crate::{DataSet, DataSetDiffSet, EditContextKey, HashSet, ObjectId, SchemaSet};
 
 //TODO: Delete unused property data when path ancestor is null or in replace mode
 
@@ -58,7 +58,7 @@ impl UndoStack {
 
     pub fn undo(
         &mut self,
-        edit_contexts: &mut DenseSlotMap<EditContextKey, EditContext>
+        edit_contexts: &mut DenseSlotMap<EditContextKey, EditContext>,
     ) {
         // If we have any incoming steps, consume them now
         self.drain_rx();
@@ -67,8 +67,13 @@ impl UndoStack {
         // use the revert diff in the 0th index of the chain
         if self.current_undo_index > 0 {
             if let Some(current_step) = self.undo_chain.get(self.current_undo_index - 1) {
-                let data_set = &mut edit_contexts.get_mut(current_step.edit_context_key).unwrap().data_set;
-                current_step.diff_set.revert_diff.apply(data_set);
+                let edit_context = edit_contexts.get_mut(current_step.edit_context_key).unwrap();
+                // We don't want anything being written to the undo context at this point, since we're using it
+                edit_context.cancel_pending_undo_context();
+                let schema_set = edit_context.schema_set().clone();
+                current_step.diff_set.revert_diff.apply(&mut edit_context.data_set, &schema_set);
+                // Marks the objects as changed
+                current_step.diff_set.revert_diff.get_modified_objects(&mut edit_context.modified_objects);
                 self.current_undo_index -= 1;
             }
         }
@@ -76,7 +81,7 @@ impl UndoStack {
 
     pub fn redo(
         &mut self,
-        edit_contexts: &mut DenseSlotMap<EditContextKey, EditContext>
+        edit_contexts: &mut DenseSlotMap<EditContextKey, EditContext>,
     ) {
         // If we have any incoming steps, consume them now
         self.drain_rx();
@@ -85,8 +90,13 @@ impl UndoStack {
         // use the apply diff in the 0th index of the chain. If our current step is == length of
         // chain, we have no more steps available to redo
         if let Some(current_step) = self.undo_chain.get(self.current_undo_index) {
-            let data_set = &mut edit_contexts.get_mut(current_step.edit_context_key).unwrap().data_set;
-            current_step.diff_set.apply_diff.apply(data_set);
+            let edit_context = edit_contexts.get_mut(current_step.edit_context_key).unwrap();
+            // We don't want anything being written to the undo context at this point, since we're using it
+            edit_context.cancel_pending_undo_context();
+            let schema_set = edit_context.schema_set().clone();
+            current_step.diff_set.apply_diff.apply(&mut edit_context.data_set, &schema_set);
+            // Marks object as changed
+            current_step.diff_set.apply_diff.get_modified_objects(&mut edit_context.modified_objects);
             self.current_undo_index += 1;
         }
     }

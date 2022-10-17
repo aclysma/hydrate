@@ -134,7 +134,7 @@ impl EditContext {
     //
     // Schema-related functions
     //
-    pub fn schema_set(&self) -> &SchemaSet {
+    pub fn schema_set(&self) -> &Arc<SchemaSet> {
         &self.schema_set
     }
 
@@ -383,7 +383,7 @@ impl EditContext {
 
     pub fn apply_property_override_to_prototype(
         &mut self,
-        object_id: ObjectId, 
+        object_id: ObjectId,
         path: impl AsRef<str>,
     ) {
         self.track_existing_object(object_id);

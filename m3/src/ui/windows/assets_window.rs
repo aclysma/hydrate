@@ -147,12 +147,20 @@ pub fn assets_tree_node(
     tree_node: &LocationTreeNode
 ) {
     let id = im_str!("{}", tree_node.path.as_string());
-    let label = if tree_node.has_changes {
+    let is_selected = ui_state.asset_browser_state.tree_state.selected_items.contains(&tree_node.path);
+    let is_modified = tree_node.has_changes;
+
+    let label = if is_modified {
         im_str!("{}*", child_name)
     } else {
         im_str!("{}", child_name)
     };
-    let is_selected = ui_state.asset_browser_state.tree_state.selected_items.contains(&tree_node.path);
+
+    let color = if is_modified {
+        [1.0, 1.0, 0.0, 1.0]
+    } else {
+        [1.0, 1.0, 1.0, 1.0]
+    };
 
     let mut flags = if tree_node.children.is_empty() {
         leaf_flags()
@@ -164,8 +172,10 @@ pub fn assets_tree_node(
         flags |= TreeNodeFlags::SELECTED;
     }
 
+    let style = ui.push_style_color(StyleColor::Text, color);
     let ds_tree_node = imgui::TreeNode::new(&id).label(&label).flags(flags);
     let token = ds_tree_node.push(ui);
+    style.pop();
 
     try_select_tree_node(ui, ui_state, &tree_node.path);
     context_menu(ui, Some(&id), |ui| {

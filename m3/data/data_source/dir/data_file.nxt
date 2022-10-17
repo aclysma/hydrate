@@ -14,7 +14,8 @@
           "2c27f03b-0bcd-4ca0-be8b-c5e8518f0abc",
           "2e3d8fe7-8568-4b20-87db-dd6508d1f186"
         ],
-        "all_fields.i32": 349
+        "all_fields.i32": 349,
+        "position.x": 60.0
       }
     },
     {
@@ -37,7 +38,8 @@
         ],
         "all_fields.i32": 388,
         "all_fields.nullable_bool.null_override": "SetNonNull",
-        "all_fields.nullable_vec3.null_override": "SetNonNull"
+        "all_fields.nullable_vec3.null_override": "SetNonNull",
+        "position.x": 139.0
       }
     }
   ]

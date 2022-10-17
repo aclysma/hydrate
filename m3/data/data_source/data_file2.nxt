@@ -14,7 +14,9 @@
           "2c27f03b-0bcd-4ca0-be8b-c5e8518f0abc",
           "2e3d8fe7-8568-4b20-87db-dd6508d1f186"
         ],
-        "all_fields.i32": 42
+        "all_fields.i32": 264,
+        "position.x": 13.0,
+        "position.y": 5.0
       }
     },
     {
@@ -35,7 +37,6 @@
           "91d3978e-0c61-49e4-9277-1a80d6f03ff7",
           "e1de144c-06ca-4d4f-adf9-163c2ea69670"
         ],
-        "all_fields.i32": 39,
         "all_fields.nullable_bool.null_override": "SetNonNull",
         "all_fields.nullable_vec3.null_override": "SetNonNull",
         "all_fields.reference": "f4a01b32-54ff-49fe-af97-0af4cb344fec"

@@ -1,5 +1,5 @@
 use crate::edit_context::EditContext;
-use crate::{HashMap, ObjectLocation, ObjectPath, ObjectSourceId};
+use crate::{HashMap, HashSet, ObjectId, ObjectLocation, ObjectPath, ObjectSourceId};
 use std::ffi::OsStr;
 use std::path::{Path, PathBuf};
 
@@ -30,6 +30,7 @@ impl FileSystemDataSource {
         file_system_root_path: RootPathT,
         mount_path: ObjectPath,
         edit_context: &mut EditContext,
+        loaded_objects: &mut HashSet<ObjectId>,
     ) -> Self {
         // Mount path should end in exactly one slash (we append paths to the end of it)
         assert!(mount_path.as_string().ends_with("/"));
@@ -94,6 +95,9 @@ impl FileSystemDataSource {
                     // }
 
                     log::info!("Loaded {} objects from {:?}", objects.len(), file_path);
+                    for object in objects {
+                        loaded_objects.insert(object);
+                    }
                 }
             }
         }

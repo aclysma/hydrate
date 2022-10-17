@@ -54,7 +54,7 @@ impl EditorModel {
         self.data_sources.get(&object_source_id)
     }
 
-    pub fn open_file_system_source<RootPathT: Into<PathBuf>>(
+    pub fn add_file_system_source<RootPathT: Into<PathBuf>>(
         &mut self,
         root_path: RootPathT,
         mount_path: ObjectPath,
@@ -62,7 +62,14 @@ impl EditorModel {
         let root_edit_context = self.root_edit_context_mut();
         let root_path = root_path.into();
         println!("MOUNT PATH {:?}", mount_path);
-        let fs = FileSystemDataSource::new(root_path.clone(), mount_path, root_edit_context);
+
+        root_edit_context.commit_pending_undo_context();
+        let mut loaded_objects = HashSet::default();
+        let fs = FileSystemDataSource::new(root_path.clone(), mount_path, root_edit_context, &mut loaded_objects);
+        for loaded_object in loaded_objects {
+            root_edit_context.modified_objects.remove(&loaded_object);
+        }
+
         let object_source_id = fs.object_source_id();
         self.data_sources.insert(object_source_id, fs);
         object_source_id

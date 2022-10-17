@@ -647,7 +647,7 @@ impl DataStorageJsonSingleFile {
                 properties,
                 property_null_overrides,
                 properties_in_replace_mode,
-                dynamic_array_entries_as_vec,
+                dynamic_array_entries_as_vec
             );
 
             loaded_objects.push(object_id);

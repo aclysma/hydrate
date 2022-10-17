@@ -60,7 +60,7 @@ impl DbState {
 
         let mut edit_model = EditorModel::new(schema_set.clone());
         let objects_source_id =
-            edit_model.open_file_system_source(Self::data_source_path(), Self::mount_path());
+            edit_model.add_file_system_source(Self::data_source_path(), Self::mount_path());
         let file_system = edit_model
             .file_system_data_source(objects_source_id)
             .unwrap();
@@ -152,7 +152,7 @@ impl DbState {
             "all_fields.dynamic_array_vec3",
         );
 
-        edit_model.root_edit_context_mut().import_objects(db);
+        edit_model.root_edit_context_mut().restore_objects_from(db);
         edit_model
     }
 
@@ -169,7 +169,7 @@ impl DbState {
         SchemaCacheSingleFile::load_string(&mut schema_set, &schema_cache_str);
 
         let mut editor_model = EditorModel::new(Arc::new(schema_set));
-        editor_model.open_file_system_source(Self::data_source_path(), Self::mount_path());
+        editor_model.add_file_system_source(Self::data_source_path(), Self::mount_path());
         if editor_model.root_edit_context().all_objects().len() == 0 {
             None
         } else {

@@ -238,7 +238,7 @@ impl EditContext {
         object_id
     }
 
-    pub fn import_objects(
+    pub fn restore_objects_from(
         &mut self,
         data_set: DataSet,
     ) {
@@ -383,10 +383,14 @@ impl EditContext {
 
     pub fn apply_property_override_to_prototype(
         &mut self,
-        object_id: ObjectId,
+        object_id: ObjectId, 
         path: impl AsRef<str>,
     ) {
         self.track_existing_object(object_id);
+        if let Some(prototype) = self.object_prototype(object_id) {
+            self.track_existing_object(prototype);
+        }
+
         self.data_set
             .apply_property_override_to_prototype(&self.schema_set, object_id, path)
     }

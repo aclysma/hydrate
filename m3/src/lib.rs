@@ -111,7 +111,7 @@ pub fn run() {
                     // Send files to app queue, clear the buffer
                     let mut dropped = Vec::default();
                     std::mem::swap(&mut dropped, &mut dropped_files);
-                    app_state.action_queue.queue_action(QueuedActions::ImportFiles(dropped))
+                    app_state.action_queue.queue_action(QueuedActions::HandleDroppedFiles(dropped))
                 }
 
 

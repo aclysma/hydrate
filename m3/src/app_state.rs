@@ -2,6 +2,8 @@ use std::fmt::Formatter;
 use std::path::PathBuf;
 use std::sync::{Arc, mpsc};
 use std::sync::mpsc::{Receiver, Sender};
+use imgui::PopupModal;
+use imnodes::editor;
 use crate::db_state::DbState;
 use nexdb::{HashSet, ObjectId, ObjectPath};
 use crate::imgui_support::ImguiManager;
@@ -57,6 +59,7 @@ pub enum QueuedActions {
     Undo,
     Redo,
     Quit,
+    QuitNoConfirm,
     ImportFiles(Vec<PathBuf>),
     TryBeginModalAction(Box<ModalAction>),
     //RevertAll,
@@ -159,6 +162,12 @@ impl AppState {
         }
     }
 
+    fn try_set_modal_action<T: ModalAction + 'static>(&mut self, action: T) {
+        if self.modal_action.is_none() {
+            self.modal_action = Some(Box::new(action))
+        }
+    }
+
     pub fn process_queued_actions(&mut self) {
         while let Ok(queued_action) = self.action_queue.action_queue_rx.try_recv() {
             match queued_action {
@@ -166,7 +175,15 @@ impl AppState {
                 QueuedActions::RevertAll => self.db_state.editor_model.revert_root_edit_context(),
                 QueuedActions::Undo => self.db_state.editor_model.undo(),
                 QueuedActions::Redo => self.db_state.editor_model.redo(),
-                QueuedActions::Quit => self.ready_to_quit = true,
+                QueuedActions::Quit => {
+                    self.db_state.editor_model.commit_all_pending_undo_contexts();
+                    if self.db_state.editor_model.any_edit_context_has_unsaved_changes() {
+                        self.try_set_modal_action(ConfirmQuitWithoutSaving::default());
+                    } else {
+                        self.ready_to_quit = true;
+                    }
+                },
+                QueuedActions::QuitNoConfirm => self.ready_to_quit = true,
                 QueuedActions::ImportFiles(files) => {
                     println!("UNIMPLEMENTED Try to import files {:?}", files);
                 },
@@ -183,5 +200,62 @@ impl AppState {
     // application. We assume by this point we've already saved/confirmed with user.
     pub fn ready_to_quit(&self) -> bool {
         self.ready_to_quit
+    }
+}
+
+
+
+
+#[derive(Default)]
+struct ConfirmQuitWithoutSaving {
+    finished_first_draw: bool
+}
+
+impl ModalAction for ConfirmQuitWithoutSaving {
+    fn draw_imgui(
+        &mut self,
+        ui: &mut imgui::Ui,
+        imnodes_context: &mut imnodes::Context,
+        db_state: &mut DbState,
+        ui_state: &mut UiState,
+        action_queue: ActionQueueSender,
+    ) -> ModalActionControlFlow {
+        if !self.finished_first_draw {
+            ui.open_popup(imgui::im_str!("ConfirmSaveQuit"));
+        }
+
+        let result = PopupModal::new(imgui::im_str!("ConfirmSaveQuit")).build(ui, || {
+            ui.text("Are you sure you want to quit? Unsaved changes will be lost.");
+
+            if ui.button(imgui::im_str!("Save Changes")) {
+                ui.close_current_popup();
+                action_queue.queue_action(QueuedActions::SaveAll);
+                action_queue.queue_action(QueuedActions::QuitNoConfirm);
+
+                return ModalActionControlFlow::End;
+            }
+
+            ui.same_line();
+
+            if ui.button(imgui::im_str!("Discard Changes")) {
+                ui.close_current_popup();
+                action_queue.queue_action(QueuedActions::QuitNoConfirm);
+
+                return ModalActionControlFlow::End;
+            }
+
+            ui.same_line();
+
+            if ui.button(imgui::im_str!("Cancel")) {
+                ui.close_current_popup();
+
+                return ModalActionControlFlow::End;
+            }
+
+            ModalActionControlFlow::Continue
+        });
+
+        self.finished_first_draw = true;
+        result.unwrap_or(ModalActionControlFlow::End)
     }
 }

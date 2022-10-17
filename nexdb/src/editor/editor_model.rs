@@ -35,6 +35,28 @@ impl EditorModel {
         }
     }
 
+    pub fn commit_all_pending_undo_contexts(&mut self) {
+        for (_, context) in &mut self.edit_contexts {
+            context.commit_pending_undo_context();
+        }
+    }
+
+    pub fn cancel_all_pending_undo_contexts(&mut self) {
+        for (_, context) in &mut self.edit_contexts {
+            context.commit_pending_undo_context();
+        }
+    }
+
+    pub fn any_edit_context_has_unsaved_changes(&self) -> bool {
+        for (key, context) in &self.edit_contexts {
+            if !context.modified_objects.is_empty() {
+                return true;
+            }
+        }
+
+        false
+    }
+
     pub fn schema_set(&self) -> &SchemaSet {
         &*self.schema_set
     }

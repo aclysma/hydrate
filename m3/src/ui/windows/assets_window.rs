@@ -1,6 +1,4 @@
-use crate::app_state::{
-    AppState
-};
+use crate::app_state::{ActionQueueSender, AppState};
 use crate::imgui_support::ImguiManager;
 use imgui::{StyleColor, sys as is};
 use imgui::sys::{
@@ -16,6 +14,7 @@ use std::path::PathBuf;
 use rafx::api::objc::runtime::Object;
 use uuid::Uuid;
 use crate::db_state::DbState;
+use crate::QueuedActions;
 use crate::ui_state::{ActiveToolRegion, UiState};
 
 fn default_flags() -> imgui::TreeNodeFlags {
@@ -145,6 +144,7 @@ pub fn assets_tree_node(
     db_state: &DbState,
     ui_state: &mut UiState,
     child_name: &str,
+    action_sender: &ActionQueueSender,
     tree_node: &LocationTreeNode
 ) {
     let id = im_str!("{}", tree_node.path.as_string());
@@ -193,9 +193,12 @@ pub fn assets_tree_node(
         // }
 
 
-        if imgui::MenuItem::new(im_str!("Temp")).build(ui) {
+        if imgui::MenuItem::new(im_str!("New Object")).build(ui) {
             //TODO: Unload
-            log::info!("temp {:?}", &tree_node.path);
+            //log::info!("temp {:?}", &tree_node.path);
+
+            action_sender.try_set_modal_action(crate::ui::modals::NewObjectModal::new(tree_node.path.clone()))
+
         }
     });
 
@@ -203,14 +206,14 @@ pub fn assets_tree_node(
         // Draw nodes with children first
         for (child_name, child) in &tree_node.children {
             if !child.children.is_empty() {
-                assets_tree_node(ui, db_state, ui_state, child_name, child);
+                assets_tree_node(ui, db_state, ui_state, child_name, action_sender, child);
             }
         }
 
         // Then draw nodes without children
         for (child_name, child) in &tree_node.children {
             if child.children.is_empty() {
-                assets_tree_node(ui, db_state, ui_state, child_name, child);
+                assets_tree_node(ui, db_state, ui_state, child_name, action_sender, child);
             }
         }
     }
@@ -242,22 +245,23 @@ pub fn assets_tree(
 ) {
     app_state.db_state.editor_model.refresh_location_tree();
     let tree = app_state.db_state.editor_model.cached_location_tree();
+    let action_sender = app_state.action_queue.sender();
 
     let show_root = true;
     if show_root {
-        assets_tree_node(ui, &app_state.db_state, &mut app_state.ui_state, "db:/", &tree.root_node);
+        assets_tree_node(ui, &app_state.db_state, &mut app_state.ui_state, "db:/", &action_sender, &tree.root_node);
     } else {
         // Draw nodes with children first
         for (child_name, child) in &tree.root_node.children {
             if !child.children.is_empty() {
-                assets_tree_node(ui, &app_state.db_state, &mut app_state.ui_state, child_name,child);
+                assets_tree_node(ui, &app_state.db_state, &mut app_state.ui_state, child_name, &action_sender, child);
             }
         }
 
         // Then draw nodes without children
         for (child_name, child) in &tree.root_node.children {
             if child.children.is_empty() {
-                assets_tree_node(ui, &app_state.db_state, &mut app_state.ui_state, child_name,child);
+                assets_tree_node(ui, &app_state.db_state, &mut app_state.ui_state, child_name, &action_sender, child);
             }
         }
     }

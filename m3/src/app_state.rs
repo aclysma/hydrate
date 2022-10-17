@@ -40,6 +40,11 @@ impl ActionQueueSender {
     pub fn queue_action(&self, action: QueuedActions) {
         self.inner.action_queue_tx.send(action).unwrap();
     }
+
+    // shorthand for a common action
+    pub fn try_set_modal_action<T: ModalAction + 'static>(&self, action: T) {
+        self.queue_action(QueuedActions::TryBeginModalAction(Box::new(action)))
+    }
 }
 
 pub struct ActionQueueReceiver {
@@ -73,8 +78,14 @@ impl ActionQueueReceiver {
     pub fn sender(&self) -> ActionQueueSender {
         self.sender.clone()
     }
+
     pub fn queue_action(&self, action: QueuedActions) {
         self.action_queue_tx.send(action).unwrap();
+    }
+
+    // shorthand for a common action
+    pub fn try_set_modal_action<T: ModalAction + 'static>(&self, action: T) {
+        self.queue_action(QueuedActions::TryBeginModalAction(Box::new(action)))
     }
 }
 

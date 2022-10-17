@@ -3,6 +3,8 @@ pub mod components;
 pub mod draw_ui;
 pub mod views;
 pub mod windows;
+pub mod modals;
+mod menu_bar;
 
 const WINDOW_NAME_DOC_OUTLINE: &str = "DocumentOutlineWindow";
 //const WINDOW_NAME_DOC_CONTENTS: &str = "DocumentContents";

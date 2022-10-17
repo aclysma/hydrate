@@ -1,7 +1,7 @@
-use crate::app_state::ActiveToolRegion;
 use crate::AppState;
 use imgui::im_str;
 use nexdb::ObjectId;
+use crate::ui_state::ActiveToolRegion;
 
 pub fn draw_properties_window_single_select(
     ui: &imgui::Ui,

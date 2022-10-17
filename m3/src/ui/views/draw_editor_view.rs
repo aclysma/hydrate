@@ -120,25 +120,4 @@ pub fn draw_dockspace(
     //
     //     window_token.end();
     // }
-
-    let window_token =
-        imgui::Window::new(&ImString::new(crate::ui::WINDOW_NAME_PROPERTIES)).begin(ui);
-
-    if let Some(window_token) = window_token {
-        crate::ui::windows::properties_window::draw_properties_window(ui, app_state);
-
-        window_token.end();
-    }
-
-    crate::ui::windows::assets_window::draw_assets_dockspace_and_window(ui, app_state);
-
-    let window_token =
-        imgui::Window::new(&ImString::new(crate::ui::WINDOW_NAME_DOC_OUTLINE)).begin(ui);
-
-    if let Some(window_token) = window_token {
-        ui.text(im_str!("outline"));
-        window_token.end();
-    }
-
-    app_state.ui_state.redock_windows = false;
 }

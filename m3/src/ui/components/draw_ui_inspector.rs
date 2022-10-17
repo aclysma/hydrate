@@ -1,8 +1,9 @@
-use crate::app_state::{AppState, UiState};
+use crate::app_state::AppState;
 use crate::ui::asset_browser_grid_drag_drop::AssetBrowserGridPayload;
 use imgui::im_str;
 use nexdb::edit_context::EditContext;
 use nexdb::Schema;
+use crate::ui_state::UiState;
 
 fn draw_property_style<F: FnOnce(&imgui::Ui)>(
     ui: &imgui::Ui,

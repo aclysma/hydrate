@@ -1,5 +1,5 @@
 use crate::app_state::{
-    ActiveToolRegion, AppState, AssetBrowserGridState, AssetBrowserState, UiState,
+    AppState
 };
 use crate::imgui_support::ImguiManager;
 use imgui::{StyleColor, sys as is};
@@ -16,6 +16,7 @@ use std::path::PathBuf;
 use rafx::api::objc::runtime::Object;
 use uuid::Uuid;
 use crate::db_state::DbState;
+use crate::ui_state::{ActiveToolRegion, UiState};
 
 fn default_flags() -> imgui::TreeNodeFlags {
     imgui::TreeNodeFlags::OPEN_ON_DOUBLE_CLICK | imgui::TreeNodeFlags::OPEN_ON_ARROW | imgui::TreeNodeFlags::SPAN_AVAIL_WIDTH

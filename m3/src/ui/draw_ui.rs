@@ -1,123 +1,38 @@
-use crate::app_state::{ActionQueueSender, AppState, ModalAction, ModalActionControlFlow, QueuedActions, UiState};
+use crate::app_state::{ActionQueueSender, AppState, ModalAction, ModalActionControlFlow, QueuedActions};
 use crate::imgui_support::ImguiManager;
-use imgui::{im_str, PopupModal, Ui};
+use imgui::{im_str, ImString, PopupModal, Ui};
 use imnodes::Context;
 use crate::db_state::DbState;
+use crate::ui_state::UiState;
 
-#[derive(Default)]
-struct TestModalAction1 {
-    finished_first_draw: bool
-}
-
-impl ModalAction for TestModalAction1 {
-    fn draw_imgui(
-        &mut self,
-        ui: &mut imgui::Ui,
-        imnodes_context: &mut imnodes::Context,
-        db_state: &mut DbState,
-        ui_state: &mut UiState,
-        action_queue: ActionQueueSender,
-    ) -> ModalActionControlFlow {
-        if !self.finished_first_draw {
-            ui.open_popup(imgui::im_str!("Test Popup 1"));
-        }
-
-        let result = PopupModal::new(imgui::im_str!("Test Popup 1")).build(ui, || {
-            if ui.button(imgui::im_str!("close")) {
-                println!("close");
-                ui.close_current_popup();
-
-                action_queue.queue_action(QueuedActions::TryBeginModalAction(Box::new(TestModalAction2::default())));
-
-                return ModalActionControlFlow::End;
-            }
-
-            ModalActionControlFlow::Continue
-        });
-
-        self.finished_first_draw = true;
-        result.unwrap_or(ModalActionControlFlow::End)
-    }
-}
-
-#[derive(Default)]
-struct TestModalAction2 {
-    finished_first_draw: bool
-}
-
-impl ModalAction for TestModalAction2 {
-    fn draw_imgui(
-        &mut self,
-        ui: &mut imgui::Ui,
-        imnodes_context: &mut imnodes::Context,
-        db_state: &mut DbState,
-        ui_state: &mut UiState,
-        action_queue: ActionQueueSender,
-    ) -> ModalActionControlFlow {
-        if !self.finished_first_draw {
-            ui.open_popup(imgui::im_str!("Test Popup 2"));
-        }
-
-        let result = PopupModal::new(imgui::im_str!("Test Popup 2")).build(ui, || {
-            if ui.button(imgui::im_str!("close")) {
-                println!("close");
-                ui.close_current_popup();
-                return ModalActionControlFlow::End;
-            }
-
-            ModalActionControlFlow::Continue
-        });
-
-        self.finished_first_draw = true;
-        result.unwrap_or(ModalActionControlFlow::End)
-    }
-}
-
-fn draw_menu_bar(
+pub fn draw_properties_window(
     ui: &imgui::Ui,
+    _imnodes_editor: &mut imnodes::EditorContext,
     app_state: &mut AppState,
 ) {
-    ui.main_menu_bar(|| {
-        ui.menu(im_str!("File"), || {
-            //imgui::MenuItem::new(im_str!("New")).build(ui);
-            //imgui::MenuItem::new(im_str!("Open")).build(ui);
+    let window_token =
+        imgui::Window::new(&ImString::new(crate::ui::WINDOW_NAME_PROPERTIES)).begin(ui);
 
+    if let Some(window_token) = window_token {
+        crate::ui::windows::properties_window::draw_properties_window(ui, app_state);
 
-            if imgui::MenuItem::new(im_str!("Save All")).build(ui) {
-                app_state.action_queue.queue_action(QueuedActions::SaveAll);
-            }
+        window_token.end();
+    }
+}
 
-            if imgui::MenuItem::new(im_str!("Revert All")).build(ui) {
-                app_state.action_queue.queue_action(QueuedActions::RevertAll);
-            }
-        });
-        ui.menu(im_str!("Edit"), || {
-            if imgui::MenuItem::new(im_str!("Undo")).build(ui) {
-                app_state.db_state.editor_model.undo(); //undo_stack.undo(&mut app_state.db_state.db);
-                app_state.action_queue.queue_action(QueuedActions::Undo);
-            }
-            if imgui::MenuItem::new(im_str!("Redo")).build(ui) {
-                //app_state.db_state.editor_model.redo(); //undo_stack.undo(&mut app_state.db_state.db);
-                app_state.action_queue.queue_action(QueuedActions::Redo);
-            }
-        });
-        ui.menu(im_str!("Windows"), || {
-            if imgui::MenuItem::new(im_str!("Toggle ImGui Demo Window")).build(ui) {
-                app_state.ui_state.show_imgui_demo_window =
-                    !app_state.ui_state.show_imgui_demo_window;
-            }
+pub fn draw_outline_window(
+    ui: &imgui::Ui,
+    _imnodes_editor: &mut imnodes::EditorContext,
+    _app_state: &mut AppState,
+) {
 
-            if imgui::MenuItem::new(im_str!("Test Modal State")).build(ui) {
-                app_state.action_queue.queue_action(QueuedActions::TryBeginModalAction(Box::new(TestModalAction1::default())))
-            }
+    let window_token =
+        imgui::Window::new(&ImString::new(crate::ui::WINDOW_NAME_DOC_OUTLINE)).begin(ui);
 
-            ui.separator();
-
-            if imgui::MenuItem::new(im_str!("Reset Window Layout")).build(ui) {
-                app_state.ui_state.redock_windows = true;
-            }
-        })
-    });
+    if let Some(window_token) = window_token {
+        ui.text(im_str!("outline"));
+        window_token.end();
+    }
 }
 
 pub fn draw_imgui(
@@ -130,18 +45,48 @@ pub fn draw_imgui(
     //
     {
         imgui_manager.with_ui(|ui, imnodes_context| {
+            //
+            // Dockspace needs to be set up early in draw process. We may decide to reset layout here.
+            //
             crate::ui::views::draw_editor_view::draw_dockspace(ui, imnodes_editor, app_state);
-            //crate::ui::views::draw_assets_view::draw_view(ui, app_state);
-            draw_menu_bar(ui, app_state);
-            //crate::ui::views::draw_2_pane_view::draw_2_pane_view(ui, app_state);
-            //crate::ui::views::draw_3_pane_view::draw_3_pane_view(ui, app_state);
 
+
+            //
+            // Properties window
+            //
+            draw_properties_window(ui, imnodes_editor, app_state);
+
+            //
+            // Asset Browser
+            //
+            crate::ui::windows::assets_window::draw_assets_dockspace_and_window(ui, app_state);
+
+            //
+            // Outline
+            //
+            draw_outline_window(ui, imnodes_editor, app_state);
+
+            //
+            // Documents?
+            //
+
+            //
+            // Top Menu Bar
+            //
+            super::menu_bar::draw_menu_bar(ui, app_state);
+
+            //
+            // Non-Modal Dialogs
+            //
             if app_state.ui_state.show_imgui_demo_window {
                 unsafe {
                     imgui::sys::igShowDemoWindow(&mut app_state.ui_state.show_imgui_demo_window);
                 }
             }
 
+            //
+            // Modal Dialogs
+            //
             if let Some(modal_action) = &mut app_state.modal_action {
                 let control_flow = modal_action.draw_imgui(
                     ui,
@@ -154,6 +99,11 @@ pub fn draw_imgui(
                     app_state.modal_action = None;
                 }
             }
+
+            //
+            // End of frame state cleanup
+            //
+            app_state.ui_state.redock_windows = false;
         });
     }
 }

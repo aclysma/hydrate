@@ -492,20 +492,15 @@ pub fn assets_window_right_header(
 
     let content_available_region = ui.content_region_avail();
 
-    // If there's enough space, draw, otherwise draw a dummy object
-    if content_available_region[0] > required_space_for_rhs_buttons {
-        ui.same_line_with_pos(
-            ui.cursor_pos()[0] + (content_available_region[0] - required_space_for_rhs_buttons),
-        );
-        ui.button(im_str!("ButtonRight 1"));
-        ui.same_line();
-        ui.button(im_str!("ButtonRight 2"));
-        ui.same_line();
-        ui.button(im_str!("ButtonRight 3"));
-    } else {
-        // We called same line above, but there isn't enough room to draw anything. So draw a 0x0 to consume the same_line call
-        ui.dummy([0.0, 0.0]);
-    }
+    // Try to draw right-aligned in available space. If there isn't enough space, let it be clipped against right window edge
+    ui.same_line_with_pos(
+        ui.cursor_pos()[0] + (content_available_region[0] - required_space_for_rhs_buttons).max(0.0),
+    );
+    ui.button(im_str!("ButtonRight 1"));
+    ui.same_line();
+    ui.button(im_str!("ButtonRight 2"));
+    ui.same_line();
+    ui.button(im_str!("ButtonRight 3"));
 }
 
 pub fn assets_window_right(

@@ -197,7 +197,10 @@ pub fn assets_tree_node(
             //TODO: Unload
             //log::info!("temp {:?}", &tree_node.path);
 
-            action_sender.try_set_modal_action(crate::ui::modals::NewObjectModal::new(tree_node.path.clone()))
+            // how to get location with just path?
+            let location = db_state.editor_model.default_new_location_for_path(&tree_node.path).unwrap();
+
+            action_sender.try_set_modal_action(crate::ui::modals::NewObjectModal::new(location))
 
         }
     });

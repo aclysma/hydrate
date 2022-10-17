@@ -19,6 +19,7 @@ impl FileState {
 
 pub struct FileSystemDataSource {
     object_source_id: ObjectSourceId,
+    // Always ends with exactly one slash
     mount_path: ObjectPath,
     file_system_root_path: PathBuf,
     file_states: HashMap<PathBuf, FileState>,
@@ -26,6 +27,10 @@ pub struct FileSystemDataSource {
 }
 
 impl FileSystemDataSource {
+    pub fn mount_path(&self) -> &ObjectPath {
+        &self.mount_path
+    }
+
     pub fn new<RootPathT: Into<PathBuf>>(
         file_system_root_path: RootPathT,
         mount_path: ObjectPath,

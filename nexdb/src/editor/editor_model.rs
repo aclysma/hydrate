@@ -290,4 +290,17 @@ impl EditorModel {
     pub fn cached_location_tree(&self) -> &LocationTree {
         &self.location_tree
     }
+
+    pub fn default_new_location_for_path(&self, object_path: &ObjectPath) -> Option<ObjectLocation> {
+        for (&source_id, source) in &self.data_sources {
+            if object_path.starts_with(source.mount_path()) {
+                return Some(ObjectLocation::new(
+                    source_id,
+                    object_path.clone()
+                ))
+            }
+        }
+
+        None
+    }
 }

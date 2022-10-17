@@ -65,6 +65,10 @@ impl ObjectPath {
     pub fn as_string(&self) -> &str {
         &self.0
     }
+
+    pub fn starts_with(&self, other: &ObjectPath) -> bool {
+        self.0.starts_with(&other.0)
+    }
 }
 
 impl From<&str> for ObjectPath {

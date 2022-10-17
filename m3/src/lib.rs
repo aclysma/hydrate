@@ -52,6 +52,9 @@ pub fn run() {
 
     let mut renderer = renderer.unwrap();
 
+    // Winit gives us files one at a time
+    let mut dropped_files = Vec::default();
+
     // Start the window event loop. Winit will not return once run is called. We will get notified
     // when important events happen.
     event_loop.run(move |event, _window_target, control_flow| {
@@ -69,6 +72,14 @@ pub fn run() {
                 //app_state.db_state.save();
                 //save_state(&app_state.test_data_nexdb.db);
                 //*control_flow = winit::event_loop::ControlFlow::Exit
+            }
+
+            winit::event::Event::WindowEvent {
+                event: winit::event::WindowEvent::DroppedFile(dropped_file),
+                ..
+            } => {
+                log::info!("Dropped file {:?}", dropped_file);
+                dropped_files.push(dropped_file);
             }
 
             //
@@ -90,12 +101,20 @@ pub fn run() {
                 app_state.action_queue.queue_action(QueuedActions::Quit);
                 //save_state(&app_state.test_data_nexdb.db);
                 //*control_flow = winit::event_loop::ControlFlow::Exit
-            }
+            },
 
             //
             // Request a redraw any time we finish processing events
             //
             winit::event::Event::MainEventsCleared => {
+                if !dropped_files.is_empty() {
+                    // Send files to app queue, clear the buffer
+                    let mut dropped = Vec::default();
+                    std::mem::swap(&mut dropped, &mut dropped_files);
+                    app_state.action_queue.queue_action(QueuedActions::ImportFiles(dropped))
+                }
+
+
                 app_state.process_queued_actions();
                 if app_state.ready_to_quit() {
                     *control_flow = winit::event_loop::ControlFlow::Exit

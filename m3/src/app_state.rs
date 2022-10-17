@@ -1,7 +1,10 @@
+use std::fmt::Formatter;
+use std::path::PathBuf;
 use std::sync::{Arc, mpsc};
 use std::sync::mpsc::{Receiver, Sender};
 use crate::db_state::DbState;
 use nexdb::{HashSet, ObjectId, ObjectPath};
+use crate::imgui_support::ImguiManager;
 
 #[derive(PartialEq)]
 pub enum ActiveToolRegion {
@@ -47,13 +50,15 @@ impl Default for UiState {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 pub enum QueuedActions {
     SaveAll,
     RevertAll,
     Undo,
     Redo,
     Quit,
+    ImportFiles(Vec<PathBuf>),
+    TryBeginModalAction(Box<ModalAction>),
     //RevertAll,
     //ResetWindowLayout,
     //SelectObjectsInAssetBrowser(Vec<ObjectId>)
@@ -110,6 +115,29 @@ impl ActionQueueReceiver {
     }
 }
 
+#[derive(PartialEq)]
+pub enum ModalActionControlFlow {
+    Continue,
+    End
+}
+
+pub trait ModalAction {
+    fn draw_imgui(
+        &mut self,
+        ui: &mut imgui::Ui,
+        imnodes_context: &mut imnodes::Context,
+        db_state: &mut DbState,
+        ui_state: &mut UiState,
+        action_queue: ActionQueueSender,
+    ) -> ModalActionControlFlow;
+}
+
+impl std::fmt::Debug for ModalAction {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("ModalAction").finish()
+    }
+}
+
 // This struct is a simple example of something that can be inspected
 pub struct AppState {
     //pub file_system_packages: Vec<FileSystemPackage>,
@@ -117,16 +145,17 @@ pub struct AppState {
     pub ui_state: UiState,
     pub action_queue: ActionQueueReceiver,
     ready_to_quit: bool,
+    pub modal_action: Option<Box<ModalAction>>,
 }
 
 impl AppState {
     pub fn new(db_state: DbState) -> Self {
-
         AppState {
             db_state,
             ui_state: UiState::default(),
             action_queue: Default::default(),
-            ready_to_quit: false
+            ready_to_quit: false,
+            modal_action: None
         }
     }
 
@@ -137,7 +166,15 @@ impl AppState {
                 QueuedActions::RevertAll => self.db_state.editor_model.revert_root_edit_context(),
                 QueuedActions::Undo => self.db_state.editor_model.undo(),
                 QueuedActions::Redo => self.db_state.editor_model.redo(),
-                QueuedActions::Quit => self.ready_to_quit = true
+                QueuedActions::Quit => self.ready_to_quit = true,
+                QueuedActions::ImportFiles(files) => {
+                    println!("UNIMPLEMENTED Try to import files {:?}", files);
+                },
+                QueuedActions::TryBeginModalAction(modal_action) => {
+                    if self.modal_action.is_none() {
+                        self.modal_action = Some(modal_action);
+                    }
+                }
             }
         }
     }

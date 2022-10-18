@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 use imgui::{im_str, ImString, PopupModal};
 use imgui::sys::ImVec2;
-use nexdb::{ObjectLocation, SchemaFingerprint};
+use nexdb::{HashSet, ObjectLocation, SchemaFingerprint};
 use crate::app_state::{ActionQueueSender, ModalAction, ModalActionControlFlow};
 use crate::db_state::DbState;
 use crate::ui_state::UiState;
@@ -52,45 +52,34 @@ impl ModalAction for NewObjectModal {
                 ui.text("Type of object to create");
                 imgui::ListBox::new(im_str!("type_selection")).size([0.0, 100.0]).build(ui, || {
                     for (fingerprint, named_type) in db_state.editor_model.schema_set().schemas() {
-                        let is_selected = self.selected_type == Some(*fingerprint);
-                        println!("{:?} is selected: {:?}", fingerprint, is_selected);
-                        if imgui::Selectable::new(&im_str!("{}", named_type.name())).selected(is_selected).build(ui) {
-                            self.selected_type = Some(*fingerprint);
+                        if named_type.as_record().is_some() {
+                            let is_selected = self.selected_type == Some(*fingerprint);
+                            println!("{:?} is selected: {:?}", fingerprint, is_selected);
+                            if imgui::Selectable::new(&im_str!("{}", named_type.name())).selected(is_selected).build(ui) {
+                                self.selected_type = Some(*fingerprint);
+                            }
                         }
                     }
                 });
 
-
-
-
-                // imgui::ChildWindow::new("child1")
-                //     .size([0.0, 100.0])
-                //     .build(ui, || {
-                //         // for i in 0..20 {
-                //         //     ui.text(&format!("SomeObjectType{}", i))
-                //         // }
-                //
-                //         for (fingerprint, named_type) in db_state.editor_model.schema_set().schemas() {
-                //             ui.list_box()
-                //         }
-                //
-                //     });
-
                 if ui.button(im_str!("Cancel")) {
                     ui.close_current_popup();
-
                     return ModalActionControlFlow::End;
                 }
 
-                unsafe { imgui::sys::igBeginDisabled(true); }
+                unsafe { imgui::sys::igBeginDisabled(self.selected_type.is_none()); }
 
                 ui.same_line();
-                if ui.button(im_str!("TODO NOT IMPLEMENTED Create")) {
-                    ui.close_current_popup();
+                if ui.button(im_str!("Create")) {
+                    let schema = db_state.editor_model.schema_set().find_named_type_by_fingerprint(self.selected_type.unwrap()).unwrap().as_record().unwrap().clone();
+                    let new_object_id = db_state.editor_model.root_edit_context_mut().new_object(self.create_location.clone(), &schema);
+                    let mut selected_items = HashSet::default();
+                    selected_items.insert(new_object_id);
+                    ui_state.asset_browser_state.grid_state.selected_items = selected_items;
 
+                    ui.close_current_popup();
                     return ModalActionControlFlow::End;
                 }
-
 
                 unsafe { imgui::sys::igEndDisabled(); }
 

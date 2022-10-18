@@ -49,7 +49,7 @@ impl EditorModel {
 
     pub fn any_edit_context_has_unsaved_changes(&self) -> bool {
         for (key, context) in &self.edit_contexts {
-            if !context.modified_objects.is_empty() {
+            if !context.has_changes() {
                 return true;
             }
         }
@@ -87,9 +87,13 @@ impl EditorModel {
 
         root_edit_context.commit_pending_undo_context();
         let mut loaded_objects = HashSet::default();
-        let fs = FileSystemDataSource::new(root_path.clone(), mount_path, root_edit_context, &mut loaded_objects);
+        let mut loaded_locations = HashSet::default();
+        let fs = FileSystemDataSource::new(root_path.clone(), mount_path, root_edit_context, &mut loaded_objects, &mut loaded_locations);
         for loaded_object in loaded_objects {
             root_edit_context.modified_objects.remove(&loaded_object);
+        }
+        for loaded_location in loaded_locations {
+            root_edit_context.modified_locations.remove(&loaded_location);
         }
 
         let object_source_id = fs.object_source_id();
@@ -97,20 +101,20 @@ impl EditorModel {
         object_source_id
     }
 
-    fn find_unsaved_paths(&self) -> HashSet<ObjectPath> {
-        let root_edit_context = self.edit_contexts.get(self.root_edit_context_key).unwrap();
-        let modified_objects =  &root_edit_context.modified_objects;
-
-        let mut dirty_locations: HashSet<ObjectPath> = Default::default();
-
-        for modified_object in modified_objects {
-            let object_info = root_edit_context.objects().get(modified_object).unwrap();
-            let location = object_info.object_location().clone();
-            dirty_locations.insert(location.path().clone());
-        }
-
-        dirty_locations
-    }
+    // fn find_unsaved_paths_in_root_context(&self) -> HashSet<ObjectPath> {
+    //     let root_edit_context = self.edit_contexts.get(self.root_edit_context_key).unwrap();
+    //     let modified_objects =  &root_edit_context.modified_locations;
+    //
+    //     let mut dirty_locations: HashSet<ObjectPath> = Default::default();
+    //
+    //     // for modified_object in modified_objects {
+    //     //     let object_info = root_edit_context.objects().get(modified_object).unwrap();
+    //     //     let location = object_info.object_location().clone();
+    //     //     dirty_locations.insert(location.path().clone());
+    //     // }
+    //
+    //     dirty_locations
+    // }
 
     pub fn save_root_edit_context(&mut self) {
         //
@@ -212,7 +216,7 @@ impl EditorModel {
         // Clear modified objects list since we reloaded everything from disk
         //
         //root_edit_context.cancel_pending_undo_context();
-        root_edit_context.modified_objects.clear();
+        root_edit_context.clear_change_tracking();
         root_edit_context.cancel_pending_undo_context();
         self.refresh_location_tree();
     }
@@ -260,7 +264,7 @@ impl EditorModel {
             root_context.data_set.copy_from(&mut context_to_flush.data_set, object_id);
         }
 
-        context_to_flush.modified_objects.clear();
+        context_to_flush.clear_change_tracking();
     }
 
     pub fn close_edit_context(&mut self, edit_context: EditContextKey) {
@@ -277,14 +281,14 @@ impl EditorModel {
     }
 
     pub fn refresh_location_tree(&mut self) {
-        let mut all_paths = HashSet::default();
+        let mut all_locations = HashSet::default();
         for (object_id, info) in &self.edit_contexts.get(self.root_edit_context_key).unwrap().data_set.objects {
-            let path = info.object_location.path();
-            all_paths.insert(path.clone());
+            //let path = info.object_location.path();
+            all_locations.insert(info.object_location.clone());
         }
 
-        let unsaved_paths = self.find_unsaved_paths();
-        self.location_tree.rebuild(&all_paths, &unsaved_paths);
+        let unsaved_locations = &self.root_edit_context().modified_locations;
+        self.location_tree = LocationTree::build(&all_locations, unsaved_locations);
     }
 
     pub fn cached_location_tree(&self) -> &LocationTree {

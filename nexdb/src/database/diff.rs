@@ -11,6 +11,7 @@ pub struct DynamicArrayEntryDelta {
 
 #[derive(Default, Debug)]
 pub struct ObjectDiff {
+    set_location: Option<ObjectLocation>,
     set_prototype: Option<Option<ObjectId>>,
     set_properties: Vec<(String, PropertyValue)>,
     remove_properties: Vec<String>,
@@ -37,6 +38,10 @@ impl ObjectDiff {
         &self,
         object: &mut DataObjectInfo,
     ) {
+        if let Some(set_location) = &self.set_location {
+            object.object_location = set_location.clone();
+        }
+
         if let Some(set_prototype) = self.set_prototype {
             object.prototype = set_prototype;
         }
@@ -122,6 +127,7 @@ impl ObjectDiffSet {
         before_object_id: ObjectId,
         after_data_set: &DataSet,
         after_object_id: ObjectId,
+        modified_locations: &mut HashSet<ObjectLocation>,
     ) -> Self {
         let before_obj = before_data_set.objects.get(&before_object_id).unwrap();
         let after_obj = after_data_set.objects.get(&after_object_id).unwrap();
@@ -133,6 +139,11 @@ impl ObjectDiffSet {
 
         let mut apply_diff = ObjectDiff::default();
         let mut revert_diff = ObjectDiff::default();
+
+        if before_obj.object_location != after_obj.object_location {
+            apply_diff.set_location = Some(after_obj.object_location.clone());
+            revert_diff.set_location = Some(before_obj.object_location.clone());
+        }
 
         //
         // Prototype
@@ -325,6 +336,19 @@ impl ObjectDiffSet {
             }
         }
 
+        // we only flag the location as modified if we make an edit
+        if apply_diff.has_changes() {
+            if !modified_locations.contains(&after_obj.object_location) {
+                modified_locations.insert(after_obj.object_location.clone());
+            }
+        }
+
+        if before_obj.object_location != after_obj.object_location {
+            if !modified_locations.contains(&before_obj.object_location) {
+                modified_locations.insert(before_obj.object_location.clone());
+            }
+        }
+
         ObjectDiffSet {
             apply_diff,
             revert_diff,
@@ -393,6 +417,8 @@ impl DataSetDiff {
 pub struct DataSetDiffSet {
     pub apply_diff: DataSetDiff,
     pub revert_diff: DataSetDiff,
+    pub modified_objects: HashSet<ObjectId>,
+    pub modified_locations: HashSet<ObjectLocation>,
 }
 
 impl DataSetDiffSet {
@@ -408,6 +434,8 @@ impl DataSetDiffSet {
     ) -> Self {
         let mut apply_diff = DataSetDiff::default();
         let mut revert_diff = DataSetDiff::default();
+        let mut modified_objects: HashSet<ObjectId> = Default::default();
+        let mut modified_locations: HashSet<ObjectLocation> = Default::default();
 
         // Check for created objects
         for &object_id in tracked_objects {
@@ -416,23 +444,35 @@ impl DataSetDiffSet {
             if existed_before {
                 if existed_after {
                     // changed
-                    let diff = ObjectDiffSet::diff_objects(before, object_id, &after, object_id);
+                    let diff = ObjectDiffSet::diff_objects(before, object_id, &after, object_id, &mut modified_locations);
                     if diff.has_changes() {
+                        modified_objects.insert(object_id);
                         apply_diff.changes.push((object_id, diff.apply_diff));
                         revert_diff.changes.push((object_id, diff.revert_diff));
                     }
                 } else {
+                    let object_info = before.objects().get(&object_id).unwrap().clone();
+                    modified_objects.insert(object_id);
+                    if !modified_locations.contains(&object_info.object_location) {
+                        modified_locations.insert(object_info.object_location.clone());
+                    }
+
                     // deleted
                     apply_diff.deletes.push(object_id);
                     revert_diff
                         .creates
-                        .push((object_id, before.objects().get(&object_id).unwrap().clone()));
+                        .push((object_id, object_info.clone()));
                 }
             } else if existed_after {
+                let object_info = after.objects().get(&object_id).unwrap();
+                if !modified_locations.contains(&object_info.object_location) {
+                    modified_locations.insert(object_info.object_location.clone());
+                }
+
                 // created
                 apply_diff
                     .creates
-                    .push((object_id, after.objects().get(&object_id).unwrap().clone()));
+                    .push((object_id, object_info.clone()));
                 revert_diff.deletes.push(object_id);
             }
         }
@@ -440,6 +480,8 @@ impl DataSetDiffSet {
         DataSetDiffSet {
             apply_diff,
             revert_diff,
+            modified_locations,
+            modified_objects
         }
     }
 }

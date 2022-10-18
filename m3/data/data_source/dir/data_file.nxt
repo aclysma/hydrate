@@ -41,6 +41,16 @@
         "all_fields.nullable_vec3.null_override": "SetNonNull",
         "position.x": 139.0
       }
+    },
+    {
+      "object_id": "ab31a8c9-ebfd-4f4d-8415-a15f0b703b0a",
+      "schema": "5d58a547-db37-0918-c17f-47d4bf7eca7d",
+      "schema_name": "Vec4",
+      "prototype": null,
+      "properties": {
+        "x": 14.0,
+        "y": 4.0
+      }
     }
   ]
 }

@@ -45,7 +45,10 @@ pub fn draw_properties_window(
             ui.text("multiple selected");
         } else if selected_items.len() == 1 {
             let item = selected_items.iter().next().unwrap();
-            draw_properties_window_single_select(ui, app_state, *item);
+
+            if app_state.db_state.editor_model.root_edit_context().has_object(*item) {
+                draw_properties_window_single_select(ui, app_state, *item);
+            }
         } else {
             ui.text("no selection");
         }

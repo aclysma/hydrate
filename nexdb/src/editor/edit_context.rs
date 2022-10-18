@@ -38,7 +38,11 @@ pub struct EditContext {
     pub(super) data_set: DataSet,
     undo_context: UndoContext,
     completed_undo_context_tx: Sender<CompletedUndoContextMessage>,
-    pub(super) modified_objects: HashSet<ObjectId>,
+
+    // We track locations separately because if an object is deleted, we don't know what location it
+    // was stored at
+    pub(crate) modified_objects: HashSet<ObjectId>,
+    pub(crate) modified_locations: HashSet<ObjectLocation>,
 }
 
 impl EditContext {
@@ -46,11 +50,17 @@ impl EditContext {
     fn track_new_object(
         &mut self,
         object_id: ObjectId,
+        object_location: &ObjectLocation,
     ) {
         if self.undo_context.has_open_context() {
+            // If an undo context is open, we use the diff for change tracking
             self.undo_context.track_new_object(object_id);
         } else {
+            // If we don't have an undo context open, fast path to do change tracking ourselves
             self.modified_objects.insert(object_id);
+            if !self.modified_locations.contains(&object_location) {
+                self.modified_locations.insert(object_location.clone());
+            }
         }
     }
 
@@ -60,11 +70,27 @@ impl EditContext {
         object_id: ObjectId,
     ) {
         if self.undo_context.has_open_context() {
+            // If an undo is open, we use the diff for change tracking
             self.undo_context
                 .track_existing_object(&mut self.data_set, object_id);
         } else {
+            // If we don't have an undo context open, fast path to do change tracking ourselves
             self.modified_objects.insert(object_id);
+            if let Some(object_info) = self.objects().get(&object_id) {
+                if !self.modified_locations.contains(&object_info.object_location) {
+                    self.modified_locations.insert(object_info.object_location.clone());
+                }
+            }
         }
+    }
+
+    pub fn clear_change_tracking(&mut self) {
+        self.modified_objects.clear();
+        self.modified_locations.clear();
+    }
+
+    pub fn has_changes(&self) -> bool {
+        !self.modified_objects.is_empty() || !self.modified_locations.is_empty()
     }
 
     pub fn is_object_modified(
@@ -86,6 +112,7 @@ impl EditContext {
             undo_context: UndoContext::new(undo_stack, edit_context_key),
             completed_undo_context_tx: undo_stack.completed_undo_context_tx().clone(),
             modified_objects: Default::default(),
+            modified_locations: Default::default()
         }
     }
 
@@ -101,6 +128,7 @@ impl EditContext {
             undo_context: UndoContext::new(undo_stack, edit_context_key),
             completed_undo_context_tx: undo_stack.completed_undo_context_tx().clone(),
             modified_objects: Default::default(),
+            modified_locations: Default::default()
         }
     }
 
@@ -111,15 +139,15 @@ impl EditContext {
         f: F,
     ) {
         self.undo_context
-            .begin_context(&self.data_set, name, &mut self.modified_objects);
+            .begin_context(&self.data_set, name, &mut self.modified_objects, &mut self.modified_locations);
         let allow_resume = (f)(self);
         self.undo_context
-            .end_context(&self.data_set, allow_resume, &mut self.modified_objects);
+            .end_context(&self.data_set, allow_resume, &mut self.modified_objects, &mut self.modified_locations);
     }
 
     pub fn commit_pending_undo_context(&mut self) {
         self.undo_context
-            .commit_context(&mut self.data_set, &mut self.modified_objects);
+            .commit_context(&mut self.data_set, &mut self.modified_objects, &mut self.modified_locations);
     }
 
     pub fn cancel_pending_undo_context(&mut self) {
@@ -207,6 +235,10 @@ impl EditContext {
         self.data_set.objects()
     }
 
+    pub fn has_object(&self, object_id: ObjectId) -> bool {
+        self.objects().contains_key(&object_id)
+    }
+
     // pub(crate) fn insert_object(
     //     &mut self,
     //     obj_info: DataObjectInfo,
@@ -218,23 +250,23 @@ impl EditContext {
 
     pub fn new_object(
         &mut self,
-        object_location: ObjectLocation,
+        object_location: &ObjectLocation,
         schema: &SchemaRecord,
     ) -> ObjectId {
-        let object_id = self.data_set.new_object(object_location, schema);
-        self.track_new_object(object_id);
+        let object_id = self.data_set.new_object(object_location.clone(), schema);
+        self.track_new_object(object_id, &object_location);
         object_id
     }
 
     pub fn new_object_from_prototype(
         &mut self,
-        object_location: ObjectLocation,
+        object_location: &ObjectLocation,
         prototype: ObjectId,
     ) -> ObjectId {
         let object_id = self
             .data_set
-            .new_object_from_prototype(object_location, prototype);
-        self.track_new_object(object_id);
+            .new_object_from_prototype(object_location.clone(), prototype);
+        self.track_new_object(object_id, &object_location);
         object_id
     }
 
@@ -267,6 +299,7 @@ impl EditContext {
         properties_in_replace_mode: HashSet<String>,
         dynamic_array_entries: HashMap<String, HashSet<Uuid>>,
     ) {
+        self.track_new_object(object_id, &object_location);
         self.data_set.restore_object(
             object_id,
             object_location,
@@ -278,7 +311,6 @@ impl EditContext {
             properties_in_replace_mode,
             dynamic_array_entries,
         );
-        self.track_new_object(object_id);
     }
 
     pub fn delete_object(
@@ -287,6 +319,17 @@ impl EditContext {
     ) {
         self.track_existing_object(object_id);
         self.data_set.delete_object(object_id);
+    }
+
+    pub fn set_object_location(
+        &mut self,
+        object_id: ObjectId,
+        new_location: ObjectLocation
+    ) {
+        self.track_existing_object(object_id);
+        self.data_set.set_object_location(object_id, new_location);
+        // Again so that we track the new location too
+        self.track_existing_object(object_id);
     }
 
     pub fn object_prototype(

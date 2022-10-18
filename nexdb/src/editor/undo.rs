@@ -3,7 +3,7 @@ use std::sync::mpsc::{Receiver, Sender};
 use slotmap::{DenseSlotMap, SlotMap};
 
 use crate::edit_context::EditContext;
-use crate::{DataSet, DataSetDiffSet, EditContextKey, HashSet, ObjectId, SchemaSet};
+use crate::{DataSet, DataSetDiffSet, EditContextKey, HashSet, ObjectId, ObjectLocation, SchemaSet};
 
 //TODO: Delete unused property data when path ancestor is null or in replace mode
 
@@ -158,6 +158,7 @@ impl UndoContext {
         after_state: &DataSet,
         name: &'static str,
         modified_objects: &mut HashSet<ObjectId>,
+        modified_locations: &mut HashSet<ObjectLocation>
     ) {
         if self.context_name == Some(name) {
             // don't need to do anything, we can append to the current context
@@ -165,7 +166,7 @@ impl UndoContext {
             // commit the context that's in flight, if one exists
             if self.context_name.is_some() {
                 // This won't do anything if there's nothing to send
-                self.commit_context(after_state, modified_objects);
+                self.commit_context(after_state, modified_objects, modified_locations);
             }
 
             self.context_name = Some(name);
@@ -177,10 +178,11 @@ impl UndoContext {
         after_state: &DataSet,
         allow_resume: bool,
         modified_objects: &mut HashSet<ObjectId>,
+        modified_locations: &mut HashSet<ObjectLocation>,
     ) {
         if !allow_resume {
             // This won't do anything if there's nothing to send
-            self.commit_context(after_state, modified_objects);
+            self.commit_context(after_state, modified_objects, modified_locations);
         }
     }
 
@@ -212,6 +214,7 @@ impl UndoContext {
         &mut self,
         after_state: &DataSet,
         modified_objects: &mut HashSet<ObjectId>,
+        modified_locations: &mut HashSet<ObjectLocation>,
     ) {
         if !self.tracked_objects.is_empty() {
             // Make a diff and send it if it has changes
@@ -222,14 +225,26 @@ impl UndoContext {
             );
             if diff_set.has_changes() {
                 println!("Sending change {:#?}", diff_set);
+
+                //
+                // Use diff to append to the modified object/location sets
+                //
+                modified_objects.extend(diff_set.modified_objects.iter());
+
+                // Can't use extend because we need to clone
+                for modified_location in &diff_set.modified_locations {
+                    if !modified_locations.contains(modified_location) {
+                        modified_locations.insert(modified_location.clone());
+                    }
+                }
+
+                //
+                // Send the undo command
+                //
                 self.completed_undo_context_tx.send(CompletedUndoContextMessage {
                     edit_context_key: self.edit_context_key,
                     diff_set
                 }).unwrap();
-            }
-
-            for object in &self.tracked_objects {
-                modified_objects.insert(*object);
             }
 
             self.tracked_objects.clear();

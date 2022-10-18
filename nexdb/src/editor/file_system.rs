@@ -36,6 +36,7 @@ impl FileSystemDataSource {
         mount_path: ObjectPath,
         edit_context: &mut EditContext,
         loaded_objects: &mut HashSet<ObjectId>,
+        loaded_locations: &mut HashSet<ObjectLocation>,
     ) -> Self {
         // Mount path should end in exactly one slash (we append paths to the end of it)
         assert!(mount_path.as_string().ends_with("/"));
@@ -92,7 +93,7 @@ impl FileSystemDataSource {
 
                     let objects = crate::data_storage::DataStorageJsonSingleFile::load_string(
                         edit_context,
-                        object_location,
+                        object_location.clone(),
                         &contents,
                     );
                     // for object in objects {
@@ -103,6 +104,8 @@ impl FileSystemDataSource {
                     for object in objects {
                         loaded_objects.insert(object);
                     }
+
+                    loaded_locations.insert(object_location);
                 }
             }
         }

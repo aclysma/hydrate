@@ -6,7 +6,7 @@ use crate::{
 use std::str::{FromStr, Split};
 use uuid::Uuid;
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Ord, PartialOrd)]
 pub struct ObjectSourceId(Uuid);
 
 impl ObjectSourceId {
@@ -237,6 +237,14 @@ impl DataSet {
         //TODO: Kill subobjects too
         //TODO: Write tombstone?
         self.objects.remove(&object_id);
+    }
+
+    pub fn set_object_location(
+        &mut self,
+        object_id: ObjectId,
+        new_location: ObjectLocation
+    ) {
+        self.objects.get_mut(&object_id).unwrap().object_location = new_location;
     }
 
     pub fn copy_from(

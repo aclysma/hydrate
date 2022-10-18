@@ -82,12 +82,13 @@ pub fn vsdark_theme(style: &mut imgui::Style) {
     let text_disabled_color = rgb_to_4xf32(151.0, 151.0, 151.0);
     let border_color = rgb_to_4xf32(78.0, 78.0, 78.0);
 
+    let drag_drop_target = rgb_to_4xf32(255.0, 153.0, 0.0);
+
     // Add some color so that selected list item/tree node elements in are clearly distinct. This
     // also affects the collapsable headers
-    //let header = rgb_to_4xf32(70.0, 70.0, 110.0);
     let header = rgb_to_4xf32(46.0, 78.0, 117.0);
     // Make buttons pop a bit more (and match the scrollbar grab color)
-    let button = light_bg_color; //rgb_to_4xf32(70.0, 70.0, 80.0);
+    let button = light_bg_color;
 
     style[imgui::StyleColor::Text]                 = text_color;
     style[imgui::StyleColor::TextDisabled]         = text_disabled_color;
@@ -129,7 +130,7 @@ pub fn vsdark_theme(style: &mut imgui::Style) {
     style[imgui::StyleColor::PlotHistogramHovered] = panel_hover_color;
     //style[imgui::StyleColor::ModalWindowDarkening] = bg_color;
 
-    style[imgui::StyleColor::DragDropTarget]       = bg_color;
+    style[imgui::StyleColor::DragDropTarget]       = drag_drop_target;
     style[imgui::StyleColor::NavHighlight]         = bg_color;
     style[imgui::StyleColor::DockingPreview]       = panel_active_color;
     style[imgui::StyleColor::Tab]                  = bg_color;

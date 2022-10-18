@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 use imgui::{im_str, ImString, PopupModal};
 use imgui::sys::ImVec2;
-use nexdb::{ObjectLocation};
+use nexdb::{ObjectLocation, SchemaFingerprint};
 use crate::app_state::{ActionQueueSender, ModalAction, ModalActionControlFlow};
 use crate::db_state::DbState;
 use crate::ui_state::UiState;
@@ -10,6 +10,7 @@ pub struct NewObjectModal {
     finished_first_draw: bool,
     create_location: ObjectLocation,
     object_name: ImString,
+    selected_type: Option<SchemaFingerprint>
 }
 
 impl NewObjectModal {
@@ -17,7 +18,8 @@ impl NewObjectModal {
         NewObjectModal {
             finished_first_draw: false,
             create_location,
-            object_name: Default::default()
+            object_name: Default::default(),
+            selected_type: None
         }
     }
 }
@@ -43,17 +45,36 @@ impl ModalAction for NewObjectModal {
             .build(ui, || {
                 ui.text(format!("Creating object at: {}", self.create_location.path().as_string()));
 
+                println!("selected: {:?}", self.selected_type);
+
                 imgui::InputText::new(ui, im_str!("Object Name"), &mut self.object_name).chars_noblank(true).resize_buffer(true).build();
 
                 ui.text("Type of object to create");
-                imgui::ChildWindow::new("child1")
-                    .size([0.0, 100.0])
-                    .build(ui, || {
-                        for i in 0..20 {
-                            ui.text(&format!("SomeObjectType{}", i))
+                imgui::ListBox::new(im_str!("type_selection")).size([0.0, 100.0]).build(ui, || {
+                    for (fingerprint, named_type) in db_state.editor_model.schema_set().schemas() {
+                        let is_selected = self.selected_type == Some(*fingerprint);
+                        println!("{:?} is selected: {:?}", fingerprint, is_selected);
+                        if imgui::Selectable::new(&im_str!("{}", named_type.name())).selected(is_selected).build(ui) {
+                            self.selected_type = Some(*fingerprint);
                         }
+                    }
+                });
 
-                    });
+
+
+
+                // imgui::ChildWindow::new("child1")
+                //     .size([0.0, 100.0])
+                //     .build(ui, || {
+                //         // for i in 0..20 {
+                //         //     ui.text(&format!("SomeObjectType{}", i))
+                //         // }
+                //
+                //         for (fingerprint, named_type) in db_state.editor_model.schema_set().schemas() {
+                //             ui.list_box()
+                //         }
+                //
+                //     });
 
                 if ui.button(im_str!("Cancel")) {
                     ui.close_current_popup();

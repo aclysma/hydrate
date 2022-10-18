@@ -82,6 +82,13 @@ pub fn vsdark_theme(style: &mut imgui::Style) {
     let text_disabled_color = rgb_to_4xf32(151.0, 151.0, 151.0);
     let border_color = rgb_to_4xf32(78.0, 78.0, 78.0);
 
+    // Add some color so that selected list item/tree node elements in are clearly distinct. This
+    // also affects the collapsable headers
+    //let header = rgb_to_4xf32(70.0, 70.0, 110.0);
+    let header = rgb_to_4xf32(46.0, 78.0, 117.0);
+    // Make buttons pop a bit more (and match the scrollbar grab color)
+    let button = light_bg_color; //rgb_to_4xf32(70.0, 70.0, 80.0);
+
     style[imgui::StyleColor::Text]                 = text_color;
     style[imgui::StyleColor::TextDisabled]         = text_disabled_color;
     style[imgui::StyleColor::TextSelectedBg]       = panel_active_color;
@@ -104,10 +111,10 @@ pub fn vsdark_theme(style: &mut imgui::Style) {
     style[imgui::StyleColor::CheckMark]            = panel_active_color;
     style[imgui::StyleColor::SliderGrab]           = panel_hover_color;
     style[imgui::StyleColor::SliderGrabActive]     = panel_active_color;
-    style[imgui::StyleColor::Button]               = panel_color;
+    style[imgui::StyleColor::Button]               = button;
     style[imgui::StyleColor::ButtonHovered]        = panel_hover_color;
     style[imgui::StyleColor::ButtonActive]         = panel_hover_color;
-    style[imgui::StyleColor::Header]               = panel_color;
+    style[imgui::StyleColor::Header]               = header;
     style[imgui::StyleColor::HeaderHovered]        = panel_hover_color;
     style[imgui::StyleColor::HeaderActive]         = panel_active_color;
     style[imgui::StyleColor::Separator]            = border_color;
@@ -121,6 +128,7 @@ pub fn vsdark_theme(style: &mut imgui::Style) {
     style[imgui::StyleColor::PlotHistogram]        = panel_active_color;
     style[imgui::StyleColor::PlotHistogramHovered] = panel_hover_color;
     //style[imgui::StyleColor::ModalWindowDarkening] = bg_color;
+
     style[imgui::StyleColor::DragDropTarget]       = bg_color;
     style[imgui::StyleColor::NavHighlight]         = bg_color;
     style[imgui::StyleColor::DockingPreview]       = panel_active_color;
@@ -129,6 +137,12 @@ pub fn vsdark_theme(style: &mut imgui::Style) {
     style[imgui::StyleColor::TabUnfocused]         = bg_color;
     style[imgui::StyleColor::TabUnfocusedActive]   = panel_active_color;
     style[imgui::StyleColor::TabHovered]           = panel_hover_color;
+
+
+    // dim the background out with a darker but semi-neutral color
+    style[imgui::StyleColor::ModalWindowDimBg] = [0.2, 0.2, 0.2, 0.7];
+    // gray the background out with a brighter color
+    //style[imgui::StyleColor::ModalWindowDimBg] = [0.8, 0.8, 0.8, 0.35];
 }
 
 // https://github.com/ocornut/imgui/issues/707 "charcoal"

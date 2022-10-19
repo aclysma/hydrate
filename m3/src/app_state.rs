@@ -6,7 +6,7 @@ use imgui::PopupModal;
 use imgui::sys::{ImGuiCond, ImVec2};
 use imnodes::editor;
 use crate::db_state::DbState;
-use nexdb::{HashSet, ObjectId, ObjectPath};
+use nexdb::{EndContextBehavior, HashSet, ObjectId, ObjectLocation, ObjectPath};
 use crate::imgui_support::ImguiManager;
 use crate::ui::modals::{ConfirmQuitWithoutSavingModal, ImportFilesModal};
 use crate::ui_state::UiState;
@@ -22,6 +22,7 @@ pub enum QueuedActions {
     QuitNoConfirm,
     HandleDroppedFiles(Vec<PathBuf>),
     TryBeginModalAction(Box<ModalAction>),
+    MoveObjects(Vec<ObjectId>, ObjectLocation),
     //RevertAll,
     //ResetWindowLayout,
     //SelectObjectsInAssetBrowser(Vec<ObjectId>)
@@ -162,6 +163,15 @@ impl AppState {
                     if self.modal_action.is_none() {
                         self.modal_action = Some(modal_action);
                     }
+                },
+                QueuedActions::MoveObjects(objects, destination) => {
+                    self.db_state.editor_model.root_edit_context_mut().with_undo_context("MoveObjects", |edit_context| {
+                        for object in objects {
+                            edit_context.set_object_location(object, destination.clone());
+                        }
+
+                        EndContextBehavior::Finish
+                    });
                 }
             }
         }

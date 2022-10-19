@@ -1,5 +1,5 @@
 use imgui::im_str;
-use nexdb::ObjectId;
+use nexdb::{HashSet, ObjectId};
 use crate::ui_state::AssetBrowserGridState;
 
 #[derive(Copy, Clone, Debug)]
@@ -8,29 +8,29 @@ pub enum AssetBrowserGridPayload {
     AllSelected,
 }
 
-pub fn asset_browser_grid_drag_source(
+pub fn asset_browser_grid_objects_drag_source(
     ui: &imgui::Ui,
     grid_state: &AssetBrowserGridState,
-    object_id: ObjectId,
+    dragged_object: ObjectId,
 ) {
     let payload =
-        if grid_state.selected_items.len() > 1 && grid_state.selected_items.contains(&object_id) {
+        if grid_state.selected_items.len() > 1 && grid_state.selected_items.contains(&dragged_object) {
             // If it's multiple objects, have the receiver look at selected objects
             AssetBrowserGridPayload::AllSelected
         } else {
-            AssetBrowserGridPayload::Single(object_id)
+            AssetBrowserGridPayload::Single(dragged_object)
         };
 
-    imgui::DragDropSource::new(im_str!("MOCK_SOURCE")).begin_payload(ui, payload);
+    imgui::DragDropSource::new(im_str!("ASSET_BROWSER_GRID_SELECTION")).begin_payload(ui, payload);
 }
 
-pub fn asset_browser_grid_drag_target(
+pub fn asset_browser_grid_objects_drag_target_printf(
     ui: &imgui::Ui,
     grid_state: &AssetBrowserGridState,
 ) -> Option<AssetBrowserGridPayload> {
     if let Some(target) = imgui::DragDropTarget::new(ui) {
         if let Some(payload) = target.accept_payload::<AssetBrowserGridPayload>(
-            im_str!("MOCK_SOURCE"),
+            im_str!("ASSET_BROWSER_GRID_SELECTION"),
             imgui::DragDropFlags::empty(),
         ) {
             match payload.unwrap().data {

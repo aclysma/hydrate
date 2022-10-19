@@ -24,7 +24,8 @@ pub struct ObjectDiff {
 
 impl ObjectDiff {
     pub fn has_changes(&self) -> bool {
-        self.set_prototype.is_some()
+        self.set_location.is_some()
+            || self.set_prototype.is_some()
             || !self.set_properties.is_empty()
             || !self.remove_properties.is_empty()
             || !self.set_null_overrides.is_empty()
@@ -373,6 +374,10 @@ impl DataSetDiff {
         data_set: &mut DataSet,
         schema_set: &SchemaSet,
     ) {
+        for delete in &self.deletes {
+            data_set.delete_object(*delete);
+        }
+
         for (id, create) in &self.creates {
             data_set.restore_object(
                 *id,
@@ -385,10 +390,6 @@ impl DataSetDiff {
                 create.properties_in_replace_mode.clone(),
                 create.dynamic_array_entries.clone()
             );
-        }
-
-        for delete in &self.deletes {
-            data_set.delete_object(*delete);
         }
 
         for (object_id, v) in &self.changes {

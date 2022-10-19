@@ -15,6 +15,7 @@ use rafx::api::objc::runtime::Object;
 use uuid::Uuid;
 use crate::db_state::DbState;
 use crate::QueuedActions;
+use crate::ui::asset_browser_grid_drag_drop::{asset_browser_grid_objects_drag_target_printf, AssetBrowserGridPayload};
 use crate::ui_state::{ActiveToolRegion, UiState};
 
 fn default_flags() -> imgui::TreeNodeFlags {
@@ -49,7 +50,7 @@ fn context_menu<F: FnOnce(&imgui::Ui)>(
 fn try_select_tree_node(
     ui: &imgui::Ui,
     ui_state: &mut UiState,
-    path: &ObjectPath
+    location: &ObjectLocation
 ) {
     if ui.is_item_clicked() && !ui.is_item_toggled_open() {
         ui_state.active_tool_region = Some(ActiveToolRegion::AssetBrowserTree);
@@ -66,7 +67,7 @@ fn try_select_tree_node(
             .asset_browser_state
             .tree_state
             .selected_items
-            .insert(path.clone());
+            .insert(location.clone());
     }
 }
 
@@ -147,8 +148,8 @@ pub fn assets_tree_node(
     action_sender: &ActionQueueSender,
     tree_node: &LocationTreeNode
 ) {
-    let id = im_str!("{}", tree_node.path.as_string());
-    let is_selected = ui_state.asset_browser_state.tree_state.selected_items.contains(&tree_node.path);
+    let id = im_str!("{}-{}", tree_node.location.source().uuid(), tree_node.location.path().as_string());
+    let is_selected = ui_state.asset_browser_state.tree_state.selected_items.contains(&tree_node.location);
     let is_modified = tree_node.has_changes;
 
     let label = if is_modified {
@@ -178,7 +179,21 @@ pub fn assets_tree_node(
     let token = ds_tree_node.push(ui);
     style.pop();
 
-    try_select_tree_node(ui, ui_state, &tree_node.path);
+    try_select_tree_node(ui, ui_state, &tree_node.location);
+
+    if let Some(payload) = asset_browser_grid_objects_drag_target_printf(ui, &ui_state.asset_browser_state.grid_state) {
+        match payload {
+            AssetBrowserGridPayload::Single(single) => {
+                //db_state.editor_model.root_edit_context().set_object_location(single, tree_node.location.clone())
+                action_sender.queue_action(QueuedActions::MoveObjects(vec![single], tree_node.location.clone()));
+            }
+            AssetBrowserGridPayload::AllSelected => {
+                let selected = ui_state.asset_browser_state.grid_state.selected_items.iter().copied().collect();
+                action_sender.queue_action(QueuedActions::MoveObjects(selected, tree_node.location.clone()));
+            }
+        }
+    }
+
     context_menu(ui, Some(&id), |ui| {
         // if package.data_source().is_some() {
         //     if imgui::MenuItem::new(im_str!("Unload")).build(ui) {
@@ -198,7 +213,7 @@ pub fn assets_tree_node(
             //log::info!("temp {:?}", &tree_node.path);
 
             // how to get location with just path?
-            let location = db_state.editor_model.default_new_location_for_path(&tree_node.path).unwrap();
+            let location = tree_node.location.clone();
 
             action_sender.try_set_modal_action(crate::ui::modals::NewObjectModal::new(location))
 
@@ -417,7 +432,7 @@ pub fn draw_asset(
             draw_list
                 .add_rect(min, max, imgui::ImColor32::from_rgb_f32s(0.2, 0.2, 0.2))
                 .build();
-            crate::ui::asset_browser_grid_drag_drop::asset_browser_grid_drag_source(
+            crate::ui::asset_browser_grid_drag_drop::asset_browser_grid_objects_drag_source(
                 ui,
                 &app_state.ui_state.asset_browser_state.grid_state,
                 id,

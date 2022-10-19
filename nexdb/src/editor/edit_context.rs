@@ -3,7 +3,7 @@ use std::sync::Arc;
 use uuid::Uuid;
 
 use crate::editor::undo::{CompletedUndoContextMessage, UndoContext, UndoStack};
-use crate::{DataObjectInfo, DataSet, DataSetDiff, DataSetDiffSet, EditContextKey, HashMap, HashMapKeys, HashSet, HashSetIter, NullOverride, ObjectId, ObjectLocation, OverrideBehavior, SchemaFingerprint, SchemaNamedType, SchemaRecord, SchemaSet, Value};
+use crate::{DataObjectInfo, DataSet, DataSetDiff, DataSetDiffSet, EditContextKey, EndContextBehavior, HashMap, HashMapKeys, HashSet, HashSetIter, NullOverride, ObjectId, ObjectLocation, OverrideBehavior, SchemaFingerprint, SchemaNamedType, SchemaRecord, SchemaSet, Value};
 
 //TODO: Delete unused property data when path ancestor is null or in replace mode
 
@@ -31,6 +31,7 @@ use crate::{DataObjectInfo, DataSet, DataSetDiff, DataSetDiffSet, EditContextKey
 // - A wrapper around dataset that understands undo contexts will produce a queue of finished undo
 //   contexts, which contain revert/apply diffs
 // - These undo contexts can be pushed onto a single global queue or a per-document queue
+
 
 pub struct EditContext {
     edit_context_key: EditContextKey,
@@ -175,17 +176,16 @@ impl EditContext {
         }
     }
 
-    //TODO: Change to use an enum instead of bool
-    pub fn with_undo_context<F: FnOnce(&mut Self) -> bool>(
+    pub fn with_undo_context<F: FnOnce(&mut Self) -> EndContextBehavior>(
         &mut self,
         name: &'static str,
         f: F,
     ) {
         self.undo_context
             .begin_context(&self.data_set, name, &mut self.modified_objects, &mut self.modified_locations);
-        let allow_resume = (f)(self);
+        let end_context_behavior = (f)(self);;
         self.undo_context
-            .end_context(&self.data_set, allow_resume, &mut self.modified_objects, &mut self.modified_locations);
+            .end_context(&self.data_set, end_context_behavior, &mut self.modified_objects, &mut self.modified_locations);
     }
 
     pub fn commit_pending_undo_context(&mut self) {

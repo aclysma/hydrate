@@ -13,6 +13,12 @@ use crate::{DataSet, DataSetDiffSet, EditContextKey, HashSet, ObjectId, ObjectLo
 //TODO: Read-only sources? For things like network cache. Could only sync files we edit and overlay
 // files source over net cache source, etc.
 
+#[derive(PartialEq)]
+pub enum EndContextBehavior {
+    Finish,
+    AllowResume
+}
+
 pub struct CompletedUndoContextMessage {
     edit_context_key: EditContextKey,
     diff_set: DataSetDiffSet,
@@ -170,11 +176,11 @@ impl UndoContext {
     pub(crate) fn end_context(
         &mut self,
         after_state: &DataSet,
-        allow_resume: bool,
+        end_context_behavior: EndContextBehavior,
         modified_objects: &mut HashSet<ObjectId>,
         modified_locations: &mut HashSet<ObjectLocation>,
     ) {
-        if !allow_resume {
+        if end_context_behavior != EndContextBehavior::AllowResume {
             // This won't do anything if there's nothing to send
             self.commit_context(after_state, modified_objects, modified_locations);
         }

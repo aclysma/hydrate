@@ -2,7 +2,7 @@ use crate::app_state::AppState;
 use crate::ui::asset_browser_grid_drag_drop::AssetBrowserGridPayload;
 use imgui::im_str;
 use nexdb::edit_context::EditContext;
-use nexdb::Schema;
+use nexdb::{EndContextBehavior, Schema};
 use crate::ui_state::UiState;
 
 fn draw_property_style<F: FnOnce(&imgui::Ui)>(
@@ -471,7 +471,7 @@ fn draw_inspector_object_ref(
                 .build();
 
             if let Some(payload) =
-                crate::ui::asset_browser_grid_drag_drop::asset_browser_grid_drag_target(
+                crate::ui::asset_browser_grid_drag_drop::asset_browser_grid_objects_drag_target_printf(
                     ui,
                     &ui_state.asset_browser_state.grid_state,
                 )
@@ -905,6 +905,10 @@ pub fn draw_inspector_nexdb(
                 ui.text("WARNING: Could not find schema");
             }
 
-            is_editing && !is_editing_complete
+            if is_editing && !is_editing_complete {
+                EndContextBehavior::AllowResume
+            } else {
+                EndContextBehavior::Finish
+            }
         });
 }

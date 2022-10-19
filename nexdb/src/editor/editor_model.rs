@@ -159,6 +159,7 @@ impl EditorModel {
         // Take the contents of the modified object list, leaving the edit context with a cleared list
         //
         let (modified_objects, modified_locations) = root_edit_context.take_modified_objects_and_locations();
+        println!("Revert:\nObjects: {:?}\nLocations: {:?}", modified_objects, modified_locations);
 
         //
         // Build a list of locations (i.e. files) we need to revert
@@ -184,16 +185,21 @@ impl EditorModel {
         }
 
         //
-        // Reload the files from disk, deleting objects that are not present in them
+        // Delete all objects known to exist in the files we are about to reload
+        //
+        for (_, object_ids) in &locations_to_revert {
+            for object in object_ids {
+                root_edit_context.delete_object(*object);
+            }
+        }
+
+        //
+        // Reload the files from disk
         //
         for (location, object_ids) in locations_to_revert {
             let source = self.data_sources.get(&location.source()).unwrap();
             let file_path = source.location_to_file_system_path(&location).unwrap();
             let data = std::fs::read_to_string(file_path).unwrap();
-
-            for object in object_ids {
-                root_edit_context.delete_object(object);
-            }
 
             crate::data_storage::DataStorageJsonSingleFile::load_string(root_edit_context, location, &data);
 
@@ -204,7 +210,6 @@ impl EditorModel {
         //
         // Clear modified objects list since we reloaded everything from disk
         //
-        //root_edit_context.cancel_pending_undo_context();
         root_edit_context.clear_change_tracking();
         root_edit_context.cancel_pending_undo_context();
         self.refresh_location_tree();

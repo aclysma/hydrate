@@ -1,5 +1,6 @@
 use std::cmp::Ordering;
 use std::collections::BTreeMap;
+use uuid::Uuid;
 use crate::{HashSet, ObjectLocation, ObjectPath, ObjectSourceId};
 
 #[derive(Debug, PartialEq, Eq)]
@@ -37,7 +38,7 @@ impl Ord for LocationTreeNodeKey {
 
 #[derive(Debug)]
 pub struct LocationTreeNode {
-    pub path: ObjectPath,
+    pub location: ObjectLocation,
     pub children: BTreeMap<LocationTreeNodeKey, LocationTreeNode>,
     pub has_changes: bool,
 }
@@ -51,7 +52,7 @@ impl Default for LocationTree {
     fn default() -> Self {
         LocationTree {
             root_node: LocationTreeNode {
-                path: ObjectPath::root(),
+                location: ObjectLocation::new(ObjectSourceId::new_with_uuid(Uuid::nil()), ObjectPath::root()),
                 children: Default::default(),
                 has_changes: false
             }
@@ -72,10 +73,11 @@ impl LocationTree {
             };
             tree_node = tree_node.children.entry(node_key).or_insert_with(|| {
                 let node_location = ObjectLocation::new(source, node_path.clone());
+                let has_changes = unsaved_paths.contains(&node_location);
                 LocationTreeNode {
-                    path: node_path.clone(),
+                    location: node_location,
                     children: Default::default(),
-                    has_changes: unsaved_paths.contains(&node_location)
+                    has_changes
                 }
             });
 
@@ -87,7 +89,7 @@ impl LocationTree {
 
     pub fn build(object_locations: &HashSet<ObjectLocation>, unsaved_paths: &HashSet<ObjectLocation>) -> Self {
         let root_node = LocationTreeNode {
-            path: ObjectPath::root(),
+            location: ObjectLocation::new(ObjectSourceId::new_with_uuid(Uuid::nil()), ObjectPath::root()),
             children: Default::default(),
             has_changes: false
         };

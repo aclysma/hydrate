@@ -1,4 +1,4 @@
-use nexdb::{HashSet, ObjectId, ObjectPath};
+use nexdb::{HashSet, ObjectId, ObjectLocation, ObjectPath};
 
 #[derive(PartialEq)]
 pub enum ActiveToolRegion {
@@ -8,7 +8,7 @@ pub enum ActiveToolRegion {
 
 #[derive(Default)]
 pub struct AssetBrowserTreeState {
-    pub selected_items: HashSet<ObjectPath>,
+    pub selected_items: HashSet<ObjectLocation>,
 }
 
 #[derive(Default)]

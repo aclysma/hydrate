@@ -3,7 +3,7 @@ use std::sync::Arc;
 use uuid::Uuid;
 
 use crate::editor::undo::{CompletedUndoContextMessage, UndoContext, UndoStack};
-use crate::{DataObjectInfo, DataSet, DataSetDiffSet, EditContextKey, HashMap, HashMapKeys, HashSet, HashSetIter, NullOverride, ObjectId, ObjectLocation, OverrideBehavior, SchemaFingerprint, SchemaNamedType, SchemaRecord, SchemaSet, Value};
+use crate::{DataObjectInfo, DataSet, DataSetDiff, DataSetDiffSet, EditContextKey, HashMap, HashMapKeys, HashSet, HashSetIter, NullOverride, ObjectId, ObjectLocation, OverrideBehavior, SchemaFingerprint, SchemaNamedType, SchemaRecord, SchemaSet, Value};
 
 //TODO: Delete unused property data when path ancestor is null or in replace mode
 
@@ -41,8 +41,8 @@ pub struct EditContext {
 
     // We track locations separately because if an object is deleted, we don't know what location it
     // was stored at
-    pub(crate) modified_objects: HashSet<ObjectId>,
-    pub(crate) modified_locations: HashSet<ObjectLocation>,
+    modified_objects: HashSet<ObjectId>,
+    modified_locations: HashSet<ObjectLocation>,
 }
 
 impl EditContext {
@@ -98,6 +98,49 @@ impl EditContext {
         object_id: ObjectId,
     ) -> bool {
         self.modified_objects.contains(&object_id)
+    }
+
+    pub fn modified_objects(&self) -> &HashSet<ObjectId> {
+        &self.modified_objects
+    }
+
+    pub fn modified_locations(&self) -> &HashSet<ObjectLocation> {
+        &self.modified_locations
+    }
+
+    pub fn clear_object_modified_flag(&mut self, object_id: ObjectId) {
+        self.modified_objects.remove(&object_id);
+    }
+
+    pub fn clear_location_modified_flag(&mut self, object_location: &ObjectLocation) {
+        self.modified_locations.remove(object_location);
+    }
+
+    pub fn take_modified_objects_and_locations(&mut self) -> (HashSet<ObjectId>, HashSet<ObjectLocation>) {
+        let mut modified_objects = HashSet::default();
+        std::mem::swap(&mut modified_objects, &mut self.modified_objects);
+
+        let mut modified_locations = HashSet::default();
+        std::mem::swap(&mut modified_locations, &mut self.modified_locations);
+
+        (modified_objects, modified_locations)
+    }
+
+    pub fn apply_diff(
+        &mut self,
+        diff: &DataSetDiff,
+        modified_objects: &HashSet<ObjectId>,
+        modified_locations: &HashSet<ObjectLocation>,
+    ) {
+        diff.apply(&mut self.data_set, &self.schema_set);
+
+        // Marks the objects as changed
+        self.modified_objects.extend(modified_objects);
+        for modified_location in modified_locations {
+            if !self.modified_locations.contains(modified_location) {
+                self.modified_locations.insert(modified_location.clone());
+            }
+        }
     }
 
     pub fn new(

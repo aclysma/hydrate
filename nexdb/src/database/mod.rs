@@ -14,6 +14,7 @@ mod schema_set;
 pub use schema_set::SchemaSet;
 
 mod diff;
+pub use diff::DataSetDiff;
 pub use diff::DataSetDiffSet;
 
 #[cfg(test)]

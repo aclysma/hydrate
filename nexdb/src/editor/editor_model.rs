@@ -49,7 +49,7 @@ impl EditorModel {
 
     pub fn any_edit_context_has_unsaved_changes(&self) -> bool {
         for (key, context) in &self.edit_contexts {
-            if !context.has_changes() {
+            if context.has_changes() {
                 return true;
             }
         }
@@ -90,31 +90,16 @@ impl EditorModel {
         let mut loaded_locations = HashSet::default();
         let fs = FileSystemDataSource::new(root_path.clone(), mount_path, root_edit_context, &mut loaded_objects, &mut loaded_locations);
         for loaded_object in loaded_objects {
-            root_edit_context.modified_objects.remove(&loaded_object);
+            root_edit_context.clear_object_modified_flag(loaded_object);
         }
         for loaded_location in loaded_locations {
-            root_edit_context.modified_locations.remove(&loaded_location);
+            root_edit_context.clear_location_modified_flag(&loaded_location);
         }
 
         let object_source_id = fs.object_source_id();
         self.data_sources.insert(object_source_id, fs);
         object_source_id
     }
-
-    // fn find_unsaved_paths_in_root_context(&self) -> HashSet<ObjectPath> {
-    //     let root_edit_context = self.edit_contexts.get(self.root_edit_context_key).unwrap();
-    //     let modified_objects =  &root_edit_context.modified_locations;
-    //
-    //     let mut dirty_locations: HashSet<ObjectPath> = Default::default();
-    //
-    //     // for modified_object in modified_objects {
-    //     //     let object_info = root_edit_context.objects().get(modified_object).unwrap();
-    //     //     let location = object_info.object_location().clone();
-    //     //     dirty_locations.insert(location.path().clone());
-    //     // }
-    //
-    //     dirty_locations
-    // }
 
     pub fn save_root_edit_context(&mut self) {
         //
@@ -126,17 +111,19 @@ impl EditorModel {
         //
         // Take the contents of the modified object list, leaving the edit context with a cleared list
         //
-        let mut modified_objects = HashSet::default();
-        std::mem::swap(&mut modified_objects, &mut root_edit_context.modified_objects);
+        let (modified_objects, modified_locations) = root_edit_context.take_modified_objects_and_locations();
 
         //
         // Build a list of locations (i.e. files) we need to save
         //
         let mut locations_to_save = HashMap::default();
-        for modified_object in modified_objects {
-            let object_info = root_edit_context.objects().get(&modified_object).unwrap();
-            let location = object_info.object_location().clone();
-            locations_to_save.insert(location, Vec::default());
+        // for modified_object in modified_objects {
+        //     let object_info = root_edit_context.objects().get(&modified_object).unwrap();
+        //     let location = object_info.object_location().clone();
+        //     locations_to_save.insert(location, Vec::default());
+        // }
+        for modified_location in modified_locations {
+            locations_to_save.insert(modified_location, Vec::default());
         }
 
         //
@@ -171,21 +158,23 @@ impl EditorModel {
         //
         // Take the contents of the modified object list, leaving the edit context with a cleared list
         //
-        let mut modified_objects = HashSet::default();
-        std::mem::swap(&mut modified_objects, &mut root_edit_context.modified_objects);
+        let (modified_objects, modified_locations) = root_edit_context.take_modified_objects_and_locations();
 
         //
         // Build a list of locations (i.e. files) we need to revert
         //
         let mut locations_to_revert = HashMap::default();
-        for modified_object in modified_objects {
-            let object_info = root_edit_context.objects().get(&modified_object).unwrap();
-            let location = object_info.object_location().clone();
-            locations_to_revert.insert(location, Vec::default());
+        // for modified_object in modified_objects {
+        //     let object_info = root_edit_context.objects().get(&modified_object).unwrap();
+        //     let location = object_info.object_location().clone();
+        //     locations_to_revert.insert(location, Vec::default());
+        // }
+        for modified_location in modified_locations {
+            locations_to_revert.insert(modified_location, Vec::default());
         }
 
         //
-        // Build a list of object IDs that need to be reverted (including deleting new objects
+        // Build a list of object IDs that need to be reverted (including deleting new objects)
         //
         for (object_id, object_info) in root_edit_context.objects() {
             let location = object_info.object_location();
@@ -260,8 +249,8 @@ impl EditorModel {
         assert_ne!(edit_context, self.root_edit_context_key);
         let [root_context, context_to_flush] = self.edit_contexts.get_disjoint_mut([self.root_edit_context_key, edit_context]).unwrap();
 
-        for &object_id in &context_to_flush.modified_objects {
-            root_context.data_set.copy_from(&mut context_to_flush.data_set, object_id);
+        for &object_id in context_to_flush.modified_objects() {
+            root_context.data_set.copy_from(&context_to_flush.data_set, object_id);
         }
 
         context_to_flush.clear_change_tracking();
@@ -282,12 +271,13 @@ impl EditorModel {
 
     pub fn refresh_location_tree(&mut self) {
         let mut all_locations = HashSet::default();
-        for (object_id, info) in &self.edit_contexts.get(self.root_edit_context_key).unwrap().data_set.objects {
+        let root_edit_context = self.edit_contexts.get(self.root_edit_context_key).unwrap();
+        for (object_id, info) in &root_edit_context.data_set.objects {
             //let path = info.object_location.path();
             all_locations.insert(info.object_location.clone());
         }
 
-        let unsaved_locations = &self.root_edit_context().modified_locations;
+        let unsaved_locations = root_edit_context.modified_locations();
         self.location_tree = LocationTree::build(&all_locations, unsaved_locations);
     }
 

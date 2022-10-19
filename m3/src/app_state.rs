@@ -149,7 +149,7 @@ impl AppState {
                 QueuedActions::Quit => {
                     self.db_state.editor_model.commit_all_pending_undo_contexts();
                     if self.db_state.editor_model.any_edit_context_has_unsaved_changes() {
-                        self.try_set_modal_action(ConfirmQuitWithoutSavingModal::default());
+                        self.try_set_modal_action(ConfirmQuitWithoutSavingModal::new(&self.db_state.editor_model));
                     } else {
                         self.ready_to_quit = true;
                     }

@@ -1,12 +1,25 @@
-use imgui::PopupModal;
+use imgui::{im_str, PopupModal};
+use nexdb::{EditorModel, HashSet, ObjectId, ObjectLocation};
+use nexdb::edit_context::EditContext;
 use crate::app_state::{ActionQueueSender, ModalAction, ModalActionControlFlow};
 use crate::db_state::DbState;
 use crate::QueuedActions;
 use crate::ui_state::UiState;
 
-#[derive(Default)]
 pub struct ConfirmQuitWithoutSavingModal {
-    finished_first_draw: bool
+    finished_first_draw: bool,
+    unsaved_objects: HashSet<ObjectId>,
+    unsaved_locations: HashSet<ObjectLocation>,
+}
+
+impl ConfirmQuitWithoutSavingModal {
+    pub fn new(model: &EditorModel) -> Self {
+        ConfirmQuitWithoutSavingModal {
+            finished_first_draw: false,
+            unsaved_objects: model.root_edit_context().modified_objects().clone(),
+            unsaved_locations: model.root_edit_context().modified_locations().clone(),
+        }
+    }
 }
 
 impl ModalAction for ConfirmQuitWithoutSavingModal {
@@ -24,6 +37,19 @@ impl ModalAction for ConfirmQuitWithoutSavingModal {
 
         let result = PopupModal::new(imgui::im_str!("ConfirmSaveQuit")).build(ui, || {
             ui.text("Are you sure you want to quit? Unsaved changes will be lost.");
+
+
+            imgui::ListBox::new(im_str!("##unsaved_objects")).build(ui, || {
+                for object_id in &self.unsaved_objects {
+                    ui.text(im_str!("{}", object_id.as_uuid()));
+                }
+            });
+
+            imgui::ListBox::new(im_str!("##unsaved_locations")).build(ui, || {
+                for location in &self.unsaved_locations {
+                    ui.text(location.path().as_string());
+                }
+            });
 
             if ui.button(imgui::im_str!("Save Changes")) {
                 ui.close_current_popup();

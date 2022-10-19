@@ -70,10 +70,7 @@ impl UndoStack {
                 let edit_context = edit_contexts.get_mut(current_step.edit_context_key).unwrap();
                 // We don't want anything being written to the undo context at this point, since we're using it
                 edit_context.cancel_pending_undo_context();
-                let schema_set = edit_context.schema_set().clone();
-                current_step.diff_set.revert_diff.apply(&mut edit_context.data_set, &schema_set);
-                // Marks the objects as changed
-                current_step.diff_set.revert_diff.get_modified_objects(&mut edit_context.modified_objects);
+                edit_context.apply_diff(&current_step.diff_set.revert_diff, &current_step.diff_set.modified_objects, &current_step.diff_set.modified_locations);
                 self.current_undo_index -= 1;
             }
         }
@@ -93,10 +90,7 @@ impl UndoStack {
             let edit_context = edit_contexts.get_mut(current_step.edit_context_key).unwrap();
             // We don't want anything being written to the undo context at this point, since we're using it
             edit_context.cancel_pending_undo_context();
-            let schema_set = edit_context.schema_set().clone();
-            current_step.diff_set.apply_diff.apply(&mut edit_context.data_set, &schema_set);
-            // Marks object as changed
-            current_step.diff_set.apply_diff.get_modified_objects(&mut edit_context.modified_objects);
+            edit_context.apply_diff(&current_step.diff_set.apply_diff, &current_step.diff_set.modified_objects, &current_step.diff_set.modified_locations);
             self.current_undo_index += 1;
         }
     }

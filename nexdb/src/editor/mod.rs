@@ -1,5 +1,8 @@
-mod file_system;
-pub use file_system::*;
+mod file_system_tree;
+pub use file_system_tree::*;
+
+mod file_system_object;
+pub use file_system_object::*;
 
 pub mod edit_context;
 

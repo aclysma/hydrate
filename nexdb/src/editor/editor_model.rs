@@ -1,6 +1,6 @@
 use crate::edit_context::EditContext;
 use crate::editor::undo::UndoStack;
-use crate::{DataSet, FileSystemDataSource, HashMap, HashSet, LocationTree, LocationTreeNode, ObjectId, ObjectLocation, ObjectPath, ObjectSourceId, SchemaSet};
+use crate::{DataSet, FileSystemObjectDataSource, FileSystemTreeDataSource, HashMap, HashSet, LocationTree, LocationTreeNode, ObjectId, ObjectLocation, ObjectPath, ObjectSourceId, SchemaSet};
 use slotmap::DenseSlotMap;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -12,7 +12,7 @@ pub struct EditorModel {
     root_edit_context_key: EditContextKey,
     edit_contexts: DenseSlotMap<EditContextKey, EditContext>,
     //TODO: slot_map?
-    data_sources: HashMap<ObjectSourceId, FileSystemDataSource>,
+    data_sources: HashMap<ObjectSourceId, FileSystemTreeDataSource>,
     location_tree: LocationTree,
 }
 
@@ -72,11 +72,11 @@ impl EditorModel {
     pub fn file_system_data_source(
         &mut self,
         object_source_id: ObjectSourceId,
-    ) -> Option<&FileSystemDataSource> {
+    ) -> Option<&FileSystemTreeDataSource> {
         self.data_sources.get(&object_source_id)
     }
 
-    pub fn add_file_system_source<RootPathT: Into<PathBuf>>(
+    pub fn add_file_system_tree_source<RootPathT: Into<PathBuf>>(
         &mut self,
         root_path: RootPathT,
         mount_path: ObjectPath,
@@ -88,7 +88,7 @@ impl EditorModel {
         root_edit_context.commit_pending_undo_context();
         let mut loaded_objects = HashSet::default();
         let mut loaded_locations = HashSet::default();
-        let fs = FileSystemDataSource::new(root_path.clone(), mount_path, root_edit_context, &mut loaded_objects, &mut loaded_locations);
+        let fs = FileSystemTreeDataSource::new(root_path.clone(), mount_path, root_edit_context, &mut loaded_objects, &mut loaded_locations);
         for loaded_object in loaded_objects {
             root_edit_context.clear_object_modified_flag(loaded_object);
         }
@@ -98,6 +98,31 @@ impl EditorModel {
 
         let object_source_id = fs.object_source_id();
         self.data_sources.insert(object_source_id, fs);
+        object_source_id
+    }
+
+    pub fn add_file_system_object_source<RootPathT: Into<PathBuf>>(
+        &mut self,
+        root_path: RootPathT,
+        mount_path: ObjectPath,
+    ) -> ObjectSourceId {
+        let root_edit_context = self.root_edit_context_mut();
+        let root_path = root_path.into();
+        println!("MOUNT PATH {:?}", mount_path);
+
+        root_edit_context.commit_pending_undo_context();
+        let mut loaded_objects = HashSet::default();
+        let mut loaded_locations = HashSet::default();
+        let fs = FileSystemObjectDataSource::new(root_path.clone(), mount_path, root_edit_context, &mut loaded_objects, &mut loaded_locations);
+        for loaded_object in loaded_objects {
+            root_edit_context.clear_object_modified_flag(loaded_object);
+        }
+        for loaded_location in loaded_locations {
+            root_edit_context.clear_location_modified_flag(&loaded_location);
+        }
+
+        let object_source_id = fs.object_source_id();
+        //self.data_sources.insert(object_source_id, fs);
         object_source_id
     }
 
@@ -141,7 +166,7 @@ impl EditorModel {
         //
         for (location, object_ids) in locations_to_save {
             let data =
-                crate::data_storage::DataStorageJsonSingleFile::store_string(root_edit_context, &object_ids);
+                crate::data_storage::json::TreeSourceDataStorageJsonSingleFile::store_objects_to_string(root_edit_context, &object_ids);
             let source = self.data_sources.get(&location.source()).unwrap();
             let file_path = source.location_to_file_system_path(&location).unwrap();
             std::fs::write(file_path, data).unwrap();
@@ -201,7 +226,7 @@ impl EditorModel {
             let file_path = source.location_to_file_system_path(&location).unwrap();
             let data = std::fs::read_to_string(file_path).unwrap();
 
-            crate::data_storage::DataStorageJsonSingleFile::load_string(root_edit_context, location, &data);
+            crate::data_storage::json::TreeSourceDataStorageJsonSingleFile::load_objects_from_string(root_edit_context, location, &data);
 
             //let source = self.data_sources.get(&location.source()).unwrap();
             //std::fs::write(file_path, data).unwrap();

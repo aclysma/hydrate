@@ -13,8 +13,12 @@ impl DbState {
         PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/data/schema"))
     }
 
-    fn data_source_path() -> PathBuf {
-        PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/data/data_source"))
+    fn tree_data_source_path() -> PathBuf {
+        PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/data/data_source_tree"))
+    }
+
+    fn object_data_source_path() -> PathBuf {
+        PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/data/data_source_object"))
     }
 
     fn data_file_path() -> PathBuf {
@@ -59,10 +63,15 @@ impl DbState {
         let mut db = DataSet::default();
 
         let mut edit_model = EditorModel::new(schema_set.clone());
-        let objects_source_id =
-            edit_model.add_file_system_source(Self::data_source_path(), Self::mount_path());
+
+        let tree_source_id =
+            edit_model.add_file_system_tree_source(Self::tree_data_source_path(), Self::mount_path());
+
+        let object_source_id =
+            edit_model.add_file_system_object_source(Self::object_data_source_path(), Self::mount_path());
+
         let file_system = edit_model
-            .file_system_data_source(objects_source_id)
+            .file_system_data_source(tree_source_id)
             .unwrap();
 
         let transform_schema_object = schema_set
@@ -169,7 +178,8 @@ impl DbState {
         SchemaCacheSingleFile::load_string(&mut schema_set, &schema_cache_str);
 
         let mut editor_model = EditorModel::new(Arc::new(schema_set));
-        editor_model.add_file_system_source(Self::data_source_path(), Self::mount_path());
+        editor_model.add_file_system_tree_source(Self::tree_data_source_path(), Self::mount_path());
+        editor_model.add_file_system_object_source(Self::object_data_source_path(), Self::mount_path());
         if editor_model.root_edit_context().all_objects().len() == 0 {
             None
         } else {

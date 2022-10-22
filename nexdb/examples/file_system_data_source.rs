@@ -1,4 +1,4 @@
-use nexdb::{FileSystemDataSource, ObjectPath, SchemaCacheSingleFile, SchemaSet, UndoStack};
+use nexdb::{FileSystemTreeDataSource, ObjectPath, SchemaCacheSingleFile, SchemaSet, UndoStack};
 use std::path::PathBuf;
 use std::sync::Arc;
 use nexdb::edit_context::EditContext;
@@ -21,7 +21,7 @@ pub fn main() {
     let undo_stack = UndoStack::default();
     let mut edit_context = EditContext::new(Arc::new(schema_set), &undo_stack);
 
-    let fs = FileSystemDataSource::new(data_source_path, ObjectPath::root(), &mut edit_context);
+    let fs = FileSystemTreeDataSource::new(data_source_path, ObjectPath::root(), &mut edit_context);
 
     println!("file_states {:#?}", fs.file_states());
     for (object_id, object_info) in edit_context.objects() {

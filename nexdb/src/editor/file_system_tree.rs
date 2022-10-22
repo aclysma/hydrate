@@ -138,18 +138,6 @@ impl FileSystemTreeDataSource {
         Some(ObjectLocation::new(object_source_id, virtual_path))
     }
 
-    pub fn file_system_path_to_location(
-        &self,
-        path: &Path,
-    ) -> Option<ObjectLocation> {
-        Self::do_file_system_path_to_location(
-            self.object_source_id,
-            &self.mount_path,
-            &self.file_system_root_path,
-            path,
-        )
-    }
-
     pub fn location_to_file_system_path(
         &self,
         object_location: &ObjectLocation,

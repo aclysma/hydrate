@@ -62,20 +62,6 @@ fn path_to_uuid(root: &Path, file_path: &Path) -> Option<Uuid> {
     u128::from_str_radix(&path_and_name, 16).ok().map(|x| Uuid::from_u128(x))
 }
 
-#[derive(Debug)]
-pub struct FileState {
-    // Absolute path to the file
-    path: PathBuf,
-    size_in_bytes: u64,
-    last_modified_timestamp: std::time::SystemTime,
-}
-
-impl FileState {
-    pub fn path(&self) -> &Path {
-        &self.path
-    }
-}
-
 pub struct FileSystemObjectDataSource {
     object_source_id: ObjectSourceId,
     // Always ends with exactly one slash
@@ -107,27 +93,33 @@ fn find_dir_files(root_path: &Path) -> HashMap<Uuid, DirectoryFile> {
     directories
 }
 
-fn find_asset_files(root_path: &Path) {
+fn find_asset_files(
+    edit_context: &mut EditContext,
+    root_path: &Path,
+    mount_path: &ObjectPath,
+    object_source_id: ObjectSourceId,
+    dir_uuid_to_path: &HashMap::<Uuid, ObjectPath>,
+) {
     let walker = globwalk::GlobWalkerBuilder::from_patterns(root_path, &["**.af"])
         .file_type(globwalk::FileType::FILE)
         .build()
         .unwrap();
 
-
-
     for file in walker {
         if let Ok(file) = file {
             println!("asset file {:?}", file);
             let file_uuid = path_to_uuid(root_path, file.path()).unwrap();
+            let object_location = ObjectLocation::new(object_source_id, ObjectPath::new("db:/"));
             let contents = std::fs::read_to_string(file.path()).unwrap();
-            //nexdb::
+            crate::data_storage::json::ObjectSourceDataStorageJsonObject::load_objects_from_string(edit_context, file_uuid, &contents, |parent_uuid| {
+                let path = if let Some(parent_uuid) = parent_uuid {
+                    dir_uuid_to_path.get(&parent_uuid)
+                } else {
+                    Some(mount_path)
+                };
 
-            // let objects = crate::data_storage::json::DataStorageJsonSingleFile::load_string(
-            //     edit_context,
-            //     object_location.clone(),
-            //     &contents,
-            // );
-
+                ObjectLocation::new(object_source_id, path.unwrap_or(mount_path).clone())
+            });
         }
     }
 }
@@ -160,217 +152,49 @@ impl FileSystemObjectDataSource {
             mount_path
         );
 
-        find_dir_files(&file_system_root_path);
-        find_asset_files(&file_system_root_path);
+        let dir_files = find_dir_files(&file_system_root_path);
 
-        /*
-        {
+        let mut dir_uuid_to_path = HashMap::<Uuid, ObjectPath>::default();
+        for (uuid, dir_file) in &dir_files {
+            let mut parent_names: Vec<String> = Default::default();
+            parent_names.push(dir_file.name.clone());
 
-        }
-
-        let walker = globwalk::GlobWalkerBuilder::from_patterns(&file_system_root_path, &["**.ta"])
-            .file_type(globwalk::FileType::FILE)
-            .build()
-            .unwrap();
-
-        let walker = globwalk::GlobWalkerBuilder::from_patterns(&file_system_root_path, &["**.ta"])
-            .file_type(globwalk::FileType::FILE)
-            .build()
-            .unwrap();
-
-        let mut file_states: HashMap<PathBuf, FileState> = Default::default();
-
-        for file_path in walker {
-            let file = file_path.unwrap();
-            let metadata = std::fs::metadata(file.path()).unwrap();
-            let last_modified_timestamp = metadata.modified().unwrap();
-            let size_in_bytes = metadata.len();
-
-            let file_state = FileState {
-                path: file.path().to_path_buf(),
-                last_modified_timestamp,
-                size_in_bytes,
-            };
-
-            file_states.insert(file.path().to_path_buf(), file_state);
-        }
-
-        for (file_path, _) in &file_states {
-            log::debug!("file state: {:?}", file_path);
-            if let Some(extension) = file_path.extension() {
-                if extension == OsStr::new("af") {
-                    // asset file
-                    if let Some(object_id) = path_to_uuid(&file_system_root_path, file_path).map(|x| ObjectId(x.as_u128())) {
-                        log::debug!("Found file uuid {}", object_id.as_uuid());
-                    } else {
-                        // Warn file unexpected format?
-                        continue;
-                    }
-
-
-                    //let location = ObjectLocation::new(object_source_id, "");
-
-                    let contents = std::fs::read_to_string(file_path).unwrap();
-
-
-                    /*
-                    //TODO: Support mounting to a logical directory?
-                    let object_location = Self::do_file_system_path_to_location(
-                        object_source_id,
-                        &mount_path,
-                        &file_system_root_path,
-                        file_path,
-                    )
-                        .unwrap();
-                    let contents = std::fs::read_to_string(file_path).unwrap();
-
-                    let objects = crate::data_storage::json::DataStorageJsonSingleFile::load_string(
-                        edit_context,
-                        object_location.clone(),
-                        &contents,
-                    );
-                    // for object in objects {
-                    //     object_locations.insert(object, file_path.to_path_buf());
-                    // }
-
-                    log::info!("Loaded {} objects from {:?}", objects.len(), file_path);
-                    for object in objects {
-                        loaded_objects.insert(object);
-                    }
-
-                    loaded_locations.insert(object_location);
-                    */
+            let mut df = dir_file;
+            while let Some(parent_dir) = df.parent_dir {
+                if let Some(parent_dir_file) = dir_files.get(&parent_dir) {
+                    parent_names.push(parent_dir_file.name.clone());
+                    df = parent_dir_file;
+                } else {
+                    //TODO: Could not find parent, how do we handle?
+                    break;
                 }
             }
+
+            let mut path = mount_path.clone();
+            for parent_name in parent_names.iter().rev() {
+                path = path.join(parent_name);
+            }
+
+            dir_uuid_to_path.insert(*uuid, path);
         }
-*/
+
+        println!("dir_uuid_to_path {:?}", dir_uuid_to_path);
+
+
+
+        find_asset_files(edit_context, &file_system_root_path, &mount_path, object_source_id, &dir_uuid_to_path);
+
         FileSystemObjectDataSource {
             object_source_id,
             mount_path,
             file_system_root_path: file_system_root_path.into(),
-            //file_states,
-            //object_locations
         }
     }
 
-    fn file_system_path_to_object_id(
-        object_source_id: ObjectSourceId,
-        mount_path: &ObjectPath,
-        file_system_root_path: &Path,
-        file_path: &Path,
-    ) -> Option<ObjectId> {
-
-        path_to_uuid(file_system_root_path, file_path).map(|x| ObjectId(x.as_u128()))
-        // if let Some(uuid) = uuid {
-        //     let path = uuid_to_path(file_system_root_path, uuid);
-        //     println!("Found file with UUID {}, regenerated path {:?}", uuid, path);
-        // }
-
-/*
-        //let name = file_path.file_stem()?.to_str()?;
-        println!("db file path: {:?}", file_path);
-
-
-        let relative_path_from_root = file_path
-            .strip_prefix(file_system_root_path)
-            .ok()?;
-
-
-        let components: Vec<_> = relative_path_from_root.components().collect();
-        let mut path_and_name = String::new();
-
-        if components.len() > 1 {
-            for component in components[0..components.len()-1].iter() {
-                path_and_name.push_str(&component.as_os_str().to_str().unwrap());
-            }
-        }
-
-        if let Some(last_component) = components.last() {
-            let last_str = last_component.as_os_str().to_str().unwrap();
-            if let Some(extension_begin) = last_str.rfind('.') {
-                //str = last_str.strip_suffix(&str[extension_begin..]).unwrap().to_string();
-                path_and_name.push_str(last_str.strip_suffix(&last_str[extension_begin..]).unwrap());
-            } else {
-                path_and_name.push_str(last_str);
-            }
-
-            //last.as_os_str().to_str().unwrap().strip_suffix()
-        }
-
-        //path_and_name.push_str(name);
-        println!("path_and_name {}", path_and_name);
-
-        if let Some(converted) = u128::from_str_radix(&path_and_name, 16).ok() {
-            let guid = Uuid::from_u128(converted);
-            println!("UUID is {}", guid);
-            let mut buffer = [0; 32];
-            let encoded = guid.to_simple().encode_lower(&mut buffer).to_string();
-            println!("encoded {}", encoded);
-            let new_path = file_system_root_path.join(&encoded[0..1]).join(&encoded[1..3]).join(&encoded[3..32]);
-            println!("path {}", new_path.as_os_str().to_str().unwrap());
-
-        }
-
-
-*/
-
-/*
-
-        let relative_path_from_root = file_path
-            .strip_prefix(file_system_root_path)
-            .ok()?
-            .to_str()?;
-
-        let components = relative_path_from_root.split_components();
-        let mut str = String::default();
-        for component in components {
-            str.push_str(component);
-        }
-
-        if let Some(extension_begin) = str.rfind('.') {
-            str = str.strip_suffix(&str[extension_begin..]).unwrap().to_string();
-        }
-*/
-        //println!("db file: {}", str);
-
-        //None
-
-        //Some(ObjectLocation::new(object_source_id, virtual_path))
-    }
-
-    // fn do_file_system_path_to_location(
-    //     object_source_id: ObjectSourceId,
-    //     mount_path: &ObjectPath,
-    //     file_system_root_path: &Path,
-    //     file_path: &Path,
-    // ) -> Option<ObjectLocation> {
-    //     let relative_path_from_root = file_path
-    //         .strip_prefix(file_system_root_path)
-    //         .ok()?
-    //         .to_str()?;
-    //
-    //     let components = mount_path.split_components();
-    //     let mut str = String::default();
-    //     for component in components {
-    //         str.push_str(component);
-    //     }
-    //
-    //
-    //
-    //     Some(ObjectLocation::new(object_source_id, virtual_path))
-    // }
-
-    pub fn file_system_path_to_location(
+    pub fn object_id_to_file_system_path(
         &self,
-        path: &Path,
-    ) -> Option<ObjectLocation> {
-        unimplemented!();
-    }
-
-    pub fn location_to_file_system_path(
-        &self,
-        object_location: &ObjectLocation,
-    ) -> Option<PathBuf> {
-        unimplemented!();
+        object_id: ObjectId,
+    ) -> PathBuf {
+        uuid_to_path(&self.file_system_root_path, object_id.as_uuid())
     }
 }

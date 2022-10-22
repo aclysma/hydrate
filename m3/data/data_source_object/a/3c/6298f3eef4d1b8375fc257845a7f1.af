@@ -5,6 +5,6 @@
     "schema_name": "Vec4",
     "prototype": "b4a84132-f662-42ad-84ce-ee1cf5c4a5bd",
     "properties": {
-        "position.x": 139.0
+        "x": 139.0
     }
 }

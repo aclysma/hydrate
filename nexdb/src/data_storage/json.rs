@@ -1,5 +1,5 @@
 use crate::edit_context::EditContext;
-use crate::{DataObjectInfo, HashMap, HashSet, NullOverride, ObjectId, ObjectLocation, OverrideBehavior, Schema, SchemaFingerprint, SchemaNamedType, Value};
+use crate::{DataObjectInfo, HashMap, HashSet, NullOverride, ObjectId, ObjectLocation, ObjectPath, ObjectSourceId, OverrideBehavior, Schema, SchemaFingerprint, SchemaNamedType, Value};
 use serde::{Deserialize, Serialize};
 use std::str::FromStr;
 use serde_json::json;
@@ -431,15 +431,12 @@ fn restore_from_json_properties(
     object_id: Uuid,
     schema: Uuid,
     schema_name: String,
-    prototype: Option<ObjectReference>,
+    prototype: Option<Uuid>,
     json_properties: HashMap<String, serde_json::Value>
 ) -> ObjectId {
     let object_id = ObjectId(object_id.as_u128());
     let schema_fingerprint = SchemaFingerprint(schema.as_u128());
-
-    let prototype = prototype
-        .as_ref()
-        .map(|x| ObjectId(x.as_uuid().as_u128()));
+    let prototype = prototype.map(|x| ObjectId(x.as_u128()));
 
     let named_type = edit_context
         .find_named_type_by_fingerprint(schema_fingerprint)
@@ -628,7 +625,11 @@ impl TreeSourceDataStorageJsonSingleFile {
 
         for stored_object in reloaded.objects {
 
-            let object_id = restore_from_json_properties(edit_context, object_location.clone(), stored_object.object_id, stored_object.schema, stored_object.schema_name, stored_object.prototype, stored_object.properties);
+            // let prototype = prototype
+            //     .as_ref()
+            //     .map(|x| ObjectId(x.as_uuid().as_u128()));
+            let prototype = stored_object.prototype.map(|x| x.as_uuid());
+            let object_id = restore_from_json_properties(edit_context, object_location.clone(), stored_object.object_id, stored_object.schema, stored_object.schema_name, prototype, stored_object.properties);
             loaded_objects.push(object_id);
         }
 
@@ -638,24 +639,36 @@ impl TreeSourceDataStorageJsonSingleFile {
 
 
 #[derive(Debug, Serialize, Deserialize)]
-struct ObjectSourceDataStorageJsonObject {
+pub struct ObjectSourceDataStorageJsonObject {
     name: String,
     parent_dir: Option<Uuid>,
     schema: Uuid,
     schema_name: String,
-    prototype: Option<ObjectReference>,
+    prototype: Option<Uuid>,
     #[serde(serialize_with = "ordered_map")]
     properties: HashMap<String, serde_json::Value>,
 }
 
 impl ObjectSourceDataStorageJsonObject {
-    pub fn load_string_object_source(
+    pub fn load_objects_from_string<F: FnOnce(Option<Uuid>) -> ObjectLocation>(
         edit_context: &mut EditContext,
         object_id: Uuid,
-        object_location: ObjectLocation,
+        //object_location: ObjectLocation,
+        //object_source_id: ObjectSourceId,
         json: &str,
+        parent_dir_to_location: F
+        //dir_uuid_to_path: &HashMap::<Uuid, ObjectPath>,
     ) {
         let stored_object: ObjectSourceDataStorageJsonObject = serde_json::from_str(json).unwrap();
-        restore_from_json_properties(edit_context, object_location.clone(), object_id, stored_object.schema, stored_object.schema_name, stored_object.prototype, stored_object.properties);
+        // let path = if let Some(parent_dir) = stored_object.parent_dir {
+        //     dir_uuid_to_path: &HashMap::<Uuid, ObjectPath>,
+        // } else {
+        //
+        // }
+
+        let object_location = (parent_dir_to_location)(stored_object.parent_dir);
+
+        //let location = ObjectLocation::new(object_source_id, path);
+        restore_from_json_properties(edit_context, object_location, object_id, stored_object.schema, stored_object.schema_name, stored_object.prototype, stored_object.properties);
     }
 }

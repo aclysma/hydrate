@@ -1,4 +1,4 @@
-use nexdb::{DataSet, EditorModel, ObjectPath, SchemaCacheSingleFile, SchemaSet};
+use nexdb::{DataSet, EditorModel, ObjectLocation, ObjectPath, SchemaCacheSingleFile, SchemaSet};
 use std::path::PathBuf;
 use std::sync::Arc;
 
@@ -83,16 +83,15 @@ impl DbState {
 
         //let data_path = Self::data_file_path()
 
+        let object_location =
+            ObjectLocation::new(file_system.object_source_id(), file_system.mount_path().join("data_file.nxt"));
+
         let prototype_obj = db.new_object(
-            file_system
-                .file_system_path_to_location(&Self::data_file_path())
-                .unwrap(),
+            object_location.clone(),
             &transform_schema_object,
         );
         let instance_obj = db.new_object_from_prototype(
-            file_system
-                .file_system_path_to_location(&Self::data_file_path())
-                .unwrap(),
+            object_location,
             prototype_obj,
         );
 

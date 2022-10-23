@@ -101,7 +101,6 @@ fn load_asset_files(
         if let Ok(file) = file {
             println!("asset file {:?}", file);
             let file_uuid = path_to_uuid(root_path, file.path()).unwrap();
-            let object_location = ObjectLocation::new(object_source_id, ObjectPath::new("db:/"));
             let contents = std::fs::read_to_string(file.path()).unwrap();
             crate::data_storage::json::ObjectSourceDataStorageJsonObject::load_object_from_string(edit_context, file_uuid, &contents, |parent_uuid| {
                 let path = if let Some(parent_uuid) = parent_uuid {
@@ -113,6 +112,7 @@ fn load_asset_files(
                 ObjectLocation::new(object_source_id, path.unwrap_or(mount_path).clone())
             });
             let object_id = ObjectId(file_uuid.as_u128());
+            let object_location = edit_context.objects().get(&object_id).unwrap().object_location.clone();
             edit_context.clear_object_modified_flag(object_id);
             edit_context.clear_location_modified_flag(&object_location);
             all_object_ids_on_disk.insert(object_id);

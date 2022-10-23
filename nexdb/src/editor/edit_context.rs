@@ -3,7 +3,7 @@ use std::sync::Arc;
 use uuid::Uuid;
 
 use crate::editor::undo::{CompletedUndoContextMessage, UndoContext, UndoStack};
-use crate::{DataObjectInfo, DataSet, DataSetDiff, DataSetDiffSet, EditContextKey, EndContextBehavior, HashMap, HashMapKeys, HashSet, HashSetIter, NullOverride, ObjectId, ObjectLocation, OverrideBehavior, SchemaFingerprint, SchemaNamedType, SchemaRecord, SchemaSet, Value};
+use crate::{DataObjectInfo, DataSet, DataSetDiff, DataSetDiffSet, EditContextKey, EndContextBehavior, HashMap, HashMapKeys, HashSet, HashSetIter, NullOverride, ObjectId, ObjectLocation, ObjectSourceId, OverrideBehavior, SchemaFingerprint, SchemaNamedType, SchemaRecord, SchemaSet, Value};
 
 //TODO: Delete unused property data when path ancestor is null or in replace mode
 

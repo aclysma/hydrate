@@ -99,7 +99,7 @@ impl DataSource for FileSystemTreeDataSource {
         //
         for (location, object_ids) in locations_to_save {
             if object_ids.is_empty() {
-                //TODO: Handle rewriting files that had objects removed?
+                //TODO: Handle rewriting files that had all objects removed?
                 // delete the file
             } else {
                 let data =
@@ -152,8 +152,6 @@ impl DataSource for FileSystemTreeDataSource {
             //let source = self.data_sources.get(&location.source()).unwrap();
             //std::fs::write(file_path, data).unwrap();
         }
-
-
     }
 }
 

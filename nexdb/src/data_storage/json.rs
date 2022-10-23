@@ -650,7 +650,7 @@ pub struct ObjectSourceDataStorageJsonObject {
 }
 
 impl ObjectSourceDataStorageJsonObject {
-    pub fn load_objects_from_string<F: FnOnce(Option<Uuid>) -> ObjectLocation>(
+    pub fn load_object_from_string<F: FnOnce(Option<Uuid>) -> ObjectLocation>(
         edit_context: &mut EditContext,
         object_id: Uuid,
         //object_location: ObjectLocation,
@@ -670,5 +670,36 @@ impl ObjectSourceDataStorageJsonObject {
 
         //let location = ObjectLocation::new(object_source_id, path);
         restore_from_json_properties(edit_context, object_location, object_id, stored_object.schema, stored_object.schema_name, stored_object.prototype, stored_object.properties);
+    }
+
+    pub fn save_object_to_string(
+        edit_context: &EditContext,
+        object_id: ObjectId,
+        parent_dir: Option<Uuid>,
+    ) -> String {
+        let obj = edit_context.objects().get(&object_id).unwrap();
+        let properties = store_object_to_json_properties(obj);
+        let mut stored_object = ObjectSourceDataStorageJsonObject {
+            name: "".to_string(),
+            parent_dir,
+            schema: obj.schema.fingerprint().as_uuid(),
+            schema_name: obj.schema.name().to_string(),
+            prototype: obj
+                .prototype
+                .map(|x| Uuid::from_u128(x.0)),
+            properties,
+        };
+
+        serde_json::to_string_pretty(&stored_object).unwrap()
+
+
+        // name: String,
+        // parent_dir: Option<Uuid>,
+        // schema: Uuid,
+        // schema_name: String,
+        // prototype: Option<Uuid>,
+        // #[serde(serialize_with = "ordered_map")]
+        // properties: HashMap<String, serde_json::Value>,
+
     }
 }

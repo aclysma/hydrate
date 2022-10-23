@@ -120,6 +120,8 @@ fn find_asset_files(
 
                 ObjectLocation::new(object_source_id, path.unwrap_or(mount_path).clone())
             });
+            edit_context.clear_object_modified_flag(ObjectId(file_uuid.as_u128()));
+            edit_context.clear_location_modified_flag(&object_location);
         }
     }
 }
@@ -137,8 +139,6 @@ impl FileSystemObjectDataSource {
         file_system_root_path: RootPathT,
         mount_path: ObjectPath,
         edit_context: &mut EditContext,
-        loaded_objects: &mut HashSet<ObjectId>,
-        loaded_locations: &mut HashSet<ObjectLocation>,
     ) -> Self {
         // Mount path should end in exactly one slash (we append paths to the end of it)
         assert!(mount_path.as_string().ends_with("/"));
@@ -152,7 +152,15 @@ impl FileSystemObjectDataSource {
             mount_path
         );
 
-        let dir_files = find_dir_files(&file_system_root_path);
+        FileSystemObjectDataSource {
+            object_source_id,
+            mount_path,
+            file_system_root_path: file_system_root_path.into(),
+        }
+    }
+
+    pub fn reload_all(&mut self, edit_context: &mut EditContext) {
+        let dir_files = find_dir_files(&self.file_system_root_path);
 
         let mut dir_uuid_to_path = HashMap::<Uuid, ObjectPath>::default();
         for (uuid, dir_file) in &dir_files {
@@ -170,7 +178,7 @@ impl FileSystemObjectDataSource {
                 }
             }
 
-            let mut path = mount_path.clone();
+            let mut path = self.mount_path.clone();
             for parent_name in parent_names.iter().rev() {
                 path = path.join(parent_name);
             }
@@ -180,15 +188,7 @@ impl FileSystemObjectDataSource {
 
         println!("dir_uuid_to_path {:?}", dir_uuid_to_path);
 
-
-
-        find_asset_files(edit_context, &file_system_root_path, &mount_path, object_source_id, &dir_uuid_to_path);
-
-        FileSystemObjectDataSource {
-            object_source_id,
-            mount_path,
-            file_system_root_path: file_system_root_path.into(),
-        }
+        find_asset_files(edit_context, &self.file_system_root_path, &self.mount_path, self.object_source_id, &dir_uuid_to_path);
     }
 
     pub fn object_id_to_file_system_path(

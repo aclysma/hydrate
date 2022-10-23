@@ -65,14 +65,14 @@ impl DbState {
         let mut edit_model = EditorModel::new(schema_set.clone());
 
         let tree_source_id =
-            edit_model.add_file_system_tree_source(Self::tree_data_source_path(), Self::mount_path());
+            edit_model.add_file_system_tree_source(Self::tree_data_source_path(), Self::mount_path().join("tree"));
 
-        let object_source_id =
-            edit_model.add_file_system_object_source(Self::object_data_source_path(), Self::mount_path());
+        //let object_source_id =
+        //    edit_model.add_file_system_object_source(Self::object_data_source_path(), Self::mount_path().join("objects"));
 
-        let file_system = edit_model
-            .file_system_data_source(tree_source_id)
-            .unwrap();
+        // let file_system = edit_model
+        //     .file_system_treedata_source(tree_source_id)
+        //     .unwrap();
 
         let transform_schema_object = schema_set
             .find_named_type("Transform")
@@ -84,7 +84,7 @@ impl DbState {
         //let data_path = Self::data_file_path()
 
         let object_location =
-            ObjectLocation::new(file_system.object_source_id(), file_system.mount_path().join("data_file.nxt"));
+            ObjectLocation::new(tree_source_id, Self::mount_path().join("data_file.nxt"));
 
         let prototype_obj = db.new_object(
             object_location.clone(),
@@ -177,8 +177,8 @@ impl DbState {
         SchemaCacheSingleFile::load_string(&mut schema_set, &schema_cache_str);
 
         let mut editor_model = EditorModel::new(Arc::new(schema_set));
-        editor_model.add_file_system_tree_source(Self::tree_data_source_path(), Self::mount_path());
-        editor_model.add_file_system_object_source(Self::object_data_source_path(), Self::mount_path());
+        editor_model.add_file_system_tree_source(Self::tree_data_source_path(), Self::mount_path().join("tree/"));
+        //editor_model.add_file_system_object_source(Self::object_data_source_path(), Self::mount_path().join("objects/"));
         if editor_model.root_edit_context().all_objects().len() == 0 {
             None
         } else {

@@ -1,8 +1,4 @@
-mod file_system_tree;
-pub use file_system_tree::*;
 
-mod file_system_object;
-pub use file_system_object::*;
 
 pub mod edit_context;
 
@@ -15,3 +11,6 @@ pub use undo::EndContextBehavior;
 
 mod location_tree;
 pub use location_tree::*;
+
+mod data_source;
+pub use data_source::*;

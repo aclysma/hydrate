@@ -1,6 +1,6 @@
 use crate::edit_context::EditContext;
 use crate::editor::undo::UndoStack;
-use crate::{DataSet, FileSystemObjectDataSource, FileSystemTreeDataSource, HashMap, HashSet, LocationTree, LocationTreeNode, ObjectId, ObjectLocation, ObjectPath, ObjectSourceId, SchemaSet};
+use crate::{DataSet, DataSource, FileSystemObjectDataSource, FileSystemTreeDataSource, HashMap, HashSet, LocationTree, LocationTreeNode, ObjectId, ObjectLocation, ObjectPath, ObjectSourceId, SchemaSet};
 use slotmap::DenseSlotMap;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -12,7 +12,7 @@ pub struct EditorModel {
     root_edit_context_key: EditContextKey,
     edit_contexts: DenseSlotMap<EditContextKey, EditContext>,
     //TODO: slot_map?
-    data_sources: HashMap<ObjectSourceId, FileSystemTreeDataSource>,
+    data_sources: HashMap<ObjectSourceId, Box<dyn DataSource>>,
     location_tree: LocationTree,
 }
 
@@ -69,11 +69,11 @@ impl EditorModel {
         self.edit_contexts.get_mut(self.root_edit_context_key).unwrap()
     }
 
-    pub fn file_system_data_source(
+    pub fn data_source(
         &mut self,
         object_source_id: ObjectSourceId,
-    ) -> Option<&FileSystemTreeDataSource> {
-        self.data_sources.get(&object_source_id)
+    ) -> Option<&dyn DataSource> {
+        self.data_sources.get(&object_source_id).map(|x| &**x)
     }
 
     pub fn add_file_system_tree_source<RootPathT: Into<PathBuf>>(
@@ -86,18 +86,11 @@ impl EditorModel {
         println!("MOUNT PATH {:?}", mount_path);
 
         root_edit_context.commit_pending_undo_context();
-        let mut loaded_objects = HashSet::default();
-        let mut loaded_locations = HashSet::default();
-        let fs = FileSystemTreeDataSource::new(root_path.clone(), mount_path, root_edit_context, &mut loaded_objects, &mut loaded_locations);
-        for loaded_object in loaded_objects {
-            root_edit_context.clear_object_modified_flag(loaded_object);
-        }
-        for loaded_location in loaded_locations {
-            root_edit_context.clear_location_modified_flag(&loaded_location);
-        }
-
+        let mut fs = FileSystemTreeDataSource::new(root_path.clone(), mount_path, root_edit_context);
+        fs.reload_all(root_edit_context);
         let object_source_id = fs.object_source_id();
-        self.data_sources.insert(object_source_id, fs);
+        self.data_sources.insert(object_source_id, Box::new(fs));
+
         object_source_id
     }
 
@@ -111,15 +104,9 @@ impl EditorModel {
         println!("MOUNT PATH {:?}", mount_path);
 
         root_edit_context.commit_pending_undo_context();
-        let mut loaded_objects = HashSet::default();
-        let mut loaded_locations = HashSet::default();
-        let fs = FileSystemObjectDataSource::new(root_path.clone(), mount_path, root_edit_context, &mut loaded_objects, &mut loaded_locations);
-        for loaded_object in loaded_objects {
-            root_edit_context.clear_object_modified_flag(loaded_object);
-        }
-        for loaded_location in loaded_locations {
-            root_edit_context.clear_location_modified_flag(&loaded_location);
-        }
+        let mut fs = FileSystemObjectDataSource::new(root_path.clone(), mount_path, root_edit_context);
+        fs.reload_all(root_edit_context);
+
 
         let object_source_id = fs.object_source_id();
         //self.data_sources.insert(object_source_id, fs);
@@ -133,44 +120,53 @@ impl EditorModel {
         let mut root_edit_context = self.edit_contexts.get_mut(self.root_edit_context_key).unwrap();
         root_edit_context.commit_pending_undo_context();
 
-        //
-        // Take the contents of the modified object list, leaving the edit context with a cleared list
-        //
-        let (modified_objects, modified_locations) = root_edit_context.take_modified_objects_and_locations();
+        for (id, data_source) in &mut self.data_sources {
+            data_source.save_all_modified(root_edit_context);
+        }
 
         //
-        // Build a list of locations (i.e. files) we need to save
+        // Clear modified objects list since we saved everything to disk
         //
-        let mut locations_to_save = HashMap::default();
-        // for modified_object in modified_objects {
-        //     let object_info = root_edit_context.objects().get(&modified_object).unwrap();
-        //     let location = object_info.object_location().clone();
-        //     locations_to_save.insert(location, Vec::default());
+        root_edit_context.clear_change_tracking();
+
+        // //
+        // // Take the contents of the modified object list, leaving the edit context with a cleared list
+        // //
+        // let (modified_objects, modified_locations) = root_edit_context.take_modified_objects_and_locations();
+        //
+        // //
+        // // Build a list of locations (i.e. files) we need to save
+        // //
+        // let mut locations_to_save = HashMap::default();
+        // // for modified_object in modified_objects {
+        // //     let object_info = root_edit_context.objects().get(&modified_object).unwrap();
+        // //     let location = object_info.object_location().clone();
+        // //     locations_to_save.insert(location, Vec::default());
+        // // }
+        // for modified_location in modified_locations {
+        //     locations_to_save.insert(modified_location, Vec::default());
         // }
-        for modified_location in modified_locations {
-            locations_to_save.insert(modified_location, Vec::default());
-        }
-
         //
-        // Build a list of object IDs that need to be included in those files
+        // //
+        // // Build a list of object IDs that need to be included in those files
+        // //
+        // for (object_id, object_info) in root_edit_context.objects() {
+        //     let location = object_info.object_location();
+        //     if let Some(objects) = locations_to_save.get_mut(location) {
+        //         objects.push(*object_id);
+        //     }
+        // }
         //
-        for (object_id, object_info) in root_edit_context.objects() {
-            let location = object_info.object_location();
-            if let Some(objects) = locations_to_save.get_mut(location) {
-                objects.push(*object_id);
-            }
-        }
-
-        //
-        // Write the files to disk, including all objects that should be present in them
-        //
-        for (location, object_ids) in locations_to_save {
-            let data =
-                crate::data_storage::json::TreeSourceDataStorageJsonSingleFile::store_objects_to_string(root_edit_context, &object_ids);
-            let source = self.data_sources.get(&location.source()).unwrap();
-            let file_path = source.location_to_file_system_path(&location).unwrap();
-            std::fs::write(file_path, data).unwrap();
-        }
+        // //
+        // // Write the files to disk, including all objects that should be present in them
+        // //
+        // for (location, object_ids) in locations_to_save {
+        //     let data =
+        //         crate::data_storage::json::TreeSourceDataStorageJsonSingleFile::store_objects_to_string(root_edit_context, &object_ids);
+        //     let source = self.data_sources.get(&location.source()).unwrap();
+        //     let file_path = source.location_to_file_system_path(&location).unwrap();
+        //     std::fs::write(file_path, data).unwrap();
+        // }
     }
 
     pub fn revert_root_edit_context(&mut self) {
@@ -186,58 +182,62 @@ impl EditorModel {
         let (modified_objects, modified_locations) = root_edit_context.take_modified_objects_and_locations();
         println!("Revert:\nObjects: {:?}\nLocations: {:?}", modified_objects, modified_locations);
 
-        //
-        // Build a list of locations (i.e. files) we need to revert
-        //
-        let mut locations_to_revert = HashMap::default();
-        // for modified_object in modified_objects {
-        //     let object_info = root_edit_context.objects().get(&modified_object).unwrap();
-        //     let location = object_info.object_location().clone();
-        //     locations_to_revert.insert(location, Vec::default());
-        // }
-        for modified_location in modified_locations {
-            locations_to_revert.insert(modified_location, Vec::default());
+        for (id, data_source) in &mut self.data_sources {
+            data_source.reload_all_modified(root_edit_context);
         }
 
         //
-        // Build a list of object IDs that need to be reverted (including deleting new objects)
-        //
-        for (object_id, object_info) in root_edit_context.objects() {
-            let location = object_info.object_location();
-            if let Some(objects) = locations_to_revert.get_mut(location) {
-                objects.push(*object_id);
-            }
-        }
-
-        //
-        // Delete all objects known to exist in the files we are about to reload
-        //
-        for (_, object_ids) in &locations_to_revert {
-            for object in object_ids {
-                root_edit_context.delete_object(*object);
-            }
-        }
-
-        //
-        // Reload the files from disk
-        //
-        for (location, object_ids) in locations_to_revert {
-            let source = self.data_sources.get(&location.source()).unwrap();
-            let file_path = source.location_to_file_system_path(&location).unwrap();
-            let data = std::fs::read_to_string(file_path).unwrap();
-
-            crate::data_storage::json::TreeSourceDataStorageJsonSingleFile::load_objects_from_string(root_edit_context, location, &data);
-
-            //let source = self.data_sources.get(&location.source()).unwrap();
-            //std::fs::write(file_path, data).unwrap();
-        }
-
-        //
-        // Clear modified objects list since we reloaded everything from disk
+        // Clear modified objects list since we reloaded everything from disk.
         //
         root_edit_context.clear_change_tracking();
-        root_edit_context.cancel_pending_undo_context();
+        //root_edit_context.cancel_pending_undo_context();
         self.refresh_location_tree();
+
+        // //
+        // // Build a list of locations (i.e. files) we need to revert
+        // //
+        // let mut locations_to_revert = HashMap::default();
+        // // for modified_object in modified_objects {
+        // //     let object_info = root_edit_context.objects().get(&modified_object).unwrap();
+        // //     let location = object_info.object_location().clone();
+        // //     locations_to_revert.insert(location, Vec::default());
+        // // }
+        // for modified_location in modified_locations {
+        //     locations_to_revert.insert(modified_location, Vec::default());
+        // }
+        //
+        // //
+        // // Build a list of object IDs that need to be reverted (including deleting new objects)
+        // //
+        // for (object_id, object_info) in root_edit_context.objects() {
+        //     let location = object_info.object_location();
+        //     if let Some(objects) = locations_to_revert.get_mut(location) {
+        //         objects.push(*object_id);
+        //     }
+        // }
+        //
+        // //
+        // // Delete all objects known to exist in the files we are about to reload
+        // //
+        // for (_, object_ids) in &locations_to_revert {
+        //     for object in object_ids {
+        //         root_edit_context.delete_object(*object);
+        //     }
+        // }
+        //
+        // //
+        // // Reload the files from disk
+        // //
+        // for (location, object_ids) in locations_to_revert {
+        //     let source = self.data_sources.get(&location.source()).unwrap();
+        //     let file_path = source.location_to_file_system_path(&location).unwrap();
+        //     let data = std::fs::read_to_string(file_path).unwrap();
+        //
+        //     crate::data_storage::json::TreeSourceDataStorageJsonSingleFile::load_objects_from_string(root_edit_context, location, &data);
+        //
+        //     //let source = self.data_sources.get(&location.source()).unwrap();
+        //     //std::fs::write(file_path, data).unwrap();
+        // }
     }
 
     pub fn close_file_system_source(
@@ -315,16 +315,16 @@ impl EditorModel {
         &self.location_tree
     }
 
-    pub fn default_new_location_for_path(&self, object_path: &ObjectPath) -> Option<ObjectLocation> {
-        for (&source_id, source) in &self.data_sources {
-            if object_path.starts_with(source.mount_path()) {
-                return Some(ObjectLocation::new(
-                    source_id,
-                    object_path.clone()
-                ))
-            }
-        }
-
-        None
-    }
+    // pub fn default_new_location_for_path(&self, object_path: &ObjectPath) -> Option<ObjectLocation> {
+    //     for (&source_id, source) in &self.data_sources {
+    //         if object_path.starts_with(source.mount_path()) {
+    //             return Some(ObjectLocation::new(
+    //                 source_id,
+    //                 object_path.clone()
+    //             ))
+    //         }
+    //     }
+    //
+    //     None
+    // }
 }

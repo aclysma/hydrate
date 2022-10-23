@@ -338,15 +338,17 @@ impl ObjectDiffSet {
         }
 
         // we only flag the location as modified if we make an edit
+        // (if apply_diff doesn't have changes, before_diff doesn't either)
         if apply_diff.has_changes() {
             if !modified_locations.contains(&after_obj.object_location) {
                 modified_locations.insert(after_obj.object_location.clone());
             }
-        }
 
-        if before_obj.object_location != after_obj.object_location {
-            if !modified_locations.contains(&before_obj.object_location) {
-                modified_locations.insert(before_obj.object_location.clone());
+            // Also save the old location so that in moves, the "from" location is marked as changed too
+            if before_obj.object_location != after_obj.object_location {
+                if !modified_locations.contains(&before_obj.object_location) {
+                    modified_locations.insert(before_obj.object_location.clone());
+                }
             }
         }
 
@@ -444,7 +446,7 @@ impl DataSetDiffSet {
             let existed_after = after.objects().contains_key(&object_id);
             if existed_before {
                 if existed_after {
-                    // changed
+                    // Object was modified
                     let diff = ObjectDiffSet::diff_objects(before, object_id, &after, object_id, &mut modified_locations);
                     if diff.has_changes() {
                         modified_objects.insert(object_id);
@@ -452,28 +454,30 @@ impl DataSetDiffSet {
                         revert_diff.changes.push((object_id, diff.revert_diff));
                     }
                 } else {
-                    let object_info = before.objects().get(&object_id).unwrap().clone();
+                    // Object was deleted
+                    let before_object_info = before.objects().get(&object_id).unwrap().clone();
                     modified_objects.insert(object_id);
-                    if !modified_locations.contains(&object_info.object_location) {
-                        modified_locations.insert(object_info.object_location.clone());
+                    if !modified_locations.contains(&before_object_info.object_location) {
+                        modified_locations.insert(before_object_info.object_location.clone());
                     }
 
                     // deleted
                     apply_diff.deletes.push(object_id);
                     revert_diff
                         .creates
-                        .push((object_id, object_info.clone()));
+                        .push((object_id, before_object_info.clone()));
                 }
             } else if existed_after {
-                let object_info = after.objects().get(&object_id).unwrap();
-                if !modified_locations.contains(&object_info.object_location) {
-                    modified_locations.insert(object_info.object_location.clone());
+                // Object was created
+                let after_object_info = after.objects().get(&object_id).unwrap();
+                if !modified_locations.contains(&after_object_info.object_location) {
+                    modified_locations.insert(after_object_info.object_location.clone());
                 }
 
                 // created
                 apply_diff
                     .creates
-                    .push((object_id, object_info.clone()));
+                    .push((object_id, after_object_info.clone()));
                 revert_diff.deletes.push(object_id);
             }
         }

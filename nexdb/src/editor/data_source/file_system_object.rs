@@ -12,13 +12,13 @@ struct DirectoryFile {
     parent_dir: Option<Uuid>
 }
 
-fn uuid_to_path(root: &Path, uuid: Uuid) -> PathBuf {
+fn uuid_to_path(root: &Path, uuid: Uuid, extension: &str) -> PathBuf {
     // Convert UUID to a 32-character hex string (no hyphens)
     // example: 8cf25195abd839981ea3c93c8fd2843f
     let mut buffer = [0; 32];
     let encoded = uuid.to_simple().encode_lower(&mut buffer).to_string();
     // Produce path like [root]/8/cf/25195abd839981ea3c93c8fd2843f
-    root.join(&encoded[0..1]).join(&encoded[1..3]).join(&encoded[3..32])
+    root.join(&encoded[0..1]).join(&encoded[1..3]).join(format!("{}.{}", &encoded[3..32], extension))
 }
 
 fn path_to_uuid(root: &Path, file_path: &Path) -> Option<Uuid> {
@@ -182,20 +182,16 @@ impl DataSource for FileSystemObjectDataSource {
         }
 
         for object_id in edit_context.modified_objects() {
-            //for (object_id, object_info) in edit_context.objects() {
-                    //if edit_context.modified_objects().contains(object_id) {
-                        if let Some(object_info) = edit_context.objects().get(object_id) {
-                            if object_info.object_location().source() == self.object_source_id {
-                                let object_path = object_info.object_location.path();
-                                let parent_dir = self.path_to_dir_uuid.get(object_path).copied();
-                                let data = crate::data_storage::json::ObjectSourceDataStorageJsonObject::save_object_to_string(edit_context, *object_id, parent_dir);
-                                let file_path = uuid_to_path(&self.file_system_root_path, object_id.as_uuid());
-                                self.all_object_ids_on_disk.insert(*object_id);
-                                std::fs::write(file_path, data).unwrap();
-                            }
-                        }
-                    //}
-            //}
+            if let Some(object_info) = edit_context.objects().get(object_id) {
+                if object_info.object_location().source() == self.object_source_id {
+                    let object_path = object_info.object_location.path();
+                    let parent_dir = self.path_to_dir_uuid.get(object_path).copied();
+                    let data = crate::data_storage::json::ObjectSourceDataStorageJsonObject::save_object_to_string(edit_context, *object_id, parent_dir);
+                    let file_path = uuid_to_path(&self.file_system_root_path, object_id.as_uuid(), "af");
+                    self.all_object_ids_on_disk.insert(*object_id);
+                    std::fs::write(file_path, data).unwrap();
+                }
+            }
         }
     }
 
@@ -223,7 +219,7 @@ impl DataSource for FileSystemObjectDataSource {
 
         // Reload any modified object that exists on disk belonging to this data source
         for modified_object in saved_modified_objects {
-            let file_path = uuid_to_path(&self.file_system_root_path, modified_object.as_uuid());
+            let file_path = uuid_to_path(&self.file_system_root_path, modified_object.as_uuid(), "af");
 
             if let Ok(contents) = std::fs::read_to_string(file_path) {
                 crate::data_storage::json::ObjectSourceDataStorageJsonObject::load_object_from_string(edit_context, modified_object.as_uuid(), &contents, |parent_uuid| {
@@ -276,10 +272,10 @@ impl FileSystemObjectDataSource {
         }
     }
 
-    pub fn object_id_to_file_system_path(
-        &self,
-        object_id: ObjectId,
-    ) -> PathBuf {
-        uuid_to_path(&self.file_system_root_path, object_id.as_uuid())
-    }
+    // pub fn object_id_to_file_system_path(
+    //     &self,
+    //     object_id: ObjectId,
+    // ) -> PathBuf {
+    //     uuid_to_path(&self.file_system_root_path, object_id.as_uuid())
+    // }
 }

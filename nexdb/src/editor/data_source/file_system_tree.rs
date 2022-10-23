@@ -55,17 +55,12 @@ impl DataSource for FileSystemTreeDataSource {
                         object_location.clone(),
                         &contents,
                     );
-                    // for object in objects {
-                    //     object_locations.insert(object, file_path.to_path_buf());
-                    // }
 
                     log::info!("Loaded {} objects from {:?}", objects.len(), file_path);
                     for object in objects {
-                        //loaded_objects.insert(object);
                         edit_context.clear_object_modified_flag(object);
                     }
-                    //
-                    // loaded_locations.insert(object_location);
+
                     edit_context.clear_location_modified_flag(&object_location);
                 }
             }
@@ -92,7 +87,6 @@ impl DataSource for FileSystemTreeDataSource {
                 objects.push(*object_id);
             }
         }
-
 
         //
         // Write the files to disk, including all objects that should be present in them

@@ -1,10 +1,12 @@
 {
-    "name": "AnotherVec4Asset",
-    "parent_dir": "a3c6854a-e4eb-4faf-9238-c39e72303f44",
-    "schema": "5d58a547-db37-0918-c17f-47d4bf7eca7d",
-    "schema_name": "Vec4",
-    "prototype": null,
-    "properties": {
-        "x": 190.0
-    }
+  "name": "",
+  "parent_dir": "a3c6854a-e4eb-4faf-9238-c39e72303f44",
+  "schema": "5d58a547-db37-0918-c17f-47d4bf7eca7d",
+  "schema_name": "Vec4",
+  "prototype": null,
+  "properties": {
+    "w": 142.0,
+    "x": 190.0,
+    "y": 21.0
+  }
 }

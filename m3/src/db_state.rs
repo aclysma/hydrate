@@ -67,8 +67,8 @@ impl DbState {
         let tree_source_id =
             edit_model.add_file_system_tree_source(Self::tree_data_source_path(), Self::mount_path().join("tree"));
 
-        //let object_source_id =
-        //    edit_model.add_file_system_object_source(Self::object_data_source_path(), Self::mount_path().join("objects"));
+        let object_source_id =
+            edit_model.add_file_system_object_source(Self::object_data_source_path(), Self::mount_path().join("objects"));
 
         // let file_system = edit_model
         //     .file_system_treedata_source(tree_source_id)
@@ -178,7 +178,7 @@ impl DbState {
 
         let mut editor_model = EditorModel::new(Arc::new(schema_set));
         editor_model.add_file_system_tree_source(Self::tree_data_source_path(), Self::mount_path().join("tree/"));
-        //editor_model.add_file_system_object_source(Self::object_data_source_path(), Self::mount_path().join("objects/"));
+        editor_model.add_file_system_object_source(Self::object_data_source_path(), Self::mount_path().join("objects/"));
         if editor_model.root_edit_context().all_objects().len() == 0 {
             None
         } else {

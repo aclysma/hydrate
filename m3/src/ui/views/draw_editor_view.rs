@@ -54,6 +54,10 @@ fn draw_root_dockspace(
                 dockspace_assets,
             );
             is::igDockBuilderDockWindow(
+                ImString::new(crate::ui::WINDOW_NAME_EXTERNAL_REFERENCES).as_ptr(),
+                dockspace_assets,
+            );
+            is::igDockBuilderDockWindow(
                 ImString::new(crate::ui::WINDOW_NAME_DOC_OUTLINE).as_ptr(),
                 dockspace_outline,
             );

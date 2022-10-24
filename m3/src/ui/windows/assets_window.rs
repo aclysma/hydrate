@@ -195,26 +195,8 @@ pub fn assets_tree_node(
     }
 
     context_menu(ui, Some(&id), |ui| {
-        // if package.data_source().is_some() {
-        //     if imgui::MenuItem::new(im_str!("Unload")).build(ui) {
-        //         //TODO: Unload
-        //         log::info!("unload {}", root_path.to_string_lossy());
-        //     }
-        // } else {
-        //     if imgui::MenuItem::new(im_str!("Load")).build(ui) {
-        //         //TODO: Load
-        //         log::info!("load {}", root_path.to_string_lossy());
-        //     }
-        // }
-
-
         if imgui::MenuItem::new(im_str!("New Object")).build(ui) {
-            //TODO: Unload
-            //log::info!("temp {:?}", &tree_node.path);
-
-            // how to get location with just path?
             let location = tree_node.location.clone();
-
             action_sender.try_set_modal_action(crate::ui::modals::NewObjectModal::new(location))
 
         }
@@ -235,26 +217,6 @@ pub fn assets_tree_node(
             }
         }
     }
-
-
-    // if let Some(token) = token {
-    //     let loaded = package.data_source().is_some();
-    //     if loaded {
-    //         assets_tree_file_system_data_source_loaded(ui, app_state, file_system_package_index);
-    //     }
-    // }
-
-    // if tree_node.children.is_empty() || child_name.ends_with("/") {
-    //     ui.text(child_name);
-    // } else {
-    //     ui.text(format!("{}/", child_name))
-    // }
-    //
-    // ui.indent();
-    // for (child_name, child) in &tree_node.children {
-    //     assets_tree_node(ui, app_state, child_name, child);
-    // }
-    // ui.unindent();
 }
 
 pub fn assets_tree(
@@ -299,7 +261,7 @@ pub fn draw_assets_dockspace(
         // Get the ID for WINDOW_NAME_ASSETS
         let assets_window_id = (*is::igGetCurrentWindow()).ID;
         let root_assets_dockspace_id =
-            is::igDockSpace(assets_window_id, work_size, 0, std::ptr::null_mut());
+            is::igDockSpace(assets_window_id, work_size, imgui::sys::ImGuiDockNodeFlagsPrivate__ImGuiDockNodeFlags_NoDockingSplitMe, std::ptr::null_mut());
 
         // The first time through, set up the left/right panes of the asset browser so that they are pinned inside the asset browser window
         // and nothing can dock inside them
@@ -309,7 +271,8 @@ pub fn draw_assets_dockspace(
                 assets_main,
                 is::ImGuiDockNodeFlagsPrivate__ImGuiDockNodeFlags_DockSpace
                     | imgui::sys::ImGuiDockNodeFlagsPrivate__ImGuiDockNodeFlags_NoDocking
-                    | imgui::sys::ImGuiDockNodeFlagsPrivate__ImGuiDockNodeFlags_NoDockingSplitMe,
+                    | imgui::sys::ImGuiDockNodeFlagsPrivate__ImGuiDockNodeFlags_NoDockingSplitMe
+                    | imgui::sys::ImGuiDockNodeFlagsPrivate__ImGuiDockNodeFlags_NoDockingOverMe,
             );
 
             // We hardcode a 1.0 size ratio here because the first run, width will be the window's init size rather than the actual size.
@@ -335,9 +298,9 @@ pub fn draw_assets_dockspace(
 
             // Don't draw tab bars on the left/right panes
             (*imgui::sys::igDockBuilderGetNode(assets_left)).LocalFlags |=
-                imgui::sys::ImGuiDockNodeFlagsPrivate__ImGuiDockNodeFlags_NoTabBar;
+                imgui::sys::ImGuiDockNodeFlagsPrivate__ImGuiDockNodeFlags_NoTabBar | imgui::sys::ImGuiDockNodeFlagsPrivate__ImGuiDockNodeFlags_NoDocking | imgui::sys::ImGuiDockNodeFlagsPrivate__ImGuiDockNodeFlags_NoDockingSplitMe;
             (*imgui::sys::igDockBuilderGetNode(assets_main)).LocalFlags |=
-                imgui::sys::ImGuiDockNodeFlagsPrivate__ImGuiDockNodeFlags_NoTabBar;
+                imgui::sys::ImGuiDockNodeFlagsPrivate__ImGuiDockNodeFlags_NoTabBar | imgui::sys::ImGuiDockNodeFlagsPrivate__ImGuiDockNodeFlags_NoDocking | imgui::sys::ImGuiDockNodeFlagsPrivate__ImGuiDockNodeFlags_NoDockingSplitMe;
 
             is::igDockBuilderFinish(root_assets_dockspace_id);
         }
@@ -636,7 +599,7 @@ pub fn assets_window_right(
 
 pub fn draw_assets_dockspace_and_window(
     ui: &imgui::Ui,
-    app_state: &mut AppState,
+    app_state: &mut AppState
 ) {
     // We set padding to zero when creating the assets window so that the vertical splitter bar
     // will go from top to bottom of the window
@@ -675,6 +638,12 @@ pub fn draw_assets_dockspace_and_window(
 
         window_token.end();
     } else {
+        //is::igDockSpace();
         //TODO: keepalive the assets dockspace
+        println!("KEEPALIVE ASSETS");
+        unsafe {
+            //let id = is::igGetIDStr(imgui::im_str!("{}", crate::ui::WINDOW_NAME_ASSETS).as_ptr());
+            //is::igDockSpace(id, ImVec2::new(100.0, 100.0), is::ImGuiDockNodeFlags__ImGuiDockNodeFlags_KeepAliveOnly as _, std::ptr::null_mut());
+        }
     }
 }

@@ -122,7 +122,7 @@ pub struct DataObjectDelta {}
 
 #[derive(Clone, Debug)]
 pub struct DataObjectInfo {
-    pub(crate) schema: SchemaRecord, // Will always be a SchemaRecord
+    pub(crate) schema: SchemaRecord,
     pub(crate) object_location: ObjectLocation,
     pub(crate) prototype: Option<ObjectId>,
     pub(crate) properties: HashMap<String, Value>,

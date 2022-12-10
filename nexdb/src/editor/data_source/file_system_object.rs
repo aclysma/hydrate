@@ -189,6 +189,11 @@ impl DataSource for FileSystemObjectDataSource {
                     let data = crate::data_storage::json::ObjectSourceDataStorageJsonObject::save_object_to_string(edit_context, *object_id, parent_dir);
                     let file_path = uuid_to_path(&self.file_system_root_path, object_id.as_uuid(), "af");
                     self.all_object_ids_on_disk.insert(*object_id);
+
+                    if let Some(parent) = file_path.parent() {
+                        std::fs::create_dir_all(parent).unwrap();
+                    }
+
                     std::fs::write(file_path, data).unwrap();
                 }
             }

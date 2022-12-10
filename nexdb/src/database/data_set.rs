@@ -135,6 +135,10 @@ impl DataObjectInfo {
     pub fn object_location(&self) -> &ObjectLocation {
         &self.object_location
     }
+
+    pub fn schema(&self) -> &SchemaRecord {
+        &self.schema
+    }
 }
 
 #[derive(Default)]

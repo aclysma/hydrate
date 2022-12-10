@@ -1,7 +1,7 @@
 {
   "objects": [
     {
-      "object_id": "0b17e82d-b48c-4941-ac2b-226cb1c757a7",
+      "object_id": "38476119-d35a-4402-a4d2-5cbf8327fd85",
       "schema": "d43a4b3d-5b16-b169-43e4-4c10d170e2ed",
       "schema_name": "AABB",
       "prototype": null,
@@ -15,22 +15,7 @@
       }
     },
     {
-      "object_id": "400f1c28-8378-4da2-a647-c44b64b7b130",
-      "schema": "3792c325-8139-c74d-27e0-d58edfccfec3",
-      "schema_name": "DynArrayNullableTest",
-      "prototype": null,
-      "properties": {
-        "dyn_array": [
-          "5dabdaed-aa92-49ba-a4be-6ebda521f9de",
-          "660ec7f3-e773-4ffc-8b7b-786813f71674"
-        ],
-        "dyn_array.660ec7f3-e773-4ffc-8b7b-786813f71674.null_override": "SetNonNull",
-        "dyn_array.660ec7f3-e773-4ffc-8b7b-786813f71674.value": 10.0,
-        "dyn_array.replace": true
-      }
-    },
-    {
-      "object_id": "47cf3da2-b1b1-4598-a35c-c5fb4dab0bcc",
+      "object_id": "aa090c7e-9749-4bff-beac-bee153fda46a",
       "schema": "f2fb60c0-9253-e4f4-9ee0-e1717a8bf9dd",
       "schema_name": "Vec3",
       "prototype": null,
@@ -38,6 +23,21 @@
         "x": 10.0,
         "y": 20.0,
         "z": 30.0
+      }
+    },
+    {
+      "object_id": "e987b638-bf5d-497f-a8b8-2d152b9a164e",
+      "schema": "3792c325-8139-c74d-27e0-d58edfccfec3",
+      "schema_name": "DynArrayNullableTest",
+      "prototype": null,
+      "properties": {
+        "dyn_array": [
+          "5a373a6a-0263-492c-9fea-aba07305686a",
+          "c21fc2a6-c9c9-4d16-989e-1677dca62f20"
+        ],
+        "dyn_array.5a373a6a-0263-492c-9fea-aba07305686a.null_override": "SetNonNull",
+        "dyn_array.5a373a6a-0263-492c-9fea-aba07305686a.value": 10.0,
+        "dyn_array.replace": true
       }
     }
   ]

@@ -268,6 +268,23 @@ struct ImageAssetImported {
 
 
 
+struct ProcessAssetResult {
+    // top-level resource
+    // additional jobs?
+    // additional resources?
+}
+
+trait AssetProcessor {
+    fn process_asset(database: &DataSet) -> ProcessAssetResult;
+}
+
+struct AssetProcessorImage {
+
+}
+
+struct AssetProcessorRegistry {
+
+}
 
 
 

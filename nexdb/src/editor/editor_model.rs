@@ -1,6 +1,6 @@
 use crate::edit_context::EditContext;
 use crate::editor::undo::UndoStack;
-use crate::{DataSet, DataSource, FileSystemObjectDataSource, FileSystemTreeDataSource, HashMap, HashSet, LocationTree, LocationTreeNode, ObjectId, ObjectLocation, ObjectPath, ObjectSourceId, SchemaSet};
+use crate::{DataSet, DataSource, FileSystemObjectDataSource, HashMap, HashSet, LocationTree, LocationTreeNode, ObjectId, ObjectLocation, ObjectPath, ObjectSourceId, SchemaSet};
 use slotmap::DenseSlotMap;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -76,35 +76,15 @@ impl EditorModel {
         self.data_sources.get(&object_source_id).map(|x| &**x)
     }
 
-    pub fn add_file_system_tree_source<RootPathT: Into<PathBuf>>(
-        &mut self,
-        root_path: RootPathT,
-        mount_path: ObjectPath,
-    ) -> ObjectSourceId {
-        let root_edit_context = self.root_edit_context_mut();
-        let root_path = root_path.into();
-        println!("MOUNT PATH {:?}", mount_path);
-
-        root_edit_context.commit_pending_undo_context();
-        let mut fs = FileSystemTreeDataSource::new(root_path.clone(), mount_path, root_edit_context);
-        fs.reload_all(root_edit_context);
-        let object_source_id = fs.object_source_id();
-        self.data_sources.insert(object_source_id, Box::new(fs));
-
-        object_source_id
-    }
-
     pub fn add_file_system_object_source<RootPathT: Into<PathBuf>>(
         &mut self,
         root_path: RootPathT,
-        mount_path: ObjectPath,
     ) -> ObjectSourceId {
         let root_edit_context = self.root_edit_context_mut();
         let root_path = root_path.into();
-        println!("MOUNT PATH {:?}", mount_path);
 
         root_edit_context.commit_pending_undo_context();
-        let mut fs = FileSystemObjectDataSource::new(root_path.clone(), mount_path, root_edit_context);
+        let mut fs = FileSystemObjectDataSource::new(root_path.clone(), root_edit_context);
         fs.reload_all(root_edit_context);
         let object_source_id = fs.object_source_id();
         self.data_sources.insert(object_source_id, Box::new(fs));

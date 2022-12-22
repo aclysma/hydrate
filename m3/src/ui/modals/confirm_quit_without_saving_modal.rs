@@ -47,7 +47,7 @@ impl ModalAction for ConfirmQuitWithoutSavingModal {
 
             imgui::ListBox::new(im_str!("##unsaved_locations")).build(ui, || {
                 for location in &self.unsaved_locations {
-                    ui.text(location.path().as_string());
+                    ui.text(location.path().as_str());
                 }
             });
 

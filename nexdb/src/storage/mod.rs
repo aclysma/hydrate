@@ -57,7 +57,7 @@ impl StorageManager {
 }
 
 struct DirTreeStorageHandler {
-    loaded_bytes: DenseSlotMap<Uuid, LoadedBytes>,
+    //loaded_bytes: DenseSlotMap<Uuid, LoadedBytes>,
 }
 
 impl DirTreeStorageHandler {

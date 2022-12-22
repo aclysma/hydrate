@@ -148,7 +148,7 @@ pub fn assets_tree_node(
     action_sender: &ActionQueueSender,
     tree_node: &LocationTreeNode
 ) {
-    let id = im_str!("{}-{}", tree_node.location.source().uuid(), tree_node.location.path().as_string());
+    let id = im_str!("{}-{}", tree_node.location.source().uuid(), tree_node.location.path().as_str());
     let is_selected = ui_state.asset_browser_state.tree_state.selected_items.contains(&tree_node.location);
     let is_modified = tree_node.has_changes;
 
@@ -440,7 +440,7 @@ pub fn draw_asset(
 
     if ui.is_item_hovered() && !ui.is_mouse_dragging(imgui::MouseButton::Left) {
         ui.tooltip(|| {
-            ui.text(im_str!("Path: {}", location.path().as_string()));
+            ui.text(im_str!("Path: {}", location.path().as_str()));
         });
     }
 
@@ -583,7 +583,7 @@ pub fn assets_window_right(
 
                 let name = im_str!(
                     "{} {}",
-                    filtered_objects[i].1.path().as_string(),
+                    filtered_objects[i].1.path().as_str(),
                     filtered_objects[i].0.as_uuid()
                 );
                 draw_asset(ui, app_state, &filtered_objects, i, item_size);

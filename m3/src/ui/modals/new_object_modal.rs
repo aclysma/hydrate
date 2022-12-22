@@ -43,7 +43,7 @@ impl ModalAction for NewObjectModal {
 
         let result = PopupModal::new(im_str!("Create New Object"))
             .build(ui, || {
-                ui.text(format!("Creating object at: {}", self.create_location.path().as_string()));
+                ui.text(format!("Creating object at: {}", self.create_location.path().as_str()));
 
                 println!("selected: {:?}", self.selected_type);
 

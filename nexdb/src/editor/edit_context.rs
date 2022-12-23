@@ -3,7 +3,7 @@ use std::sync::Arc;
 use uuid::Uuid;
 
 use crate::editor::undo::{CompletedUndoContextMessage, UndoContext, UndoStack};
-use crate::{DataObjectInfo, DataSet, DataSetDiff, DataSetDiffSet, EditContextKey, EndContextBehavior, HashMap, HashMapKeys, HashSet, HashSetIter, NullOverride, ObjectId, ObjectLocation, ObjectSourceId, OverrideBehavior, SchemaFingerprint, SchemaNamedType, SchemaRecord, SchemaSet, Value};
+use crate::{DataObjectInfo, DataSet, DataSetDiff, DataSetDiffSet, EditContextKey, EndContextBehavior, HashMap, HashMapKeys, HashSet, HashSetIter, NullOverride, ObjectId, ObjectName, ObjectLocation, ObjectSourceId, OverrideBehavior, SchemaFingerprint, SchemaNamedType, SchemaRecord, SchemaSet, Value};
 
 //TODO: Delete unused property data when path ancestor is null or in replace mode
 
@@ -293,22 +293,24 @@ impl EditContext {
 
     pub fn new_object(
         &mut self,
+        object_name: &ObjectName,
         object_location: &ObjectLocation,
         schema: &SchemaRecord,
     ) -> ObjectId {
-        let object_id = self.data_set.new_object(object_location.clone(), schema);
-        self.track_new_object(object_id, &object_location);
+        let object_id = self.data_set.new_object(object_name.clone(), object_location.clone(), schema);
+        self.track_new_object(object_id, object_location);
         object_id
     }
 
     pub fn new_object_from_prototype(
         &mut self,
+        object_name: &ObjectName,
         object_location: &ObjectLocation,
         prototype: ObjectId,
     ) -> ObjectId {
         let object_id = self
             .data_set
-            .new_object_from_prototype(object_location.clone(), prototype);
+            .new_object_from_prototype(object_name.clone(), object_location.clone(), prototype);
         self.track_new_object(object_id, &object_location);
         object_id
     }
@@ -320,6 +322,7 @@ impl EditContext {
         for (k, v) in data_set.objects {
             self.restore_object(
                 k,
+                v.object_name,
                 v.object_location,
                 v.prototype,
                 v.schema.fingerprint(),
@@ -334,6 +337,7 @@ impl EditContext {
     pub(crate) fn restore_object(
         &mut self,
         object_id: ObjectId,
+        object_name: ObjectName,
         object_location: ObjectLocation,
         prototype: Option<ObjectId>,
         schema: SchemaFingerprint,
@@ -345,6 +349,7 @@ impl EditContext {
         self.track_new_object(object_id, &object_location);
         self.data_set.restore_object(
             object_id,
+            object_name,
             object_location,
             &self.schema_set,
             prototype,

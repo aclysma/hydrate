@@ -227,7 +227,7 @@ pub fn assets_tree(
     let tree = app_state.db_state.editor_model.cached_location_tree();
     let action_sender = app_state.action_queue.sender();
 
-    let show_root = true;
+    let show_root = false;
     if show_root {
         assets_tree_node(ui, &app_state.db_state, &mut app_state.ui_state, "db:/", &action_sender, &tree.root_node);
     } else {

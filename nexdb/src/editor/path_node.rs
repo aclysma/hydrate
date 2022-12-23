@@ -1,0 +1,13 @@
+use crate::SchemaLinker;
+
+pub struct PathNode {
+    // Name and parent are part of object info, so we don't have explicit fields
+}
+
+impl PathNode {
+    pub fn register_schema(linker: &mut SchemaLinker) {
+        linker.register_record_type("PathNode", |_| {
+
+        }).unwrap();
+    }
+}

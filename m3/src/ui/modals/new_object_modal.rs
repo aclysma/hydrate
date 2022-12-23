@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 use imgui::{im_str, ImString, PopupModal};
 use imgui::sys::ImVec2;
-use nexdb::{HashSet, ObjectLocation, SchemaFingerprint};
+use nexdb::{HashSet, ObjectLocation, ObjectName, SchemaFingerprint};
 use crate::app_state::{ActionQueueSender, ModalAction, ModalActionControlFlow};
 use crate::db_state::DbState;
 use crate::ui_state::UiState;
@@ -71,8 +71,9 @@ impl ModalAction for NewObjectModal {
 
                 ui.same_line();
                 if ui.button(im_str!("Create")) {
+                    let object_name = ObjectName::new(self.object_name.to_string());
                     let schema = db_state.editor_model.schema_set().find_named_type_by_fingerprint(self.selected_type.unwrap()).unwrap().as_record().unwrap().clone();
-                    let new_object_id = db_state.editor_model.root_edit_context_mut().new_object(&self.create_location, &schema);
+                    let new_object_id = db_state.editor_model.root_edit_context_mut().new_object(&object_name, &self.create_location, &schema);
                     let mut selected_items = HashSet::default();
                     selected_items.insert(new_object_id);
                     ui_state.asset_browser_state.grid_state.selected_items = selected_items;

@@ -95,6 +95,54 @@ impl ObjectPath {
     //         .map(|x| ObjectPath(x.to_string()))
     // }
 
+    // pub fn parent_path(&self) -> Option<Self> {
+    //     match &self.0 {
+    //         None => None, // Parent of root path does not exist
+    //         Some(path) => {
+    //             if let Some(index) = path.rfind("/") {
+    //                 if index >= ROOT_PATH_STR.len() {
+    //                     // We have a parent path that isn't root
+    //                     Some(ObjectPath(Some(path[0..index].to_string())))
+    //                 } else {
+    //                     // Parent path is root
+    //                     Some(ObjectPath(None))
+    //                 }
+    //             } else {
+    //                 // Path with no slash should not exist
+    //                 unimplemented!()
+    //             }
+    //         }
+    //     }
+    // }
+
+    pub fn parent_path_and_name(&self) -> Option<(Self, String)> {
+        match &self.0 {
+            None => None, // Parent of root path does not exist
+            Some(path) => {
+                if let Some(index) = path.rfind("/") {
+                    if index >= ROOT_PATH_STR.len() {
+                        // We have a parent path that isn't root
+                        let parent = ObjectPath(Some(path[0..index].to_string()));
+                        let name = path[index+1..].to_string();
+                        Some((parent, name))
+                    } else {
+                        // Parent path is root
+                        let parent = ObjectPath(None);
+                        let name = path[ROOT_PATH_STR.len()..].to_string();
+                        Some((parent, name))
+                    }
+                } else {
+                    // Path with no slash should not exist
+                    unimplemented!()
+                }
+            }
+        }
+    }
+
+    pub fn is_root_path(&self) -> bool {
+        return self.0.is_none()
+    }
+
     pub fn split_components(
         &self
     ) -> Vec<&str> {
@@ -122,6 +170,28 @@ impl From<&str> for ObjectPath {
 impl From<String> for ObjectPath {
     fn from(s: String) -> Self {
         ObjectPath::new(&s)
+    }
+}
+
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct ObjectName(String);
+
+impl ObjectName {
+    pub fn new<T: Into<String>>(name: T) -> Self{
+        ObjectName(name.into())
+    }
+
+    pub fn empty() -> Self {
+        ObjectName(String::default())
+    }
+
+    pub fn as_string(&self) -> Option<&String> {
+        if self.0.is_empty() {
+            None
+        } else {
+            Some(&self.0)
+        }
     }
 }
 
@@ -165,6 +235,10 @@ pub struct DataObjectDelta {}
 #[derive(Clone, Debug)]
 pub struct DataObjectInfo {
     pub(crate) schema: SchemaRecord,
+    //pub(crate) name: Option<String>,
+    //pub(crate) path: ObjectPath,
+    //
+    pub(crate) object_name: ObjectName,
     pub(crate) object_location: ObjectLocation,
     pub(crate) prototype: Option<ObjectId>,
     pub(crate) properties: HashMap<String, Value>,
@@ -177,6 +251,14 @@ impl DataObjectInfo {
     pub fn object_location(&self) -> &ObjectLocation {
         &self.object_location
     }
+
+    pub fn object_name(&self) -> &ObjectName {
+        &self.object_name
+    }
+
+    // pub fn path(&self) -> &ObjectPath {
+    //     &self.path
+    // }
 
     pub fn schema(&self) -> &SchemaRecord {
         &self.schema
@@ -215,6 +297,7 @@ impl DataSet {
     pub(crate) fn restore_object(
         &mut self,
         object_id: ObjectId,
+        object_name: ObjectName,
         object_location: ObjectLocation,
         schema_set: &SchemaSet,
         prototype: Option<ObjectId>,
@@ -228,6 +311,7 @@ impl DataSet {
         let schema_record = schema.as_record().cloned().unwrap();
         let obj = DataObjectInfo {
             schema: schema_record,
+            object_name,
             object_location,
             prototype,
             properties,
@@ -241,11 +325,13 @@ impl DataSet {
 
     pub fn new_object(
         &mut self,
+        object_name: ObjectName,
         object_location: ObjectLocation,
         schema: &SchemaRecord,
     ) -> ObjectId {
         let obj = DataObjectInfo {
             schema: schema.clone(),
+            object_name,
             object_location,
             prototype: None,
             properties: Default::default(),
@@ -259,12 +345,14 @@ impl DataSet {
 
     pub fn new_object_from_prototype(
         &mut self,
+        object_name: ObjectName,
         object_location: ObjectLocation,
         prototype: ObjectId,
     ) -> ObjectId {
         let prototype_info = self.objects.get(&prototype).unwrap();
         let obj = DataObjectInfo {
             schema: prototype_info.schema.clone(),
+            object_name,
             object_location,
             prototype: Some(prototype),
             properties: Default::default(),

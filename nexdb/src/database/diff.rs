@@ -1,5 +1,5 @@
 use crate::value::PropertyValue;
-use crate::{DataObjectInfo, DataSet, HashMap, HashSet, NullOverride, ObjectId, ObjectLocation, SchemaFingerprint, SchemaSet, Value};
+use crate::{DataObjectInfo, DataSet, HashMap, HashSet, NullOverride, ObjectId, ObjectLocation, ObjectName, SchemaFingerprint, SchemaSet, Value};
 use uuid::Uuid;
 
 #[derive(Debug)]
@@ -11,6 +11,7 @@ pub struct DynamicArrayEntryDelta {
 
 #[derive(Default, Debug)]
 pub struct ObjectDiff {
+    set_name: Option<ObjectName>,
     set_location: Option<ObjectLocation>,
     set_prototype: Option<Option<ObjectId>>,
     set_properties: Vec<(String, PropertyValue)>,
@@ -24,7 +25,8 @@ pub struct ObjectDiff {
 
 impl ObjectDiff {
     pub fn has_changes(&self) -> bool {
-        self.set_location.is_some()
+        self.set_name.is_some()
+            || self.set_location.is_some()
             || self.set_prototype.is_some()
             || !self.set_properties.is_empty()
             || !self.remove_properties.is_empty()
@@ -39,6 +41,10 @@ impl ObjectDiff {
         &self,
         object: &mut DataObjectInfo,
     ) {
+        if let Some(set_name) = &self.set_name {
+            object.object_name = set_name.clone();
+        }
+
         if let Some(set_location) = &self.set_location {
             object.object_location = set_location.clone();
         }
@@ -140,6 +146,11 @@ impl ObjectDiffSet {
 
         let mut apply_diff = ObjectDiff::default();
         let mut revert_diff = ObjectDiff::default();
+
+        if before_obj.object_name != after_obj.object_name {
+            apply_diff.set_name = Some(after_obj.object_name.clone());
+            revert_diff.set_name = Some(before_obj.object_name.clone());
+        }
 
         if before_obj.object_location != after_obj.object_location {
             apply_diff.set_location = Some(after_obj.object_location.clone());
@@ -383,6 +394,7 @@ impl DataSetDiff {
         for (id, create) in &self.creates {
             data_set.restore_object(
                 *id,
+                create.object_name.clone(),
                 create.object_location.clone(),
                 schema_set,
                 create.prototype,

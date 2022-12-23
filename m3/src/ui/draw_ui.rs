@@ -64,7 +64,7 @@ pub fn draw_imgui(
             // Asset Browser
             //
             crate::ui::windows::assets_window::draw_assets_dockspace_and_window(ui, app_state);
-            crate::ui::windows::external_references_window::draw_external_references_dockspace_and_window(ui, app_state);
+            //crate::ui::windows::external_references_window::draw_external_references_dockspace_and_window(ui, app_state);
 
 
             //

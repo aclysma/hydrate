@@ -66,6 +66,7 @@ impl LocationTree {
 
         let mut node_path = ObjectPath::root();
         for path_component in path_components {
+            println!("  path component {:?}", path_component);
             node_path = node_path.join(path_component);
             let node_key = LocationTreeNodeKey {
                 name: path_component.to_string(),
@@ -100,9 +101,11 @@ impl LocationTree {
 
         for object_location in object_locations {
             let components = object_location.path().split_components();
-            if components.len() > 1 {
+            if !components.is_empty() {
+                println!("source {:?}", object_location.path());
+
                 // Skip the root component since it is our root node
-                tree.get_or_create_path(object_location.source(), &components[1..], unsaved_paths);
+                tree.get_or_create_path(object_location.source(), &components, unsaved_paths);
             }
         }
 

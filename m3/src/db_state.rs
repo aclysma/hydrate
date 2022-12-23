@@ -1,4 +1,4 @@
-use nexdb::{DataSet, EditorModel, ObjectLocation, ObjectPath, SchemaCacheSingleFile, SchemaSet};
+use nexdb::{DataSet, EditorModel, ObjectLocation, ObjectName, ObjectPath, PathNode, SchemaCacheSingleFile, SchemaSet};
 use std::path::PathBuf;
 use std::sync::Arc;
 
@@ -35,14 +35,13 @@ impl DbState {
         ))
     }
 
-    fn mount_path() -> ObjectPath {
-        ObjectPath::root()//;.join("db:/")
-    }
-
     fn load_schema() -> SchemaSet {
         let mut schema_set = SchemaSet::default();
 
         let mut linker = nexdb::SchemaLinker::default();
+
+        PathNode::register_schema(&mut linker);
+
         let path = Self::schema_def_path();
         linker.add_source_dir(&path, "**.json").unwrap();
         schema_set.add_linked_types(linker).unwrap();
@@ -78,18 +77,15 @@ impl DbState {
             .unwrap()
             .clone();
 
-        //let data_path = Self::data_file_path()
-
-        // let object_location =
-        //     ObjectLocation::new(tree_source_id, Self::mount_path().join("data_file.nxt"));
-
-        let object_location = ObjectLocation::new(object_source_id, ObjectPath::root().join("subdir"));
+        let object_location = ObjectLocation::new(object_source_id, ObjectPath::root().join("subdir").join("subdir2"));
 
         let prototype_obj = db.new_object(
+            ObjectName::new("object_a"),
             object_location.clone(),
             &transform_schema_object,
         );
         let instance_obj = db.new_object_from_prototype(
+            ObjectName::new("object_a"),
             object_location,
             prototype_obj,
         );
@@ -176,7 +172,6 @@ impl DbState {
         SchemaCacheSingleFile::load_string(&mut schema_set, &schema_cache_str);
 
         let mut editor_model = EditorModel::new(Arc::new(schema_set));
-        //editor_model.add_file_system_tree_source(Self::tree_data_source_path(), Self::mount_path().join("tree/"));
         editor_model.add_file_system_object_source(Self::object_data_source_path());
         if editor_model.root_edit_context().all_objects().len() == 0 {
             None

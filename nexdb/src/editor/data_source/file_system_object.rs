@@ -121,6 +121,7 @@ impl DataSource for FileSystemObjectDataSource {
         self.path_to_dir_uuid = path_to_dir_uuid;
     }
 
+
     fn save_all_modified(&mut self, edit_context: &mut EditContext) {
         // Delete files for objects that were deleted
         for object_id in edit_context.modified_objects() {
@@ -134,9 +135,10 @@ impl DataSource for FileSystemObjectDataSource {
             if let Some(object_info) = edit_context.objects().get(object_id) {
                 if object_info.object_location().source() == self.object_source_id {
                     let object_path = object_info.object_location.path();
-                    let parent_dir = self.path_to_dir_uuid.get(object_path).copied();
+                    //let parent_dir = self.path_to_dir_uuid.get(object_path).copied();
 
                     //TODO: create dir objects?
+                    let parent_dir = self.get_or_create_dir(object_path);
 
                     let data = crate::data_storage::json::ObjectSourceDataStorageJsonObject::save_object_to_string(edit_context, *object_id, parent_dir);
                     let file_path = uuid_to_path(&self.file_system_root_path, object_id.as_uuid(), "af");
@@ -217,6 +219,94 @@ impl FileSystemObjectDataSource {
             all_object_ids_on_disk: Default::default(),
         }
     }
+
+    fn get_or_create_dir(&mut self, path: &ObjectPath) -> Option<Uuid> {
+        // Root always exists, does not need a path node
+        if path.is_root_path() {
+            return None;
+        }
+
+        unimplemented!();
+    }
+
+    /*
+    fn get_or_create_dir(&mut self, path: &ObjectPath) -> Option<Uuid> {
+        // Root always exists, does not need a dir file/UUID
+        if path.is_root_path() {
+            return None;
+        }
+
+        if let Some(uuid) = self.path_to_dir_uuid.get(path) {
+            // Dir exists, return it
+            Some(*uuid)
+        } else {
+            // Dir doesn't exist, get_or_create the parent, then create the dir.
+            // We can assume this returns Some because we early-out above if it's the root path
+            let (parent_path, name) = path.parent_path_and_name().unwrap();
+            let parent_path_uuid = self.get_or_create_dir(&parent_path);
+
+            // let parent_path_uuid = if let Some(parent_path) = parent_path {
+            //     // Parent isn't a root path, get or create it
+            //     self.get_or_create_dir(&parent_path)
+            // } else {
+            //     // Parent dir is root path and doesn't need to be created
+            //     None
+            // };
+
+            let dir_uuid = Uuid::new_v4();
+
+            //
+            // Write the dir file
+            //
+            let dir_file = DirectoryFile {
+                parent_dir: parent_path_uuid,
+                name
+            };
+
+            let dir_file_contents = serde_json::to_string_pretty(&dir_file).unwrap();
+            let dir_file_path = uuid_to_path(&self.file_system_root_path, dir_uuid, "d");
+
+            // Create directories if needed
+            if let Some(parent) = dir_file_path.parent() {
+                std::fs::create_dir_all(parent).unwrap();
+            }
+            // Write the file
+            std::fs::write(dir_file_path, dir_file_contents).unwrap();
+
+            //
+            // Update local state
+            //
+            self.path_to_dir_uuid.insert(path.clone(), dir_uuid);
+            self.dir_uuid_to_path.insert(dir_uuid, path.clone());
+
+            Some(dir_uuid)
+        }
+
+        // if !self.path_to_dir_uuid.contains_key(&path) {
+        //     let parent_path_uuid = if let Some(parent_path) = path.parent_path() {
+        //         self.ensure_dir_objects_exist(parent_path)
+        //     } else {
+        //         None
+        //     };
+        //
+        //     DirectoryFile {
+        //         parent_dir:
+        //     }
+        //
+        //     Uuid::new_v4();
+        //
+        //     // let components = path.split_components();
+        //     //
+        //     // let mut path = ObjectPath::root();
+        //     // for component in components {
+        //     //     path = path.join(component);
+        //     //     if !self.path_to_dir_uuid
+        //     // }
+        // }
+
+
+    }
+    */
 
     // pub fn object_id_to_file_system_path(
     //     &self,

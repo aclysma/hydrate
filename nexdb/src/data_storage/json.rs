@@ -1,5 +1,5 @@
 use crate::edit_context::EditContext;
-use crate::{DataObjectInfo, HashMap, HashSet, NullOverride, ObjectId, ObjectLocation, ObjectPath, ObjectSourceId, OverrideBehavior, Schema, SchemaFingerprint, SchemaNamedType, Value};
+use crate::{DataObjectInfo, HashMap, HashSet, NullOverride, ObjectId, ObjectLocation, ObjectName, ObjectPath, ObjectSourceId, OverrideBehavior, Schema, SchemaFingerprint, SchemaNamedType, Value};
 use serde::{Deserialize, Serialize};
 use std::str::FromStr;
 use serde_json::json;
@@ -427,6 +427,7 @@ impl ObjectReference {
 
 fn restore_from_json_properties(
     edit_context: &mut EditContext,
+    object_name: ObjectName,
     object_location: ObjectLocation,
     object_id: Uuid,
     schema: Uuid,
@@ -521,6 +522,7 @@ fn restore_from_json_properties(
 
     edit_context.restore_object(
         object_id,
+        object_name,
         object_location,
         prototype,
         schema_fingerprint,
@@ -617,6 +619,7 @@ impl TreeSourceDataStorageJsonSingleFile {
 
     pub fn load_objects_from_string(
         edit_context: &mut EditContext,
+        object_name: ObjectName,
         object_location: ObjectLocation,
         json: &str,
     ) -> Vec<ObjectId> {
@@ -629,7 +632,7 @@ impl TreeSourceDataStorageJsonSingleFile {
             //     .as_ref()
             //     .map(|x| ObjectId(x.as_uuid().as_u128()));
             let prototype = stored_object.prototype.map(|x| x.as_uuid());
-            let object_id = restore_from_json_properties(edit_context, object_location.clone(), stored_object.object_id, stored_object.schema, stored_object.schema_name, prototype, stored_object.properties);
+            let object_id = restore_from_json_properties(edit_context, object_name.clone(), object_location.clone(), stored_object.object_id, stored_object.schema, stored_object.schema_name, prototype, stored_object.properties);
             loaded_objects.push(object_id);
         }
 
@@ -667,9 +670,14 @@ impl ObjectSourceDataStorageJsonObject {
         // }
 
         let object_location = (parent_dir_to_location)(stored_object.parent_dir);
+        let object_name = if stored_object.name.is_empty() {
+            ObjectName::empty()
+        } else {
+            ObjectName::new(stored_object.name)
+        };
 
         //let location = ObjectLocation::new(object_source_id, path);
-        restore_from_json_properties(edit_context, object_location, object_id, stored_object.schema, stored_object.schema_name, stored_object.prototype, stored_object.properties);
+        restore_from_json_properties(edit_context, object_name, object_location, object_id, stored_object.schema, stored_object.schema_name, stored_object.prototype, stored_object.properties);
     }
 
     pub fn save_object_to_string(
@@ -680,7 +688,7 @@ impl ObjectSourceDataStorageJsonObject {
         let obj = edit_context.objects().get(&object_id).unwrap();
         let properties = store_object_to_json_properties(obj);
         let mut stored_object = ObjectSourceDataStorageJsonObject {
-            name: "".to_string(),
+            name: obj.object_name.as_string().cloned().unwrap_or_default(),
             parent_dir,
             schema: obj.schema.fingerprint().as_uuid(),
             schema_name: obj.schema.name().to_string(),

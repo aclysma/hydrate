@@ -1,22 +1,24 @@
 use crate::app_state::{ActionQueueSender, AppState};
+use crate::db_state::DbState;
 use crate::imgui_support::ImguiManager;
-use imgui::{StyleColor, sys as is};
+use crate::ui::asset_browser_grid_drag_drop::{
+    asset_browser_grid_objects_drag_target_printf, AssetBrowserGridPayload,
+};
+use crate::ui_state::{ActiveToolRegion, UiState};
+use crate::QueuedActions;
 use imgui::sys::{
     igDragFloat, igDragScalar, igInputDouble, ImGuiDataType__ImGuiDataType_Double,
     ImGuiInputTextFlags__ImGuiInputTextFlags_None, ImGuiTableFlags__ImGuiTableFlags_NoPadOuterX,
     ImGuiTreeNodeFlags__ImGuiTreeNodeFlags_Selected, ImVec2,
 };
 use imgui::{im_str, ImStr, ImString, TreeNodeFlags};
+use imgui::{sys as is, StyleColor};
 use nexdb::{HashSet, LocationTreeNode, ObjectId, ObjectLocation, ObjectPath};
+use rafx::api::objc::runtime::Object;
 use std::convert::TryInto;
 use std::ffi::CString;
 use std::path::PathBuf;
-use rafx::api::objc::runtime::Object;
 use uuid::Uuid;
-use crate::db_state::DbState;
-use crate::QueuedActions;
-use crate::ui::asset_browser_grid_drag_drop::{asset_browser_grid_objects_drag_target_printf, AssetBrowserGridPayload};
-use crate::ui_state::{ActiveToolRegion, UiState};
 
 pub fn draw_external_references_dockspace(
     ui: &imgui::Ui,
@@ -30,8 +32,12 @@ pub fn draw_external_references_dockspace(
 
         // Get the ID for WINDOW_NAME_ASSETS
         let assets_window_id = (*is::igGetCurrentWindow()).ID;
-        let root_assets_dockspace_id =
-            is::igDockSpace(assets_window_id, work_size, imgui::sys::ImGuiDockNodeFlagsPrivate__ImGuiDockNodeFlags_NoDockingSplitMe, std::ptr::null_mut());
+        let root_assets_dockspace_id = is::igDockSpace(
+            assets_window_id,
+            work_size,
+            imgui::sys::ImGuiDockNodeFlagsPrivate__ImGuiDockNodeFlags_NoDockingSplitMe,
+            std::ptr::null_mut(),
+        );
 
         // The first time through, set up the left/right panes of the asset browser so that they are pinned inside the asset browser window
         // and nothing can dock inside them
@@ -68,9 +74,13 @@ pub fn draw_external_references_dockspace(
 
             // Don't draw tab bars on the left/right panes
             (*imgui::sys::igDockBuilderGetNode(assets_left)).LocalFlags |=
-                imgui::sys::ImGuiDockNodeFlagsPrivate__ImGuiDockNodeFlags_NoTabBar| imgui::sys::ImGuiDockNodeFlagsPrivate__ImGuiDockNodeFlags_NoDocking | imgui::sys::ImGuiDockNodeFlagsPrivate__ImGuiDockNodeFlags_NoDockingSplitMe;
+                imgui::sys::ImGuiDockNodeFlagsPrivate__ImGuiDockNodeFlags_NoTabBar
+                    | imgui::sys::ImGuiDockNodeFlagsPrivate__ImGuiDockNodeFlags_NoDocking
+                    | imgui::sys::ImGuiDockNodeFlagsPrivate__ImGuiDockNodeFlags_NoDockingSplitMe;
             (*imgui::sys::igDockBuilderGetNode(assets_main)).LocalFlags |=
-                imgui::sys::ImGuiDockNodeFlagsPrivate__ImGuiDockNodeFlags_NoTabBar | imgui::sys::ImGuiDockNodeFlagsPrivate__ImGuiDockNodeFlags_NoDocking | imgui::sys::ImGuiDockNodeFlagsPrivate__ImGuiDockNodeFlags_NoDockingSplitMe;
+                imgui::sys::ImGuiDockNodeFlagsPrivate__ImGuiDockNodeFlags_NoTabBar
+                    | imgui::sys::ImGuiDockNodeFlagsPrivate__ImGuiDockNodeFlags_NoDocking
+                    | imgui::sys::ImGuiDockNodeFlagsPrivate__ImGuiDockNodeFlags_NoDockingSplitMe;
 
             is::igDockBuilderFinish(root_assets_dockspace_id);
         }
@@ -87,11 +97,12 @@ pub fn draw_external_references_dockspace_and_window(
         is::igPushStyleVar_Vec2(is::ImGuiStyleVar_WindowPadding as _, ImVec2::new(0.0, 0.0));
     }
 
-    let window_token = imgui::Window::new(&ImString::new(crate::ui::WINDOW_NAME_EXTERNAL_REFERENCES))
-        // The width of this matters, it sets the initial width of the left column
-        .size([300.0, 400.0], imgui::Condition::Once)
-        .flags(imgui::WindowFlags::NO_COLLAPSE)
-        .begin(ui);
+    let window_token =
+        imgui::Window::new(&ImString::new(crate::ui::WINDOW_NAME_EXTERNAL_REFERENCES))
+            // The width of this matters, it sets the initial width of the left column
+            .size([300.0, 400.0], imgui::Condition::Once)
+            .flags(imgui::WindowFlags::NO_COLLAPSE)
+            .begin(ui);
 
     unsafe {
         is::igPopStyleVar(1);
@@ -100,16 +111,20 @@ pub fn draw_external_references_dockspace_and_window(
     if let Some(window_token) = window_token {
         draw_external_references_dockspace(ui, app_state);
 
-        let inner_window_token =
-            imgui::Window::new(&ImString::new(crate::ui::WINDOW_NAME_EXTERNAL_REFERENCES_LEFT)).begin(ui);
+        let inner_window_token = imgui::Window::new(&ImString::new(
+            crate::ui::WINDOW_NAME_EXTERNAL_REFERENCES_LEFT,
+        ))
+        .begin(ui);
 
         if let Some(inner_window_token) = inner_window_token {
             //assets_window_left(ui, app_state);
             inner_window_token.end();
         }
 
-        let inner_window_token =
-            imgui::Window::new(&ImString::new(crate::ui::WINDOW_NAME_EXTERNAL_REFERENCES_RIGHT)).begin(ui);
+        let inner_window_token = imgui::Window::new(&ImString::new(
+            crate::ui::WINDOW_NAME_EXTERNAL_REFERENCES_RIGHT,
+        ))
+        .begin(ui);
 
         if let Some(inner_window_token) = inner_window_token {
             //assets_window_right(ui, app_state);

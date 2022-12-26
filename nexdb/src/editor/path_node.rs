@@ -6,9 +6,9 @@ pub struct PathNode {
 
 impl PathNode {
     pub fn register_schema(linker: &mut SchemaLinker) {
-        linker.register_record_type(Self::schema_name(), |_| {
-
-        }).unwrap();
+        linker
+            .register_record_type(Self::schema_name(), |_| {})
+            .unwrap();
     }
 
     pub fn schema_name() -> &'static str {

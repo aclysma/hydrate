@@ -1,16 +1,15 @@
-use std::path::{Path, PathBuf};
-use serde::{Deserialize, Serialize};
-use uuid::Uuid;
 use crate::edit_context::EditContext;
-use crate::{DataSource, HashMap, HashSet, ObjectId, ObjectLocation, ObjectPath, ObjectSourceId};
 use crate::storage::dir_tree_blob_store::{path_to_uuid, uuid_to_path};
+use crate::{DataSource, HashMap, HashSet, ObjectId, ObjectLocation, ObjectPath, ObjectSourceId};
+use serde::{Deserialize, Serialize};
+use std::path::{Path, PathBuf};
+use uuid::Uuid;
 
 #[derive(Serialize, Deserialize, Debug)]
 struct DirectoryFile {
     name: String,
-    parent_dir: Option<Uuid>
+    parent_dir: Option<Uuid>,
 }
-
 
 fn find_dir_files(root_path: &Path) -> HashMap<Uuid, DirectoryFile> {
     let walker = globwalk::GlobWalkerBuilder::from_patterns(root_path, &["**.d"])
@@ -38,7 +37,7 @@ fn load_asset_files(
     edit_context: &mut EditContext,
     root_path: &Path,
     object_source_id: ObjectSourceId,
-    dir_uuid_to_path: &HashMap::<Uuid, ObjectPath>,
+    dir_uuid_to_path: &HashMap<Uuid, ObjectPath>,
     all_object_ids_on_disk: &mut HashSet<ObjectId>,
 ) {
     let walker = globwalk::GlobWalkerBuilder::from_patterns(root_path, &["**.af"])
@@ -51,9 +50,19 @@ fn load_asset_files(
             println!("asset file {:?}", file);
             let file_uuid = path_to_uuid(root_path, file.path()).unwrap();
             let contents = std::fs::read_to_string(file.path()).unwrap();
-            crate::data_storage::json::ObjectSourceDataStorageJsonObject::load_object_from_string(edit_context, file_uuid, object_source_id, &contents);
+            crate::data_storage::json::ObjectSourceDataStorageJsonObject::load_object_from_string(
+                edit_context,
+                file_uuid,
+                object_source_id,
+                &contents,
+            );
             let object_id = ObjectId(file_uuid.as_u128());
-            let object_location = edit_context.objects().get(&object_id).unwrap().object_location.clone();
+            let object_location = edit_context
+                .objects()
+                .get(&object_id)
+                .unwrap()
+                .object_location
+                .clone();
             edit_context.clear_object_modified_flag(object_id);
             edit_context.clear_location_modified_flag(&object_location);
             all_object_ids_on_disk.insert(object_id);
@@ -75,7 +84,10 @@ pub struct FileSystemObjectDataSource {
 }
 
 impl DataSource for FileSystemObjectDataSource {
-    fn reload_all(&mut self, edit_context: &mut EditContext) {
+    fn reload_all(
+        &mut self,
+        edit_context: &mut EditContext,
+    ) {
         let dir_files = find_dir_files(&self.file_system_root_path);
 
         let mut dir_uuid_to_path = HashMap::<Uuid, ObjectPath>::default();
@@ -106,16 +118,26 @@ impl DataSource for FileSystemObjectDataSource {
 
         //println!("dir_uuid_to_path {:?}", dir_uuid_to_path);
 
-        load_asset_files(edit_context, &self.file_system_root_path, self.object_source_id, &dir_uuid_to_path, &mut self.all_object_ids_on_disk);
+        load_asset_files(
+            edit_context,
+            &self.file_system_root_path,
+            self.object_source_id,
+            &dir_uuid_to_path,
+            &mut self.all_object_ids_on_disk,
+        );
         //self.dir_uuid_to_path = dir_uuid_to_path;
         //self.path_to_dir_uuid = path_to_dir_uuid;
     }
 
-
-    fn save_all_modified(&mut self, edit_context: &mut EditContext) {
+    fn save_all_modified(
+        &mut self,
+        edit_context: &mut EditContext,
+    ) {
         // Delete files for objects that were deleted
         for object_id in edit_context.modified_objects() {
-            if self.all_object_ids_on_disk.contains(object_id) && !edit_context.has_object(*object_id) {
+            if self.all_object_ids_on_disk.contains(object_id)
+                && !edit_context.has_object(*object_id)
+            {
                 //TODO: delete the object file
                 self.all_object_ids_on_disk.remove(object_id);
             }
@@ -138,7 +160,8 @@ impl DataSource for FileSystemObjectDataSource {
                     };
 
                     let data = crate::data_storage::json::ObjectSourceDataStorageJsonObject::save_object_to_string(edit_context, *object_id, parent_dir);
-                    let file_path = uuid_to_path(&self.file_system_root_path, object_id.as_uuid(), "af");
+                    let file_path =
+                        uuid_to_path(&self.file_system_root_path, object_id.as_uuid(), "af");
                     self.all_object_ids_on_disk.insert(*object_id);
 
                     if let Some(parent) = file_path.parent() {
@@ -151,7 +174,10 @@ impl DataSource for FileSystemObjectDataSource {
         }
     }
 
-    fn reload_all_modified(&mut self, edit_context: &mut EditContext) {
+    fn reload_all_modified(
+        &mut self,
+        edit_context: &mut EditContext,
+    ) {
         let mut existing_modified_objects: Vec<_> = Default::default();
         let mut saved_modified_objects: Vec<_> = Default::default();
 
@@ -175,7 +201,8 @@ impl DataSource for FileSystemObjectDataSource {
 
         // Reload any modified object that exists on disk belonging to this data source
         for modified_object in saved_modified_objects {
-            let file_path = uuid_to_path(&self.file_system_root_path, modified_object.as_uuid(), "af");
+            let file_path =
+                uuid_to_path(&self.file_system_root_path, modified_object.as_uuid(), "af");
 
             if let Ok(contents) = std::fs::read_to_string(file_path) {
                 crate::data_storage::json::ObjectSourceDataStorageJsonObject::load_object_from_string(edit_context, modified_object.as_uuid(), self.object_source_id, &contents);
@@ -209,7 +236,10 @@ impl FileSystemObjectDataSource {
         }
     }
 
-    fn get_or_create_dir(&mut self, path: &ObjectPath) -> Option<Uuid> {
+    fn get_or_create_dir(
+        &mut self,
+        path: &ObjectPath,
+    ) -> Option<Uuid> {
         // Root always exists, does not need a path node
         if path.is_root_path() {
             return None;

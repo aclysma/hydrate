@@ -1,16 +1,15 @@
-use std::fmt::Formatter;
-use std::path::PathBuf;
-use std::sync::{Arc, mpsc};
-use std::sync::mpsc::{Receiver, Sender};
-use imgui::PopupModal;
-use imgui::sys::{ImGuiCond, ImVec2};
-use imnodes::editor;
 use crate::db_state::DbState;
-use nexdb::{EndContextBehavior, HashSet, ObjectId, ObjectLocation, ObjectPath};
 use crate::imgui_support::ImguiManager;
 use crate::ui::modals::{ConfirmQuitWithoutSavingModal, ImportFilesModal};
 use crate::ui_state::UiState;
-
+use imgui::sys::{ImGuiCond, ImVec2};
+use imgui::PopupModal;
+use imnodes::editor;
+use nexdb::{EndContextBehavior, HashSet, ObjectId, ObjectLocation, ObjectPath};
+use std::fmt::Formatter;
+use std::path::PathBuf;
+use std::sync::mpsc::{Receiver, Sender};
+use std::sync::{mpsc, Arc};
 
 #[derive(Debug)]
 pub enum QueuedActions {
@@ -34,16 +33,22 @@ pub struct ActionQueueSenderInner {
 
 #[derive(Clone)]
 pub struct ActionQueueSender {
-    inner: Arc<ActionQueueSenderInner>
+    inner: Arc<ActionQueueSenderInner>,
 }
 
 impl ActionQueueSender {
-    pub fn queue_action(&self, action: QueuedActions) {
+    pub fn queue_action(
+        &self,
+        action: QueuedActions,
+    ) {
         self.inner.action_queue_tx.send(action).unwrap();
     }
 
     // shorthand for a common action
-    pub fn try_set_modal_action<T: ModalAction + 'static>(&self, action: T) {
+    pub fn try_set_modal_action<T: ModalAction + 'static>(
+        &self,
+        action: T,
+    ) {
         self.queue_action(QueuedActions::TryBeginModalAction(Box::new(action)))
     }
 }
@@ -59,18 +64,17 @@ impl Default for ActionQueueReceiver {
         let (action_queue_tx, action_queue_rx) = mpsc::channel();
 
         let sender_inner = ActionQueueSenderInner {
-            action_queue_tx: action_queue_tx.clone()
+            action_queue_tx: action_queue_tx.clone(),
         };
 
         let sender = ActionQueueSender {
-            inner: Arc::new(sender_inner)
+            inner: Arc::new(sender_inner),
         };
-
 
         ActionQueueReceiver {
             sender,
             action_queue_tx,
-            action_queue_rx
+            action_queue_rx,
         }
     }
 }
@@ -80,12 +84,18 @@ impl ActionQueueReceiver {
         self.sender.clone()
     }
 
-    pub fn queue_action(&self, action: QueuedActions) {
+    pub fn queue_action(
+        &self,
+        action: QueuedActions,
+    ) {
         self.action_queue_tx.send(action).unwrap();
     }
 
     // shorthand for a common action
-    pub fn try_set_modal_action<T: ModalAction + 'static>(&self, action: T) {
+    pub fn try_set_modal_action<T: ModalAction + 'static>(
+        &self,
+        action: T,
+    ) {
         self.queue_action(QueuedActions::TryBeginModalAction(Box::new(action)))
     }
 }
@@ -93,7 +103,7 @@ impl ActionQueueReceiver {
 #[derive(PartialEq)]
 pub enum ModalActionControlFlow {
     Continue,
-    End
+    End,
 }
 
 pub trait ModalAction {
@@ -108,7 +118,10 @@ pub trait ModalAction {
 }
 
 impl std::fmt::Debug for ModalAction {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    fn fmt(
+        &self,
+        f: &mut Formatter<'_>,
+    ) -> std::fmt::Result {
         f.debug_struct("ModalAction").finish()
     }
 }
@@ -130,11 +143,14 @@ impl AppState {
             ui_state: UiState::default(),
             action_queue: Default::default(),
             ready_to_quit: false,
-            modal_action: None
+            modal_action: None,
         }
     }
 
-    fn try_set_modal_action<T: ModalAction + 'static>(&mut self, action: T) {
+    fn try_set_modal_action<T: ModalAction + 'static>(
+        &mut self,
+        action: T,
+    ) {
         if self.modal_action.is_none() {
             self.modal_action = Some(Box::new(action))
         }
@@ -148,30 +164,41 @@ impl AppState {
                 QueuedActions::Undo => self.db_state.editor_model.undo(),
                 QueuedActions::Redo => self.db_state.editor_model.redo(),
                 QueuedActions::Quit => {
-                    self.db_state.editor_model.commit_all_pending_undo_contexts();
-                    if self.db_state.editor_model.any_edit_context_has_unsaved_changes() {
-                        self.try_set_modal_action(ConfirmQuitWithoutSavingModal::new(&self.db_state.editor_model));
+                    self.db_state
+                        .editor_model
+                        .commit_all_pending_undo_contexts();
+                    if self
+                        .db_state
+                        .editor_model
+                        .any_edit_context_has_unsaved_changes()
+                    {
+                        self.try_set_modal_action(ConfirmQuitWithoutSavingModal::new(
+                            &self.db_state.editor_model,
+                        ));
                     } else {
                         self.ready_to_quit = true;
                     }
-                },
+                }
                 QueuedActions::QuitNoConfirm => self.ready_to_quit = true,
                 QueuedActions::HandleDroppedFiles(files) => {
                     self.try_set_modal_action(ImportFilesModal::new(files));
-                },
+                }
                 QueuedActions::TryBeginModalAction(modal_action) => {
                     if self.modal_action.is_none() {
                         self.modal_action = Some(modal_action);
                     }
-                },
+                }
                 QueuedActions::MoveObjects(objects, destination) => {
-                    self.db_state.editor_model.root_edit_context_mut().with_undo_context("MoveObjects", |edit_context| {
-                        for object in objects {
-                            edit_context.set_object_location(object, destination.clone());
-                        }
+                    self.db_state
+                        .editor_model
+                        .root_edit_context_mut()
+                        .with_undo_context("MoveObjects", |edit_context| {
+                            for object in objects {
+                                edit_context.set_object_location(object, destination.clone());
+                            }
 
-                        EndContextBehavior::Finish
-                    });
+                            EndContextBehavior::Finish
+                        });
                 }
             }
         }
@@ -183,5 +210,3 @@ impl AppState {
         self.ready_to_quit
     }
 }
-
-

@@ -7,23 +7,14 @@ pub mod dir_tree_blob_store;
 // Scan files, collect last modified time/size
 // Keep track of ref counts
 
-
-
 slotmap::new_key_type! { pub struct LoadRequest; }
 
-
-
-struct BytesHandle {
-
-}
-
+struct BytesHandle {}
 
 // struct StorageLocation {
 //     path: PathBuf,
 //     id: Uuid
 // }
-
-
 
 // Assets are always "rooted"
 // Imported data has same ID as the asset
@@ -31,19 +22,17 @@ struct BytesHandle {
 // Buffers are reffed by N assets, we have to walk tree to determine if they are unreferenced and
 // should be cleared.. or store reference count in the buffer? Or the referencing assets in the buffer?
 
-
-
 enum DataType {
     AssetObj,
     ImportObj,
     BuiltObj,
     Buffer,
-    Directory
+    Directory,
 }
 
 struct LoadedBytes {
     load_count: u32,
-    bytes: Option<Box<[u8]>>
+    bytes: Option<Box<[u8]>>,
 }
 
 struct StorageManager {
@@ -52,9 +41,7 @@ struct StorageManager {
     build_storage: DirTreeStorageHandler,
 }
 
-impl StorageManager {
-
-}
+impl StorageManager {}
 
 struct DirTreeStorageHandler {
     //loaded_bytes: DenseSlotMap<Uuid, LoadedBytes>,
@@ -67,7 +54,10 @@ impl DirTreeStorageHandler {
     }
 
     // Blocking write of string data
-    pub fn write_string(uuid: Uuid, data: &str) {
+    pub fn write_string(
+        uuid: Uuid,
+        data: &str,
+    ) {
         unimplemented!();
     }
 
@@ -77,7 +67,10 @@ impl DirTreeStorageHandler {
     }
 
     // Blocking write of binary data
-    pub fn write_bytes(uuid: Uuid, data: &[u8]) {
+    pub fn write_bytes(
+        uuid: Uuid,
+        data: &[u8],
+    ) {
         unimplemented!();
     }
 

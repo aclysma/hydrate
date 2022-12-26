@@ -2,8 +2,8 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use nexdb::edit_context::EditContext;
-use nexdb::*;
 use nexdb::json::TreeSourceDataStorageJsonSingleFile;
+use nexdb::*;
 
 fn main() {
     env_logger::Builder::default()
@@ -11,7 +11,10 @@ fn main() {
         .filter_level(log::LevelFilter::Debug)
         .init();
 
-    let path = PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/examples/data/simple_example/schema"));
+    let path = PathBuf::from(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/examples/data/simple_example/schema"
+    ));
     let default_location = ObjectLocation::new(ObjectSourceId::new(), ObjectPath::new("test.nxt"));
 
     let (schema_cache, data) = {
@@ -78,7 +81,10 @@ fn main() {
 
         let schema_cache = SchemaCacheSingleFile::store_string(edit_context.schema_set());
         let object_ids: Vec<_> = edit_context.all_objects().copied().collect();
-        let data = TreeSourceDataStorageJsonSingleFile::store_objects_to_string(&edit_context, &object_ids);
+        let data = TreeSourceDataStorageJsonSingleFile::store_objects_to_string(
+            &edit_context,
+            &object_ids,
+        );
 
         println!("Schema Cache: {}", schema_cache);
         println!("Data: {}", data);
@@ -94,13 +100,19 @@ fn main() {
         schema_set.add_linked_types(linker2).unwrap();
         let schema_set = Arc::new(schema_set);
 
-
         let mut edit_model2 = EditorModel::new(schema_set.clone());
         let mut edit_context2 = edit_model2.root_edit_context_mut();
 
-        TreeSourceDataStorageJsonSingleFile::load_objects_from_string(&mut edit_context2, default_location.clone(), &data);
+        TreeSourceDataStorageJsonSingleFile::load_objects_from_string(
+            &mut edit_context2,
+            default_location.clone(),
+            &data,
+        );
         let object_ids: Vec<_> = edit_context2.all_objects().copied().collect();
-        let data2 = TreeSourceDataStorageJsonSingleFile::store_objects_to_string(&edit_context2, &object_ids);
+        let data2 = TreeSourceDataStorageJsonSingleFile::store_objects_to_string(
+            &edit_context2,
+            &object_ids,
+        );
         println!("Data2: {}", data2);
         assert_eq!(data, data2);
 
@@ -117,9 +129,16 @@ fn main() {
         let mut edit_model3 = EditorModel::new(schema_set.clone());
         let mut edit_context3 = edit_model3.root_edit_context_mut();
 
-        TreeSourceDataStorageJsonSingleFile::load_objects_from_string(&mut edit_context3, default_location, &data);
+        TreeSourceDataStorageJsonSingleFile::load_objects_from_string(
+            &mut edit_context3,
+            default_location,
+            &data,
+        );
         let object_ids: Vec<_> = edit_context3.all_objects().copied().collect();
-        let data3 = TreeSourceDataStorageJsonSingleFile::store_objects_to_string(&edit_context3, &object_ids);
+        let data3 = TreeSourceDataStorageJsonSingleFile::store_objects_to_string(
+            &edit_context3,
+            &object_ids,
+        );
         println!("---------------------");
         println!("Data3: {}", data3);
         assert_eq!(data, data3);

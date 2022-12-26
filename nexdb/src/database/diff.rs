@@ -1,5 +1,8 @@
 use crate::value::PropertyValue;
-use crate::{DataObjectInfo, DataSet, HashSet, NullOverride, ObjectId, ObjectLocation, ObjectName, SchemaSet, Value};
+use crate::{
+    DataObjectInfo, DataSet, HashSet, NullOverride, ObjectId, ObjectLocation, ObjectName,
+    SchemaSet, Value,
+};
 use uuid::Uuid;
 
 #[derive(Debug)]
@@ -402,7 +405,7 @@ impl DataSetDiff {
                 create.properties.clone(),
                 create.property_null_overrides.clone(),
                 create.properties_in_replace_mode.clone(),
-                create.dynamic_array_entries.clone()
+                create.dynamic_array_entries.clone(),
             );
         }
 
@@ -413,7 +416,10 @@ impl DataSetDiff {
         }
     }
 
-    pub fn get_modified_objects(&self, modified_objects: &mut HashSet<ObjectId>) {
+    pub fn get_modified_objects(
+        &self,
+        modified_objects: &mut HashSet<ObjectId>,
+    ) {
         for (id, _) in &self.creates {
             modified_objects.insert(*id);
         }
@@ -459,7 +465,13 @@ impl DataSetDiffSet {
             if existed_before {
                 if existed_after {
                     // Object was modified
-                    let diff = ObjectDiffSet::diff_objects(before, object_id, &after, object_id, &mut modified_locations);
+                    let diff = ObjectDiffSet::diff_objects(
+                        before,
+                        object_id,
+                        &after,
+                        object_id,
+                        &mut modified_locations,
+                    );
                     if diff.has_changes() {
                         modified_objects.insert(object_id);
                         apply_diff.changes.push((object_id, diff.apply_diff));
@@ -498,7 +510,7 @@ impl DataSetDiffSet {
             apply_diff,
             revert_diff,
             modified_locations,
-            modified_objects
+            modified_objects,
         }
     }
 }

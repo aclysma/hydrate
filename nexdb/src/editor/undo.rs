@@ -1,6 +1,6 @@
+use slotmap::DenseSlotMap;
 use std::sync::mpsc;
 use std::sync::mpsc::{Receiver, Sender};
-use slotmap::DenseSlotMap;
 
 use crate::edit_context::EditContext;
 use crate::{DataSet, DataSetDiffSet, EditContextKey, HashSet, ObjectId, ObjectLocation};
@@ -16,7 +16,7 @@ use crate::{DataSet, DataSetDiffSet, EditContextKey, HashSet, ObjectId, ObjectLo
 #[derive(PartialEq)]
 pub enum EndContextBehavior {
     Finish,
-    AllowResume
+    AllowResume,
 }
 
 pub struct CompletedUndoContextMessage {
@@ -73,10 +73,16 @@ impl UndoStack {
         // use the revert diff in the 0th index of the chain
         if self.current_undo_index > 0 {
             if let Some(current_step) = self.undo_chain.get(self.current_undo_index - 1) {
-                let edit_context = edit_contexts.get_mut(current_step.edit_context_key).unwrap();
+                let edit_context = edit_contexts
+                    .get_mut(current_step.edit_context_key)
+                    .unwrap();
                 // We don't want anything being written to the undo context at this point, since we're using it
                 edit_context.cancel_pending_undo_context();
-                edit_context.apply_diff(&current_step.diff_set.revert_diff, &current_step.diff_set.modified_objects, &current_step.diff_set.modified_locations);
+                edit_context.apply_diff(
+                    &current_step.diff_set.revert_diff,
+                    &current_step.diff_set.modified_objects,
+                    &current_step.diff_set.modified_locations,
+                );
                 self.current_undo_index -= 1;
             }
         }
@@ -93,10 +99,16 @@ impl UndoStack {
         // use the apply diff in the 0th index of the chain. If our current step is == length of
         // chain, we have no more steps available to redo
         if let Some(current_step) = self.undo_chain.get(self.current_undo_index) {
-            let edit_context = edit_contexts.get_mut(current_step.edit_context_key).unwrap();
+            let edit_context = edit_contexts
+                .get_mut(current_step.edit_context_key)
+                .unwrap();
             // We don't want anything being written to the undo context at this point, since we're using it
             edit_context.cancel_pending_undo_context();
-            edit_context.apply_diff(&current_step.diff_set.apply_diff, &current_step.diff_set.modified_objects, &current_step.diff_set.modified_locations);
+            edit_context.apply_diff(
+                &current_step.diff_set.apply_diff,
+                &current_step.diff_set.modified_objects,
+                &current_step.diff_set.modified_locations,
+            );
             self.current_undo_index += 1;
         }
     }
@@ -113,7 +125,10 @@ pub struct UndoContext {
 }
 
 impl UndoContext {
-    pub(crate) fn new(undo_stack: &UndoStack, edit_context_key: EditContextKey) -> Self {
+    pub(crate) fn new(
+        undo_stack: &UndoStack,
+        edit_context_key: EditContextKey,
+    ) -> Self {
         UndoContext {
             edit_context_key,
             before_state: Default::default(),
@@ -158,7 +173,7 @@ impl UndoContext {
         after_state: &DataSet,
         name: &'static str,
         modified_objects: &mut HashSet<ObjectId>,
-        modified_locations: &mut HashSet<ObjectLocation>
+        modified_locations: &mut HashSet<ObjectLocation>,
     ) {
         if self.context_name == Some(name) {
             // don't need to do anything, we can append to the current context
@@ -241,10 +256,12 @@ impl UndoContext {
                 //
                 // Send the undo command
                 //
-                self.completed_undo_context_tx.send(CompletedUndoContextMessage {
-                    edit_context_key: self.edit_context_key,
-                    diff_set
-                }).unwrap();
+                self.completed_undo_context_tx
+                    .send(CompletedUndoContextMessage {
+                        edit_context_key: self.edit_context_key,
+                        diff_set,
+                    })
+                    .unwrap();
             }
 
             self.tracked_objects.clear();

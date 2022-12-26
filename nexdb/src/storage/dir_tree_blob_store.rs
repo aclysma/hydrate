@@ -1,20 +1,29 @@
 use std::path::{Path, PathBuf};
 use uuid::Uuid;
 
-pub fn uuid_to_path(root: &Path, uuid: Uuid, extension: &str) -> PathBuf {
+pub fn uuid_to_path(
+    root: &Path,
+    uuid: Uuid,
+    extension: &str,
+) -> PathBuf {
     // Convert UUID to a 32-character hex string (no hyphens)
     // example: 8cf25195abd839981ea3c93c8fd2843f
     let mut buffer = [0; 32];
     let encoded = uuid.to_simple().encode_lower(&mut buffer).to_string();
     // Produce path like [root]/8/cf/25195abd839981ea3c93c8fd2843f
-    root.join(&encoded[0..1]).join(&encoded[1..3]).join(format!("{}.{}", &encoded[3..32], extension))
+    root.join(&encoded[0..1]).join(&encoded[1..3]).join(format!(
+        "{}.{}",
+        &encoded[3..32],
+        extension
+    ))
 }
 
-pub fn path_to_uuid(root: &Path, file_path: &Path) -> Option<Uuid> {
+pub fn path_to_uuid(
+    root: &Path,
+    file_path: &Path,
+) -> Option<Uuid> {
     // Remove root from the path
-    let relative_path_from_root = file_path
-        .strip_prefix(root)
-        .ok()?;
+    let relative_path_from_root = file_path.strip_prefix(root).ok()?;
 
     // We append the path into this string
     let mut path_and_name = String::with_capacity(32);
@@ -24,7 +33,7 @@ pub fn path_to_uuid(root: &Path, file_path: &Path) -> Option<Uuid> {
 
     // Iterate all segments of the path except the last one
     if components.len() > 1 {
-        for component in components[0..components.len()-1].iter() {
+        for component in components[0..components.len() - 1].iter() {
             path_and_name.push_str(&component.as_os_str().to_str().unwrap());
         }
     }
@@ -48,14 +57,11 @@ pub fn path_to_uuid(root: &Path, file_path: &Path) -> Option<Uuid> {
         path_and_name.push_str(last_str);
     }
 
-    u128::from_str_radix(&path_and_name, 16).ok().map(|x| Uuid::from_u128(x))
+    u128::from_str_radix(&path_and_name, 16)
+        .ok()
+        .map(|x| Uuid::from_u128(x))
 }
 
+struct DirTreeBlobStore {}
 
-struct DirTreeBlobStore {
-
-}
-
-impl DirTreeBlobStore {
-
-}
+impl DirTreeBlobStore {}

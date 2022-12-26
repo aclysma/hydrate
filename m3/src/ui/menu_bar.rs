@@ -1,6 +1,5 @@
-
-use imgui::im_str;
 use crate::{AppState, QueuedActions};
+use imgui::im_str;
 
 pub fn draw_menu_bar(
     ui: &imgui::Ui,
@@ -11,13 +10,14 @@ pub fn draw_menu_bar(
             //imgui::MenuItem::new(im_str!("New")).build(ui);
             //imgui::MenuItem::new(im_str!("Open")).build(ui);
 
-
             if imgui::MenuItem::new(im_str!("Save All")).build(ui) {
                 app_state.action_queue.queue_action(QueuedActions::SaveAll);
             }
 
             if imgui::MenuItem::new(im_str!("Revert All")).build(ui) {
-                app_state.action_queue.queue_action(QueuedActions::RevertAll);
+                app_state
+                    .action_queue
+                    .queue_action(QueuedActions::RevertAll);
             }
         });
         ui.menu(im_str!("Edit"), || {

@@ -1,5 +1,8 @@
 use crate::edit_context::EditContext;
-use crate::{DataObjectInfo, HashMap, HashSet, NullOverride, ObjectId, ObjectLocation, ObjectName, ObjectSourceId, OverrideBehavior, Schema, SchemaFingerprint, SchemaNamedType, Value};
+use crate::{
+    DataObjectInfo, HashMap, HashSet, NullOverride, ObjectId, ObjectLocation, ObjectName,
+    ObjectSourceId, OverrideBehavior, Schema, SchemaFingerprint, SchemaNamedType, Value,
+};
 use serde::{Deserialize, Serialize};
 use std::str::FromStr;
 use uuid::Uuid;
@@ -129,8 +132,7 @@ fn store_object_into_properties(
         | Schema::String => {
             let value = edit_context.get_property_override(object_id, path);
             if let Some(value) = value {
-                properties
-                    .insert(path.to_string(), property_value_to_json(value));
+                properties.insert(path.to_string(), property_value_to_json(value));
             }
         }
         Schema::Bytes => {
@@ -163,8 +165,7 @@ fn store_object_into_properties(
         Schema::ObjectRef(_) => {
             let value = edit_context.get_property_override(object_id, path);
             if let Some(value) = value {
-                properties
-                    .insert(path.to_string(), property_value_to_json(value));
+                properties.insert(path.to_string(), property_value_to_json(value));
             }
         }
         Schema::NamedType(named_type) => {
@@ -332,11 +333,7 @@ fn restore_object_from_properties(
                 }
             }
 
-            let elements = properties
-                .get(path)
-                .unwrap()
-                .as_array()
-                .unwrap();
+            let elements = properties.get(path).unwrap().as_array().unwrap();
             for element in elements {
                 let element_id = element.as_str().unwrap();
                 edit_context.add_dynamic_array_override(object_id, path);
@@ -404,8 +401,8 @@ fn ordered_map<S>(
     value: &HashMap<String, serde_json::Value>,
     serializer: S,
 ) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
+where
+    S: serde::Serializer,
 {
     let ordered: std::collections::BTreeMap<_, _> = value.iter().collect();
     ordered.serialize(serializer)
@@ -432,7 +429,7 @@ fn restore_from_json_properties(
     schema: Uuid,
     schema_name: String,
     prototype: Option<Uuid>,
-    json_properties: HashMap<String, serde_json::Value>
+    json_properties: HashMap<String, serde_json::Value>,
 ) -> ObjectId {
     let object_id = ObjectId(object_id.as_u128());
     let schema_fingerprint = SchemaFingerprint(schema.as_u128());
@@ -471,8 +468,7 @@ fn restore_from_json_properties(
                 .find_property_schema(parent_path, edit_context.schemas())
                 .unwrap();
             if parent_schema.is_nullable() && path_end == "null_override" {
-                let null_override =
-                    string_to_null_override_value(value.as_str().unwrap()).unwrap();
+                let null_override = string_to_null_override_value(value.as_str().unwrap()).unwrap();
                 //edit_context.set_null_override(object_id, path, null_override);
                 log::debug!("set null override {} to {:?}", parent_path, null_override);
                 property_null_overrides.insert(parent_path.to_string(), null_override);
@@ -513,8 +509,7 @@ fn restore_from_json_properties(
         }
     }
 
-    let mut dynamic_array_entries_as_vec: HashMap<String, HashSet<Uuid>> =
-        Default::default();
+    let mut dynamic_array_entries_as_vec: HashMap<String, HashSet<Uuid>> = Default::default();
     for (k, v) in dynamic_array_entries {
         dynamic_array_entries_as_vec.insert(k, v.into_iter().collect());
     }
@@ -528,7 +523,7 @@ fn restore_from_json_properties(
         properties,
         property_null_overrides,
         properties_in_replace_mode,
-        dynamic_array_entries_as_vec
+        dynamic_array_entries_as_vec,
     );
 
     object_id
@@ -545,8 +540,7 @@ fn store_object_to_json_properties(obj: &DataObjectInfo) -> HashMap<String, serd
     }
 
     for path in &obj.properties_in_replace_mode {
-        properties
-            .insert(format!("{}.replace", path), serde_json::Value::from(true));
+        properties.insert(format!("{}.replace", path), serde_json::Value::from(true));
     }
 
     for (path, elements) in &obj.dynamic_array_entries {
@@ -557,13 +551,11 @@ fn store_object_to_json_properties(obj: &DataObjectInfo) -> HashMap<String, serd
             .map(|x| serde_json::Value::from(x.to_string()))
             .collect();
         let elements_json_array = serde_json::Value::from(elements_json);
-        properties
-            .insert(path.to_string(), elements_json_array);
+        properties.insert(path.to_string(), elements_json_array);
     }
 
     for (k, v) in &obj.properties {
-        properties
-            .insert(k.to_string(), property_value_to_json(v));
+        properties.insert(k.to_string(), property_value_to_json(v));
     }
 
     properties
@@ -597,7 +589,16 @@ impl ObjectSourceDataStorageJsonObject {
         };
 
         //let location = ObjectLocation::new(object_source_id, path);
-        restore_from_json_properties(edit_context, object_name, object_location, object_id, stored_object.schema, stored_object.schema_name, stored_object.prototype, stored_object.properties);
+        restore_from_json_properties(
+            edit_context,
+            object_name,
+            object_location,
+            object_id,
+            stored_object.schema,
+            stored_object.schema_name,
+            stored_object.prototype,
+            stored_object.properties,
+        );
     }
 
     pub fn save_object_to_string(
@@ -612,14 +613,11 @@ impl ObjectSourceDataStorageJsonObject {
             parent_dir,
             schema: obj.schema.fingerprint().as_uuid(),
             schema_name: obj.schema.name().to_string(),
-            prototype: obj
-                .prototype
-                .map(|x| Uuid::from_u128(x.0)),
+            prototype: obj.prototype.map(|x| Uuid::from_u128(x.0)),
             properties,
         };
 
         serde_json::to_string_pretty(&stored_object).unwrap()
-
 
         // name: String,
         // parent_dir: Option<Uuid>,
@@ -628,6 +626,5 @@ impl ObjectSourceDataStorageJsonObject {
         // prototype: Option<Uuid>,
         // #[serde(serialize_with = "ordered_map")]
         // properties: HashMap<String, serde_json::Value>,
-
     }
 }

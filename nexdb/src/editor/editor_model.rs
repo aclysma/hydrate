@@ -1,6 +1,9 @@
 use crate::edit_context::EditContext;
 use crate::editor::undo::UndoStack;
-use crate::{DataSet, DataSource, FileSystemObjectDataSource, HashMap, HashSet, LocationTree, ObjectId, ObjectLocation, ObjectPath, ObjectSourceId, PathNode, SchemaNamedType, SchemaSet};
+use crate::{
+    DataSet, DataSource, FileSystemObjectDataSource, HashMap, HashSet, LocationTree, ObjectId,
+    ObjectLocation, ObjectPath, ObjectSourceId, PathNode, SchemaNamedType, SchemaSet,
+};
 use slotmap::DenseSlotMap;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -16,7 +19,6 @@ pub struct EditorModel {
 
     path_node_id_to_path: HashMap<ObjectId, ObjectPath>,
     //path_to_object_id: HashMap<ObjectPath, ObjectId>,
-
     location_tree: LocationTree,
 }
 
@@ -25,9 +27,8 @@ impl EditorModel {
         let undo_stack = UndoStack::default();
         let mut edit_contexts: DenseSlotMap<EditContextKey, EditContext> = Default::default();
 
-        let root_edit_context_key = edit_contexts.insert_with_key(|key| {
-            EditContext::new(key, schema_set.clone(), &undo_stack)
-        });
+        let root_edit_context_key = edit_contexts
+            .insert_with_key(|key| EditContext::new(key, schema_set.clone(), &undo_stack));
 
         EditorModel {
             schema_set,
@@ -71,24 +72,36 @@ impl EditorModel {
     }
 
     pub fn root_edit_context_mut(&mut self) -> &mut EditContext {
-        self.edit_contexts.get_mut(self.root_edit_context_key).unwrap()
+        self.edit_contexts
+            .get_mut(self.root_edit_context_key)
+            .unwrap()
     }
 
-    pub fn path_node_id_to_path(&self, object_id: ObjectId) -> Option<&ObjectPath> {
+    pub fn path_node_id_to_path(
+        &self,
+        object_id: ObjectId,
+    ) -> Option<&ObjectPath> {
         self.path_node_id_to_path.get(&object_id)
     }
 
-    pub fn object_display_name_long(&self, object_id: ObjectId) -> String {
+    pub fn object_display_name_long(
+        &self,
+        object_id: ObjectId,
+    ) -> String {
         let root_data_set = &self.root_edit_context().data_set;
         let location = root_data_set.object_location(object_id);
-        let path = location.map(|x| self.path_node_id_to_path(x.path_node_id())).flatten();
+        let path = location
+            .map(|x| self.path_node_id_to_path(x.path_node_id()))
+            .flatten();
 
         if let Some(path) = path {
             let name = root_data_set.object_name(object_id);
             if let Some(name) = name.as_string() {
                 path.join(name).as_str().to_string()
             } else {
-                path.join(&format!("{}", object_id.as_uuid())).as_str().to_string()
+                path.join(&format!("{}", object_id.as_uuid()))
+                    .as_str()
+                    .to_string()
             }
         } else {
             object_id.as_uuid().to_string()
@@ -122,7 +135,10 @@ impl EditorModel {
         //
         // Ensure pending edits are flushed to the data set so that our modified objects list is fully up to date
         //
-        let mut root_edit_context = self.edit_contexts.get_mut(self.root_edit_context_key).unwrap();
+        let mut root_edit_context = self
+            .edit_contexts
+            .get_mut(self.root_edit_context_key)
+            .unwrap();
         root_edit_context.commit_pending_undo_context();
 
         for (id, data_source) in &mut self.data_sources {
@@ -139,14 +155,21 @@ impl EditorModel {
         //
         // Ensure pending edits are cleared
         //
-        let mut root_edit_context = self.edit_contexts.get_mut(self.root_edit_context_key).unwrap();
+        let mut root_edit_context = self
+            .edit_contexts
+            .get_mut(self.root_edit_context_key)
+            .unwrap();
         root_edit_context.cancel_pending_undo_context();
 
         //
         // Take the contents of the modified object list, leaving the edit context with a cleared list
         //
-        let (modified_objects, modified_locations) = root_edit_context.take_modified_objects_and_locations();
-        println!("Revert:\nObjects: {:?}\nLocations: {:?}", modified_objects, modified_locations);
+        let (modified_objects, modified_locations) =
+            root_edit_context.take_modified_objects_and_locations();
+        println!(
+            "Revert:\nObjects: {:?}\nLocations: {:?}",
+            modified_objects, modified_locations
+        );
 
         for (id, data_source) in &mut self.data_sources {
             data_source.reload_all_modified(root_edit_context);
@@ -189,27 +212,43 @@ impl EditorModel {
             EditContext::new_with_data(key, self.schema_set.clone(), &self.undo_stack)
         });
 
-        let [root_edit_context, new_edit_context] = self.edit_contexts.get_disjoint_mut([self.root_edit_context_key, new_edit_context_key]).unwrap();
+        let [root_edit_context, new_edit_context] = self
+            .edit_contexts
+            .get_disjoint_mut([self.root_edit_context_key, new_edit_context_key])
+            .unwrap();
 
         for &object_id in objects {
-            new_edit_context.data_set.copy_from(root_edit_context.data_set(), object_id);
+            new_edit_context
+                .data_set
+                .copy_from(root_edit_context.data_set(), object_id);
         }
 
         new_edit_context_key
     }
 
-    pub fn flush_edit_context_to_root(&mut self, edit_context: EditContextKey) {
+    pub fn flush_edit_context_to_root(
+        &mut self,
+        edit_context: EditContextKey,
+    ) {
         assert_ne!(edit_context, self.root_edit_context_key);
-        let [root_context, context_to_flush] = self.edit_contexts.get_disjoint_mut([self.root_edit_context_key, edit_context]).unwrap();
+        let [root_context, context_to_flush] = self
+            .edit_contexts
+            .get_disjoint_mut([self.root_edit_context_key, edit_context])
+            .unwrap();
 
         for &object_id in context_to_flush.modified_objects() {
-            root_context.data_set.copy_from(&context_to_flush.data_set, object_id);
+            root_context
+                .data_set
+                .copy_from(&context_to_flush.data_set, object_id);
         }
 
         context_to_flush.clear_change_tracking();
     }
 
-    pub fn close_edit_context(&mut self, edit_context: EditContextKey) {
+    pub fn close_edit_context(
+        &mut self,
+        edit_context: EditContextKey,
+    ) {
         assert_ne!(edit_context, self.root_edit_context_key);
         self.edit_contexts.remove(edit_context);
     }
@@ -225,8 +264,8 @@ impl EditorModel {
     fn do_populate_path(
         data_set: &DataSet,
         path_stack: &mut HashSet<ObjectId>,
-        paths: &mut HashMap::<ObjectId, ObjectPath>,
-        path_node: ObjectId
+        paths: &mut HashMap<ObjectId, ObjectPath>,
+        path_node: ObjectId,
     ) -> ObjectPath {
         // If we already know the path for the tree node, just return it
         if let Some(parent_path) = paths.get(&path_node) {
@@ -237,19 +276,23 @@ impl EditorModel {
         let is_cyclical_reference = !path_stack.insert(path_node);
         let source_id_and_path = if is_cyclical_reference {
             // If we detect a cycle, bail and return root path
-           ObjectPath::root()
+            ObjectPath::root()
         } else {
             if let Some(object) = data_set.objects.get(&path_node) {
                 if let Some(name) = object.object_name().as_string() {
                     // Parent is found, named, and not a cyclical reference
-                    let mut parent = Self::do_populate_path(data_set, path_stack, paths, object.object_location.path_node_id());
+                    let mut parent = Self::do_populate_path(
+                        data_set,
+                        path_stack,
+                        paths,
+                        object.object_location.path_node_id(),
+                    );
                     let path = parent.join(name);
                     path
                 } else {
                     // Parent is unnamed, just treat as being at root path
                     ObjectPath::root()
                 }
-
             } else {
                 // Can't find parent, just treat as being at root path
                 ObjectPath::root()
@@ -265,7 +308,10 @@ impl EditorModel {
         source_id_and_path
     }
 
-    fn populate_paths(data_set: &DataSet, path_node_type: &SchemaNamedType) -> HashMap<ObjectId, ObjectPath> {
+    fn populate_paths(
+        data_set: &DataSet,
+        path_node_type: &SchemaNamedType,
+    ) -> HashMap<ObjectId, ObjectPath> {
         let mut path_stack = HashSet::default();
         let mut paths = HashMap::<ObjectId, ObjectPath>::default();
         for (object_id, info) in &data_set.objects {
@@ -284,11 +330,16 @@ impl EditorModel {
     }
 
     pub fn refresh_tree_node_cache(&mut self) {
-        let path_node_type = self.schema_set.find_named_type(PathNode::schema_name()).unwrap();
+        let path_node_type = self
+            .schema_set
+            .find_named_type(PathNode::schema_name())
+            .unwrap();
         let root_edit_context = self.edit_contexts.get(self.root_edit_context_key).unwrap();
-        let path_node_id_to_path = Self::populate_paths(&root_edit_context.data_set, &path_node_type);
+        let path_node_id_to_path =
+            Self::populate_paths(&root_edit_context.data_set, &path_node_type);
         self.path_node_id_to_path = path_node_id_to_path;
-        self.location_tree = LocationTree::build(&root_edit_context.data_set, &self.path_node_id_to_path);
+        self.location_tree =
+            LocationTree::build(&root_edit_context.data_set, &self.path_node_id_to_path);
     }
 
     pub fn cached_location_tree(&self) -> &LocationTree {

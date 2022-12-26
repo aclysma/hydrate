@@ -1,11 +1,11 @@
+use nexdb::edit_context::EditContext;
+use nexdb::{
+    BufferId, DataObjectInfo, DataSet, EditorModel, HashMap, ObjectId, ObjectLocation, ObjectPath,
+    SchemaLinker, SchemaSet, Value,
+};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use uuid::Uuid;
-use nexdb::{BufferId, DataObjectInfo, DataSet, EditorModel, HashMap, ObjectId, ObjectLocation, ObjectPath, SchemaLinker, SchemaSet, Value};
-use nexdb::edit_context::EditContext;
-
-
-
 
 // fn uuid_to_path(root_path: &Path, uuid: Uuid, extension: &str) -> PathBuf {
 //     // Convert UUID to a 32-character hex string (no hyphens)
@@ -86,16 +86,6 @@ use nexdb::edit_context::EditContext;
 //
 //
 
-
-
-
-
-
-
-
-
-
-
 // How to handle multiple objects
 // Subobjects? We have type-safe migrated data stored as subobjects and buffers
 // We have:
@@ -112,14 +102,14 @@ struct BufferState {
     location: String, //enum? Arc?
 
     size: usize,
-    data: Option<Vec<u8>>
+    data: Option<Vec<u8>>,
 }
 
 //TODO: Do we store the buffers in different sets? Maybe we have it in same set but bookkeep where
 // the buffers came from. Maybe this is part of DataSet? However we don't want undo/redo for
 // this stuff I think?
 struct BufferSet {
-    buffers: HashMap<BufferId, BufferState>
+    buffers: HashMap<BufferId, BufferState>,
 }
 
 impl BufferSet {
@@ -135,42 +125,34 @@ impl BufferSet {
     fn save_all_dirty_buffers() {}
 }
 
-
-
-
 struct BuildObjectId(Uuid);
 
 struct BuildObjectState {
-    object: DataObjectInfo
+    object: DataObjectInfo,
 }
 
 struct BuildObjectSet {
     objects: HashMap<BuildObjectId, BuildObjectState>,
-    buffers: BufferSet
+    buffers: BufferSet,
 }
 
 struct ImportObjectId(Uuid);
 
 struct ImportObjectState {
-    object: DataObjectInfo
+    object: DataObjectInfo,
 }
 
 struct ImportObjectSet {
     objects: HashMap<ImportObjectId, ImportObjectState>,
-    buffers: BufferSet
+    buffers: BufferSet,
 }
-
-
-
 
 //Need a different way to store import and build data for objects?
 // DataSet using buffers?
 // Implement buffers?
 
 //RAII object to load a buffer?
-struct LoadedBuffer {
-
-}
+struct LoadedBuffer {}
 /*
 struct BufferSet {
 
@@ -186,34 +168,52 @@ impl BufferSet {
     }
 }*/
 
-
 #[derive(Default)]
 struct ImageAsset {
     path: String,
-    compress: bool
+    compress: bool,
 }
 
 impl ImageAsset {
     pub fn register_schema(linker: &mut SchemaLinker) {
-        linker.register_record_type("ImageAsset", |x| {
-            x.add_string("path");
-            x.add_boolean("compress");
-        }).unwrap();
+        linker
+            .register_record_type("ImageAsset", |x| {
+                x.add_string("path");
+                x.add_boolean("compress");
+            })
+            .unwrap();
     }
 
-    pub fn read_from_dataset(&mut self, edit_context: &EditContext, object_id: ObjectId) {
-        self.path = edit_context.resolve_property(object_id, "path").unwrap().as_string().unwrap().to_string();
-        self.compress = edit_context.resolve_property(object_id, "compress").unwrap().as_boolean().unwrap();
+    pub fn read_from_dataset(
+        &mut self,
+        edit_context: &EditContext,
+        object_id: ObjectId,
+    ) {
+        self.path = edit_context
+            .resolve_property(object_id, "path")
+            .unwrap()
+            .as_string()
+            .unwrap()
+            .to_string();
+        self.compress = edit_context
+            .resolve_property(object_id, "compress")
+            .unwrap()
+            .as_boolean()
+            .unwrap();
     }
 
-    pub fn write_to_dataset(&self, edit_context: &mut EditContext, object_id: ObjectId) {
+    pub fn write_to_dataset(
+        &self,
+        edit_context: &mut EditContext,
+        object_id: ObjectId,
+    ) {
         edit_context.set_property_override(object_id, "path", Value::String(self.path.clone()));
         edit_context.set_property_override(object_id, "compress", Value::Boolean(self.compress));
     }
 }
 
 struct ImageAssetImported {
-    data: Vec<u8>
+    data: Vec<u8>,
 }
 
 // struct ImageAssetBuilt {
@@ -266,8 +266,6 @@ struct ImageAssetImported {
 // Handling a path reference for materials?
 // Do we let importers associate paths with import objects?
 
-
-
 struct ProcessAssetResult {
     // top-level resource
     // additional jobs?
@@ -278,16 +276,9 @@ trait AssetProcessor {
     fn process_asset(database: &DataSet) -> ProcessAssetResult;
 }
 
-struct AssetProcessorImage {
+struct AssetProcessorImage {}
 
-}
-
-struct AssetProcessorRegistry {
-
-}
-
-
-
+struct AssetProcessorRegistry {}
 
 fn main() {
     //
@@ -320,9 +311,15 @@ fn main() {
         env!("CARGO_MANIFEST_DIR"),
         "/examples/data/processing_example/asset_data"
     ));
-    let source_id = editor_model.add_file_system_object_source(data_source_path, ObjectPath::root());
+    let source_id =
+        editor_model.add_file_system_object_source(data_source_path, ObjectPath::root());
 
-    let image_asset_schema_record = schema_set.find_named_type("ImageAsset").unwrap().as_record().unwrap().clone();
+    let image_asset_schema_record = schema_set
+        .find_named_type("ImageAsset")
+        .unwrap()
+        .as_record()
+        .unwrap()
+        .clone();
 
     //
     // Create an image asset if one doesn't exist
@@ -332,10 +329,13 @@ fn main() {
 
         // Create some authored data that points to objects to import
         let mut editor_context = editor_model.root_edit_context_mut();
-        let object_id = editor_context.new_object(&ObjectLocation::new(source_id, ObjectPath::root()), &image_asset_schema_record);
+        let object_id = editor_context.new_object(
+            &ObjectLocation::new(source_id, ObjectPath::root()),
+            &image_asset_schema_record,
+        );
         let image_asset = ImageAsset {
             path: "source_data/test_texture.jpg".to_string(),
-            compress: false
+            compress: false,
         };
 
         image_asset.write_to_dataset(editor_context, object_id);
@@ -360,13 +360,12 @@ fn main() {
         image_asset.read_from_dataset(editor_model.root_edit_context(), image_asset_id);
 
         // process image asset
-        let imported = ImageAssetImported { data: Default::default() };
-
-
+        let imported = ImageAssetImported {
+            data: Default::default(),
+        };
 
         // Store it somewhere?
     }
-
 
     //editor_model.save_root_edit_context();
 
@@ -374,9 +373,6 @@ fn main() {
     // -
 
     //editor_context.objects()
-
-
-
 
     // Run the build jobs
 

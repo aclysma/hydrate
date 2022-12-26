@@ -1,9 +1,11 @@
-use crate::app_state::{ActionQueueSender, AppState, ModalAction, ModalActionControlFlow, QueuedActions};
+use crate::app_state::{
+    ActionQueueSender, AppState, ModalAction, ModalActionControlFlow, QueuedActions,
+};
+use crate::db_state::DbState;
 use crate::imgui_support::ImguiManager;
+use crate::ui_state::UiState;
 use imgui::{im_str, ImString, PopupModal, Ui};
 use imnodes::Context;
-use crate::db_state::DbState;
-use crate::ui_state::UiState;
 
 pub fn draw_properties_window(
     ui: &imgui::Ui,
@@ -25,7 +27,6 @@ pub fn draw_outline_window(
     _imnodes_editor: &mut imnodes::EditorContext,
     _app_state: &mut AppState,
 ) {
-
     let window_token =
         imgui::Window::new(&ImString::new(crate::ui::WINDOW_NAME_DOC_OUTLINE)).begin(ui);
 
@@ -50,7 +51,6 @@ pub fn draw_imgui(
             //
             crate::ui::views::draw_editor_view::draw_dockspace(ui, imnodes_editor, app_state);
 
-
             //
             // Properties window
             //
@@ -65,7 +65,6 @@ pub fn draw_imgui(
             //
             crate::ui::windows::assets_window::draw_assets_dockspace_and_window(ui, app_state);
             //crate::ui::windows::external_references_window::draw_external_references_dockspace_and_window(ui, app_state);
-
 
             //
             // Outline
@@ -99,7 +98,7 @@ pub fn draw_imgui(
                     imnodes_context,
                     &mut app_state.db_state,
                     &mut app_state.ui_state,
-                    app_state.action_queue.sender()
+                    app_state.action_queue.sender(),
                 );
                 if control_flow == ModalActionControlFlow::End {
                     app_state.modal_action = None;

@@ -76,10 +76,8 @@ impl ObjectPath {
                 } else {
                     ObjectPath(Some(format!("{}/{}", x, rhs)))
                 }
-            },
-            None => {
-                ObjectPath(Some(format!("{}{}", ROOT_PATH_STR, rhs)))
             }
+            None => ObjectPath(Some(format!("{}{}", ROOT_PATH_STR, rhs))),
         }
     }
 
@@ -127,7 +125,7 @@ impl ObjectPath {
                     if index >= ROOT_PATH_STR.len() {
                         // We have a parent path that isn't root
                         let parent = ObjectPath(Some(path[0..index].to_string()));
-                        let name = path[index+1..].to_string();
+                        let name = path[index + 1..].to_string();
                         Some((parent, name))
                     } else {
                         // Parent path is root
@@ -144,15 +142,13 @@ impl ObjectPath {
     }
 
     pub fn is_root_path(&self) -> bool {
-        return self.0.is_none()
+        return self.0.is_none();
     }
 
-    pub fn split_components(
-        &self
-    ) -> Vec<&str> {
+    pub fn split_components(&self) -> Vec<&str> {
         match &self.0 {
             Some(x) => x.split("/").skip(1).collect(),
-            None => vec![]
+            None => vec![],
         }
     }
 
@@ -160,7 +156,10 @@ impl ObjectPath {
         self.0.as_ref().map(|x| x.as_str()).unwrap_or(ROOT_PATH_STR)
     }
 
-    pub fn starts_with(&self, other: &ObjectPath) -> bool {
+    pub fn starts_with(
+        &self,
+        other: &ObjectPath,
+    ) -> bool {
         self.as_str().starts_with(other.as_str())
     }
 }
@@ -177,12 +176,11 @@ impl From<String> for ObjectPath {
     }
 }
 
-
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct ObjectName(String);
 
 impl ObjectName {
-    pub fn new<T: Into<String>>(name: T) -> Self{
+    pub fn new<T: Into<String>>(name: T) -> Self {
         ObjectName(name.into())
     }
 
@@ -210,13 +208,16 @@ impl ObjectLocation {
         source: ObjectSourceId,
         path_node_id: ObjectId,
     ) -> Self {
-        ObjectLocation { source, path_node_id }
+        ObjectLocation {
+            source,
+            path_node_id,
+        }
     }
 
     pub fn null() -> ObjectLocation {
         ObjectLocation {
             source: ObjectSourceId::null(),
-            path_node_id: ObjectId::null()
+            path_node_id: ObjectId::null(),
         }
     }
 
@@ -387,7 +388,7 @@ impl DataSet {
     pub fn set_object_location(
         &mut self,
         object_id: ObjectId,
-        new_location: ObjectLocation
+        new_location: ObjectLocation,
     ) {
         self.objects.get_mut(&object_id).unwrap().object_location = new_location;
     }

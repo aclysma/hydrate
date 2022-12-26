@@ -3,7 +3,11 @@ use std::sync::Arc;
 use uuid::Uuid;
 
 use crate::editor::undo::{CompletedUndoContextMessage, UndoContext, UndoStack};
-use crate::{DataObjectInfo, DataSet, DataSetDiff, EditContextKey, EndContextBehavior, HashMap, HashMapKeys, HashSet, HashSetIter, NullOverride, ObjectId, ObjectName, ObjectLocation, OverrideBehavior, SchemaFingerprint, SchemaNamedType, SchemaRecord, SchemaSet, Value};
+use crate::{
+    DataObjectInfo, DataSet, DataSetDiff, EditContextKey, EndContextBehavior, HashMap, HashMapKeys,
+    HashSet, HashSetIter, NullOverride, ObjectId, ObjectLocation, ObjectName, OverrideBehavior,
+    SchemaFingerprint, SchemaNamedType, SchemaRecord, SchemaSet, Value,
+};
 
 //TODO: Delete unused property data when path ancestor is null or in replace mode
 
@@ -31,7 +35,6 @@ use crate::{DataObjectInfo, DataSet, DataSetDiff, EditContextKey, EndContextBeha
 // - A wrapper around dataset that understands undo contexts will produce a queue of finished undo
 //   contexts, which contain revert/apply diffs
 // - These undo contexts can be pushed onto a single global queue or a per-document queue
-
 
 pub struct EditContext {
     edit_context_key: EditContextKey,
@@ -78,8 +81,12 @@ impl EditContext {
             // If we don't have an undo context open, fast path to do change tracking ourselves
             self.modified_objects.insert(object_id);
             if let Some(object_info) = self.objects().get(&object_id) {
-                if !self.modified_locations.contains(&object_info.object_location) {
-                    self.modified_locations.insert(object_info.object_location.clone());
+                if !self
+                    .modified_locations
+                    .contains(&object_info.object_location)
+                {
+                    self.modified_locations
+                        .insert(object_info.object_location.clone());
                 }
             }
         }
@@ -109,15 +116,23 @@ impl EditContext {
         &self.modified_locations
     }
 
-    pub fn clear_object_modified_flag(&mut self, object_id: ObjectId) {
+    pub fn clear_object_modified_flag(
+        &mut self,
+        object_id: ObjectId,
+    ) {
         self.modified_objects.remove(&object_id);
     }
 
-    pub fn clear_location_modified_flag(&mut self, object_location: &ObjectLocation) {
+    pub fn clear_location_modified_flag(
+        &mut self,
+        object_location: &ObjectLocation,
+    ) {
         self.modified_locations.remove(object_location);
     }
 
-    pub fn take_modified_objects_and_locations(&mut self) -> (HashSet<ObjectId>, HashSet<ObjectLocation>) {
+    pub fn take_modified_objects_and_locations(
+        &mut self
+    ) -> (HashSet<ObjectId>, HashSet<ObjectLocation>) {
         let mut modified_objects = HashSet::default();
         std::mem::swap(&mut modified_objects, &mut self.modified_objects);
 
@@ -156,7 +171,7 @@ impl EditContext {
             undo_context: UndoContext::new(undo_stack, edit_context_key),
             completed_undo_context_tx: undo_stack.completed_undo_context_tx().clone(),
             modified_objects: Default::default(),
-            modified_locations: Default::default()
+            modified_locations: Default::default(),
         }
     }
 
@@ -172,7 +187,7 @@ impl EditContext {
             undo_context: UndoContext::new(undo_stack, edit_context_key),
             completed_undo_context_tx: undo_stack.completed_undo_context_tx().clone(),
             modified_objects: Default::default(),
-            modified_locations: Default::default()
+            modified_locations: Default::default(),
         }
     }
 
@@ -181,21 +196,31 @@ impl EditContext {
         name: &'static str,
         f: F,
     ) {
-        self.undo_context
-            .begin_context(&self.data_set, name, &mut self.modified_objects, &mut self.modified_locations);
+        self.undo_context.begin_context(
+            &self.data_set,
+            name,
+            &mut self.modified_objects,
+            &mut self.modified_locations,
+        );
         let end_context_behavior = (f)(self);
-        self.undo_context
-            .end_context(&self.data_set, end_context_behavior, &mut self.modified_objects, &mut self.modified_locations);
+        self.undo_context.end_context(
+            &self.data_set,
+            end_context_behavior,
+            &mut self.modified_objects,
+            &mut self.modified_locations,
+        );
     }
 
     pub fn commit_pending_undo_context(&mut self) {
-        self.undo_context
-            .commit_context(&mut self.data_set, &mut self.modified_objects, &mut self.modified_locations);
+        self.undo_context.commit_context(
+            &mut self.data_set,
+            &mut self.modified_objects,
+            &mut self.modified_locations,
+        );
     }
 
     pub fn cancel_pending_undo_context(&mut self) {
-        self.undo_context
-            .cancel_context(&mut self.data_set);
+        self.undo_context.cancel_context(&mut self.data_set);
     }
 
     // pub fn apply_diff(&mut self, diff: &DataSetDiff) {
@@ -278,7 +303,10 @@ impl EditContext {
         self.data_set.objects()
     }
 
-    pub fn has_object(&self, object_id: ObjectId) -> bool {
+    pub fn has_object(
+        &self,
+        object_id: ObjectId,
+    ) -> bool {
         self.objects().contains_key(&object_id)
     }
 
@@ -297,7 +325,9 @@ impl EditContext {
         object_location: &ObjectLocation,
         schema: &SchemaRecord,
     ) -> ObjectId {
-        let object_id = self.data_set.new_object(object_name.clone(), object_location.clone(), schema);
+        let object_id =
+            self.data_set
+                .new_object(object_name.clone(), object_location.clone(), schema);
         self.track_new_object(object_id, object_location);
         object_id
     }
@@ -308,9 +338,11 @@ impl EditContext {
         object_location: &ObjectLocation,
         prototype: ObjectId,
     ) -> ObjectId {
-        let object_id = self
-            .data_set
-            .new_object_from_prototype(object_name.clone(), object_location.clone(), prototype);
+        let object_id = self.data_set.new_object_from_prototype(
+            object_name.clone(),
+            object_location.clone(),
+            prototype,
+        );
         self.track_new_object(object_id, &object_location);
         object_id
     }
@@ -372,7 +404,7 @@ impl EditContext {
     pub fn set_object_location(
         &mut self,
         object_id: ObjectId,
-        new_location: ObjectLocation
+        new_location: ObjectLocation,
     ) {
         self.track_existing_object(object_id);
         self.data_set.set_object_location(object_id, new_location);
@@ -382,14 +414,14 @@ impl EditContext {
 
     pub fn object_name(
         &self,
-        object_id: ObjectId
+        object_id: ObjectId,
     ) -> &ObjectName {
         self.data_set.object_name(object_id)
     }
 
     pub fn object_location(
         &self,
-        object_id: ObjectId
+        object_id: ObjectId,
     ) -> Option<&ObjectLocation> {
         self.data_set.object_location(object_id)
     }

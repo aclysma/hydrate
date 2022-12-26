@@ -1,12 +1,12 @@
+use crate::{DataSet, HashMap, HashSet, ObjectId, ObjectLocation, ObjectPath, ObjectSourceId};
 use std::cmp::Ordering;
 use std::collections::BTreeMap;
 use uuid::Uuid;
-use crate::{DataSet, HashMap, HashSet, ObjectId, ObjectLocation, ObjectPath, ObjectSourceId};
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct LocationTreeNodeKey {
     name: String,
-    source: ObjectSourceId
+    source: ObjectSourceId,
 }
 
 impl LocationTreeNodeKey {
@@ -20,13 +20,19 @@ impl LocationTreeNodeKey {
 }
 
 impl PartialOrd<Self> for LocationTreeNodeKey {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+    fn partial_cmp(
+        &self,
+        other: &Self,
+    ) -> Option<Ordering> {
         Some(self.cmp(other))
     }
 }
 
 impl Ord for LocationTreeNodeKey {
-    fn cmp(&self, other: &Self) -> Ordering {
+    fn cmp(
+        &self,
+        other: &Self,
+    ) -> Ordering {
         match self.source.cmp(&other.source) {
             Ordering::Less => Ordering::Less,
             Ordering::Equal => self.name.cmp(&other.name),
@@ -34,7 +40,6 @@ impl Ord for LocationTreeNodeKey {
         }
     }
 }
-
 
 #[derive(Debug)]
 pub struct LocationTreeNode {
@@ -57,14 +62,19 @@ impl Default for LocationTree {
                 //path: ObjectPath::root(),
                 location: ObjectLocation::new(ObjectSourceId::null(), ObjectId::null()),
                 children: Default::default(),
-                has_changes: false
-            }
+                has_changes: false,
+            },
         }
     }
 }
 
 impl LocationTree {
-    pub fn create_node(&mut self, data_set: &DataSet, paths: &HashMap<ObjectId, ObjectPath>, tree_node_id: ObjectId) {
+    pub fn create_node(
+        &mut self,
+        data_set: &DataSet,
+        paths: &HashMap<ObjectId, ObjectPath>,
+        tree_node_id: ObjectId,
+    ) {
         let mut path_object_stack = Vec::default();
 
         // Walk up the path, pushing the object id for each path component onto a stack
@@ -85,12 +95,15 @@ impl LocationTree {
             let node_source = data_set.object_location(node_object).unwrap().source();
             let node_location = ObjectLocation::new(node_source, node_object);
 
-
-            let node_name = data_set.object_name(node_object).as_string().cloned().unwrap();
+            let node_name = data_set
+                .object_name(node_object)
+                .as_string()
+                .cloned()
+                .unwrap();
 
             let node_key = LocationTreeNodeKey {
                 name: node_name,
-                source: node_location.source()
+                source: node_location.source(),
             };
 
             tree_node = tree_node.children.entry(node_key).or_insert_with(|| {
@@ -103,24 +116,25 @@ impl LocationTree {
                     //source: node_location.source(),
                     location: node_location.clone(),
                     children: Default::default(),
-                    has_changes
+                    has_changes,
                 }
             });
         }
     }
 
-    pub fn build(data_set: &DataSet, paths: &HashMap<ObjectId, ObjectPath>) -> Self {
+    pub fn build(
+        data_set: &DataSet,
+        paths: &HashMap<ObjectId, ObjectPath>,
+    ) -> Self {
         let root_node = LocationTreeNode {
             //path: ObjectPath::root(),
             //source: ObjectSourceId::null(),
             location: ObjectLocation::new(ObjectSourceId::null(), ObjectId::null()),
             children: Default::default(),
-            has_changes: false
+            has_changes: false,
         };
 
-        let mut tree = LocationTree {
-            root_node
-        };
+        let mut tree = LocationTree { root_node };
 
         for (tree_node_id, path) in paths {
             let components = path.split_components();

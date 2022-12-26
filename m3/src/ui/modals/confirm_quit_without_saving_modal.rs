@@ -1,10 +1,10 @@
-use imgui::{im_str, PopupModal};
-use nexdb::{EditorModel, HashSet, ObjectId, ObjectLocation};
-use nexdb::edit_context::EditContext;
 use crate::app_state::{ActionQueueSender, ModalAction, ModalActionControlFlow};
 use crate::db_state::DbState;
-use crate::QueuedActions;
 use crate::ui_state::UiState;
+use crate::QueuedActions;
+use imgui::{im_str, PopupModal};
+use nexdb::edit_context::EditContext;
+use nexdb::{EditorModel, HashSet, ObjectId, ObjectLocation};
 
 pub struct ConfirmQuitWithoutSavingModal {
     finished_first_draw: bool,
@@ -37,7 +37,6 @@ impl ModalAction for ConfirmQuitWithoutSavingModal {
 
         let result = PopupModal::new(imgui::im_str!("ConfirmSaveQuit")).build(ui, || {
             ui.text("Are you sure you want to quit? Unsaved changes will be lost.");
-
 
             imgui::ListBox::new(im_str!("##unsaved_objects")).build(ui, || {
                 for object_id in &self.unsaved_objects {

@@ -1,4 +1,7 @@
-use nexdb::{DataSet, EditorModel, ObjectId, ObjectLocation, ObjectName, ObjectPath, PathNode, SchemaCacheSingleFile, SchemaSet};
+use nexdb::{
+    DataSet, EditorModel, ObjectId, ObjectLocation, ObjectName, ObjectPath, PathNode,
+    SchemaCacheSingleFile, SchemaSet,
+};
 use std::path::PathBuf;
 use std::sync::Arc;
 
@@ -14,11 +17,17 @@ impl DbState {
     }
 
     fn tree_data_source_path() -> PathBuf {
-        PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/data/data_source_tree"))
+        PathBuf::from(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/data/data_source_tree"
+        ))
     }
 
     fn object_data_source_path() -> PathBuf {
-        PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/data/data_source_object"))
+        PathBuf::from(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/data/data_source_object"
+        ))
     }
 
     fn data_file_path() -> PathBuf {

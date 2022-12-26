@@ -19,7 +19,10 @@ impl SchemaFingerprint {
 }
 
 impl Debug for SchemaFingerprint {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    fn fmt(
+        &self,
+        f: &mut Formatter<'_>,
+    ) -> std::fmt::Result {
         f.debug_tuple("SchemaFingerprint")
             .field(&Uuid::from_u128(self.0))
             .finish()
@@ -38,12 +41,15 @@ impl ObjectId {
     }
 
     pub fn is_null(&self) -> bool {
-        return self.0 == 0
+        return self.0 == 0;
     }
 }
 
 impl Debug for ObjectId {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    fn fmt(
+        &self,
+        f: &mut Formatter<'_>,
+    ) -> std::fmt::Result {
         f.debug_tuple("ObjectId")
             .field(&Uuid::from_u128(self.0))
             .finish()
@@ -59,7 +65,10 @@ impl BufferId {
 }
 
 impl Debug for BufferId {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    fn fmt(
+        &self,
+        f: &mut Formatter<'_>,
+    ) -> std::fmt::Result {
         f.debug_tuple("BufferId")
             .field(&Uuid::from_u128(self.0))
             .finish()

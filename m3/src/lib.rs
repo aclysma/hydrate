@@ -9,8 +9,8 @@ mod ui;
 mod app_state;
 use app_state::AppState;
 mod ui_state;
-use ui::draw_ui;
 use crate::app_state::QueuedActions;
+use ui::draw_ui;
 
 // Creates a window and runs the event loop.
 pub fn run() {
@@ -101,7 +101,7 @@ pub fn run() {
                 app_state.action_queue.queue_action(QueuedActions::Quit);
                 //save_state(&app_state.test_data_nexdb.db);
                 //*control_flow = winit::event_loop::ControlFlow::Exit
-            },
+            }
 
             //
             // Request a redraw any time we finish processing events
@@ -111,9 +111,10 @@ pub fn run() {
                     // Send files to app queue, clear the buffer
                     let mut dropped = Vec::default();
                     std::mem::swap(&mut dropped, &mut dropped_files);
-                    app_state.action_queue.queue_action(QueuedActions::HandleDroppedFiles(dropped))
+                    app_state
+                        .action_queue
+                        .queue_action(QueuedActions::HandleDroppedFiles(dropped))
                 }
-
 
                 app_state.process_queued_actions();
                 if app_state.ready_to_quit() {

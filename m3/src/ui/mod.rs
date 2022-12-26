@@ -1,10 +1,10 @@
 pub mod asset_browser_grid_drag_drop;
 pub mod components;
 pub mod draw_ui;
+mod menu_bar;
+pub mod modals;
 pub mod views;
 pub mod windows;
-pub mod modals;
-mod menu_bar;
 
 const WINDOW_NAME_DOC_OUTLINE: &str = "DocumentOutlineWindow";
 //const WINDOW_NAME_DOC_CONTENTS: &str = "DocumentContents";

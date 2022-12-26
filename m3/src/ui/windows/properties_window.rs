@@ -1,7 +1,7 @@
+use crate::ui_state::ActiveToolRegion;
 use crate::AppState;
 use imgui::im_str;
 use nexdb::ObjectId;
-use crate::ui_state::ActiveToolRegion;
 
 pub fn draw_properties_window_single_select(
     ui: &imgui::Ui,
@@ -10,19 +10,24 @@ pub fn draw_properties_window_single_select(
 ) {
     ui.text(format!("Object: {}", object_id.as_uuid()));
 
-    let edit_context = app_state
-        .db_state
-        .editor_model
-        .root_edit_context();
+    let edit_context = app_state.db_state.editor_model.root_edit_context();
 
     let name = edit_context.object_name(object_id);
     let location = edit_context.object_location(object_id).unwrap();
 
-    ui.text(im_str!("Name: {}", name.as_string().cloned().unwrap_or_default()));
-    ui.text(im_str!("Path Node: {}", app_state.db_state.editor_model.object_display_name_long(location.path_node_id())));
+    ui.text(im_str!(
+        "Name: {}",
+        name.as_string().cloned().unwrap_or_default()
+    ));
+    ui.text(im_str!(
+        "Path Node: {}",
+        app_state
+            .db_state
+            .editor_model
+            .object_display_name_long(location.path_node_id())
+    ));
 
-    if let Some(prototype) = edit_context.object_prototype(object_id)
-    {
+    if let Some(prototype) = edit_context.object_prototype(object_id) {
         if ui.button(im_str!(">>")) {
             let mut grid_state = &mut app_state.ui_state.asset_browser_state.grid_state;
             grid_state.first_selected = Some(prototype);
@@ -32,7 +37,10 @@ pub fn draw_properties_window_single_select(
         }
         ui.same_line();
 
-        let prototype_display_name = app_state.db_state.editor_model.object_display_name_long(prototype);
+        let prototype_display_name = app_state
+            .db_state
+            .editor_model
+            .object_display_name_long(prototype);
 
         ui.text(format!("Prototype: {}", prototype_display_name));
     }
@@ -57,7 +65,12 @@ pub fn draw_properties_window(
         } else if selected_items.len() == 1 {
             let item = selected_items.iter().next().unwrap();
 
-            if app_state.db_state.editor_model.root_edit_context().has_object(*item) {
+            if app_state
+                .db_state
+                .editor_model
+                .root_edit_context()
+                .has_object(*item)
+            {
                 draw_properties_window_single_select(ui, app_state, *item);
             }
         } else {

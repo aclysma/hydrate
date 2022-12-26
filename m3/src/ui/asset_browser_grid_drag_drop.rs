@@ -1,6 +1,6 @@
+use crate::ui_state::AssetBrowserGridState;
 use imgui::im_str;
 use nexdb::{HashSet, ObjectId};
-use crate::ui_state::AssetBrowserGridState;
 
 #[derive(Copy, Clone, Debug)]
 pub enum AssetBrowserGridPayload {
@@ -13,13 +13,14 @@ pub fn asset_browser_grid_objects_drag_source(
     grid_state: &AssetBrowserGridState,
     dragged_object: ObjectId,
 ) {
-    let payload =
-        if grid_state.selected_items.len() > 1 && grid_state.selected_items.contains(&dragged_object) {
-            // If it's multiple objects, have the receiver look at selected objects
-            AssetBrowserGridPayload::AllSelected
-        } else {
-            AssetBrowserGridPayload::Single(dragged_object)
-        };
+    let payload = if grid_state.selected_items.len() > 1
+        && grid_state.selected_items.contains(&dragged_object)
+    {
+        // If it's multiple objects, have the receiver look at selected objects
+        AssetBrowserGridPayload::AllSelected
+    } else {
+        AssetBrowserGridPayload::Single(dragged_object)
+    };
 
     imgui::DragDropSource::new(im_str!("ASSET_BROWSER_GRID_SELECTION")).begin_payload(ui, payload);
 }

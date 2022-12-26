@@ -1,10 +1,18 @@
+use crate::edit_context::EditContext;
+use crate::{
+    NullOverride, ObjectLocation, ObjectPath, ObjectSourceId, OverrideBehavior, SchemaDefType,
+    SchemaLinker, SchemaLinkerResult, SchemaSet, UndoStack, Value,
+};
 use std::sync::Arc;
 use uuid::Uuid;
-use crate::{NullOverride, ObjectLocation, ObjectPath, ObjectSourceId, OverrideBehavior, SchemaDefType, SchemaLinker, SchemaLinkerResult, SchemaSet, UndoStack, Value};
-use crate::edit_context::EditContext;
 
 fn object_location() -> ObjectLocation {
-    ObjectLocation::new(ObjectSourceId::new_with_uuid(Uuid::parse_str("d9597882-c065-426a-bc8d-4e36b005e30f").unwrap()), ObjectPath::new("test.nxt"))
+    ObjectLocation::new(
+        ObjectSourceId::new_with_uuid(
+            Uuid::parse_str("d9597882-c065-426a-bc8d-4e36b005e30f").unwrap(),
+        ),
+        ObjectPath::new("test.nxt"),
+    )
 }
 
 fn create_vec3_schema(linker: &mut SchemaLinker) -> SchemaLinkerResult<()> {
@@ -320,7 +328,6 @@ fn nullable_property_in_nullable() {
         })
         .unwrap();
 
-
     let mut schema_set = SchemaSet::default();
     schema_set.add_linked_types(linker).unwrap();
     let schema_set = Arc::new(schema_set);
@@ -404,7 +411,6 @@ fn struct_in_dynamic_array() {
             builder.add_dynamic_array("array", SchemaDefType::NamedType("Vec3".to_string()));
         })
         .unwrap();
-
 
     let mut schema_set = SchemaSet::default();
     schema_set.add_linked_types(linker).unwrap();

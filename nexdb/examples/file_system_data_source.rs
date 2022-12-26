@@ -1,7 +1,10 @@
-use nexdb::{EditContextKey, EditorModel, FileSystemTreeDataSource, ObjectPath, SchemaCacheSingleFile, SchemaSet, UndoStack};
+use nexdb::edit_context::EditContext;
+use nexdb::{
+    EditContextKey, EditorModel, FileSystemTreeDataSource, ObjectPath, SchemaCacheSingleFile,
+    SchemaSet, UndoStack,
+};
 use std::path::PathBuf;
 use std::sync::Arc;
-use nexdb::edit_context::EditContext;
 
 pub fn main() {
     let schema_cache_path = PathBuf::from(concat!(
@@ -26,6 +29,9 @@ pub fn main() {
     //println!("file_states {:#?}", fs.file_states());
     for (object_id, object_info) in edit_context.objects() {
         println!("{:?} {:?}", object_id, object_info.object_location());
-        println!("  on disk: {:?}", fs.location_to_file_system_path(object_info.object_location()));
+        println!(
+            "  on disk: {:?}",
+            fs.location_to_file_system_path(object_info.object_location())
+        );
     }
 }

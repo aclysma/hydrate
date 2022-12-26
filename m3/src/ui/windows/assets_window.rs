@@ -1,25 +1,29 @@
 use crate::app_state::{ActionQueueSender, AppState};
+use crate::db_state::DbState;
 use crate::imgui_support::ImguiManager;
-use imgui::{StyleColor, sys as is};
+use crate::ui::asset_browser_grid_drag_drop::{
+    asset_browser_grid_objects_drag_target_printf, AssetBrowserGridPayload,
+};
+use crate::ui_state::{ActiveToolRegion, UiState};
+use crate::QueuedActions;
 use imgui::sys::{
     igDragFloat, igDragScalar, igInputDouble, ImGuiDataType__ImGuiDataType_Double,
     ImGuiInputTextFlags__ImGuiInputTextFlags_None, ImGuiTableFlags__ImGuiTableFlags_NoPadOuterX,
     ImGuiTreeNodeFlags__ImGuiTreeNodeFlags_Selected, ImVec2,
 };
 use imgui::{im_str, ImStr, ImString, TreeNodeFlags};
+use imgui::{sys as is, StyleColor};
 use nexdb::{HashSet, LocationTreeNode, ObjectId, ObjectLocation, ObjectPath};
+use rafx::api::objc::runtime::Object;
 use std::convert::TryInto;
 use std::ffi::CString;
 use std::path::PathBuf;
-use rafx::api::objc::runtime::Object;
 use uuid::Uuid;
-use crate::db_state::DbState;
-use crate::QueuedActions;
-use crate::ui::asset_browser_grid_drag_drop::{asset_browser_grid_objects_drag_target_printf, AssetBrowserGridPayload};
-use crate::ui_state::{ActiveToolRegion, UiState};
 
 fn default_flags() -> imgui::TreeNodeFlags {
-    imgui::TreeNodeFlags::OPEN_ON_DOUBLE_CLICK | imgui::TreeNodeFlags::OPEN_ON_ARROW | imgui::TreeNodeFlags::SPAN_AVAIL_WIDTH
+    imgui::TreeNodeFlags::OPEN_ON_DOUBLE_CLICK
+        | imgui::TreeNodeFlags::OPEN_ON_ARROW
+        | imgui::TreeNodeFlags::SPAN_AVAIL_WIDTH
 }
 
 fn leaf_flags() -> imgui::TreeNodeFlags {
@@ -50,7 +54,7 @@ fn context_menu<F: FnOnce(&imgui::Ui)>(
 fn try_select_tree_node(
     ui: &imgui::Ui,
     ui_state: &mut UiState,
-    location: &ObjectLocation
+    location: &ObjectLocation,
 ) {
     if ui.is_item_clicked() && !ui.is_item_toggled_open() {
         ui_state.active_tool_region = Some(ActiveToolRegion::AssetBrowserTree);
@@ -146,10 +150,14 @@ pub fn assets_tree_node(
     ui_state: &mut UiState,
     child_name: &str,
     action_sender: &ActionQueueSender,
-    tree_node: &LocationTreeNode
+    tree_node: &LocationTreeNode,
 ) {
     let id = im_str!("{}", tree_node.location.path_node_id().as_uuid());
-    let is_selected = ui_state.asset_browser_state.tree_state.selected_items.contains(&tree_node.location);
+    let is_selected = ui_state
+        .asset_browser_state
+        .tree_state
+        .selected_items
+        .contains(&tree_node.location);
     let is_modified = tree_node.has_changes;
 
     let label = if is_modified {
@@ -181,15 +189,29 @@ pub fn assets_tree_node(
 
     try_select_tree_node(ui, ui_state, &tree_node.location);
 
-    if let Some(payload) = asset_browser_grid_objects_drag_target_printf(ui, &ui_state.asset_browser_state.grid_state) {
+    if let Some(payload) =
+        asset_browser_grid_objects_drag_target_printf(ui, &ui_state.asset_browser_state.grid_state)
+    {
         match payload {
             AssetBrowserGridPayload::Single(single) => {
                 //db_state.editor_model.root_edit_context().set_object_location(single, tree_node.location.clone())
-                action_sender.queue_action(QueuedActions::MoveObjects(vec![single], tree_node.location.clone()));
+                action_sender.queue_action(QueuedActions::MoveObjects(
+                    vec![single],
+                    tree_node.location.clone(),
+                ));
             }
             AssetBrowserGridPayload::AllSelected => {
-                let selected = ui_state.asset_browser_state.grid_state.selected_items.iter().copied().collect();
-                action_sender.queue_action(QueuedActions::MoveObjects(selected, tree_node.location.clone()));
+                let selected = ui_state
+                    .asset_browser_state
+                    .grid_state
+                    .selected_items
+                    .iter()
+                    .copied()
+                    .collect();
+                action_sender.queue_action(QueuedActions::MoveObjects(
+                    selected,
+                    tree_node.location.clone(),
+                ));
             }
         }
     }
@@ -198,7 +220,6 @@ pub fn assets_tree_node(
         if imgui::MenuItem::new(im_str!("New Object")).build(ui) {
             let location = tree_node.location.clone();
             action_sender.try_set_modal_action(crate::ui::modals::NewObjectModal::new(location))
-
         }
     });
 
@@ -206,14 +227,28 @@ pub fn assets_tree_node(
         // Draw nodes with children first
         for (child_name, child) in &tree_node.children {
             if !child.children.is_empty() {
-                assets_tree_node(ui, db_state, ui_state, child_name.name(), action_sender, child);
+                assets_tree_node(
+                    ui,
+                    db_state,
+                    ui_state,
+                    child_name.name(),
+                    action_sender,
+                    child,
+                );
             }
         }
 
         // Then draw nodes without children
         for (child_name, child) in &tree_node.children {
             if child.children.is_empty() {
-                assets_tree_node(ui, db_state, ui_state, child_name.name(), action_sender, child);
+                assets_tree_node(
+                    ui,
+                    db_state,
+                    ui_state,
+                    child_name.name(),
+                    action_sender,
+                    child,
+                );
             }
         }
     }
@@ -229,23 +264,43 @@ pub fn assets_tree(
 
     let show_root = true;
     if show_root {
-        assets_tree_node(ui, &app_state.db_state, &mut app_state.ui_state, "db:/", &action_sender, &tree.root_node);
+        assets_tree_node(
+            ui,
+            &app_state.db_state,
+            &mut app_state.ui_state,
+            "db:/",
+            &action_sender,
+            &tree.root_node,
+        );
     } else {
         // Draw nodes with children first
         for (child_name, child) in &tree.root_node.children {
             if !child.children.is_empty() {
-                assets_tree_node(ui, &app_state.db_state, &mut app_state.ui_state, child_name.name(), &action_sender, child);
+                assets_tree_node(
+                    ui,
+                    &app_state.db_state,
+                    &mut app_state.ui_state,
+                    child_name.name(),
+                    &action_sender,
+                    child,
+                );
             }
         }
 
         // Then draw nodes without children
         for (child_name, child) in &tree.root_node.children {
             if child.children.is_empty() {
-                assets_tree_node(ui, &app_state.db_state, &mut app_state.ui_state, child_name.name(), &action_sender, child);
+                assets_tree_node(
+                    ui,
+                    &app_state.db_state,
+                    &mut app_state.ui_state,
+                    child_name.name(),
+                    &action_sender,
+                    child,
+                );
             }
         }
     }
-
 }
 
 pub fn draw_assets_dockspace(
@@ -260,8 +315,12 @@ pub fn draw_assets_dockspace(
 
         // Get the ID for WINDOW_NAME_ASSETS
         let assets_window_id = (*is::igGetCurrentWindow()).ID;
-        let root_assets_dockspace_id =
-            is::igDockSpace(assets_window_id, work_size, imgui::sys::ImGuiDockNodeFlagsPrivate__ImGuiDockNodeFlags_NoDockingSplitMe, std::ptr::null_mut());
+        let root_assets_dockspace_id = is::igDockSpace(
+            assets_window_id,
+            work_size,
+            imgui::sys::ImGuiDockNodeFlagsPrivate__ImGuiDockNodeFlags_NoDockingSplitMe,
+            std::ptr::null_mut(),
+        );
 
         // The first time through, set up the left/right panes of the asset browser so that they are pinned inside the asset browser window
         // and nothing can dock inside them
@@ -298,9 +357,13 @@ pub fn draw_assets_dockspace(
 
             // Don't draw tab bars on the left/right panes
             (*imgui::sys::igDockBuilderGetNode(assets_left)).LocalFlags |=
-                imgui::sys::ImGuiDockNodeFlagsPrivate__ImGuiDockNodeFlags_NoTabBar | imgui::sys::ImGuiDockNodeFlagsPrivate__ImGuiDockNodeFlags_NoDocking | imgui::sys::ImGuiDockNodeFlagsPrivate__ImGuiDockNodeFlags_NoDockingSplitMe;
+                imgui::sys::ImGuiDockNodeFlagsPrivate__ImGuiDockNodeFlags_NoTabBar
+                    | imgui::sys::ImGuiDockNodeFlagsPrivate__ImGuiDockNodeFlags_NoDocking
+                    | imgui::sys::ImGuiDockNodeFlagsPrivate__ImGuiDockNodeFlags_NoDockingSplitMe;
             (*imgui::sys::igDockBuilderGetNode(assets_main)).LocalFlags |=
-                imgui::sys::ImGuiDockNodeFlagsPrivate__ImGuiDockNodeFlags_NoTabBar | imgui::sys::ImGuiDockNodeFlagsPrivate__ImGuiDockNodeFlags_NoDocking | imgui::sys::ImGuiDockNodeFlagsPrivate__ImGuiDockNodeFlags_NoDockingSplitMe;
+                imgui::sys::ImGuiDockNodeFlagsPrivate__ImGuiDockNodeFlags_NoTabBar
+                    | imgui::sys::ImGuiDockNodeFlagsPrivate__ImGuiDockNodeFlags_NoDocking
+                    | imgui::sys::ImGuiDockNodeFlagsPrivate__ImGuiDockNodeFlags_NoDockingSplitMe;
 
             is::igDockBuilderFinish(root_assets_dockspace_id);
         }
@@ -342,7 +405,6 @@ fn text_centered(text: &imgui::ImStr) {
         );
         is::igSetCursorPosX(is::igGetCursorPosX() + ((available.x - text_size.x) * 0.5));
         is::igTextWrapped(text.as_ptr());
-
     }
 }
 
@@ -363,9 +425,19 @@ pub fn draw_asset(
 ) {
     let id = items[index].0;
     let location = &items[index].1;
-    let is_modified = app_state.db_state.editor_model.root_edit_context().is_object_modified(id);
+    let is_modified = app_state
+        .db_state
+        .editor_model
+        .root_edit_context()
+        .is_object_modified(id);
 
-    let label = if let Some(name) = app_state.db_state.editor_model.root_edit_context().object_name(id).as_string() {
+    let label = if let Some(name) = app_state
+        .db_state
+        .editor_model
+        .root_edit_context()
+        .object_name(id)
+        .as_string()
+    {
         format!("{}", name)
     } else {
         format!("{}", id.as_uuid())
@@ -443,14 +515,16 @@ pub fn draw_asset(
     try_select_grid_item(ui, &mut app_state.ui_state, items, index, id);
 
     if ui.is_item_hovered() && !ui.is_mouse_dragging(imgui::MouseButton::Left) {
-        let path = app_state.db_state.editor_model.path_node_id_to_path(location.path_node_id());
+        let path = app_state
+            .db_state
+            .editor_model
+            .path_node_id_to_path(location.path_node_id());
         ui.tooltip(|| {
             if let Some(path) = path {
                 ui.text(im_str!("Path: {}", path.as_str()));
             } else {
                 ui.text(im_str!("Path: None"));
             }
-
         });
     }
 
@@ -468,7 +542,11 @@ pub fn draw_asset(
 
         if imgui::MenuItem::new(&im_str!("Delete {}", name)).build(ui) {
             //TODO: Confirm
-            app_state.db_state.editor_model.root_edit_context_mut().delete_object(id);
+            app_state
+                .db_state
+                .editor_model
+                .root_edit_context_mut()
+                .delete_object(id);
         }
     });
 }
@@ -497,7 +575,8 @@ pub fn assets_window_right_header(
 
     // Try to draw right-aligned in available space. If there isn't enough space, let it be clipped against right window edge
     ui.same_line_with_pos(
-        ui.cursor_pos()[0] + (content_available_region[0] - required_space_for_rhs_buttons).max(0.0),
+        ui.cursor_pos()[0]
+            + (content_available_region[0] - required_space_for_rhs_buttons).max(0.0),
     );
     ui.button(im_str!("ButtonRight 1"));
     ui.same_line();
@@ -584,7 +663,12 @@ pub fn assets_window_right(
             //     }
             // }
 
-            for (k, v) in app_state.db_state.editor_model.root_edit_context().objects() {
+            for (k, v) in app_state
+                .db_state
+                .editor_model
+                .root_edit_context()
+                .objects()
+            {
                 filtered_objects.push((*k, v.object_location().clone()));
             }
 
@@ -610,7 +694,7 @@ pub fn assets_window_right(
 
 pub fn draw_assets_dockspace_and_window(
     ui: &imgui::Ui,
-    app_state: &mut AppState
+    app_state: &mut AppState,
 ) {
     // We set padding to zero when creating the assets window so that the vertical splitter bar
     // will go from top to bottom of the window

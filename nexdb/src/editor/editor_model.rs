@@ -1,6 +1,6 @@
 use crate::edit_context::EditContext;
 use crate::editor::undo::UndoStack;
-use crate::{DataSet, DataSource, FileSystemObjectDataSource, HashMap, HashSet, LocationTree, LocationTreeNode, ObjectId, ObjectLocation, ObjectPath, ObjectSourceId, SchemaSet};
+use crate::{DataSet, DataSource, FileSystemObjectDataSource, HashMap, HashSet, LocationTree, ObjectId, ObjectLocation, ObjectPath, ObjectSourceId, PathNode, SchemaNamedType, SchemaSet};
 use slotmap::DenseSlotMap;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -13,6 +13,10 @@ pub struct EditorModel {
     edit_contexts: DenseSlotMap<EditContextKey, EditContext>,
     //TODO: slot_map?
     data_sources: HashMap<ObjectSourceId, Box<dyn DataSource>>,
+
+    path_node_id_to_path: HashMap<ObjectId, ObjectPath>,
+    //path_to_object_id: HashMap<ObjectPath, ObjectId>,
+
     location_tree: LocationTree,
 }
 
@@ -32,6 +36,7 @@ impl EditorModel {
             edit_contexts,
             data_sources: Default::default(),
             location_tree: Default::default(),
+            path_node_id_to_path: Default::default(),
         }
     }
 
@@ -67,6 +72,27 @@ impl EditorModel {
 
     pub fn root_edit_context_mut(&mut self) -> &mut EditContext {
         self.edit_contexts.get_mut(self.root_edit_context_key).unwrap()
+    }
+
+    pub fn path_node_id_to_path(&self, object_id: ObjectId) -> Option<&ObjectPath> {
+        self.path_node_id_to_path.get(&object_id)
+    }
+
+    pub fn object_display_name_long(&self, object_id: ObjectId) -> String {
+        let root_data_set = &self.root_edit_context().data_set;
+        let location = root_data_set.object_location(object_id);
+        let path = location.map(|x| self.path_node_id_to_path(x.path_node_id())).flatten();
+
+        if let Some(path) = path {
+            let name = root_data_set.object_name(object_id);
+            if let Some(name) = name.as_string() {
+                path.join(name).as_str().to_string()
+            } else {
+                path.join(&format!("{}", object_id.as_uuid())).as_str().to_string()
+            }
+        } else {
+            object_id.as_uuid().to_string()
+        }
     }
 
     pub fn data_source(
@@ -131,7 +157,10 @@ impl EditorModel {
         //
         root_edit_context.clear_change_tracking();
         //root_edit_context.cancel_pending_undo_context();
-        self.refresh_location_tree();
+
+        println!("stuff");
+        //self.refresh_object_path_lookups();
+        //self.refresh_location_tree();
     }
 
     pub fn close_file_system_source(
@@ -193,16 +222,73 @@ impl EditorModel {
         self.undo_stack.redo(&mut self.edit_contexts)
     }
 
-    pub fn refresh_location_tree(&mut self) {
-        let mut all_locations = HashSet::default();
-        let root_edit_context = self.edit_contexts.get(self.root_edit_context_key).unwrap();
-        for (_, info) in &root_edit_context.data_set.objects {
-            //let path = info.object_location.path();
-            all_locations.insert(info.object_location.clone());
+    fn do_populate_path(
+        data_set: &DataSet,
+        path_stack: &mut HashSet<ObjectId>,
+        paths: &mut HashMap::<ObjectId, ObjectPath>,
+        path_node: ObjectId
+    ) -> ObjectPath {
+        // If we already know the path for the tree node, just return it
+        if let Some(parent_path) = paths.get(&path_node) {
+            return parent_path.clone();
         }
 
-        let unsaved_locations = root_edit_context.modified_locations();
-        self.location_tree = LocationTree::build(&all_locations, unsaved_locations);
+        // To detect cyclical references, we accumulate visited objects into a set
+        let is_cyclical_reference = !path_stack.insert(path_node);
+        let source_id_and_path = if is_cyclical_reference {
+            // If we detect a cycle, bail and return root path
+           ObjectPath::root()
+        } else {
+            if let Some(object) = data_set.objects.get(&path_node) {
+                if let Some(name) = object.object_name().as_string() {
+                    // Parent is found, named, and not a cyclical reference
+                    let mut parent = Self::do_populate_path(data_set, path_stack, paths, object.object_location.path_node_id());
+                    let path = parent.join(name);
+                    path
+                } else {
+                    // Parent is unnamed, just treat as being at root path
+                    ObjectPath::root()
+                }
+
+            } else {
+                // Can't find parent, just treat as being at root path
+                ObjectPath::root()
+            }
+        };
+
+        paths.insert(path_node, source_id_and_path.clone());
+
+        if !is_cyclical_reference {
+            path_stack.remove(&path_node);
+        }
+
+        source_id_and_path
+    }
+
+    fn populate_paths(data_set: &DataSet, path_node_type: &SchemaNamedType) -> HashMap<ObjectId, ObjectPath> {
+        let mut path_stack = HashSet::default();
+        let mut paths = HashMap::<ObjectId, ObjectPath>::default();
+        for (object_id, info) in &data_set.objects {
+            // For objects that *are* path nodes, use their ID directly. For objects that aren't
+            // path nodes, use the object ID in their location
+            let path_node_id = if info.schema.fingerprint() == path_node_type.fingerprint() {
+                *object_id
+            } else {
+                info.object_location.path_node_id()
+            };
+
+            Self::do_populate_path(data_set, &mut path_stack, &mut paths, path_node_id);
+        }
+
+        paths
+    }
+
+    pub fn refresh_tree_node_cache(&mut self) {
+        let path_node_type = self.schema_set.find_named_type(PathNode::schema_name()).unwrap();
+        let root_edit_context = self.edit_contexts.get(self.root_edit_context_key).unwrap();
+        let path_node_id_to_path = Self::populate_paths(&root_edit_context.data_set, &path_node_type);
+        self.path_node_id_to_path = path_node_id_to_path;
+        self.location_tree = LocationTree::build(&root_edit_context.data_set, &self.path_node_id_to_path);
     }
 
     pub fn cached_location_tree(&self) -> &LocationTree {

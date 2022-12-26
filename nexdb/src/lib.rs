@@ -36,6 +36,10 @@ impl ObjectId {
     pub fn as_uuid(&self) -> Uuid {
         Uuid::from_u128(self.0)
     }
+
+    pub fn is_null(&self) -> bool {
+        return self.0 == 0
+    }
 }
 
 impl Debug for ObjectId {

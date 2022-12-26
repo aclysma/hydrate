@@ -3,7 +3,7 @@ use crate::{
     HashMap, HashMapKeys, HashSet, HashSetIter, ObjectId, Schema, SchemaFingerprint,
     SchemaNamedType, SchemaRecord, Value,
 };
-use std::str::{FromStr, Split};
+use std::str::FromStr;
 use std::string::ToString;
 use uuid::Uuid;
 
@@ -17,6 +17,10 @@ impl ObjectSourceId {
 
     pub(crate) fn new_with_uuid(uuid: Uuid) -> Self {
         ObjectSourceId(uuid)
+    }
+
+    pub fn null() -> Self {
+        ObjectSourceId(Uuid::nil())
     }
 
     pub fn uuid(&self) -> &Uuid {
@@ -198,23 +202,30 @@ impl ObjectName {
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct ObjectLocation {
     source: ObjectSourceId,
-    path: ObjectPath,
+    path_node_id: ObjectId,
 }
 
 impl ObjectLocation {
     pub fn new(
         source: ObjectSourceId,
-        path: ObjectPath,
+        path_node_id: ObjectId,
     ) -> Self {
-        ObjectLocation { source, path }
+        ObjectLocation { source, path_node_id }
+    }
+
+    pub fn null() -> ObjectLocation {
+        ObjectLocation {
+            source: ObjectSourceId::null(),
+            path_node_id: ObjectId::null()
+        }
     }
 
     pub fn source(&self) -> ObjectSourceId {
         self.source
     }
 
-    pub fn path(&self) -> &ObjectPath {
-        &self.path
+    pub fn path_node_id(&self) -> ObjectId {
+        self.path_node_id
     }
 }
 
@@ -388,6 +399,21 @@ impl DataSet {
     ) {
         let object = other.objects.get(&object_id).cloned().unwrap();
         self.objects.insert(object_id, object);
+    }
+
+    pub fn object_name(
+        &self,
+        object_id: ObjectId,
+    ) -> &ObjectName {
+        let object = self.objects.get(&object_id).unwrap();
+        &object.object_name
+    }
+
+    pub fn object_location(
+        &self,
+        object_id: ObjectId,
+    ) -> Option<&ObjectLocation> {
+        self.objects.get(&object_id).map(|x| &x.object_location)
     }
 
     pub fn object_prototype(

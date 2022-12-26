@@ -3,7 +3,7 @@ use std::sync::Arc;
 use uuid::Uuid;
 
 use crate::editor::undo::{CompletedUndoContextMessage, UndoContext, UndoStack};
-use crate::{DataObjectInfo, DataSet, DataSetDiff, DataSetDiffSet, EditContextKey, EndContextBehavior, HashMap, HashMapKeys, HashSet, HashSetIter, NullOverride, ObjectId, ObjectName, ObjectLocation, ObjectSourceId, OverrideBehavior, SchemaFingerprint, SchemaNamedType, SchemaRecord, SchemaSet, Value};
+use crate::{DataObjectInfo, DataSet, DataSetDiff, EditContextKey, EndContextBehavior, HashMap, HashMapKeys, HashSet, HashSetIter, NullOverride, ObjectId, ObjectName, ObjectLocation, OverrideBehavior, SchemaFingerprint, SchemaNamedType, SchemaRecord, SchemaSet, Value};
 
 //TODO: Delete unused property data when path ancestor is null or in replace mode
 
@@ -183,7 +183,7 @@ impl EditContext {
     ) {
         self.undo_context
             .begin_context(&self.data_set, name, &mut self.modified_objects, &mut self.modified_locations);
-        let end_context_behavior = (f)(self);;
+        let end_context_behavior = (f)(self);
         self.undo_context
             .end_context(&self.data_set, end_context_behavior, &mut self.modified_objects, &mut self.modified_locations);
     }
@@ -378,6 +378,20 @@ impl EditContext {
         self.data_set.set_object_location(object_id, new_location);
         // Again so that we track the new location too
         self.track_existing_object(object_id);
+    }
+
+    pub fn object_name(
+        &self,
+        object_id: ObjectId
+    ) -> &ObjectName {
+        self.data_set.object_name(object_id)
+    }
+
+    pub fn object_location(
+        &self,
+        object_id: ObjectId
+    ) -> Option<&ObjectLocation> {
+        self.data_set.object_location(object_id)
     }
 
     pub fn object_prototype(

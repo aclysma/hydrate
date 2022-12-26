@@ -1,8 +1,7 @@
 use crate::edit_context::EditContext;
-use crate::{DataObjectInfo, HashMap, HashSet, NullOverride, ObjectId, ObjectLocation, ObjectName, ObjectPath, ObjectSourceId, OverrideBehavior, Schema, SchemaFingerprint, SchemaNamedType, Value};
+use crate::{DataObjectInfo, HashMap, HashSet, NullOverride, ObjectId, ObjectLocation, ObjectName, ObjectSourceId, OverrideBehavior, Schema, SchemaFingerprint, SchemaNamedType, Value};
 use serde::{Deserialize, Serialize};
 use std::str::FromStr;
-use serde_json::json;
 use uuid::Uuid;
 
 fn property_value_to_json(value: &Value) -> serde_json::Value {
@@ -653,23 +652,15 @@ pub struct ObjectSourceDataStorageJsonObject {
 }
 
 impl ObjectSourceDataStorageJsonObject {
-    pub fn load_object_from_string<F: FnOnce(Option<Uuid>) -> ObjectLocation>(
+    pub fn load_object_from_string(
         edit_context: &mut EditContext,
         object_id: Uuid,
-        //object_location: ObjectLocation,
-        //object_source_id: ObjectSourceId,
+        object_source_id: ObjectSourceId,
         json: &str,
-        parent_dir_to_location: F
-        //dir_uuid_to_path: &HashMap::<Uuid, ObjectPath>,
     ) {
         let stored_object: ObjectSourceDataStorageJsonObject = serde_json::from_str(json).unwrap();
-        // let path = if let Some(parent_dir) = stored_object.parent_dir {
-        //     dir_uuid_to_path: &HashMap::<Uuid, ObjectPath>,
-        // } else {
-        //
-        // }
-
-        let object_location = (parent_dir_to_location)(stored_object.parent_dir);
+        let path_node_id = ObjectId(stored_object.parent_dir.unwrap_or(Uuid::nil()).as_u128());
+        let object_location = ObjectLocation::new(object_source_id, path_node_id);
         let object_name = if stored_object.name.is_empty() {
             ObjectName::empty()
         } else {

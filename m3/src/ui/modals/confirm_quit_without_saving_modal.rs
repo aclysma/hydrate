@@ -45,12 +45,6 @@ impl ModalAction for ConfirmQuitWithoutSavingModal {
                 }
             });
 
-            imgui::ListBox::new(im_str!("##unsaved_locations")).build(ui, || {
-                for location in &self.unsaved_locations {
-                    ui.text(location.path().as_str());
-                }
-            });
-
             if ui.button(imgui::im_str!("Save Changes")) {
                 ui.close_current_popup();
                 action_queue.queue_action(QueuedActions::SaveAll);

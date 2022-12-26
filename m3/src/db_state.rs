@@ -1,4 +1,4 @@
-use nexdb::{DataSet, EditorModel, ObjectLocation, ObjectName, ObjectPath, PathNode, SchemaCacheSingleFile, SchemaSet};
+use nexdb::{DataSet, EditorModel, ObjectId, ObjectLocation, ObjectName, ObjectPath, PathNode, SchemaCacheSingleFile, SchemaSet};
 use std::path::PathBuf;
 use std::sync::Arc;
 
@@ -41,7 +41,6 @@ impl DbState {
         let mut linker = nexdb::SchemaLinker::default();
 
         PathNode::register_schema(&mut linker);
-
         let path = Self::schema_def_path();
         linker.add_source_dir(&path, "**.json").unwrap();
         schema_set.add_linked_types(linker).unwrap();
@@ -70,6 +69,13 @@ impl DbState {
         //     .file_system_treedata_source(tree_source_id)
         //     .unwrap();
 
+        let path_node_schema_object = schema_set
+            .find_named_type(PathNode::schema_name())
+            .unwrap()
+            .as_record()
+            .unwrap()
+            .clone();
+
         let transform_schema_object = schema_set
             .find_named_type("Transform")
             .unwrap()
@@ -77,7 +83,19 @@ impl DbState {
             .unwrap()
             .clone();
 
-        let object_location = ObjectLocation::new(object_source_id, ObjectPath::root().join("subdir").join("subdir2"));
+        let subdir_obj = db.new_object(
+            ObjectName::new("subdir"),
+            ObjectLocation::new(object_source_id, ObjectId::null()),
+            &path_node_schema_object,
+        );
+
+        let subdir2_obj = db.new_object(
+            ObjectName::new("subdir2"),
+            ObjectLocation::new(object_source_id, subdir_obj),
+            &path_node_schema_object,
+        );
+
+        let object_location = ObjectLocation::new(object_source_id, subdir2_obj);
 
         let prototype_obj = db.new_object(
             ObjectName::new("object_a"),
@@ -85,7 +103,7 @@ impl DbState {
             &transform_schema_object,
         );
         let instance_obj = db.new_object_from_prototype(
-            ObjectName::new("object_a"),
+            ObjectName::new("object_b"),
             object_location,
             prototype_obj,
         );
@@ -160,16 +178,7 @@ impl DbState {
     }
 
     fn try_load() -> Option<EditorModel> {
-        let schema_cache_str = std::fs::read_to_string(Self::schema_cache_file_path()).ok()?;
-
-        let mut schema_set = SchemaSet::default();
-
-        let mut linker = nexdb::SchemaLinker::default();
-        let path = Self::schema_def_path();
-        linker.add_source_dir(&path, "**.json").unwrap();
-        schema_set.add_linked_types(linker).unwrap();
-
-        SchemaCacheSingleFile::load_string(&mut schema_set, &schema_cache_str);
+        let schema_set = Self::load_schema();
 
         let mut editor_model = EditorModel::new(Arc::new(schema_set));
         editor_model.add_file_system_object_source(Self::object_data_source_path());

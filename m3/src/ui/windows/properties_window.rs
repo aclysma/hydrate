@@ -9,11 +9,19 @@ pub fn draw_properties_window_single_select(
     object_id: ObjectId,
 ) {
     ui.text(format!("Object: {}", object_id.as_uuid()));
-    if let Some(prototype) = app_state
+
+    let edit_context = app_state
         .db_state
         .editor_model
-        .root_edit_context()
-        .object_prototype(object_id)
+        .root_edit_context();
+
+    let name = edit_context.object_name(object_id);
+    let location = edit_context.object_location(object_id).unwrap();
+
+    ui.text(im_str!("Name: {}", name.as_string().cloned().unwrap_or_default()));
+    ui.text(im_str!("Path Node: {}", app_state.db_state.editor_model.object_display_name_long(location.path_node_id())));
+
+    if let Some(prototype) = edit_context.object_prototype(object_id)
     {
         if ui.button(im_str!(">>")) {
             let mut grid_state = &mut app_state.ui_state.asset_browser_state.grid_state;
@@ -23,7 +31,10 @@ pub fn draw_properties_window_single_select(
             grid_state.selected_items.insert(prototype);
         }
         ui.same_line();
-        ui.text(format!("Prototype: {}", prototype.as_uuid()));
+
+        let prototype_display_name = app_state.db_state.editor_model.object_display_name_long(prototype);
+
+        ui.text(format!("Prototype: {}", prototype_display_name));
     }
 
     crate::ui::components::draw_ui_inspector::draw_inspector_nexdb(ui, app_state, object_id);

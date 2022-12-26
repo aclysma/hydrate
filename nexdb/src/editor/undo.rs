@@ -1,9 +1,9 @@
 use std::sync::mpsc;
 use std::sync::mpsc::{Receiver, Sender};
-use slotmap::{DenseSlotMap, SlotMap};
+use slotmap::DenseSlotMap;
 
 use crate::edit_context::EditContext;
-use crate::{DataSet, DataSetDiffSet, EditContextKey, HashSet, ObjectId, ObjectLocation, SchemaSet};
+use crate::{DataSet, DataSetDiffSet, EditContextKey, HashSet, ObjectId, ObjectLocation};
 
 //TODO: Delete unused property data when path ancestor is null or in replace mode
 

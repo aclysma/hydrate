@@ -1,10 +1,8 @@
-use std::ffi::OsStr;
-use std::io::BufReader;
 use std::path::{Path, PathBuf};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 use crate::edit_context::EditContext;
-use crate::{DataSet, DataSource, HashMap, HashSet, ObjectId, ObjectLocation, ObjectPath, ObjectSourceId};
+use crate::{DataSource, HashMap, HashSet, ObjectId, ObjectLocation, ObjectPath, ObjectSourceId};
 use crate::storage::dir_tree_blob_store::{path_to_uuid, uuid_to_path};
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -53,15 +51,7 @@ fn load_asset_files(
             println!("asset file {:?}", file);
             let file_uuid = path_to_uuid(root_path, file.path()).unwrap();
             let contents = std::fs::read_to_string(file.path()).unwrap();
-            crate::data_storage::json::ObjectSourceDataStorageJsonObject::load_object_from_string(edit_context, file_uuid, &contents, |parent_uuid| {
-                let path = if let Some(parent_uuid) = parent_uuid {
-                    dir_uuid_to_path.get(&parent_uuid)
-                } else {
-                    Some(ObjectPath::root_ref())
-                };
-
-                ObjectLocation::new(object_source_id, path.unwrap_or(&ObjectPath::root()).clone())
-            });
+            crate::data_storage::json::ObjectSourceDataStorageJsonObject::load_object_from_string(edit_context, file_uuid, object_source_id, &contents);
             let object_id = ObjectId(file_uuid.as_u128());
             let object_location = edit_context.objects().get(&object_id).unwrap().object_location.clone();
             edit_context.clear_object_modified_flag(object_id);
@@ -76,8 +66,8 @@ pub struct FileSystemObjectDataSource {
     file_system_root_path: PathBuf,
     //file_states: HashMap<PathBuf, FileState>,
     //object_locations: HashMap<ObjectId, PathBuf>,
-    dir_uuid_to_path: HashMap<Uuid, ObjectPath>,
-    path_to_dir_uuid: HashMap<ObjectPath, Uuid>,
+    //dir_uuid_to_path: HashMap<Uuid, ObjectPath>,
+    //path_to_dir_uuid: HashMap<ObjectPath, Uuid>,
 
     // Any object ID we know to exist on disk is in this list to help us quickly determine which
     // deleted IDs need to be cleaned up
@@ -117,8 +107,8 @@ impl DataSource for FileSystemObjectDataSource {
         //println!("dir_uuid_to_path {:?}", dir_uuid_to_path);
 
         load_asset_files(edit_context, &self.file_system_root_path, self.object_source_id, &dir_uuid_to_path, &mut self.all_object_ids_on_disk);
-        self.dir_uuid_to_path = dir_uuid_to_path;
-        self.path_to_dir_uuid = path_to_dir_uuid;
+        //self.dir_uuid_to_path = dir_uuid_to_path;
+        //self.path_to_dir_uuid = path_to_dir_uuid;
     }
 
 
@@ -134,11 +124,18 @@ impl DataSource for FileSystemObjectDataSource {
         for object_id in edit_context.modified_objects() {
             if let Some(object_info) = edit_context.objects().get(object_id) {
                 if object_info.object_location().source() == self.object_source_id {
-                    let object_path = object_info.object_location.path();
+                    //let object_path = object_info.object_location.path();
                     //let parent_dir = self.path_to_dir_uuid.get(object_path).copied();
 
                     //TODO: create dir objects?
-                    let parent_dir = self.get_or_create_dir(object_path);
+                    //let parent_dir = self.get_or_create_dir(object_path);
+
+                    let parent_dir = object_info.object_location().path_node_id().as_uuid();
+                    let parent_dir = if parent_dir == Uuid::nil() {
+                        None
+                    } else {
+                        Some(parent_dir)
+                    };
 
                     let data = crate::data_storage::json::ObjectSourceDataStorageJsonObject::save_object_to_string(edit_context, *object_id, parent_dir);
                     let file_path = uuid_to_path(&self.file_system_root_path, object_id.as_uuid(), "af");
@@ -181,15 +178,7 @@ impl DataSource for FileSystemObjectDataSource {
             let file_path = uuid_to_path(&self.file_system_root_path, modified_object.as_uuid(), "af");
 
             if let Ok(contents) = std::fs::read_to_string(file_path) {
-                crate::data_storage::json::ObjectSourceDataStorageJsonObject::load_object_from_string(edit_context, modified_object.as_uuid(), &contents, |parent_uuid| {
-                    let path = if let Some(parent_uuid) = parent_uuid {
-                        self.dir_uuid_to_path.get(&parent_uuid)
-                    } else {
-                        Some(ObjectPath::root_ref())
-                    };
-
-                    ObjectLocation::new(self.object_source_id, path.unwrap_or(&ObjectPath::root()).clone())
-                });
+                crate::data_storage::json::ObjectSourceDataStorageJsonObject::load_object_from_string(edit_context, modified_object.as_uuid(), self.object_source_id, &contents);
             }
         }
     }
@@ -214,8 +203,8 @@ impl FileSystemObjectDataSource {
         FileSystemObjectDataSource {
             object_source_id,
             file_system_root_path: file_system_root_path.into(),
-            dir_uuid_to_path: Default::default(),
-            path_to_dir_uuid: Default::default(),
+            //dir_uuid_to_path: Default::default(),
+            //path_to_dir_uuid: Default::default(),
             all_object_ids_on_disk: Default::default(),
         }
     }

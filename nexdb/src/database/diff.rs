@@ -1,5 +1,5 @@
 use crate::value::PropertyValue;
-use crate::{DataObjectInfo, DataSet, HashMap, HashSet, NullOverride, ObjectId, ObjectLocation, ObjectName, SchemaFingerprint, SchemaSet, Value};
+use crate::{DataObjectInfo, DataSet, HashSet, NullOverride, ObjectId, ObjectLocation, ObjectName, SchemaSet, Value};
 use uuid::Uuid;
 
 #[derive(Debug)]

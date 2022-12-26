@@ -148,7 +148,7 @@ pub fn assets_tree_node(
     action_sender: &ActionQueueSender,
     tree_node: &LocationTreeNode
 ) {
-    let id = im_str!("{}-{}", tree_node.location.source().uuid(), tree_node.location.path().as_str());
+    let id = im_str!("{}", tree_node.location.path_node_id().as_uuid());
     let is_selected = ui_state.asset_browser_state.tree_state.selected_items.contains(&tree_node.location);
     let is_modified = tree_node.has_changes;
 
@@ -223,11 +223,11 @@ pub fn assets_tree(
     ui: &imgui::Ui,
     app_state: &mut AppState,
 ) {
-    app_state.db_state.editor_model.refresh_location_tree();
+    app_state.db_state.editor_model.refresh_tree_node_cache();
     let tree = app_state.db_state.editor_model.cached_location_tree();
     let action_sender = app_state.action_queue.sender();
 
-    let show_root = false;
+    let show_root = true;
     if show_root {
         assets_tree_node(ui, &app_state.db_state, &mut app_state.ui_state, "db:/", &action_sender, &tree.root_node);
     } else {
@@ -365,10 +365,16 @@ pub fn draw_asset(
     let location = &items[index].1;
     let is_modified = app_state.db_state.editor_model.root_edit_context().is_object_modified(id);
 
-    let name = if is_modified {
-        im_str!("{}*", items[index].0.as_uuid())
+    let label = if let Some(name) = app_state.db_state.editor_model.root_edit_context().object_name(id).as_string() {
+        format!("{}", name)
     } else {
-        im_str!("{}", items[index].0.as_uuid())
+        format!("{}", id.as_uuid())
+    };
+
+    let name = if is_modified {
+        im_str!("{}*", label)
+    } else {
+        im_str!("{}", label)
     };
 
     let stack_token = ui.push_id(&name);
@@ -436,11 +442,15 @@ pub fn draw_asset(
 
     try_select_grid_item(ui, &mut app_state.ui_state, items, index, id);
 
-
-
     if ui.is_item_hovered() && !ui.is_mouse_dragging(imgui::MouseButton::Left) {
+        let path = app_state.db_state.editor_model.path_node_id_to_path(location.path_node_id());
         ui.tooltip(|| {
-            ui.text(im_str!("Path: {}", location.path().as_str()));
+            if let Some(path) = path {
+                ui.text(im_str!("Path: {}", path.as_str()));
+            } else {
+                ui.text(im_str!("Path: None"));
+            }
+
         });
     }
 
@@ -581,11 +591,12 @@ pub fn assets_window_right(
             for i in 0..filtered_objects.len() {
                 is::igTableNextColumn();
 
-                let name = im_str!(
-                    "{} {}",
-                    filtered_objects[i].1.path().as_str(),
-                    filtered_objects[i].0.as_uuid()
-                );
+                // let label = if let Some(name) = filtered_objects[i].1.as_string() {
+                //     im_str!("{}", name)
+                // } else {
+                //     im_str!("{}", filtered_objects[i].0.as_uuid())
+                // };
+
                 draw_asset(ui, app_state, &filtered_objects, i, item_size);
             }
 

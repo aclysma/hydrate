@@ -3,8 +3,8 @@ use crate::db_state::DbState;
 use crate::ui_state::UiState;
 use imgui::sys::ImVec2;
 use imgui::{im_str, PopupModal, StyleColor, TreeNodeFlags};
-use std::path::PathBuf;
 use nexdb::{LocationTreeNode, ObjectLocation};
+use std::path::PathBuf;
 
 pub struct ImportFilesModal {
     finished_first_draw: bool,
@@ -17,7 +17,7 @@ impl ImportFilesModal {
         ImportFilesModal {
             finished_first_draw: false,
             files_to_import,
-            selected_import_location: ObjectLocation::null()
+            selected_import_location: ObjectLocation::null(),
         }
     }
 }
@@ -42,19 +42,8 @@ pub fn path_tree_node(
 ) {
     let id = im_str!("{}", tree_node.location.path_node_id().as_uuid());
     let is_selected = *selected_import_location == tree_node.location;
-    let is_modified = tree_node.has_changes;
 
-    let label = if is_modified {
-        im_str!("{}*", child_name)
-    } else {
-        im_str!("{}", child_name)
-    };
-
-    let color = if is_modified {
-        [1.0, 1.0, 0.0, 1.0]
-    } else {
-        [1.0, 1.0, 1.0, 1.0]
-    };
+    let label = im_str!("{}", child_name);
 
     let mut flags = if tree_node.children.is_empty() {
         leaf_flags()
@@ -66,10 +55,9 @@ pub fn path_tree_node(
         flags |= TreeNodeFlags::SELECTED;
     }
 
-    let style = ui.push_style_color(StyleColor::Text, color);
     let ds_tree_node = imgui::TreeNode::new(&id).label(&label).flags(flags);
     let token = ds_tree_node.push(ui);
-    style.pop();
+    //style.pop();
 
     //try_select_tree_node(ui, ui_state, &tree_node.location);
     if ui.is_item_clicked() && !ui.is_item_toggled_open() {
@@ -86,7 +74,7 @@ pub fn path_tree_node(
                     ui_state,
                     child_name.name(),
                     child,
-                    selected_import_location
+                    selected_import_location,
                 );
             }
         }
@@ -100,13 +88,12 @@ pub fn path_tree_node(
                     ui_state,
                     child_name.name(),
                     child,
-                    selected_import_location
+                    selected_import_location,
                 );
             }
         }
     }
 }
-
 
 pub fn path_tree(
     ui: &imgui::Ui,
@@ -125,7 +112,7 @@ pub fn path_tree(
             ui_state,
             "db:/",
             &tree.root_node,
-            selected_import_location
+            selected_import_location,
         );
     } else {
         // Draw nodes with children first
@@ -137,7 +124,7 @@ pub fn path_tree(
                     ui_state,
                     child_name.name(),
                     child,
-                    selected_import_location
+                    selected_import_location,
                 );
             }
         }
@@ -151,7 +138,7 @@ pub fn path_tree(
                     ui_state,
                     child_name.name(),
                     child,
-                    selected_import_location
+                    selected_import_location,
                 );
             }
         }
@@ -211,6 +198,8 @@ impl ModalAction for ImportFilesModal {
             ui.same_line();
             if ui.button(imgui::im_str!("TODO NOT IMPLEMENTED Import")) {
                 ui.close_current_popup();
+
+                // do import?
 
                 return ModalActionControlFlow::End;
             }

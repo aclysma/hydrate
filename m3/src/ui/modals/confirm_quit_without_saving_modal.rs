@@ -40,7 +40,10 @@ impl ModalAction for ConfirmQuitWithoutSavingModal {
 
             imgui::ListBox::new(im_str!("##unsaved_objects")).build(ui, || {
                 for object_id in &self.unsaved_objects {
-                    ui.text(im_str!("{}", db_state.editor_model.object_display_name_long(*object_id)));
+                    ui.text(im_str!(
+                        "{}",
+                        db_state.editor_model.object_display_name_long(*object_id)
+                    ));
                 }
             });
 

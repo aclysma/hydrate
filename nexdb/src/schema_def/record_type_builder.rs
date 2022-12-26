@@ -126,6 +126,31 @@ impl RecordTypeBuilder {
         self.fields.last_mut().unwrap()
     }
 
+    pub fn add_bytes(
+        &mut self,
+        name: impl Into<String>,
+    ) -> &mut RecordTypeFieldBuilder {
+        self.fields.push(RecordTypeFieldBuilder {
+            field_type: SchemaDefType::Bytes,
+            aliases: Default::default(),
+            name: name.into(),
+        });
+        self.fields.last_mut().unwrap()
+    }
+
+    pub fn add_reference(
+        &mut self,
+        name: impl Into<String>,
+        type_name: impl Into<String>,
+    ) -> &mut RecordTypeFieldBuilder {
+        self.fields.push(RecordTypeFieldBuilder {
+            field_type: SchemaDefType::ObjectRef(type_name.into()),
+            aliases: Default::default(),
+            name: name.into(),
+        });
+        self.fields.last_mut().unwrap()
+    }
+
     pub fn add_string(
         &mut self,
         name: impl Into<String>,

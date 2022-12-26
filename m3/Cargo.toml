@@ -22,10 +22,13 @@ imgui = "0.7"
 imgui-winit-support = "0.7.1"
 imnodes = "0.1.0"
 
-
 rafx = { version = "0.0.14", features = ["rafx-metal", "framework"] }
 bincode = "1.3.1"
 lazy_static = "1"
 winit = "0.24"
 glam = "0.18.0"
 globwalk = "0.8.1"
+
+image = "0.23.12"
+basis-universal = "0.2.0"
+serde = { default-features = false, version = "1.0.145", features = ["derive"] }

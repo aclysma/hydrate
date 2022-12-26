@@ -4,6 +4,7 @@ use renderer::Renderer;
 
 mod db_state;
 mod imgui_support;
+mod importers;
 mod ui;
 
 mod app_state;

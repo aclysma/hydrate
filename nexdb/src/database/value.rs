@@ -526,6 +526,25 @@ impl Value {
     //
     // Bytes
     //
+    pub fn is_bytes(&self) -> bool {
+        match self {
+            Value::Bytes(_) => true,
+            _ => false,
+        }
+    }
+
+    pub fn as_bytes(&self) -> Option<&Vec<u8>> {
+        match self {
+            Value::Bytes(x) => Some(x),
+            _ => None,
+        }
+    }
+    pub fn set_bytes(
+        &mut self,
+        value: Vec<u8>,
+    ) {
+        *self = Value::Bytes(value);
+    }
 
     //
     // Buffer

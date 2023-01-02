@@ -9,19 +9,31 @@ mod ui;
 
 mod app_state;
 use app_state::AppState;
+use nexdb::SchemaLinker;
+
 mod ui_state;
 use crate::app_state::QueuedActions;
 use ui::draw_ui;
+use crate::db_state::DbState;
+use crate::importers::{ImageImporter, ImporterRegistry, ImportJobs};
 
 // Creates a window and runs the event loop.
 pub fn run() {
-    let db_state = db_state::DbState::load_or_init_empty();
+    let mut linker = SchemaLinker::default();
+
+    let mut importer_registry = ImporterRegistry::default();
+    importer_registry.register_handler::<ImageImporter>(&mut linker);
+
+    let db_state = db_state::DbState::load_or_init_empty(linker);
+    importer_registry.finished_linking(db_state.editor_model.schema_set());
+
+    let import_jobs = ImportJobs::new(&importer_registry, &db_state.editor_model, &DbState::import_data_source_path());
 
     //let ds_path = PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/data/data_source"));
     //let mut file_system_package = crate::data_source::FileSystemPackage::new(ds_path);
     //file_system_package.load(&mut db_state.db);
 
-    let mut app_state = AppState::new(db_state);
+    let mut app_state = AppState::new(db_state, importer_registry);
 
     // Create the winit event loop
     let event_loop = winit::event_loop::EventLoop::<()>::with_user_event();

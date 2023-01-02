@@ -67,6 +67,10 @@ impl EditorModel {
         &*self.schema_set
     }
 
+    pub fn clone_schema_set(&self) -> Arc<SchemaSet> {
+        self.schema_set.clone()
+    }
+
     pub fn root_edit_context(&self) -> &EditContext {
         self.edit_contexts.get(self.root_edit_context_key).unwrap()
     }

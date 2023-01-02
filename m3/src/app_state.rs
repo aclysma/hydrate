@@ -10,6 +10,7 @@ use std::fmt::Formatter;
 use std::path::PathBuf;
 use std::sync::mpsc::{Receiver, Sender};
 use std::sync::{mpsc, Arc};
+use crate::importers::ImporterRegistry;
 
 #[derive(Debug)]
 pub enum QueuedActions {
@@ -113,6 +114,7 @@ pub trait ModalAction {
         imnodes_context: &mut imnodes::Context,
         db_state: &mut DbState,
         ui_state: &mut UiState,
+        importer_registry: &ImporterRegistry,
         action_queue: ActionQueueSender,
     ) -> ModalActionControlFlow;
 }
@@ -131,16 +133,18 @@ pub struct AppState {
     //pub file_system_packages: Vec<FileSystemPackage>,
     pub db_state: DbState,
     pub ui_state: UiState,
+    pub importer_registry: ImporterRegistry,
     pub action_queue: ActionQueueReceiver,
     ready_to_quit: bool,
     pub modal_action: Option<Box<ModalAction>>,
 }
 
 impl AppState {
-    pub fn new(db_state: DbState) -> Self {
+    pub fn new(db_state: DbState, importer_registry: ImporterRegistry) -> Self {
         AppState {
             db_state,
             ui_state: UiState::default(),
+            importer_registry,
             action_queue: Default::default(),
             ready_to_quit: false,
             modal_action: None,

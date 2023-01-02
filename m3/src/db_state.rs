@@ -1,7 +1,4 @@
-use nexdb::{
-    DataSet, EditorModel, ObjectId, ObjectLocation, ObjectName, ObjectPath, PathNode,
-    SchemaCacheSingleFile, SchemaSet,
-};
+use nexdb::{DataSet, EditorModel, ObjectId, ObjectLocation, ObjectName, ObjectPath, PathNode, SchemaCacheSingleFile, SchemaLinker, SchemaSet};
 use std::path::PathBuf;
 use std::sync::Arc;
 
@@ -16,12 +13,12 @@ impl DbState {
         PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/data/schema"))
     }
 
-    fn tree_data_source_path() -> PathBuf {
-        PathBuf::from(concat!(
-            env!("CARGO_MANIFEST_DIR"),
-            "/data/data_source_tree"
-        ))
-    }
+    // fn tree_data_source_path() -> PathBuf {
+    //     PathBuf::from(concat!(
+    //         env!("CARGO_MANIFEST_DIR"),
+    //         "/data/data_source_tree"
+    //     ))
+    // }
 
     fn object_data_source_path() -> PathBuf {
         PathBuf::from(concat!(
@@ -29,6 +26,14 @@ impl DbState {
             "/data/data_source_object"
         ))
     }
+
+    pub fn import_data_source_path() -> PathBuf {
+        PathBuf::from(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/data/import_data"
+        ))
+    }
+
 
     fn data_file_path() -> PathBuf {
         PathBuf::from(concat!(
@@ -44,10 +49,8 @@ impl DbState {
         ))
     }
 
-    fn load_schema() -> SchemaSet {
+    fn load_schema(mut linker: SchemaLinker) -> SchemaSet {
         let mut schema_set = SchemaSet::default();
-
-        let mut linker = nexdb::SchemaLinker::default();
 
         PathNode::register_schema(&mut linker);
         let path = Self::schema_def_path();
@@ -62,9 +65,7 @@ impl DbState {
         schema_set
     }
 
-    fn init_empty_model() -> EditorModel {
-        let schema_set = Arc::new(Self::load_schema());
-
+    fn init_empty_model(schema_set: Arc<SchemaSet>) -> EditorModel {
         //let mut undo_stack = UndoStack::default();
         //let mut db = nexdb::Database::new(Arc::new(schema_set), &undo_stack);
         let mut db = DataSet::default();
@@ -186,10 +187,9 @@ impl DbState {
         edit_model
     }
 
-    fn try_load() -> Option<EditorModel> {
-        let schema_set = Self::load_schema();
+    fn try_load(schema_set: Arc<SchemaSet>) -> Option<EditorModel> {
 
-        let mut editor_model = EditorModel::new(Arc::new(schema_set));
+        let mut editor_model = EditorModel::new(schema_set);
         editor_model.add_file_system_object_source(Self::object_data_source_path());
         if editor_model.root_edit_context().all_objects().len() == 0 {
             None
@@ -198,11 +198,12 @@ impl DbState {
         }
     }
 
-    pub fn load_or_init_empty() -> Self {
-        let editor_model = if let Some(loaded) = Self::try_load() {
+    pub fn load_or_init_empty(linker: SchemaLinker) -> Self {
+        let schema_set = Arc::new(Self::load_schema(linker));
+        let editor_model = if let Some(loaded) = Self::try_load(schema_set.clone()) {
             loaded
         } else {
-            Self::init_empty_model()
+            Self::init_empty_model(schema_set)
         };
 
         Self { editor_model }

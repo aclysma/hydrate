@@ -1,22 +1,315 @@
 use ::image::{EncodableLayout, GenericImageView};
-use nexdb::{
-    DataSet, ObjectId, ObjectLocation, ObjectName, Schema, SchemaLinker, SchemaSet, Value,
-};
+use nexdb::{DataSet, DataSource, EditorModel, FileSystemObjectDataSource, HashMap, HashMapKeys, ObjectId, ObjectLocation, ObjectName, ObjectSourceId, Schema, SchemaFingerprint, SchemaLinker, SchemaSet, Value};
 use serde::{Deserialize, Serialize};
-use std::path::Path;
+use std::path::{Path, PathBuf};
+use std::sync::Arc;
+use imnodes::EditorContext;
+use rafx::api::objc::runtime::Object;
 use uuid::Uuid;
+use type_uuid::{TypeUuid, TypeUuidDynamic};
 
-mod image;
+mod image_importer;
+pub use image_importer::ImageImporter;
+use nexdb::dir_tree_blob_store::path_to_uuid;
+use nexdb::edit_context::EditContext;
 
-trait Importer {
+
+
+// Create ImportJobs
+// - It immediately scans assets to create jobs for recognized assets
+// - Kick off job to do initial imports metadata scan
+//
+
+
+
+// ENQUEUE IF
+// - asset exists, import data doesn't exist, source file is available
+// - asset exists, import data exists but is stale, source file is available
+
+struct ImportJob {
+    object_id: ObjectId,
+    import_data_exists: bool,
+    asset_exists: bool,
+    imported_data_stale: bool, // how to know it's stale? (we need timestamp/filesize stored along with import data, and paths to file it included) We may not know until we try to open it
+    imported_data_invalid: bool // how to know it's valid? (does it parse? does it have errors? we may not know until we try to open it)
+}
+
+impl ImportJob {
+    pub fn new(object_id: ObjectId) -> Self {
+        ImportJob {
+            object_id,
+            import_data_exists: false,
+            asset_exists: false,
+            imported_data_stale: false,
+            imported_data_invalid: false,
+        }
+    }
+}
+
+// Cache of all import jobs. This includes imports that are complete, in progress, or not started
+pub struct ImportJobs {
+    //import_editor_model: EditorModel
+    import_jobs: HashMap<ObjectId, ImportJob>
+}
+
+impl ImportJobs {
+    //pub fn new(schema_set: Arc<SchemaSet>, path: &Path) -> Self {
+    pub fn new(importer_registry: &ImporterRegistry, editor_model: &EditorModel, root_path: &Path) -> Self {
+        // let mut import_editor_model = EditorModel::new(schema_set);
+        // let source = editor_context.add_file_system_object_source(path);
+        //
+        // ImportJobs {
+        //     import_editor_model
+        // }
+
+        let mut import_jobs = ImportJobs {
+            import_jobs: Default::default()
+        };
+
+        import_jobs.find_jobs_in_assets(importer_registry, editor_model, root_path);
+        import_jobs
+    }
+
+    pub fn add_import_operation(&mut self, importer_registry: &ImporterRegistry, editor_model: &EditorModel, object_id: ObjectId, path: &Path) {
+        let fingerpint = editor_model.root_edit_context().object_schema(object_id).unwrap().fingerprint();
+        let importer_id = importer_registry.asset_to_importer.get(&fingerpint).unwrap();
+        let importer = importer_registry.handler(importer_id);
+
+        let mut data_set = DataSet::default();
+        importer.import_file(path, &mut data_set, editor_model.schema_set());
+
+        // Send/mark for processing?
+        // persist to disk?
+    }
+
+    // pub fn open_import_data_source(&mut self, path: &Path, editor_model: &mut EditorModel) {
+    //
+    //
+    //
+    //
+    //
+    //     //let source = editor_model.add_file_system_object_source(path);
+    //
+    //     //let edit_context = EditContext::new()
+    //     let fs = FileSystemObjectDataSource::new(root_path.clone(), root_edit_context);
+    //     //fs.reload_all()
+    //
+    // }
+
+    fn find_jobs_in_assets(&mut self, importer_registry: &ImporterRegistry, editor_model: &EditorModel, root_path: &Path) {
+        let mut import_jobs = HashMap::<ObjectId, ImportJob>::default();
+
+        //
+        // Scan import dir for known import data
+        //
+        let walker = globwalk::GlobWalkerBuilder::from_patterns(    root_path, &["**.i"])
+            .file_type(globwalk::FileType::FILE)
+            .build()
+            .unwrap();
+
+        for file in walker {
+            if let Ok(file) = file {
+                println!("dir file {:?}", file);
+                let dir_uuid = path_to_uuid(root_path, file.path()).unwrap();
+                let object_id = ObjectId(dir_uuid.as_u128());
+                let job = import_jobs.entry(object_id).or_insert_with(|| ImportJob::new(object_id));
+                job.import_data_exists = true;
+            }
+        }
+
+        //
+        // Scan assets to find any asset that has an associated importer
+        //
+        let data_set = editor_model.root_edit_context().data_set();
+        for object_id in data_set.all_objects() {
+            let schema_fingerprint = data_set.object_schema(*object_id).unwrap().fingerprint();
+            let importer = importer_registry.handler_for_asset(schema_fingerprint);
+            if importer.is_some() {
+                let job = import_jobs.entry(*object_id).or_insert_with(|| ImportJob::new(*object_id));
+                job.asset_exists = true;
+            }
+        }
+
+        // for (object_id, job) in import_jobs {
+        //     if job.asset_exists && !job.import_data_exists {
+        //         // We need to re-import the data
+        //     }
+        //
+        //     if !job.asset_exists && job.import_data_exists {
+        //         // We need to delete the import data that no longer has an associated asset
+        //     }
+        //
+        //     if job.asset_exists && job.import_data_exists {
+        //         // We may want to validate the import data and check that it is not stale
+        //     }
+        // }
+    }
+
+    // pub fn update(&mut self) {
+    //
+    // }
+    //
+    // pub fn refresh_job_for_asset(&mut self, data_set: &DataSet, object_id: ObjectId) {
+    //     //
+    // }
+}
+
+
+
+
+
+
+
+
+
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
+pub struct ImporterId(Uuid);
+
+
+#[derive(Default)]
+pub struct ImporterRegistry {
+    registered_importers: HashMap<ImporterId, Box<Importer>>,
+    file_extension_associations: HashMap<String, Vec<ImporterId>>,
+    asset_to_importer: HashMap<SchemaFingerprint, ImporterId>,
+}
+
+impl ImporterRegistry {
+    //
+    // Called before creating the schema to add handlers
+    //
+    pub fn register_handler<T: TypeUuid + Importer + Default + 'static>(&mut self, linker: &mut SchemaLinker) {
+        let handler = Box::new(T::default());
+        handler.register_schemas(linker);
+        let importer_id = ImporterId(Uuid::from_bytes(T::UUID));
+        self.registered_importers.insert(importer_id, handler);
+
+        for extension in self.registered_importers[&importer_id].supported_file_extensions() {
+            self.file_extension_associations.entry(extension.to_string()).or_default().push(importer_id);
+        }
+    }
+
+    //
+    // Called after finished linking the schema so we can associate schema fingerprints with handlers
+    //
+    pub fn finished_linking(&mut self, schema_set: &SchemaSet) {
+        let mut asset_to_importer = HashMap::default();
+
+        for (importer_id, importer) in &self.registered_importers {
+            for asset_type in importer.asset_types() {
+                let asset_type = schema_set.find_named_type(asset_type).unwrap().fingerprint();
+                let insert_result = asset_to_importer.insert(asset_type, *importer_id);
+                if insert_result.is_some() {
+                    panic!("Multiple handlers registered to handle the same asset")
+                }
+            }
+        }
+
+        self.asset_to_importer = asset_to_importer;
+    }
+
+    pub fn handlers_for_file_extension(&self, extension: &str) -> &[ImporterId] {
+        const EMPTY_LIST: &'static [ImporterId] = &[];
+        self.file_extension_associations.get(extension).map(|x| x.as_slice()).unwrap_or(EMPTY_LIST)
+    }
+
+    pub fn handler_for_asset(&self, fingerprint: SchemaFingerprint) -> Option<ImporterId> {
+        self.asset_to_importer.get(&fingerprint).copied()
+    }
+
+    pub fn handler(&self, handler: &ImporterId) -> &Box<Importer> {
+        &self.registered_importers[handler]
+    }
+}
+
+
+
+
+struct ScanContext {
+    referenced_files: Vec<PathBuf>,
+    referenced_assets: Vec<ObjectId>,
+}
+
+impl ScanContext {
+    // Will read the file, and if we are live-reloading changes, trigger a re-import if the file changes
+    // This is used when the file is not referenced by another asset, or there is no desire to
+    // import it once and have several assets share it
+    pub fn read(path: &Path) -> Vec<u8> {
+        unimplemented!();
+    }
+
+    pub fn read_to_string(path: &Path) -> String {
+        unimplemented!();
+    }
+
+    // Will trigger an importer for a referenced file and return the imported asset ID
+    pub fn import_file(path: &Path) -> ObjectId {
+        unimplemented!();
+    }
+}
+
+
+
+struct ImportContext {
+    referenced_files: Vec<PathBuf>,
+    referenced_assets: Vec<ObjectId>,
+}
+
+impl ImportContext {
+    // Will read the file, and if we are live-reloading changes, trigger a re-import if the file changes
+    // This is used when the file is not referenced by another asset, or there is no desire to
+    // import it once and have several assets share it
+    pub fn read(path: &Path) -> Vec<u8> {
+        unimplemented!();
+    }
+
+    pub fn read_to_string(path: &Path) -> String {
+        unimplemented!();
+    }
+
+    // Will trigger an importer for a referenced file and return the imported asset ID
+    pub fn import_file(path: &Path) -> ObjectId {
+        unimplemented!();
+    }
+}
+
+// ID?
+pub trait Importer {
+    fn register_schemas(&self, schema_linker: &mut SchemaLinker);
+
+    fn asset_types(&self) -> &[&'static str];
+
+    fn supported_file_extensions(&self) -> &[&'static str];
+
+    // fn create_default_asset(&self, path: &Path, editor_model: &mut EditorModel, location: ObjectLocation) {
+    //     let name = if let Some(name) = path.file_name() {
+    //         ObjectName::new(name.to_string_lossy())
+    //     } else {
+    //         ObjectName::empty()
+    //     };
+    //
+    //     let schema_record = editor_model.root_edit_context_mut().schema_set().find_named_type().unwrap().as_record().unwrap();
+    //
+    //     let new_object = editor_model.root_edit_context_mut().new_object(&name, &location, schema_record);
+    // }
+
+    fn create_default_asset(&self, editor_model: &mut EditorModel, object_name: ObjectName, object_location: ObjectLocation) -> ObjectId;
+
+    fn scan_file(
+        &self,
+        //scan_context: &mut ScanContext,
+        path: &Path,
+    );
+
     fn import_file(
         &self,
+        //scan_context: &mut ImportContext,
         path: &Path,
         data_set: &mut DataSet,
         schema: &SchemaSet,
     );
 }
 
+// ID?
 trait Processor {
     fn process_asset(
         &self,
@@ -24,189 +317,4 @@ trait Processor {
         data_set: &DataSet,
         schema: &SchemaSet,
     ) -> Vec<u8>;
-}
-
-struct ImageAsset {}
-
-impl ImageAsset {
-    pub fn schema_name() -> &'static str {
-        "ImageAsset"
-    }
-
-    pub fn register_schema(linker: &mut SchemaLinker) {
-        linker
-            .register_record_type(Self::schema_name(), |x| {
-                x.add_reference("imported_data", ImageImportedData::schema_name());
-                //x.add_string("path");
-                x.add_boolean("compress");
-            })
-            .unwrap();
-    }
-}
-
-struct ImageImportedData {}
-
-impl ImageImportedData {
-    pub fn schema_name() -> &'static str {
-        "ImageImportedData"
-    }
-
-    pub fn register_schema(linker: &mut SchemaLinker) {
-        linker
-            .register_record_type(Self::schema_name(), |x| {
-                x.add_reference("asset", ImageAsset::schema_name());
-                x.add_bytes("image_bytes"); // TODO: this would be a buffer
-                x.add_u32("width");
-                x.add_u32("height");
-            })
-            .unwrap();
-    }
-}
-
-#[derive(Serialize, Deserialize)]
-struct ImageProcessedData {
-    image_bytes: Vec<u8>,
-    width: u32,
-    height: u32,
-}
-
-struct ImageImporter {}
-
-impl Importer for ImageImporter {
-    fn import_file(
-        &self,
-        path: &Path,
-        data_set: &mut DataSet,
-        schema: &SchemaSet,
-    ) {
-        // TODO: Replace with a shim so we can track what files are being read
-        // - We trigger the importer for them by specifying the file path and kind of file (i.e. an image, specific type of JSON file, etc.)
-        // - We may need to let the "import" dialog try to perform the import to get error messages and discover what will end up being imported
-        let bytes = std::fs::read(path).unwrap();
-
-        let decoded_image =
-            ::image::load_from_memory_with_format(&bytes, ::image::ImageFormat::Png).unwrap();
-        let (width, height) = decoded_image.dimensions();
-        let image_bytes = decoded_image.into_rgba8().to_vec();
-
-        let asset_id = Uuid::new_v4();
-        let import_id = Uuid::new_v4();
-
-        let image_asset_schema = schema
-            .find_named_type(ImageAsset::schema_name())
-            .unwrap()
-            .as_record()
-            .unwrap();
-        let image_imported_data_schema = schema
-            .find_named_type(ImageImportedData::schema_name())
-            .unwrap()
-            .as_record()
-            .unwrap();
-
-        let asset = data_set.new_object(
-            ObjectName::new(path.file_name().unwrap().to_string_lossy().to_string()),
-            ObjectLocation::null(),
-            image_asset_schema,
-        );
-        let imported_data = data_set.new_object(
-            ObjectName::empty(),
-            ObjectLocation::null(),
-            image_imported_data_schema,
-        );
-
-        data_set.set_property_override(schema, asset, "compress", Value::Boolean(true));
-        data_set.set_property_override(
-            schema,
-            asset,
-            "imported_data",
-            Value::ObjectRef(ObjectId(import_id.as_u128())),
-        );
-        data_set.set_property_override(schema, imported_data, "data", Value::Bytes(image_bytes));
-        data_set.set_property_override(
-            schema,
-            imported_data,
-            "asset",
-            Value::ObjectRef(ObjectId(asset_id.as_u128())),
-        );
-    }
-}
-
-struct ImageProcessor {}
-
-impl Processor for ImageProcessor {
-    fn process_asset(
-        &self,
-        asset_id: ObjectId,
-        data_set: &DataSet,
-        schema: &SchemaSet,
-    ) -> Vec<u8> {
-        //
-        // Read asset properties
-        //
-        let compressed = data_set
-            .resolve_property(schema, asset_id, "compress")
-            .unwrap()
-            .as_boolean()
-            .unwrap();
-        let imported_data = data_set
-            .resolve_property(schema, asset_id, "imported_data")
-            .unwrap()
-            .as_object_ref()
-            .unwrap();
-
-        //
-        // Read imported data
-        //
-        let image_bytes = data_set
-            .resolve_property(schema, imported_data, "image_bytes")
-            .unwrap()
-            .as_bytes()
-            .unwrap()
-            .clone();
-        let width = data_set
-            .resolve_property(schema, imported_data, "width")
-            .unwrap()
-            .as_u32()
-            .unwrap();
-        let height = data_set
-            .resolve_property(schema, imported_data, "height")
-            .unwrap()
-            .as_u32()
-            .unwrap();
-
-        //
-        // Compress the image, or just return the raw image bytes
-        //
-        let image_bytes = if compressed {
-            let mut compressor_params = basis_universal::CompressorParams::new();
-            compressor_params.set_basis_format(basis_universal::BasisTextureFormat::UASTC4x4);
-            compressor_params.set_generate_mipmaps(true);
-            compressor_params.set_color_space(basis_universal::ColorSpace::Srgb);
-            compressor_params.set_uastc_quality_level(basis_universal::UASTC_QUALITY_DEFAULT);
-
-            let mut source_image = compressor_params.source_image_mut(0);
-
-            source_image.init(&image_bytes, width, height, 4);
-            let mut compressor = basis_universal::Compressor::new(4);
-            unsafe {
-                compressor.init(&compressor_params);
-                log::debug!("Compressing texture");
-                compressor.process().unwrap();
-                log::debug!("Compressed texture");
-            }
-            let compressed_basis_data = compressor.basis_file().to_vec();
-            compressed_basis_data
-        } else {
-            image_bytes
-        };
-
-        let processed_data = ImageProcessedData {
-            image_bytes,
-            width,
-            height,
-        };
-
-        let serialized = bincode::serialize(&processed_data).unwrap();
-        serialized
-    }
 }

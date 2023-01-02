@@ -1,0 +1,10 @@
+{
+  "name": "test_image.png",
+  "parent_dir": "a2510126-be36-4536-be81-a9b39277543a",
+  "schema": "38aed6e7-11ad-76b1-a339-88cac8749501",
+  "schema_name": "ImageAsset",
+  "prototype": null,
+  "properties": {
+    "compress": true
+  }
+}

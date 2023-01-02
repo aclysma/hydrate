@@ -5,6 +5,7 @@ use imgui::sys::ImVec2;
 use imgui::{im_str, ImString, PopupModal};
 use nexdb::{HashSet, ObjectLocation, ObjectName, SchemaFingerprint};
 use std::path::PathBuf;
+use crate::importers::ImporterRegistry;
 
 pub struct NewObjectModal {
     finished_first_draw: bool,
@@ -31,6 +32,7 @@ impl ModalAction for NewObjectModal {
         imnodes_context: &mut imnodes::Context,
         db_state: &mut DbState,
         ui_state: &mut UiState,
+        importer_registry: &ImporterRegistry,
         action_queue: ActionQueueSender,
     ) -> ModalActionControlFlow {
         if !self.finished_first_draw {

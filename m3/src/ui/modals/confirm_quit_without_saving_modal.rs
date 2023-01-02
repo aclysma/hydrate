@@ -5,6 +5,7 @@ use crate::QueuedActions;
 use imgui::{im_str, PopupModal};
 use nexdb::edit_context::EditContext;
 use nexdb::{EditorModel, HashSet, ObjectId, ObjectLocation};
+use crate::importers::ImporterRegistry;
 
 pub struct ConfirmQuitWithoutSavingModal {
     finished_first_draw: bool,
@@ -29,6 +30,7 @@ impl ModalAction for ConfirmQuitWithoutSavingModal {
         imnodes_context: &mut imnodes::Context,
         db_state: &mut DbState,
         ui_state: &mut UiState,
+        importer_registry: &ImporterRegistry,
         action_queue: ActionQueueSender,
     ) -> ModalActionControlFlow {
         if !self.finished_first_draw {

@@ -1,0 +1,21 @@
+{
+  "name": "object_b",
+  "parent_dir": "01d8ad4e-00a8-4197-b60c-00fcf31d919d",
+  "schema": "4fec8abd-0c1f-2468-2104-0ee0720c7206",
+  "schema_name": "Transform",
+  "prototype": "e52cf8ae-51ca-47bc-a6ca-686592e607dc",
+  "properties": {
+    "all_fields.dynamic_array_i32": [
+      "476d7ecf-ef42-41ec-a438-234fbe06d7b8",
+      "7858455b-fbe6-4b4f-bbcc-df7a03084903",
+      "d047ef42-dc1f-4315-b0de-0b47af4b63d2"
+    ],
+    "all_fields.dynamic_array_vec3": [
+      "4dd5fc75-c4ba-49db-8a40-96dfc31db810",
+      "89636463-2201-45b5-86e7-7b711ca087a9",
+      "c8e4928c-401c-4d1b-8e6e-2f84cb3a4a95"
+    ],
+    "rotation.y": 14.0,
+    "rotation.z": 25.0
+  }
+}

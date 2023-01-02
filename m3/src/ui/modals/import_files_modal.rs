@@ -3,8 +3,9 @@ use crate::db_state::DbState;
 use crate::ui_state::UiState;
 use imgui::sys::ImVec2;
 use imgui::{im_str, PopupModal, StyleColor, TreeNodeFlags};
-use nexdb::{LocationTreeNode, ObjectLocation};
+use nexdb::{LocationTreeNode, ObjectLocation, ObjectName};
 use std::path::PathBuf;
+use crate::importers::ImporterRegistry;
 
 pub struct ImportFilesModal {
     finished_first_draw: bool,
@@ -152,6 +153,7 @@ impl ModalAction for ImportFilesModal {
         imnodes_context: &mut imnodes::Context,
         db_state: &mut DbState,
         ui_state: &mut UiState,
+        importer_registry: &ImporterRegistry,
         action_queue: ActionQueueSender,
     ) -> ModalActionControlFlow {
         if !self.finished_first_draw {
@@ -191,21 +193,47 @@ impl ModalAction for ImportFilesModal {
                 return ModalActionControlFlow::End;
             }
 
-            unsafe {
-                imgui::sys::igBeginDisabled(true);
-            }
-
             ui.same_line();
-            if ui.button(imgui::im_str!("TODO NOT IMPLEMENTED Import")) {
+            if ui.button(imgui::im_str!("Import")) {
+                for file in &self.files_to_import {
+                    let extension = file.extension();
+                    if let Some(extension) = extension {
+                        let extension = extension.to_string_lossy().to_string();
+                        let handlers = importer_registry.handlers_for_file_extension(&extension);
+
+                        if !handlers.is_empty() {
+                            let handler = importer_registry.handler(&handlers[0]);
+
+                            //
+                            // Create the default asset
+                            //
+                            let object_name = if let Some(name) = file.file_name() {
+                                ObjectName::new(name.to_string_lossy())
+                            } else {
+                                ObjectName::empty()
+                            };
+
+                            let object_id = handler.create_default_asset(&mut db_state.editor_model, object_name, self.selected_import_location.clone());
+
+
+                            //
+                            // Trigger transition to modal waiting for imports to complete
+                            //
+                        }
+                    }
+
+                }
+
+
+
+
+
+
                 ui.close_current_popup();
 
                 // do import?
 
                 return ModalActionControlFlow::End;
-            }
-
-            unsafe {
-                imgui::sys::igEndDisabled();
             }
 
             ModalActionControlFlow::Continue

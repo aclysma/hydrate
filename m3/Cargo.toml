@@ -32,3 +32,4 @@ globwalk = "0.8.1"
 image = "0.23.12"
 basis-universal = "0.2.0"
 serde = { default-features = false, version = "1.0.145", features = ["derive"] }
+type-uuid = "0.1.2"

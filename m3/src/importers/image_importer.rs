@@ -114,31 +114,35 @@ impl Importer for ImageImporter {
             .as_record()
             .unwrap();
 
-        let asset = data_set.new_object(
-            ObjectName::new(path.file_name().unwrap().to_string_lossy().to_string()),
-            ObjectLocation::null(),
-            image_asset_schema,
-        );
+        // let asset = data_set.new_object(
+        //     ObjectName::new(path.file_name().unwrap().to_string_lossy().to_string()),
+        //     ObjectLocation::null(),
+        //     image_asset_schema,
+        // );
         let imported_data = data_set.new_object(
             ObjectName::empty(),
             ObjectLocation::null(),
             image_imported_data_schema,
         );
 
-        data_set.set_property_override(schema, asset, "compress", Value::Boolean(true));
-        data_set.set_property_override(
-            schema,
-            asset,
-            "imported_data",
-            Value::ObjectRef(ObjectId(import_id.as_u128())),
-        );
-        data_set.set_property_override(schema, imported_data, "data", Value::Bytes(image_bytes));
+        // data_set.set_property_override(schema, asset, "compress", Value::Boolean(true));
+        // data_set.set_property_override(
+        //     schema,
+        //     asset,
+        //     "imported_data",
+        //     Value::ObjectRef(ObjectId(import_id.as_u128())),
+        // );
+
+
+        data_set.set_property_override(schema, imported_data, "image_bytes", Value::Bytes(image_bytes));
         data_set.set_property_override(
             schema,
             imported_data,
             "asset",
             Value::ObjectRef(ObjectId(asset_id.as_u128())),
         );
+        data_set.set_property_override(schema, imported_data, "width", Value::U32(width));
+        data_set.set_property_override(schema, imported_data, "height", Value::U32(height));
     }
 }
 

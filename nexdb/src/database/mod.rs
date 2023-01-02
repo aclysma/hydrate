@@ -4,12 +4,14 @@ pub use value::Value;
 mod data_set;
 pub use data_set::DataObjectInfo;
 pub use data_set::DataSet;
-pub use data_set::NullOverride;
 pub use data_set::ObjectLocation;
 pub use data_set::ObjectName;
 pub use data_set::ObjectPath;
 pub use data_set::ObjectSourceId;
 pub use data_set::OverrideBehavior;
+
+mod single_object;
+pub use single_object::SingleObject;
 
 mod schema_set;
 pub use schema_set::SchemaSet;
@@ -17,6 +19,9 @@ pub use schema_set::SchemaSet;
 mod diff;
 pub use diff::DataSetDiff;
 pub use diff::DataSetDiffSet;
+
+mod property_util_fn;
+use property_util_fn::*;
 
 #[cfg(test)]
 mod tests;
@@ -28,3 +33,10 @@ mod tests;
 
 //TODO: Read-only sources? For things like network cache. Could only sync files we edit and overlay
 // files source over net cache source, etc.
+
+
+#[derive(Debug, Copy, Clone, PartialEq)]
+pub enum NullOverride {
+    SetNull,
+    SetNonNull,
+}

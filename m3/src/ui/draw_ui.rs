@@ -99,6 +99,7 @@ pub fn draw_imgui(
                     &mut app_state.db_state,
                     &mut app_state.ui_state,
                     &mut app_state.importer_registry,
+                    &mut app_state.import_jobs,
                     app_state.action_queue.sender(),
                 );
                 if control_flow == ModalActionControlFlow::End {

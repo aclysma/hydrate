@@ -26,6 +26,11 @@ use nexdb::edit_context::EditContext;
 // - asset exists, import data doesn't exist, source file is available
 // - asset exists, import data exists but is stale, source file is available
 
+struct ImportOp {
+    object_id: ObjectId,
+    path: PathBuf,
+}
+
 struct ImportJob {
     object_id: ObjectId,
     import_data_exists: bool,
@@ -49,54 +54,63 @@ impl ImportJob {
 // Cache of all import jobs. This includes imports that are complete, in progress, or not started
 pub struct ImportJobs {
     //import_editor_model: EditorModel
-    import_jobs: HashMap<ObjectId, ImportJob>
+    import_jobs: HashMap<ObjectId, ImportJob>,
+    import_operations: Vec<ImportOp>
 }
 
 impl ImportJobs {
-    //pub fn new(schema_set: Arc<SchemaSet>, path: &Path) -> Self {
     pub fn new(importer_registry: &ImporterRegistry, editor_model: &EditorModel, root_path: &Path) -> Self {
-        // let mut import_editor_model = EditorModel::new(schema_set);
-        // let source = editor_context.add_file_system_object_source(path);
-        //
-        // ImportJobs {
-        //     import_editor_model
-        // }
+        let import_jobs = ImportJobs::find_jobs_in_assets(importer_registry, editor_model, root_path);
 
-        let mut import_jobs = ImportJobs {
-            import_jobs: Default::default()
-        };
-
-        import_jobs.find_jobs_in_assets(importer_registry, editor_model, root_path);
-        import_jobs
+        ImportJobs {
+            import_jobs,
+            import_operations: Default::default()
+        }
     }
 
-    pub fn add_import_operation(&mut self, importer_registry: &ImporterRegistry, editor_model: &EditorModel, object_id: ObjectId, path: &Path) {
-        let fingerpint = editor_model.root_edit_context().object_schema(object_id).unwrap().fingerprint();
-        let importer_id = importer_registry.asset_to_importer.get(&fingerpint).unwrap();
-        let importer = importer_registry.handler(importer_id);
+    pub fn queue_import_operation(&mut self, object_id: ObjectId, path: PathBuf) {
+        self.import_operations.push(ImportOp {
+            object_id,
+            path
+        })
+    }
 
-        let mut data_set = DataSet::default();
-        importer.import_file(path, &mut data_set, editor_model.schema_set());
+    pub fn update(&mut self, importer_registry: &ImporterRegistry, editor_model: &EditorModel) {
+        for import_op in &self.import_operations {
+            let fingerprint = editor_model.root_edit_context().object_schema(import_op.object_id).unwrap().fingerprint();
+            let importer_id = importer_registry.asset_to_importer.get(&fingerprint).unwrap();
+            let importer = importer_registry.handler(importer_id);
+
+            let mut data_set = DataSet::default();
+            importer.import_file(&import_op.path, &mut data_set, editor_model.schema_set());
+
+            assert!(data_set.all_objects().len() == 1);
+
+            for object in data_set.all_objects() {
+                
+            }
+        }
+
+        self.import_operations.clear();
+
 
         // Send/mark for processing?
         // persist to disk?
     }
 
-    // pub fn open_import_data_source(&mut self, path: &Path, editor_model: &mut EditorModel) {
+    // pub fn add_import_operation(&mut self, importer_registry: &ImporterRegistry, editor_model: &EditorModel, object_id: ObjectId, path: &Path) {
+    //     let fingerprint = editor_model.root_edit_context().object_schema(object_id).unwrap().fingerprint();
+    //     let importer_id = importer_registry.asset_to_importer.get(&fingerprint).unwrap();
+    //     let importer = importer_registry.handler(importer_id);
     //
+    //     let mut data_set = DataSet::default();
+    //     importer.import_file(path, &mut data_set, editor_model.schema_set());
     //
-    //
-    //
-    //
-    //     //let source = editor_model.add_file_system_object_source(path);
-    //
-    //     //let edit_context = EditContext::new()
-    //     let fs = FileSystemObjectDataSource::new(root_path.clone(), root_edit_context);
-    //     //fs.reload_all()
-    //
+    //     // Send/mark for processing?
+    //     // persist to disk?
     // }
 
-    fn find_jobs_in_assets(&mut self, importer_registry: &ImporterRegistry, editor_model: &EditorModel, root_path: &Path) {
+    fn find_jobs_in_assets(importer_registry: &ImporterRegistry, editor_model: &EditorModel, root_path: &Path) -> HashMap<ObjectId, ImportJob> {
         let mut import_jobs = HashMap::<ObjectId, ImportJob>::default();
 
         //
@@ -129,6 +143,8 @@ impl ImportJobs {
                 job.asset_exists = true;
             }
         }
+
+        import_jobs
 
         // for (object_id, job) in import_jobs {
         //     if job.asset_exists && !job.import_data_exists {

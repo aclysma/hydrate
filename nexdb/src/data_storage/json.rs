@@ -1,8 +1,5 @@
 use crate::edit_context::EditContext;
-use crate::{
-    DataObjectInfo, HashMap, HashSet, NullOverride, ObjectId, ObjectLocation, ObjectName,
-    ObjectSourceId, OverrideBehavior, Schema, SchemaFingerprint, SchemaNamedType, Value,
-};
+use crate::{DataObjectInfo, HashMap, HashSet, HashSetIter, NullOverride, ObjectId, ObjectLocation, ObjectName, ObjectSourceId, OverrideBehavior, Schema, SchemaFingerprint, SchemaNamedType, SchemaSet, SingleObject, Value};
 use serde::{Deserialize, Serialize};
 use std::str::FromStr;
 use uuid::Uuid;
@@ -55,7 +52,7 @@ fn json_to_property_value_with_schema(
         Schema::NamedType(_) => unimplemented!(),
     }
 }
-
+/*
 fn json_to_property_value_without_schema(value: &serde_json::Value) -> Value {
     match value {
         serde_json::Value::Null => unimplemented!(),
@@ -74,17 +71,17 @@ fn json_to_property_value_without_schema(value: &serde_json::Value) -> Value {
         serde_json::Value::Object(_) => unimplemented!(),
     }
 }
-
-fn json_to_property_value(
-    schema: Option<&Schema>,
-    value: &serde_json::Value,
-) -> Value {
-    if let Some(schema) = schema {
-        json_to_property_value_with_schema(schema, value)
-    } else {
-        json_to_property_value_without_schema(value)
-    }
-}
+*/
+// fn json_to_property_value(
+//     schema: Option<&Schema>,
+//     value: &serde_json::Value,
+// ) -> Value {
+//     if let Some(schema) = schema {
+//         json_to_property_value_with_schema(schema, value)
+//     } else {
+//         json_to_property_value_without_schema(value)
+//     }
+// }
 
 fn null_override_to_string_value(null_override: NullOverride) -> &'static str {
     match null_override {
@@ -100,10 +97,45 @@ fn string_to_null_override_value(s: &str) -> Option<NullOverride> {
         _ => None,
     }
 }
+/*
+enum ObjectWithProperties<'a> {
+    EditContextObject(&'a EditContext, ObjectId),
+    SingleObject(&'a SingleObject, &'a SchemaSet)
+}
+
+impl<'a> ObjectWithProperties<'a> {
+    fn resolve_is_null(&self, path: &str) -> Option<bool> {
+        match self {
+            ObjectWithProperties::EditContextObject(edit_context, object_id) => edit_context.resolve_is_null(*object_id, path),
+            ObjectWithProperties::SingleObject(object, schema_set) => object.resolve_is_null(schema_set, path)
+        }
+    }
+
+    fn get_property_override(&self, path: &str) -> Option<&Value> {
+        match self {
+            ObjectWithProperties::EditContextObject(edit_context, object_id) => edit_context.get_property_override(*object_id, path),
+            ObjectWithProperties::SingleObject(object, schema_set) => object.get_property_override(path)
+        }
+    }
+
+
+    fn get_dynamic_array_overrides(&self, path: &str) -> Option<HashSetIter<Uuid>> {
+        match self {
+            ObjectWithProperties::EditContextObject(edit_context, object_id) => edit_context.get_dynamic_array_overrides(*object_id, path),
+            ObjectWithProperties::SingleObject(object, schema_set) => object.get_dynamic_array_overrides(schema_set, path)
+        }
+    }
+
+    fn find_named_type_by_fingerprint(&self, fingerprint: SchemaFingerprint) -> Option<&SchemaNamedType> {
+        match self {
+            ObjectWithProperties::EditContextObject(edit_context, object_id) => edit_context.find_named_type_by_fingerprint(fingerprint),
+            ObjectWithProperties::SingleObject(object, schema_set) => schema_set.find_named_type_by_fingerprint(fingerprint)
+        }
+    }
+}
 
 fn store_object_into_properties(
-    edit_context: &EditContext,
-    object_id: ObjectId,
+    object: &ObjectWithProperties,
     properties: &mut HashMap<String, serde_json::Value>,
     schema: &Schema,
     path: &str,
@@ -111,11 +143,10 @@ fn store_object_into_properties(
     match schema {
         Schema::Nullable(inner_schema) => {
             // Save value
-            if edit_context.resolve_is_null(object_id, path) == Some(false) {
+            if object.resolve_is_null(path) == Some(false) {
                 let value_path = format!("{}.value", path);
                 store_object_into_properties(
-                    edit_context,
-                    object_id,
+                    object,
                     properties,
                     &*inner_schema,
                     &value_path,
@@ -130,7 +161,7 @@ fn store_object_into_properties(
         | Schema::F32
         | Schema::F64
         | Schema::String => {
-            let value = edit_context.get_property_override(object_id, path);
+            let value = object.get_property_override(path);
             if let Some(value) = value {
                 properties.insert(path.to_string(), property_value_to_json(value));
             }
@@ -145,13 +176,12 @@ fn store_object_into_properties(
             unimplemented!();
         }
         Schema::DynamicArray(dynamic_array) => {
-            let elements = edit_context.get_dynamic_array_overrides(object_id, path);
+            let elements = object.get_dynamic_array_overrides(path);
             if let Some(elements) = elements {
                 for element_id in elements {
                     let element_path = format!("{}.{}", path, element_id);
                     store_object_into_properties(
-                        edit_context,
-                        object_id,
+                        object,
                         properties,
                         dynamic_array.item_type(),
                         &element_path,
@@ -163,13 +193,13 @@ fn store_object_into_properties(
             unimplemented!();
         }
         Schema::ObjectRef(_) => {
-            let value = edit_context.get_property_override(object_id, path);
+            let value = object.get_property_override(path);
             if let Some(value) = value {
                 properties.insert(path.to_string(), property_value_to_json(value));
             }
         }
         Schema::NamedType(named_type) => {
-            let named_type = edit_context
+            let named_type = object
                 .find_named_type_by_fingerprint(*named_type)
                 .unwrap()
                 .clone();
@@ -182,8 +212,7 @@ fn store_object_into_properties(
                             format!("{}.{}", path, field.name())
                         };
                         store_object_into_properties(
-                            edit_context,
-                            object_id,
+                            object,
                             properties,
                             field.field_schema(),
                             &field_path,
@@ -200,7 +229,9 @@ fn store_object_into_properties(
         }
     }
 }
+*/
 
+/*
 fn restore_object_from_properties(
     edit_context: &mut EditContext,
     object_id: ObjectId,
@@ -396,6 +427,7 @@ fn restore_object_from_properties(
         }
     }
 }
+*/
 
 fn ordered_map<S>(
     value: &HashMap<String, serde_json::Value>,
@@ -421,40 +453,129 @@ impl ObjectReference {
     }
 }
 
-fn restore_from_json_properties(
-    edit_context: &mut EditContext,
-    object_name: ObjectName,
-    object_location: ObjectLocation,
-    object_id: Uuid,
-    schema: Uuid,
-    schema_name: String,
-    prototype: Option<Uuid>,
+// fn restore_from_json_properties(
+//     edit_context: &mut EditContext,
+//     object_name: ObjectName,
+//     object_location: ObjectLocation,
+//     object_id: Uuid,
+//     schema: Uuid,
+//     schema_name: String,
+//     prototype: Option<Uuid>,
+//     json_properties: HashMap<String, serde_json::Value>,
+// ) -> ObjectId {
+//     let object_id = ObjectId(object_id.as_u128());
+//     let schema_fingerprint = SchemaFingerprint(schema.as_u128());
+//     let prototype = prototype.map(|x| ObjectId(x.as_u128()));
+//
+//     let named_type = edit_context
+//         .find_named_type_by_fingerprint(schema_fingerprint)
+//         .unwrap()
+//         .clone();
+//
+//     let mut properties: HashMap<String, Value> = Default::default();
+//     let mut property_null_overrides: HashMap<String, NullOverride> = Default::default();
+//     let mut properties_in_replace_mode: HashSet<String> = Default::default();
+//     let mut dynamic_array_entries: HashMap<String, HashSet<Uuid>> = Default::default();
+//
+//     // We use the max path length to ensure we stop recursing through types when we know no properties will exist
+//     // let mut max_path_length = 0;
+//     // for (k, _) in &properties {
+//     //     max_path_length = max_path_length.max(k.len());
+//     // }
+//
+//     //let schema = Schema::NamedType(schema_fingerprint);
+//
+//     //Alternative way via walking through schema
+//     //restore_object_from_properties(edit_context, object_id, stored_object, &schema, "", max_path_length);
+//
+//     // for (path, value) in json_properties {
+//     //     let split_path = path.rsplit_once('.');
+//     //     //let parent_path = split_path.map(|x| x.0);
+//     //     //let path_end = split_path.map(|x| x.1);
+//     //
+//     //     let mut property_handled = false;
+//     //
+//     //     if let Some((parent_path, path_end)) = split_path {
+//     //         let parent_schema = named_type
+//     //             .find_property_schema(parent_path, edit_context.schemas())
+//     //             .unwrap();
+//     //         if parent_schema.is_nullable() && path_end == "null_override" {
+//     //             let null_override = string_to_null_override_value(value.as_str().unwrap()).unwrap();
+//     //             //edit_context.set_null_override(object_id, path, null_override);
+//     //             log::debug!("set null override {} to {:?}", parent_path, null_override);
+//     //             property_null_overrides.insert(parent_path.to_string(), null_override);
+//     //             property_handled = true;
+//     //         }
+//     //
+//     //         if parent_schema.is_dynamic_array() && path_end == "replace" {
+//     //             if value.as_bool() == Some(true) {
+//     //                 log::debug!("set property {} to replace", parent_path);
+//     //                 properties_in_replace_mode.insert(parent_path.to_string());
+//     //             }
+//     //
+//     //             property_handled = true;
+//     //         }
+//     //     }
+//     //
+//     //     if !property_handled {
+//     //         let property_schema = named_type
+//     //             .find_property_schema(&path, edit_context.schemas())
+//     //             .unwrap();
+//     //         if property_schema.is_dynamic_array() {
+//     //             let json_array = value.as_array().unwrap();
+//     //             for json_array_element in json_array {
+//     //                 let element = json_array_element.as_str().unwrap();
+//     //                 let element = Uuid::from_str(element).unwrap();
+//     //                 let existing_entries =
+//     //                     dynamic_array_entries.entry(path.to_string()).or_default();
+//     //                 if !existing_entries.contains(&element) {
+//     //                     log::debug!("add dynamic array element {} to {:?}", element, path);
+//     //                     existing_entries.insert(element);
+//     //                 }
+//     //             }
+//     //         } else {
+//     //             let v = json_to_property_value_with_schema(&property_schema, &value);
+//     //             log::debug!("set {} to {:?}", path, v);
+//     //             properties.insert(path.to_string(), v);
+//     //         }
+//     //     }
+//     // }
+//
+//     // let mut dynamic_array_entries_as_vec: HashMap<String, HashSet<Uuid>> = Default::default();
+//     // for (k, v) in dynamic_array_entries {
+//     //     dynamic_array_entries_as_vec.insert(k, v.into_iter().collect());
+//     // }
+//
+//     load_json_properties(&named_type, edit_context.schemas(), json_properties, &mut properties, &mut property_null_overrides, Some(&mut properties_in_replace_mode), &mut dynamic_array_entries);
+//
+//     edit_context.restore_object(
+//         object_id,
+//         object_name,
+//         object_location,
+//         prototype,
+//         schema_fingerprint,
+//         properties,
+//         property_null_overrides,
+//         properties_in_replace_mode,
+//         dynamic_array_entries,
+//     );
+//
+//     object_id
+// }
+
+fn load_json_properties(
+    named_type: &SchemaNamedType,
+    named_types: &HashMap<SchemaFingerprint, SchemaNamedType>,
     json_properties: HashMap<String, serde_json::Value>,
-) -> ObjectId {
-    let object_id = ObjectId(object_id.as_u128());
-    let schema_fingerprint = SchemaFingerprint(schema.as_u128());
-    let prototype = prototype.map(|x| ObjectId(x.as_u128()));
-
-    let named_type = edit_context
-        .find_named_type_by_fingerprint(schema_fingerprint)
-        .unwrap()
-        .clone();
-
-    let mut properties: HashMap<String, Value> = Default::default();
-    let mut property_null_overrides: HashMap<String, NullOverride> = Default::default();
-    let mut properties_in_replace_mode: HashSet<String> = Default::default();
-    let mut dynamic_array_entries: HashMap<String, HashSet<Uuid>> = Default::default();
-
-    // We use the max path length to ensure we stop recursing through types when we know no properties will exist
+    properties: &mut HashMap<String, Value>,
+    property_null_overrides: &mut HashMap<String, NullOverride>,
+    mut properties_in_replace_mode: Option<&mut HashSet<String>>,
+    dynamic_array_entries: &mut HashMap<String, HashSet<Uuid>>,
+) {
     let mut max_path_length = 0;
-    for (k, _) in &properties {
+    for (k, _) in &json_properties {
         max_path_length = max_path_length.max(k.len());
     }
-
-    //let schema = Schema::NamedType(schema_fingerprint);
-
-    //Alternative way via walking through schema
-    //restore_object_from_properties(edit_context, object_id, stored_object, &schema, "", max_path_length);
 
     for (path, value) in json_properties {
         let split_path = path.rsplit_once('.');
@@ -465,7 +586,7 @@ fn restore_from_json_properties(
 
         if let Some((parent_path, path_end)) = split_path {
             let parent_schema = named_type
-                .find_property_schema(parent_path, edit_context.schemas())
+                .find_property_schema(parent_path, named_types)
                 .unwrap();
             if parent_schema.is_nullable() && path_end == "null_override" {
                 let null_override = string_to_null_override_value(value.as_str().unwrap()).unwrap();
@@ -476,9 +597,11 @@ fn restore_from_json_properties(
             }
 
             if parent_schema.is_dynamic_array() && path_end == "replace" {
-                if value.as_bool() == Some(true) {
-                    log::debug!("set property {} to replace", parent_path);
-                    properties_in_replace_mode.insert(parent_path.to_string());
+                if let Some(properties_in_replace_mode) = &mut properties_in_replace_mode {
+                    if value.as_bool() == Some(true) {
+                        log::debug!("set property {} to replace", parent_path);
+                        properties_in_replace_mode.insert(parent_path.to_string());
+                    }
                 }
 
                 property_handled = true;
@@ -487,7 +610,7 @@ fn restore_from_json_properties(
 
         if !property_handled {
             let property_schema = named_type
-                .find_property_schema(&path, edit_context.schemas())
+                .find_property_schema(&path, named_types)
                 .unwrap();
             if property_schema.is_dynamic_array() {
                 let json_array = value.as_array().unwrap();
@@ -509,41 +632,34 @@ fn restore_from_json_properties(
         }
     }
 
-    let mut dynamic_array_entries_as_vec: HashMap<String, HashSet<Uuid>> = Default::default();
-    for (k, v) in dynamic_array_entries {
-        dynamic_array_entries_as_vec.insert(k, v.into_iter().collect());
-    }
-
-    edit_context.restore_object(
-        object_id,
-        object_name,
-        object_location,
-        prototype,
-        schema_fingerprint,
-        properties,
-        property_null_overrides,
-        properties_in_replace_mode,
-        dynamic_array_entries_as_vec,
-    );
-
-    object_id
+    // let mut dynamic_array_entries_as_vec: HashMap<String, HashSet<Uuid>> = Default::default();
+    // for (k, v) in dynamic_array_entries {
+    //     dynamic_array_entries_as_vec.insert(k, v.into_iter().collect());
+    // }
 }
 
-fn store_object_to_json_properties(obj: &DataObjectInfo) -> HashMap<String, serde_json::Value> {
-    let mut properties: HashMap<String, serde_json::Value> = Default::default();
+fn store_json_properties(
+    properties: &HashMap<String, Value>,
+    property_null_overrides: &HashMap<String, NullOverride>,
+    properties_in_replace_mode: Option<&HashSet<String>>,
+    dynamic_array_entries: &HashMap<String, HashSet<Uuid>>,
+) -> HashMap<String, serde_json::Value> {
+    let mut saved_properties: HashMap<String, serde_json::Value> = Default::default();
 
-    for (path, null_override) in &obj.property_null_overrides {
-        properties.insert(
+    for (path, null_override) in property_null_overrides {
+        saved_properties.insert(
             format!("{}.null_override", path),
             serde_json::Value::from(null_override_to_string_value(*null_override)),
         );
     }
 
-    for path in &obj.properties_in_replace_mode {
-        properties.insert(format!("{}.replace", path), serde_json::Value::from(true));
+    if let Some(properties_in_replace_mode) = properties_in_replace_mode {
+        for path in properties_in_replace_mode {
+            saved_properties.insert(format!("{}.replace", path), serde_json::Value::from(true));
+        }
     }
 
-    for (path, elements) in &obj.dynamic_array_entries {
+    for (path, elements) in dynamic_array_entries {
         let mut sorted_elements: Vec<_> = elements.iter().copied().collect();
         sorted_elements.sort();
         let elements_json: Vec<_> = sorted_elements
@@ -551,18 +667,18 @@ fn store_object_to_json_properties(obj: &DataObjectInfo) -> HashMap<String, serd
             .map(|x| serde_json::Value::from(x.to_string()))
             .collect();
         let elements_json_array = serde_json::Value::from(elements_json);
-        properties.insert(path.to_string(), elements_json_array);
+        saved_properties.insert(path.to_string(), elements_json_array);
     }
 
-    for (k, v) in &obj.properties {
-        properties.insert(k.to_string(), property_value_to_json(v));
+    for (k, v) in properties {
+        saved_properties.insert(k.to_string(), property_value_to_json(v));
     }
 
-    properties
+    saved_properties
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct ObjectSourceDataStorageJsonObject {
+pub struct EditContextObjectJson {
     name: String,
     parent_dir: Option<Uuid>,
     schema: Uuid,
@@ -572,14 +688,14 @@ pub struct ObjectSourceDataStorageJsonObject {
     properties: HashMap<String, serde_json::Value>,
 }
 
-impl ObjectSourceDataStorageJsonObject {
-    pub fn load_object_from_string(
+impl EditContextObjectJson {
+    pub fn load_edit_context_object_from_string(
         edit_context: &mut EditContext,
         object_id: Uuid,
         object_source_id: ObjectSourceId,
         json: &str,
     ) {
-        let stored_object: ObjectSourceDataStorageJsonObject = serde_json::from_str(json).unwrap();
+        let stored_object: EditContextObjectJson = serde_json::from_str(json).unwrap();
         let path_node_id = ObjectId(stored_object.parent_dir.unwrap_or(Uuid::nil()).as_u128());
         let object_location = ObjectLocation::new(object_source_id, path_node_id);
         let object_name = if stored_object.name.is_empty() {
@@ -588,33 +704,79 @@ impl ObjectSourceDataStorageJsonObject {
             ObjectName::new(stored_object.name)
         };
 
-        //let location = ObjectLocation::new(object_source_id, path);
-        restore_from_json_properties(
-            edit_context,
+        let object_id = ObjectId(object_id.as_u128());
+        let schema_fingerprint = SchemaFingerprint(stored_object.schema.as_u128());
+        let prototype = stored_object.prototype.map(|x| ObjectId(x.as_u128()));
+
+        let named_type = edit_context
+            .find_named_type_by_fingerprint(schema_fingerprint)
+            .unwrap()
+            .clone();
+
+        let mut properties: HashMap<String, Value> = Default::default();
+        let mut property_null_overrides: HashMap<String, NullOverride> = Default::default();
+        let mut properties_in_replace_mode: HashSet<String> = Default::default();
+        let mut dynamic_array_entries: HashMap<String, HashSet<Uuid>> = Default::default();
+
+        // //let location = ObjectLocation::new(object_source_id, path);
+        // restore_from_json_properties(
+        //     edit_context,
+        //     object_name,
+        //     object_location,
+        //     object_id,
+        //     stored_object.schema,
+        //     stored_object.schema_name,
+        //     stored_object.prototype,
+        //     stored_object.properties,
+        // );
+
+        load_json_properties(
+            &named_type,
+            edit_context.schemas(),
+            stored_object.properties,
+            &mut properties,
+            &mut property_null_overrides,
+            Some(&mut properties_in_replace_mode),
+            &mut dynamic_array_entries
+        );
+
+        edit_context.restore_object(
+            object_id,
             object_name,
             object_location,
-            object_id,
-            stored_object.schema,
-            stored_object.schema_name,
-            stored_object.prototype,
-            stored_object.properties,
+            prototype,
+            schema_fingerprint,
+            properties,
+            property_null_overrides,
+            properties_in_replace_mode,
+            dynamic_array_entries,
         );
+
+        //object_id
     }
 
-    pub fn save_object_to_string(
+    pub fn save_edit_context_object_to_string(
         edit_context: &EditContext,
         object_id: ObjectId,
         parent_dir: Option<Uuid>,
     ) -> String {
         let obj = edit_context.objects().get(&object_id).unwrap();
-        let properties = store_object_to_json_properties(obj);
-        let mut stored_object = ObjectSourceDataStorageJsonObject {
+        //let mut json_properties: HashMap<String, serde_json::Value> = Default::default();
+        // store_object_into_properties(
+        //     &ObjectWithProperties::EditContextObject(edit_context, object_id),
+        //     &mut json_properties,
+        //     edit_context.object_schema(object_id)
+        // );
+
+        let json_properties = store_json_properties(&obj.properties, &obj.property_null_overrides, Some(&obj.properties_in_replace_mode), &obj.dynamic_array_entries);
+
+        let mut stored_object = EditContextObjectJson {
             name: obj.object_name.as_string().cloned().unwrap_or_default(),
             parent_dir,
             schema: obj.schema.fingerprint().as_uuid(),
             schema_name: obj.schema.name().to_string(),
             prototype: obj.prototype.map(|x| Uuid::from_u128(x.0)),
-            properties,
+            properties: json_properties,
         };
 
         serde_json::to_string_pretty(&stored_object).unwrap()
@@ -626,5 +788,62 @@ impl ObjectSourceDataStorageJsonObject {
         // prototype: Option<Uuid>,
         // #[serde(serialize_with = "ordered_map")]
         // properties: HashMap<String, serde_json::Value>,
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct SingleObjectJson {
+    schema: Uuid,
+    schema_name: String,
+    #[serde(serialize_with = "ordered_map")]
+    properties: HashMap<String, serde_json::Value>,
+}
+
+impl SingleObjectJson {
+    pub fn load_single_object_from_string(
+        json: &str,
+    ) -> SingleObject {
+        let stored_object: SingleObjectJson = serde_json::from_str(json).unwrap();
+
+        //let location = ObjectLocation::new(object_source_id, path);
+        // restore_from_json_properties(
+        //     edit_context,
+        //     object_name,
+        //     object_location,
+        //     object_id,
+        //     stored_object.schema,
+        //     stored_object.schema_name,
+        //     stored_object.prototype,
+        //     stored_object.properties,
+        // );
+
+        unimplemented!();
+    }
+
+    pub fn save_single_object_to_string(
+        object: &SingleObject
+    ) -> String {
+
+        let json_properties = store_json_properties(&object.properties, &object.property_null_overrides, None, &object.dynamic_array_entries);
+
+        let mut stored_object = SingleObjectJson {
+            schema: object.schema.fingerprint().as_uuid(),
+            schema_name: object.schema.name().to_string(),
+            properties: json_properties,
+        };
+
+        serde_json::to_string_pretty(&stored_object).unwrap()
+
+
+
+        // let obj = edit_context.objects().get(&object_id).unwrap();
+        // let properties = store_object_to_json_properties(obj);
+        // let mut stored_object = SingleObjectJson {
+        //     schema: obj.schema.fingerprint().as_uuid(),
+        //     schema_name: obj.schema.name().to_string(),
+        //     properties,
+        // };
+        //
+        // serde_json::to_string_pretty(&stored_object).unwrap()
     }
 }

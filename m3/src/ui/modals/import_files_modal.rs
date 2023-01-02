@@ -5,7 +5,7 @@ use imgui::sys::ImVec2;
 use imgui::{im_str, PopupModal, StyleColor, TreeNodeFlags};
 use nexdb::{LocationTreeNode, ObjectLocation, ObjectName};
 use std::path::PathBuf;
-use crate::importers::ImporterRegistry;
+use crate::importers::{ImporterRegistry, ImportJobs};
 
 pub struct ImportFilesModal {
     finished_first_draw: bool,
@@ -154,6 +154,7 @@ impl ModalAction for ImportFilesModal {
         db_state: &mut DbState,
         ui_state: &mut UiState,
         importer_registry: &ImporterRegistry,
+        import_jobs: &mut ImportJobs,
         action_queue: ActionQueueSender,
     ) -> ModalActionControlFlow {
         if !self.finished_first_draw {
@@ -219,6 +220,8 @@ impl ModalAction for ImportFilesModal {
                             //
                             // Trigger transition to modal waiting for imports to complete
                             //
+                            import_jobs.queue_import_operation(object_id, file.clone());
+
                         }
                     }
 

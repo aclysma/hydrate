@@ -11,7 +11,7 @@ impl ImageAsset {
     pub fn register_schema(linker: &mut SchemaLinker) {
         linker
             .register_record_type(Self::schema_name(), |x| {
-                x.add_reference("imported_data", ImageImportedData::schema_name());
+                //x.add_reference("imported_data", ImageImportedData::schema_name());
                 //x.add_string("path");
                 x.add_boolean("compress");
             })
@@ -29,7 +29,7 @@ impl ImageImportedData {
     pub fn register_schema(linker: &mut SchemaLinker) {
         linker
             .register_record_type(Self::schema_name(), |x| {
-                x.add_reference("asset", ImageImportedData::schema_name());
+                //x.add_reference("asset", ImageImportedData::schema_name());
                 x.add_bytes("image_bytes"); // TODO: this would be a buffer
                 x.add_u32("width");
                 x.add_u32("height");
@@ -63,18 +63,6 @@ impl Importer for ImageImporter {
         &["ImageAsset"]
     }
 
-    // fn create_default_asset(&self, path: &Path, editor_model: &mut EditorModel, location: ObjectLocation) {
-    //     let name = if let Some(name) = path.file_name() {
-    //         ObjectName::new(name.to_string_lossy())
-    //     } else {
-    //         ObjectName::empty()
-    //     };
-    //
-    //     let schema_record = editor_model.root_edit_context_mut().schema_set().find_named_type().unwrap().as_record().unwrap();
-    //
-    //     let new_object = editor_model.root_edit_context_mut().new_object(&name, &location, schema_record);
-    // }
-
     fn create_default_asset(&self, editor_model: &mut EditorModel, object_name: ObjectName, object_location: ObjectLocation) -> ObjectId {
         let schema_record = editor_model.root_edit_context_mut().schema_set().find_named_type(ImageAsset::schema_name()).unwrap().as_record().unwrap().clone();
         editor_model.root_edit_context_mut().new_object(&object_name, &object_location, &schema_record)
@@ -87,9 +75,10 @@ impl Importer for ImageImporter {
     fn import_file(
         &self,
         path: &Path,
+        object_id: ObjectId,
         data_set: &mut DataSet,
         schema: &SchemaSet,
-    ) {
+    ) -> SingleObject {
         // TODO: Replace with a shim so we can track what files are being read
         // - We trigger the importer for them by specifying the file path and kind of file (i.e. an image, specific type of JSON file, etc.)
         // - We may need to let the "import" dialog try to perform the import to get error messages and discover what will end up being imported
@@ -100,49 +89,17 @@ impl Importer for ImageImporter {
         let (width, height) = decoded_image.dimensions();
         let image_bytes = decoded_image.into_rgba8().to_vec();
 
-        let asset_id = Uuid::new_v4();
-        let import_id = Uuid::new_v4();
-
-        let image_asset_schema = schema
-            .find_named_type(ImageAsset::schema_name())
-            .unwrap()
-            .as_record()
-            .unwrap();
         let image_imported_data_schema = schema
             .find_named_type(ImageImportedData::schema_name())
             .unwrap()
             .as_record()
             .unwrap();
 
-        // let asset = data_set.new_object(
-        //     ObjectName::new(path.file_name().unwrap().to_string_lossy().to_string()),
-        //     ObjectLocation::null(),
-        //     image_asset_schema,
-        // );
-        let imported_data = data_set.new_object(
-            ObjectName::empty(),
-            ObjectLocation::null(),
-            image_imported_data_schema,
-        );
-
-        // data_set.set_property_override(schema, asset, "compress", Value::Boolean(true));
-        // data_set.set_property_override(
-        //     schema,
-        //     asset,
-        //     "imported_data",
-        //     Value::ObjectRef(ObjectId(import_id.as_u128())),
-        // );
-
-
-        data_set.set_property_override(schema, imported_data, "image_bytes", Value::Bytes(image_bytes));
-        data_set.set_property_override(
-            schema,
-            imported_data,
-            "asset",
-            Value::ObjectRef(ObjectId(asset_id.as_u128())),
-        );
-        data_set.set_property_override(schema, imported_data, "width", Value::U32(width));
-        data_set.set_property_override(schema, imported_data, "height", Value::U32(height));
+        let mut import_object = SingleObject::new(image_imported_data_schema);
+        import_object.set_property_override(schema, "image_bytes", Value::Bytes(image_bytes));
+        import_object.set_property_override(schema, "width", Value::U32(width));
+        import_object.set_property_override(schema, "height", Value::U32(height));
+        import_object
     }
 }
 

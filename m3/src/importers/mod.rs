@@ -1,5 +1,5 @@
 use ::image::{EncodableLayout, GenericImageView};
-use nexdb::{DataSet, DataSource, EditorModel, FileSystemObjectDataSource, HashMap, HashMapKeys, ObjectId, ObjectLocation, ObjectName, ObjectSourceId, Schema, SchemaFingerprint, SchemaLinker, SchemaSet, Value};
+use nexdb::{DataSet, DataSource, EditorModel, FileSystemObjectDataSource, HashMap, HashMapKeys, ObjectId, ObjectLocation, ObjectName, ObjectSourceId, Schema, SchemaFingerprint, SchemaLinker, SchemaSet, SingleObject, Value};
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -10,9 +10,9 @@ use type_uuid::{TypeUuid, TypeUuidDynamic};
 
 mod image_importer;
 pub use image_importer::ImageImporter;
-use nexdb::dir_tree_blob_store::path_to_uuid;
+use nexdb::dir_tree_blob_store::{path_to_uuid, uuid_to_path};
 use nexdb::edit_context::EditContext;
-
+use nexdb::json::SingleObjectJson;
 
 
 // Create ImportJobs
@@ -54,15 +54,17 @@ impl ImportJob {
 // Cache of all import jobs. This includes imports that are complete, in progress, or not started
 pub struct ImportJobs {
     //import_editor_model: EditorModel
+    root_path: PathBuf,
     import_jobs: HashMap<ObjectId, ImportJob>,
     import_operations: Vec<ImportOp>
 }
 
 impl ImportJobs {
-    pub fn new(importer_registry: &ImporterRegistry, editor_model: &EditorModel, root_path: &Path) -> Self {
-        let import_jobs = ImportJobs::find_jobs_in_assets(importer_registry, editor_model, root_path);
+    pub fn new(importer_registry: &ImporterRegistry, editor_model: &EditorModel, root_path: PathBuf) -> Self {
+        let import_jobs = ImportJobs::find_jobs_in_assets(importer_registry, editor_model, &root_path);
 
         ImportJobs {
+            root_path,
             import_jobs,
             import_operations: Default::default()
         }
@@ -82,33 +84,22 @@ impl ImportJobs {
             let importer = importer_registry.handler(importer_id);
 
             let mut data_set = DataSet::default();
-            importer.import_file(&import_op.path, &mut data_set, editor_model.schema_set());
+            let single_object = importer.import_file(&import_op.path, import_op.object_id, &mut data_set, editor_model.schema_set());
 
-            assert!(data_set.all_objects().len() == 1);
+            let data = SingleObjectJson::save_single_object_to_string(&single_object);
+            let path = uuid_to_path(&self.root_path, import_op.object_id.as_uuid(), "af");
 
-            for object in data_set.all_objects() {
-                
+            if let Some(parent) = path.parent() {
+                std::fs::create_dir_all(parent).unwrap();
             }
+
+            std::fs::write(&path, data).unwrap()
         }
 
         self.import_operations.clear();
 
-
         // Send/mark for processing?
-        // persist to disk?
     }
-
-    // pub fn add_import_operation(&mut self, importer_registry: &ImporterRegistry, editor_model: &EditorModel, object_id: ObjectId, path: &Path) {
-    //     let fingerprint = editor_model.root_edit_context().object_schema(object_id).unwrap().fingerprint();
-    //     let importer_id = importer_registry.asset_to_importer.get(&fingerprint).unwrap();
-    //     let importer = importer_registry.handler(importer_id);
-    //
-    //     let mut data_set = DataSet::default();
-    //     importer.import_file(path, &mut data_set, editor_model.schema_set());
-    //
-    //     // Send/mark for processing?
-    //     // persist to disk?
-    // }
 
     fn find_jobs_in_assets(importer_registry: &ImporterRegistry, editor_model: &EditorModel, root_path: &Path) -> HashMap<ObjectId, ImportJob> {
         let mut import_jobs = HashMap::<ObjectId, ImportJob>::default();
@@ -160,14 +151,6 @@ impl ImportJobs {
         //     }
         // }
     }
-
-    // pub fn update(&mut self) {
-    //
-    // }
-    //
-    // pub fn refresh_job_for_asset(&mut self, data_set: &DataSet, object_id: ObjectId) {
-    //     //
-    // }
 }
 
 
@@ -240,53 +223,53 @@ impl ImporterRegistry {
 
 
 
-struct ScanContext {
-    referenced_files: Vec<PathBuf>,
-    referenced_assets: Vec<ObjectId>,
-}
-
-impl ScanContext {
-    // Will read the file, and if we are live-reloading changes, trigger a re-import if the file changes
-    // This is used when the file is not referenced by another asset, or there is no desire to
-    // import it once and have several assets share it
-    pub fn read(path: &Path) -> Vec<u8> {
-        unimplemented!();
-    }
-
-    pub fn read_to_string(path: &Path) -> String {
-        unimplemented!();
-    }
-
-    // Will trigger an importer for a referenced file and return the imported asset ID
-    pub fn import_file(path: &Path) -> ObjectId {
-        unimplemented!();
-    }
-}
-
-
-
-struct ImportContext {
-    referenced_files: Vec<PathBuf>,
-    referenced_assets: Vec<ObjectId>,
-}
-
-impl ImportContext {
-    // Will read the file, and if we are live-reloading changes, trigger a re-import if the file changes
-    // This is used when the file is not referenced by another asset, or there is no desire to
-    // import it once and have several assets share it
-    pub fn read(path: &Path) -> Vec<u8> {
-        unimplemented!();
-    }
-
-    pub fn read_to_string(path: &Path) -> String {
-        unimplemented!();
-    }
-
-    // Will trigger an importer for a referenced file and return the imported asset ID
-    pub fn import_file(path: &Path) -> ObjectId {
-        unimplemented!();
-    }
-}
+// struct ScanContext {
+//     referenced_files: Vec<PathBuf>,
+//     referenced_assets: Vec<ObjectId>,
+// }
+//
+// impl ScanContext {
+//     // Will read the file, and if we are live-reloading changes, trigger a re-import if the file changes
+//     // This is used when the file is not referenced by another asset, or there is no desire to
+//     // import it once and have several assets share it
+//     pub fn read(path: &Path) -> Vec<u8> {
+//         unimplemented!();
+//     }
+//
+//     pub fn read_to_string(path: &Path) -> String {
+//         unimplemented!();
+//     }
+//
+//     // Will trigger an importer for a referenced file and return the imported asset ID
+//     pub fn import_file(path: &Path) -> ObjectId {
+//         unimplemented!();
+//     }
+// }
+//
+//
+//
+// struct ImportContext {
+//     referenced_files: Vec<PathBuf>,
+//     referenced_assets: Vec<ObjectId>,
+// }
+//
+// impl ImportContext {
+//     // Will read the file, and if we are live-reloading changes, trigger a re-import if the file changes
+//     // This is used when the file is not referenced by another asset, or there is no desire to
+//     // import it once and have several assets share it
+//     pub fn read(path: &Path) -> Vec<u8> {
+//         unimplemented!();
+//     }
+//
+//     pub fn read_to_string(path: &Path) -> String {
+//         unimplemented!();
+//     }
+//
+//     // Will trigger an importer for a referenced file and return the imported asset ID
+//     pub fn import_file(path: &Path) -> ObjectId {
+//         unimplemented!();
+//     }
+// }
 
 // ID?
 pub trait Importer {
@@ -320,9 +303,10 @@ pub trait Importer {
         &self,
         //scan_context: &mut ImportContext,
         path: &Path,
+        object_id: ObjectId,
         data_set: &mut DataSet,
         schema: &SchemaSet,
-    );
+    ) -> SingleObject;
 }
 
 // ID?

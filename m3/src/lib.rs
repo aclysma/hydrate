@@ -24,10 +24,10 @@ pub fn run() {
     let mut importer_registry = ImporterRegistry::default();
     importer_registry.register_handler::<ImageImporter>(&mut linker);
 
-    let db_state = db_state::DbState::load_or_init_empty(linker);
+    let db_state = DbState::load_or_init_empty(linker);
     importer_registry.finished_linking(db_state.editor_model.schema_set());
 
-    let import_jobs = ImportJobs::new(&importer_registry, &db_state.editor_model, &DbState::import_data_source_path());
+    let import_jobs = ImportJobs::new(&importer_registry, &db_state.editor_model, DbState::import_data_source_path());
 
     //let ds_path = PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/data/data_source"));
     //let mut file_system_package = crate::data_source::FileSystemPackage::new(ds_path);

@@ -17,7 +17,6 @@ pub struct SingleObject {
 
 impl SingleObject {
     pub fn new(
-        &mut self,
         schema: &SchemaRecord,
     ) -> Self {
         SingleObject {
@@ -25,6 +24,23 @@ impl SingleObject {
             properties: Default::default(),
             property_null_overrides: Default::default(),
             dynamic_array_entries: Default::default(),
+        }
+    }
+
+    pub(crate) fn restore(
+        schema_set: &SchemaSet,
+        schema: SchemaFingerprint,
+        properties: HashMap<String, Value>,
+        property_null_overrides: HashMap<String, NullOverride>,
+        dynamic_array_entries: HashMap<String, HashSet<Uuid>>,
+    ) -> SingleObject {
+        let schema = schema_set.schemas().get(&schema).unwrap();
+        let schema_record = schema.as_record().cloned().unwrap();
+        SingleObject {
+            schema: schema_record,
+            properties,
+            property_null_overrides,
+            dynamic_array_entries,
         }
     }
 

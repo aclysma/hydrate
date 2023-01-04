@@ -3,6 +3,7 @@ pub use value::Value;
 
 mod data_set;
 pub use data_set::DataObjectInfo;
+pub use data_set::ImportInfo;
 pub use data_set::DataSet;
 pub use data_set::ObjectLocation;
 pub use data_set::ObjectName;

@@ -1,5 +1,5 @@
 use ::image::{EncodableLayout, GenericImageView};
-use nexdb::{DataSet, DataSource, EditorModel, FileSystemObjectDataSource, HashMap, HashMapKeys, ObjectId, ObjectLocation, ObjectName, ObjectSourceId, Schema, SchemaFingerprint, SchemaLinker, SchemaSet, SingleObject, Value};
+use nexdb::{DataSet, DataSource, EditorModel, FileSystemObjectDataSource, HashMap, HashMapKeys, ImportInfo, ObjectId, ObjectLocation, ObjectName, ObjectSourceId, Schema, SchemaFingerprint, SchemaLinker, SchemaSet, SingleObject, Value};
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -29,6 +29,7 @@ use nexdb::json::SingleObjectJson;
 struct ImportOp {
     object_id: ObjectId,
     path: PathBuf,
+    import_info: ImportInfo,
 }
 
 struct ImportJob {
@@ -70,10 +71,11 @@ impl ImportJobs {
         }
     }
 
-    pub fn queue_import_operation(&mut self, object_id: ObjectId, path: PathBuf) {
+    pub fn queue_import_operation(&mut self, object_id: ObjectId, path: PathBuf, import_info: ImportInfo) {
         self.import_operations.push(ImportOp {
             object_id,
-            path
+            path,
+            import_info
         })
     }
 
@@ -84,7 +86,7 @@ impl ImportJobs {
             let importer = importer_registry.handler(importer_id);
 
             let mut data_set = DataSet::default();
-            let single_object = importer.import_file(&import_op.path, import_op.object_id, &mut data_set, editor_model.schema_set());
+            let single_object = importer.import_file(&import_op.path, import_op.object_id, &mut data_set, editor_model.schema_set(), &import_op.import_info);
 
             let data = SingleObjectJson::save_single_object_to_string(&single_object);
             let path = uuid_to_path(&self.root_path, import_op.object_id.as_uuid(), "af");
@@ -291,13 +293,15 @@ pub trait Importer {
     //     let new_object = editor_model.root_edit_context_mut().new_object(&name, &location, schema_record);
     // }
 
+    fn create_default_import_options(&self, schema_set: &SchemaSet) -> SingleObject;
+
     fn create_default_asset(&self, editor_model: &mut EditorModel, object_name: ObjectName, object_location: ObjectLocation) -> ObjectId;
 
-    fn scan_file(
-        &self,
-        //scan_context: &mut ScanContext,
-        path: &Path,
-    );
+    // fn scan_for_referenced_source_file_paths(
+    //     &self,
+    //     //scan_context: &mut ScanContext,
+    //     path: &Path,
+    // );
 
     fn import_file(
         &self,
@@ -306,6 +310,7 @@ pub trait Importer {
         object_id: ObjectId,
         data_set: &mut DataSet,
         schema: &SchemaSet,
+        import_info: &ImportInfo
     ) -> SingleObject;
 }
 

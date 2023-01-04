@@ -19,6 +19,22 @@ impl ImageAsset {
     }
 }
 
+pub struct ImageImportOptions {}
+
+impl ImageImportOptions {
+    pub fn schema_name() -> &'static str {
+        "ImageImportOptions"
+    }
+
+    pub fn register_schema(linker: &mut SchemaLinker) {
+        linker
+            .register_record_type(Self::schema_name(), |x| {
+                // No options
+            })
+            .unwrap();
+    }
+}
+
 pub struct ImageImportedData {}
 
 impl ImageImportedData {
@@ -63,14 +79,19 @@ impl Importer for ImageImporter {
         &["ImageAsset"]
     }
 
+    fn create_default_import_options(&self, schema_set: &SchemaSet) -> SingleObject {
+        let options_type = schema_set.find_named_type(ImageImportedData::schema_name()).unwrap();
+        SingleObject::new(options_type.as_record().unwrap())
+    }
+
     fn create_default_asset(&self, editor_model: &mut EditorModel, object_name: ObjectName, object_location: ObjectLocation) -> ObjectId {
         let schema_record = editor_model.root_edit_context_mut().schema_set().find_named_type(ImageAsset::schema_name()).unwrap().as_record().unwrap().clone();
         editor_model.root_edit_context_mut().new_object(&object_name, &object_location, &schema_record)
     }
 
-    fn scan_file(&self, path: &Path) {
-        // Nothing to do, images don't reference other files or assets
-    }
+    // fn scan_for_referenced_source_file_paths(&self, path: &Path) {
+    //     // Nothing to do, images don't reference other files or assets
+    // }
 
     fn import_file(
         &self,
@@ -78,6 +99,7 @@ impl Importer for ImageImporter {
         object_id: ObjectId,
         data_set: &mut DataSet,
         schema: &SchemaSet,
+        import_info: &ImportInfo
     ) -> SingleObject {
         // TODO: Replace with a shim so we can track what files are being read
         // - We trigger the importer for them by specifying the file path and kind of file (i.e. an image, specific type of JSON file, etc.)

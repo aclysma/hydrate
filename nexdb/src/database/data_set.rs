@@ -1,4 +1,5 @@
-use crate::{NullOverride, SchemaSet};
+use std::path::PathBuf;
+use crate::{NullOverride, SchemaSet, SingleObject};
 use crate::{
     HashMap, HashMapKeys, HashSet, HashSetIter, ObjectId, Schema, SchemaFingerprint,
     SchemaNamedType, SchemaRecord, Value,
@@ -239,6 +240,24 @@ pub enum OverrideBehavior {
 pub struct DataObjectDelta {}
 
 #[derive(Clone, Debug)]
+pub struct ImportInfo {
+    pub(crate) import_options: SingleObject,
+    pub(crate) source_file_path: PathBuf,
+    pub(crate) referenced_source_file_overrides: HashMap<PathBuf, ObjectId>,
+}
+
+impl ImportInfo {
+    pub fn new(import_options: SingleObject, source_file_path: PathBuf) -> Self {
+        ImportInfo {
+            import_options,
+            source_file_path,
+            referenced_source_file_overrides: Default::default()
+        }
+    }
+}
+
+
+#[derive(Clone, Debug)]
 pub struct DataObjectInfo {
     pub(crate) schema: SchemaRecord,
     //pub(crate) name: Option<String>,
@@ -246,6 +265,10 @@ pub struct DataObjectInfo {
     //
     pub(crate) object_name: ObjectName,
     pub(crate) object_location: ObjectLocation,
+
+    // Stores the configuration/choices that were made when the asset was last imported
+    pub(crate) import_info: Option<ImportInfo>,
+
     pub(crate) prototype: Option<ObjectId>,
     pub(crate) properties: HashMap<String, Value>,
     pub(crate) property_null_overrides: HashMap<String, NullOverride>,
@@ -305,6 +328,7 @@ impl DataSet {
         object_id: ObjectId,
         object_name: ObjectName,
         object_location: ObjectLocation,
+        import_info: Option<ImportInfo>,
         schema_set: &SchemaSet,
         prototype: Option<ObjectId>,
         schema: SchemaFingerprint,
@@ -319,6 +343,7 @@ impl DataSet {
             schema: schema_record,
             object_name,
             object_location,
+            import_info,
             prototype,
             properties,
             property_null_overrides,
@@ -339,6 +364,7 @@ impl DataSet {
             schema: schema.clone(),
             object_name,
             object_location,
+            import_info: None,
             prototype: None,
             properties: Default::default(),
             property_null_overrides: Default::default(),
@@ -360,6 +386,7 @@ impl DataSet {
             schema: prototype_info.schema.clone(),
             object_name,
             object_location,
+            import_info: None,
             prototype: Some(prototype),
             properties: Default::default(),
             property_null_overrides: Default::default(),
@@ -385,6 +412,14 @@ impl DataSet {
         new_location: ObjectLocation,
     ) {
         self.objects.get_mut(&object_id).unwrap().object_location = new_location;
+    }
+
+    pub fn set_import_info(
+        &mut self,
+        object_id: ObjectId,
+        import_info: ImportInfo
+    ) {
+        self.objects.get_mut(&object_id).unwrap().import_info = Some(import_info);
     }
 
     pub fn copy_from(

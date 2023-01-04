@@ -1,5 +1,6 @@
+use std::path::PathBuf;
 use crate::edit_context::EditContext;
-use crate::{DataObjectInfo, HashMap, HashSet, HashSetIter, NullOverride, ObjectId, ObjectLocation, ObjectName, ObjectSourceId, OverrideBehavior, Schema, SchemaFingerprint, SchemaNamedType, SchemaSet, SingleObject, Value};
+use crate::{DataObjectInfo, HashMap, HashSet, HashSetIter, ImportInfo, NullOverride, ObjectId, ObjectLocation, ObjectName, ObjectSourceId, OverrideBehavior, Schema, SchemaFingerprint, SchemaNamedType, SchemaSet, SingleObject, Value};
 use serde::{Deserialize, Serialize};
 use std::str::FromStr;
 use uuid::Uuid;
@@ -68,7 +69,7 @@ fn string_to_null_override_value(s: &str) -> Option<NullOverride> {
     }
 }
 
-fn ordered_map<S>(
+fn ordered_map_json_value<S>(
     value: &HashMap<String, serde_json::Value>,
     serializer: S,
 ) -> Result<S::Ok, S::Error>
@@ -79,17 +80,28 @@ where
     ordered.serialize(serializer)
 }
 
+fn ordered_map_uuid<S>(
+    value: &HashMap<String, Uuid>,
+    serializer: S,
+) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+{
+    let ordered: std::collections::BTreeMap<_, _> = value.iter().collect();
+    ordered.serialize(serializer)
+}
+
 fn load_json_properties(
     named_type: &SchemaNamedType,
     named_types: &HashMap<SchemaFingerprint, SchemaNamedType>,
-    json_properties: HashMap<String, serde_json::Value>,
+    json_properties: &HashMap<String, serde_json::Value>,
     properties: &mut HashMap<String, Value>,
     property_null_overrides: &mut HashMap<String, NullOverride>,
     mut properties_in_replace_mode: Option<&mut HashSet<String>>,
     dynamic_array_entries: &mut HashMap<String, HashSet<Uuid>>,
 ) {
     let mut max_path_length = 0;
-    for (k, _) in &json_properties {
+    for (k, _) in json_properties {
         max_path_length = max_path_length.max(k.len());
     }
 
@@ -188,14 +200,54 @@ fn store_json_properties(
     saved_properties
 }
 
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct EditContextObjectImportInfoJson {
+    import_options: SingleObjectJson,
+    source_file_path: String,
+    #[serde(serialize_with = "ordered_map_uuid")]
+    referenced_source_file_overrides: HashMap<String, Uuid>,
+}
+
+impl EditContextObjectImportInfoJson {
+    pub fn new(import_info: &ImportInfo) -> Self {
+        let import_options = SingleObjectJson::new(&import_info.import_options);
+        let source_file_path = import_info.source_file_path.to_string_lossy().to_string();
+        let mut referenced_source_file_overrides = HashMap::default();
+        for (k, v) in &import_info.referenced_source_file_overrides {
+            referenced_source_file_overrides.insert(k.to_string_lossy().to_string(), v.as_uuid());
+        }
+
+        EditContextObjectImportInfoJson {
+            import_options,
+            source_file_path,
+            referenced_source_file_overrides
+        }
+    }
+
+    pub fn to_import_info(&self, schema_set: &SchemaSet) -> ImportInfo {
+        let mut referenced_source_file_overrides = HashMap::default();
+        for (k, v) in &self.referenced_source_file_overrides {
+            referenced_source_file_overrides.insert(PathBuf::from_str(k).unwrap(), ObjectId(v.as_u128()));
+        }
+
+        ImportInfo {
+            import_options: self.import_options.to_single_object(schema_set),
+            source_file_path: PathBuf::from_str(&self.source_file_path).unwrap(),
+            referenced_source_file_overrides
+        }
+    }
+}
+
 #[derive(Debug, Serialize, Deserialize)]
 pub struct EditContextObjectJson {
     name: String,
     parent_dir: Option<Uuid>,
     schema: Uuid,
     schema_name: String,
+    import_info: Option<EditContextObjectImportInfoJson>,
     prototype: Option<Uuid>,
-    #[serde(serialize_with = "ordered_map")]
+    #[serde(serialize_with = "ordered_map_json_value")]
     properties: HashMap<String, serde_json::Value>,
 }
 
@@ -232,17 +284,20 @@ impl EditContextObjectJson {
         load_json_properties(
             &named_type,
             edit_context.schemas(),
-            stored_object.properties,
+            &stored_object.properties,
             &mut properties,
             &mut property_null_overrides,
             Some(&mut properties_in_replace_mode),
             &mut dynamic_array_entries
         );
 
+        let import_info = stored_object.import_info.map(|x| x.to_import_info(edit_context.schema_set()));
+
         edit_context.restore_object(
             object_id,
             object_name,
             object_location,
+            import_info,
             prototype,
             schema_fingerprint,
             properties,
@@ -266,11 +321,14 @@ impl EditContextObjectJson {
             &obj.dynamic_array_entries
         );
 
+        let import_info = obj.import_info.as_ref().map(|x| EditContextObjectImportInfoJson::new(&x));
+
         let mut stored_object = EditContextObjectJson {
             name: obj.object_name.as_string().cloned().unwrap_or_default(),
             parent_dir,
             schema: obj.schema.fingerprint().as_uuid(),
             schema_name: obj.schema.name().to_string(),
+            import_info,
             prototype: obj.prototype.map(|x| Uuid::from_u128(x.0)),
             properties: json_properties,
         };
@@ -283,17 +341,23 @@ impl EditContextObjectJson {
 pub struct SingleObjectJson {
     schema: Uuid,
     schema_name: String,
-    #[serde(serialize_with = "ordered_map")]
+    #[serde(serialize_with = "ordered_map_json_value")]
     properties: HashMap<String, serde_json::Value>,
 }
 
 impl SingleObjectJson {
-    pub fn load_single_object_from_string(
-        schema_set: &SchemaSet,
-        json: &str,
-    ) -> SingleObject {
-        let stored_object: SingleObjectJson = serde_json::from_str(json).unwrap();
-        let schema_fingerprint = SchemaFingerprint(stored_object.schema.as_u128());
+    pub fn new(object: &SingleObject) -> SingleObjectJson {
+        let json_properties = store_json_properties(&object.properties, &object.property_null_overrides, None, &object.dynamic_array_entries);
+
+        SingleObjectJson {
+            schema: object.schema.fingerprint().as_uuid(),
+            schema_name: object.schema.name().to_string(),
+            properties: json_properties,
+        }
+    }
+
+    pub fn to_single_object(&self, schema_set: &SchemaSet) -> SingleObject {
+        let schema_fingerprint = SchemaFingerprint(self.schema.as_u128());
 
         let named_type = schema_set
             .find_named_type_by_fingerprint(schema_fingerprint)
@@ -307,7 +371,7 @@ impl SingleObjectJson {
         load_json_properties(
             &named_type,
             schema_set.schemas(),
-            stored_object.properties,
+            &self.properties,
             &mut properties,
             &mut property_null_overrides,
             None,
@@ -323,17 +387,18 @@ impl SingleObjectJson {
         )
     }
 
+    pub fn load_single_object_from_string(
+        schema_set: &SchemaSet,
+        json: &str,
+    ) -> SingleObject {
+        let stored_object: SingleObjectJson = serde_json::from_str(json).unwrap();
+        stored_object.to_single_object(schema_set)
+    }
+
     pub fn save_single_object_to_string(
         object: &SingleObject
     ) -> String {
-        let json_properties = store_json_properties(&object.properties, &object.property_null_overrides, None, &object.dynamic_array_entries);
-
-        let mut stored_object = SingleObjectJson {
-            schema: object.schema.fingerprint().as_uuid(),
-            schema_name: object.schema.name().to_string(),
-            properties: json_properties,
-        };
-
+        let stored_object = SingleObjectJson::new(object);
         serde_json::to_string_pretty(&stored_object).unwrap()
     }
 }

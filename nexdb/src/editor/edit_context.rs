@@ -3,11 +3,7 @@ use std::sync::Arc;
 use uuid::Uuid;
 
 use crate::editor::undo::{CompletedUndoContextMessage, UndoContext, UndoStack};
-use crate::{
-    DataObjectInfo, DataSet, DataSetDiff, EditContextKey, EndContextBehavior, HashMap, HashMapKeys,
-    HashSet, HashSetIter, NullOverride, ObjectId, ObjectLocation, ObjectName, OverrideBehavior,
-    SchemaFingerprint, SchemaNamedType, SchemaRecord, SchemaSet, Value,
-};
+use crate::{DataObjectInfo, DataSet, DataSetDiff, EditContextKey, EndContextBehavior, HashMap, HashMapKeys, HashSet, HashSetIter, ImportInfo, NullOverride, ObjectId, ObjectLocation, ObjectName, OverrideBehavior, SchemaFingerprint, SchemaNamedType, SchemaRecord, SchemaSet, Value};
 
 //TODO: Delete unused property data when path ancestor is null or in replace mode
 
@@ -356,6 +352,7 @@ impl EditContext {
                 k,
                 v.object_name,
                 v.object_location,
+                v.import_info.clone(),
                 v.prototype,
                 v.schema.fingerprint(),
                 v.properties,
@@ -371,6 +368,7 @@ impl EditContext {
         object_id: ObjectId,
         object_name: ObjectName,
         object_location: ObjectLocation,
+        import_info: Option<ImportInfo>,
         prototype: Option<ObjectId>,
         schema: SchemaFingerprint,
         properties: HashMap<String, Value>,
@@ -383,6 +381,7 @@ impl EditContext {
             object_id,
             object_name,
             object_location,
+            import_info,
             &self.schema_set,
             prototype,
             schema,
@@ -410,6 +409,14 @@ impl EditContext {
         self.data_set.set_object_location(object_id, new_location);
         // Again so that we track the new location too
         self.track_existing_object(object_id);
+    }
+
+    pub fn set_import_info(
+        &mut self,
+        object_id: ObjectId,
+        import_info: ImportInfo
+    ) {
+        self.data_set.set_import_info(object_id, import_info);
     }
 
     pub fn object_name(

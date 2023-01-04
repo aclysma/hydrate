@@ -3,7 +3,7 @@ use crate::db_state::DbState;
 use crate::ui_state::UiState;
 use imgui::sys::ImVec2;
 use imgui::{im_str, PopupModal, StyleColor, TreeNodeFlags};
-use nexdb::{LocationTreeNode, ObjectLocation, ObjectName};
+use nexdb::{ImportInfo, LocationTreeNode, ObjectLocation, ObjectName};
 use std::path::PathBuf;
 use crate::importers::{ImporterRegistry, ImportJobs};
 
@@ -206,7 +206,7 @@ impl ModalAction for ImportFilesModal {
                             let handler = importer_registry.handler(&handlers[0]);
 
                             //
-                            // Create the default asset
+                            // Pick name for the asset for this file
                             //
                             let object_name = if let Some(name) = file.file_name() {
                                 ObjectName::new(name.to_string_lossy())
@@ -214,14 +214,22 @@ impl ModalAction for ImportFilesModal {
                                 ObjectName::empty()
                             };
 
-                            let object_id = handler.create_default_asset(&mut db_state.editor_model, object_name, self.selected_import_location.clone());
+                            //
+                            // Set up the default options for the import
+                            //
+                            let import_options = handler.create_default_import_options(db_state.editor_model.schema_set());
+                            let import_info = ImportInfo::new(import_options, file.clone());
 
+                            //
+                            // Create the default asset
+                            //
+                            let object_id = handler.create_default_asset(&mut db_state.editor_model, object_name, self.selected_import_location.clone());
+                            db_state.editor_model.root_edit_context_mut().set_import_info(object_id, import_info.clone());
 
                             //
                             // Trigger transition to modal waiting for imports to complete
                             //
-                            import_jobs.queue_import_operation(object_id, file.clone());
-
+                            import_jobs.queue_import_operation(object_id, file.clone(), import_info);
                         }
                     }
 

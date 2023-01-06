@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 use crate::edit_context::EditContext;
-use crate::{DataObjectInfo, HashMap, HashSet, HashSetIter, ImportInfo, NullOverride, ObjectId, ObjectLocation, ObjectName, ObjectSourceId, OverrideBehavior, Schema, SchemaFingerprint, SchemaNamedType, SchemaSet, SingleObject, Value};
+use crate::{BuildInfo, DataObjectInfo, HashMap, HashSet, HashSetIter, ImporterId, ImportInfo, NullOverride, ObjectId, ObjectLocation, ObjectName, ObjectSourceId, OverrideBehavior, Schema, SchemaFingerprint, SchemaNamedType, SchemaSet, SingleObject, Value};
 use serde::{Deserialize, Serialize};
 use std::str::FromStr;
 use uuid::Uuid;
@@ -203,37 +203,53 @@ fn store_json_properties(
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct EditContextObjectImportInfoJson {
-    import_options: SingleObjectJson,
+    importer_id: Uuid,
     source_file_path: String,
-    #[serde(serialize_with = "ordered_map_uuid")]
-    referenced_source_file_overrides: HashMap<String, Uuid>,
 }
 
 impl EditContextObjectImportInfoJson {
     pub fn new(import_info: &ImportInfo) -> Self {
-        let import_options = SingleObjectJson::new(&import_info.import_options);
         let source_file_path = import_info.source_file_path.to_string_lossy().to_string();
+
+        EditContextObjectImportInfoJson {
+            importer_id: import_info.importer_id.0,
+            source_file_path,
+        }
+    }
+
+    pub fn to_import_info(&self, schema_set: &SchemaSet) -> ImportInfo {
+        ImportInfo {
+            importer_id: ImporterId(self.importer_id),
+            source_file_path: PathBuf::from_str(&self.source_file_path).unwrap(),
+        }
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct EditContextObjectBuildInfoJson {
+    #[serde(serialize_with = "ordered_map_uuid")]
+    referenced_source_file_overrides: HashMap<String, Uuid>,
+}
+
+impl EditContextObjectBuildInfoJson {
+    pub fn new(import_info: &BuildInfo) -> Self {
         let mut referenced_source_file_overrides = HashMap::default();
         for (k, v) in &import_info.referenced_source_file_overrides {
             referenced_source_file_overrides.insert(k.to_string_lossy().to_string(), v.as_uuid());
         }
 
-        EditContextObjectImportInfoJson {
-            import_options,
-            source_file_path,
+        EditContextObjectBuildInfoJson {
             referenced_source_file_overrides
         }
     }
 
-    pub fn to_import_info(&self, schema_set: &SchemaSet) -> ImportInfo {
+    pub fn to_build_info(&self, schema_set: &SchemaSet) -> BuildInfo {
         let mut referenced_source_file_overrides = HashMap::default();
         for (k, v) in &self.referenced_source_file_overrides {
             referenced_source_file_overrides.insert(PathBuf::from_str(k).unwrap(), ObjectId(v.as_u128()));
         }
 
-        ImportInfo {
-            import_options: self.import_options.to_single_object(schema_set),
-            source_file_path: PathBuf::from_str(&self.source_file_path).unwrap(),
+        BuildInfo {
             referenced_source_file_overrides
         }
     }
@@ -246,6 +262,7 @@ pub struct EditContextObjectJson {
     schema: Uuid,
     schema_name: String,
     import_info: Option<EditContextObjectImportInfoJson>,
+    build_info: Option<EditContextObjectBuildInfoJson>,
     prototype: Option<Uuid>,
     #[serde(serialize_with = "ordered_map_json_value")]
     properties: HashMap<String, serde_json::Value>,
@@ -292,12 +309,14 @@ impl EditContextObjectJson {
         );
 
         let import_info = stored_object.import_info.map(|x| x.to_import_info(edit_context.schema_set()));
+        let build_info = stored_object.build_info.map(|x| x.to_build_info(edit_context.schema_set()));
 
         edit_context.restore_object(
             object_id,
             object_name,
             object_location,
             import_info,
+            build_info,
             prototype,
             schema_fingerprint,
             properties,
@@ -322,6 +341,7 @@ impl EditContextObjectJson {
         );
 
         let import_info = obj.import_info.as_ref().map(|x| EditContextObjectImportInfoJson::new(&x));
+        let build_info = obj.build_info.as_ref().map(|x| EditContextObjectBuildInfoJson::new(&x));
 
         let mut stored_object = EditContextObjectJson {
             name: obj.object_name.as_string().cloned().unwrap_or_default(),
@@ -329,6 +349,7 @@ impl EditContextObjectJson {
             schema: obj.schema.fingerprint().as_uuid(),
             schema_name: obj.schema.name().to_string(),
             import_info,
+            build_info,
             prototype: obj.prototype.map(|x| Uuid::from_u128(x.0)),
             properties: json_properties,
         };

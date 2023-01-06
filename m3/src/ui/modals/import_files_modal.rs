@@ -3,7 +3,7 @@ use crate::db_state::DbState;
 use crate::ui_state::UiState;
 use imgui::sys::ImVec2;
 use imgui::{im_str, PopupModal, StyleColor, TreeNodeFlags};
-use nexdb::{ImportInfo, LocationTreeNode, ObjectLocation, ObjectName};
+use nexdb::{HashMap, ImportInfo, LocationTreeNode, ObjectLocation, ObjectName};
 use std::path::PathBuf;
 use crate::importers::{ImporterRegistry, ImportJobs};
 
@@ -200,45 +200,55 @@ impl ModalAction for ImportFilesModal {
                     let extension = file.extension();
                     if let Some(extension) = extension {
                         let extension = extension.to_string_lossy().to_string();
-                        let handlers = importer_registry.handlers_for_file_extension(&extension);
+                        let handlers = importer_registry.importers_for_file_extension(&extension);
 
                         if !handlers.is_empty() {
-                            let handler = importer_registry.handler(&handlers[0]);
+                            //
+                            // Find the importer to use on the file
+                            //
+                            let importer = importer_registry.importer(handlers[0]).unwrap();
 
                             //
-                            // Pick name for the asset for this file
+                            // When we import, set the import info so we track where the import comes from
                             //
-                            let object_name = if let Some(name) = file.file_name() {
-                                ObjectName::new(name.to_string_lossy())
-                            } else {
-                                ObjectName::empty()
-                            };
+                            let import_info = ImportInfo::new(importer.importer_id(), file.clone());
 
                             //
-                            // Set up the default options for the import
+                            // We now build a list of things we will be importing from the file.
+                            // 1. Scan the file to see what's available
+                            // 2. Create/Find objects for all the things we want to import
+                            // 3. Enqueue the import operation
                             //
-                            let import_options = handler.create_default_import_options(db_state.editor_model.schema_set());
-                            let import_info = ImportInfo::new(import_options, file.clone());
+                            let mut object_ids = HashMap::default();
 
-                            //
-                            // Create the default asset
-                            //
-                            let object_id = handler.create_default_asset(&mut db_state.editor_model, object_name, self.selected_import_location.clone());
-                            db_state.editor_model.root_edit_context_mut().set_import_info(object_id, import_info.clone());
+                            let scanned_importables = importer.scan_file(file, db_state.editor_model.schema_set());
+                            for scanned_importable in &scanned_importables {
+                                //
+                                // Pick name for the asset for this file
+                                //
+                                let object_name = if let Some(file_name) = file.file_name() {
+                                    let file_name =  file_name.to_string_lossy();
+                                    if let Some(importable_name) = &scanned_importable.name {
+                                        ObjectName::new(format!("{}.{}", file_name, importable_name))
+                                    } else {
+                                        ObjectName::new(file_name.to_string())
+                                    }
+                                } else {
+                                    ObjectName::empty()
+                                };
+
+                                let object_id = db_state.editor_model.root_edit_context_mut().new_object(&object_name, &self.selected_import_location, &scanned_importable.asset_type);
+                                db_state.editor_model.root_edit_context_mut().set_import_info(object_id, import_info.clone());
+                                object_ids.insert(scanned_importable.name.clone(), object_id);
+                            }
 
                             //
                             // Trigger transition to modal waiting for imports to complete
                             //
-                            import_jobs.queue_import_operation(object_id, file.clone(), import_info);
+                            import_jobs.queue_import_operation(object_ids, importer.importer_id(), file.clone());
                         }
                     }
-
                 }
-
-
-
-
-
 
                 ui.close_current_popup();
 

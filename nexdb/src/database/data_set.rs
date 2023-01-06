@@ -239,21 +239,50 @@ pub enum OverrideBehavior {
 
 pub struct DataObjectDelta {}
 
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
+pub struct ImporterId(pub Uuid);
+
 #[derive(Clone, Debug)]
 pub struct ImportInfo {
-    pub(crate) import_options: SingleObject,
+    // Set on initial import
+    pub(crate) importer_id: ImporterId,
+
+    // Set on initial import, or re-import. This affects the import step.
+    // Anything that just affects the build step should be an asset property instead.
+    //pub(crate) import_options: SingleObject,
+
+    // Set on initial import, or re-import. Used to monitor to detect stale imported data and
+    // automaticlaly re-import, and as a heuristic when importing other files that reference this
+    // file to link to this object rather than importing another copy.
     pub(crate) source_file_path: PathBuf,
-    pub(crate) referenced_source_file_overrides: HashMap<PathBuf, ObjectId>,
+
+    // May be changed without re-importing, and triggers a new build. May be updated when completing
+    // an import, either with paths that were not satisfied, or to set the associations we found by
+    // heuristic. These can be edited by user (triggering re-processing)
+    //
+    // TODO: Probably want to support undo/redo for this
+    //pub(crate) referenced_source_file_overrides: HashMap<PathBuf, ObjectId>,
 }
 
 impl ImportInfo {
-    pub fn new(import_options: SingleObject, source_file_path: PathBuf) -> Self {
+    pub fn new(importer_id: ImporterId/*, import_options: SingleObject*/, source_file_path: PathBuf) -> Self {
         ImportInfo {
-            import_options,
+            importer_id,
+            //import_options,
             source_file_path,
-            referenced_source_file_overrides: Default::default()
+            //referenced_source_file_overrides: Default::default()
         }
     }
+
+    pub fn importer_id(&self) -> ImporterId {
+        self.importer_id
+    }
+}
+
+
+#[derive(Clone, Debug, Default)]
+pub struct BuildInfo {
+    pub(crate) referenced_source_file_overrides: HashMap<PathBuf, ObjectId>,
 }
 
 
@@ -268,6 +297,7 @@ pub struct DataObjectInfo {
 
     // Stores the configuration/choices that were made when the asset was last imported
     pub(crate) import_info: Option<ImportInfo>,
+    pub(crate) build_info: Option<BuildInfo>,
 
     pub(crate) prototype: Option<ObjectId>,
     pub(crate) properties: HashMap<String, Value>,
@@ -329,6 +359,7 @@ impl DataSet {
         object_name: ObjectName,
         object_location: ObjectLocation,
         import_info: Option<ImportInfo>,
+        build_info: Option<BuildInfo>,
         schema_set: &SchemaSet,
         prototype: Option<ObjectId>,
         schema: SchemaFingerprint,
@@ -344,6 +375,7 @@ impl DataSet {
             object_name,
             object_location,
             import_info,
+            build_info,
             prototype,
             properties,
             property_null_overrides,
@@ -365,6 +397,7 @@ impl DataSet {
             object_name,
             object_location,
             import_info: None,
+            build_info: None,
             prototype: None,
             properties: Default::default(),
             property_null_overrides: Default::default(),
@@ -387,6 +420,7 @@ impl DataSet {
             object_name,
             object_location,
             import_info: None,
+            build_info: None,
             prototype: Some(prototype),
             properties: Default::default(),
             property_null_overrides: Default::default(),
@@ -444,6 +478,13 @@ impl DataSet {
         object_id: ObjectId,
     ) -> Option<&ObjectLocation> {
         self.objects.get(&object_id).map(|x| &x.object_location)
+    }
+
+    pub fn import_info(
+        &self,
+        object_id: ObjectId
+    ) -> Option<&ImportInfo> {
+        self.objects.get(&object_id).map(|x| x.import_info.as_ref()).flatten()
     }
 
     pub fn object_prototype(

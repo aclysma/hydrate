@@ -1,5 +1,5 @@
 use ::image::{EncodableLayout, GenericImageView};
-use nexdb::{DataSet, DataSource, EditorModel, FileSystemObjectDataSource, HashMap, HashMapKeys, ImportInfo, ObjectId, ObjectLocation, ObjectName, ObjectSourceId, Schema, SchemaFingerprint, SchemaLinker, SchemaSet, SingleObject, Value};
+use nexdb::{DataSet, DataSource, EditorModel, FileSystemObjectDataSource, HashMap, HashMapKeys, ImporterId, ImportInfo, ObjectId, ObjectLocation, ObjectName, ObjectSourceId, Schema, SchemaFingerprint, SchemaLinker, SchemaNamedType, SchemaRecord, SchemaSet, SingleObject, Value};
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -10,6 +10,10 @@ use type_uuid::{TypeUuid, TypeUuidDynamic};
 
 mod image_importer;
 pub use image_importer::ImageImporter;
+
+mod material_importer;
+pub use material_importer::MaterialImporter;
+
 use nexdb::dir_tree_blob_store::{path_to_uuid, uuid_to_path};
 use nexdb::edit_context::EditContext;
 use nexdb::json::SingleObjectJson;
@@ -27,9 +31,10 @@ use nexdb::json::SingleObjectJson;
 // - asset exists, import data exists but is stale, source file is available
 
 struct ImportOp {
-    object_id: ObjectId,
+    object_ids: HashMap<Option<String>, ObjectId>,
+    importer_id: ImporterId,
     path: PathBuf,
-    import_info: ImportInfo,
+    //pub(crate) import_info: ImportInfo,
 }
 
 struct ImportJob {
@@ -71,31 +76,45 @@ impl ImportJobs {
         }
     }
 
-    pub fn queue_import_operation(&mut self, object_id: ObjectId, path: PathBuf, import_info: ImportInfo) {
+    pub fn queue_import_operation(&mut self, object_ids: HashMap<Option<String>,ObjectId>, importer_id: ImporterId, path: PathBuf) {
+
+
         self.import_operations.push(ImportOp {
-            object_id,
+            object_ids,
+            importer_id,
             path,
-            import_info
+            //import_info
         })
     }
 
     pub fn update(&mut self, importer_registry: &ImporterRegistry, editor_model: &EditorModel) {
         for import_op in &self.import_operations {
-            let fingerprint = editor_model.root_edit_context().object_schema(import_op.object_id).unwrap().fingerprint();
-            let importer_id = importer_registry.asset_to_importer.get(&fingerprint).unwrap();
-            let importer = importer_registry.handler(importer_id);
+            //let importer_id = editor_model.root_edit_context().import_info()
+            let importer_id = import_op.importer_id;
+            //let fingerprint = editor_model.root_edit_context().object_schema(import_op.import_info).unwrap().fingerprint();
+            //let importer_id = importer_registry.asset_to_importer.get(&fingerprint).unwrap();
+            let importer = importer_registry.importer(importer_id).unwrap();
 
-            let mut data_set = DataSet::default();
-            let single_object = importer.import_file(&import_op.path, import_op.object_id, &mut data_set, editor_model.schema_set(), &import_op.import_info);
+            let mut referenced_source_file_paths = Vec::default();
+            let imported_objects = importer.import_file(
+                &import_op.path,
+                &import_op.object_ids,
+                editor_model.schema_set(),
+                &mut referenced_source_file_paths
+            );
 
-            let data = SingleObjectJson::save_single_object_to_string(&single_object);
-            let path = uuid_to_path(&self.root_path, import_op.object_id.as_uuid(), "af");
+            for (name, imported_object) in imported_objects {
+                if let Some(object_id) = import_op.object_ids.get(&name) {
+                    let data = SingleObjectJson::save_single_object_to_string(&imported_object);
+                    let path = uuid_to_path(&self.root_path, object_id.as_uuid(), "af");
 
-            if let Some(parent) = path.parent() {
-                std::fs::create_dir_all(parent).unwrap();
+                    if let Some(parent) = path.parent() {
+                        std::fs::create_dir_all(parent).unwrap();
+                    }
+
+                    std::fs::write(&path, data).unwrap()
+                }
             }
-
-            std::fs::write(&path, data).unwrap()
         }
 
         self.import_operations.clear();
@@ -129,12 +148,23 @@ impl ImportJobs {
         //
         let data_set = editor_model.root_edit_context().data_set();
         for object_id in data_set.all_objects() {
-            let schema_fingerprint = data_set.object_schema(*object_id).unwrap().fingerprint();
-            let importer = importer_registry.handler_for_asset(schema_fingerprint);
-            if importer.is_some() {
-                let job = import_jobs.entry(*object_id).or_insert_with(|| ImportJob::new(*object_id));
-                job.asset_exists = true;
+            if let Some(import_info) = data_set.import_info(*object_id) {
+                let importer_id = import_info.importer_id();
+                let importer = importer_registry.importer(importer_id);
+                if importer.is_some() {
+                    let job = import_jobs.entry(*object_id).or_insert_with(|| ImportJob::new(*object_id));
+                    job.asset_exists = true;
+                }
+
+
             }
+
+            //let schema_fingerprint = data_set.object_schema(*object_id).unwrap().fingerprint();
+            // let importer = importer_registry.handler_for_asset(schema_fingerprint);
+            // if importer.is_some() {
+            //     let job = import_jobs.entry(*object_id).or_insert_with(|| ImportJob::new(*object_id));
+            //     job.asset_exists = true;
+            // }
         }
 
         import_jobs
@@ -163,15 +193,13 @@ impl ImportJobs {
 
 
 
-#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
-pub struct ImporterId(Uuid);
 
 
 #[derive(Default)]
 pub struct ImporterRegistry {
     registered_importers: HashMap<ImporterId, Box<Importer>>,
     file_extension_associations: HashMap<String, Vec<ImporterId>>,
-    asset_to_importer: HashMap<SchemaFingerprint, ImporterId>,
+    //asset_to_importer: HashMap<SchemaFingerprint, ImporterId>,
 }
 
 impl ImporterRegistry {
@@ -193,32 +221,32 @@ impl ImporterRegistry {
     // Called after finished linking the schema so we can associate schema fingerprints with handlers
     //
     pub fn finished_linking(&mut self, schema_set: &SchemaSet) {
-        let mut asset_to_importer = HashMap::default();
+        // let mut asset_to_importer = HashMap::default();
+        //
+        // for (importer_id, importer) in &self.registered_importers {
+        //     // for asset_type in importer.asset_types() {
+        //     //     let asset_type = schema_set.find_named_type(asset_type).unwrap().fingerprint();
+        //     //     let insert_result = asset_to_importer.insert(asset_type, *importer_id);
+        //     //     if insert_result.is_some() {
+        //     //         panic!("Multiple handlers registered to handle the same asset")
+        //     //     }
+        //     // }
+        // }
 
-        for (importer_id, importer) in &self.registered_importers {
-            for asset_type in importer.asset_types() {
-                let asset_type = schema_set.find_named_type(asset_type).unwrap().fingerprint();
-                let insert_result = asset_to_importer.insert(asset_type, *importer_id);
-                if insert_result.is_some() {
-                    panic!("Multiple handlers registered to handle the same asset")
-                }
-            }
-        }
-
-        self.asset_to_importer = asset_to_importer;
+        //self.asset_to_importer = asset_to_importer;
     }
 
-    pub fn handlers_for_file_extension(&self, extension: &str) -> &[ImporterId] {
+    pub fn importers_for_file_extension(&self, extension: &str) -> &[ImporterId] {
         const EMPTY_LIST: &'static [ImporterId] = &[];
         self.file_extension_associations.get(extension).map(|x| x.as_slice()).unwrap_or(EMPTY_LIST)
     }
 
-    pub fn handler_for_asset(&self, fingerprint: SchemaFingerprint) -> Option<ImporterId> {
-        self.asset_to_importer.get(&fingerprint).copied()
-    }
+    // pub fn handler_for_asset(&self, fingerprint: SchemaFingerprint) -> Option<ImporterId> {
+    //     self.asset_to_importer.get(&fingerprint).copied()
+    // }
 
-    pub fn handler(&self, handler: &ImporterId) -> &Box<Importer> {
-        &self.registered_importers[handler]
+    pub fn importer(&self, importer_id: ImporterId) -> Option<&Box<Importer>> {
+        self.registered_importers.get(&importer_id)
     }
 }
 
@@ -273,11 +301,21 @@ impl ImporterRegistry {
 //     }
 // }
 
+pub struct ScannedImportable {
+    pub name: Option<String>,
+    pub asset_type: SchemaRecord,
+    pub referenced_source_file_paths: PathBuf,
+}
+
 // ID?
-pub trait Importer {
+pub trait Importer : TypeUuidDynamic {
+    fn importer_id(&self) -> ImporterId {
+        ImporterId(Uuid::from_bytes(self.uuid()))
+    }
+
     fn register_schemas(&self, schema_linker: &mut SchemaLinker);
 
-    fn asset_types(&self) -> &[&'static str];
+    //fn asset_types(&self) -> &[&'static str];
 
     fn supported_file_extensions(&self) -> &[&'static str];
 
@@ -293,7 +331,13 @@ pub trait Importer {
     //     let new_object = editor_model.root_edit_context_mut().new_object(&name, &location, schema_record);
     // }
 
-    fn create_default_import_options(&self, schema_set: &SchemaSet) -> SingleObject;
+    //fn create_default_import_options(&self, schema_set: &SchemaSet) -> SingleObject;
+
+
+    //
+    // Open the file and determine what assets exist in it that can be imported
+    //
+    fn scan_file(&self, path: &Path, schema_set: &SchemaSet) -> Vec<ScannedImportable>;
 
     fn create_default_asset(&self, editor_model: &mut EditorModel, object_name: ObjectName, object_location: ObjectLocation) -> ObjectId;
 
@@ -305,13 +349,12 @@ pub trait Importer {
 
     fn import_file(
         &self,
-        //scan_context: &mut ImportContext,
         path: &Path,
-        object_id: ObjectId,
-        data_set: &mut DataSet,
+        object_ids: &HashMap<Option<String>, ObjectId>,
         schema: &SchemaSet,
-        import_info: &ImportInfo
-    ) -> SingleObject;
+        //import_info: &ImportInfo,
+        referenced_source_file_paths: &mut Vec<PathBuf>,
+    ) -> HashMap<Option<String>, SingleObject>;
 }
 
 // ID?

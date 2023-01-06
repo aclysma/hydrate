@@ -400,6 +400,7 @@ impl DataSetDiff {
                 create.object_name.clone(),
                 create.object_location.clone(),
                 create.import_info.clone(),
+                create.build_info.clone(),
                 schema_set,
                 create.prototype,
                 create.schema.fingerprint(),

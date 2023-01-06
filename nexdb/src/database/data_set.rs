@@ -242,6 +242,9 @@ pub struct DataObjectDelta {}
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct ImporterId(pub Uuid);
 
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
+pub struct BuilderId(pub Uuid);
+
 #[derive(Clone, Debug)]
 pub struct ImportInfo {
     // Set on initial import
@@ -485,6 +488,13 @@ impl DataSet {
         object_id: ObjectId
     ) -> Option<&ImportInfo> {
         self.objects.get(&object_id).map(|x| x.import_info.as_ref()).flatten()
+    }
+
+    pub fn build_info(
+        &self,
+        object_id: ObjectId
+    ) -> Option<&BuildInfo> {
+        self.objects.get(&object_id).map(|x| x.build_info.as_ref()).flatten()
     }
 
     pub fn object_prototype(

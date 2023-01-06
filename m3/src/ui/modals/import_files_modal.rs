@@ -5,7 +5,7 @@ use imgui::sys::ImVec2;
 use imgui::{im_str, PopupModal, StyleColor, TreeNodeFlags};
 use nexdb::{HashMap, ImportInfo, LocationTreeNode, ObjectLocation, ObjectName};
 use std::path::PathBuf;
-use crate::importers::{ImporterRegistry, ImportJobs};
+use crate::pipeline::{ImporterRegistry, ImportJobs};
 
 pub struct ImportFilesModal {
     finished_first_draw: bool,
@@ -241,6 +241,8 @@ impl ModalAction for ImportFilesModal {
                                 db_state.editor_model.root_edit_context_mut().set_import_info(object_id, import_info.clone());
                                 object_ids.insert(scanned_importable.name.clone(), object_id);
                             }
+
+                            //TODO: Check referenced source files to find existing imported assets or import referenced files
 
                             //
                             // Trigger transition to modal waiting for imports to complete

@@ -10,7 +10,7 @@ use std::fmt::Formatter;
 use std::path::PathBuf;
 use std::sync::mpsc::{Receiver, Sender};
 use std::sync::{mpsc, Arc};
-use crate::importers::{ImporterRegistry, ImportJobs};
+use crate::pipeline::{ImporterRegistry, ImportJobs};
 
 #[derive(Debug)]
 pub enum QueuedActions {

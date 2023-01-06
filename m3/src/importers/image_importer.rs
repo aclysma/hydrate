@@ -19,21 +19,21 @@ impl ImageAsset {
     }
 }
 
-pub struct ImageImportOptions {}
-
-impl ImageImportOptions {
-    pub fn schema_name() -> &'static str {
-        "ImageImportOptions"
-    }
-
-    pub fn register_schema(linker: &mut SchemaLinker) {
-        linker
-            .register_record_type(Self::schema_name(), |x| {
-                // No options
-            })
-            .unwrap();
-    }
-}
+// pub struct ImageImportOptions {}
+//
+// impl ImageImportOptions {
+//     pub fn schema_name() -> &'static str {
+//         "ImageImportOptions"
+//     }
+//
+//     pub fn register_schema(linker: &mut SchemaLinker) {
+//         linker
+//             .register_record_type(Self::schema_name(), |x| {
+//                 // No options
+//             })
+//             .unwrap();
+//     }
+// }
 
 pub struct ImageImportedData {}
 
@@ -52,13 +52,6 @@ impl ImageImportedData {
             })
             .unwrap();
     }
-}
-
-#[derive(Serialize, Deserialize)]
-struct ImageProcessedData {
-    image_bytes: Vec<u8>,
-    width: u32,
-    height: u32,
 }
 
 #[derive(TypeUuid, Default)]
@@ -80,7 +73,7 @@ impl Importer for ImageImporter {
         vec![ScannedImportable {
             name: None,
             asset_type,
-            referenced_source_file_paths: Default::default()
+            referenced_source_files: Default::default()
         }]
     }
 
@@ -134,87 +127,5 @@ impl Importer for ImageImporter {
         let mut imported_objects = HashMap::default();
         imported_objects.insert(None, import_object);
         imported_objects
-    }
-}
-
-#[derive(TypeUuid)]
-#[uuid = "da6760e7-5b24-43b4-830d-6ee4515096b8"]
-pub struct ImageProcessor {}
-
-impl Processor for ImageProcessor {
-    fn process_asset(
-        &self,
-        asset_id: ObjectId,
-        data_set: &DataSet,
-        schema: &SchemaSet,
-    ) -> Vec<u8> {
-        //
-        // Read asset properties
-        //
-        let compressed = data_set
-            .resolve_property(schema, asset_id, "compress")
-            .unwrap()
-            .as_boolean()
-            .unwrap();
-        let imported_data = data_set
-            .resolve_property(schema, asset_id, "imported_data")
-            .unwrap()
-            .as_object_ref()
-            .unwrap();
-
-        //
-        // Read imported data
-        //
-        let image_bytes = data_set
-            .resolve_property(schema, imported_data, "image_bytes")
-            .unwrap()
-            .as_bytes()
-            .unwrap()
-            .clone();
-        let width = data_set
-            .resolve_property(schema, imported_data, "width")
-            .unwrap()
-            .as_u32()
-            .unwrap();
-        let height = data_set
-            .resolve_property(schema, imported_data, "height")
-            .unwrap()
-            .as_u32()
-            .unwrap();
-
-        //
-        // Compress the image, or just return the raw image bytes
-        //
-        let image_bytes = if compressed {
-            let mut compressor_params = basis_universal::CompressorParams::new();
-            compressor_params.set_basis_format(basis_universal::BasisTextureFormat::UASTC4x4);
-            compressor_params.set_generate_mipmaps(true);
-            compressor_params.set_color_space(basis_universal::ColorSpace::Srgb);
-            compressor_params.set_uastc_quality_level(basis_universal::UASTC_QUALITY_DEFAULT);
-
-            let mut source_image = compressor_params.source_image_mut(0);
-
-            source_image.init(&image_bytes, width, height, 4);
-            let mut compressor = basis_universal::Compressor::new(4);
-            unsafe {
-                compressor.init(&compressor_params);
-                log::debug!("Compressing texture");
-                compressor.process().unwrap();
-                log::debug!("Compressed texture");
-            }
-            let compressed_basis_data = compressor.basis_file().to_vec();
-            compressed_basis_data
-        } else {
-            image_bytes
-        };
-
-        let processed_data = ImageProcessedData {
-            image_bytes,
-            width,
-            height,
-        };
-
-        let serialized = bincode::serialize(&processed_data).unwrap();
-        serialized
     }
 }

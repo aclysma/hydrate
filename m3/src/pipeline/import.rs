@@ -8,12 +8,6 @@ use rafx::api::objc::runtime::Object;
 use uuid::Uuid;
 use type_uuid::{TypeUuid, TypeUuidDynamic};
 
-mod image_importer;
-pub use image_importer::ImageImporter;
-
-mod material_importer;
-pub use material_importer::MaterialImporter;
-
 use nexdb::dir_tree_blob_store::{path_to_uuid, uuid_to_path};
 use nexdb::edit_context::EditContext;
 use nexdb::json::SingleObjectJson;

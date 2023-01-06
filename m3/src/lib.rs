@@ -4,7 +4,9 @@ use renderer::Renderer;
 
 mod db_state;
 mod imgui_support;
-mod importers;
+//mod builders;
+//mod importers;
+mod pipeline;
 mod ui;
 
 mod app_state;
@@ -15,7 +17,7 @@ mod ui_state;
 use crate::app_state::QueuedActions;
 use ui::draw_ui;
 use crate::db_state::DbState;
-use crate::importers::{ImageImporter, ImporterRegistry, ImportJobs};
+use crate::pipeline::{BuilderRegistry, BuildJobs, ImageBuilder, ImageImporter, ImporterRegistry, ImportJobs};
 
 // Creates a window and runs the event loop.
 pub fn run() {
@@ -24,10 +26,14 @@ pub fn run() {
     let mut importer_registry = ImporterRegistry::default();
     importer_registry.register_handler::<ImageImporter>(&mut linker);
 
+    let mut builder_registry = BuilderRegistry::default();
+    builder_registry.register_handler::<ImageBuilder>(&mut linker);
+
     let db_state = DbState::load_or_init_empty(linker);
     importer_registry.finished_linking(db_state.editor_model.schema_set());
 
     let import_jobs = ImportJobs::new(&importer_registry, &db_state.editor_model, DbState::import_data_source_path());
+    let build_jobs = BuildJobs::new(&builder_registry, &db_state.editor_model, DbState::build_data_source_path());
 
     //let ds_path = PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/data/data_source"));
     //let mut file_system_package = crate::data_source::FileSystemPackage::new(ds_path);

@@ -12,6 +12,7 @@ pub use data_set::ObjectPath;
 pub use data_set::ObjectSourceId;
 pub use data_set::OverrideBehavior;
 pub use data_set::ImporterId;
+pub use data_set::BuilderId;
 
 mod single_object;
 pub use single_object::SingleObject;

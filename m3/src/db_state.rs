@@ -34,6 +34,14 @@ impl DbState {
         ))
     }
 
+    pub fn build_data_source_path() -> PathBuf {
+        PathBuf::from(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/data/build_data"
+        ))
+    }
+
+
 
     fn data_file_path() -> PathBuf {
         PathBuf::from(concat!(

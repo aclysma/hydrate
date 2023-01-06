@@ -10,7 +10,7 @@ use std::fmt::Formatter;
 use std::path::PathBuf;
 use std::sync::mpsc::{Receiver, Sender};
 use std::sync::{mpsc, Arc};
-use crate::pipeline::{ImporterRegistry, ImportJobs};
+use crate::pipeline::{Builder, BuilderRegistry, BuildJobs, ImporterRegistry, ImportJobs};
 
 #[derive(Debug)]
 pub enum QueuedActions {
@@ -135,19 +135,23 @@ pub struct AppState {
     pub db_state: DbState,
     pub ui_state: UiState,
     pub importer_registry: ImporterRegistry,
+    pub builder_registry: BuilderRegistry,
     pub import_jobs: ImportJobs,
+    pub build_jobs: BuildJobs,
     pub action_queue: ActionQueueReceiver,
     ready_to_quit: bool,
     pub modal_action: Option<Box<ModalAction>>,
 }
 
 impl AppState {
-    pub fn new(db_state: DbState, importer_registry: ImporterRegistry, import_jobs: ImportJobs) -> Self {
+    pub fn new(db_state: DbState, importer_registry: ImporterRegistry, builder_registry: BuilderRegistry, import_jobs: ImportJobs, build_jobs: BuildJobs) -> Self {
         AppState {
             db_state,
             ui_state: UiState::default(),
             importer_registry,
+            builder_registry,
             import_jobs,
+            build_jobs,
             action_queue: Default::default(),
             ready_to_quit: false,
             modal_action: None,

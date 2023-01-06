@@ -39,7 +39,7 @@ pub fn run() {
     //let mut file_system_package = crate::data_source::FileSystemPackage::new(ds_path);
     //file_system_package.load(&mut db_state.db);
 
-    let mut app_state = AppState::new(db_state, importer_registry, import_jobs);
+    let mut app_state = AppState::new(db_state, importer_registry, builder_registry, import_jobs, build_jobs);
 
     // Create the winit event loop
     let event_loop = winit::event_loop::EventLoop::<()>::with_user_event();
@@ -150,6 +150,7 @@ pub fn run() {
             winit::event::Event::RedrawRequested(_window_id) => {
                 imgui_manager.begin_frame(&window);
                 app_state.import_jobs.update(&app_state.importer_registry, &app_state.db_state.editor_model);
+                app_state.build_jobs.update(&app_state.builder_registry, &app_state.db_state.editor_model);
                 draw_ui::draw_imgui(&imgui_manager, &mut imnodes_example_editor, &mut app_state);
                 imgui_manager.render(&window);
                 if let Err(e) = renderer.draw(&window, imgui_manager.draw_data(), &app_state) {

@@ -60,6 +60,14 @@ impl ImageImportedData {
     }
 }
 
+
+#[derive(Serialize, Deserialize)]
+struct ImageBuiltData {
+    image_bytes: Vec<u8>,
+    width: u32,
+    height: u32,
+}
+
 #[derive(TypeUuid, Default)]
 #[uuid = "e7c83acb-f73b-4b3c-b14d-fe5cc17c0fa3"]
 pub struct ImageImporter;
@@ -134,13 +142,6 @@ impl Importer for ImageImporter {
         imported_objects.insert(None, import_object);
         imported_objects
     }
-}
-
-#[derive(Serialize, Deserialize)]
-struct ImageBuiltData {
-    image_bytes: Vec<u8>,
-    width: u32,
-    height: u32,
 }
 
 #[derive(TypeUuid, Default)]

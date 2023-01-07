@@ -13,17 +13,10 @@ impl DbState {
         PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/data/schema"))
     }
 
-    // fn tree_data_source_path() -> PathBuf {
-    //     PathBuf::from(concat!(
-    //         env!("CARGO_MANIFEST_DIR"),
-    //         "/data/data_source_tree"
-    //     ))
-    // }
-
     fn object_data_source_path() -> PathBuf {
         PathBuf::from(concat!(
             env!("CARGO_MANIFEST_DIR"),
-            "/data/data_source_object"
+            "/data/assets"
         ))
     }
 

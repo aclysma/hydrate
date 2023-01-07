@@ -27,28 +27,8 @@ pub fn run() {
     let mut asset_engine_builder = AssetEngineBuilder::new()
         .register_plugin::<ImageAssetPlugin>(&mut linker);
 
-    //let mut importer_registry = ImporterRegistry::default();
-    //importer_registry.register_handler::<ImageImporter>(&mut linker);
-
-    //let mut builder_registry = BuilderRegistry::default();
-    //builder_registry.register_handler::<ImageBuilder>(&mut linker);
-
-    //ImageAssetPlugin::setup(&mut linker, )
-
     let db_state = DbState::load_or_init_empty(linker);
     let asset_engine = asset_engine_builder.build(&db_state.editor_model);
-
-
-    //asset_engine.finish_linking(db_state.editor_model.schema_set());
-    //importer_registry.finished_linking(db_state.editor_model.schema_set());
-    //builder_registry.finished_linking(db_state.editor_model.schema_set());
-
-    //let import_jobs = ImportJobs::new(&importer_registry, &db_state.editor_model, DbState::import_data_source_path());
-    //let build_jobs = BuildJobs::new(&builder_registry, &db_state.editor_model, DbState::build_data_source_path());
-
-    //let ds_path = PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/data/data_source"));
-    //let mut file_system_package = crate::data_source::FileSystemPackage::new(ds_path);
-    //file_system_package.load(&mut db_state.db);
 
     let mut app_state = AppState::new(db_state, asset_engine);
 

@@ -1,7 +1,0 @@
-{
-    "art_source_dir": "art",
-    "art_export_dir": "export",
-    "authored_assets_dir": "db",
-    "imported_assets_dir": "build/imported",
-    "derived_assets_dir": "build/derived",
-}

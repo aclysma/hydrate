@@ -11,6 +11,13 @@ use crate::db_state::DbState;
 mod image;
 pub use self::image::*;
 
+mod blender_material;
+pub use self::blender_material::*;
+
+pub trait AssetPlugin {
+    fn setup(schema_linker: &mut SchemaLinker, importer_registry: &mut ImporterRegistry, builder_registry: &mut BuilderRegistry);
+}
+
 pub struct AssetEngineBuilder {
     importer_registry: ImporterRegistry,
     builder_registry: BuilderRegistry,

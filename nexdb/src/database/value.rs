@@ -1,4 +1,4 @@
-use crate::ObjectId;
+use crate::{ObjectId, SchemaEnum};
 use crate::{BufferId, HashMap, Schema, SchemaFingerprint, SchemaNamedType};
 
 #[derive(Clone, Debug, PartialEq)]
@@ -63,6 +63,18 @@ impl ValueRecord {
 pub struct ValueEnum {
     //symbol_index: u32,
     symbol_name: String,
+}
+
+impl ValueEnum {
+    pub fn new(symbol_name: String) -> Self {
+        ValueEnum {
+            symbol_name
+        }
+    }
+
+    pub fn symbol_name(&self) -> &str {
+        &self.symbol_name
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -637,6 +649,26 @@ impl Value {
     //
     // Enum
     //
+    pub fn is_enum(&self) -> bool {
+        match self {
+            Value::Enum(_) => true,
+            _ => false,
+        }
+    }
+
+    pub fn as_enum(&self) -> Option<&ValueEnum> {
+        match self {
+            Value::Enum(x) => Some(&*x),
+            _ => None,
+        }
+    }
+
+    pub fn set_enum(
+        &mut self,
+        value: ValueEnum,
+    ) {
+        *self = Value::Enum(value);
+    }
 
     //
     // Fixed

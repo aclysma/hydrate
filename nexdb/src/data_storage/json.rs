@@ -23,12 +23,13 @@ fn property_value_to_json(value: &Value) -> serde_json::Value {
         Value::Map(_) => unimplemented!(),
         Value::ObjectRef(x) => serde_json::Value::from(x.as_uuid().to_string()),
         Value::Record(_) => unimplemented!(),
-        Value::Enum(_) => unimplemented!(),
+        Value::Enum(x) => serde_json::Value::from(x.symbol_name().to_string()),
         Value::Fixed(_) => unimplemented!(),
     }
 }
 
 fn json_to_property_value_with_schema(
+    named_types: &HashMap<SchemaFingerprint, SchemaNamedType>,
     schema: &Schema,
     value: &serde_json::Value,
 ) -> Value {
@@ -50,7 +51,14 @@ fn json_to_property_value_with_schema(
         Schema::ObjectRef(_) => Value::ObjectRef(ObjectId(
             Uuid::parse_str(value.as_str().unwrap()).unwrap().as_u128(),
         )),
-        Schema::NamedType(_) => unimplemented!(),
+        Schema::NamedType(x) => {
+            let named_type = named_types.get(x).unwrap();
+            match named_type {
+                SchemaNamedType::Record(_) => unimplemented!(),
+                SchemaNamedType::Enum(e) => e.value_from_string(value.as_str().unwrap()).unwrap(),
+                SchemaNamedType::Fixed(_) => unimplemented!(),
+            }
+        },
     }
 }
 
@@ -153,7 +161,7 @@ fn load_json_properties(
                     }
                 }
             } else {
-                let v = json_to_property_value_with_schema(&property_schema, &value);
+                let v = json_to_property_value_with_schema(named_types, &property_schema, &value);
                 log::debug!("set {} to {:?}", path, v);
                 properties.insert(path.to_string(), v);
             }

@@ -1,7 +1,8 @@
-use crate::SchemaFingerprint;
+use crate::{SchemaFingerprint, Value};
 use std::hash::{Hash, Hasher};
 use std::ops::Deref;
 use std::sync::Arc;
+use crate::value::ValueEnum;
 
 #[derive(Debug)]
 pub struct SchemaEnumSymbol {
@@ -112,5 +113,21 @@ impl SchemaEnum {
 
     pub fn fingerprint(&self) -> SchemaFingerprint {
         self.fingerprint
+    }
+
+    pub fn value_from_string(&self, name: &str) -> Option<Value> {
+        for symbol in &*self.inner.symbols {
+            if symbol.name() == name {
+                return Some(Value::Enum(ValueEnum::new(name.to_string())));
+            }
+
+            for alias in symbol.aliases() {
+                if alias == name {
+                    return Some(Value::Enum(ValueEnum::new(name.to_string())));
+                }
+            }
+        }
+
+        None
     }
 }

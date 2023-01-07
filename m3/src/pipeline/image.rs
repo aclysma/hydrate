@@ -52,10 +52,6 @@ struct ImageBuiltData {
     height: u32,
 }
 
-pub trait AssetPlugin {
-    fn setup(schema_linker: &mut SchemaLinker, importer_registry: &mut ImporterRegistry, builder_registry: &mut BuilderRegistry);
-}
-
 pub struct ImageAssetPlugin;
 
 impl AssetPlugin for ImageAssetPlugin {
@@ -74,7 +70,7 @@ pub struct ImageImporter;
 
 impl Importer for ImageImporter {
     fn supported_file_extensions(&self) -> &[&'static str] {
-        &["png"]
+        &["png", "jpg"]
     }
 
     fn scan_file(&self, path: &Path, schema_set: &SchemaSet) -> Vec<ScannedImportable> {
@@ -102,10 +98,13 @@ impl Importer for ImageImporter {
         // TODO: Replace with a shim so we can track what files are being read
         // - We trigger the importer for them by specifying the file path and kind of file (i.e. an image, specific type of JSON file, etc.)
         // - We may need to let the "import" dialog try to perform the import to get error messages and discover what will end up being imported
-        let bytes = std::fs::read(path).unwrap();
+        //let bytes = std::fs::read(path).unwrap();
 
-        let decoded_image =
-            ::image::load_from_memory_with_format(&bytes, ::image::ImageFormat::Png).unwrap();
+        // let decoded_image =
+        //     ::image::load_from_memory_with_format(&bytes, ::image::ImageFormat::Png).unwrap();
+
+        let decoded_image = ::image::open(path).unwrap();
+
         let (width, height) = decoded_image.dimensions();
         let image_bytes = decoded_image.into_rgba8().to_vec();
 

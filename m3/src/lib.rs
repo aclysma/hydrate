@@ -18,14 +18,15 @@ mod ui_state;
 use crate::app_state::QueuedActions;
 use ui::draw_ui;
 use crate::db_state::DbState;
-use crate::pipeline::{AssetEngine, AssetEngineBuilder, BuilderRegistry, BuildJobs, ImageAssetPlugin, ImageBuilder, ImageImporter, ImporterRegistry, ImportJobs};
+use crate::pipeline::{AssetEngine, AssetEngineBuilder, BlenderMaterialAssetPlugin, BuilderRegistry, BuildJobs, ImageAssetPlugin, ImageBuilder, ImageImporter, ImporterRegistry, ImportJobs};
 
 // Creates a window and runs the event loop.
 pub fn run() {
     let mut linker = SchemaLinker::default();
 
     let mut asset_engine_builder = AssetEngineBuilder::new()
-        .register_plugin::<ImageAssetPlugin>(&mut linker);
+        .register_plugin::<ImageAssetPlugin>(&mut linker)
+        .register_plugin::<BlenderMaterialAssetPlugin>(&mut linker);
 
     let db_state = DbState::load_or_init_empty(linker);
     let asset_engine = asset_engine_builder.build(&db_state.editor_model);

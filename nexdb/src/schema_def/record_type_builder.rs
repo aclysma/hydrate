@@ -1,3 +1,4 @@
+use crate::schema_def::enum_type_builder::EnumTypeSymbolBuilder;
 use super::schema_def::{SchemaDefDynamicArray, SchemaDefType};
 
 pub struct RecordTypeFieldBuilder {
@@ -176,6 +177,19 @@ impl RecordTypeBuilder {
     }
 
     pub fn add_struct(
+        &mut self,
+        name: impl Into<String>,
+        type_name: impl Into<String>,
+    ) -> &mut RecordTypeFieldBuilder {
+        self.fields.push(RecordTypeFieldBuilder {
+            field_type: SchemaDefType::NamedType(type_name.into()),
+            aliases: Default::default(),
+            name: name.into(),
+        });
+        self.fields.last_mut().unwrap()
+    }
+
+    pub fn add_enum(
         &mut self,
         name: impl Into<String>,
         type_name: impl Into<String>,

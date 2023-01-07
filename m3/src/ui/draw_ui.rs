@@ -98,8 +98,7 @@ pub fn draw_imgui(
                     imnodes_context,
                     &mut app_state.db_state,
                     &mut app_state.ui_state,
-                    &mut app_state.importer_registry,
-                    &mut app_state.import_jobs,
+                    &mut app_state.asset_engine,
                     app_state.action_queue.sender(),
                 );
                 if control_flow == ModalActionControlFlow::End {

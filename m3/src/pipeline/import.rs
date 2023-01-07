@@ -61,7 +61,7 @@ pub struct ImportJobs {
 
 impl ImportJobs {
     pub fn new(importer_registry: &ImporterRegistry, editor_model: &EditorModel, root_path: PathBuf) -> Self {
-        let import_jobs = ImportJobs::find_jobs_in_assets(importer_registry, editor_model, &root_path);
+        let import_jobs = ImportJobs::find_all_jobs(importer_registry, editor_model, &root_path);
 
         ImportJobs {
             root_path,
@@ -71,14 +71,19 @@ impl ImportJobs {
     }
 
     pub fn queue_import_operation(&mut self, object_ids: HashMap<Option<String>,ObjectId>, importer_id: ImporterId, path: PathBuf) {
-
-
         self.import_operations.push(ImportOp {
             object_ids,
             importer_id,
             path,
             //import_info
         })
+    }
+
+    pub fn load_import_data(&self, schema_set: &SchemaSet, object_id: ObjectId) -> SingleObject {
+        let path = uuid_to_path(&self.root_path, object_id.as_uuid(), "af");
+        let str = std::fs::read_to_string(path).unwrap();
+        let import_data = SingleObjectJson::load_single_object_from_string(schema_set, &str);
+        import_data
     }
 
     pub fn update(&mut self, importer_registry: &ImporterRegistry, editor_model: &EditorModel) {
@@ -116,7 +121,7 @@ impl ImportJobs {
         // Send/mark for processing?
     }
 
-    fn find_jobs_in_assets(importer_registry: &ImporterRegistry, editor_model: &EditorModel, root_path: &Path) -> HashMap<ObjectId, ImportJob> {
+    fn find_all_jobs(importer_registry: &ImporterRegistry, editor_model: &EditorModel, root_path: &Path) -> HashMap<ObjectId, ImportJob> {
         let mut import_jobs = HashMap::<ObjectId, ImportJob>::default();
 
         //
@@ -202,7 +207,7 @@ impl ImporterRegistry {
     //
     pub fn register_handler<T: TypeUuid + Importer + Default + 'static>(&mut self, linker: &mut SchemaLinker) {
         let handler = Box::new(T::default());
-        handler.register_schemas(linker);
+        //handler.register_schemas(linker);
         let importer_id = ImporterId(Uuid::from_bytes(T::UUID));
         self.registered_importers.insert(importer_id, handler);
 
@@ -312,7 +317,7 @@ pub trait Importer : TypeUuidDynamic {
         ImporterId(Uuid::from_bytes(self.uuid()))
     }
 
-    fn register_schemas(&self, schema_linker: &mut SchemaLinker);
+    //fn register_schemas(&self, schema_linker: &mut SchemaLinker);
 
     //fn asset_types(&self) -> &[&'static str];
 

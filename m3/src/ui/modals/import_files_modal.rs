@@ -5,7 +5,7 @@ use imgui::sys::ImVec2;
 use imgui::{im_str, PopupModal, StyleColor, TreeNodeFlags};
 use nexdb::{HashMap, ImportInfo, LocationTreeNode, ObjectLocation, ObjectName};
 use std::path::PathBuf;
-use crate::pipeline::{ImporterRegistry, ImportJobs};
+use crate::pipeline::{AssetEngine, ImporterRegistry, ImportJobs};
 
 pub struct ImportFilesModal {
     finished_first_draw: bool,
@@ -153,8 +153,7 @@ impl ModalAction for ImportFilesModal {
         imnodes_context: &mut imnodes::Context,
         db_state: &mut DbState,
         ui_state: &mut UiState,
-        importer_registry: &ImporterRegistry,
-        import_jobs: &mut ImportJobs,
+        asset_engine: &mut AssetEngine,
         action_queue: ActionQueueSender,
     ) -> ModalActionControlFlow {
         if !self.finished_first_draw {
@@ -200,13 +199,13 @@ impl ModalAction for ImportFilesModal {
                     let extension = file.extension();
                     if let Some(extension) = extension {
                         let extension = extension.to_string_lossy().to_string();
-                        let handlers = importer_registry.importers_for_file_extension(&extension);
+                        let handlers = asset_engine.importers_for_file_extension(&extension);
 
                         if !handlers.is_empty() {
                             //
                             // Find the importer to use on the file
                             //
-                            let importer = importer_registry.importer(handlers[0]).unwrap();
+                            let importer = asset_engine.importer(handlers[0]).unwrap();
 
                             //
                             // When we import, set the import info so we track where the import comes from
@@ -247,7 +246,7 @@ impl ModalAction for ImportFilesModal {
                             //
                             // Trigger transition to modal waiting for imports to complete
                             //
-                            import_jobs.queue_import_operation(object_ids, importer.importer_id(), file.clone());
+                            asset_engine.queue_import_operation(object_ids, importer.importer_id(), file.clone());
                         }
                     }
                 }

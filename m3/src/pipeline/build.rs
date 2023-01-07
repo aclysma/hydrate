@@ -11,12 +11,13 @@ use type_uuid::{TypeUuid, TypeUuidDynamic};
 use nexdb::dir_tree_blob_store::{path_to_uuid, uuid_to_path};
 use nexdb::edit_context::EditContext;
 use nexdb::json::SingleObjectJson;
+use crate::pipeline::ImportJobs;
 
 
 struct BuildOp {
     object_id: ObjectId,
-    builder_id: BuilderId,
-    path: PathBuf,
+    //builder_id: BuilderId,
+    //path: PathBuf,
 }
 
 struct BuildJob {
@@ -43,8 +44,12 @@ pub struct BuildJobs {
 }
 
 impl BuildJobs {
-    pub fn new(builder_registry: &BuilderRegistry, editor_model: &EditorModel, root_path: PathBuf) -> Self {
-        let build_jobs = BuildJobs::find_jobs_in_assets(builder_registry, editor_model, &root_path);
+    pub fn new(
+        builder_registry: &BuilderRegistry,
+        editor_model: &EditorModel,
+        root_path: PathBuf
+    ) -> Self {
+        let build_jobs = BuildJobs::find_all_jobs(builder_registry, editor_model, &root_path);
 
         BuildJobs {
             root_path,
@@ -53,26 +58,42 @@ impl BuildJobs {
         }
     }
 
-    pub fn queue_build_operation(&mut self, object_id: ObjectId, builder_id: BuilderId, path: PathBuf) {
-
-
+    pub fn queue_build_operation(&mut self, object_id: ObjectId) {
         self.build_operations.push(BuildOp {
             object_id,
-            builder_id,
-            path,
             //build_info
         })
     }
 
-    pub fn update(&mut self, builder_registry: &BuilderRegistry, editor_model: &EditorModel) {
+    pub fn update(&mut self, builder_registry: &BuilderRegistry, editor_model: &EditorModel, import_jobs: &ImportJobs) {
+        let data_set = editor_model.root_edit_context().data_set();
+        let schema_set = editor_model.schema_set();
+
         for build_op in &self.build_operations {
-            let builder_id = build_op.builder_id;
+            let object_id = build_op.object_id;
+            let object_type = editor_model.root_edit_context().object_schema(object_id).unwrap();
+            let builder_id = builder_registry.builder_for_asset(object_type.fingerprint()).unwrap();
             let builder = builder_registry.builder(builder_id).unwrap();
 
+            let dependencies = builder.dependencies(
+                object_id,
+                data_set,
+                schema_set,
+            );
+
+            let mut imported_data = HashMap::default();
+            for dependency_object_id in dependencies {
+                let import_data = import_jobs.load_import_data(schema_set, dependency_object_id);
+
+                // load it
+                imported_data.insert(dependency_object_id, import_data);
+            }
+
             let built_data = builder.build_asset(
-                build_op.object_id,
-                editor_model.root_edit_context().data_set(),
-                editor_model.schema_set(),
+                object_id,
+                data_set,
+                schema_set,
+                &imported_data
             );
 
             let path = uuid_to_path(&self.root_path, build_op.object_id.as_uuid(), "af");
@@ -89,7 +110,7 @@ impl BuildJobs {
         // Send/mark for processing?
     }
 
-    fn find_jobs_in_assets(builder_registry: &BuilderRegistry, editor_model: &EditorModel, root_path: &Path) -> HashMap<ObjectId, BuildJob> {
+    fn find_all_jobs(builder_registry: &BuilderRegistry, editor_model: &EditorModel, root_path: &Path) -> HashMap<ObjectId, BuildJob> {
         let mut build_jobs = HashMap::<ObjectId, BuildJob>::default();
 
         //
@@ -174,12 +195,16 @@ impl BuilderRegistry {
     //
     pub fn register_handler<T: TypeUuid + Builder + Default + 'static>(&mut self, linker: &mut SchemaLinker) {
         let handler = Box::new(T::default());
-        handler.register_schemas(linker);
-        let builder_id = BuilderId(Uuid::from_bytes(T::UUID));
+        //handler.register_schemas(linker);
+        let uuid = Uuid::from_bytes(T::UUID);
+        let builder_id = BuilderId(uuid);
         self.registered_builders.insert(builder_id, handler);
 
-        // for extension in self.registered_builders[&builder_id].supported_file_extensions() {
-        //     self.file_extension_associations.entry(extension.to_string()).or_default().push(builder_id);
+        println!("Register builder {} {}", uuid, std::any::type_name::<T>());
+
+
+        // for extension in self.registered_builders[&builder_id].asset_type() {
+        //     ;
         // }
     }
 
@@ -192,6 +217,7 @@ impl BuilderRegistry {
         for (builder_id, builder) in &self.registered_builders {
             let asset_type = schema_set.find_named_type(builder.asset_type()).unwrap().fingerprint();
             let insert_result = asset_type_to_builder.insert(asset_type, *builder_id);
+            println!("builder {} handles asset fingerprint {}", builder_id.0, asset_type.as_uuid());
             if insert_result.is_some() {
                 panic!("Multiple handlers registered to handle the same asset")
             }
@@ -220,14 +246,17 @@ pub trait Builder : TypeUuidDynamic  {
         BuilderId(Uuid::from_bytes(self.uuid()))
     }
 
-    fn register_schemas(&self, schema_linker: &mut SchemaLinker);
+    //fn register_schemas(&self, schema_linker: &mut SchemaLinker);
 
     fn asset_type(&self) -> &'static str;
+
+    fn dependencies(&self, asset_id: ObjectId, data_set: &DataSet, schema: &SchemaSet) -> Vec<ObjectId>;
 
     fn build_asset(
         &self,
         asset_id: ObjectId,
         data_set: &DataSet,
         schema: &SchemaSet,
+        dependency_data: &HashMap<ObjectId, SingleObject>
     ) -> Vec<u8>;
 }

@@ -27,6 +27,10 @@ pub fn draw_properties_window_single_select(
             .object_display_name_long(location.path_node_id())
     ));
 
+    if ui.button(im_str!("Force Rebuild")) {
+        app_state.asset_engine.queue_build_operation(object_id);
+    }
+
     if let Some(prototype) = edit_context.object_prototype(object_id) {
         if ui.button(im_str!(">>")) {
             let mut grid_state = &mut app_state.ui_state.asset_browser_state.grid_state;

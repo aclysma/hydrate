@@ -288,10 +288,13 @@ impl EditContextObjectJson {
         let schema_fingerprint = SchemaFingerprint(stored_object.schema.as_u128());
         let prototype = stored_object.prototype.map(|x| ObjectId(x.as_u128()));
 
-        let named_type = edit_context
-            .find_named_type_by_fingerprint(schema_fingerprint)
-            .unwrap()
-            .clone();
+        let named_type = edit_context.find_named_type_by_fingerprint(schema_fingerprint);
+
+        let named_type = if let Some(named_type) = named_type {
+            named_type.clone()
+        } else {
+            panic!("Can't load type {}", stored_object.schema_name);
+        };
 
         let mut properties: HashMap<String, Value> = Default::default();
         let mut property_null_overrides: HashMap<String, NullOverride> = Default::default();

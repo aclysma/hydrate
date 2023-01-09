@@ -14,12 +14,15 @@ use nexdb::json::SingleObjectJson;
 use crate::pipeline::ImportJobs;
 
 
+// An in-flight build operation we want to perform
 struct BuildOp {
     object_id: ObjectId,
     //builder_id: BuilderId,
     //path: PathBuf,
 }
 
+// A known build job, each existing asset will have an associated build job.
+// It could be in a completed state, or there could be a problem with it and we need to re-run it.
 struct BuildJob {
     object_id: ObjectId,
     build_data_exists: bool,
@@ -36,7 +39,9 @@ impl BuildJob {
     }
 }
 
-// Cache of all build jobs. This includes builds that are complete, in progress, or not started
+// Cache of all build jobs. This includes builds that are complete, in progress, or not started.
+// We find these by scanning existing assets. We also inspect the asset and built data to see if the
+// job is complete, or is in a failed or stale state.
 pub struct BuildJobs {
     root_path: PathBuf,
     build_jobs: HashMap<ObjectId, BuildJob>,
@@ -182,6 +187,7 @@ impl BuildJobs {
 
 
 
+// Keeps track of all known builders
 #[derive(Default)]
 pub struct BuilderRegistry {
     registered_builders: HashMap<BuilderId, Box<Builder>>,
@@ -240,7 +246,7 @@ impl BuilderRegistry {
     }
 }
 
-// ID?
+// Interface all builders must implement
 pub trait Builder : TypeUuidDynamic  {
     fn builder_id(&self) -> BuilderId {
         BuilderId(Uuid::from_bytes(self.uuid()))
@@ -248,8 +254,10 @@ pub trait Builder : TypeUuidDynamic  {
 
     //fn register_schemas(&self, schema_linker: &mut SchemaLinker);
 
+    // The type of asset that this builder handles
     fn asset_type(&self) -> &'static str;
 
+    // Returns the assets that this build job needs to be available to complete
     fn dependencies(&self, asset_id: ObjectId, data_set: &DataSet, schema: &SchemaSet) -> Vec<ObjectId>;
 
     fn build_asset(

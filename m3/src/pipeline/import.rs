@@ -12,18 +12,7 @@ use nexdb::dir_tree_blob_store::{path_to_uuid, uuid_to_path};
 use nexdb::edit_context::EditContext;
 use nexdb::json::SingleObjectJson;
 
-
-// Create ImportJobs
-// - It immediately scans assets to create jobs for recognized assets
-// - Kick off job to do initial imports metadata scan
-//
-
-
-
-// ENQUEUE IF
-// - asset exists, import data doesn't exist, source file is available
-// - asset exists, import data exists but is stale, source file is available
-
+// An in-flight import operation we want to perform
 struct ImportOp {
     object_ids: HashMap<Option<String>, ObjectId>,
     importer_id: ImporterId,
@@ -31,6 +20,8 @@ struct ImportOp {
     //pub(crate) import_info: ImportInfo,
 }
 
+// A known import job, each existing asset that imports data will have an associated import job.
+// It could be in a completed state, or there could be a problem with it and we need to re-run it.
 struct ImportJob {
     object_id: ObjectId,
     import_data_exists: bool,
@@ -51,7 +42,9 @@ impl ImportJob {
     }
 }
 
-// Cache of all import jobs. This includes imports that are complete, in progress, or not started
+// Cache of all known import jobs. This includes imports that are complete, in progress, or not started.
+// We find these by scanning existing assets and import data. We also inspect the asset and imported
+// data to see if the job is complete, or is in a failed or stale state.
 pub struct ImportJobs {
     //import_editor_model: EditorModel
     root_path: PathBuf,
@@ -85,6 +78,17 @@ impl ImportJobs {
         let import_data = SingleObjectJson::load_single_object_from_string(schema_set, &str);
         import_data
     }
+
+    // pub fn handle_file_updates(&mut self, file_updates: &[PathBuf]) {
+    //     for file_update in file_updates {
+    //         if let Ok(relative) = file_update.strip_prefix(&self.root_path) {
+    //             if let Some(uuid) = path_to_uuid(&self.root_path, file_update) {
+    //                 let object_id = ObjectId(uuid.as_u128());
+    //
+    //             }
+    //         }
+    //     }
+    // }
 
     pub fn update(&mut self, importer_registry: &ImporterRegistry, editor_model: &EditorModel) {
         for import_op in &self.import_operations {
@@ -193,7 +197,7 @@ impl ImportJobs {
 
 
 
-
+// Keeps track of all known importers
 #[derive(Default)]
 pub struct ImporterRegistry {
     registered_importers: HashMap<ImporterId, Box<Importer>>,
@@ -300,57 +304,35 @@ impl ImporterRegistry {
 //     }
 // }
 
+// Represents a path to another file encountered in a file that will need to be resolved to an asset
+// at build time
 pub struct ReferencedSourceFile {
     importer_id: ImporterId,
     path: PathBuf
 }
 
+// Metadata for all importable data from a file. For example, a GLTF could contain textures, meshes,
+// materials, etc.
 pub struct ScannedImportable {
     pub name: Option<String>,
     pub asset_type: SchemaRecord,
     pub referenced_source_files: Vec<ReferencedSourceFile>,
 }
 
-// ID?
+// Interface all importers must implement
 pub trait Importer : TypeUuidDynamic {
     fn importer_id(&self) -> ImporterId {
         ImporterId(Uuid::from_bytes(self.uuid()))
     }
 
-    //fn register_schemas(&self, schema_linker: &mut SchemaLinker);
-
-    //fn asset_types(&self) -> &[&'static str];
-
+    // Used to allow the importer registry to return all importers compatible with a given filename extension
     fn supported_file_extensions(&self) -> &[&'static str];
 
-    // fn create_default_asset(&self, path: &Path, editor_model: &mut EditorModel, location: ObjectLocation) {
-    //     let name = if let Some(name) = path.file_name() {
-    //         ObjectName::new(name.to_string_lossy())
-    //     } else {
-    //         ObjectName::empty()
-    //     };
-    //
-    //     let schema_record = editor_model.root_edit_context_mut().schema_set().find_named_type().unwrap().as_record().unwrap();
-    //
-    //     let new_object = editor_model.root_edit_context_mut().new_object(&name, &location, schema_record);
-    // }
-
-    //fn create_default_import_options(&self, schema_set: &SchemaSet) -> SingleObject;
-
-
-    //
     // Open the file and determine what assets exist in it that can be imported
-    //
     fn scan_file(&self, path: &Path, schema_set: &SchemaSet) -> Vec<ScannedImportable>;
 
-    fn create_default_asset(&self, editor_model: &mut EditorModel, object_name: ObjectName, object_location: ObjectLocation) -> ObjectId;
-
-    // fn scan_for_referenced_source_file_paths(
-    //     &self,
-    //     //scan_context: &mut ScanContext,
-    //     path: &Path,
-    // );
-
+    // Open the file and extract all the data from it required for the build step, or for build
+    // steps for assets referencing this asset
     fn import_file(
         &self,
         path: &Path,

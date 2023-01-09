@@ -198,10 +198,10 @@ impl Importer for BlenderMaterialImporter {
         }]
     }
 
-    fn create_default_asset(&self, editor_model: &mut EditorModel, object_name: ObjectName, object_location: ObjectLocation) -> ObjectId {
-        let schema_record = editor_model.root_edit_context_mut().schema_set().find_named_type(BlenderMaterialAsset::schema_name()).unwrap().as_record().unwrap().clone();
-        editor_model.root_edit_context_mut().new_object(&object_name, &object_location, &schema_record)
-    }
+    //fn create_default_asset(&self, editor_model: &mut EditorModel, object_name: ObjectName, object_location: ObjectLocation) -> ObjectId {
+    //    let schema_record = editor_model.root_edit_context_mut().schema_set().find_named_type(BlenderMaterialAsset::schema_name()).unwrap().as_record().unwrap().clone();
+    //    editor_model.root_edit_context_mut().new_object(&object_name, &object_location, &schema_record)
+    //}
 
     fn import_file(
         &self,

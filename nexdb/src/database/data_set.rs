@@ -1,3 +1,4 @@
+use std::hash::{Hash, Hasher};
 use std::path::PathBuf;
 use crate::{NullOverride, SchemaSet, SingleObject};
 use crate::{
@@ -510,6 +511,75 @@ impl DataSet {
         object_id: ObjectId,
     ) -> Option<&SchemaRecord> {
         self.objects.get(&object_id).map(|x| &x.schema)
+    }
+
+    pub fn hash_properties(
+        &self,
+        object_id: ObjectId,
+    ) -> Option<u64> {
+        let object = self.objects.get(&object_id)?;
+        let schema = &object.schema;
+
+        let mut hasher = siphasher::sip::SipHasher::default();
+
+        schema.fingerprint().hash(&mut hasher);
+        //object_name
+        //object_location
+        //import_info
+        //build_info
+        if let Some(prototype) = object.prototype {
+            self.hash_properties(prototype).hash(&mut hasher);
+        }
+
+        // properties
+        let mut properties_hash = 0;
+        for (key, value) in &object.properties {
+            let mut inner_hasher = siphasher::sip::SipHasher::default();
+            key.hash(&mut inner_hasher);
+            value.hash(&mut inner_hasher);
+            properties_hash = properties_hash ^ inner_hasher.finish();
+        }
+        properties_hash.hash(&mut hasher);
+
+        // property_null_overrides
+        let mut property_null_overrides_hash = 0;
+        for (key, value) in &object.property_null_overrides {
+            let mut inner_hasher = siphasher::sip::SipHasher::default();
+            key.hash(&mut inner_hasher);
+            value.hash(&mut inner_hasher);
+            property_null_overrides_hash = property_null_overrides_hash ^ inner_hasher.finish();
+        }
+        property_null_overrides_hash.hash(&mut hasher);
+
+        // properties_in_replace_mode
+        let mut properties_in_replace_mode_hash = 0;
+        for value in &object.properties_in_replace_mode {
+            let mut inner_hasher = siphasher::sip::SipHasher::default();
+            value.hash(&mut inner_hasher);
+            properties_in_replace_mode_hash = properties_in_replace_mode_hash ^ inner_hasher.finish();
+        }
+        properties_in_replace_mode_hash.hash(&mut hasher);
+
+        // dynamic_array_entries
+        let mut dynamic_array_entries_hash = 0;
+        for (key, value) in &object.dynamic_array_entries {
+            let mut inner_hasher = siphasher::sip::SipHasher::default();
+            key.hash(&mut inner_hasher);
+
+            let mut uuid_set_hash = 0;
+            for id in value {
+                let mut inner_hasher2 = siphasher::sip::SipHasher::default();
+                id.hash(&mut inner_hasher2);
+                uuid_set_hash = uuid_set_hash ^ inner_hasher2.finish();
+            }
+            uuid_set_hash.hash(&mut inner_hasher);
+
+            dynamic_array_entries_hash = dynamic_array_entries_hash ^ inner_hasher.finish();
+        }
+        dynamic_array_entries_hash.hash(&mut hasher);
+
+        let object_hash = hasher.finish();
+        Some(object_hash)
     }
 
     pub fn get_null_override(

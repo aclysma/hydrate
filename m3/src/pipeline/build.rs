@@ -1,3 +1,4 @@
+use std::hash::{Hash, Hasher};
 use ::image::{EncodableLayout, GenericImageView};
 use nexdb::{DataSet, DataSource, EditorModel, FileSystemObjectDataSource, HashMap, HashMapKeys, BuilderId, BuildInfo, ObjectId, ObjectLocation, ObjectName, ObjectSourceId, Schema, SchemaFingerprint, SchemaLinker, SchemaNamedType, SchemaRecord, SchemaSet, SingleObject, Value};
 use serde::{Deserialize, Serialize};
@@ -77,6 +78,7 @@ impl BuildJobs {
         for build_op in &self.build_operations {
             let object_id = build_op.object_id;
             let object_type = editor_model.root_edit_context().object_schema(object_id).unwrap();
+
             let builder_id = builder_registry.builder_for_asset(object_type.fingerprint()).unwrap();
             let builder = builder_registry.builder(builder_id).unwrap();
 
@@ -87,13 +89,33 @@ impl BuildJobs {
             );
 
             let mut imported_data = HashMap::default();
+            let mut imported_data_hash = 0;
+
             for dependency_object_id in dependencies {
+                // Load data from disk
                 let import_data = import_jobs.load_import_data(schema_set, dependency_object_id);
 
-                // load it
-                imported_data.insert(dependency_object_id, import_data);
+                // Hash the dependency import data for the build
+                let mut inner_hasher = siphasher::sip::SipHasher::default();
+                dependency_object_id.hash(&mut inner_hasher);
+                import_data.import_data.hash(&mut inner_hasher);
+                imported_data_hash = imported_data_hash ^ inner_hasher.finish();
+
+                // validate the file metadata hash is what we expected to see
+                //import_data.metadata_hash
+
+                // Place in map for the builder to use
+                imported_data.insert(dependency_object_id, import_data.import_data);
             }
 
+            let properties_hash = editor_model.root_edit_context().data_set().hash_properties(object_id).unwrap();
+
+            let mut build_hasher = siphasher::sip::SipHasher::default();
+            properties_hash.hash(&mut build_hasher);
+            imported_data_hash.hash(&mut build_hasher);
+            let build_hash = build_hasher.finish();
+
+            // Check if a build for this hash already exists?
             let built_data = builder.build_asset(
                 object_id,
                 data_set,
@@ -101,7 +123,8 @@ impl BuildJobs {
                 &imported_data
             );
 
-            let path = uuid_to_path(&self.root_path, build_op.object_id.as_uuid(), "af");
+            //
+            let path = uuid_to_path(&self.root_path, build_op.object_id.as_uuid(), "bf");
 
             if let Some(parent) = path.parent() {
                 std::fs::create_dir_all(parent).unwrap();

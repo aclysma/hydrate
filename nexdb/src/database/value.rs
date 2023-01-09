@@ -1,3 +1,4 @@
+use std::hash::{Hash, Hasher};
 use crate::{ObjectId, SchemaEnum};
 use crate::{BufferId, HashMap, Schema, SchemaFingerprint, SchemaNamedType};
 
@@ -43,9 +44,37 @@ pub struct ValueMap {
     properties: HashMap<Value, Value>,
 }
 
+impl Hash for ValueMap {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        let mut hash = 0;
+        for (k, v) in &self.properties {
+            let mut inner_hasher = siphasher::sip::SipHasher::default();
+            k.hash(&mut inner_hasher);
+            v.hash(&mut inner_hasher);
+            hash = hash ^ inner_hasher.finish();
+        }
+
+        hash.hash(state);
+    }
+}
+
 #[derive(Clone, Debug, Default)]
 pub struct ValueRecord {
     properties: HashMap<String, Value>,
+}
+
+impl Hash for ValueRecord {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        let mut hash = 0;
+        for (k, v) in &self.properties {
+            let mut inner_hasher = siphasher::sip::SipHasher::default();
+            k.hash(&mut inner_hasher);
+            v.hash(&mut inner_hasher);
+            hash = hash ^ inner_hasher.finish();
+        }
+
+        hash.hash(state);
+    }
 }
 
 /*
@@ -59,7 +88,7 @@ impl ValueRecord {
     }
 }
 */
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Hash)]
 pub struct ValueEnum {
     //symbol_index: u32,
     symbol_name: String,
@@ -98,6 +127,31 @@ pub enum Value {
     Record(ValueRecord),
     Enum(ValueEnum),
     Fixed(Box<[u8]>),
+}
+
+impl Hash for Value {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        match self {
+            Value::Nullable(x) => x.hash(state),
+            Value::Boolean(x) => x.hash(state),
+            Value::I32(x) => x.hash(state),
+            Value::I64(x) => x.hash(state),
+            Value::U32(x) => x.hash(state),
+            Value::U64(x) => x.hash(state),
+            Value::F32(x) => x.to_bits().hash(state),
+            Value::F64(x) => x.to_bits().hash(state),
+            Value::Bytes(x) => x.hash(state),
+            Value::Buffer(x) => x.hash(state),
+            Value::String(x) => x.hash(state),
+            Value::StaticArray(x) => x.hash(state),
+            Value::DynamicArray(x) => x.hash(state),
+            Value::Map(x) => x.hash(state),
+            Value::ObjectRef(x) => x.hash(state),
+            Value::Record(x) => x.hash(state),
+            Value::Enum(x) => x.hash(state),
+            Value::Fixed(x) => x.hash(state),
+        }
+    }
 }
 
 impl Value {

@@ -1,3 +1,4 @@
+use std::hash::{Hash, Hasher};
 use ::image::{EncodableLayout, GenericImageView};
 use nexdb::{DataSet, DataSource, EditorModel, FileSystemObjectDataSource, HashMap, HashMapKeys, ImporterId, ImportInfo, ObjectId, ObjectLocation, ObjectName, ObjectSourceId, Schema, SchemaFingerprint, SchemaLinker, SchemaNamedType, SchemaRecord, SchemaSet, SingleObject, Value};
 use serde::{Deserialize, Serialize};
@@ -11,6 +12,18 @@ use type_uuid::{TypeUuid, TypeUuidDynamic};
 use nexdb::dir_tree_blob_store::{path_to_uuid, uuid_to_path};
 use nexdb::edit_context::EditContext;
 use nexdb::json::SingleObjectJson;
+
+fn hash_file_metadata(metadata: &std::fs::Metadata) -> u64 {
+    let mut hasher = siphasher::sip::SipHasher::default();
+    metadata.modified().unwrap().hash(&mut hasher);
+    metadata.len().hash(&mut hasher);
+    hasher.finish()
+}
+
+pub struct ImportData {
+    pub import_data: SingleObject,
+    pub metadata_hash: u64
+}
 
 // An in-flight import operation we want to perform
 struct ImportOp {
@@ -27,7 +40,8 @@ struct ImportJob {
     import_data_exists: bool,
     asset_exists: bool,
     imported_data_stale: bool, // how to know it's stale? (we need timestamp/filesize stored along with import data, and paths to file it included) We may not know until we try to open it
-    imported_data_invalid: bool // how to know it's valid? (does it parse? does it have errors? we may not know until we try to open it)
+    imported_data_invalid: bool, // how to know it's valid? (does it parse? does it have errors? we may not know until we try to open it)
+    imported_data_hash: Option<u64>,
 }
 
 impl ImportJob {
@@ -38,6 +52,7 @@ impl ImportJob {
             asset_exists: false,
             imported_data_stale: false,
             imported_data_invalid: false,
+            imported_data_hash: None
         }
     }
 }
@@ -72,11 +87,27 @@ impl ImportJobs {
         })
     }
 
-    pub fn load_import_data(&self, schema_set: &SchemaSet, object_id: ObjectId) -> SingleObject {
-        let path = uuid_to_path(&self.root_path, object_id.as_uuid(), "af");
-        let str = std::fs::read_to_string(path).unwrap();
+    pub fn load_import_data(&self, schema_set: &SchemaSet, object_id: ObjectId) -> ImportData {
+        let path = uuid_to_path(&self.root_path, object_id.as_uuid(), "if");
+        let str = std::fs::read_to_string(&path).unwrap();
+        let metadata = path.metadata().unwrap();
+        let metadata_hash = hash_file_metadata(&metadata);
         let import_data = SingleObjectJson::load_single_object_from_string(schema_set, &str);
-        import_data
+        ImportData {
+            import_data,
+            metadata_hash
+        }
+    }
+
+    pub fn clone_import_data_metadata_hashes(&self) -> HashMap<ObjectId, u64> {
+        let mut metadata_hashes = HashMap::default();
+        for (k, v) in &self.import_jobs {
+            if let Some(imported_data_hash) = v.imported_data_hash {
+                metadata_hashes.insert(*k, imported_data_hash);
+            }
+        }
+
+        metadata_hashes
     }
 
     // pub fn handle_file_updates(&mut self, file_updates: &[PathBuf]) {
@@ -109,13 +140,18 @@ impl ImportJobs {
             for (name, imported_object) in imported_objects {
                 if let Some(object_id) = import_op.object_ids.get(&name) {
                     let data = SingleObjectJson::save_single_object_to_string(&imported_object);
-                    let path = uuid_to_path(&self.root_path, object_id.as_uuid(), "af");
+                    let path = uuid_to_path(&self.root_path, object_id.as_uuid(), "if");
 
                     if let Some(parent) = path.parent() {
                         std::fs::create_dir_all(parent).unwrap();
                     }
 
-                    std::fs::write(&path, data).unwrap()
+                    std::fs::write(&path, data).unwrap();
+                    let metadata = path.metadata().unwrap();
+                    let metadata_hash = hash_file_metadata(&metadata);
+                    let mut import_job = self.import_jobs.entry(*object_id).or_insert_with(|| ImportJob::new(*object_id));
+                    import_job.import_data_exists = true;
+                    import_job.imported_data_hash = Some(metadata_hash);
                 }
             }
         }
@@ -142,7 +178,12 @@ impl ImportJobs {
                 let dir_uuid = path_to_uuid(root_path, file.path()).unwrap();
                 let object_id = ObjectId(dir_uuid.as_u128());
                 let job = import_jobs.entry(object_id).or_insert_with(|| ImportJob::new(object_id));
+
+                let file_metadata = file.metadata().unwrap();
+                let import_data_hash = hash_file_metadata(&file_metadata);
+
                 job.import_data_exists = true;
+                job.imported_data_hash = Some(import_data_hash);
             }
         }
 

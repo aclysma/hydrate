@@ -1,3 +1,4 @@
+use std::hash::{Hash, Hasher};
 use crate::{NullOverride, SchemaSet};
 use crate::{
     HashMap, HashMapKeys, HashSet, HashSetIter, Schema, SchemaFingerprint,
@@ -13,6 +14,54 @@ pub struct SingleObject {
     pub(crate) properties: HashMap<String, Value>,
     pub(crate) property_null_overrides: HashMap<String, NullOverride>,
     pub(crate) dynamic_array_entries: HashMap<String, HashSet<Uuid>>,
+}
+
+impl Hash for SingleObject {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        let schema = &self.schema;
+
+        use std::hash::{Hash, Hasher};
+
+        schema.fingerprint().hash(state);
+
+        // properties
+        let mut properties_hash = 0;
+        for (key, value) in &self.properties {
+            let mut inner_hasher = siphasher::sip::SipHasher::default();
+            key.hash(&mut inner_hasher);
+            value.hash(&mut inner_hasher);
+            properties_hash = properties_hash ^ inner_hasher.finish();
+        }
+        properties_hash.hash(state);
+
+        // property_null_overrides
+        let mut property_null_overrides_hash = 0;
+        for (key, value) in &self.property_null_overrides {
+            let mut inner_hasher = siphasher::sip::SipHasher::default();
+            key.hash(&mut inner_hasher);
+            value.hash(&mut inner_hasher);
+            property_null_overrides_hash = property_null_overrides_hash ^ inner_hasher.finish();
+        }
+        property_null_overrides_hash.hash(state);
+
+        // dynamic_array_entries
+        let mut dynamic_array_entries_hash = 0;
+        for (key, value) in &self.dynamic_array_entries {
+            let mut inner_hasher = siphasher::sip::SipHasher::default();
+            key.hash(&mut inner_hasher);
+
+            let mut uuid_set_hash = 0;
+            for id in value {
+                let mut inner_hasher2 = siphasher::sip::SipHasher::default();
+                id.hash(&mut inner_hasher2);
+                uuid_set_hash = uuid_set_hash ^ inner_hasher2.finish();
+            }
+            uuid_set_hash.hash(&mut inner_hasher);
+
+            dynamic_array_entries_hash = dynamic_array_entries_hash ^ inner_hasher.finish();
+        }
+        dynamic_array_entries_hash.hash(state);
+    }
 }
 
 impl SingleObject {

@@ -3,6 +3,8 @@ mod build;
 use std::path::PathBuf;
 pub use build::*;
 
+mod change_detector;
+
 mod import;
 pub use import::*;
 use nexdb::{BuilderId, EditorModel, HashMap, ImporterId, ObjectId, SchemaFingerprint, SchemaLinker, SchemaSet};
@@ -68,7 +70,33 @@ impl AssetEngine {
     }
 
     pub fn update(&mut self, editor_model: &EditorModel) {
+        // First, run any user-initiated imports
         self.import_jobs.update(&self.importer_registry, editor_model);
+
+        // If we detected a source-file change, we can queue them up as well
+
+        // Store the hashes of known import data and assets and begin a build process
+        // Fail the build if assets or import data changes are detected during the build, and restart
+
+
+
+
+
+        // State machine
+        // - Gather hash/timestamps/whatever for all the things (frequently)
+        // - Run imports as needed
+        //
+
+        let mut object_hashes = HashMap::default();
+        for (object_id, object) in editor_model.root_edit_context().objects() {
+            let hash = editor_model.root_edit_context().data_set().hash_properties(*object_id).unwrap();
+            object_hashes.insert(*object_id, hash);
+        }
+
+        //
+        let import_data_metadata_hashes = self.import_jobs.clone_import_data_metadata_hashes();
+
+        // Check if our import state is consistent, if it is we save expected hashes and run builds
         self.build_jobs.update(&self.builder_registry, editor_model, &self.import_jobs);
     }
 

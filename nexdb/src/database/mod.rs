@@ -39,7 +39,7 @@ mod tests;
 // files source over net cache source, etc.
 
 
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq, Hash)]
 pub enum NullOverride {
     SetNull,
     SetNonNull,

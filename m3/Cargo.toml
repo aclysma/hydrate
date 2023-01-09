@@ -33,4 +33,5 @@ image = "0.23.12"
 basis-universal = "0.2.0"
 serde = { default-features = false, version = "1.0.145", features = ["derive"] }
 serde_json = { default-features = false, version = "1.0.85", features = ["std"] }
+siphasher = "0.3"
 type-uuid = "0.1.2"

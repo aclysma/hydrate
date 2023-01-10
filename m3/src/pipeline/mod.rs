@@ -1,5 +1,6 @@
 mod build;
 
+use std::hash::{Hash, Hasher};
 use std::path::PathBuf;
 pub use build::*;
 
@@ -14,7 +15,10 @@ mod image;
 pub use self::image::*;
 
 mod blender_material;
-pub use self::blender_material::*;
+pub use blender_material::*;
+
+mod simple_data;
+pub use simple_data::*;
 
 pub trait AssetPlugin {
     fn setup(schema_linker: &mut SchemaLinker, importer_registry: &mut ImporterRegistry, builder_registry: &mut BuilderRegistry);
@@ -47,7 +51,8 @@ impl AssetEngineBuilder {
             importer_registry: self.importer_registry,
             import_jobs,
             builder_registry: self.builder_registry,
-            build_jobs
+            build_jobs,
+            previous_combined_build_hash: None
         }
     }
 }
@@ -56,7 +61,9 @@ pub struct AssetEngine {
     importer_registry: ImporterRegistry,
     import_jobs: ImportJobs,
     builder_registry: BuilderRegistry,
-    build_jobs: BuildJobs
+    build_jobs: BuildJobs,
+    previous_combined_build_hash: Option<u64>,
+
 }
 
 impl AssetEngine {
@@ -70,34 +77,60 @@ impl AssetEngine {
     }
 
     pub fn update(&mut self, editor_model: &EditorModel) {
-        // First, run any user-initiated imports
-        self.import_jobs.update(&self.importer_registry, editor_model);
-
-        // If we detected a source-file change, we can queue them up as well
-
-        // Store the hashes of known import data and assets and begin a build process
-        // Fail the build if assets or import data changes are detected during the build, and restart
-
-
-
-
-
-        // State machine
-        // - Gather hash/timestamps/whatever for all the things (frequently)
-        // - Run imports as needed
+        //
+        // If user changes any asset data, cancel the in-flight build
+        // If user initiates any import jobs, cancel the in-flight build
+        // If file changes are detected on asset, import, or build data, cancel the in-flight build
         //
 
+        //
+        // If there are import jobs pending, cancel the in-flight build and execute them
+        //
+        self.import_jobs.update(&self.importer_registry, editor_model);
+
+        //
+        // If we don't have any pending import jobs, and we don't have a build in-flight, and
+        // something has been changed since the last build, we can start a build now. We need to
+        // first store the hashes of everything that will potentially go into the build.
+        //
+        let mut combined_build_hash = 0;
         let mut object_hashes = HashMap::default();
         for (object_id, object) in editor_model.root_edit_context().objects() {
             let hash = editor_model.root_edit_context().data_set().hash_properties(*object_id).unwrap();
             object_hashes.insert(*object_id, hash);
+
+            let mut inner_hasher = siphasher::sip::SipHasher::default();
+            object_id.hash(&mut inner_hasher);
+            hash.hash(&mut inner_hasher);
+            combined_build_hash = combined_build_hash ^ inner_hasher.finish();
+        }
+
+        let import_data_metadata_hashes = self.import_jobs.clone_import_data_metadata_hashes();
+        for (k, v) in &import_data_metadata_hashes {
+            let mut inner_hasher = siphasher::sip::SipHasher::default();
+            k.hash(&mut inner_hasher);
+            v.hash(&mut inner_hasher);
+            combined_build_hash = combined_build_hash ^ inner_hasher.finish();
+        }
+
+        let needs_rebuild = if let Some(previous_combined_build_hash) = self.previous_combined_build_hash {
+            previous_combined_build_hash != combined_build_hash
+        } else {
+            true
+        };
+
+        if !needs_rebuild {
+            return;
         }
 
         //
-        let import_data_metadata_hashes = self.import_jobs.clone_import_data_metadata_hashes();
+        // Process the in-flight build. It will be cancelled and restarted if any data is detected
+        // as changing during the build.
+        //
 
         // Check if our import state is consistent, if it is we save expected hashes and run builds
-        self.build_jobs.update(&self.builder_registry, editor_model, &self.import_jobs);
+        self.build_jobs.update(&self.builder_registry, editor_model, &self.import_jobs, &object_hashes, &import_data_metadata_hashes);
+        self.previous_combined_build_hash = Some(combined_build_hash);
     }
 
     pub fn importers_for_file_extension(&self, extension: &str) -> &[ImporterId] {

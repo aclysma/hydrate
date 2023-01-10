@@ -46,7 +46,7 @@ impl BuildJob {
 pub struct BuildJobs {
     root_path: PathBuf,
     build_jobs: HashMap<ObjectId, BuildJob>,
-    build_operations: Vec<BuildOp>
+    //force_rebuild_operations: Vec<BuildOp>
 }
 
 impl BuildJobs {
@@ -60,22 +60,47 @@ impl BuildJobs {
         BuildJobs {
             root_path,
             build_jobs,
-            build_operations: Default::default()
+            //force_rebuild_operations: Default::default()
         }
     }
 
     pub fn queue_build_operation(&mut self, object_id: ObjectId) {
-        self.build_operations.push(BuildOp {
-            object_id,
-            //build_info
-        })
+        // self.build_operations.push(BuildOp {
+        //     object_id,
+        //     //force_rebuild_operations
+        // })
+
+        //TODO: Force it to appear as stale?
     }
 
-    pub fn update(&mut self, builder_registry: &BuilderRegistry, editor_model: &EditorModel, import_jobs: &ImportJobs) {
+    pub fn update(
+        &mut self,
+        builder_registry: &BuilderRegistry,
+        editor_model: &EditorModel,
+        import_jobs: &ImportJobs,
+        object_hashes: &HashMap<ObjectId, u64>,
+        import_data_metadata_hashes: &HashMap<ObjectId, u64>,
+    ) {
         let data_set = editor_model.root_edit_context().data_set();
         let schema_set = editor_model.schema_set();
 
-        for build_op in &self.build_operations {
+        // let mut build_operations = Vec::default();
+        // for (&object_id, build_job) in &editor_model.root_edit_context().objects() {
+        //     //TODO: Check if it's stale? For now just assume we build everything
+        //
+        //     build_operations.push(BuildOp {
+        //         object_id
+        //     })
+        // }
+
+        let mut build_operations = Vec::default();
+        for (&object_id, _) in object_hashes {
+            build_operations.push(BuildOp {
+                object_id
+            });
+        }
+
+        for build_op in &build_operations {
             let object_id = build_op.object_id;
             let object_type = editor_model.root_edit_context().object_schema(object_id).unwrap();
 
@@ -133,7 +158,7 @@ impl BuildJobs {
             std::fs::write(&path, built_data).unwrap()
         }
 
-        self.build_operations.clear();
+        //self.build_operations.clear();
 
         // Send/mark for processing?
     }
@@ -270,7 +295,7 @@ impl BuilderRegistry {
 }
 
 // Interface all builders must implement
-pub trait Builder : TypeUuidDynamic  {
+pub trait Builder {
     fn builder_id(&self) -> BuilderId {
         BuilderId(Uuid::from_bytes(self.uuid()))
     }

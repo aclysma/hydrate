@@ -104,9 +104,15 @@ impl BuildJobs {
             let object_id = build_op.object_id;
             let object_type = editor_model.root_edit_context().object_schema(object_id).unwrap();
 
-            let builder_id = builder_registry.builder_for_asset(object_type.fingerprint()).unwrap();
-            let builder = builder_registry.builder(builder_id).unwrap();
+            let builder = builder_registry.builder_for_asset(object_type.fingerprint());
+            let builder = if builder.is_none() {
+                log::warn!("can't find builder for object type {}", object_type.name());
+                continue;
+            } else {
+                builder.unwrap()
+            };
 
+            log::info!("building object type {}", object_type.name());
             let dependencies = builder.dependencies(
                 object_id,
                 data_set,
@@ -117,6 +123,12 @@ impl BuildJobs {
             let mut imported_data_hash = 0;
 
             for dependency_object_id in dependencies {
+                // Not all objects have import info...
+                let import_info = data_set.import_info(dependency_object_id);
+                if import_info.is_none() {
+                    continue;
+                }
+
                 // Load data from disk
                 let import_data = import_jobs.load_import_data(schema_set, dependency_object_id);
 
@@ -238,7 +250,7 @@ impl BuildJobs {
 // Keeps track of all known builders
 #[derive(Default)]
 pub struct BuilderRegistry {
-    registered_builders: HashMap<BuilderId, Box<Builder>>,
+    registered_builders: Vec<Box<Builder>>,
     //file_extension_associations: HashMap<String, Vec<BuilderId>>,
     asset_type_to_builder: HashMap<SchemaFingerprint, BuilderId>,
 }
@@ -247,19 +259,9 @@ impl BuilderRegistry {
     //
     // Called before creating the schema to add handlers
     //
-    pub fn register_handler<T: TypeUuid + Builder + Default + 'static>(&mut self, linker: &mut SchemaLinker) {
+    pub fn register_handler<T: Builder + Default + 'static>(&mut self, linker: &mut SchemaLinker) {
         let handler = Box::new(T::default());
-        //handler.register_schemas(linker);
-        let uuid = Uuid::from_bytes(T::UUID);
-        let builder_id = BuilderId(uuid);
-        self.registered_builders.insert(builder_id, handler);
-
-        println!("Register builder {} {}", uuid, std::any::type_name::<T>());
-
-
-        // for extension in self.registered_builders[&builder_id].asset_type() {
-        //     ;
-        // }
+        self.registered_builders.push(handler);
     }
 
     //
@@ -268,9 +270,10 @@ impl BuilderRegistry {
     pub fn finished_linking(&mut self, schema_set: &SchemaSet) {
         let mut asset_type_to_builder = HashMap::default();
 
-        for (builder_id, builder) in &self.registered_builders {
+        for (builder_index, builder) in self.registered_builders.iter().enumerate() {
+            let builder_id = BuilderId(builder_index);
             let asset_type = schema_set.find_named_type(builder.asset_type()).unwrap().fingerprint();
-            let insert_result = asset_type_to_builder.insert(asset_type, *builder_id);
+            let insert_result = asset_type_to_builder.insert(asset_type, builder_id);
             println!("builder {} handles asset fingerprint {}", builder_id.0, asset_type.as_uuid());
             if insert_result.is_some() {
                 panic!("Multiple handlers registered to handle the same asset")
@@ -285,20 +288,25 @@ impl BuilderRegistry {
     //     self.file_extension_associations.get(extension).map(|x| x.as_slice()).unwrap_or(EMPTY_LIST)
     // }
 
-    pub fn builder_for_asset(&self, fingerprint: SchemaFingerprint) -> Option<BuilderId> {
-        self.asset_type_to_builder.get(&fingerprint).copied()
+    pub fn builder_for_asset(&self, fingerprint: SchemaFingerprint) -> Option<&Box<Builder>> {
+        // if let Some(builder_id) = self.asset_type_to_builder.get(&fingerprint).copied() {
+        //     Some(&self.registered_builders[builder_id.0])
+        // } else {
+        //     None
+        // }
+        self.asset_type_to_builder.get(&fingerprint).copied().map(|x| &self.registered_builders[x.0])
     }
 
-    pub fn builder(&self, builder_id: BuilderId) -> Option<&Box<Builder>> {
-        self.registered_builders.get(&builder_id)
-    }
+    // pub fn builder(&self, builder_id: BuilderId) -> Option<&Box<Builder>> {
+    //     self.registered_builders.get(&builder_id)
+    // }
 }
 
 // Interface all builders must implement
 pub trait Builder {
-    fn builder_id(&self) -> BuilderId {
-        BuilderId(Uuid::from_bytes(self.uuid()))
-    }
+    // fn builder_id(&self) -> BuilderId {
+    //     BuilderId(Uuid::from_bytes(self.uuid()))
+    // }
 
     //fn register_schemas(&self, schema_linker: &mut SchemaLinker);
 

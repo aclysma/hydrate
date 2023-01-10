@@ -89,6 +89,7 @@ impl ImportJobs {
 
     pub fn load_import_data(&self, schema_set: &SchemaSet, object_id: ObjectId) -> ImportData {
         let path = uuid_to_path(&self.root_path, object_id.as_uuid(), "if");
+        println!("LOAD DATA PATH {:?}", path);
         let str = std::fs::read_to_string(&path).unwrap();
         let metadata = path.metadata().unwrap();
         let metadata_hash = hash_file_metadata(&metadata);

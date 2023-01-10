@@ -141,13 +141,13 @@ impl AssetEngine {
         self.importer_registry.importer(importer_id)
     }
 
-    pub fn builder_for_asset(&self, fingerprint: SchemaFingerprint) -> Option<BuilderId> {
+    pub fn builder_for_asset(&self, fingerprint: SchemaFingerprint) -> Option<&Box<Builder>> {
         self.builder_registry.builder_for_asset(fingerprint)
     }
 
-    pub fn builder(&self, builder_id: BuilderId) -> Option<&Box<Builder>> {
-        self.builder_registry.builder(builder_id)
-    }
+    // pub fn builder(&self, builder_id: BuilderId) -> Option<&Box<Builder>> {
+    //     self.builder_registry.builder(builder_id)
+    // }
 
     pub fn queue_import_operation(&mut self, object_ids: HashMap<Option<String>, ObjectId>, importer_id: ImporterId, path: PathBuf) {
         self.import_jobs.queue_import_operation(object_ids, importer_id, path);

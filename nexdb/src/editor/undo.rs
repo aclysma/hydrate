@@ -239,7 +239,7 @@ impl UndoContext {
                 &self.tracked_objects,
             );
             if diff_set.has_changes() {
-                println!("Sending change {:#?}", diff_set);
+                //println!("Sending change {:#?}", diff_set);
 
                 //
                 // Use diff to append to the modified object/location sets

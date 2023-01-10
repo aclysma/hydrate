@@ -244,7 +244,7 @@ pub struct DataObjectDelta {}
 pub struct ImporterId(pub Uuid);
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
-pub struct BuilderId(pub Uuid);
+pub struct BuilderId(pub usize);
 
 #[derive(Clone, Debug)]
 pub struct ImportInfo {

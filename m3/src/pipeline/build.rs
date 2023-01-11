@@ -1,4 +1,6 @@
+use std::fs::File;
 use std::hash::{Hash, Hasher};
+use std::io::Write;
 use ::image::{EncodableLayout, GenericImageView};
 use nexdb::{DataSet, DataSource, EditorModel, FileSystemObjectDataSource, HashMap, HashMapKeys, BuilderId, BuildInfo, ObjectId, ObjectLocation, ObjectName, ObjectSourceId, Schema, SchemaFingerprint, SchemaLinker, SchemaNamedType, SchemaRecord, SchemaSet, SingleObject, Value};
 use serde::{Deserialize, Serialize};
@@ -9,7 +11,7 @@ use rafx::api::objc::runtime::Object;
 use uuid::Uuid;
 use type_uuid::{TypeUuid, TypeUuidDynamic};
 
-use nexdb::dir_tree_blob_store::{path_to_uuid, uuid_to_path};
+use nexdb::dir_tree_blob_store::{path_to_uuid, uuid_and_hash_to_path, uuid_to_path};
 use nexdb::edit_context::EditContext;
 use nexdb::json::SingleObjectJson;
 use crate::pipeline::ImportJobs;
@@ -80,6 +82,7 @@ impl BuildJobs {
         import_jobs: &ImportJobs,
         object_hashes: &HashMap<ObjectId, u64>,
         import_data_metadata_hashes: &HashMap<ObjectId, u64>,
+        combined_build_hash: u64
     ) {
         let data_set = editor_model.root_edit_context().data_set();
         let schema_set = editor_model.schema_set();
@@ -99,6 +102,8 @@ impl BuildJobs {
                 object_id
             });
         }
+
+        let mut build_hashes = HashMap::default();
 
         for build_op in &build_operations {
             let object_id = build_op.object_id;
@@ -161,7 +166,8 @@ impl BuildJobs {
             );
 
             //
-            let path = uuid_to_path(&self.root_path, build_op.object_id.as_uuid(), "bf");
+            let path = uuid_and_hash_to_path(&self.root_path, build_op.object_id.as_uuid(), build_hash, "bf");
+            build_hashes.insert(build_op.object_id, build_hash);
 
             if let Some(parent) = path.parent() {
                 std::fs::create_dir_all(parent).unwrap();
@@ -169,6 +175,24 @@ impl BuildJobs {
 
             std::fs::write(&path, built_data).unwrap()
         }
+
+        //
+        // Write the manifest file
+        //
+        let mut manifest_path = self.root_path.clone();
+        manifest_path.push("manifests");
+        std::fs::create_dir_all(&manifest_path).unwrap();
+        manifest_path.push(format!("{:x}.manifest", combined_build_hash));
+        let file = File::create(manifest_path).unwrap();
+        let mut file = std::io::BufWriter::new(file);
+        for (object_id, build_hash) in build_hashes {
+            write!(file, "{:x},{:x}\n", object_id.0, build_hash).unwrap();
+            //file.write(&object_id.0.to_le_bytes()).unwrap();
+            //file.write(&build_hash.to_le_bytes()).unwrap();
+        }
+
+        std::fs::write(self.root_path.join("latest.txt"), format!("{:x}", combined_build_hash)).unwrap();
+
 
         //self.build_operations.clear();
 

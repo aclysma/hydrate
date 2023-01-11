@@ -1,8 +1,0 @@
-{
-  "name": "subdir2",
-  "parent_dir": "00b91853-49ff-47af-97c6-02c421a3a5b7",
-  "schema": "27249710-b633-82e7-c52a-9ab5ea5de806",
-  "schema_name": "PathNode",
-  "prototype": null,
-  "properties": {}
-}

@@ -129,7 +129,7 @@ impl AssetEngine {
         //
 
         // Check if our import state is consistent, if it is we save expected hashes and run builds
-        self.build_jobs.update(&self.builder_registry, editor_model, &self.import_jobs, &object_hashes, &import_data_metadata_hashes);
+        self.build_jobs.update(&self.builder_registry, editor_model, &self.import_jobs, &object_hashes, &import_data_metadata_hashes, combined_build_hash);
         self.previous_combined_build_hash = Some(combined_build_hash);
     }
 

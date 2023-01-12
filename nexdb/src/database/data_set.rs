@@ -1,5 +1,5 @@
 use std::hash::{Hash, Hasher};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use crate::{NullOverride, SchemaSet, SingleObject};
 use crate::{
     HashMap, HashMapKeys, HashSet, HashSetIter, ObjectId, Schema, SchemaFingerprint,
@@ -260,6 +260,11 @@ pub struct ImportInfo {
     // file to link to this object rather than importing another copy.
     pub(crate) source_file_path: PathBuf,
 
+    // If the asset comes from a file with more than one importable thing, we require a string key
+    // to specify which importable this asset represents. It will be an empty string for simple
+    // cases where a file has one importable thing.
+    pub(crate) importable_name: String,
+
     // May be changed without re-importing, and triggers a new build. May be updated when completing
     // an import, either with paths that were not satisfied, or to set the associations we found by
     // heuristic. These can be edited by user (triggering re-processing)
@@ -269,17 +274,26 @@ pub struct ImportInfo {
 }
 
 impl ImportInfo {
-    pub fn new(importer_id: ImporterId/*, import_options: SingleObject*/, source_file_path: PathBuf) -> Self {
+    pub fn new(importer_id: ImporterId/*, import_options: SingleObject*/, source_file_path: PathBuf, importable_name: String) -> Self {
         ImportInfo {
             importer_id,
             //import_options,
             source_file_path,
+            importable_name,
             //referenced_source_file_overrides: Default::default()
         }
     }
 
     pub fn importer_id(&self) -> ImporterId {
         self.importer_id
+    }
+
+    pub fn source_file_path(&self) -> &Path {
+        &self.source_file_path
+    }
+
+    pub fn importable_name(&self) -> &str {
+        &self.importable_name
     }
 }
 
@@ -301,7 +315,7 @@ pub struct DataObjectInfo {
 
     // Stores the configuration/choices that were made when the asset was last imported
     pub(crate) import_info: Option<ImportInfo>,
-    pub(crate) build_info: Option<BuildInfo>,
+    pub(crate) build_info: BuildInfo,
 
     pub(crate) prototype: Option<ObjectId>,
     pub(crate) properties: HashMap<String, Value>,
@@ -363,7 +377,7 @@ impl DataSet {
         object_name: ObjectName,
         object_location: ObjectLocation,
         import_info: Option<ImportInfo>,
-        build_info: Option<BuildInfo>,
+        build_info: BuildInfo,
         schema_set: &SchemaSet,
         prototype: Option<ObjectId>,
         schema: SchemaFingerprint,
@@ -401,7 +415,7 @@ impl DataSet {
             object_name,
             object_location,
             import_info: None,
-            build_info: None,
+            build_info: Default::default(),
             prototype: None,
             properties: Default::default(),
             property_null_overrides: Default::default(),
@@ -424,7 +438,7 @@ impl DataSet {
             object_name,
             object_location,
             import_info: None,
-            build_info: None,
+            build_info: Default::default(),
             prototype: Some(prototype),
             properties: Default::default(),
             property_null_overrides: Default::default(),
@@ -491,12 +505,21 @@ impl DataSet {
         self.objects.get(&object_id).map(|x| x.import_info.as_ref()).flatten()
     }
 
-    pub fn build_info(
-        &self,
-        object_id: ObjectId
-    ) -> Option<&BuildInfo> {
-        self.objects.get(&object_id).map(|x| x.build_info.as_ref()).flatten()
-    }
+    //TODO: Better API for setting path/object references. Implement diff and inheritance values
+
+    // pub fn build_info(
+    //     &self,
+    //     object_id: ObjectId
+    // ) -> Option<&BuildInfo> {
+    //     self.objects.get(&object_id).map(|x| x.build_info.as_ref()).flatten()
+    // }
+    //
+    // pub fn build_info_mut(
+    //     &mut self,
+    //     object_id: ObjectId
+    // ) -> Option<&mut BuildInfo> {
+    //     self.objects.get_mut(&object_id).map(|x| x.build_info.as_mut()).flatten()
+    // }
 
     pub fn object_prototype(
         &self,

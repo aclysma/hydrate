@@ -191,7 +191,8 @@ impl BuildJobs {
             //file.write(&build_hash.to_le_bytes()).unwrap();
         }
 
-        std::fs::write(self.root_path.join("latest.txt"), format!("{:x}", combined_build_hash)).unwrap();
+        //std::fs::write(self.root_path.join("latest.txt"), format!("{:x}", combined_build_hash)).unwrap();
+
 
 
         //self.build_operations.clear();

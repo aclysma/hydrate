@@ -349,8 +349,8 @@ impl ImporterRegistry {
 // Represents a path to another file encountered in a file that will need to be resolved to an asset
 // at build time
 pub struct ReferencedSourceFile {
-    importer_id: ImporterId,
-    path: PathBuf
+    pub importer_id: ImporterId,
+    pub path: PathBuf
 }
 
 // Metadata for all importable data from a file. For example, a GLTF could contain textures, meshes,

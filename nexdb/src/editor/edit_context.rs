@@ -443,6 +443,20 @@ impl EditContext {
         self.data_set.import_info(object_id)
     }
 
+    pub fn build_info(
+        &self,
+        object_id: ObjectId
+    ) -> Option<&BuildInfo> {
+        self.data_set.build_info(object_id)
+    }
+
+    pub fn build_info_mut(
+        &mut self,
+        object_id: ObjectId
+    ) -> Option<&mut BuildInfo> {
+        self.data_set.build_info_mut(object_id)
+    }
+
     pub fn object_prototype(
         &self,
         object_id: ObjectId,

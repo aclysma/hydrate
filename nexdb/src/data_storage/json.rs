@@ -213,6 +213,7 @@ fn store_json_properties(
 pub struct EditContextObjectImportInfoJson {
     importer_id: Uuid,
     source_file_path: String,
+    importable_name: String,
 }
 
 impl EditContextObjectImportInfoJson {
@@ -222,6 +223,7 @@ impl EditContextObjectImportInfoJson {
         EditContextObjectImportInfoJson {
             importer_id: import_info.importer_id.0,
             source_file_path,
+            importable_name: import_info.importable_name.clone()
         }
     }
 
@@ -229,6 +231,7 @@ impl EditContextObjectImportInfoJson {
         ImportInfo {
             importer_id: ImporterId(self.importer_id),
             source_file_path: PathBuf::from_str(&self.source_file_path).unwrap(),
+            importable_name: self.importable_name.clone()
         }
     }
 }

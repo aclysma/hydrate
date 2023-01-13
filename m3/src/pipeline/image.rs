@@ -78,7 +78,7 @@ impl Importer for ImageImporter {
         vec![ScannedImportable {
             name: None,
             asset_type,
-            referenced_source_files: Default::default()
+            file_references: Default::default()
         }]
     }
 
@@ -93,8 +93,7 @@ impl Importer for ImageImporter {
         object_ids: &HashMap<Option<String>, ObjectId>,
         schema: &SchemaSet,
         //import_info: &ImportInfo,
-        referenced_source_file_paths: &mut Vec<PathBuf>,
-    ) -> HashMap<Option<String>, SingleObject> {
+    ) -> HashMap<Option<String>, ImportedImportable> {
         // TODO: Replace with a shim so we can track what files are being read
         // - We trigger the importer for them by specifying the file path and kind of file (i.e. an image, specific type of JSON file, etc.)
         // - We may need to let the "import" dialog try to perform the import to get error messages and discover what will end up being imported
@@ -120,7 +119,10 @@ impl Importer for ImageImporter {
         import_object.set_property_override(schema, "height", Value::U32(height));
 
         let mut imported_objects = HashMap::default();
-        imported_objects.insert(None, import_object);
+        imported_objects.insert(None, ImportedImportable {
+            file_references: Default::default(),
+            data: import_object
+        });
         imported_objects
     }
 }

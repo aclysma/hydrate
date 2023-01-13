@@ -127,7 +127,7 @@ fn load_json_properties(
             if parent_schema.is_nullable() && path_end == "null_override" {
                 let null_override = string_to_null_override_value(value.as_str().unwrap()).unwrap();
                 //edit_context.set_null_override(object_id, path, null_override);
-                log::debug!("set null override {} to {:?}", parent_path, null_override);
+                log::trace!("set null override {} to {:?}", parent_path, null_override);
                 property_null_overrides.insert(parent_path.to_string(), null_override);
                 property_handled = true;
             }
@@ -135,7 +135,7 @@ fn load_json_properties(
             if parent_schema.is_dynamic_array() && path_end == "replace" {
                 if let Some(properties_in_replace_mode) = &mut properties_in_replace_mode {
                     if value.as_bool() == Some(true) {
-                        log::debug!("set property {} to replace", parent_path);
+                        log::trace!("set property {} to replace", parent_path);
                         properties_in_replace_mode.insert(parent_path.to_string());
                     }
                 }
@@ -156,13 +156,13 @@ fn load_json_properties(
                     let existing_entries =
                         dynamic_array_entries.entry(path.to_string()).or_default();
                     if !existing_entries.contains(&element) {
-                        log::debug!("add dynamic array element {} to {:?}", element, path);
+                        log::trace!("add dynamic array element {} to {:?}", element, path);
                         existing_entries.insert(element);
                     }
                 }
             } else {
                 let v = json_to_property_value_with_schema(named_types, &property_schema, &value);
-                log::debug!("set {} to {:?}", path, v);
+                log::trace!("set {} to {:?}", path, v);
                 properties.insert(path.to_string(), v);
             }
         }
@@ -214,6 +214,7 @@ pub struct EditContextObjectImportInfoJson {
     importer_id: Uuid,
     source_file_path: String,
     importable_name: String,
+    file_references: Vec<PathBuf>,
 }
 
 impl EditContextObjectImportInfoJson {
@@ -223,7 +224,8 @@ impl EditContextObjectImportInfoJson {
         EditContextObjectImportInfoJson {
             importer_id: import_info.importer_id.0,
             source_file_path,
-            importable_name: import_info.importable_name.clone()
+            importable_name: import_info.importable_name.clone(),
+            file_references: import_info.file_references.clone(),
         }
     }
 
@@ -231,7 +233,8 @@ impl EditContextObjectImportInfoJson {
         ImportInfo {
             importer_id: ImporterId(self.importer_id),
             source_file_path: PathBuf::from_str(&self.source_file_path).unwrap(),
-            importable_name: self.importable_name.clone()
+            importable_name: self.importable_name.clone(),
+            file_references: self.file_references.clone()
         }
     }
 }
@@ -239,29 +242,29 @@ impl EditContextObjectImportInfoJson {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct EditContextObjectBuildInfoJson {
     #[serde(serialize_with = "ordered_map_uuid")]
-    referenced_source_file_overrides: HashMap<String, Uuid>,
+    file_reference_overrides: HashMap<String, Uuid>,
 }
 
 impl EditContextObjectBuildInfoJson {
     pub fn new(import_info: &BuildInfo) -> Self {
-        let mut referenced_source_file_overrides = HashMap::default();
-        for (k, v) in &import_info.referenced_source_file_overrides {
-            referenced_source_file_overrides.insert(k.to_string_lossy().to_string(), v.as_uuid());
+        let mut file_reference_overrides = HashMap::default();
+        for (k, v) in &import_info.file_reference_overrides {
+            file_reference_overrides.insert(k.to_string_lossy().to_string(), v.as_uuid());
         }
 
         EditContextObjectBuildInfoJson {
-            referenced_source_file_overrides
+            file_reference_overrides
         }
     }
 
     pub fn to_build_info(&self, schema_set: &SchemaSet) -> BuildInfo {
-        let mut referenced_source_file_overrides = HashMap::default();
-        for (k, v) in &self.referenced_source_file_overrides {
-            referenced_source_file_overrides.insert(PathBuf::from_str(k).unwrap(), ObjectId(v.as_u128()));
+        let mut file_reference_overrides = HashMap::default();
+        for (k, v) in &self.file_reference_overrides {
+            file_reference_overrides.insert(PathBuf::from_str(k).unwrap(), ObjectId(v.as_u128()));
         }
 
         BuildInfo {
-            referenced_source_file_overrides
+            file_reference_overrides
         }
     }
 }
@@ -273,7 +276,7 @@ pub struct EditContextObjectJson {
     schema: Uuid,
     schema_name: String,
     import_info: Option<EditContextObjectImportInfoJson>,
-    build_info: Option<EditContextObjectBuildInfoJson>,
+    build_info: EditContextObjectBuildInfoJson,
     prototype: Option<Uuid>,
     #[serde(serialize_with = "ordered_map_json_value")]
     properties: HashMap<String, serde_json::Value>,
@@ -323,7 +326,7 @@ impl EditContextObjectJson {
         );
 
         let import_info = stored_object.import_info.map(|x| x.to_import_info(edit_context.schema_set()));
-        let build_info = stored_object.build_info.map(|x| x.to_build_info(edit_context.schema_set()));
+        let build_info = stored_object.build_info.to_build_info(edit_context.schema_set());
 
         edit_context.restore_object(
             object_id,
@@ -355,7 +358,7 @@ impl EditContextObjectJson {
         );
 
         let import_info = obj.import_info.as_ref().map(|x| EditContextObjectImportInfoJson::new(&x));
-        let build_info = obj.build_info.as_ref().map(|x| EditContextObjectBuildInfoJson::new(&x));
+        let build_info = EditContextObjectBuildInfoJson::new(&obj.build_info);
 
         let mut stored_object = EditContextObjectJson {
             name: obj.object_name.as_string().cloned().unwrap_or_default(),

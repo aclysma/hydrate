@@ -265,21 +265,19 @@ pub struct ImportInfo {
     // cases where a file has one importable thing.
     pub(crate) importable_name: String,
 
-    // May be changed without re-importing, and triggers a new build. May be updated when completing
-    // an import, either with paths that were not satisfied, or to set the associations we found by
-    // heuristic. These can be edited by user (triggering re-processing)
-    //
-    // TODO: Probably want to support undo/redo for this
-    //pub(crate) referenced_source_file_overrides: HashMap<PathBuf, ObjectId>,
+    // All the file references that need to be resolved in order to build the asset (this represents
+    // file references encountered in the input data, and only changes when data is re-imported)
+    pub(crate) file_references: Vec<PathBuf>,
 }
 
 impl ImportInfo {
-    pub fn new(importer_id: ImporterId/*, import_options: SingleObject*/, source_file_path: PathBuf, importable_name: String) -> Self {
+    pub fn new(importer_id: ImporterId/*, import_options: SingleObject*/, source_file_path: PathBuf, importable_name: String, file_references: Vec<PathBuf>) -> Self {
         ImportInfo {
             importer_id,
             //import_options,
             source_file_path,
             importable_name,
+            file_references
             //referenced_source_file_overrides: Default::default()
         }
     }
@@ -300,7 +298,7 @@ impl ImportInfo {
 
 #[derive(Clone, Debug, Default)]
 pub struct BuildInfo {
-    pub(crate) referenced_source_file_overrides: HashMap<PathBuf, ObjectId>,
+    pub(crate) file_reference_overrides: HashMap<PathBuf, ObjectId>,
 }
 
 
@@ -505,7 +503,48 @@ impl DataSet {
         self.objects.get(&object_id).map(|x| x.import_info.as_ref()).flatten()
     }
 
-    //TODO: Better API for setting path/object references. Implement diff and inheritance values
+    // pub fn import_info(
+    //     &self,
+    //     object_id: ObjectId
+    // ) -> Option<&ImportInfo> {
+    //     self.objects.get(&object_id).map(|x| x.import_info.as_ref()).flatten()
+    // }
+
+    fn do_resolve_all_file_references(&self, object_id: ObjectId, all_references: &mut HashMap<PathBuf, ObjectId>) -> bool {
+        let object = self.objects.get(&object_id);
+        if let Some(object) = object {
+            if let Some(prototype) = object.prototype {
+                if !self.do_resolve_all_file_references(prototype, all_references) {
+                    return false;
+                }
+            }
+
+            for (k, v) in &object.build_info.file_reference_overrides {
+                all_references.insert(k.clone(), *v);
+            }
+        } else {
+            return false;
+        }
+
+        true
+    }
+
+    pub fn resolve_all_file_references(&self, object_id: ObjectId) -> Option<HashMap<PathBuf, ObjectId>> {
+        let mut all_references = HashMap::default();
+        if self.do_resolve_all_file_references(object_id, &mut all_references) {
+            Some(all_references)
+        } else {
+            None
+        }
+    }
+
+    pub fn get_all_file_reference_overrides(&mut self, object_id: ObjectId) -> Option<&HashMap<PathBuf, ObjectId>> {
+        self.objects.get(&object_id).map(|x| &x.build_info.file_reference_overrides)
+    }
+
+    pub fn set_file_reference_override(&mut self, object_id: ObjectId, path: PathBuf, referenced_object_id: ObjectId) {
+        self.objects.get_mut(&object_id).map(|x| x.build_info.file_reference_overrides.insert(path, referenced_object_id));
+    }
 
     // pub fn build_info(
     //     &self,

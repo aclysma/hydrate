@@ -1,3 +1,4 @@
+use std::path::PathBuf;
 use crate::value::PropertyValue;
 use crate::{
     DataObjectInfo, DataSet, HashSet, NullOverride, ObjectId, ObjectLocation, ObjectName,
@@ -24,6 +25,8 @@ pub struct ObjectDiff {
     add_properties_in_replace_mode: Vec<String>,
     remove_properties_in_replace_mode: Vec<String>,
     dynamic_array_entry_deltas: Vec<DynamicArrayEntryDelta>,
+    set_file_references: Vec<(PathBuf, ObjectId)>,
+    remove_file_references: Vec<PathBuf>
 }
 
 impl ObjectDiff {
@@ -38,6 +41,8 @@ impl ObjectDiff {
             || !self.add_properties_in_replace_mode.is_empty()
             || !self.remove_properties_in_replace_mode.is_empty()
             || !self.dynamic_array_entry_deltas.is_empty()
+            || !self.set_file_references.is_empty()
+            || !self.remove_file_references.is_empty()
     }
 
     pub fn apply(
@@ -117,6 +122,14 @@ impl ObjectDiff {
                     }
                 }
             }
+        }
+
+        for (k, v) in &self.set_file_references {
+            object.build_info.file_reference_overrides.insert(k.clone(), *v);
+        }
+
+        for k in &self.remove_file_references {
+            object.build_info.file_reference_overrides.remove(k);
         }
     }
 }
@@ -348,6 +361,41 @@ impl ObjectDiffSet {
                             remove: new_entries.iter().copied().collect(),
                         });
                 }
+            }
+        }
+
+        //
+        // File References
+        //
+        for (key, &before_value) in &before_obj.build_info.file_reference_overrides {
+            if let Some(&after_value) = after_obj.build_info.file_reference_overrides.get(key) {
+                if before_value != after_value {
+                    // Value was changed
+                    apply_diff
+                        .set_file_references
+                        .push((key.clone(), after_value));
+                    revert_diff
+                        .set_file_references
+                        .push((key.clone(), before_value));
+                } else {
+                    // No change
+                }
+            } else {
+                // Property was removed
+                apply_diff.remove_file_references.push(key.clone());
+                revert_diff
+                    .set_file_references
+                    .push((key.clone(), before_value));
+            }
+        }
+
+        for (key, &after_value) in &after_obj.build_info.file_reference_overrides {
+            if !before_obj.build_info.file_reference_overrides.contains_key(key) {
+                // Property was added
+                apply_diff
+                    .set_file_references
+                    .push((key.clone(), after_value));
+                revert_diff.remove_file_references.push(key.clone());
             }
         }
 

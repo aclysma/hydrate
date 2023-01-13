@@ -111,7 +111,7 @@ impl BuildJobs {
 
             let builder = builder_registry.builder_for_asset(object_type.fingerprint());
             let builder = if builder.is_none() {
-                log::warn!("can't find builder for object type {}", object_type.name());
+                log::trace!("can't find builder for object type {}", object_type.name());
                 continue;
             } else {
                 builder.unwrap()

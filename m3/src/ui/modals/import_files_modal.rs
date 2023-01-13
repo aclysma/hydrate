@@ -166,10 +166,15 @@ fn import_file(
 
     let scanned_importables = importer.scan_file(file, db_state.editor_model.schema_set());
     for scanned_importable in &scanned_importables {
+        let mut file_references = Vec::default();
+        for file_reference in &scanned_importable.file_references {
+            file_references.push(file_reference.path.clone());
+        }
+
         //
         // When we import, set the import info so we track where the import comes from
         //
-        let import_info = ImportInfo::new(importer.importer_id(), file.to_path_buf(), scanned_importable.name.clone().unwrap_or_default());
+        let import_info = ImportInfo::new(importer.importer_id(), file.to_path_buf(), scanned_importable.name.clone().unwrap_or_default(), file_references);
 
         //
         // Pick name for the asset for this file
@@ -188,7 +193,7 @@ fn import_file(
         let mut referenced_source_file_object_ids = Vec::default();
 
         //TODO: Check referenced source files to find existing imported assets or import referenced files
-        for referenced_source_file in &scanned_importable.referenced_source_files {
+        for referenced_source_file in &scanned_importable.file_references {
             let referenced_file_absolute_path = if referenced_source_file.path.is_relative() {
                 file.parent().unwrap().join(&referenced_source_file.path).canonicalize().unwrap()
             } else {
@@ -214,10 +219,18 @@ fn import_file(
             referenced_source_file_object_ids.push(found);
         }
 
-        assert_eq!(referenced_source_file_object_ids.len(), scanned_importable.referenced_source_files.len());
+        assert_eq!(referenced_source_file_object_ids.len(), scanned_importable.file_references.len());
 
         let object_id = db_state.editor_model.root_edit_context_mut().new_object(&object_name, selected_import_location, &scanned_importable.asset_type);
+        //TODO: Do this when we actually import to avoid potential race conditions
         db_state.editor_model.root_edit_context_mut().set_import_info(object_id, import_info.clone());
+
+        for (k, v) in scanned_importable.file_references.iter().zip(referenced_source_file_object_ids) {
+            if let Some(v) = v {
+                db_state.editor_model.root_edit_context_mut().set_file_reference_override(object_id, k.path.clone(), v);
+            }
+        }
+
         object_ids.insert(scanned_importable.name.clone(), object_id);
 
         //db_state.editor_model.root_edit_context().build_info_mut().

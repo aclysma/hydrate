@@ -130,17 +130,17 @@ impl ImportJobs {
             //let importer_id = importer_registry.asset_to_importer.get(&fingerprint).unwrap();
             let importer = importer_registry.importer(importer_id).unwrap();
 
-            let mut referenced_source_file_paths = Vec::default();
+            //let mut referenced_source_file_paths = Vec::default();
             let imported_objects = importer.import_file(
                 &import_op.path,
                 &import_op.object_ids,
                 editor_model.schema_set(),
-                &mut referenced_source_file_paths
+                //&mut referenced_source_file_paths
             );
 
             for (name, imported_object) in imported_objects {
                 if let Some(object_id) = import_op.object_ids.get(&name) {
-                    let data = SingleObjectJson::save_single_object_to_string(&imported_object);
+                    let data = SingleObjectJson::save_single_object_to_string(&imported_object.data);
                     let path = uuid_to_path(&self.root_path, object_id.as_uuid(), "if");
 
                     if let Some(parent) = path.parent() {
@@ -358,7 +358,12 @@ pub struct ReferencedSourceFile {
 pub struct ScannedImportable {
     pub name: Option<String>,
     pub asset_type: SchemaRecord,
-    pub referenced_source_files: Vec<ReferencedSourceFile>,
+    pub file_references: Vec<ReferencedSourceFile>,
+}
+
+pub struct ImportedImportable {
+    pub file_references: Vec<ReferencedSourceFile>,
+    pub data: SingleObject
 }
 
 // Interface all importers must implement
@@ -381,6 +386,6 @@ pub trait Importer : TypeUuidDynamic {
         object_ids: &HashMap<Option<String>, ObjectId>,
         schema: &SchemaSet,
         //import_info: &ImportInfo,
-        referenced_source_file_paths: &mut Vec<PathBuf>,
-    ) -> HashMap<Option<String>, SingleObject>;
+        //referenced_source_file_paths: &mut Vec<PathBuf>,
+    ) -> HashMap<Option<String>, ImportedImportable>;
 }

@@ -488,11 +488,145 @@ pub(crate) fn find_included_paths(
 
 
 
-pub struct GlslAsset {}
 
-impl GlslAsset {
+
+
+
+
+
+
+
+pub(crate) fn include_impl(
+    requested_path: &Path,
+    include_type: IncludeType,
+    requested_from: &Path,
+    include_depth: usize,
+    schema_set: &SchemaSet,
+    dependency_lookup: &HashMap<(PathBuf, PathBuf), ObjectId>,
+    dependency_data: &HashMap<ObjectId, SingleObject>,
+) -> Result<shaderc::ResolvedInclude, String> {
+    log::trace!(
+        "include file {:?} {:?} {:?} {:?} {:#?}",
+        requested_path,
+        include_type,
+        requested_from,
+        include_depth,
+        dependency_data
+    );
+
+    // what object are we calling from?
+    // what are the path redirects on it?
+    // find the one that matches
+
+    let resolved_path = match include_type {
+        IncludeType::Relative => {
+            if requested_path.is_absolute() {
+                let path = requested_path.to_path_buf();
+                log::trace!("absolute path {:?}", path);
+                path
+            } else {
+                let path = requested_from.parent().unwrap().join(requested_path);
+                log::trace!("from: {:?} relative path: {:?}", requested_from, path);
+                path
+            }
+        }
+        IncludeType::Standard => {
+            //TODO: Implement include paths
+            requested_from.parent().unwrap().join(requested_path)
+        }
+    };
+
+    log::trace!(
+        "Need to read file {:?} when trying to include {:?} from {:?}",
+        resolved_path, requested_path, requested_from
+    );
+
+    let referenced_object = dependency_lookup.get(&(requested_from.to_path_buf(), requested_path.to_path_buf()));
+    if let Some(referenced_object_id) = referenced_object {
+        if let Some(dependency_data) = dependency_data.get(referenced_object_id) {
+            println!("Resolved the content");
+            let content = dependency_data.resolve_property(schema_set, "code").unwrap().as_string().unwrap().to_string();
+            return Ok(shaderc::ResolvedInclude {
+                resolved_name: resolved_path.to_str().unwrap().to_string(),
+                content,
+            });
+        } else {
+            Err(
+                format!(
+                    "Path {:?} resolved to {:?}, but the import data could not be found",
+                    resolved_path, referenced_object_id
+                )
+            )
+        }
+    } else {
+        Err(
+            format!(
+                "Could not find a file reference for {:?} -> {:?}",
+                requested_from, resolved_path
+            )
+        )
+    }
+
+
+    //let content = "".to_string();
+
+    // let content = std::fs::read_to_string(&resolved_path).map_err(|e| {
+    //     format!(
+    //         "Could not read file {:?} when trying to include {:?} from {:?}: {:?}",
+    //         resolved_path, requested_path, requested_from, e
+    //     )
+    // })?;
+
+    // Ok(shaderc::ResolvedInclude {
+    //     resolved_name: resolved_path.to_str().unwrap().to_string(),
+    //     content,
+    // })
+}
+
+// pub(crate) fn shaderc_include_callback(
+//     requested_path: &str,
+//     include_type: shaderc::IncludeType,
+//     requested_from: &str,
+//     include_depth: usize,
+// ) -> shaderc::IncludeCallbackResult {
+//     let requested_path: PathBuf = requested_path.into();
+//     let requested_from: PathBuf = requested_from.into();
+//     include_impl(
+//         &requested_path,
+//         include_type.into(),
+//         &requested_from,
+//         include_depth,
+//     )
+//         //.map(|x| x.into())
+//         .map_err(|x| x.into())
+// }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+pub struct GlslSourceFileAsset {}
+
+impl GlslSourceFileAsset {
     pub fn schema_name() -> &'static str {
-        "GlslAsset"
+        "GlslSourceFileAsset"
     }
 
     pub fn register_schema(linker: &mut SchemaLinker) {
@@ -504,11 +638,11 @@ impl GlslAsset {
     }
 }
 
-pub struct GlslImportedData {}
+pub struct GlslSourceFileImportedData {}
 
-impl GlslImportedData {
+impl GlslSourceFileImportedData {
     pub fn schema_name() -> &'static str {
-        "GlslImportedData"
+        "GlslSourceFileImportedData"
     }
 
     pub fn register_schema(linker: &mut SchemaLinker) {
@@ -522,37 +656,56 @@ impl GlslImportedData {
 
 
 #[derive(Serialize, Deserialize)]
-struct GlslBuiltData {
+struct GlslSourceFileBuiltData {
     code: String,
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 pub struct GlslAssetPlugin;
 
 impl AssetPlugin for GlslAssetPlugin {
     fn setup(schema_linker: &mut SchemaLinker, importer_registry: &mut ImporterRegistry, builder_registry: &mut BuilderRegistry) {
-        GlslAsset::register_schema(schema_linker);
-        GlslImportedData::register_schema(schema_linker);
+        GlslSourceFileAsset::register_schema(schema_linker);
+        GlslSourceFileImportedData::register_schema(schema_linker);
+        GlslBuildTargetAsset::register_schema(schema_linker);
 
-        importer_registry.register_handler::<GlslImporter>(schema_linker);
-        builder_registry.register_handler::<GlslBuilder>(schema_linker);
+        importer_registry.register_handler::<GlslSourceFileImporter>(schema_linker);
+        //builder_registry.register_handler::<GlslBuilder>(schema_linker);
+
+        builder_registry.register_handler::<GlslBuildTargetBuilder>(schema_linker);
     }
 }
 
 #[derive(TypeUuid, Default)]
 #[uuid = "d2b0a4ec-5b57-4251-8bd4-affa1755f7cc"]
-pub struct GlslImporter;
+pub struct GlslSourceFileImporter;
 
-impl Importer for GlslImporter {
+impl Importer for GlslSourceFileImporter {
     fn supported_file_extensions(&self) -> &[&'static str] {
         &["glsl", "vert"]
     }
 
     fn scan_file(&self, path: &Path, schema_set: &SchemaSet) -> Vec<ScannedImportable> {
-        log::info!("GlslImporter reading file {:?}", path);
+        log::info!("GlslSourceFileImporter reading file {:?}", path);
         let code = std::fs::read_to_string(path).unwrap();
-        let code: Vec<_> = code.chars().collect();
+        let code_chars: Vec<_> = code.chars().collect();
 
-        let referenced_source_files: Vec<_> = find_included_paths(&code).unwrap().into_iter().map(|path| {
+        let referenced_source_files: Vec<_> = find_included_paths(&code_chars).unwrap().into_iter().map(|path| {
             ReferencedSourceFile {
                 importer_id: self.importer_id(),
                 path
@@ -580,11 +733,11 @@ impl Importer for GlslImporter {
 
         //TODO: Find the include paths
 
-        let asset_type = schema_set.find_named_type(GlslAsset::schema_name()).unwrap().as_record().unwrap().clone();
+        let asset_type = schema_set.find_named_type(GlslSourceFileAsset::schema_name()).unwrap().as_record().unwrap().clone();
         vec![ScannedImportable {
             name: None,
             asset_type,
-            referenced_source_files
+            file_references: referenced_source_files
         }]
     }
 
@@ -594,35 +747,172 @@ impl Importer for GlslImporter {
         object_ids: &HashMap<Option<String>, ObjectId>,
         schema: &SchemaSet,
         //import_info: &ImportInfo,
-        referenced_source_file_paths: &mut Vec<PathBuf>,
-    ) -> HashMap<Option<String>, SingleObject> {
+    ) -> HashMap<Option<String>, ImportedImportable> {
+        let code = std::fs::read_to_string(path).unwrap();
+        let code_chars: Vec<_> = code.chars().collect();
+
+        let referenced_source_files: Vec<_> = find_included_paths(&code_chars).unwrap().into_iter().map(|path| {
+            ReferencedSourceFile {
+                importer_id: self.importer_id(),
+                path
+            }
+        }).collect();
 
         let glsl_imported_data_schema = schema
-            .find_named_type(GlslImportedData::schema_name())
+            .find_named_type(GlslSourceFileImportedData::schema_name())
             .unwrap()
             .as_record()
             .unwrap();
 
         let mut import_object = SingleObject::new(glsl_imported_data_schema);
-        import_object.set_property_override(schema, "code", Value::String("".to_string()));
+        import_object.set_property_override(schema, "code", Value::String(code));
 
         let mut imported_objects = HashMap::default();
-        imported_objects.insert(None, import_object);
+        imported_objects.insert(None, ImportedImportable {
+            file_references: referenced_source_files,
+            data: import_object
+        });
         imported_objects
     }
 }
 
+// #[derive(TypeUuid, Default)]
+// #[uuid = "884303cd-3655-4a72-9131-b07b5121ed29"]
+// pub struct GlslBuilder {}
+//
+// impl Builder for GlslBuilder {
+//     fn asset_type(&self) -> &'static str {
+//         GlslSourceFileAsset::schema_name()
+//     }
+//
+//     fn dependencies(&self, asset_id: ObjectId, data_set: &DataSet, schema: &SchemaSet) -> Vec<ObjectId> {
+//         vec![asset_id]
+//     }
+//
+//     fn build_asset(
+//         &self,
+//         asset_id: ObjectId,
+//         data_set: &DataSet,
+//         schema: &SchemaSet,
+//         dependency_data: &HashMap<ObjectId, SingleObject>
+//     ) -> Vec<u8> {
+//         //
+//         // Read asset properties
+//         //
+//         // let compressed = data_set
+//         //     .resolve_property(schema, asset_id, "compress")
+//         //     .unwrap()
+//         //     .as_boolean()
+//         //     .unwrap();
+//
+//         //
+//         // Read imported data
+//         //
+//         let imported_data = &dependency_data[&asset_id];
+//         let code = imported_data
+//             .resolve_property(schema, "code")
+//             .unwrap()
+//             .as_string()
+//             .unwrap()
+//             .to_string();
+//
+//         let processed_data = GlslSourceFileBuiltData {
+//             code,
+//         };
+//
+//         let serialized = bincode::serialize(&processed_data).unwrap();
+//         serialized
+//     }
+// }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+pub struct GlslBuildTargetAsset {
+    entry_point: String,
+    source_file: ObjectId,
+}
+
+
+impl GlslBuildTargetAsset {
+    pub fn schema_name() -> &'static str {
+        "GlslBuildTargetAsset"
+    }
+
+    pub fn register_schema(linker: &mut SchemaLinker) {
+        linker
+            .register_record_type(Self::schema_name(), |x| {
+                x.add_string("entry_point");
+                x.add_reference("source_file", "GlslSourceFileAsset");
+            })
+            .unwrap();
+    }
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct GlslBuildTargetBuiltData {
+    spv: Vec<u8>
+}
+
+
+
+
+
+
+
 #[derive(TypeUuid, Default)]
 #[uuid = "884303cd-3655-4a72-9131-b07b5121ed29"]
-pub struct GlslBuilder {}
+pub struct GlslBuildTargetBuilder {}
 
-impl Builder for GlslBuilder {
+impl Builder for GlslBuildTargetBuilder {
     fn asset_type(&self) -> &'static str {
-        GlslAsset::schema_name()
+        GlslBuildTargetAsset::schema_name()
     }
 
     fn dependencies(&self, asset_id: ObjectId, data_set: &DataSet, schema: &SchemaSet) -> Vec<ObjectId> {
-        vec![asset_id]
+        let source_file = data_set
+            .resolve_property(schema, asset_id, "source_file")
+            .unwrap()
+            .as_object_ref()
+            .unwrap();
+
+        //TODO: Error?
+        if source_file.is_null() {
+            return vec![];
+        }
+
+        // Set up the referenced source file to be visited
+        let mut queued = HashSet::default();
+        let mut visit_queue = VecDeque::default();
+        visit_queue.push_back(source_file);
+        queued.insert(source_file);
+
+        // Follow references to find all included source files without re-visiting the same file twice
+        while let Some(next_reference) = visit_queue.pop_front() {
+            let references = data_set
+                .resolve_all_file_references(next_reference)
+                .unwrap();;
+
+            for (_, &v) in &references {
+                if !queued.contains(&v) {
+                    visit_queue.push_back(v);
+                    queued.insert(v);
+                }
+            }
+        }
+
+        queued.into_iter().collect()
     }
 
     fn build_asset(
@@ -644,17 +934,92 @@ impl Builder for GlslBuilder {
         //
         // Read imported data
         //
-        let imported_data = &dependency_data[&asset_id];
-        let code = imported_data
-            .resolve_property(schema, "code")
+        //let imported_data = &dependency_data[&asset_id];
+
+        let entry_point = data_set
+            .resolve_property(schema, asset_id, "entry_point")
             .unwrap()
             .as_string()
             .unwrap()
             .to_string();
 
-        let processed_data = GlslBuiltData {
-            code,
+        let source_file = data_set
+            .resolve_property(schema, asset_id, "source_file")
+            .unwrap()
+            .as_object_ref()
+            .unwrap();
+
+        let mut dependency_lookup = HashMap::default();
+        for (&dependency_object_id, _) in dependency_data {
+            let all_references = data_set.resolve_all_file_references(dependency_object_id).unwrap();
+            let this_path = data_set.import_info(dependency_object_id).unwrap().source_file_path();
+
+            for (ref_path, ref_obj) in all_references {
+                dependency_lookup.insert((this_path.to_path_buf(), ref_path), ref_obj);
+            }
+        }
+
+        println!("DEPENDENCY LOOKUPS {:?}", dependency_lookup);
+
+
+        let mut processed_data = GlslBuildTargetBuiltData {
+            spv: Default::default(),
         };
+
+        //TODO: Return error if source file not found
+        if !source_file.is_null() {
+            let source_file_import_info = data_set.import_info(source_file).unwrap();
+            let source_file_import_data = &dependency_data[&source_file];
+            let code = source_file_import_data.resolve_property(schema, "code").unwrap().as_string().unwrap().to_string();
+
+
+            let shaderc_include_callback = |
+                requested_path: &str,
+                include_type: shaderc::IncludeType,
+                requested_from: &str,
+                include_depth: usize,
+            | -> shaderc::IncludeCallbackResult {
+                let requested_path: PathBuf = requested_path.into();
+                let requested_from: PathBuf = requested_from.into();
+                include_impl(
+                    &requested_path,
+                    include_type.into(),
+                    &requested_from,
+                    include_depth,
+                    schema,
+                    &dependency_lookup,
+                    dependency_data
+                ).map_err(|x| x.into())
+            };
+
+
+
+
+
+            let mut compile_options = shaderc::CompileOptions::new().unwrap();
+            compile_options.set_include_callback(shaderc_include_callback);
+            compile_options.set_optimization_level(shaderc::OptimizationLevel::Performance);
+            //NOTE: Could also use shaderc::OptimizationLevel::Size
+
+            let compiler = shaderc::Compiler::new().unwrap();
+            let compiled_code = compiler
+                .compile_into_spirv(
+                    &code,
+                    shaderc::ShaderKind::Vertex,
+                    source_file_import_info.source_file_path().to_str().unwrap(),
+                    &entry_point,
+                    Some(&compile_options),
+                );
+
+            if let Ok(compiled_code) = compiled_code {
+                println!("SUCCESS BUILDING SHADER");
+                processed_data.spv = compiled_code
+                    .as_binary_u8()
+                    .to_vec();
+            } else {
+                println!("Error: {:?}", compiled_code.err());
+            }
+        }
 
         let serialized = bincode::serialize(&processed_data).unwrap();
         serialized

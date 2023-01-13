@@ -1,3 +1,4 @@
+use std::path::PathBuf;
 use std::sync::mpsc::Sender;
 use std::sync::Arc;
 use uuid::Uuid;
@@ -370,7 +371,7 @@ impl EditContext {
         object_name: ObjectName,
         object_location: ObjectLocation,
         import_info: Option<ImportInfo>,
-        build_info: Option<BuildInfo>,
+        build_info: BuildInfo,
         prototype: Option<ObjectId>,
         schema: SchemaFingerprint,
         properties: HashMap<String, Value>,
@@ -443,18 +444,17 @@ impl EditContext {
         self.data_set.import_info(object_id)
     }
 
-    pub fn build_info(
-        &self,
-        object_id: ObjectId
-    ) -> Option<&BuildInfo> {
-        self.data_set.build_info(object_id)
+    pub fn resolve_all_file_references(&self, object_id: ObjectId) -> Option<HashMap<PathBuf, ObjectId>> {
+        self.data_set.resolve_all_file_references(object_id)
     }
 
-    pub fn build_info_mut(
-        &mut self,
-        object_id: ObjectId
-    ) -> Option<&mut BuildInfo> {
-        self.data_set.build_info_mut(object_id)
+    pub fn get_all_file_reference_overrides(&mut self, object_id: ObjectId) -> Option<&HashMap<PathBuf, ObjectId>> {
+        self.data_set.get_all_file_reference_overrides(object_id)
+    }
+
+    pub fn set_file_reference_override(&mut self, object_id: ObjectId, path: PathBuf, referenced_object_id: ObjectId) {
+        self.track_existing_object(object_id);
+        self.data_set.set_file_reference_override(object_id, path, referenced_object_id);
     }
 
     pub fn object_prototype(

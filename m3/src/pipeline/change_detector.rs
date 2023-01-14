@@ -1,6 +1,6 @@
 use std::path::Path;
 use std::time::SystemTime;
-use nexdb::dir_tree_blob_store::path_to_uuid;
+use nexdb::uuid_path::path_to_uuid;
 use nexdb::{HashMap, ObjectId};
 
 pub struct FileMetadata {

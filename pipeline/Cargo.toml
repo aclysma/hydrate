@@ -1,16 +1,8 @@
 [package]
-name = "asset-engine"
+name = "pipeline"
 version = "0.1.0"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-uuid = "0.8.2"
-crossbeam-channel = "0.5.2"
-notify = "4.0"
-
-dunce = "1.0"
-path-clean = "0.1"
-path-slash = "0.1.1"
-log = "0.4.14"

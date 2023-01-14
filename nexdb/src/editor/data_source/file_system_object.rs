@@ -1,43 +1,14 @@
 use crate::edit_context::EditContext;
-use crate::storage::dir_tree_blob_store::{path_to_uuid, uuid_to_path};
+use crate::uuid_path::{path_to_uuid, uuid_to_path};
 use crate::{DataSource, HashMap, HashSet, ObjectId, ObjectLocation, ObjectPath, ObjectSourceId};
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 use uuid::Uuid;
 
-#[derive(Serialize, Deserialize, Debug)]
-struct DirectoryFile {
-    name: String,
-    parent_dir: Option<Uuid>,
-}
-
-fn find_dir_files(root_path: &Path) -> HashMap<Uuid, DirectoryFile> {
-    let walker = globwalk::GlobWalkerBuilder::from_patterns(root_path, &["**.d"])
-        .file_type(globwalk::FileType::FILE)
-        .build()
-        .unwrap();
-
-    let mut directories = HashMap::<Uuid, DirectoryFile>::default();
-
-    for file in walker {
-        if let Ok(file) = file {
-            println!("dir file {:?}", file);
-            let dir_uuid = path_to_uuid(root_path, file.path()).unwrap();
-            let contents = std::fs::read_to_string(file.path()).unwrap();
-            let dir_file: DirectoryFile = serde_json::from_str(&contents).unwrap();
-
-            directories.insert(dir_uuid, dir_file);
-        }
-    }
-
-    directories
-}
-
 fn load_asset_files(
     edit_context: &mut EditContext,
     root_path: &Path,
     object_source_id: ObjectSourceId,
-    dir_uuid_to_path: &HashMap<Uuid, ObjectPath>,
     all_object_ids_on_disk: &mut HashSet<ObjectId>,
 ) {
     let walker = globwalk::GlobWalkerBuilder::from_patterns(root_path, &["**.af"])
@@ -88,45 +59,12 @@ impl DataSource for FileSystemObjectDataSource {
         &mut self,
         edit_context: &mut EditContext,
     ) {
-        let dir_files = find_dir_files(&self.file_system_root_path);
-
-        let mut dir_uuid_to_path = HashMap::<Uuid, ObjectPath>::default();
-        let mut path_to_dir_uuid = HashMap::<ObjectPath, Uuid>::default();
-        for (uuid, dir_file) in &dir_files {
-            let mut parent_names: Vec<String> = Default::default();
-            parent_names.push(dir_file.name.clone());
-
-            let mut df = dir_file;
-            while let Some(parent_dir) = df.parent_dir {
-                if let Some(parent_dir_file) = dir_files.get(&parent_dir) {
-                    parent_names.push(parent_dir_file.name.clone());
-                    df = parent_dir_file;
-                } else {
-                    //TODO: Could not find parent, how do we handle?
-                    break;
-                }
-            }
-
-            let mut path = ObjectPath::root();
-            for parent_name in parent_names.iter().rev() {
-                path = path.join(parent_name);
-            }
-
-            dir_uuid_to_path.insert(*uuid, path.clone());
-            path_to_dir_uuid.insert(path, *uuid);
-        }
-
-        //println!("dir_uuid_to_path {:?}", dir_uuid_to_path);
-
         load_asset_files(
             edit_context,
             &self.file_system_root_path,
             self.object_source_id,
-            &dir_uuid_to_path,
             &mut self.all_object_ids_on_disk,
         );
-        //self.dir_uuid_to_path = dir_uuid_to_path;
-        //self.path_to_dir_uuid = path_to_dir_uuid;
     }
 
     fn save_all_modified(
@@ -230,107 +168,7 @@ impl FileSystemObjectDataSource {
         FileSystemObjectDataSource {
             object_source_id,
             file_system_root_path: file_system_root_path.into(),
-            //dir_uuid_to_path: Default::default(),
-            //path_to_dir_uuid: Default::default(),
             all_object_ids_on_disk: Default::default(),
         }
     }
-
-    fn get_or_create_dir(
-        &mut self,
-        path: &ObjectPath,
-    ) -> Option<Uuid> {
-        // Root always exists, does not need a path node
-        if path.is_root_path() {
-            return None;
-        }
-
-        unimplemented!();
-    }
-
-    /*
-    fn get_or_create_dir(&mut self, path: &ObjectPath) -> Option<Uuid> {
-        // Root always exists, does not need a dir file/UUID
-        if path.is_root_path() {
-            return None;
-        }
-
-        if let Some(uuid) = self.path_to_dir_uuid.get(path) {
-            // Dir exists, return it
-            Some(*uuid)
-        } else {
-            // Dir doesn't exist, get_or_create the parent, then create the dir.
-            // We can assume this returns Some because we early-out above if it's the root path
-            let (parent_path, name) = path.parent_path_and_name().unwrap();
-            let parent_path_uuid = self.get_or_create_dir(&parent_path);
-
-            // let parent_path_uuid = if let Some(parent_path) = parent_path {
-            //     // Parent isn't a root path, get or create it
-            //     self.get_or_create_dir(&parent_path)
-            // } else {
-            //     // Parent dir is root path and doesn't need to be created
-            //     None
-            // };
-
-            let dir_uuid = Uuid::new_v4();
-
-            //
-            // Write the dir file
-            //
-            let dir_file = DirectoryFile {
-                parent_dir: parent_path_uuid,
-                name
-            };
-
-            let dir_file_contents = serde_json::to_string_pretty(&dir_file).unwrap();
-            let dir_file_path = uuid_to_path(&self.file_system_root_path, dir_uuid, "d");
-
-            // Create directories if needed
-            if let Some(parent) = dir_file_path.parent() {
-                std::fs::create_dir_all(parent).unwrap();
-            }
-            // Write the file
-            std::fs::write(dir_file_path, dir_file_contents).unwrap();
-
-            //
-            // Update local state
-            //
-            self.path_to_dir_uuid.insert(path.clone(), dir_uuid);
-            self.dir_uuid_to_path.insert(dir_uuid, path.clone());
-
-            Some(dir_uuid)
-        }
-
-        // if !self.path_to_dir_uuid.contains_key(&path) {
-        //     let parent_path_uuid = if let Some(parent_path) = path.parent_path() {
-        //         self.ensure_dir_objects_exist(parent_path)
-        //     } else {
-        //         None
-        //     };
-        //
-        //     DirectoryFile {
-        //         parent_dir:
-        //     }
-        //
-        //     Uuid::new_v4();
-        //
-        //     // let components = path.split_components();
-        //     //
-        //     // let mut path = ObjectPath::root();
-        //     // for component in components {
-        //     //     path = path.join(component);
-        //     //     if !self.path_to_dir_uuid
-        //     // }
-        // }
-
-
-    }
-    */
-
-    // pub fn object_id_to_file_system_path(
-    //     &self,
-    //     object_id: ObjectId,
-    // ) -> PathBuf {
-    //     uuid_to_path(&self.file_system_root_path, object_id.as_uuid())
-    // }
 }

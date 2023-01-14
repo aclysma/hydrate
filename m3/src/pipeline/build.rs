@@ -11,7 +11,7 @@ use rafx::api::objc::runtime::Object;
 use uuid::Uuid;
 use type_uuid::{TypeUuid, TypeUuidDynamic};
 
-use nexdb::dir_tree_blob_store::{path_to_uuid, uuid_and_hash_to_path, uuid_to_path};
+use nexdb::uuid_path::{path_to_uuid, uuid_and_hash_to_path, uuid_to_path};
 use nexdb::edit_context::EditContext;
 use nexdb::json::SingleObjectJson;
 use crate::pipeline::ImportJobs;

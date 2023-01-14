@@ -20,7 +20,6 @@ use ui::draw_ui;
 use crate::db_state::DbState;
 use crate::pipeline::{AssetEngine, AssetEngineBuilder, BlenderMaterialAssetPlugin, BuilderRegistry, BuildJobs, GlslAssetPlugin, ImageAssetPlugin, ImageBuilder, ImageImporter, ImporterRegistry, ImportJobs, SimpleDataAssetPlugin};
 
-// Creates a window and runs the event loop.
 pub fn run() {
     let mut linker = SchemaLinker::default();
 
@@ -32,6 +31,12 @@ pub fn run() {
 
     let db_state = DbState::load_or_init_empty(linker);
     let asset_engine = asset_engine_builder.build(&db_state.editor_model);
+
+    ui_loop(db_state, asset_engine);
+}
+
+// Creates a window and runs the event loop.
+pub fn ui_loop(db_state: DbState, asset_engine: AssetEngine) {
 
     let mut app_state = AppState::new(db_state, asset_engine);
 

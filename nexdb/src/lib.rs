@@ -10,6 +10,8 @@ pub type HashSetIter<'a, T> = std::collections::hash_set::Iter<'a, T>;
 use std::fmt::{Debug, Formatter};
 use uuid::Uuid;
 
+pub mod uuid_path;
+
 #[derive(Copy, Clone, PartialEq, Eq, Hash)]
 pub struct SchemaFingerprint(u128);
 impl SchemaFingerprint {
@@ -93,5 +95,5 @@ pub use data_storage::*;
 mod editor;
 pub use editor::*;
 
-mod storage;
-pub use storage::*;
+// mod storage;
+// pub use storage::*;

@@ -7,6 +7,8 @@ edition = "2018"
 
 [dependencies]
 nexdb = { path = "../nexdb" }
+pipeline = { path = "../pipeline" }
+plugins = { path = "../plugins" }
 
 #bevy = { path = "../vendor/bevy" }
 #bevy = "0.5"
@@ -29,10 +31,7 @@ winit = "0.24"
 glam = "0.18.0"
 globwalk = "0.8.1"
 
-image = "0.23.12"
-basis-universal = "0.2.0"
 serde = { default-features = false, version = "1.0.145", features = ["derive"] }
 serde_json = { default-features = false, version = "1.0.85", features = ["std"] }
 siphasher = "0.3"
 type-uuid = "0.1.2"
-shaderc = "0.8"

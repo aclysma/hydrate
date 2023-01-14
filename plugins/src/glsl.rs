@@ -4,6 +4,7 @@ use std::path::{Path, PathBuf};
 pub use super::*;
 
 use nexdb::{DataSet, EditorModel, HashMap, HashSet, ObjectId, ObjectLocation, ObjectName, SchemaLinker, SchemaSet, SingleObject, Value};
+use pipeline::{AssetPlugin, Builder, BuilderRegistry, ImportedImportable, Importer, ImporterRegistry, ReferencedSourceFile, ScannedImportable};
 use type_uuid::TypeUuid;
 use serde::{Serialize, Deserialize};
 use shaderc::IncludeType;

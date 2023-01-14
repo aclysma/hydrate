@@ -5,7 +5,7 @@ use crate::QueuedActions;
 use imgui::{im_str, PopupModal};
 use nexdb::edit_context::EditContext;
 use nexdb::{EditorModel, HashSet, ObjectId, ObjectLocation};
-use crate::pipeline::{AssetEngine, ImporterRegistry, ImportJobs};
+use pipeline::{AssetEngine, ImporterRegistry, ImportJobs};
 
 pub struct ConfirmQuitWithoutSavingModal {
     finished_first_draw: bool,

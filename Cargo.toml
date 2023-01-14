@@ -3,6 +3,7 @@ members = [
     "base",
     "nexdb",
     "pipeline",
+    "plugins",
     "m3",
 ]
 

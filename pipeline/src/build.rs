@@ -1,20 +1,15 @@
 use std::fs::File;
 use std::hash::{Hash, Hasher};
 use std::io::Write;
-use ::image::{EncodableLayout, GenericImageView};
 use nexdb::{DataSet, DataSource, EditorModel, FileSystemObjectDataSource, HashMap, HashMapKeys, BuilderId, BuildInfo, ObjectId, ObjectLocation, ObjectName, ObjectSourceId, Schema, SchemaFingerprint, SchemaLinker, SchemaNamedType, SchemaRecord, SchemaSet, SingleObject, Value};
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
-use imnodes::EditorContext;
-use rafx::api::objc::runtime::Object;
-use uuid::Uuid;
-use type_uuid::{TypeUuid, TypeUuidDynamic};
 
 use nexdb::uuid_path::{path_to_uuid, uuid_and_hash_to_path, uuid_to_path};
 use nexdb::edit_context::EditContext;
 use nexdb::json::SingleObjectJson;
-use crate::pipeline::ImportJobs;
+use super::ImportJobs;
 
 
 // An in-flight build operation we want to perform
@@ -275,7 +270,7 @@ impl BuildJobs {
 // Keeps track of all known builders
 #[derive(Default)]
 pub struct BuilderRegistry {
-    registered_builders: Vec<Box<Builder>>,
+    registered_builders: Vec<Box<dyn Builder>>,
     //file_extension_associations: HashMap<String, Vec<BuilderId>>,
     asset_type_to_builder: HashMap<SchemaFingerprint, BuilderId>,
 }
@@ -313,7 +308,7 @@ impl BuilderRegistry {
     //     self.file_extension_associations.get(extension).map(|x| x.as_slice()).unwrap_or(EMPTY_LIST)
     // }
 
-    pub fn builder_for_asset(&self, fingerprint: SchemaFingerprint) -> Option<&Box<Builder>> {
+    pub fn builder_for_asset(&self, fingerprint: SchemaFingerprint) -> Option<&Box<dyn Builder>> {
         // if let Some(builder_id) = self.asset_type_to_builder.get(&fingerprint).copied() {
         //     Some(&self.registered_builders[builder_id.0])
         // } else {

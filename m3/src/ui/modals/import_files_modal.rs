@@ -5,7 +5,7 @@ use imgui::sys::ImVec2;
 use imgui::{im_str, PopupModal, StyleColor, TreeNodeFlags};
 use nexdb::{HashMap, ImporterId, ImportInfo, LocationTreeNode, ObjectId, ObjectLocation, ObjectName};
 use std::path::{Path, PathBuf};
-use crate::pipeline::{AssetEngine, Importer, ImporterRegistry, ImportJobs};
+use pipeline::{AssetEngine, Importer, ImporterRegistry, ImportJobs};
 
 pub struct ImportFilesModal {
     finished_first_draw: bool,

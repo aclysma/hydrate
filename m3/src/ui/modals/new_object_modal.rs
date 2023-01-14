@@ -5,7 +5,7 @@ use imgui::sys::ImVec2;
 use imgui::{im_str, ImString, PopupModal};
 use nexdb::{HashSet, ObjectLocation, ObjectName, SchemaFingerprint};
 use std::path::PathBuf;
-use crate::pipeline::{AssetEngine, ImporterRegistry, ImportJobs};
+use pipeline::{AssetEngine, ImporterRegistry, ImportJobs};
 
 pub struct NewObjectModal {
     finished_first_draw: bool,

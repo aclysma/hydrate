@@ -1,7 +1,7 @@
 use std::marker::PhantomData;
 use serde::{Deserialize, Serialize};
 use nexdb::{DataSet, HashMap, ObjectId, SchemaLinker, SchemaSet, SingleObject};
-use crate::pipeline::{AssetPlugin, Builder, BuilderRegistry, ImporterRegistry};
+use pipeline::{AssetPlugin, Builder, BuilderRegistry, ImporterRegistry};
 
 pub trait SimpleData: Sized + Serialize + for<'a> Deserialize<'a> {
     fn schema_name() -> &'static str;

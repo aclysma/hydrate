@@ -7,7 +7,6 @@ mod db_state;
 mod imgui_support;
 //mod builders;
 //mod importers;
-mod pipeline;
 mod ui;
 
 mod app_state;
@@ -18,7 +17,8 @@ mod ui_state;
 use crate::app_state::QueuedActions;
 use ui::draw_ui;
 use crate::db_state::DbState;
-use crate::pipeline::{AssetEngine, AssetEngineBuilder, BlenderMaterialAssetPlugin, BuilderRegistry, BuildJobs, GlslAssetPlugin, ImageAssetPlugin, ImageBuilder, ImageImporter, ImporterRegistry, ImportJobs, SimpleDataAssetPlugin};
+use pipeline::{AssetEngine, AssetEngineBuilder, BuilderRegistry, BuildJobs, ImporterRegistry, ImportJobs};
+use plugins::{BlenderMaterialAssetPlugin, GlslAssetPlugin, ImageAssetPlugin, SimpleDataAssetPlugin};
 
 pub fn run() {
     let mut linker = SchemaLinker::default();
@@ -30,7 +30,7 @@ pub fn run() {
         .register_plugin::<SimpleDataAssetPlugin>(&mut linker);
 
     let db_state = DbState::load_or_init_empty(linker);
-    let asset_engine = asset_engine_builder.build(&db_state.editor_model);
+    let asset_engine = asset_engine_builder.build(&db_state.editor_model, DbState::import_data_source_path(), DbState::build_data_source_path());
 
     ui_loop(db_state, asset_engine);
 }

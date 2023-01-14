@@ -5,6 +5,7 @@ use nexdb::{DataSet, EditorModel, HashMap, ObjectId, ObjectLocation, ObjectName,
 use type_uuid::TypeUuid;
 use serde::{Serialize, Deserialize};
 use nexdb::value::ValueEnum;
+use pipeline::{AssetPlugin, Builder, BuilderRegistry, ImportedImportable, Importer, ImporterRegistry, ScannedImportable};
 
 // Import this data to be "Default" values?
 // - Import overwrites any unchanged values?

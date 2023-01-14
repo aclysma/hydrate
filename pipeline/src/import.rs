@@ -1,11 +1,8 @@
 use std::hash::{Hash, Hasher};
-use ::image::{EncodableLayout, GenericImageView};
 use nexdb::{DataSet, DataSource, EditorModel, FileSystemObjectDataSource, HashMap, HashMapKeys, ImporterId, ImportInfo, ObjectId, ObjectLocation, ObjectName, ObjectSourceId, Schema, SchemaFingerprint, SchemaLinker, SchemaNamedType, SchemaRecord, SchemaSet, SingleObject, Value};
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
-use imnodes::EditorContext;
-use rafx::api::objc::runtime::Object;
 use uuid::Uuid;
 use type_uuid::{TypeUuid, TypeUuidDynamic};
 
@@ -242,7 +239,7 @@ impl ImportJobs {
 // Keeps track of all known importers
 #[derive(Default)]
 pub struct ImporterRegistry {
-    registered_importers: HashMap<ImporterId, Box<Importer>>,
+    registered_importers: HashMap<ImporterId, Box<dyn Importer>>,
     file_extension_associations: HashMap<String, Vec<ImporterId>>,
     //asset_to_importer: HashMap<SchemaFingerprint, ImporterId>,
 }
@@ -290,7 +287,7 @@ impl ImporterRegistry {
     //     self.asset_to_importer.get(&fingerprint).copied()
     // }
 
-    pub fn importer(&self, importer_id: ImporterId) -> Option<&Box<Importer>> {
+    pub fn importer(&self, importer_id: ImporterId) -> Option<&Box<dyn Importer>> {
         self.registered_importers.get(&importer_id)
     }
 }

@@ -10,7 +10,7 @@ use std::fmt::Formatter;
 use std::path::PathBuf;
 use std::sync::mpsc::{Receiver, Sender};
 use std::sync::{mpsc, Arc};
-use crate::pipeline::{AssetEngine, Builder, BuilderRegistry, BuildJobs, ImporterRegistry, ImportJobs};
+use pipeline::{AssetEngine, Builder, BuilderRegistry, BuildJobs, ImporterRegistry, ImportJobs};
 
 #[derive(Debug)]
 pub enum QueuedActions {

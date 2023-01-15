@@ -1,10 +1,11 @@
 [workspace]
 members = [
-    "base",
-    "nexdb",
-    "pipeline",
-    "plugins",
-    "m3",
+    "demo",
+    "hydrate-base",
+    "hydrate-model",
+    "hydrate-pipeline",
+    "hydrate-plugins",
+    "hydrate-editor",
 ]
 
 exclude = [

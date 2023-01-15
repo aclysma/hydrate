@@ -1,9 +1,9 @@
-use std::path::PathBuf;
 use crate::value::PropertyValue;
 use crate::{
     DataObjectInfo, DataSet, HashSet, NullOverride, ObjectId, ObjectLocation, ObjectName,
     SchemaSet, Value,
 };
+use std::path::PathBuf;
 use uuid::Uuid;
 
 #[derive(Debug)]
@@ -26,7 +26,7 @@ pub struct ObjectDiff {
     remove_properties_in_replace_mode: Vec<String>,
     dynamic_array_entry_deltas: Vec<DynamicArrayEntryDelta>,
     set_file_references: Vec<(PathBuf, ObjectId)>,
-    remove_file_references: Vec<PathBuf>
+    remove_file_references: Vec<PathBuf>,
 }
 
 impl ObjectDiff {
@@ -125,7 +125,10 @@ impl ObjectDiff {
         }
 
         for (k, v) in &self.set_file_references {
-            object.build_info.file_reference_overrides.insert(k.clone(), *v);
+            object
+                .build_info
+                .file_reference_overrides
+                .insert(k.clone(), *v);
         }
 
         for k in &self.remove_file_references {
@@ -390,7 +393,11 @@ impl ObjectDiffSet {
         }
 
         for (key, &after_value) in &after_obj.build_info.file_reference_overrides {
-            if !before_obj.build_info.file_reference_overrides.contains_key(key) {
+            if !before_obj
+                .build_info
+                .file_reference_overrides
+                .contains_key(key)
+            {
                 // Property was added
                 apply_diff
                     .set_file_references

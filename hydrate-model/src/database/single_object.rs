@@ -1,9 +1,9 @@
-use std::hash::{Hash, Hasher};
-use crate::{NullOverride, SchemaSet};
 use crate::{
-    HashMap, HashMapKeys, HashSet, HashSetIter, Schema, SchemaFingerprint,
-    SchemaNamedType, SchemaRecord, Value,
+    HashMap, HashMapKeys, HashSet, HashSetIter, Schema, SchemaFingerprint, SchemaNamedType,
+    SchemaRecord, Value,
 };
+use crate::{NullOverride, SchemaSet};
+use std::hash::{Hash, Hasher};
 use std::str::FromStr;
 use std::string::ToString;
 use uuid::Uuid;
@@ -17,7 +17,10 @@ pub struct SingleObject {
 }
 
 impl Hash for SingleObject {
-    fn hash<H: Hasher>(&self, state: &mut H) {
+    fn hash<H: Hasher>(
+        &self,
+        state: &mut H,
+    ) {
         let schema = &self.schema;
 
         use std::hash::{Hash, Hasher};
@@ -65,9 +68,7 @@ impl Hash for SingleObject {
 }
 
 impl SingleObject {
-    pub fn new(
-        schema: &SchemaRecord,
-    ) -> Self {
+    pub fn new(schema: &SchemaRecord) -> Self {
         SingleObject {
             schema: schema.clone(),
             properties: Default::default(),
@@ -93,9 +94,7 @@ impl SingleObject {
         }
     }
 
-    pub fn schema(
-        &self,
-    ) -> &SchemaRecord {
+    pub fn schema(&self) -> &SchemaRecord {
         &self.schema
     }
 
@@ -128,8 +127,7 @@ impl SingleObject {
             .unwrap();
 
         if property_schema.is_nullable() {
-            self
-                .property_null_overrides
+            self.property_null_overrides
                 .insert(path.as_ref().to_string(), null_override);
         }
     }
@@ -176,7 +174,7 @@ impl SingleObject {
             &mut map_ancestors,
             &mut accessed_dynamic_array_keys,
         )
-            .unwrap();
+        .unwrap();
 
         if !property_schema.is_nullable() {
             return None;
@@ -261,7 +259,7 @@ impl SingleObject {
             &mut map_ancestors,
             &mut accessed_dynamic_array_keys,
         )
-            .unwrap();
+        .unwrap();
 
         for checked_property in &nullable_ancestors {
             if self.resolve_is_null(schema_set, checked_property) != Some(false) {
@@ -312,7 +310,7 @@ impl SingleObject {
             &mut map_ancestors,
             &mut accessed_dynamic_array_keys,
         )
-            .unwrap();
+        .unwrap();
 
         for checked_property in &nullable_ancestors {
             if self.resolve_is_null(schema_set, checked_property) != Some(false) {
@@ -457,10 +455,7 @@ impl SingleObject {
         }
 
         let mut resolved_entries = vec![];
-        self.do_resolve_dynamic_array(
-            path.as_ref(),
-            &mut resolved_entries,
-        );
+        self.do_resolve_dynamic_array(path.as_ref(), &mut resolved_entries);
         resolved_entries.into_boxed_slice()
     }
 }

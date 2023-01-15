@@ -1,14 +1,19 @@
+pub use super::*;
 use std::collections::VecDeque;
 use std::ops::Range;
 use std::path::{Path, PathBuf};
-pub use super::*;
 
-use hydrate_model::{DataSet, EditorModel, HashMap, HashSet, ObjectId, ObjectLocation, ObjectName, SchemaLinker, SchemaSet, SingleObject, Value};
-use hydrate_pipeline::{AssetPlugin, Builder, BuilderRegistry, ImportedImportable, Importer, ImporterRegistry, ReferencedSourceFile, ScannedImportable};
-use type_uuid::TypeUuid;
-use serde::{Serialize, Deserialize};
+use hydrate_model::{
+    DataSet, EditorModel, HashMap, HashSet, ObjectId, ObjectLocation, ObjectName, SchemaLinker,
+    SchemaSet, SingleObject, Value,
+};
+use hydrate_pipeline::{
+    AssetPlugin, Builder, BuilderRegistry, ImportedImportable, Importer, ImporterRegistry,
+    ReferencedSourceFile, ScannedImportable,
+};
+use serde::{Deserialize, Serialize};
 use shaderc::IncludeType;
-
+use type_uuid::TypeUuid;
 
 fn range_of_line_at_position(
     code: &[char],
@@ -58,7 +63,6 @@ pub(crate) fn next_non_whitespace(
 
     position
 }
-
 
 // I'm ignoring that identifiers usually can't start with numbers
 pub(crate) fn is_identifier_char(c: char) -> bool {
@@ -322,7 +326,6 @@ fn try_parse_include(
     }
 }
 
-
 fn next_char(
     code: &[char],
     mut position: usize,
@@ -354,8 +357,6 @@ pub(crate) fn try_consume_identifier(
     }
 }
 
-
-
 // Return option so we can do .ok_or("error message")?
 pub(crate) fn try_consume_literal(
     code: &[char],
@@ -369,7 +370,6 @@ pub(crate) fn try_consume_literal(
         None
     }
 }
-
 
 pub(crate) fn characters_to_string(characters: &[char]) -> String {
     let mut string = String::with_capacity(characters.len());
@@ -423,13 +423,7 @@ fn try_consume_preprocessor_directive(
     }
 }
 
-
-
-
-
-pub(crate) fn find_included_paths(
-    code: &Vec<char>,
-) -> Result<HashSet<PathBuf>, String> {
+pub(crate) fn find_included_paths(code: &Vec<char>) -> Result<HashSet<PathBuf>, String> {
     let mut paths = HashSet::default();
     let code = remove_line_continuations(&code);
     let remove_comments_result = remove_comments(&code);
@@ -445,7 +439,6 @@ pub(crate) fn find_included_paths(
         if let Some(new_position) = try_consume_preprocessor_directive(&code, position) {
             let parse_include_result = try_parse_include(&code, position);
             if let Some(parse_include_result) = parse_include_result {
-
                 paths.insert(parse_include_result.path);
 
                 //println!("handle include {:?}", parse_include_result);
@@ -472,30 +465,6 @@ pub(crate) fn find_included_paths(
 
     Ok(paths)
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 pub(crate) fn include_impl(
     requested_path: &Path,
@@ -539,35 +508,38 @@ pub(crate) fn include_impl(
 
     log::trace!(
         "Need to read file {:?} when trying to include {:?} from {:?}",
-        resolved_path, requested_path, requested_from
+        resolved_path,
+        requested_path,
+        requested_from
     );
 
-    let referenced_object = dependency_lookup.get(&(requested_from.to_path_buf(), requested_path.to_path_buf()));
+    let referenced_object =
+        dependency_lookup.get(&(requested_from.to_path_buf(), requested_path.to_path_buf()));
     if let Some(referenced_object_id) = referenced_object {
         if let Some(dependency_data) = dependency_data.get(referenced_object_id) {
             println!("Resolved the content");
-            let content = dependency_data.resolve_property(schema_set, "code").unwrap().as_string().unwrap().to_string();
+            let content = dependency_data
+                .resolve_property(schema_set, "code")
+                .unwrap()
+                .as_string()
+                .unwrap()
+                .to_string();
             return Ok(shaderc::ResolvedInclude {
                 resolved_name: resolved_path.to_str().unwrap().to_string(),
                 content,
             });
         } else {
-            Err(
-                format!(
-                    "Path {:?} resolved to {:?}, but the import data could not be found",
-                    resolved_path, referenced_object_id
-                )
-            )
+            Err(format!(
+                "Path {:?} resolved to {:?}, but the import data could not be found",
+                resolved_path, referenced_object_id
+            ))
         }
     } else {
-        Err(
-            format!(
-                "Could not find a file reference for {:?} -> {:?}",
-                requested_from, resolved_path
-            )
-        )
+        Err(format!(
+            "Could not find a file reference for {:?} -> {:?}",
+            requested_from, resolved_path
+        ))
     }
-
 
     //let content = "".to_string();
 
@@ -602,27 +574,6 @@ pub(crate) fn include_impl(
 //         .map_err(|x| x.into())
 // }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 pub struct GlslSourceFileAsset {}
 
 impl GlslSourceFileAsset {
@@ -632,9 +583,7 @@ impl GlslSourceFileAsset {
 
     pub fn register_schema(linker: &mut SchemaLinker) {
         linker
-            .register_record_type(Self::schema_name(), |x| {
-
-            })
+            .register_record_type(Self::schema_name(), |x| {})
             .unwrap();
     }
 }
@@ -655,32 +604,19 @@ impl GlslSourceFileImportedData {
     }
 }
 
-
 #[derive(Serialize, Deserialize)]
 struct GlslSourceFileBuiltData {
     code: String,
 }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 pub struct GlslAssetPlugin;
 
 impl AssetPlugin for GlslAssetPlugin {
-    fn setup(schema_linker: &mut SchemaLinker, importer_registry: &mut ImporterRegistry, builder_registry: &mut BuilderRegistry) {
+    fn setup(
+        schema_linker: &mut SchemaLinker,
+        importer_registry: &mut ImporterRegistry,
+        builder_registry: &mut BuilderRegistry,
+    ) {
         GlslSourceFileAsset::register_schema(schema_linker);
         GlslSourceFileImportedData::register_schema(schema_linker);
         GlslBuildTargetAsset::register_schema(schema_linker);
@@ -701,20 +637,23 @@ impl Importer for GlslSourceFileImporter {
         &["glsl", "vert"]
     }
 
-    fn scan_file(&self, path: &Path, schema_set: &SchemaSet) -> Vec<ScannedImportable> {
+    fn scan_file(
+        &self,
+        path: &Path,
+        schema_set: &SchemaSet,
+    ) -> Vec<ScannedImportable> {
         log::info!("GlslSourceFileImporter reading file {:?}", path);
         let code = std::fs::read_to_string(path).unwrap();
         let code_chars: Vec<_> = code.chars().collect();
 
-        let referenced_source_files: Vec<_> = find_included_paths(&code_chars).unwrap().into_iter().map(|path| {
-            ReferencedSourceFile {
+        let referenced_source_files: Vec<_> = find_included_paths(&code_chars)
+            .unwrap()
+            .into_iter()
+            .map(|path| ReferencedSourceFile {
                 importer_id: self.importer_id(),
-                path
-            }
-        }).collect();
-
-
-
+                path,
+            })
+            .collect();
 
         //
         // let mut compile_options = shaderc::CompileOptions::new().unwrap();
@@ -731,14 +670,18 @@ impl Importer for GlslSourceFileImporter {
         //         Some(&compile_options),
         //     ).unwrap();
 
-
         //TODO: Find the include paths
 
-        let asset_type = schema_set.find_named_type(GlslSourceFileAsset::schema_name()).unwrap().as_record().unwrap().clone();
+        let asset_type = schema_set
+            .find_named_type(GlslSourceFileAsset::schema_name())
+            .unwrap()
+            .as_record()
+            .unwrap()
+            .clone();
         vec![ScannedImportable {
             name: None,
             asset_type,
-            file_references: referenced_source_files
+            file_references: referenced_source_files,
         }]
     }
 
@@ -752,12 +695,14 @@ impl Importer for GlslSourceFileImporter {
         let code = std::fs::read_to_string(path).unwrap();
         let code_chars: Vec<_> = code.chars().collect();
 
-        let referenced_source_files: Vec<_> = find_included_paths(&code_chars).unwrap().into_iter().map(|path| {
-            ReferencedSourceFile {
+        let referenced_source_files: Vec<_> = find_included_paths(&code_chars)
+            .unwrap()
+            .into_iter()
+            .map(|path| ReferencedSourceFile {
                 importer_id: self.importer_id(),
-                path
-            }
-        }).collect();
+                path,
+            })
+            .collect();
 
         let glsl_imported_data_schema = schema
             .find_named_type(GlslSourceFileImportedData::schema_name())
@@ -769,10 +714,13 @@ impl Importer for GlslSourceFileImporter {
         import_object.set_property_override(schema, "code", Value::String(code));
 
         let mut imported_objects = HashMap::default();
-        imported_objects.insert(None, ImportedImportable {
-            file_references: referenced_source_files,
-            data: import_object
-        });
+        imported_objects.insert(
+            None,
+            ImportedImportable {
+                file_references: referenced_source_files,
+                data: import_object,
+            },
+        );
         imported_objects
     }
 }
@@ -826,25 +774,10 @@ impl Importer for GlslSourceFileImporter {
 //     }
 // }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 pub struct GlslBuildTargetAsset {
     entry_point: String,
     source_file: ObjectId,
 }
-
 
 impl GlslBuildTargetAsset {
     pub fn schema_name() -> &'static str {
@@ -863,14 +796,8 @@ impl GlslBuildTargetAsset {
 
 #[derive(Serialize, Deserialize)]
 pub struct GlslBuildTargetBuiltData {
-    spv: Vec<u8>
+    spv: Vec<u8>,
 }
-
-
-
-
-
-
 
 #[derive(TypeUuid, Default)]
 #[uuid = "884303cd-3655-4a72-9131-b07b5121ed29"]
@@ -881,7 +808,12 @@ impl Builder for GlslBuildTargetBuilder {
         GlslBuildTargetAsset::schema_name()
     }
 
-    fn dependencies(&self, asset_id: ObjectId, data_set: &DataSet, schema: &SchemaSet) -> Vec<ObjectId> {
+    fn dependencies(
+        &self,
+        asset_id: ObjectId,
+        data_set: &DataSet,
+        schema: &SchemaSet,
+    ) -> Vec<ObjectId> {
         let source_file = data_set
             .resolve_property(schema, asset_id, "source_file")
             .unwrap()
@@ -903,7 +835,7 @@ impl Builder for GlslBuildTargetBuilder {
         while let Some(next_reference) = visit_queue.pop_front() {
             let references = data_set
                 .resolve_all_file_references(next_reference)
-                .unwrap();;
+                .unwrap();
 
             for (_, &v) in &references {
                 if !queued.contains(&v) {
@@ -921,7 +853,7 @@ impl Builder for GlslBuildTargetBuilder {
         asset_id: ObjectId,
         data_set: &DataSet,
         schema: &SchemaSet,
-        dependency_data: &HashMap<ObjectId, SingleObject>
+        dependency_data: &HashMap<ObjectId, SingleObject>,
     ) -> Vec<u8> {
         //
         // Read asset properties
@@ -952,8 +884,13 @@ impl Builder for GlslBuildTargetBuilder {
 
         let mut dependency_lookup = HashMap::default();
         for (&dependency_object_id, _) in dependency_data {
-            let all_references = data_set.resolve_all_file_references(dependency_object_id).unwrap();
-            let this_path = data_set.import_info(dependency_object_id).unwrap().source_file_path();
+            let all_references = data_set
+                .resolve_all_file_references(dependency_object_id)
+                .unwrap();
+            let this_path = data_set
+                .import_info(dependency_object_id)
+                .unwrap()
+                .source_file_path();
 
             for (ref_path, ref_obj) in all_references {
                 dependency_lookup.insert((this_path.to_path_buf(), ref_path), ref_obj);
@@ -961,7 +898,6 @@ impl Builder for GlslBuildTargetBuilder {
         }
 
         println!("DEPENDENCY LOOKUPS {:?}", dependency_lookup);
-
 
         let mut processed_data = GlslBuildTargetBuiltData {
             spv: Default::default(),
@@ -971,15 +907,18 @@ impl Builder for GlslBuildTargetBuilder {
         if !source_file.is_null() {
             let source_file_import_info = data_set.import_info(source_file).unwrap();
             let source_file_import_data = &dependency_data[&source_file];
-            let code = source_file_import_data.resolve_property(schema, "code").unwrap().as_string().unwrap().to_string();
+            let code = source_file_import_data
+                .resolve_property(schema, "code")
+                .unwrap()
+                .as_string()
+                .unwrap()
+                .to_string();
 
-
-            let shaderc_include_callback = |
-                requested_path: &str,
-                include_type: shaderc::IncludeType,
-                requested_from: &str,
-                include_depth: usize,
-            | -> shaderc::IncludeCallbackResult {
+            let shaderc_include_callback = |requested_path: &str,
+                                            include_type: shaderc::IncludeType,
+                                            requested_from: &str,
+                                            include_depth: usize|
+             -> shaderc::IncludeCallbackResult {
                 let requested_path: PathBuf = requested_path.into();
                 let requested_from: PathBuf = requested_from.into();
                 include_impl(
@@ -989,13 +928,10 @@ impl Builder for GlslBuildTargetBuilder {
                     include_depth,
                     schema,
                     &dependency_lookup,
-                    dependency_data
-                ).map_err(|x| x.into())
+                    dependency_data,
+                )
+                .map_err(|x| x.into())
             };
-
-
-
-
 
             let mut compile_options = shaderc::CompileOptions::new().unwrap();
             compile_options.set_include_callback(shaderc_include_callback);
@@ -1003,20 +939,17 @@ impl Builder for GlslBuildTargetBuilder {
             //NOTE: Could also use shaderc::OptimizationLevel::Size
 
             let compiler = shaderc::Compiler::new().unwrap();
-            let compiled_code = compiler
-                .compile_into_spirv(
-                    &code,
-                    shaderc::ShaderKind::Vertex,
-                    source_file_import_info.source_file_path().to_str().unwrap(),
-                    &entry_point,
-                    Some(&compile_options),
-                );
+            let compiled_code = compiler.compile_into_spirv(
+                &code,
+                shaderc::ShaderKind::Vertex,
+                source_file_import_info.source_file_path().to_str().unwrap(),
+                &entry_point,
+                Some(&compile_options),
+            );
 
             if let Ok(compiled_code) = compiled_code {
                 println!("SUCCESS BUILDING SHADER");
-                processed_data.spv = compiled_code
-                    .as_binary_u8()
-                    .to_vec();
+                processed_data.spv = compiled_code.as_binary_u8().to_vec();
             } else {
                 println!("Error: {:?}", compiled_code.err());
             }

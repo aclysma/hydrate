@@ -6,6 +6,7 @@ use crate::ui::asset_browser_grid_drag_drop::{
 };
 use crate::ui_state::{ActiveToolRegion, UiState};
 use crate::QueuedActions;
+use hydrate_model::{HashSet, LocationTreeNode, ObjectId, ObjectLocation, ObjectPath};
 use imgui::sys::{
     igDragFloat, igDragScalar, igInputDouble, ImGuiDataType__ImGuiDataType_Double,
     ImGuiInputTextFlags__ImGuiInputTextFlags_None, ImGuiTableFlags__ImGuiTableFlags_NoPadOuterX,
@@ -13,7 +14,6 @@ use imgui::sys::{
 };
 use imgui::{im_str, ImStr, ImString, TreeNodeFlags};
 use imgui::{sys as is, StyleColor};
-use hydrate_model::{HashSet, LocationTreeNode, ObjectId, ObjectLocation, ObjectPath};
 use rafx::api::objc::runtime::Object;
 use std::convert::TryInto;
 use std::ffi::CString;

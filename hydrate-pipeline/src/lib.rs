@@ -7,10 +7,17 @@ pub use build::*;
 mod import;
 pub use import::*;
 
-use hydrate_model::{BuilderId, EditorModel, HashMap, ImporterId, ObjectId, SchemaFingerprint, SchemaLinker, SchemaSet};
+use hydrate_model::{
+    BuilderId, EditorModel, HashMap, ImporterId, ObjectId, SchemaFingerprint, SchemaLinker,
+    SchemaSet,
+};
 
 pub trait AssetPlugin {
-    fn setup(schema_linker: &mut SchemaLinker, importer_registry: &mut ImporterRegistry, builder_registry: &mut BuilderRegistry);
+    fn setup(
+        schema_linker: &mut SchemaLinker,
+        importer_registry: &mut ImporterRegistry,
+        builder_registry: &mut BuilderRegistry,
+    );
 }
 
 pub struct AssetEngineBuilder {
@@ -26,22 +33,44 @@ impl AssetEngineBuilder {
         }
     }
 
-    pub fn register_plugin<T: AssetPlugin>(mut self, schema_linker: &mut SchemaLinker) -> Self {
-        T::setup(schema_linker, &mut self.importer_registry, &mut self.builder_registry);
+    pub fn register_plugin<T: AssetPlugin>(
+        mut self,
+        schema_linker: &mut SchemaLinker,
+    ) -> Self {
+        T::setup(
+            schema_linker,
+            &mut self.importer_registry,
+            &mut self.builder_registry,
+        );
         self
     }
 
-    pub fn build(mut self, editor_model: &EditorModel, import_data_path: PathBuf, build_data_path: PathBuf) -> AssetEngine {
-        self.importer_registry.finished_linking(editor_model.schema_set());
-        self.builder_registry.finished_linking(editor_model.schema_set());
-        let import_jobs = ImportJobs::new(&self.importer_registry, &editor_model, import_data_path /*DbState::import_data_source_path()*/);
-        let build_jobs = BuildJobs::new(&self.builder_registry, &editor_model, build_data_path /*DbState::build_data_source_path()*/);
+    pub fn build(
+        mut self,
+        editor_model: &EditorModel,
+        import_data_path: PathBuf,
+        build_data_path: PathBuf,
+    ) -> AssetEngine {
+        self.importer_registry
+            .finished_linking(editor_model.schema_set());
+        self.builder_registry
+            .finished_linking(editor_model.schema_set());
+        let import_jobs = ImportJobs::new(
+            &self.importer_registry,
+            &editor_model,
+            import_data_path, /*DbState::import_data_source_path()*/
+        );
+        let build_jobs = BuildJobs::new(
+            &self.builder_registry,
+            &editor_model,
+            build_data_path, /*DbState::build_data_source_path()*/
+        );
         AssetEngine {
             importer_registry: self.importer_registry,
             import_jobs,
             builder_registry: self.builder_registry,
             build_jobs,
-            previous_combined_build_hash: None
+            previous_combined_build_hash: None,
         }
     }
 }
@@ -52,20 +81,32 @@ pub struct AssetEngine {
     builder_registry: BuilderRegistry,
     build_jobs: BuildJobs,
     previous_combined_build_hash: Option<u64>,
-
 }
 
 impl AssetEngine {
-    pub fn register_plugin<T: AssetPlugin>(&mut self, schema_linker: &mut SchemaLinker) {
-        T::setup(schema_linker, &mut self.importer_registry, &mut self.builder_registry);
+    pub fn register_plugin<T: AssetPlugin>(
+        &mut self,
+        schema_linker: &mut SchemaLinker,
+    ) {
+        T::setup(
+            schema_linker,
+            &mut self.importer_registry,
+            &mut self.builder_registry,
+        );
     }
 
-    pub fn finish_linking(&mut self, schema_set: &SchemaSet) {
+    pub fn finish_linking(
+        &mut self,
+        schema_set: &SchemaSet,
+    ) {
         self.importer_registry.finished_linking(schema_set);
         self.builder_registry.finished_linking(schema_set);
     }
 
-    pub fn update(&mut self, editor_model: &EditorModel) {
+    pub fn update(
+        &mut self,
+        editor_model: &EditorModel,
+    ) {
         //
         // If user changes any asset data, cancel the in-flight build
         // If user initiates any import jobs, cancel the in-flight build
@@ -75,7 +116,8 @@ impl AssetEngine {
         //
         // If there are import jobs pending, cancel the in-flight build and execute them
         //
-        self.import_jobs.update(&self.importer_registry, editor_model);
+        self.import_jobs
+            .update(&self.importer_registry, editor_model);
 
         //
         // If we don't have any pending import jobs, and we don't have a build in-flight, and
@@ -85,7 +127,11 @@ impl AssetEngine {
         let mut combined_build_hash = 0;
         let mut object_hashes = HashMap::default();
         for (object_id, object) in editor_model.root_edit_context().objects() {
-            let hash = editor_model.root_edit_context().data_set().hash_properties(*object_id).unwrap();
+            let hash = editor_model
+                .root_edit_context()
+                .data_set()
+                .hash_properties(*object_id)
+                .unwrap();
             object_hashes.insert(*object_id, hash);
 
             let mut inner_hasher = siphasher::sip::SipHasher::default();
@@ -102,11 +148,12 @@ impl AssetEngine {
             combined_build_hash = combined_build_hash ^ inner_hasher.finish();
         }
 
-        let needs_rebuild = if let Some(previous_combined_build_hash) = self.previous_combined_build_hash {
-            previous_combined_build_hash != combined_build_hash
-        } else {
-            true
-        };
+        let needs_rebuild =
+            if let Some(previous_combined_build_hash) = self.previous_combined_build_hash {
+                previous_combined_build_hash != combined_build_hash
+            } else {
+                true
+            };
 
         if !needs_rebuild {
             return;
@@ -118,19 +165,36 @@ impl AssetEngine {
         //
 
         // Check if our import state is consistent, if it is we save expected hashes and run builds
-        self.build_jobs.update(&self.builder_registry, editor_model, &self.import_jobs, &object_hashes, &import_data_metadata_hashes, combined_build_hash);
+        self.build_jobs.update(
+            &self.builder_registry,
+            editor_model,
+            &self.import_jobs,
+            &object_hashes,
+            &import_data_metadata_hashes,
+            combined_build_hash,
+        );
         self.previous_combined_build_hash = Some(combined_build_hash);
     }
 
-    pub fn importers_for_file_extension(&self, extension: &str) -> &[ImporterId] {
-        self.importer_registry.importers_for_file_extension(extension)
+    pub fn importers_for_file_extension(
+        &self,
+        extension: &str,
+    ) -> &[ImporterId] {
+        self.importer_registry
+            .importers_for_file_extension(extension)
     }
 
-    pub fn importer(&self, importer_id: ImporterId) -> Option<&Box<dyn Importer>> {
+    pub fn importer(
+        &self,
+        importer_id: ImporterId,
+    ) -> Option<&Box<dyn Importer>> {
         self.importer_registry.importer(importer_id)
     }
 
-    pub fn builder_for_asset(&self, fingerprint: SchemaFingerprint) -> Option<&Box<dyn Builder>> {
+    pub fn builder_for_asset(
+        &self,
+        fingerprint: SchemaFingerprint,
+    ) -> Option<&Box<dyn Builder>> {
         self.builder_registry.builder_for_asset(fingerprint)
     }
 
@@ -138,11 +202,20 @@ impl AssetEngine {
     //     self.builder_registry.builder(builder_id)
     // }
 
-    pub fn queue_import_operation(&mut self, object_ids: HashMap<Option<String>, ObjectId>, importer_id: ImporterId, path: PathBuf) {
-        self.import_jobs.queue_import_operation(object_ids, importer_id, path);
+    pub fn queue_import_operation(
+        &mut self,
+        object_ids: HashMap<Option<String>, ObjectId>,
+        importer_id: ImporterId,
+        path: PathBuf,
+    ) {
+        self.import_jobs
+            .queue_import_operation(object_ids, importer_id, path);
     }
 
-    pub fn queue_build_operation(&mut self, object_id: ObjectId) {
+    pub fn queue_build_operation(
+        &mut self,
+        object_id: ObjectId,
+    ) {
         self.build_jobs.queue_build_operation(object_id);
     }
 }

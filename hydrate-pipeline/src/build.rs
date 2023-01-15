@@ -1,16 +1,19 @@
+use hydrate_model::{
+    BuildInfo, BuilderId, DataSet, DataSource, EditorModel, FileSystemObjectDataSource, HashMap,
+    HashMapKeys, ObjectId, ObjectLocation, ObjectName, ObjectSourceId, Schema, SchemaFingerprint,
+    SchemaLinker, SchemaNamedType, SchemaRecord, SchemaSet, SingleObject, Value,
+};
+use serde::{Deserialize, Serialize};
 use std::fs::File;
 use std::hash::{Hash, Hasher};
 use std::io::Write;
-use hydrate_model::{DataSet, DataSource, EditorModel, FileSystemObjectDataSource, HashMap, HashMapKeys, BuilderId, BuildInfo, ObjectId, ObjectLocation, ObjectName, ObjectSourceId, Schema, SchemaFingerprint, SchemaLinker, SchemaNamedType, SchemaRecord, SchemaSet, SingleObject, Value};
-use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
-use hydrate_model::uuid_path::{path_to_uuid, uuid_and_hash_to_path, uuid_to_path};
+use super::ImportJobs;
 use hydrate_model::edit_context::EditContext;
 use hydrate_model::json::SingleObjectJson;
-use super::ImportJobs;
-
+use hydrate_model::uuid_path::{path_to_uuid, uuid_and_hash_to_path, uuid_to_path};
 
 // An in-flight build operation we want to perform
 struct BuildOp {
@@ -32,7 +35,7 @@ impl BuildJob {
         BuildJob {
             object_id,
             build_data_exists: false,
-            asset_exists: false
+            asset_exists: false,
         }
     }
 }
@@ -50,7 +53,7 @@ impl BuildJobs {
     pub fn new(
         builder_registry: &BuilderRegistry,
         editor_model: &EditorModel,
-        root_path: PathBuf
+        root_path: PathBuf,
     ) -> Self {
         let build_jobs = BuildJobs::find_all_jobs(builder_registry, editor_model, &root_path);
 
@@ -61,7 +64,10 @@ impl BuildJobs {
         }
     }
 
-    pub fn queue_build_operation(&mut self, object_id: ObjectId) {
+    pub fn queue_build_operation(
+        &mut self,
+        object_id: ObjectId,
+    ) {
         // self.build_operations.push(BuildOp {
         //     object_id,
         //     //force_rebuild_operations
@@ -77,7 +83,7 @@ impl BuildJobs {
         import_jobs: &ImportJobs,
         object_hashes: &HashMap<ObjectId, u64>,
         import_data_metadata_hashes: &HashMap<ObjectId, u64>,
-        combined_build_hash: u64
+        combined_build_hash: u64,
     ) {
         let data_set = editor_model.root_edit_context().data_set();
         let schema_set = editor_model.schema_set();
@@ -93,16 +99,17 @@ impl BuildJobs {
 
         let mut build_operations = Vec::default();
         for (&object_id, _) in object_hashes {
-            build_operations.push(BuildOp {
-                object_id
-            });
+            build_operations.push(BuildOp { object_id });
         }
 
         let mut build_hashes = HashMap::default();
 
         for build_op in &build_operations {
             let object_id = build_op.object_id;
-            let object_type = editor_model.root_edit_context().object_schema(object_id).unwrap();
+            let object_type = editor_model
+                .root_edit_context()
+                .object_schema(object_id)
+                .unwrap();
 
             let builder = builder_registry.builder_for_asset(object_type.fingerprint());
             let builder = if builder.is_none() {
@@ -113,11 +120,7 @@ impl BuildJobs {
             };
 
             log::info!("building object type {}", object_type.name());
-            let dependencies = builder.dependencies(
-                object_id,
-                data_set,
-                schema_set,
-            );
+            let dependencies = builder.dependencies(object_id, data_set, schema_set);
 
             let mut imported_data = HashMap::default();
             let mut imported_data_hash = 0;
@@ -145,7 +148,11 @@ impl BuildJobs {
                 imported_data.insert(dependency_object_id, import_data.import_data);
             }
 
-            let properties_hash = editor_model.root_edit_context().data_set().hash_properties(object_id).unwrap();
+            let properties_hash = editor_model
+                .root_edit_context()
+                .data_set()
+                .hash_properties(object_id)
+                .unwrap();
 
             let mut build_hasher = siphasher::sip::SipHasher::default();
             properties_hash.hash(&mut build_hasher);
@@ -153,15 +160,15 @@ impl BuildJobs {
             let build_hash = build_hasher.finish();
 
             // Check if a build for this hash already exists?
-            let built_data = builder.build_asset(
-                object_id,
-                data_set,
-                schema_set,
-                &imported_data
-            );
+            let built_data = builder.build_asset(object_id, data_set, schema_set, &imported_data);
 
             //
-            let path = uuid_and_hash_to_path(&self.root_path, build_op.object_id.as_uuid(), build_hash, "bf");
+            let path = uuid_and_hash_to_path(
+                &self.root_path,
+                build_op.object_id.as_uuid(),
+                build_hash,
+                "bf",
+            );
             build_hashes.insert(build_op.object_id, build_hash);
 
             if let Some(parent) = path.parent() {
@@ -188,20 +195,22 @@ impl BuildJobs {
 
         //std::fs::write(self.root_path.join("latest.txt"), format!("{:x}", combined_build_hash)).unwrap();
 
-
-
         //self.build_operations.clear();
 
         // Send/mark for processing?
     }
 
-    fn find_all_jobs(builder_registry: &BuilderRegistry, editor_model: &EditorModel, root_path: &Path) -> HashMap<ObjectId, BuildJob> {
+    fn find_all_jobs(
+        builder_registry: &BuilderRegistry,
+        editor_model: &EditorModel,
+        root_path: &Path,
+    ) -> HashMap<ObjectId, BuildJob> {
         let mut build_jobs = HashMap::<ObjectId, BuildJob>::default();
 
         //
         // Scan build dir for known build data
         //
-        let walker = globwalk::GlobWalkerBuilder::from_patterns(    root_path, &["**.i"])
+        let walker = globwalk::GlobWalkerBuilder::from_patterns(root_path, &["**.i"])
             .file_type(globwalk::FileType::FILE)
             .build()
             .unwrap();
@@ -211,7 +220,9 @@ impl BuildJobs {
                 println!("dir file {:?}", file);
                 let dir_uuid = path_to_uuid(root_path, file.path()).unwrap();
                 let object_id = ObjectId(dir_uuid.as_u128());
-                let job = build_jobs.entry(object_id).or_insert_with(|| BuildJob::new(object_id));
+                let job = build_jobs
+                    .entry(object_id)
+                    .or_insert_with(|| BuildJob::new(object_id));
                 job.build_data_exists = true;
             }
         }
@@ -234,7 +245,9 @@ impl BuildJobs {
             let builder = builder_registry.builder_for_asset(schema_fingerprint);
 
             if builder.is_some() {
-                let job = build_jobs.entry(*object_id).or_insert_with(|| BuildJob::new(*object_id));
+                let job = build_jobs
+                    .entry(*object_id)
+                    .or_insert_with(|| BuildJob::new(*object_id));
                 job.asset_exists = true;
             }
         }
@@ -257,16 +270,6 @@ impl BuildJobs {
     }
 }
 
-
-
-
-
-
-
-
-
-
-
 // Keeps track of all known builders
 #[derive(Default)]
 pub struct BuilderRegistry {
@@ -279,7 +282,10 @@ impl BuilderRegistry {
     //
     // Called before creating the schema to add handlers
     //
-    pub fn register_handler<T: Builder + Default + 'static>(&mut self, linker: &mut SchemaLinker) {
+    pub fn register_handler<T: Builder + Default + 'static>(
+        &mut self,
+        linker: &mut SchemaLinker,
+    ) {
         let handler = Box::new(T::default());
         self.registered_builders.push(handler);
     }
@@ -287,14 +293,24 @@ impl BuilderRegistry {
     //
     // Called after finished linking the schema so we can associate schema fingerprints with handlers
     //
-    pub fn finished_linking(&mut self, schema_set: &SchemaSet) {
+    pub fn finished_linking(
+        &mut self,
+        schema_set: &SchemaSet,
+    ) {
         let mut asset_type_to_builder = HashMap::default();
 
         for (builder_index, builder) in self.registered_builders.iter().enumerate() {
             let builder_id = BuilderId(builder_index);
-            let asset_type = schema_set.find_named_type(builder.asset_type()).unwrap().fingerprint();
+            let asset_type = schema_set
+                .find_named_type(builder.asset_type())
+                .unwrap()
+                .fingerprint();
             let insert_result = asset_type_to_builder.insert(asset_type, builder_id);
-            println!("builder {} handles asset fingerprint {}", builder_id.0, asset_type.as_uuid());
+            println!(
+                "builder {} handles asset fingerprint {}",
+                builder_id.0,
+                asset_type.as_uuid()
+            );
             if insert_result.is_some() {
                 panic!("Multiple handlers registered to handle the same asset")
             }
@@ -308,13 +324,19 @@ impl BuilderRegistry {
     //     self.file_extension_associations.get(extension).map(|x| x.as_slice()).unwrap_or(EMPTY_LIST)
     // }
 
-    pub fn builder_for_asset(&self, fingerprint: SchemaFingerprint) -> Option<&Box<dyn Builder>> {
+    pub fn builder_for_asset(
+        &self,
+        fingerprint: SchemaFingerprint,
+    ) -> Option<&Box<dyn Builder>> {
         // if let Some(builder_id) = self.asset_type_to_builder.get(&fingerprint).copied() {
         //     Some(&self.registered_builders[builder_id.0])
         // } else {
         //     None
         // }
-        self.asset_type_to_builder.get(&fingerprint).copied().map(|x| &self.registered_builders[x.0])
+        self.asset_type_to_builder
+            .get(&fingerprint)
+            .copied()
+            .map(|x| &self.registered_builders[x.0])
     }
 
     // pub fn builder(&self, builder_id: BuilderId) -> Option<&Box<Builder>> {
@@ -334,13 +356,18 @@ pub trait Builder {
     fn asset_type(&self) -> &'static str;
 
     // Returns the assets that this build job needs to be available to complete
-    fn dependencies(&self, asset_id: ObjectId, data_set: &DataSet, schema: &SchemaSet) -> Vec<ObjectId>;
+    fn dependencies(
+        &self,
+        asset_id: ObjectId,
+        data_set: &DataSet,
+        schema: &SchemaSet,
+    ) -> Vec<ObjectId>;
 
     fn build_asset(
         &self,
         asset_id: ObjectId,
         data_set: &DataSet,
         schema: &SchemaSet,
-        dependency_data: &HashMap<ObjectId, SingleObject>
+        dependency_data: &HashMap<ObjectId, SingleObject>,
     ) -> Vec<u8>;
 }

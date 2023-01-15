@@ -1,6 +1,6 @@
 use crate::ui_state::AssetBrowserGridState;
-use imgui::im_str;
 use hydrate_model::{HashSet, ObjectId};
+use imgui::im_str;
 
 #[derive(Copy, Clone, Debug)]
 pub enum AssetBrowserGridPayload {

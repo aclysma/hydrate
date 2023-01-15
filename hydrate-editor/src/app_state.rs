@@ -2,15 +2,17 @@ use crate::db_state::DbState;
 use crate::imgui_support::ImguiManager;
 use crate::ui::modals::{ConfirmQuitWithoutSavingModal, ImportFilesModal};
 use crate::ui_state::UiState;
+use hydrate_model::{EndContextBehavior, HashSet, ObjectId, ObjectLocation, ObjectPath};
+use hydrate_pipeline::{
+    AssetEngine, BuildJobs, Builder, BuilderRegistry, ImportJobs, ImporterRegistry,
+};
 use imgui::sys::{ImGuiCond, ImVec2};
 use imgui::PopupModal;
 use imnodes::editor;
-use hydrate_model::{EndContextBehavior, HashSet, ObjectId, ObjectLocation, ObjectPath};
 use std::fmt::Formatter;
 use std::path::PathBuf;
 use std::sync::mpsc::{Receiver, Sender};
 use std::sync::{mpsc, Arc};
-use hydrate_pipeline::{AssetEngine, Builder, BuilderRegistry, BuildJobs, ImporterRegistry, ImportJobs};
 
 #[derive(Debug)]
 pub enum QueuedActions {
@@ -144,7 +146,10 @@ pub struct AppState {
 }
 
 impl AppState {
-    pub fn new(db_state: DbState, asset_engine: AssetEngine) -> Self {
+    pub fn new(
+        db_state: DbState,
+        asset_engine: AssetEngine,
+    ) -> Self {
         AppState {
             db_state,
             ui_state: UiState::default(),

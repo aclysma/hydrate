@@ -1,11 +1,17 @@
-use std::path::{Path, PathBuf};
 pub use super::*;
+use std::path::{Path, PathBuf};
 
-use hydrate_model::{DataSet, EditorModel, HashMap, ObjectId, ObjectLocation, ObjectName, SchemaDefType, SchemaLinker, SchemaSet, SingleObject, Value};
-use type_uuid::TypeUuid;
-use serde::{Serialize, Deserialize};
 use hydrate_model::value::ValueEnum;
-use hydrate_pipeline::{AssetPlugin, Builder, BuilderRegistry, ImportedImportable, Importer, ImporterRegistry, ScannedImportable};
+use hydrate_model::{
+    DataSet, EditorModel, HashMap, ObjectId, ObjectLocation, ObjectName, SchemaDefType,
+    SchemaLinker, SchemaSet, SingleObject, Value,
+};
+use hydrate_pipeline::{
+    AssetPlugin, Builder, BuilderRegistry, ImportedImportable, Importer, ImporterRegistry,
+    ScannedImportable,
+};
+use serde::{Deserialize, Serialize};
+use type_uuid::TypeUuid;
 
 // Import this data to be "Default" values?
 // - Import overwrites any unchanged values?
@@ -52,9 +58,7 @@ impl BlenderMaterialAsset {
 
     pub fn register_schema(linker: &mut SchemaLinker) {
         linker
-            .register_record_type(Self::schema_name(), |x| {
-
-            })
+            .register_record_type(Self::schema_name(), |x| {})
             .unwrap();
     }
 }
@@ -67,16 +71,20 @@ impl BlenderMaterialImportedData {
     }
 
     pub fn register_schema(linker: &mut SchemaLinker) {
-        linker.register_enum_type("MeshAdvShadowMethod", |x| {
-            x.add_symbol("None", 0);
-            x.add_symbol("Opaque", 1);
-        }).unwrap();
+        linker
+            .register_enum_type("MeshAdvShadowMethod", |x| {
+                x.add_symbol("None", 0);
+                x.add_symbol("Opaque", 1);
+            })
+            .unwrap();
 
-        linker.register_enum_type("MeshAdvBlendMethod", |x| {
-            x.add_symbol("Opaque", 0);
-            x.add_symbol("AlphaClip", 1);
-            x.add_symbol("AlphaBlend", 2);
-        }).unwrap();
+        linker
+            .register_enum_type("MeshAdvBlendMethod", |x| {
+                x.add_symbol("Opaque", 0);
+                x.add_symbol("AlphaClip", 1);
+                x.add_symbol("AlphaBlend", 2);
+            })
+            .unwrap();
 
         linker
             .register_record_type(Self::schema_name(), |x| {
@@ -172,7 +180,11 @@ impl Default for MeshAdvMaterialData {
 pub struct BlenderMaterialAssetPlugin;
 
 impl AssetPlugin for BlenderMaterialAssetPlugin {
-    fn setup(schema_linker: &mut SchemaLinker, importer_registry: &mut ImporterRegistry, builder_registry: &mut BuilderRegistry) {
+    fn setup(
+        schema_linker: &mut SchemaLinker,
+        importer_registry: &mut ImporterRegistry,
+        builder_registry: &mut BuilderRegistry,
+    ) {
         BlenderMaterialAsset::register_schema(schema_linker);
         BlenderMaterialImportedData::register_schema(schema_linker);
 
@@ -190,12 +202,21 @@ impl Importer for BlenderMaterialImporter {
         &["blender_material"]
     }
 
-    fn scan_file(&self, path: &Path, schema_set: &SchemaSet) -> Vec<ScannedImportable> {
-        let asset_type = schema_set.find_named_type(BlenderMaterialAsset::schema_name()).unwrap().as_record().unwrap().clone();
+    fn scan_file(
+        &self,
+        path: &Path,
+        schema_set: &SchemaSet,
+    ) -> Vec<ScannedImportable> {
+        let asset_type = schema_set
+            .find_named_type(BlenderMaterialAsset::schema_name())
+            .unwrap()
+            .as_record()
+            .unwrap()
+            .clone();
         vec![ScannedImportable {
             name: None,
             asset_type,
-            file_references: Default::default()
+            file_references: Default::default(),
         }]
     }
 
@@ -217,22 +238,32 @@ impl Importer for BlenderMaterialImporter {
         let json_str = std::fs::read_to_string(path).unwrap();
         let json_data: MaterialJsonFileFormat = serde_json::from_str(&json_str).unwrap();
 
-        let shadow_method_enum_type = schema.find_named_type("MeshAdvShadowMethod").unwrap().as_enum().unwrap();
-        let blend_method_enum_type = schema.find_named_type("MeshAdvBlendMethod").unwrap().as_enum().unwrap();
+        let shadow_method_enum_type = schema
+            .find_named_type("MeshAdvShadowMethod")
+            .unwrap()
+            .as_enum()
+            .unwrap();
+        let blend_method_enum_type = schema
+            .find_named_type("MeshAdvBlendMethod")
+            .unwrap()
+            .as_enum()
+            .unwrap();
 
         //let shadow_method_str = json_data.shadow_method;
         let shadow_method = if let Some(shadow_method_str) = &json_data.shadow_method.as_ref() {
             shadow_method_enum_type.value_from_string(shadow_method_str)
         } else {
             shadow_method_enum_type.value_from_string("Opaque")
-        }.unwrap();
+        }
+        .unwrap();
 
         //let blend_method_str = json_data.blend_method;
         let blend_method = if let Some(blend_method_str) = &json_data.shadow_method.as_ref() {
             blend_method_enum_type.value_from_string(blend_method_str)
         } else {
             blend_method_enum_type.value_from_string("Opaque")
-        }.unwrap();
+        }
+        .unwrap();
 
         //
         // Store in an object
@@ -245,30 +276,97 @@ impl Importer for BlenderMaterialImporter {
 
         let mut import_object = SingleObject::new(image_imported_data_schema);
 
-        import_object.set_property_override(schema, "base_color_factor.x", Value::F32(json_data.base_color_factor[0]));
-        import_object.set_property_override(schema, "base_color_factor.y", Value::F32(json_data.base_color_factor[1]));
-        import_object.set_property_override(schema, "base_color_factor.z", Value::F32(json_data.base_color_factor[2]));
-        import_object.set_property_override(schema, "base_color_factor.w", Value::F32(json_data.base_color_factor[3]));
+        import_object.set_property_override(
+            schema,
+            "base_color_factor.x",
+            Value::F32(json_data.base_color_factor[0]),
+        );
+        import_object.set_property_override(
+            schema,
+            "base_color_factor.y",
+            Value::F32(json_data.base_color_factor[1]),
+        );
+        import_object.set_property_override(
+            schema,
+            "base_color_factor.z",
+            Value::F32(json_data.base_color_factor[2]),
+        );
+        import_object.set_property_override(
+            schema,
+            "base_color_factor.w",
+            Value::F32(json_data.base_color_factor[3]),
+        );
 
-        import_object.set_property_override(schema, "emissive_factor.x", Value::F32(json_data.emissive_factor[0]));
-        import_object.set_property_override(schema, "emissive_factor.y", Value::F32(json_data.emissive_factor[1]));
-        import_object.set_property_override(schema, "emissive_factor.z", Value::F32(json_data.emissive_factor[2]));
+        import_object.set_property_override(
+            schema,
+            "emissive_factor.x",
+            Value::F32(json_data.emissive_factor[0]),
+        );
+        import_object.set_property_override(
+            schema,
+            "emissive_factor.y",
+            Value::F32(json_data.emissive_factor[1]),
+        );
+        import_object.set_property_override(
+            schema,
+            "emissive_factor.z",
+            Value::F32(json_data.emissive_factor[2]),
+        );
 
-        import_object.set_property_override(schema, "metallic_factor", Value::F32(json_data.metallic_factor));
-        import_object.set_property_override(schema, "roughness_factor", Value::F32(json_data.roughness_factor));
-        import_object.set_property_override(schema, "normal_texture_scale", Value::F32(json_data.normal_texture_scale));
+        import_object.set_property_override(
+            schema,
+            "metallic_factor",
+            Value::F32(json_data.metallic_factor),
+        );
+        import_object.set_property_override(
+            schema,
+            "roughness_factor",
+            Value::F32(json_data.roughness_factor),
+        );
+        import_object.set_property_override(
+            schema,
+            "normal_texture_scale",
+            Value::F32(json_data.normal_texture_scale),
+        );
 
-        import_object.set_property_override(schema, "color_texture", Value::String(json_data.color_texture.unwrap_or_default()));
-        import_object.set_property_override(schema, "metallic_roughness_texture", Value::String(json_data.metallic_roughness_texture.unwrap_or_default()));
-        import_object.set_property_override(schema, "normal_texture", Value::String(json_data.normal_texture.unwrap_or_default()));
-        import_object.set_property_override(schema, "emissive_texture", Value::String(json_data.emissive_texture.unwrap_or_default()));
+        import_object.set_property_override(
+            schema,
+            "color_texture",
+            Value::String(json_data.color_texture.unwrap_or_default()),
+        );
+        import_object.set_property_override(
+            schema,
+            "metallic_roughness_texture",
+            Value::String(json_data.metallic_roughness_texture.unwrap_or_default()),
+        );
+        import_object.set_property_override(
+            schema,
+            "normal_texture",
+            Value::String(json_data.normal_texture.unwrap_or_default()),
+        );
+        import_object.set_property_override(
+            schema,
+            "emissive_texture",
+            Value::String(json_data.emissive_texture.unwrap_or_default()),
+        );
 
         import_object.set_property_override(schema, "shadow_method", shadow_method);
         import_object.set_property_override(schema, "blend_method", blend_method);
-        import_object.set_property_override(schema, "alpha_threshold", Value::F32(json_data.alpha_threshold.unwrap_or(0.5)));
-        import_object.set_property_override(schema, "backface_culling", Value::Boolean(json_data.backface_culling.unwrap_or(true)));
-        import_object.set_property_override(schema, "color_texture_has_alpha_channel", Value::Boolean(json_data.color_texture_has_alpha_channel));
-
+        import_object.set_property_override(
+            schema,
+            "alpha_threshold",
+            Value::F32(json_data.alpha_threshold.unwrap_or(0.5)),
+        );
+        import_object.set_property_override(
+            schema,
+            "backface_culling",
+            Value::Boolean(json_data.backface_culling.unwrap_or(true)),
+        );
+        import_object.set_property_override(
+            schema,
+            "color_texture_has_alpha_channel",
+            Value::Boolean(json_data.color_texture_has_alpha_channel),
+        );
 
         //
         // x.add_string("blend_method");
@@ -276,17 +374,19 @@ impl Importer for BlenderMaterialImporter {
         // x.add_nullable("backface_culling");
         // x.add_boolean("color_texture_has_alpha_channel");
 
-
         //import_object.set_property_override(schema, "image_bytes", Value::Bytes(image_bytes));
 
         //
         // Return the created objects
         //
         let mut imported_objects = HashMap::default();
-        imported_objects.insert(None, ImportedImportable {
-            file_references: Default::default(),
-            data: import_object
-        });
+        imported_objects.insert(
+            None,
+            ImportedImportable {
+                file_references: Default::default(),
+                data: import_object,
+            },
+        );
         imported_objects
     }
 }
@@ -300,7 +400,12 @@ impl Builder for BlenderMaterialBuilder {
         BlenderMaterialAsset::schema_name()
     }
 
-    fn dependencies(&self, asset_id: ObjectId, data_set: &DataSet, schema: &SchemaSet) -> Vec<ObjectId> {
+    fn dependencies(
+        &self,
+        asset_id: ObjectId,
+        data_set: &DataSet,
+        schema: &SchemaSet,
+    ) -> Vec<ObjectId> {
         vec![asset_id]
     }
 
@@ -309,7 +414,7 @@ impl Builder for BlenderMaterialBuilder {
         asset_id: ObjectId,
         data_set: &DataSet,
         schema: &SchemaSet,
-        dependency_data: &HashMap<ObjectId, SingleObject>
+        dependency_data: &HashMap<ObjectId, SingleObject>,
     ) -> Vec<u8> {
         //
         // Read asset properties
@@ -331,29 +436,112 @@ impl Builder for BlenderMaterialBuilder {
         //     .unwrap()
         //     .clone();
 
-        let base_color_factor_x = imported_data.resolve_property(schema, "base_color_factor.x").unwrap().as_f32().unwrap();
-        let base_color_factor_y = imported_data.resolve_property(schema, "base_color_factor.y").unwrap().as_f32().unwrap();
-        let base_color_factor_z = imported_data.resolve_property(schema, "base_color_factor.z").unwrap().as_f32().unwrap();
-        let base_color_factor_w = imported_data.resolve_property(schema, "base_color_factor.w").unwrap().as_f32().unwrap();
+        let base_color_factor_x = imported_data
+            .resolve_property(schema, "base_color_factor.x")
+            .unwrap()
+            .as_f32()
+            .unwrap();
+        let base_color_factor_y = imported_data
+            .resolve_property(schema, "base_color_factor.y")
+            .unwrap()
+            .as_f32()
+            .unwrap();
+        let base_color_factor_z = imported_data
+            .resolve_property(schema, "base_color_factor.z")
+            .unwrap()
+            .as_f32()
+            .unwrap();
+        let base_color_factor_w = imported_data
+            .resolve_property(schema, "base_color_factor.w")
+            .unwrap()
+            .as_f32()
+            .unwrap();
 
-        let emissive_factor_x = imported_data.resolve_property(schema, "emissive_factor.x").unwrap().as_f32().unwrap();
-        let emissive_factor_y = imported_data.resolve_property(schema, "emissive_factor.y").unwrap().as_f32().unwrap();
-        let emissive_factor_z = imported_data.resolve_property(schema, "emissive_factor.z").unwrap().as_f32().unwrap();
+        let emissive_factor_x = imported_data
+            .resolve_property(schema, "emissive_factor.x")
+            .unwrap()
+            .as_f32()
+            .unwrap();
+        let emissive_factor_y = imported_data
+            .resolve_property(schema, "emissive_factor.y")
+            .unwrap()
+            .as_f32()
+            .unwrap();
+        let emissive_factor_z = imported_data
+            .resolve_property(schema, "emissive_factor.z")
+            .unwrap()
+            .as_f32()
+            .unwrap();
 
-        let metallic_factor = imported_data.resolve_property(schema, "metallic_factor").unwrap().as_f32().unwrap();
-        let roughness_factor = imported_data.resolve_property(schema, "roughness_factor").unwrap().as_f32().unwrap();
-        let normal_texture_scale = imported_data.resolve_property(schema, "normal_texture_scale").unwrap().as_f32().unwrap();
+        let metallic_factor = imported_data
+            .resolve_property(schema, "metallic_factor")
+            .unwrap()
+            .as_f32()
+            .unwrap();
+        let roughness_factor = imported_data
+            .resolve_property(schema, "roughness_factor")
+            .unwrap()
+            .as_f32()
+            .unwrap();
+        let normal_texture_scale = imported_data
+            .resolve_property(schema, "normal_texture_scale")
+            .unwrap()
+            .as_f32()
+            .unwrap();
 
-        let color_texture = imported_data.resolve_property(schema, "color_texture").unwrap().as_string().unwrap().to_string();
-        let metallic_roughness_texture = imported_data.resolve_property(schema, "metallic_roughness_texture").unwrap().as_string().unwrap().to_string();
-        let normal_texture = imported_data.resolve_property(schema, "normal_texture").unwrap().as_string().unwrap().to_string();
-        let emissive_texture = imported_data.resolve_property(schema, "emissive_texture").unwrap().as_string().unwrap().to_string();
+        let color_texture = imported_data
+            .resolve_property(schema, "color_texture")
+            .unwrap()
+            .as_string()
+            .unwrap()
+            .to_string();
+        let metallic_roughness_texture = imported_data
+            .resolve_property(schema, "metallic_roughness_texture")
+            .unwrap()
+            .as_string()
+            .unwrap()
+            .to_string();
+        let normal_texture = imported_data
+            .resolve_property(schema, "normal_texture")
+            .unwrap()
+            .as_string()
+            .unwrap()
+            .to_string();
+        let emissive_texture = imported_data
+            .resolve_property(schema, "emissive_texture")
+            .unwrap()
+            .as_string()
+            .unwrap()
+            .to_string();
 
-        let shadow_method = imported_data.resolve_property(schema, "shadow_method").unwrap().as_enum().unwrap().clone();
-        let blend_method = imported_data.resolve_property(schema, "blend_method").unwrap().as_enum().unwrap().clone();
-        let alpha_threshold = imported_data.resolve_property(schema, "alpha_threshold").unwrap().as_f32().unwrap().clone();
-        let backface_culling = imported_data.resolve_property(schema, "backface_culling").unwrap().as_boolean().unwrap();
-        let color_texture_has_alpha_channel = imported_data.resolve_property(schema, "color_texture_has_alpha_channel").unwrap().as_boolean().unwrap();
+        let shadow_method = imported_data
+            .resolve_property(schema, "shadow_method")
+            .unwrap()
+            .as_enum()
+            .unwrap()
+            .clone();
+        let blend_method = imported_data
+            .resolve_property(schema, "blend_method")
+            .unwrap()
+            .as_enum()
+            .unwrap()
+            .clone();
+        let alpha_threshold = imported_data
+            .resolve_property(schema, "alpha_threshold")
+            .unwrap()
+            .as_f32()
+            .unwrap()
+            .clone();
+        let backface_culling = imported_data
+            .resolve_property(schema, "backface_culling")
+            .unwrap()
+            .as_boolean()
+            .unwrap();
+        let color_texture_has_alpha_channel = imported_data
+            .resolve_property(schema, "color_texture_has_alpha_channel")
+            .unwrap()
+            .as_boolean()
+            .unwrap();
 
         //
         // Do some processing
@@ -376,7 +564,12 @@ impl Builder for BlenderMaterialBuilder {
         };
 
         let processed_data = MeshAdvMaterialData {
-            base_color_factor: [base_color_factor_x, base_color_factor_y, base_color_factor_z, base_color_factor_w],
+            base_color_factor: [
+                base_color_factor_x,
+                base_color_factor_y,
+                base_color_factor_z,
+                base_color_factor_w,
+            ],
             emissive_factor: [emissive_factor_x, emissive_factor_y, emissive_factor_z],
             metallic_factor,
             roughness_factor,

@@ -30,12 +30,9 @@ pub fn uuid_and_hash_to_path(
     let uuid_encoded = uuid.to_simple().encode_lower(&mut buffer).to_string();
 
     // Produce path like [root]/8/cf/25195abd839981ea3c93c8fd2843f
-    root.join(&uuid_encoded[0..1]).join(&uuid_encoded[1..3]).join(format!(
-        "{}-{:x}.{}",
-        &uuid_encoded[3..32],
-        hash,
-        extension
-    ))
+    root.join(&uuid_encoded[0..1])
+        .join(&uuid_encoded[1..3])
+        .join(format!("{}-{:x}.{}", &uuid_encoded[3..32], hash, extension))
 }
 
 pub fn path_to_uuid(

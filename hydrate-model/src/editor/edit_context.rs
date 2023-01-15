@@ -4,7 +4,12 @@ use std::sync::Arc;
 use uuid::Uuid;
 
 use crate::editor::undo::{CompletedUndoContextMessage, UndoContext, UndoStack};
-use crate::{BuildInfo, DataObjectInfo, DataSet, DataSetDiff, EditContextKey, EndContextBehavior, HashMap, HashMapKeys, HashSet, HashSetIter, ImportInfo, NullOverride, ObjectId, ObjectLocation, ObjectName, OverrideBehavior, SchemaFingerprint, SchemaNamedType, SchemaRecord, SchemaSet, Value};
+use crate::{
+    BuildInfo, DataObjectInfo, DataSet, DataSetDiff, EditContextKey, EndContextBehavior, HashMap,
+    HashMapKeys, HashSet, HashSetIter, ImportInfo, NullOverride, ObjectId, ObjectLocation,
+    ObjectName, OverrideBehavior, SchemaFingerprint, SchemaNamedType, SchemaRecord, SchemaSet,
+    Value,
+};
 
 //TODO: Delete unused property data when path ancestor is null or in replace mode
 
@@ -418,7 +423,7 @@ impl EditContext {
     pub fn set_import_info(
         &mut self,
         object_id: ObjectId,
-        import_info: ImportInfo
+        import_info: ImportInfo,
     ) {
         self.data_set.set_import_info(object_id, import_info);
     }
@@ -439,22 +444,34 @@ impl EditContext {
 
     pub fn import_info(
         &self,
-        object_id: ObjectId
+        object_id: ObjectId,
     ) -> Option<&ImportInfo> {
         self.data_set.import_info(object_id)
     }
 
-    pub fn resolve_all_file_references(&self, object_id: ObjectId) -> Option<HashMap<PathBuf, ObjectId>> {
+    pub fn resolve_all_file_references(
+        &self,
+        object_id: ObjectId,
+    ) -> Option<HashMap<PathBuf, ObjectId>> {
         self.data_set.resolve_all_file_references(object_id)
     }
 
-    pub fn get_all_file_reference_overrides(&mut self, object_id: ObjectId) -> Option<&HashMap<PathBuf, ObjectId>> {
+    pub fn get_all_file_reference_overrides(
+        &mut self,
+        object_id: ObjectId,
+    ) -> Option<&HashMap<PathBuf, ObjectId>> {
         self.data_set.get_all_file_reference_overrides(object_id)
     }
 
-    pub fn set_file_reference_override(&mut self, object_id: ObjectId, path: PathBuf, referenced_object_id: ObjectId) {
+    pub fn set_file_reference_override(
+        &mut self,
+        object_id: ObjectId,
+        path: PathBuf,
+        referenced_object_id: ObjectId,
+    ) {
         self.track_existing_object(object_id);
-        self.data_set.set_file_reference_override(object_id, path, referenced_object_id);
+        self.data_set
+            .set_file_reference_override(object_id, path, referenced_object_id);
     }
 
     pub fn object_prototype(

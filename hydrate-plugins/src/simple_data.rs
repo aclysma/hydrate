@@ -1,7 +1,7 @@
-use std::marker::PhantomData;
-use serde::{Deserialize, Serialize};
 use hydrate_model::{DataSet, HashMap, ObjectId, SchemaLinker, SchemaSet, SingleObject};
 use hydrate_pipeline::{AssetPlugin, Builder, BuilderRegistry, ImporterRegistry};
+use serde::{Deserialize, Serialize};
+use std::marker::PhantomData;
 
 pub trait SimpleData: Sized + Serialize + for<'a> Deserialize<'a> {
     fn schema_name() -> &'static str;
@@ -13,15 +13,14 @@ pub trait SimpleData: Sized + Serialize + for<'a> Deserialize<'a> {
     ) -> Self;
 }
 
-
 pub struct SimpleDataBuilder<T: SimpleData> {
-    phantom_data: PhantomData<T>
+    phantom_data: PhantomData<T>,
 }
 
 impl<T: SimpleData> Default for SimpleDataBuilder<T> {
     fn default() -> Self {
         SimpleDataBuilder {
-            phantom_data: PhantomData::default()
+            phantom_data: PhantomData::default(),
         }
     }
 }
@@ -31,7 +30,12 @@ impl<T: SimpleData> Builder for SimpleDataBuilder<T> {
         T::schema_name()
     }
 
-    fn dependencies(&self, asset_id: ObjectId, data_set: &DataSet, schema: &SchemaSet) -> Vec<ObjectId> {
+    fn dependencies(
+        &self,
+        asset_id: ObjectId,
+        data_set: &DataSet,
+        schema: &SchemaSet,
+    ) -> Vec<ObjectId> {
         vec![asset_id]
     }
 
@@ -40,7 +44,7 @@ impl<T: SimpleData> Builder for SimpleDataBuilder<T> {
         asset_id: ObjectId,
         data_set: &DataSet,
         schema: &SchemaSet,
-        _dependency_data: &HashMap<ObjectId, SingleObject>
+        _dependency_data: &HashMap<ObjectId, SingleObject>,
     ) -> Vec<u8> {
         let data = T::from_data_set(asset_id, data_set, schema);
 
@@ -48,7 +52,6 @@ impl<T: SimpleData> Builder for SimpleDataBuilder<T> {
         serialized
     }
 }
-
 
 #[derive(Serialize, Deserialize)]
 struct Transform {
@@ -62,24 +65,68 @@ impl<'a> SimpleData for Transform {
         "Transform"
     }
 
-    fn from_data_set(asset_id: ObjectId, data_set: &DataSet, schema: &SchemaSet) -> Self {
+    fn from_data_set(
+        asset_id: ObjectId,
+        data_set: &DataSet,
+        schema: &SchemaSet,
+    ) -> Self {
         let position = [
-            data_set.resolve_property(schema, asset_id, "position.x").unwrap().as_f32().unwrap(),
-            data_set.resolve_property(schema, asset_id, "position.y").unwrap().as_f32().unwrap(),
-            data_set.resolve_property(schema, asset_id, "position.z").unwrap().as_f32().unwrap()
+            data_set
+                .resolve_property(schema, asset_id, "position.x")
+                .unwrap()
+                .as_f32()
+                .unwrap(),
+            data_set
+                .resolve_property(schema, asset_id, "position.y")
+                .unwrap()
+                .as_f32()
+                .unwrap(),
+            data_set
+                .resolve_property(schema, asset_id, "position.z")
+                .unwrap()
+                .as_f32()
+                .unwrap(),
         ];
 
         let rotation = [
-            data_set.resolve_property(schema, asset_id, "rotation.x").unwrap().as_f32().unwrap(),
-            data_set.resolve_property(schema, asset_id, "rotation.y").unwrap().as_f32().unwrap(),
-            data_set.resolve_property(schema, asset_id, "rotation.z").unwrap().as_f32().unwrap(),
-            data_set.resolve_property(schema, asset_id, "rotation.w").unwrap().as_f32().unwrap()
+            data_set
+                .resolve_property(schema, asset_id, "rotation.x")
+                .unwrap()
+                .as_f32()
+                .unwrap(),
+            data_set
+                .resolve_property(schema, asset_id, "rotation.y")
+                .unwrap()
+                .as_f32()
+                .unwrap(),
+            data_set
+                .resolve_property(schema, asset_id, "rotation.z")
+                .unwrap()
+                .as_f32()
+                .unwrap(),
+            data_set
+                .resolve_property(schema, asset_id, "rotation.w")
+                .unwrap()
+                .as_f32()
+                .unwrap(),
         ];
 
         let scale = [
-            data_set.resolve_property(schema, asset_id, "scale.x").unwrap().as_f32().unwrap(),
-            data_set.resolve_property(schema, asset_id, "scale.y").unwrap().as_f32().unwrap(),
-            data_set.resolve_property(schema, asset_id, "scale.z").unwrap().as_f32().unwrap()
+            data_set
+                .resolve_property(schema, asset_id, "scale.x")
+                .unwrap()
+                .as_f32()
+                .unwrap(),
+            data_set
+                .resolve_property(schema, asset_id, "scale.y")
+                .unwrap()
+                .as_f32()
+                .unwrap(),
+            data_set
+                .resolve_property(schema, asset_id, "scale.z")
+                .unwrap()
+                .as_f32()
+                .unwrap(),
         ];
 
         Transform {
@@ -94,7 +141,7 @@ impl<'a> SimpleData for Transform {
 struct AllFields {
     boolean: bool,
     int32: i32,
-    int64: i64
+    int64: i64,
 }
 
 impl<'a> SimpleData for AllFields {
@@ -102,15 +149,31 @@ impl<'a> SimpleData for AllFields {
         "AllFields"
     }
 
-    fn from_data_set(asset_id: ObjectId, data_set: &DataSet, schema: &SchemaSet) -> Self {
-        let boolean = data_set.resolve_property(schema, asset_id, "boolean").unwrap().as_boolean().unwrap();
-        let int32 = data_set.resolve_property(schema, asset_id, "int32").unwrap().as_i32().unwrap();
-        let int64 = data_set.resolve_property(schema, asset_id, "int64").unwrap().as_i64().unwrap();
+    fn from_data_set(
+        asset_id: ObjectId,
+        data_set: &DataSet,
+        schema: &SchemaSet,
+    ) -> Self {
+        let boolean = data_set
+            .resolve_property(schema, asset_id, "boolean")
+            .unwrap()
+            .as_boolean()
+            .unwrap();
+        let int32 = data_set
+            .resolve_property(schema, asset_id, "int32")
+            .unwrap()
+            .as_i32()
+            .unwrap();
+        let int64 = data_set
+            .resolve_property(schema, asset_id, "int64")
+            .unwrap()
+            .as_i64()
+            .unwrap();
 
         AllFields {
             boolean,
             int32,
-            int64
+            int64,
         }
     }
 }
@@ -118,7 +181,11 @@ impl<'a> SimpleData for AllFields {
 pub struct SimpleDataAssetPlugin;
 
 impl AssetPlugin for SimpleDataAssetPlugin {
-    fn setup(schema_linker: &mut SchemaLinker, importer_registry: &mut ImporterRegistry, builder_registry: &mut BuilderRegistry) {
+    fn setup(
+        schema_linker: &mut SchemaLinker,
+        importer_registry: &mut ImporterRegistry,
+        builder_registry: &mut BuilderRegistry,
+    ) {
         builder_registry.register_handler::<SimpleDataBuilder<AllFields>>(schema_linker);
         builder_registry.register_handler::<SimpleDataBuilder<Transform>>(schema_linker);
     }

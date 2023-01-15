@@ -2,10 +2,10 @@ use crate::app_state::{ActionQueueSender, ModalAction, ModalActionControlFlow};
 use crate::db_state::DbState;
 use crate::ui_state::UiState;
 use crate::QueuedActions;
-use imgui::{im_str, PopupModal};
 use hydrate_model::edit_context::EditContext;
 use hydrate_model::{EditorModel, HashSet, ObjectId, ObjectLocation};
-use hydrate_pipeline::{AssetEngine, ImporterRegistry, ImportJobs};
+use hydrate_pipeline::{AssetEngine, ImportJobs, ImporterRegistry};
+use imgui::{im_str, PopupModal};
 
 pub struct ConfirmQuitWithoutSavingModal {
     finished_first_draw: bool,

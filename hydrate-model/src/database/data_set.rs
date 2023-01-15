@@ -1,10 +1,10 @@
-use std::hash::{Hash, Hasher};
-use std::path::{Path, PathBuf};
-use crate::{NullOverride, SchemaSet, SingleObject};
 use crate::{
     HashMap, HashMapKeys, HashSet, HashSetIter, ObjectId, Schema, SchemaFingerprint,
     SchemaNamedType, SchemaRecord, Value,
 };
+use crate::{NullOverride, SchemaSet, SingleObject};
+use std::hash::{Hash, Hasher};
+use std::path::{Path, PathBuf};
 use std::str::FromStr;
 use std::string::ToString;
 use uuid::Uuid;
@@ -271,14 +271,18 @@ pub struct ImportInfo {
 }
 
 impl ImportInfo {
-    pub fn new(importer_id: ImporterId/*, import_options: SingleObject*/, source_file_path: PathBuf, importable_name: String, file_references: Vec<PathBuf>) -> Self {
+    pub fn new(
+        importer_id: ImporterId, /*, import_options: SingleObject*/
+        source_file_path: PathBuf,
+        importable_name: String,
+        file_references: Vec<PathBuf>,
+    ) -> Self {
         ImportInfo {
             importer_id,
             //import_options,
             source_file_path,
             importable_name,
-            file_references
-            //referenced_source_file_overrides: Default::default()
+            file_references, //referenced_source_file_overrides: Default::default()
         }
     }
 
@@ -295,12 +299,10 @@ impl ImportInfo {
     }
 }
 
-
 #[derive(Clone, Debug, Default)]
 pub struct BuildInfo {
     pub(crate) file_reference_overrides: HashMap<PathBuf, ObjectId>,
 }
-
 
 #[derive(Clone, Debug)]
 pub struct DataObjectInfo {
@@ -467,7 +469,7 @@ impl DataSet {
     pub fn set_import_info(
         &mut self,
         object_id: ObjectId,
-        import_info: ImportInfo
+        import_info: ImportInfo,
     ) {
         self.objects.get_mut(&object_id).unwrap().import_info = Some(import_info);
     }
@@ -498,9 +500,12 @@ impl DataSet {
 
     pub fn import_info(
         &self,
-        object_id: ObjectId
+        object_id: ObjectId,
     ) -> Option<&ImportInfo> {
-        self.objects.get(&object_id).map(|x| x.import_info.as_ref()).flatten()
+        self.objects
+            .get(&object_id)
+            .map(|x| x.import_info.as_ref())
+            .flatten()
     }
 
     // pub fn import_info(
@@ -510,7 +515,11 @@ impl DataSet {
     //     self.objects.get(&object_id).map(|x| x.import_info.as_ref()).flatten()
     // }
 
-    fn do_resolve_all_file_references(&self, object_id: ObjectId, all_references: &mut HashMap<PathBuf, ObjectId>) -> bool {
+    fn do_resolve_all_file_references(
+        &self,
+        object_id: ObjectId,
+        all_references: &mut HashMap<PathBuf, ObjectId>,
+    ) -> bool {
         let object = self.objects.get(&object_id);
         if let Some(object) = object {
             if let Some(prototype) = object.prototype {
@@ -529,7 +538,10 @@ impl DataSet {
         true
     }
 
-    pub fn resolve_all_file_references(&self, object_id: ObjectId) -> Option<HashMap<PathBuf, ObjectId>> {
+    pub fn resolve_all_file_references(
+        &self,
+        object_id: ObjectId,
+    ) -> Option<HashMap<PathBuf, ObjectId>> {
         let mut all_references = HashMap::default();
         if self.do_resolve_all_file_references(object_id, &mut all_references) {
             Some(all_references)
@@ -538,12 +550,26 @@ impl DataSet {
         }
     }
 
-    pub fn get_all_file_reference_overrides(&mut self, object_id: ObjectId) -> Option<&HashMap<PathBuf, ObjectId>> {
-        self.objects.get(&object_id).map(|x| &x.build_info.file_reference_overrides)
+    pub fn get_all_file_reference_overrides(
+        &mut self,
+        object_id: ObjectId,
+    ) -> Option<&HashMap<PathBuf, ObjectId>> {
+        self.objects
+            .get(&object_id)
+            .map(|x| &x.build_info.file_reference_overrides)
     }
 
-    pub fn set_file_reference_override(&mut self, object_id: ObjectId, path: PathBuf, referenced_object_id: ObjectId) {
-        self.objects.get_mut(&object_id).map(|x| x.build_info.file_reference_overrides.insert(path, referenced_object_id));
+    pub fn set_file_reference_override(
+        &mut self,
+        object_id: ObjectId,
+        path: PathBuf,
+        referenced_object_id: ObjectId,
+    ) {
+        self.objects.get_mut(&object_id).map(|x| {
+            x.build_info
+                .file_reference_overrides
+                .insert(path, referenced_object_id)
+        });
     }
 
     // pub fn build_info(
@@ -618,7 +644,8 @@ impl DataSet {
         for value in &object.properties_in_replace_mode {
             let mut inner_hasher = siphasher::sip::SipHasher::default();
             value.hash(&mut inner_hasher);
-            properties_in_replace_mode_hash = properties_in_replace_mode_hash ^ inner_hasher.finish();
+            properties_in_replace_mode_hash =
+                properties_in_replace_mode_hash ^ inner_hasher.finish();
         }
         properties_in_replace_mode_hash.hash(&mut hasher);
 

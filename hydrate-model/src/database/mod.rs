@@ -2,17 +2,17 @@ pub mod value;
 pub use value::Value;
 
 mod data_set;
-pub use data_set::DataObjectInfo;
-pub use data_set::ImportInfo;
 pub use data_set::BuildInfo;
+pub use data_set::BuilderId;
+pub use data_set::DataObjectInfo;
 pub use data_set::DataSet;
+pub use data_set::ImportInfo;
+pub use data_set::ImporterId;
 pub use data_set::ObjectLocation;
 pub use data_set::ObjectName;
 pub use data_set::ObjectPath;
 pub use data_set::ObjectSourceId;
 pub use data_set::OverrideBehavior;
-pub use data_set::ImporterId;
-pub use data_set::BuilderId;
 
 mod single_object;
 pub use single_object::SingleObject;
@@ -37,7 +37,6 @@ mod tests;
 
 //TODO: Read-only sources? For things like network cache. Could only sync files we edit and overlay
 // files source over net cache source, etc.
-
 
 #[derive(Debug, Copy, Clone, PartialEq, Hash)]
 pub enum NullOverride {

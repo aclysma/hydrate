@@ -15,10 +15,14 @@ use hydrate_model::SchemaLinker;
 
 mod ui_state;
 use crate::app_state::QueuedActions;
-use ui::draw_ui;
 pub use crate::db_state::DbState;
-use hydrate_pipeline::{AssetEngine, AssetEngineBuilder, BuilderRegistry, BuildJobs, ImporterRegistry, ImportJobs};
-use hydrate_plugins::{BlenderMaterialAssetPlugin, GlslAssetPlugin, ImageAssetPlugin, SimpleDataAssetPlugin};
+use hydrate_pipeline::{
+    AssetEngine, AssetEngineBuilder, BuildJobs, BuilderRegistry, ImportJobs, ImporterRegistry,
+};
+use hydrate_plugins::{
+    BlenderMaterialAssetPlugin, GlslAssetPlugin, ImageAssetPlugin, SimpleDataAssetPlugin,
+};
+use ui::draw_ui;
 
 // pub fn run() {
 //     let mut linker = SchemaLinker::default();
@@ -36,7 +40,10 @@ use hydrate_plugins::{BlenderMaterialAssetPlugin, GlslAssetPlugin, ImageAssetPlu
 // }
 
 // Creates a window and runs the event loop.
-pub fn run(db_state: DbState, asset_engine: AssetEngine) {
+pub fn run(
+    db_state: DbState,
+    asset_engine: AssetEngine,
+) {
     let mut app_state = AppState::new(db_state, asset_engine);
 
     // Create the winit event loop
@@ -147,7 +154,9 @@ pub fn run(db_state: DbState, asset_engine: AssetEngine) {
             //
             winit::event::Event::RedrawRequested(_window_id) => {
                 imgui_manager.begin_frame(&window);
-                app_state.asset_engine.update(&app_state.db_state.editor_model);
+                app_state
+                    .asset_engine
+                    .update(&app_state.db_state.editor_model);
                 draw_ui::draw_imgui(&imgui_manager, &mut imnodes_example_editor, &mut app_state);
                 imgui_manager.render(&window);
                 if let Err(e) = renderer.draw(&window, imgui_manager.draw_data(), &app_state) {

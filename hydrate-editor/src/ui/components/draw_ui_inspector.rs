@@ -1,9 +1,9 @@
 use crate::app_state::AppState;
 use crate::ui::asset_browser_grid_drag_drop::AssetBrowserGridPayload;
 use crate::ui_state::UiState;
-use imgui::im_str;
 use hydrate_model::edit_context::EditContext;
 use hydrate_model::{EndContextBehavior, Schema};
+use imgui::im_str;
 
 fn draw_property_style<F: FnOnce(&imgui::Ui)>(
     ui: &imgui::Ui,
@@ -26,7 +26,9 @@ fn draw_property_style<F: FnOnce(&imgui::Ui)>(
     (f)(ui);
 }
 
-fn draw_inspector_simple_property<F: FnOnce(&imgui::Ui, hydrate_model::Value) -> Option<hydrate_model::Value>>(
+fn draw_inspector_simple_property<
+    F: FnOnce(&imgui::Ui, hydrate_model::Value) -> Option<hydrate_model::Value>,
+>(
     ui: &imgui::Ui,
     _ui_state: &UiState,
     edit_context: &mut EditContext,

@@ -1,7 +1,11 @@
-use std::path::PathBuf;
 use crate::edit_context::EditContext;
-use crate::{BuildInfo, DataObjectInfo, HashMap, HashSet, HashSetIter, ImporterId, ImportInfo, NullOverride, ObjectId, ObjectLocation, ObjectName, ObjectSourceId, OverrideBehavior, Schema, SchemaFingerprint, SchemaNamedType, SchemaSet, SingleObject, Value};
+use crate::{
+    BuildInfo, DataObjectInfo, HashMap, HashSet, HashSetIter, ImportInfo, ImporterId, NullOverride,
+    ObjectId, ObjectLocation, ObjectName, ObjectSourceId, OverrideBehavior, Schema,
+    SchemaFingerprint, SchemaNamedType, SchemaSet, SingleObject, Value,
+};
 use serde::{Deserialize, Serialize};
+use std::path::PathBuf;
 use std::str::FromStr;
 use uuid::Uuid;
 
@@ -58,7 +62,7 @@ fn json_to_property_value_with_schema(
                 SchemaNamedType::Enum(e) => e.value_from_string(value.as_str().unwrap()).unwrap(),
                 SchemaNamedType::Fixed(_) => unimplemented!(),
             }
-        },
+        }
     }
 }
 
@@ -92,8 +96,8 @@ fn ordered_map_uuid<S>(
     value: &HashMap<String, Uuid>,
     serializer: S,
 ) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
+where
+    S: serde::Serializer,
 {
     let ordered: std::collections::BTreeMap<_, _> = value.iter().collect();
     ordered.serialize(serializer)
@@ -145,9 +149,7 @@ fn load_json_properties(
         }
 
         if !property_handled {
-            let property_schema = named_type
-                .find_property_schema(&path, named_types)
-                .unwrap();
+            let property_schema = named_type.find_property_schema(&path, named_types).unwrap();
             if property_schema.is_dynamic_array() {
                 let json_array = value.as_array().unwrap();
                 for json_array_element in json_array {
@@ -208,7 +210,6 @@ fn store_json_properties(
     saved_properties
 }
 
-
 #[derive(Debug, Serialize, Deserialize)]
 pub struct EditContextObjectImportInfoJson {
     importer_id: Uuid,
@@ -229,12 +230,15 @@ impl EditContextObjectImportInfoJson {
         }
     }
 
-    pub fn to_import_info(&self, schema_set: &SchemaSet) -> ImportInfo {
+    pub fn to_import_info(
+        &self,
+        schema_set: &SchemaSet,
+    ) -> ImportInfo {
         ImportInfo {
             importer_id: ImporterId(self.importer_id),
             source_file_path: PathBuf::from_str(&self.source_file_path).unwrap(),
             importable_name: self.importable_name.clone(),
-            file_references: self.file_references.clone()
+            file_references: self.file_references.clone(),
         }
     }
 }
@@ -253,18 +257,21 @@ impl EditContextObjectBuildInfoJson {
         }
 
         EditContextObjectBuildInfoJson {
-            file_reference_overrides
+            file_reference_overrides,
         }
     }
 
-    pub fn to_build_info(&self, schema_set: &SchemaSet) -> BuildInfo {
+    pub fn to_build_info(
+        &self,
+        schema_set: &SchemaSet,
+    ) -> BuildInfo {
         let mut file_reference_overrides = HashMap::default();
         for (k, v) in &self.file_reference_overrides {
             file_reference_overrides.insert(PathBuf::from_str(k).unwrap(), ObjectId(v.as_u128()));
         }
 
         BuildInfo {
-            file_reference_overrides
+            file_reference_overrides,
         }
     }
 }
@@ -322,11 +329,15 @@ impl EditContextObjectJson {
             &mut properties,
             &mut property_null_overrides,
             Some(&mut properties_in_replace_mode),
-            &mut dynamic_array_entries
+            &mut dynamic_array_entries,
         );
 
-        let import_info = stored_object.import_info.map(|x| x.to_import_info(edit_context.schema_set()));
-        let build_info = stored_object.build_info.to_build_info(edit_context.schema_set());
+        let import_info = stored_object
+            .import_info
+            .map(|x| x.to_import_info(edit_context.schema_set()));
+        let build_info = stored_object
+            .build_info
+            .to_build_info(edit_context.schema_set());
 
         edit_context.restore_object(
             object_id,
@@ -354,10 +365,13 @@ impl EditContextObjectJson {
             &obj.properties,
             &obj.property_null_overrides,
             Some(&obj.properties_in_replace_mode),
-            &obj.dynamic_array_entries
+            &obj.dynamic_array_entries,
         );
 
-        let import_info = obj.import_info.as_ref().map(|x| EditContextObjectImportInfoJson::new(&x));
+        let import_info = obj
+            .import_info
+            .as_ref()
+            .map(|x| EditContextObjectImportInfoJson::new(&x));
         let build_info = EditContextObjectBuildInfoJson::new(&obj.build_info);
 
         let mut stored_object = EditContextObjectJson {
@@ -385,7 +399,12 @@ pub struct SingleObjectJson {
 
 impl SingleObjectJson {
     pub fn new(object: &SingleObject) -> SingleObjectJson {
-        let json_properties = store_json_properties(&object.properties, &object.property_null_overrides, None, &object.dynamic_array_entries);
+        let json_properties = store_json_properties(
+            &object.properties,
+            &object.property_null_overrides,
+            None,
+            &object.dynamic_array_entries,
+        );
 
         SingleObjectJson {
             schema: object.schema.fingerprint().as_uuid(),
@@ -394,7 +413,10 @@ impl SingleObjectJson {
         }
     }
 
-    pub fn to_single_object(&self, schema_set: &SchemaSet) -> SingleObject {
+    pub fn to_single_object(
+        &self,
+        schema_set: &SchemaSet,
+    ) -> SingleObject {
         let schema_fingerprint = SchemaFingerprint(self.schema.as_u128());
 
         let named_type = schema_set
@@ -413,7 +435,7 @@ impl SingleObjectJson {
             &mut properties,
             &mut property_null_overrides,
             None,
-            &mut dynamic_array_entries
+            &mut dynamic_array_entries,
         );
 
         SingleObject::restore(
@@ -421,7 +443,7 @@ impl SingleObjectJson {
             schema_fingerprint,
             properties,
             property_null_overrides,
-            dynamic_array_entries
+            dynamic_array_entries,
         )
     }
 
@@ -433,9 +455,7 @@ impl SingleObjectJson {
         stored_object.to_single_object(schema_set)
     }
 
-    pub fn save_single_object_to_string(
-        object: &SingleObject
-    ) -> String {
+    pub fn save_single_object_to_string(object: &SingleObject) -> String {
         let stored_object = SingleObjectJson::new(object);
         serde_json::to_string_pretty(&stored_object).unwrap()
     }

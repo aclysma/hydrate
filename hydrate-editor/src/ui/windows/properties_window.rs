@@ -1,7 +1,7 @@
 use crate::ui_state::ActiveToolRegion;
 use crate::AppState;
-use imgui::im_str;
 use hydrate_model::ObjectId;
+use imgui::im_str;
 
 pub fn draw_properties_window_single_select(
     ui: &imgui::Ui,

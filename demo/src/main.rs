@@ -1,6 +1,7 @@
+use hydrate_plugins::{
+    BlenderMaterialAssetPlugin, GlslAssetPlugin, ImageAssetPlugin, SimpleDataAssetPlugin,
+};
 use std::path::PathBuf;
-use hydrate_plugins::{BlenderMaterialAssetPlugin, GlslAssetPlugin, ImageAssetPlugin, SimpleDataAssetPlugin};
-
 
 fn schema_def_path() -> PathBuf {
     PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/data/schema"))
@@ -14,24 +15,15 @@ fn schema_cache_file_path() -> PathBuf {
 }
 
 fn asset_data_source_path() -> PathBuf {
-    PathBuf::from(concat!(
-        env!("CARGO_MANIFEST_DIR"),
-        "/data/assets"
-    ))
+    PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/data/assets"))
 }
 
 pub fn import_data_source_path() -> PathBuf {
-    PathBuf::from(concat!(
-        env!("CARGO_MANIFEST_DIR"),
-        "/data/import_data"
-    ))
+    PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/data/import_data"))
 }
 
 pub fn build_data_source_path() -> PathBuf {
-    PathBuf::from(concat!(
-        env!("CARGO_MANIFEST_DIR"),
-        "/data/build_data"
-    ))
+    PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/data/build_data"))
 }
 
 fn main() {
@@ -49,8 +41,17 @@ fn main() {
         .register_plugin::<GlslAssetPlugin>(&mut linker)
         .register_plugin::<SimpleDataAssetPlugin>(&mut linker);
 
-    let db_state = hydrate::editor::DbState::load_or_init_empty(linker, &asset_data_source_path(), &schema_def_path(), &schema_cache_file_path());
-    let asset_engine = asset_engine_builder.build(&db_state.editor_model, import_data_source_path(), build_data_source_path());
+    let db_state = hydrate::editor::DbState::load_or_init_empty(
+        linker,
+        &asset_data_source_path(),
+        &schema_def_path(),
+        &schema_cache_file_path(),
+    );
+    let asset_engine = asset_engine_builder.build(
+        &db_state.editor_model,
+        import_data_source_path(),
+        build_data_source_path(),
+    );
 
     hydrate::editor::run(db_state, asset_engine);
 }

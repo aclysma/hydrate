@@ -1,12 +1,17 @@
+pub use super::*;
 use ::image::{EncodableLayout, GenericImageView};
 use std::path::{Path, PathBuf};
-pub use super::*;
 
-use hydrate_model::{DataSet, EditorModel, HashMap, ObjectId, ObjectLocation, ObjectName, SchemaLinker, SchemaSet, SingleObject, Value};
-use hydrate_pipeline::{AssetPlugin, Builder, BuilderRegistry, ImportedImportable, Importer, ImporterRegistry, ScannedImportable};
+use hydrate_model::{
+    DataSet, EditorModel, HashMap, ObjectId, ObjectLocation, ObjectName, SchemaLinker, SchemaSet,
+    SingleObject, Value,
+};
+use hydrate_pipeline::{
+    AssetPlugin, Builder, BuilderRegistry, ImportedImportable, Importer, ImporterRegistry,
+    ScannedImportable,
+};
+use serde::{Deserialize, Serialize};
 use type_uuid::TypeUuid;
-use serde::{Serialize, Deserialize};
-
 
 pub struct ImageAsset {}
 
@@ -45,7 +50,6 @@ impl ImageImportedData {
     }
 }
 
-
 #[derive(Serialize, Deserialize)]
 struct ImageBuiltData {
     image_bytes: Vec<u8>,
@@ -56,7 +60,11 @@ struct ImageBuiltData {
 pub struct ImageAssetPlugin;
 
 impl AssetPlugin for ImageAssetPlugin {
-    fn setup(schema_linker: &mut SchemaLinker, importer_registry: &mut ImporterRegistry, builder_registry: &mut BuilderRegistry) {
+    fn setup(
+        schema_linker: &mut SchemaLinker,
+        importer_registry: &mut ImporterRegistry,
+        builder_registry: &mut BuilderRegistry,
+    ) {
         ImageAsset::register_schema(schema_linker);
         ImageImportedData::register_schema(schema_linker);
 
@@ -74,12 +82,21 @@ impl Importer for ImageImporter {
         &["png", "jpg"]
     }
 
-    fn scan_file(&self, path: &Path, schema_set: &SchemaSet) -> Vec<ScannedImportable> {
-        let asset_type = schema_set.find_named_type(ImageAsset::schema_name()).unwrap().as_record().unwrap().clone();
+    fn scan_file(
+        &self,
+        path: &Path,
+        schema_set: &SchemaSet,
+    ) -> Vec<ScannedImportable> {
+        let asset_type = schema_set
+            .find_named_type(ImageAsset::schema_name())
+            .unwrap()
+            .as_record()
+            .unwrap()
+            .clone();
         vec![ScannedImportable {
             name: None,
             asset_type,
-            file_references: Default::default()
+            file_references: Default::default(),
         }]
     }
 
@@ -120,10 +137,13 @@ impl Importer for ImageImporter {
         import_object.set_property_override(schema, "height", Value::U32(height));
 
         let mut imported_objects = HashMap::default();
-        imported_objects.insert(None, ImportedImportable {
-            file_references: Default::default(),
-            data: import_object
-        });
+        imported_objects.insert(
+            None,
+            ImportedImportable {
+                file_references: Default::default(),
+                data: import_object,
+            },
+        );
         imported_objects
     }
 }
@@ -137,7 +157,12 @@ impl Builder for ImageBuilder {
         ImageAsset::schema_name()
     }
 
-    fn dependencies(&self, asset_id: ObjectId, data_set: &DataSet, schema: &SchemaSet) -> Vec<ObjectId> {
+    fn dependencies(
+        &self,
+        asset_id: ObjectId,
+        data_set: &DataSet,
+        schema: &SchemaSet,
+    ) -> Vec<ObjectId> {
         vec![asset_id]
     }
 
@@ -146,7 +171,7 @@ impl Builder for ImageBuilder {
         asset_id: ObjectId,
         data_set: &DataSet,
         schema: &SchemaSet,
-        dependency_data: &HashMap<ObjectId, SingleObject>
+        dependency_data: &HashMap<ObjectId, SingleObject>,
     ) -> Vec<u8> {
         //
         // Read asset properties

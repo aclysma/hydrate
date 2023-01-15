@@ -1,6 +1,6 @@
-use std::hash::{Hash, Hasher};
-use crate::{ObjectId, SchemaEnum};
 use crate::{BufferId, HashMap, Schema, SchemaFingerprint, SchemaNamedType};
+use crate::{ObjectId, SchemaEnum};
+use std::hash::{Hash, Hasher};
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum PropertyValue {
@@ -45,7 +45,10 @@ pub struct ValueMap {
 }
 
 impl Hash for ValueMap {
-    fn hash<H: Hasher>(&self, state: &mut H) {
+    fn hash<H: Hasher>(
+        &self,
+        state: &mut H,
+    ) {
         let mut hash = 0;
         for (k, v) in &self.properties {
             let mut inner_hasher = siphasher::sip::SipHasher::default();
@@ -64,7 +67,10 @@ pub struct ValueRecord {
 }
 
 impl Hash for ValueRecord {
-    fn hash<H: Hasher>(&self, state: &mut H) {
+    fn hash<H: Hasher>(
+        &self,
+        state: &mut H,
+    ) {
         let mut hash = 0;
         for (k, v) in &self.properties {
             let mut inner_hasher = siphasher::sip::SipHasher::default();
@@ -96,9 +102,7 @@ pub struct ValueEnum {
 
 impl ValueEnum {
     pub fn new(symbol_name: String) -> Self {
-        ValueEnum {
-            symbol_name
-        }
+        ValueEnum { symbol_name }
     }
 
     pub fn symbol_name(&self) -> &str {
@@ -130,7 +134,10 @@ pub enum Value {
 }
 
 impl Hash for Value {
-    fn hash<H: Hasher>(&self, state: &mut H) {
+    fn hash<H: Hasher>(
+        &self,
+        state: &mut H,
+    ) {
         match self {
             Value::Nullable(x) => x.hash(state),
             Value::Boolean(x) => x.hash(state),

@@ -8,7 +8,7 @@ edition = "2018"
 [dependencies]
 hydrate-model = { path = "../hydrate-model" }
 hydrate-pipeline = { path = "../hydrate-pipeline" }
-hydrate-plugins = { path = "../hydrate-plugins" }
+#hydrate-plugins = { path = "../hydrate-plugins" }
 
 #bevy = { path = "../vendor/bevy" }
 #bevy = "0.5"

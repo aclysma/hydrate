@@ -1,4 +1,4 @@
-use hydrate_plugins::{
+use demo_plugins::{
     BlenderMaterialAssetPlugin, GlslAssetPlugin, ImageAssetPlugin, SimpleDataAssetPlugin,
 };
 use std::path::PathBuf;

@@ -19,9 +19,9 @@ pub use crate::db_state::DbState;
 use hydrate_pipeline::{
     AssetEngine, AssetEngineBuilder, BuildJobs, BuilderRegistry, ImportJobs, ImporterRegistry,
 };
-use hydrate_plugins::{
-    BlenderMaterialAssetPlugin, GlslAssetPlugin, ImageAssetPlugin, SimpleDataAssetPlugin,
-};
+// use demo_plugins::{
+//     BlenderMaterialAssetPlugin, GlslAssetPlugin, ImageAssetPlugin, SimpleDataAssetPlugin,
+// };
 use ui::draw_ui;
 
 // pub fn run() {

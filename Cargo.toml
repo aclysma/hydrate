@@ -1,10 +1,10 @@
 [workspace]
 members = [
     "demo",
+    "demo-plugins",
     "hydrate-base",
     "hydrate-model",
     "hydrate-pipeline",
-    "hydrate-plugins",
     "hydrate-editor",
 ]
 

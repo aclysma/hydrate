@@ -9,3 +9,6 @@ pub use glsl::*;
 
 mod simple_data;
 pub use simple_data::*;
+
+mod gltf;
+pub use crate::gltf::*;

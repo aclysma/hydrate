@@ -14,6 +14,7 @@ use hydrate_pipeline::{
 use serde::{Deserialize, Serialize};
 use shaderc::IncludeType;
 use type_uuid::TypeUuid;
+use demo_types::glsl::*;
 
 fn range_of_line_at_position(
     code: &[char],
@@ -794,11 +795,6 @@ impl GlslBuildTargetAsset {
     }
 }
 
-#[derive(Serialize, Deserialize)]
-pub struct GlslBuildTargetBuiltData {
-    spv: Vec<u8>,
-}
-
 #[derive(TypeUuid, Default)]
 #[uuid = "884303cd-3655-4a72-9131-b07b5121ed29"]
 pub struct GlslBuildTargetBuilder {}
@@ -808,7 +804,7 @@ impl Builder for GlslBuildTargetBuilder {
         GlslBuildTargetAsset::schema_name()
     }
 
-    fn dependencies(
+    fn build_dependencies(
         &self,
         asset_id: ObjectId,
         data_set: &DataSet,

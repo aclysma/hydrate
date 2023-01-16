@@ -11,6 +11,7 @@ use hydrate_pipeline::{
 };
 use serde::{Deserialize, Serialize};
 use type_uuid::TypeUuid;
+use demo_types::gltf::*;
 
 pub struct GltfMeshAsset {}
 
@@ -92,14 +93,6 @@ impl GltfMaterialImportedData {
 }
 
 
-
-
-
-
-#[derive(Serialize, Deserialize)]
-struct GltfBuiltData {
-
-}
 
 pub struct GltfAssetPlugin;
 
@@ -268,7 +261,7 @@ impl Builder for GltfMeshBuilder {
         GltfMeshAsset::schema_name()
     }
 
-    fn dependencies(
+    fn build_dependencies(
         &self,
         asset_id: ObjectId,
         data_set: &DataSet,
@@ -325,7 +318,7 @@ impl Builder for GltfMaterialBuilder {
         GltfMaterialAsset::schema_name()
     }
 
-    fn dependencies(
+    fn build_dependencies(
         &self,
         asset_id: ObjectId,
         data_set: &DataSet,

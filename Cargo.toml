@@ -1,11 +1,14 @@
 [workspace]
 members = [
-    "demo",
+    "demo-editor",
+    "demo-game",
     "demo-plugins",
+    "demo-types",
     "hydrate-base",
     "hydrate-model",
     "hydrate-pipeline",
     "hydrate-editor",
+    "hydrate-loader",
 ]
 
 exclude = [

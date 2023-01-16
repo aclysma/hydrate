@@ -12,6 +12,7 @@ use hydrate_pipeline::{
 };
 use serde::{Deserialize, Serialize};
 use type_uuid::TypeUuid;
+use demo_types::image::*;
 
 pub struct ImageAsset {}
 
@@ -48,13 +49,6 @@ impl ImageImportedData {
             })
             .unwrap();
     }
-}
-
-#[derive(Serialize, Deserialize)]
-struct ImageBuiltData {
-    image_bytes: Vec<u8>,
-    width: u32,
-    height: u32,
 }
 
 pub struct ImageAssetPlugin;
@@ -157,7 +151,7 @@ impl Builder for ImageBuilder {
         ImageAsset::schema_name()
     }
 
-    fn dependencies(
+    fn build_dependencies(
         &self,
         asset_id: ObjectId,
         data_set: &DataSet,

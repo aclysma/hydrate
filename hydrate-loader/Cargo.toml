@@ -1,12 +1,11 @@
 [package]
-name = "hydrate"
+name = "hydrate-loader"
 version = "0.1.0"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-hydrate-editor = { path = "../hydrate-editor" }
-hydrate-pipeline = { path = "../hydrate-pipeline" }
+hydrate-base = { path = "../hydrate-base" }
 hydrate-model = { path = "../hydrate-model" }
-hydrate-loader = { path = "../hydrate-loader" }
+log = "0.4.14"

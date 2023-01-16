@@ -9,6 +9,7 @@ use std::hash::{Hash, Hasher};
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
+use std::time::SystemTime;
 
 use super::ImportJobs;
 use hydrate_model::edit_context::EditContext;
@@ -120,7 +121,7 @@ impl BuildJobs {
             };
 
             log::info!("building object type {}", object_type.name());
-            let dependencies = builder.dependencies(object_id, data_set, schema_set);
+            let dependencies = builder.build_dependencies(object_id, data_set, schema_set);
 
             let mut imported_data = HashMap::default();
             let mut imported_data_hash = 0;
@@ -180,18 +181,38 @@ impl BuildJobs {
 
         //
         // Write the manifest file
+        //TODO: Only if it doesn't already exist? We could skip the whole building process in that case
         //
         let mut manifest_path = self.root_path.clone();
         manifest_path.push("manifests");
         std::fs::create_dir_all(&manifest_path).unwrap();
-        manifest_path.push(format!("{:x}.manifest", combined_build_hash));
+        manifest_path.push(format!("{:0>16x}.manifest", combined_build_hash));
         let file = File::create(manifest_path).unwrap();
         let mut file = std::io::BufWriter::new(file);
         for (object_id, build_hash) in build_hashes {
-            write!(file, "{:x},{:x}\n", object_id.0, build_hash).unwrap();
+            write!(file, "{:0>16x},{:0>16x}\n", object_id.0, build_hash).unwrap();
             //file.write(&object_id.0.to_le_bytes()).unwrap();
             //file.write(&build_hash.to_le_bytes()).unwrap();
         }
+
+        //
+        // Write a new TOC with summary of this build
+        //
+        let mut toc_path = self.root_path.clone();
+        toc_path.push("toc");
+        std::fs::create_dir_all(&toc_path).unwrap();
+
+        let timestamp = std::time::SystemTime::now().duration_since(std::time::SystemTime::UNIX_EPOCH).unwrap().as_millis();
+        toc_path.push(format!("{:0>16x}.toc", timestamp));
+
+        std::fs::write(toc_path, format!("{:0>16x}", combined_build_hash)).unwrap();
+
+
+
+
+
+
+
 
         //std::fs::write(self.root_path.join("latest.txt"), format!("{:x}", combined_build_hash)).unwrap();
 
@@ -290,6 +311,16 @@ impl BuilderRegistry {
         self.registered_builders.push(handler);
     }
 
+    pub fn register_handler_instance<T: Builder + 'static>(
+        &mut self,
+        linker: &mut SchemaLinker,
+        instance: T
+    ) {
+        let handler = Box::new(instance);
+        self.registered_builders.push(handler);
+    }
+
+
     //
     // Called after finished linking the schema so we can associate schema fingerprints with handlers
     //
@@ -356,7 +387,7 @@ pub trait Builder {
     fn asset_type(&self) -> &'static str;
 
     // Returns the assets that this build job needs to be available to complete
-    fn dependencies(
+    fn build_dependencies(
         &self,
         asset_id: ObjectId,
         data_set: &DataSet,

@@ -81,6 +81,7 @@ use std::io::BufRead;
 use std::path::{Path, PathBuf};
 use hydrate_base::hashing::HashMap;
 use hydrate_model::{HashSet, ObjectId};
+use crate::disk_io::DiskAssetIO;
 
 
 // Based on distill's AssetStorage
@@ -124,6 +125,9 @@ enum IOCommand {
     Commit(IOCommandCommitAsset),
 }
 
+
+
+
 // Given a folder, finds the TOC that is "latest" (has highest timestamp)
 fn find_latest_toc(toc_dir_path: &Path) -> Option<PathBuf> {
     let mut max_timestamp = 0;
@@ -148,49 +152,49 @@ fn find_latest_toc(toc_dir_path: &Path) -> Option<PathBuf> {
 }
 
 struct BuildToc {
-    manifest_build_hash: u64
-}
-
-struct BuildManifest {
-    asset_build_hashes: HashMap<ObjectId, u64>
+    build_hash: u64
 }
 
 // Opens a TOC file and reads contents
 fn read_toc(path: &Path) -> BuildToc {
     let data = std::fs::read_to_string(path).unwrap();
-    let manifest_build_hash = u64::from_str_radix(&data, 16).unwrap();
+    let build_hash = u64::from_str_radix(&data, 16).unwrap();
     BuildToc {
-        manifest_build_hash
+        build_hash
     }
 }
-
-fn load_manifest(manifest_dir_path: &Path, build_hash: u64) -> BuildManifest {
-    let mut asset_build_hashes = HashMap::default();
-
-    let file_name = format!("{:0>16x}.manifest", build_hash);
-    let file_path = manifest_dir_path.join(file_name);
-    let file = std::fs::File::open(file_path).unwrap();
-    let buf_reader = std::io::BufReader::new(file);
-    for line in buf_reader.lines() {
-        let line_str = line.unwrap().to_string();
-        if line_str.is_empty() {
-            continue;
-        }
-
-        let separator = line_str.find(",").unwrap();
-        let left = &line_str[..separator];
-        let right = &line_str[(separator+1)..];
-
-        let asset_id = u128::from_str_radix(left, 16).unwrap();
-        let build_hash = u64::from_str_radix(right, 16).unwrap();
-
-        asset_build_hashes.insert(ObjectId(asset_id), build_hash);
-    }
-
-    BuildManifest {
-        asset_build_hashes
-    }
-}
+//
+// struct BuildManifest {
+//     asset_build_hashes: HashMap<ObjectId, u64>
+// }
+//
+// fn load_manifest(manifest_dir_path: &Path, build_hash: u64) -> BuildManifest {
+//     let mut asset_build_hashes = HashMap::default();
+//
+//     let file_name = format!("{:0>16x}.manifest", build_hash);
+//     let file_path = manifest_dir_path.join(file_name);
+//     let file = std::fs::File::open(file_path).unwrap();
+//     let buf_reader = std::io::BufReader::new(file);
+//     for line in buf_reader.lines() {
+//         let line_str = line.unwrap().to_string();
+//         if line_str.is_empty() {
+//             continue;
+//         }
+//
+//         let separator = line_str.find(",").unwrap();
+//         let left = &line_str[..separator];
+//         let right = &line_str[(separator+1)..];
+//
+//         let asset_id = u128::from_str_radix(left, 16).unwrap();
+//         let build_hash = u64::from_str_radix(right, 16).unwrap();
+//
+//         asset_build_hashes.insert(ObjectId(asset_id), build_hash);
+//     }
+//
+//     BuildManifest {
+//         asset_build_hashes
+//     }
+// }
 
 // Asset states can be:
 // Unloaded, not subscribed
@@ -311,27 +315,41 @@ impl AssetIO for DiskAssetIO {
 
 
 pub struct Loader {
-    build_root_path: PathBuf
+    //build_root_path: PathBuf,
+    asset_io: DiskAssetIO,
 }
 
 impl Loader {
-    pub fn new(build_root_path: PathBuf) -> Self {
-        let max_toc_path = find_latest_toc(&build_root_path.join("toc"));
-        if let Some(max_toc_path) = max_toc_path {
-            println!("found toc {:?}", max_toc_path);
-            let manifest = read_toc(&max_toc_path);
-            let manifest = load_manifest(&build_root_path.join("manifests"), manifest.manifest_build_hash);
-            for (asset_id, build_hash) in manifest.asset_build_hashes {
-                println!("asset {} hash {}", asset_id.as_uuid(), build_hash);
-            }
+    pub fn new(build_data_root_path: PathBuf) -> Result<Self, String> {
+        //let asset_io = DiskAssetIO::new(build_data_root_path.clone());
+
+        let max_toc_path = find_latest_toc(&build_data_root_path.join("toc"));
+        let max_toc_path = max_toc_path.ok_or_else(|| "Could not find TOC file".to_string())?;
+        let build_toc = read_toc(&max_toc_path);
+        let asset_io = DiskAssetIO::new(build_data_root_path, build_toc.build_hash);
+
+        let t0 = std::time::Instant::now();
+        for (k, v) in &asset_io.manifest().asset_build_hashes {
+            asset_io.request_data(*k, None);
         }
 
-        Loader {
-            build_root_path
+        while asset_io.active_request_count() > 0 {
+            //std::thread::sleep(std::time::Duration::from_millis(10));
         }
+
+        let t1 = std::time::Instant::now();
+        log::info!("Loaded everything in {}ms", (t1 - t0).as_secs_f32() * 1000.0);
+
+        Ok(Loader {
+            //build_root_path,
+            asset_io
+        })
     }
 
-    pub fn load_asset(object_id: ObjectId) {
+    pub fn load_asset(&self, object_id: ObjectId) {
+        self.asset_io.request_data(object_id, None);
+
+
         // Figure out what objects need to be loaded (i.e. dependerncies)
         // Issue disk IO requests
         // Wait until they are completed

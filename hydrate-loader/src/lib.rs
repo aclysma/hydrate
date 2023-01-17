@@ -1,4 +1,7 @@
 
+mod disk_io;
+
+
 //States from distill's loader
 // /// Indeterminate state - may transition into a load, or result in removal if ref count is == 0
 // None = 0,
@@ -246,7 +249,7 @@ fn load_manifest(manifest_dir_path: &Path, build_hash: u64) -> BuildManifest {
 // - treat different versions as different objects?
 
 
-
+/*
 
 trait AssetIO {
     fn subscribe(&mut self, object_id: ObjectId);
@@ -295,7 +298,7 @@ impl AssetIO for DiskAssetIO {
 }
 
 
-
+*/
 
 
 // Create an Asset handle

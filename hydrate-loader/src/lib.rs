@@ -1,5 +1,6 @@
 
 mod disk_io;
+mod asset_storage;
 
 
 //States from distill's loader
@@ -81,23 +82,24 @@ use std::io::BufRead;
 use std::path::{Path, PathBuf};
 use hydrate_base::hashing::HashMap;
 use hydrate_model::{HashSet, ObjectId};
+use crate::asset_storage::AssetStorage;
 use crate::disk_io::DiskAssetIO;
 
 
 // Based on distill's AssetStorage
-trait AssetStorage {
-    // prepare asset
-    // - we get a callback that gives us the data for the asset, we prepare it and notify when it is
-    //   prepared. It is "uncommitted" at this point - meaning most game logic won't see the the
-    //   effects of this call yet (just game logic involved in preparing the data)
-
-    // commit asset
-    // - we get a callback that tells us to "activate" the prepared asset, such that future requests
-    //   for the asset return the most-recently prepared data
-
-    // free
-    // - we can unload the prepared and committed data for this asset
-}
+// trait AssetStorage {
+//     // prepare asset
+//     // - we get a callback that gives us the data for the asset, we prepare it and notify when it is
+//     //   prepared. It is "uncommitted" at this point - meaning most game logic won't see the the
+//     //   effects of this call yet (just game logic involved in preparing the data)
+//
+//     // commit asset
+//     // - we get a callback that tells us to "activate" the prepared asset, such that future requests
+//     //   for the asset return the most-recently prepared data
+//
+//     // free
+//     // - we can unload the prepared and committed data for this asset
+// }
 
 trait AssetProvider {
     // get
@@ -317,6 +319,7 @@ impl AssetIO for DiskAssetIO {
 pub struct Loader {
     //build_root_path: PathBuf,
     asset_io: DiskAssetIO,
+    asset_storage: AssetStorage,
 }
 
 impl Loader {
@@ -327,6 +330,7 @@ impl Loader {
         let max_toc_path = max_toc_path.ok_or_else(|| "Could not find TOC file".to_string())?;
         let build_toc = read_toc(&max_toc_path);
         let asset_io = DiskAssetIO::new(build_data_root_path, build_toc.build_hash);
+        let asset_storage = AssetStorage::default();
 
         let t0 = std::time::Instant::now();
         for (k, v) in &asset_io.manifest().asset_build_hashes {
@@ -340,10 +344,15 @@ impl Loader {
         let t1 = std::time::Instant::now();
         log::info!("Loaded everything in {}ms", (t1 - t0).as_secs_f32() * 1000.0);
 
-        Ok(Loader {
+        let mut loader = Loader {
             //build_root_path,
-            asset_io
-        })
+            asset_io,
+            asset_storage
+        };
+
+        loader.update();
+
+        Ok(loader)
     }
 
     pub fn load_asset(&self, object_id: ObjectId) {
@@ -354,5 +363,17 @@ impl Loader {
         // Issue disk IO requests
         // Wait until they are completed
         // Possibly some extra on-load-complete stuff
+    }
+
+    pub fn update(&mut self) {
+        for result in self.asset_io.results() {
+            match result.result {
+                Ok(data) => {
+                    println!("Load asset {:?} {:?} bytes", result.object_id, data.len());
+                    self.asset_storage.prepare(result.object_id, data);
+                }
+                Err(e) => {}
+            }
+        }
     }
 }

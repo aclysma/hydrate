@@ -40,6 +40,9 @@ impl DiskAssetIOWorkerThread {
                         }
 
                         result_tx.send(DiskAssetIOResult {
+                            object_id,
+                            subresource,
+                            hash,
                             result
                         }).unwrap();
                         active_request_count.fetch_sub(1, Ordering::Release);
@@ -123,6 +126,9 @@ struct DiskAssetIORequest {
 }
 
 pub struct DiskAssetIOResult {
+    pub object_id: ObjectId,
+    pub hash: u64,
+    pub subresource: Option<u32>,
     pub result: std::io::Result<Vec<u8>>
 }
 
@@ -197,6 +203,9 @@ impl DiskAssetIO {
             });
         } else {
             self.thread_pool.as_ref().unwrap().result_tx.send(DiskAssetIOResult {
+                object_id,
+                subresource,
+                hash: 0,
                 result: Err(std::io::ErrorKind::NotFound.into())
             }).unwrap();
         }

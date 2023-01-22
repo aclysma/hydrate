@@ -1,6 +1,7 @@
 
 mod disk_io;
 mod asset_storage;
+mod handle;
 
 
 //States from distill's loader
@@ -351,6 +352,7 @@ impl Loader {
         };
 
         loader.update();
+        println!("returing loader");
 
         Ok(loader)
     }
@@ -366,14 +368,18 @@ impl Loader {
     }
 
     pub fn update(&mut self) {
-        for result in self.asset_io.results() {
+        println!("update called");
+        while let Ok(result) = self.asset_io.results().try_recv() {
             match result.result {
                 Ok(data) => {
                     println!("Load asset {:?} {:?} bytes", result.object_id, data.len());
                     self.asset_storage.prepare(result.object_id, data);
                 }
-                Err(e) => {}
+                Err(e) => {
+                    println!("there was an error {:?}", e);
+                }
             }
         }
+        println!("update returning");
     }
 }

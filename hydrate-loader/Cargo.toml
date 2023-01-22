@@ -11,3 +11,4 @@ hydrate-model = { path = "../hydrate-model" }
 
 log = "0.4.14"
 crossbeam-channel = "0.5"
+dashmap = "5.4.0"

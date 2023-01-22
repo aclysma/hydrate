@@ -1,8 +1,6 @@
 #![deny(
     rust_2018_compatibility,
     rust_2018_idioms,
-    unused,
-    unused_extern_crates,
     future_incompatible,
     nonstandard_style
 )]
@@ -13,7 +11,7 @@ pub mod handle;
 /// [`LoaderIO`](crate::io::LoaderIO) provides data requested by [`Loader`](crate::loader::Loader).
 pub mod io;
 /// [`Loader`] loads assets into engine-implemented [`AssetStorage`](crate::storage::AssetStorage)s.
-pub mod loader;
+//pub mod loader;
 #[cfg(feature = "packfile_io")]
 pub mod packfile_io;
 /// *feature:* `rpc_io`. `RpcIO` is an implementation of [`LoaderIO`](crate::io::LoaderIO) which communicates with `distill_daemon`
@@ -27,7 +25,7 @@ mod task_local;
 
 pub use crossbeam_channel;
 pub use distill_core::{AssetRef, AssetTypeId, AssetUuid};
-pub use loader::Loader;
+//pub use loader::Loader;
 #[cfg(feature = "packfile_io")]
 pub use packfile_io::PackfileReader;
 #[cfg(feature = "rpc_io")]

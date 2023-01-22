@@ -9,7 +9,8 @@ use std::{
     },
 };
 
-use crossbeam_channel::{unbounded, Receiver, Sender};
+//use crossbeam_channel::{unbounded, Receiver, Sender};
+use crossbeam_channel::{unbounded, Sender};
 use futures_core::future::{BoxFuture, Future};
 use serde::{
     de::{self, Deserialize, Visitor},
@@ -18,7 +19,7 @@ use serde::{
 
 use crate::{
     storage::{LoadStatus, LoaderInfoProvider},
-    AssetRef, AssetUuid, LoadHandle, Loader,
+    AssetRef, AssetUuid, LoadHandle, //Loader,
 };
 
 /// Operations on an asset reference.
@@ -29,20 +30,20 @@ pub enum RefOp {
     IncreaseUuid(AssetUuid),
 }
 
-pub fn process_ref_ops(loader: &Loader, rx: &Receiver<RefOp>) {
-    loop {
-        match rx.try_recv() {
-            Err(_) => break,
-            Ok(RefOp::Decrease(handle)) => loader.remove_ref(handle),
-            Ok(RefOp::Increase(handle)) => {
-                loader.add_ref_handle(handle);
-            }
-            Ok(RefOp::IncreaseUuid(uuid)) => {
-                loader.add_ref(uuid);
-            }
-        }
-    }
-}
+// pub fn process_ref_ops(loader: &Loader, rx: &Receiver<RefOp>) {
+//     loop {
+//         match rx.try_recv() {
+//             Err(_) => break,
+//             Ok(RefOp::Decrease(handle)) => loader.remove_ref(handle),
+//             Ok(RefOp::Increase(handle)) => {
+//                 loader.add_ref_handle(handle);
+//             }
+//             Ok(RefOp::IncreaseUuid(uuid)) => {
+//                 loader.add_ref(uuid);
+//             }
+//         }
+//     }
+// }
 
 /// Keeps track of whether a handle ref is a strong, weak or "internal" ref
 #[derive(Debug)]
@@ -621,9 +622,9 @@ pub trait AssetHandle {
     /// # Type Parameters
     ///
     /// * `L`: Asset loader type.
-    fn load_status(&self, loader: &Loader) -> LoadStatus {
-        loader.get_load_status(self.load_handle())
-    }
+    // fn load_status(&self, loader: &Loader) -> LoadStatus {
+    //     loader.get_load_status(self.load_handle())
+    // }
 
     /// Returns an immutable reference to the asset if it is committed.
     ///

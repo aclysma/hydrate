@@ -1,31 +1,8 @@
 use std::sync::atomic::{AtomicI32, AtomicU32, AtomicU64, Ordering};
+use crossbeam_channel::{Receiver, Sender};
 use hydrate_model::ObjectId;
 use dashmap::DashMap;
-
-#[derive(Copy, Clone, PartialEq, Eq, Debug, Hash)]
-struct LoadHandle(u64);
-
-#[derive(Default)]
-struct LoadInfo {
-    strong_ref_count: AtomicU32,
-    weak_ref_count: AtomicU32,
-}
-
-struct Loader {
-    next_handle_index: AtomicU64,
-    object_to_handle: DashMap<ObjectId, LoadHandle>,
-    handles: DashMap<LoadHandle, LoadInfo>,
-}
-
-impl Default for Loader {
-    fn default() -> Self {
-        Loader {
-            next_handle_index: AtomicU64::new(1),
-            object_to_handle: Default::default(),
-            handles: Default::default()
-        }
-    }
-}
+use distill_loader::handle::HandleOp;
 
 // Sequence of operations:
 // * User creates a type-safe handle through an interface, as long as it is alive, the asset remains loaded
@@ -79,14 +56,57 @@ impl Default for Loader {
 // - Committed
 
 // Mappings needed:
-// - LoadHandle -> LoadInfo
+// - LoadHandle -> LoadState
 // - AssetId -> LoadHandle
 // -
 
+trait LoaderIO {
 
+}
+
+
+#[derive(Copy, Clone, PartialEq, Eq, Debug, Hash)]
+struct LoadHandle(u64);
+
+#[derive(Default)]
+struct LoadState {
+    //strong_ref_count: AtomicU32,
+    ref_count: AtomicU32,
+    version_counter: u32,
+}
+
+struct Loader {
+    next_handle_index: AtomicU64,
+    load_states: DashMap<LoadHandle, LoadState>,
+    object_id_to_handle: DashMap<ObjectId, LoadHandle>,
+    loader_io: Box<dyn LoaderIO>,
+    handle_op_tx: Sender<HandleOp>,
+    handle_op_rx: Receiver<HandleOp>,
+}
 
 impl Loader {
-    pub fn update(&self) {
+    pub fn new(loader_io: Box<dyn LoaderIO>) -> Self {
+        let (handle_op_tx, handle_op_rx) = crossbeam_channel::unbounded();
+
+        Loader {
+            next_handle_index: AtomicU64::new(1),
+            object_id_to_handle: Default::default(),
+            load_states: Default::default(),
+            loader_io,
+            handle_op_tx,
+            handle_op_rx
+        }
+    }
+
+    pub fn update(&mut self) {
+        while let Some(handle_op) = self.handle_op_rx.try_recv() {
+            // Handle the operation
+            match handle_op {
+
+            }
+        }
+
+
         // For each asset queued to do work
         {
             // Check that we still need to do work (compare current state to desired state)
@@ -107,13 +127,13 @@ impl Loader {
     }
 
     pub fn get_or_insert(&self, resource_key: ObjectId) -> LoadHandle {
-        *self.object_to_handle.entry(resource_key).or_insert_with(|| {
+        *self.object_id_to_handle.entry(resource_key).or_insert_with(|| {
             let load_handle_index = self.next_handle_index.fetch_add(1, Ordering::Relaxed);
             let load_handle = LoadHandle(load_handle_index);
 
-            self.handles.insert(load_handle, LoadInfo {
-                strong_ref_count: AtomicU32::default(),
-                weak_ref_count: AtomicU32::default(),
+            self.load_states.insert(load_handle, LoadState {
+                ref_count: AtomicU32::new(0),
+                version_counter: 0,
             });
 
             load_handle
@@ -123,14 +143,14 @@ impl Loader {
     pub fn add_ref(&self, object_id: ObjectId) -> LoadHandle {
         let load_handle = self.get_or_insert(object_id);
 
-        let previous_ref_count = self.handles.get(&load_handle).as_ref().unwrap().strong_ref_count.fetch_add(1, Ordering::Release);
+        let previous_ref_count = self.load_states.get(&load_handle).as_ref().unwrap().strong_ref_count.fetch_add(1, Ordering::Release);
         // mark as needing processing?
 
         load_handle
     }
 
     pub fn remove_ref(&self, load_handle: LoadHandle) {
-        let previous_ref_count = self.handles.get(&load_handle).as_ref().unwrap().strong_ref_count.fetch_sub(1, Ordering::Release);
+        let previous_ref_count = self.load_states.get(&load_handle).as_ref().unwrap().strong_ref_count.fetch_sub(1, Ordering::Release);
         // mark as needing processing?
     }
 }

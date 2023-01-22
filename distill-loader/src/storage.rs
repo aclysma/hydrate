@@ -9,29 +9,12 @@ use std::{
 
 use crossbeam_channel::Sender;
 use dashmap::DashMap;
-use distill_core::{AssetMetadata, AssetRef, AssetTypeId, AssetUuid};
+use distill_core::{AssetRef, AssetTypeId, AssetUuid};
 
 /// Loading ID allocated by [`Loader`](crate::loader::Loader) to track loading of a particular asset
 /// or an indirect reference to an asset.
 #[derive(Copy, Clone, PartialEq, Eq, Debug, Hash)]
 pub struct LoadHandle(pub u64);
-
-impl LoadHandle {
-    /// Returns true if the handle needs to be resolved through the [`IndirectionTable`] before use.
-    /// An "indirect" LoadHandle represents a load operation for an identifier that is late-bound,
-    /// meaning the identifier may change which [`AssetUuid`] it resolves to.
-    /// An example of an indirect LoadHandle would be one that loads by filesystem path.
-    /// The specific asset at a path may change as files change, move or are deleted, while a direct
-    /// LoadHandle (one that addresses by AssetUuid) is guaranteed to refer to an AssetUuid for its
-    /// whole lifetime.
-    pub fn is_indirect(&self) -> bool {
-        (self.0 & (1 << 63)) == 1 << 63
-    }
-
-    pub(crate) fn set_indirect(self) -> LoadHandle {
-        LoadHandle(self.0 | (1 << 63))
-    }
-}
 
 pub(crate) enum HandleOp {
     Error(LoadHandle, u32, Box<dyn Error + Send>),
@@ -146,8 +129,6 @@ pub trait AssetStorage {
 pub enum LoadStatus {
     /// There is no request for the asset to be loaded.
     NotRequested,
-    /// The asset is an indirect reference which has not been resolved yet.
-    Unresolved,
     /// The asset is being loaded.
     Loading,
     /// The asset is loaded.
@@ -160,23 +141,19 @@ pub enum LoadStatus {
     Error(Box<dyn Error>),
 }
 
-/// Information about an asset load operation.
-///
-/// **Note:** The information is true at the time the `LoadInfo` is retrieved. The actual number of
-/// references may change.
-#[derive(Debug)]
-pub struct LoadInfo {
-    /// UUID of the asset.
-    pub asset_id: AssetUuid,
-    /// Number of references to the asset.
-    pub refs: u32,
-    /// Path to asset's source file. Not guaranteed to always be available.
-    pub path: Option<String>,
-    /// Name of asset's source file. Not guaranteed to always be available.
-    pub file_name: Option<String>,
-    /// Asset name. Not guaranteed to always be available.
-    pub asset_name: Option<String>,
-}
+// /// Information about an asset load operation.
+// ///
+// /// **Note:** The information is true at the time the `LoadInfo` is retrieved. The actual number of
+// /// references may change.
+// #[derive(Debug)]
+// pub struct LoadInfo {
+//     /// UUID of the asset.
+//     pub asset_id: AssetUuid,
+//     /// Number of references to the asset.
+//     pub refs: u32,
+//     /// Asset name. Not guaranteed to always be available.
+//     pub asset_name: Option<String>,
+// }
 
 /// Provides information about mappings between `AssetUuid` and `LoadHandle`.
 /// Intended to be used for `Handle` serde.
@@ -197,107 +174,3 @@ pub trait LoaderInfoProvider: Send + Sync {
     /// * `load_handle`: ID allocated by [`Loader`](crate::loader::Loader) to track loading of the asset.
     fn get_asset_id(&self, load: LoadHandle) -> Option<AssetUuid>;
 }
-
-// /// Allocates LoadHandles for [`Loader`](crate::loader::Loader) implementations.
-// pub trait HandleAllocator: Send + Sync + 'static {
-//     /// Allocates a [`LoadHandle`] for use by a [`crate::loader::Loader`].
-//     /// The same LoadHandle must not be returned by this function until it has been passed to `free`.
-//     /// NOTE: The most significant bit of the u64 in the LoadHandle returned MUST be unset,
-//     /// as it is reserved for indicating whether the handle is indirect or not.
-//     fn alloc(&self) -> LoadHandle;
-//     /// Frees a [`LoadHandle`], allowing the handle to be returned by a future `alloc` call.
-//     fn free(&self, handle: LoadHandle);
-// }
-//
-// /// An implementation of [`HandleAllocator`] which uses an incrementing AtomicU64 internally to allocate LoadHandle IDs.
-// pub struct AtomicHandleAllocator(AtomicU64);
-// impl AtomicHandleAllocator {
-//     pub const fn new(starting_value: u64) -> Self {
-//         Self(AtomicU64::new(starting_value))
-//     }
-// }
-// impl Default for AtomicHandleAllocator {
-//     fn default() -> Self {
-//         Self(AtomicU64::new(1))
-//     }
-// }
-// impl HandleAllocator for AtomicHandleAllocator {
-//     fn alloc(&self) -> LoadHandle {
-//         LoadHandle(self.0.fetch_add(1, Ordering::Relaxed))
-//     }
-//
-//     fn free(&self, _handle: LoadHandle) {}
-// }
-//
-// impl HandleAllocator for &'static AtomicHandleAllocator {
-//     fn alloc(&self) -> LoadHandle {
-//         LoadHandle(self.0.fetch_add(1, Ordering::Relaxed))
-//     }
-//
-//     fn free(&self, _handle: LoadHandle) {}
-// }
-//
-// /// An indirect identifier that can be resolved to a specific [`AssetUuid`] by an [`IndirectionResolver`] impl.
-// #[derive(Clone, PartialEq, Eq, Debug, Hash)]
-// pub enum IndirectIdentifier {
-//     PathWithTagAndType(String, String, AssetTypeId),
-//     PathWithType(String, AssetTypeId),
-//     Path(String),
-// }
-// impl IndirectIdentifier {
-//     pub fn path(&self) -> &str {
-//         match self {
-//             IndirectIdentifier::PathWithTagAndType(path, _, _) => path.as_str(),
-//             IndirectIdentifier::PathWithType(path, _) => path.as_str(),
-//             IndirectIdentifier::Path(path) => path.as_str(),
-//         }
-//     }
-//
-//     pub fn type_id(&self) -> Option<&AssetTypeId> {
-//         match self {
-//             IndirectIdentifier::PathWithTagAndType(_, _, ty) => Some(ty),
-//             IndirectIdentifier::PathWithType(_, ty) => Some(ty),
-//             IndirectIdentifier::Path(_) => None,
-//         }
-//     }
-// }
-// /// Resolves ambiguous [`IndirectIdentifier`]s to a single asset ID given a set of candidates.
-// pub trait IndirectionResolver {
-//     fn resolve(
-//         &self,
-//         id: &IndirectIdentifier,
-//         candidates: Vec<(PathBuf, Vec<AssetMetadata>)>,
-//     ) -> Option<AssetUuid>;
-// }
-//
-// /// Default implementation of [`IndirectionResolver`] which resolves to the first asset in the list of candidates
-// /// of the appropriate type.
-// pub struct DefaultIndirectionResolver;
-// impl IndirectionResolver for DefaultIndirectionResolver {
-//     fn resolve(
-//         &self,
-//         id: &IndirectIdentifier,
-//         candidates: Vec<(PathBuf, Vec<AssetMetadata>)>,
-//     ) -> Option<AssetUuid> {
-//         let id_type = id.type_id();
-//         for candidate in candidates {
-//             for asset in candidate.1 {
-//                 if let Some(artifact) = asset.artifact {
-//                     if id_type.is_none() || *id_type.unwrap() == artifact.type_id {
-//                         return Some(asset.id);
-//                     }
-//                 }
-//             }
-//         }
-//         None
-//     }
-// }
-//
-// /// Resolves indirect [`LoadHandle`]s. See [`LoadHandle::is_indirect`] for details.
-// #[derive(Clone)]
-// pub struct IndirectionTable(pub(crate) Arc<DashMap<LoadHandle, LoadHandle>>);
-// impl IndirectionTable {
-//     pub fn resolve(&self, indirect_handle: LoadHandle) -> Option<LoadHandle> {
-//         self.0.get(&indirect_handle).map(|l| *l)
-//     }
-// }

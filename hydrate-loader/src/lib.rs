@@ -33,8 +33,8 @@ mod handle;
 
 // metadata
 
-// /// Serializable metadata for an asset.
-// /// Stored in .meta files and metadata DB.
+// Serializable metadata for an asset.
+// Stored in .meta files and metadata DB.
 // #[derive(Debug, Clone, Hash, Default)]
 // #[cfg_attr(feature = "serde-1", derive(Serialize, Deserialize))]
 // pub struct AssetMetadata {

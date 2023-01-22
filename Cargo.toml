@@ -9,6 +9,8 @@ members = [
     "hydrate-pipeline",
     "hydrate-editor",
     "hydrate-loader",
+    "distill-core",
+    "distill-loader"
 ]
 
 exclude = [

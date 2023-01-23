@@ -2,6 +2,8 @@
 mod disk_io;
 mod asset_storage;
 mod handle;
+mod distill_core;
+mod distill_loader;
 
 
 //States from distill's loader
@@ -83,8 +85,9 @@ use std::io::BufRead;
 use std::path::{Path, PathBuf};
 use hydrate_base::hashing::HashMap;
 use hydrate_model::{HashSet, ObjectId};
-use crate::asset_storage::AssetStorage;
+use crate::asset_storage::DummyAssetStorage;
 use crate::disk_io::DiskAssetIO;
+use crate::distill_loader::LoadHandle;
 
 
 // Based on distill's AssetStorage
@@ -320,7 +323,7 @@ impl AssetIO for DiskAssetIO {
 pub struct Loader {
     //build_root_path: PathBuf,
     asset_io: DiskAssetIO,
-    asset_storage: AssetStorage,
+    asset_storage: DummyAssetStorage,
 }
 
 impl Loader {
@@ -331,11 +334,11 @@ impl Loader {
         let max_toc_path = max_toc_path.ok_or_else(|| "Could not find TOC file".to_string())?;
         let build_toc = read_toc(&max_toc_path);
         let asset_io = DiskAssetIO::new(build_data_root_path, build_toc.build_hash);
-        let asset_storage = AssetStorage::default();
+        let asset_storage = DummyAssetStorage::default();
 
         let t0 = std::time::Instant::now();
         for (k, v) in &asset_io.manifest().asset_build_hashes {
-            asset_io.request_data(*k, None);
+            asset_io.request_data(LoadHandle(0), *k, None);
         }
 
         while asset_io.active_request_count() > 0 {
@@ -358,7 +361,7 @@ impl Loader {
     }
 
     pub fn load_asset(&self, object_id: ObjectId) {
-        self.asset_io.request_data(object_id, None);
+        self.asset_io.request_data(LoadHandle(0), object_id, None);
 
 
         // Figure out what objects need to be loaded (i.e. dependerncies)

@@ -1,12 +1,12 @@
 use hydrate_model::{HashMap, ObjectId};
 
 #[derive(Default)]
-pub struct AssetStorage {
+pub struct DummyAssetStorage {
     //preparing: HashMap<ObjectId, Vec<u8>>,
     //committed: HashMap<ObjectId, Vec<u8>>,
 }
 
-impl AssetStorage {
+impl DummyAssetStorage {
     pub fn prepare(&mut self, object_id: ObjectId, data: Vec<u8>) {
         log::info!("prepare object {:?}", object_id);
     }

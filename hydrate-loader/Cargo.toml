@@ -9,9 +9,21 @@ edition = "2021"
 hydrate-base = { path = "../hydrate-base" }
 hydrate-model = { path = "../hydrate-model" }
 
-distill-core = { path = "../distill-core" }
-distill-loader = { path = "../distill-loader" }
+#distill-core = { path = "../distill-core" }
+#distill-loader = { path = "../distill-loader" }
 
 log = "0.4.14"
 crossbeam-channel = "0.5"
 dashmap = "5.4.0"
+
+
+futures-core = { version = "0.3", default-features = false, features = ["alloc"] }
+serde = { version = "1", features = ["derive"], optional = true }
+uuid = { version = "0.8.2" }
+pin-project-lite = "0.2.6"
+profiling = "1.0"
+
+
+
+[features]
+handle = ["serde"]

@@ -1,12 +1,3 @@
-#![deny(
-    rust_2018_compatibility,
-    rust_2018_idioms,
-    unused,
-    unused_extern_crates,
-    future_incompatible,
-    nonstandard_style
-)]
-
 use std::fmt;
 #[cfg(feature = "serde-1")]
 use std::str::FromStr;

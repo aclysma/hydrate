@@ -7,6 +7,7 @@ use std::thread::JoinHandle;
 use hydrate_model::ObjectId;
 use crossbeam_channel::{Sender, Receiver};
 use hydrate_base::hashing::HashMap;
+use crate::distill_loader::LoadHandle;
 
 // Thread that tries to take jobs out of the request channel and ends when the finish channel is signalled
 struct DiskAssetIOWorkerThread {
@@ -22,11 +23,8 @@ impl DiskAssetIOWorkerThread {
                 crossbeam_channel::select! {
                     recv(request_rx) -> msg => {
                         let msg = msg.unwrap();
-                        let object_id = msg.object_id;
-                        let hash = msg.hash;
-                        let subresource = msg.subresource;
-                        let path = hydrate_model::uuid_path::uuid_and_hash_to_path(&*root_path, object_id.as_uuid(), hash, "bf");
-                        log::trace!("Start read {:?} {:?}", object_id, subresource);
+                        let path = hydrate_model::uuid_path::uuid_and_hash_to_path(&*root_path, msg.object_id.as_uuid(), msg.hash, "bf");
+                        log::trace!("Start read {:?} {:?}", msg.object_id, msg.subresource);
                         //let t0 = std::time::Instant::now();
                         let result = std::fs::read(&path);
                         //let t1 = std::time::Instant::now();
@@ -35,14 +33,15 @@ impl DiskAssetIOWorkerThread {
                                 //log::debug!("Read {:?} {:?} {} bytes in {}ms", object_id, subresource, data.len(), (t1 - t0).as_secs_f32() * 1000.0);
                             },
                             Err(e) => {
-                                log::warn!("Failed to read {:?} {:?} at path {:?}", object_id, subresource, path);
+                                log::warn!("Failed to read {:?} {:?} at path {:?}", msg.object_id, msg.subresource, path);
                             }
                         }
 
                         result_tx.send(DiskAssetIOResult {
-                            object_id,
-                            subresource,
-                            hash,
+                            object_id: msg.object_id,
+                            load_handle: msg.load_handle,
+                            subresource: msg.subresource,
+                            hash: msg.hash,
                             result
                         }).unwrap();
                         active_request_count.fetch_sub(1, Ordering::Release);
@@ -121,12 +120,14 @@ impl DiskAssetIOThreadPool {
 
 struct DiskAssetIORequest {
     object_id: ObjectId,
+    load_handle: LoadHandle,
     hash: u64,
     subresource: Option<u32>,
 }
 
 pub struct DiskAssetIOResult {
     pub object_id: ObjectId,
+    pub load_handle: LoadHandle,
     pub hash: u64,
     pub subresource: Option<u32>,
     pub result: std::io::Result<Vec<u8>>
@@ -192,18 +193,20 @@ impl DiskAssetIO {
         &self.manifest
     }
 
-    pub fn request_data(&self, object_id: ObjectId, subresource: Option<u32>) {
+    pub fn request_data(&self, load_handle: LoadHandle, object_id: ObjectId, subresource: Option<u32>) {
         log::debug!("Request {:?} {:?}", object_id, subresource);
         let hash = self.manifest.asset_build_hashes.get(&object_id);
         if let Some(&hash) = hash {
             self.thread_pool.as_ref().unwrap().add_request(DiskAssetIORequest {
                 object_id,
+                load_handle,
                 hash,
                 subresource
             });
         } else {
             self.thread_pool.as_ref().unwrap().result_tx.send(DiskAssetIOResult {
                 object_id,
+                load_handle,
                 subresource,
                 hash: 0,
                 result: Err(std::io::ErrorKind::NotFound.into())

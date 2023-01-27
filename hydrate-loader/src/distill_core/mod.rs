@@ -167,7 +167,7 @@ impl<'de> Deserialize<'de> for AssetTypeId {
 #[cfg_attr(feature = "serde-1", derive(serde::Serialize, serde::Deserialize))]
 pub enum AssetRef {
     Uuid(AssetUuid),
-    Path(std::path::PathBuf),
+    //Path(std::path::PathBuf),
 }
 impl AssetRef {
     pub fn expect_uuid(&self) -> &AssetUuid {
@@ -178,11 +178,11 @@ impl AssetRef {
         }
     }
 
-    pub fn is_path(&self) -> bool {
-        matches!(self, AssetRef::Path(_))
-    }
-
-    pub fn is_uuid(&self) -> bool {
-        matches!(self, AssetRef::Uuid(_))
-    }
+    // pub fn is_path(&self) -> bool {
+    //     matches!(self, AssetRef::Path(_))
+    // }
+    //
+    // pub fn is_uuid(&self) -> bool {
+    //     matches!(self, AssetRef::Uuid(_))
+    // }
 }

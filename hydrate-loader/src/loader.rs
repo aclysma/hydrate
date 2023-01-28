@@ -4,7 +4,7 @@ use std::sync::atomic::{AtomicI32, AtomicU32, AtomicU64, Ordering};
 use crossbeam_channel::{Receiver, Sender};
 use hydrate_model::ObjectId;
 use dashmap::DashMap;
-use crate::disk_io::DiskAssetIOResult;
+//use crate::disk_io::DiskAssetIOResult;
 use crate::distill_core::{AssetRef, AssetTypeId, AssetUuid};
 use crate::distill_loader::{LoadHandle};
 use crate::distill_loader::storage::{AssetLoadOp, AssetStorage, HandleOp, LoaderInfoProvider};
@@ -72,7 +72,8 @@ use crate::distill_loader::storage::{AssetLoadOp, AssetStorage, HandleOp, Loader
 pub struct ObjectMetadata {
     pub dependencies: Vec<ObjectId>,
     pub subresource_count: u32,
-    pub asset_type: AssetTypeId
+    pub asset_type: AssetTypeId,
+    pub hash: u64,
     // size?
 }
 
@@ -148,7 +149,7 @@ pub trait LoaderIO: Sync + Send {
 
     fn request_metadata(&self, build_hash: CombinedBuildHash, load_handle: LoadHandle, object_id: ObjectId, version: u32);
     //fn request_metadata_results(&self, object_id: ObjectId) -> &Receiver<RequestMetadataResult>;
-    fn request_data(&self, build_hash: CombinedBuildHash, load_handle: LoadHandle, object_id: ObjectId, subresource: Option<u32>, version: u32);
+    fn request_data(&self, build_hash: CombinedBuildHash, load_handle: LoadHandle, object_id: ObjectId, hash: u64, subresource: Option<u32>, version: u32);
     //fn request_data_results(&self) -> &Receiver<RequestDataResult>;
 }
 
@@ -235,6 +236,7 @@ struct LoadHandleVersionInfo {
     //object_id: ObjectId,
     load_state: LoadState,
     asset_type: AssetTypeId,
+    hash: u64,
     dependency_ref_count: AtomicU32,
 
     blocking_dependency_count: AtomicU32,
@@ -454,11 +456,12 @@ impl Loader {
             let object_id = load_state_info.object_id;
             let version = &mut load_state_info.versions[result.version as usize];
             version.asset_type = metadata.asset_type;
+            version.hash = metadata.hash;
             version.dependencies = dependency_load_handles;
 
             if blocking_dependency_count == 0 {
                 log::debug!("load handle {:?} has no dependencies", result.load_handle);
-                self.loader_io.request_data(build_hash, result.load_handle, object_id, None, result.version);
+                self.loader_io.request_data(build_hash, result.load_handle, object_id, metadata.hash, None, result.version);
                 version.load_state = LoadState::WaitingForData;
             } else {
                 log::debug!("load handle {:?} has {} dependencies", result.load_handle, blocking_dependency_count);
@@ -486,14 +489,16 @@ impl Loader {
 
         assert_eq!(load_state_info.versions[version].load_state, LoadState::WaitingForDependencies);
 
-        self.loader_io.request_data(build_hash, load_handle, load_state_info.object_id, None, version as u32);
+        self.loader_io.request_data(build_hash, load_handle, load_state_info.object_id, load_state_info.versions[version].hash, None, version as u32);
         load_state_info.versions[version].load_state = LoadState::WaitingForData;
     }
 
     fn handle_request_data_result(&self, result: RequestDataResult, asset_storage: &mut dyn AssetStorage) {
         log::debug!("handle_request_data_result {:?}", result.load_handle);
 
-        if let Some(mut load_state_info) = self.load_handle_infos.get_mut(&result.load_handle) {
+        // Should always exist, we don't delete load handles
+        let (load_op, asset_type, data) = {
+            let mut load_state_info = self.load_handle_infos.get_mut(&result.load_handle).unwrap();
             let version = &mut load_state_info.versions[result.version as usize];
             // Bail if the asset is unloaded
             if version.load_state == LoadState::Unloaded {
@@ -506,10 +511,18 @@ impl Loader {
             let data = result.result.unwrap();
 
             let load_op = AssetLoadOp::new(self.events_tx.clone(), result.load_handle, result.version);
-            asset_storage.update_asset(self, &version.asset_type, data.data, result.load_handle, load_op, result.version).unwrap();
 
-            version.load_state = LoadState::Loading;
-        }
+            (load_op, version.asset_type, data)
+        };
+
+        // We dropped the load_state_info before calling this because the serde deserializer may query for asset references, which
+        // can cause deadlocks in dashmap if we are still holding a lock
+        asset_storage.update_asset(self, &asset_type, data.data, result.load_handle, load_op, result.version).unwrap();
+
+        // Should always exist, we don't delete load handles
+        let mut load_state_info = self.load_handle_infos.get_mut(&result.load_handle).unwrap();
+        let version = &mut load_state_info.versions[result.version as usize];
+        version.load_state = LoadState::Loading;
     }
 
     fn handle_load_result(&self, load_result: HandleOp, asset_storage: &mut dyn AssetStorage) {
@@ -529,10 +542,11 @@ impl Loader {
 
                     // Flag any loads that were waiting on this load to proceed
                     let mut blocked_loads = Vec::default();
-                    {
+                    let asset_type = {
                         let mut load_handle_info = self.load_handle_infos.get_mut(&load_handle).unwrap();
                         std::mem::swap(&mut blocked_loads, &mut load_handle_info.versions[version as usize].blocked_loads);
-                    }
+                        load_handle_info.versions[version as usize].asset_type
+                    };
 
                     for (blocked_load_handle, blocked_load_version) in blocked_loads {
                         let mut blocked_load = self.load_handle_infos.get_mut(&blocked_load_handle).unwrap();
@@ -543,7 +557,7 @@ impl Loader {
                         }
                     }
 
-
+                    asset_storage.commit_asset_version(&asset_type, load_handle, version);
                 }
                 HandleOp::Drop(load_handle, version) => {
                     log::debug!("handle_load_result drop {:?}", load_handle);
@@ -668,6 +682,7 @@ impl Loader {
                     LoadHandleVersionInfo {
                         load_state: LoadState::Unloaded,
                         asset_type: AssetTypeId::default(),
+                        hash: 0,
                         dependency_ref_count: AtomicU32::new(0),
                         blocking_dependency_count: AtomicU32::new(0),
                         blocked_loads: vec![],

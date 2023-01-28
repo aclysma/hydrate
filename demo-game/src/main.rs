@@ -1,5 +1,6 @@
 use std::path::PathBuf;
 use demo_types::image::ImageBuiltData;
+use hydrate::loader::Handle;
 use hydrate::model::ObjectId;
 
 pub fn build_data_source_path() -> PathBuf {
@@ -16,9 +17,16 @@ fn main() {
     let mut loader = hydrate::loader::AssetManager::new(build_data_source_path()).unwrap();
     loader.add_storage::<ImageBuiltData>();
 
-    loader.load_asset(ObjectId(uuid::Uuid::parse_str("df737bdbfc014fc5929a5e7a0d0f1281").unwrap().as_u128()));
+    let load_handle: Handle<ImageBuiltData> = loader.load_asset(ObjectId(uuid::Uuid::parse_str("df737bdbfc014fc5929a5e7a0d0f1281").unwrap().as_u128()));
     loop {
         std::thread::sleep(std::time::Duration::from_millis(15));
         loader.update();
+
+        let data = load_handle.asset(loader.storage());;
+        if let Some(data) = data {
+            println!("{} {}", data.width, data.height);
+        } else {
+            println!("not loaded");
+        }
     }
 }

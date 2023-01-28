@@ -140,6 +140,7 @@ impl AssetStorage for AssetStorageSet {
         load_op: AssetLoadOp,
         version: u32,
     ) -> Result<(), Box<dyn Error + Send + 'static>> {
+        println!("call AssetStorageSet::update_asset");
         let mut inner = self.inner.lock().unwrap();
 
         let asset_type_id = *inner
@@ -147,11 +148,15 @@ impl AssetStorage for AssetStorageSet {
             .get(asset_data_type_id)
             .expect("unknown asset data type");
 
-        inner
+        println!("AAAAA");
+        let x = inner
             .storage
             .get_mut(&asset_type_id)
             .expect("unknown asset type")
-            .update_asset(loader_info, &data, load_handle, load_op, version)
+            .update_asset(loader_info, &data, load_handle, load_op, version);
+
+        println!("returning from AssetStorageSet::update_asset");
+        x
     }
 
     fn commit_asset_version(
@@ -324,16 +329,24 @@ where
         load_op: AssetLoadOp,
         _version: u32,
     ) -> Result<UpdateAssetResult<AssetDataT>, Box<dyn Error + Send + 'static>> {
+        log::debug!("DefaultAssetLoader update_asset");
+
         let asset = SerdeContext::with(
             loader_info,
             refop_sender.clone(),
-            || bincode::deserialize::<AssetDataT>(data)
-                // Coerce into boxed error
-                .map_err(|x| -> Box<dyn Error + Send + 'static> { Box::new(x) })
-            ,
+            || {
+                log::debug!("bincode deserialize");
+                let x = bincode::deserialize::<AssetDataT>(data)
+                    // Coerce into boxed error
+                    .map_err(|x| -> Box<dyn Error + Send + 'static> { Box::new(x) });
+                println!("finished deserialize");
+                x
+            }
         )?;
+        log::debug!("call load_op.complete()");
 
         load_op.complete();
+        log::debug!("return");
         Ok(UpdateAssetResult::Result(asset))
     }
 
@@ -412,7 +425,7 @@ impl<AssetT: TypeUuid + 'static + Send> DynAssetStorage for Storage<AssetT> {
         load_op: AssetLoadOp,
         version: u32,
     ) -> Result<(), Box<dyn Error + Send + 'static>> {
-        log::trace!(
+        log::debug!(
             "update_asset {} {:?} {:?} {}",
             core::any::type_name::<AssetT>(),
             load_handle,
@@ -454,7 +467,7 @@ impl<AssetT: TypeUuid + 'static + Send> DynAssetStorage for Storage<AssetT> {
             .remove(&load_handle)
             .expect("asset not present when committing");
 
-        log::trace!(
+        log::debug!(
             "commit_asset_version {} {:?} {:?} {}",
             core::any::type_name::<AssetT>(),
             load_handle,
@@ -494,7 +507,7 @@ impl<AssetT: TypeUuid + 'static + Send> DynAssetStorage for Storage<AssetT> {
                 // Remove it from the list of assets
                 let asset_state = self.assets.remove(&load_handle).unwrap();
 
-                log::trace!(
+                log::debug!(
                     "free {} {:?} {:?}",
                     core::any::type_name::<AssetT>(),
                     load_handle,

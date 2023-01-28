@@ -8,6 +8,7 @@ pub type HashSet<T> = std::collections::HashSet<T, ahash::RandomState>;
 pub type HashSetIter<'a, T> = std::collections::hash_set::Iter<'a, T>;
 
 use std::fmt::{Debug, Formatter};
+use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 pub mod uuid_path;
@@ -31,7 +32,7 @@ impl Debug for SchemaFingerprint {
     }
 }
 
-#[derive(Copy, Clone, PartialEq, Eq, Hash, Ord, PartialOrd)]
+#[derive(Copy, Clone, PartialEq, Eq, Hash, Ord, PartialOrd, Serialize, Deserialize)]
 pub struct ObjectId(pub u128);
 impl ObjectId {
     pub fn null() -> Self {

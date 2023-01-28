@@ -97,6 +97,8 @@ use crate::distill_loader::handle::RefOp;
 use crate::distill_loader::LoadHandle;
 use crate::loader::{CombinedBuildHash, Loader};
 
+pub use distill_loader::handle::Handle;
+
 
 // Based on distill's AssetStorage
 // trait AssetStorage {
@@ -141,42 +143,6 @@ enum IOCommand {
 
 
 
-
-// Given a folder, finds the TOC that is "latest" (has highest timestamp)
-fn find_latest_toc(toc_dir_path: &Path) -> Option<PathBuf> {
-    let mut max_timestamp = 0;
-    let mut max_timestamp_path = None;
-
-    log::info!("find latest toc from {:?}", toc_dir_path);
-    let files = std::fs::read_dir(toc_dir_path).unwrap();
-    for file in files {
-        let path = file.unwrap().path();
-        let file_name = path.file_name().unwrap().to_string_lossy();
-        if let Some(file_name) = file_name.strip_suffix(".toc") {
-            if let Ok(timestamp) = u64::from_str_radix(file_name, 16) {
-                if timestamp > max_timestamp {
-                    max_timestamp = timestamp;
-                    max_timestamp_path = Some(path);
-                }
-            }
-        }
-    }
-
-    max_timestamp_path
-}
-
-struct BuildToc {
-    build_hash: CombinedBuildHash
-}
-
-// Opens a TOC file and reads contents
-fn read_toc(path: &Path) -> BuildToc {
-    let data = std::fs::read_to_string(path).unwrap();
-    let build_hash = u64::from_str_radix(&data, 16).unwrap();
-    BuildToc {
-        build_hash: CombinedBuildHash(build_hash)
-    }
-}
 //
 // struct BuildManifest {
 //     asset_build_hashes: HashMap<ObjectId, u64>
@@ -329,14 +295,13 @@ impl AssetIO for DiskAssetIO {
 
 
 pub fn process_ref_ops(loader: &Loader, rx: &Receiver<RefOp>) {
-    loop {
-        match rx.try_recv() {
-            Err(_) => break,
-            Ok(RefOp::Decrease(handle)) => loader.remove_engine_ref(handle),
-            Ok(RefOp::Increase(handle)) => {
+    while let Ok(ref_op) = rx.try_recv() {
+        match ref_op {
+            RefOp::Decrease(handle) => loader.remove_engine_ref(handle),
+            RefOp::Increase(handle) => {
                 loader.add_engine_ref_by_handle(handle);
             }
-            Ok(RefOp::IncreaseUuid(uuid)) => {
+            RefOp::IncreaseUuid(uuid) => {
                 loader.add_engine_ref(ObjectId(uuid::Uuid::from_bytes(uuid.0).as_u128()));
             }
         }
@@ -361,24 +326,21 @@ impl AssetManager {
         let (ref_op_tx, ref_op_rx) = crossbeam_channel::unbounded();
         let (loader_events_tx, loader_events_rx)  = crossbeam_channel::unbounded();
 
-        let max_toc_path = find_latest_toc(&build_data_root_path.join("toc"));
-        let max_toc_path = max_toc_path.ok_or_else(|| "Could not find TOC file".to_string())?;
-        let build_toc = read_toc(&max_toc_path);
-        let asset_io = DiskAssetIO::new(build_data_root_path, build_toc.build_hash, loader_events_tx.clone());
+        let asset_io = DiskAssetIO::new(build_data_root_path, loader_events_tx.clone())?;
         //let asset_storage = DummyAssetStorage::default();
         let asset_storage = AssetStorageSet::new(ref_op_tx.clone());
 
-        let t0 = std::time::Instant::now();
-        for (k, v) in &asset_io.manifest().asset_build_hashes {
-            asset_io.request_data(LoadHandle(0), *k, None);
-        }
-
-        while asset_io.active_request_count() > 0 {
-            //std::thread::sleep(std::time::Duration::from_millis(10));
-        }
-
-        let t1 = std::time::Instant::now();
-        log::info!("Loaded everything in {}ms", (t1 - t0).as_secs_f32() * 1000.0);
+        // let t0 = std::time::Instant::now();
+        // for (k, v) in &asset_io.manifest().asset_build_hashes {
+        //     asset_io.request_data(LoadHandle(0), *k, None, hash);
+        // }
+        //
+        // while asset_io.active_request_count() > 0 {
+        //     //std::thread::sleep(std::time::Duration::from_millis(10));
+        // }
+        //
+        // let t1 = std::time::Instant::now();
+        // log::info!("Loaded everything in {}ms", (t1 - t0).as_secs_f32() * 1000.0);
 
 
         let loader = Loader::new(Box::new(asset_io), loader_events_tx, loader_events_rx);
@@ -398,16 +360,21 @@ impl AssetManager {
         Ok(loader)
     }
 
+    pub fn storage(&self) -> &AssetStorageSet {
+        &self.asset_storage
+    }
+
     pub fn add_storage<T>(&mut self)
     where T: TypeUuid + for<'a> serde::Deserialize<'a> + 'static + Send
     {
         self.asset_storage.add_storage::<T>();
     }
 
-    pub fn load_asset(&self, object_id: ObjectId) -> LoadHandle {
+    pub fn load_asset<T>(&self, object_id: ObjectId) -> Handle<T> {
         //self.asset_io.request_data(LoadHandle(0), object_id, None);
-        self.loader.add_engine_ref(object_id)
+        let load_handle = self.loader.add_engine_ref(object_id);
 
+        Handle::new(self.ref_op_tx.clone(), load_handle)
 
         // Figure out what objects need to be loaded (i.e. dependerncies)
         // Issue disk IO requests
@@ -416,8 +383,6 @@ impl AssetManager {
     }
 
     pub fn update(&mut self) {
-        println!("update called");
-
         process_ref_ops(&self.loader, &self.ref_op_rx);
         self.loader.update(&mut self.asset_storage);
         // while let Ok(result) = self.asset_io.results().try_recv() {
@@ -431,6 +396,5 @@ impl AssetManager {
         //         }
         //     }
         // }
-        println!("update returning");
     }
 }

@@ -1,4 +1,6 @@
 use std::path::PathBuf;
+use demo_types::image::ImageBuiltData;
+use hydrate::model::ObjectId;
 
 pub fn build_data_source_path() -> PathBuf {
     PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/../demo-editor/data/build_data"))
@@ -11,5 +13,12 @@ fn main() {
         .filter_level(log::LevelFilter::Debug)
         .init();
 
-    hydrate::loader::Loader::new(build_data_source_path());
+    let mut loader = hydrate::loader::AssetManager::new(build_data_source_path()).unwrap();
+    loader.add_storage::<ImageBuiltData>();
+
+    loader.load_asset(ObjectId(uuid::Uuid::parse_str("df737bdbfc014fc5929a5e7a0d0f1281").unwrap().as_u128()));
+    loop {
+        std::thread::sleep(std::time::Duration::from_millis(15));
+        loader.update();
+    }
 }

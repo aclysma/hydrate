@@ -1,4 +1,3 @@
-use std::cmp::max;
 use std::io::BufRead;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -7,7 +6,10 @@ use std::thread::JoinHandle;
 use hydrate_model::ObjectId;
 use crossbeam_channel::{Sender, Receiver};
 use hydrate_base::hashing::HashMap;
+use crate::distill_core::AssetTypeId;
 use crate::distill_loader::LoadHandle;
+use crate::loader::{CombinedBuildHash, Loader, LoaderEvent, LoaderIO, ObjectMetadata, RequestDataResult, RequestMetadataResult};
+use crate::loader::ObjectData;
 
 // Thread that tries to take jobs out of the request channel and ends when the finish channel is signalled
 struct DiskAssetIOWorkerThread {
@@ -138,10 +140,10 @@ pub struct BuildManifest {
 }
 
 impl BuildManifest {
-    fn load_from_file(manifest_dir_path: &Path, build_hash: u64) -> BuildManifest {
+    fn load_from_file(manifest_dir_path: &Path, build_hash: CombinedBuildHash) -> BuildManifest {
         let mut asset_build_hashes = HashMap::default();
 
-        let file_name = format!("{:0>16x}.manifest", build_hash);
+        let file_name = format!("{:0>16x}.manifest", build_hash.0);
         let file_path = manifest_dir_path.join(file_name);
         let file = std::fs::File::open(file_path).unwrap();
         let buf_reader = std::io::BufReader::new(file);
@@ -170,6 +172,8 @@ impl BuildManifest {
 pub struct DiskAssetIO {
     thread_pool: Option<DiskAssetIOThreadPool>,
     manifest: BuildManifest,
+    build_hash: CombinedBuildHash,
+    tx: Sender<LoaderEvent>,
 }
 
 impl Drop for DiskAssetIO {
@@ -179,13 +183,15 @@ impl Drop for DiskAssetIO {
 }
 
 impl DiskAssetIO {
-    pub fn new(build_data_root_path: PathBuf, build_hash: u64) -> Self {
+    pub fn new(build_data_root_path: PathBuf, build_hash: CombinedBuildHash, tx: Sender<LoaderEvent>) -> Self {
         let manifest = BuildManifest::load_from_file(&build_data_root_path.join("manifests"), build_hash);
         let thread_pool = Some(DiskAssetIOThreadPool::new(Arc::new(build_data_root_path), 32));
 
         DiskAssetIO {
             thread_pool,
             manifest,
+            build_hash,
+            tx
         }
     }
 
@@ -220,5 +226,39 @@ impl DiskAssetIO {
 
     pub fn active_request_count(&self) -> usize {
         self.thread_pool.as_ref().unwrap().active_request_count()
+    }
+}
+
+impl LoaderIO for DiskAssetIO {
+    fn latest_build_hash(&self) -> CombinedBuildHash {
+        self.build_hash
+    }
+
+    fn request_metadata(&self, build_hash: CombinedBuildHash, load_handle: LoadHandle, object_id: ObjectId, version: u32) {
+        log::debug!("request_metadata {:?}", load_handle);
+        self.tx.send(LoaderEvent::MetadataRequestComplete(RequestMetadataResult {
+            load_handle,
+            object_id,
+            version,
+            result: Ok(ObjectMetadata {
+                dependencies: vec![],
+                subresource_count: 0,
+                asset_type: AssetTypeId(*uuid::Uuid::parse_str("1a4dde10-5e60-483d-88fa-4f59752e4524").unwrap().as_bytes())
+            })
+        })).unwrap();
+    }
+
+    fn request_data(&self, build_hash: CombinedBuildHash, load_handle: LoadHandle, object_id: ObjectId, subresource: Option<u32>, version: u32) {
+        log::debug!("request_data {:?}", load_handle);
+
+        self.tx.send(LoaderEvent::DataRequestComplete(RequestDataResult {
+            load_handle,
+            object_id,
+            subresource,
+            version,
+            result: Ok(ObjectData {
+                data: vec![]
+            })
+        })).unwrap();
     }
 }

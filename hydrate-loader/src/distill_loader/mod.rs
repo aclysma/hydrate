@@ -1,6 +1,5 @@
 
-/// *feature:* `handle`. Handles provide automatic reference counting of assets, similar to [Rc](`std::rc::Rc`).
-#[cfg(feature = "handle")]
+/// Handles provide automatic reference counting of assets, similar to [Rc](`std::rc::Rc`).
 pub mod handle;
 
 /// [`AssetStorage`](crate::storage::AssetStorage) is implemented by engines to store loaded asset data.
@@ -9,7 +8,6 @@ pub mod storage;
 mod task_local;
 
 pub use crossbeam_channel;
-pub use crate::distill_core::{AssetRef, AssetTypeId, AssetUuid};
 //pub use loader::Loader;
 #[cfg(feature = "packfile_io")]
 pub use packfile_io::PackfileReader;

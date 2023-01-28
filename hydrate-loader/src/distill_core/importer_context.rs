@@ -3,7 +3,7 @@ use futures_core::future::BoxFuture;
 use super::{AssetRef, AssetUuid};
 
 pub trait ImporterContextHandle: Send + Sync {
-    fn scope<'a>(&'a self, fut: BoxFuture<'a, ()>) -> BoxFuture<'a, ()>;
+    //fn scope<'a>(&'a self, fut: BoxFuture<'a, ()>) -> BoxFuture<'a, ()>;
 
     fn begin_serialize_asset(&mut self, asset: AssetUuid);
     /// Returns any registered dependencies

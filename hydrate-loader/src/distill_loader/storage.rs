@@ -10,14 +10,15 @@ use std::{
 use crossbeam_channel::Sender;
 use dashmap::DashMap;
 use crate::distill_core::{AssetRef, AssetTypeId, AssetUuid};
-use crate::handle::LoaderEvent;
+use crate::loader::LoaderEvent;
 
 /// Loading ID allocated by [`Loader`](crate::loader::Loader) to track loading of a particular asset
 /// or an indirect reference to an asset.
 #[derive(Copy, Clone, PartialEq, Eq, Debug, Hash)]
 pub struct LoadHandle(pub u64);
 
-pub(crate) enum HandleOp {
+#[derive(Debug)]
+pub enum HandleOp {
     Error(LoadHandle, u32, Box<dyn Error + Send>),
     Complete(LoadHandle, u32),
     Drop(LoadHandle, u32),

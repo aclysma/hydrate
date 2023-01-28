@@ -6,5 +6,7 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-serde = { default-features = false, version = "1.0.145", features = ["derive"] }
 hydrate-model = { path = "../hydrate-model" }
+
+serde = { default-features = false, version = "1.0.145", features = ["derive"] }
+type-uuid = "0.1.2"

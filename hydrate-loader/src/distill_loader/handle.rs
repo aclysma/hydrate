@@ -8,6 +8,8 @@ use std::{
         Arc, Mutex, RwLock,
     },
 };
+use std::borrow::{Borrow, BorrowMut};
+use std::cell::RefCell;
 
 //use crossbeam_channel::{unbounded, Receiver, Sender};
 use crossbeam_channel::{unbounded, Sender};
@@ -17,10 +19,11 @@ use serde::{
     ser::{self, Serialize, Serializer},
 };
 
-use crate::{
+use super::{
     storage::{LoadStatus, LoaderInfoProvider},
-    AssetRef, AssetUuid, LoadHandle, //Loader,
+    LoadHandle, //Loader,
 };
+use crate::distill_core::{AssetRef, AssetUuid};
 
 /// Operations on an asset reference.
 #[derive(Debug)]
@@ -264,31 +267,67 @@ impl AssetHandle for WeakHandle {
     }
 }
 
-crate::task_local! {
-    static LOADER: &'static dyn LoaderInfoProvider;
-    static REFOP_SENDER: Sender<RefOp>;
-}
+std::thread_local!(static LOADER: std::cell::RefCell<Option<&'static dyn LoaderInfoProvider>> = RefCell::new(None));
+std::thread_local!(static REFOP_SENDER: std::cell::RefCell<Option<Sender<RefOp>>> = RefCell::new(None));
 
 /// Used to make some limited Loader interactions available to `serde` Serialize/Deserialize
 /// implementations by using thread-local storage. Required to support Serialize/Deserialize of Handle.
 pub struct SerdeContext;
 impl SerdeContext {
     pub fn with_active<R>(f: impl FnOnce(&dyn LoaderInfoProvider, &Sender<RefOp>) -> R) -> R {
-        LOADER.with(|l| REFOP_SENDER.with(|r| f(*l, r)))
+        //LOADER.with(|l| REFOP_SENDER.with(|r| f(*l, r)))
+        LOADER.with(|loader| {
+            //*loader.borrow_mut() = Some(loader_info_provider);
+            REFOP_SENDER.with(|refop_sender| {
+                (f)(*loader.borrow().as_ref().unwrap(), refop_sender.borrow().as_ref().unwrap())
+                //*refop_sender.borrow_mut() = Some(sender);
+                //let output = (f)(l, r);
+                //*refop_sender.borrow_mut() = None;
+                //output
+            })
+            //*loader.borrow_mut() = None;
+            //output
+        })
     }
 
-    pub async fn with<F>(loader: &dyn LoaderInfoProvider, sender: Sender<RefOp>, f: F) -> F::Output
+    pub fn with<T, F>(loader: &dyn LoaderInfoProvider, sender: Sender<RefOp>, f: F) -> T
     where
-        F: Future,
+        F: FnOnce() -> T,
     {
-        // The loader lifetime needs to be transmuted to 'static to be able to be stored in task_local.
+        // The loader lifetime needs to be transmuted to 'static to be able to be stored in thread_local.
         // This is safe since SerdeContext's lifetime cannot be shorter than the opened scope, and the loader
         // must live at least as long.
-        let loader = unsafe {
+        let loader_info_provider = unsafe {
             std::mem::transmute::<&dyn LoaderInfoProvider, &'static dyn LoaderInfoProvider>(loader)
         };
 
-        LOADER.scope(loader, REFOP_SENDER.scope(sender, f)).await
+        LOADER.with(|loader| {
+            *loader.borrow_mut() = Some(loader_info_provider);
+            let output = REFOP_SENDER.with(|refop_sender| {
+                *refop_sender.borrow_mut() = Some(sender);
+                let output = (f)();
+                *refop_sender.borrow_mut() = None;
+                output
+            });
+            *loader.borrow_mut() = None;
+            output
+        })
+
+        // *LOADER.borrow_mut() = Some(loader);
+        // *REFOP_SENDER.borrow_mut() = Some(sender);
+        //
+        //
+        // (*f)();
+        //
+        // *LOADER.borrow_mut() = None;
+        // *REFOP_SENDER.borrow_mut() = None;
+
+
+        // LOADER.(|x| {
+        //
+        // })
+        //
+        // LOADER.scope(loader, REFOP_SENDER.scope(sender, f)).await
     }
 }
 
@@ -371,12 +410,12 @@ impl LoaderInfoProvider for DummySerdeContext {
 struct DummySerdeContextHandle {
     dummy: Arc<DummySerdeContext>,
 }
-impl<'a> distill_core::importer_context::ImporterContextHandle for DummySerdeContextHandle {
-    fn scope<'s>(&'s self, fut: BoxFuture<'s, ()>) -> BoxFuture<'s, ()> {
-        let sender = self.dummy.ref_sender.clone();
-        let loader = &*self.dummy;
-        Box::pin(SerdeContext::with(loader, sender, fut))
-    }
+impl<'a> crate::distill_core::importer_context::ImporterContextHandle for DummySerdeContextHandle {
+    // fn scope<'s>(&'s self, fut: BoxFuture<'s, ()>) -> BoxFuture<'s, ()> {
+    //     let sender = self.dummy.ref_sender.clone();
+    //     let loader = &*self.dummy;
+    //     Box::pin(SerdeContext::with(loader, sender, fut))
+    // }
 
     fn resolve_ref(&mut self, asset_ref: &AssetRef, asset: AssetUuid) {
         let new_ref = AssetRef::Uuid(asset);
@@ -410,8 +449,8 @@ impl<'a> distill_core::importer_context::ImporterContextHandle for DummySerdeCon
 
 /// Register this context with AssetDaemon to add serde support for Handle.
 pub struct HandleSerdeContextProvider;
-impl distill_core::importer_context::ImporterContext for HandleSerdeContextProvider {
-    fn handle(&self) -> Box<dyn distill_core::importer_context::ImporterContextHandle> {
+impl crate::distill_core::importer_context::ImporterContext for HandleSerdeContextProvider {
+    fn handle(&self) -> Box<dyn crate::distill_core::importer_context::ImporterContextHandle> {
         let dummy = Arc::new(DummySerdeContext::new());
         Box::new(DummySerdeContextHandle { dummy })
     }
@@ -535,20 +574,27 @@ impl<'de> Visitor<'de> for AssetRefVisitor {
     where
         E: de::Error,
     {
-        use std::str::FromStr;
-        match std::path::PathBuf::from_str(v) {
-            Ok(path) => {
-                if let Ok(uuid) = uuid::Uuid::parse_str(&path.to_string_lossy()) {
-                    Ok(AssetRef::Uuid(AssetUuid(*uuid.as_bytes())))
-                } else {
-                    Ok(AssetRef::Path(path))
-                }
-            }
-            Err(err) => Err(E::custom(format!(
-                "failed to parse Handle string: {:?}",
-                err
-            ))),
+        if let Ok(uuid) = uuid::Uuid::parse_str(v) {
+            Ok(AssetRef::Uuid(AssetUuid(*uuid.as_bytes())))
+        } else {
+            Err(E::custom(format!("failed to parse Handle string")))
         }
+
+        // use std::str::FromStr;
+        // match std::path::PathBuf::from_str(v) {
+        //     Ok(path) => {
+        //         uuid::Uuid::parse_str(&path.to_string_lossy())
+        //         // if let Ok(uuid) = uuid::Uuid::parse_str(&path.to_string_lossy()) {
+        //         //     Ok(AssetRef::Uuid(AssetUuid(*uuid.as_bytes())))
+        //         // } else {
+        //         //     Ok(AssetRef::Path(path))
+        //         // }
+        //     }
+        //     Err(err) => Err(E::custom(format!(
+        //         "failed to parse Handle string: {:?}",
+        //         err
+        //     ))),
+        // }
     }
 
     fn visit_bytes<E>(self, v: &[u8]) -> Result<Self::Value, E>

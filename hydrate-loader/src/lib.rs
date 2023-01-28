@@ -1,12 +1,10 @@
-
-mod disk_io;
-mod dummy_asset_storage;
 mod asset_storage;
-mod loader;
+mod bincode_loader;
+mod disk_io;
 mod distill_core;
 mod distill_loader;
-mod bincode_loader;
-
+mod dummy_asset_storage;
+mod loader;
 
 //States from distill's loader
 // /// Indeterminate state - may transition into a load, or result in removal if ref count is == 0
@@ -81,24 +79,22 @@ mod bincode_loader;
 //     pub type_id: AssetTypeId,
 // }
 
-
-use std::cmp::max;
-use std::io::BufRead;
-use std::path::{Path, PathBuf};
-use crossbeam_channel::{Receiver, Sender};
-use type_uuid::TypeUuid;
-use hydrate_base::hashing::HashMap;
-use hydrate_model::{HashSet, ObjectId};
 use crate::asset_storage::AssetStorageSet;
-use crate::dummy_asset_storage::DummyAssetStorage;
 use crate::disk_io::DiskAssetIO;
 use crate::distill_core::AssetRef::Uuid;
 use crate::distill_loader::handle::RefOp;
 use crate::distill_loader::LoadHandle;
+use crate::dummy_asset_storage::DummyAssetStorage;
 use crate::loader::{CombinedBuildHash, Loader};
+use crossbeam_channel::{Receiver, Sender};
+use hydrate_base::hashing::HashMap;
+use hydrate_model::{HashSet, ObjectId};
+use std::cmp::max;
+use std::io::BufRead;
+use std::path::{Path, PathBuf};
+use type_uuid::TypeUuid;
 
 pub use distill_loader::handle::Handle;
-
 
 // Based on distill's AssetStorage
 // trait AssetStorage {
@@ -121,10 +117,6 @@ trait AssetProvider {
     // get_asset_with_version
 }
 
-
-
-
-
 struct IOCommandUpdateAsset {
     asset_id: ObjectId,
     version: u64,
@@ -140,8 +132,6 @@ enum IOCommand {
     Update(IOCommandUpdateAsset),
     Commit(IOCommandCommitAsset),
 }
-
-
 
 //
 // struct BuildManifest {
@@ -232,7 +222,6 @@ enum IOCommand {
 // - how to handle an update arriving faster than the original asset version?
 // - treat different versions as different objects?
 
-
 /*
 
 trait AssetIO {
@@ -284,7 +273,6 @@ impl AssetIO for DiskAssetIO {
 
 */
 
-
 // Create an Asset handle
 // Ref-count tracking causes us to call subscribe/unsubscribe for the asset
 // When we subscribe, we look up all the things we need to load
@@ -293,8 +281,10 @@ impl AssetIO for DiskAssetIO {
 // The loaded data for the asset will be built up in the IO and then taken by the game loader
 //
 
-
-pub fn process_ref_ops(loader: &Loader, rx: &Receiver<RefOp>) {
+pub fn process_ref_ops(
+    loader: &Loader,
+    rx: &Receiver<RefOp>,
+) {
     while let Ok(ref_op) = rx.try_recv() {
         match ref_op {
             RefOp::Decrease(handle) => loader.remove_engine_ref(handle),
@@ -307,7 +297,6 @@ pub fn process_ref_ops(loader: &Loader, rx: &Receiver<RefOp>) {
         }
     }
 }
-
 
 pub struct AssetManager {
     //build_root_path: PathBuf,
@@ -324,7 +313,7 @@ impl AssetManager {
         //let asset_io = DiskAssetIO::new(build_data_root_path.clone());
 
         let (ref_op_tx, ref_op_rx) = crossbeam_channel::unbounded();
-        let (loader_events_tx, loader_events_rx)  = crossbeam_channel::unbounded();
+        let (loader_events_tx, loader_events_rx) = crossbeam_channel::unbounded();
 
         let asset_io = DiskAssetIO::new(build_data_root_path, loader_events_tx.clone())?;
         //let asset_storage = DummyAssetStorage::default();
@@ -341,7 +330,6 @@ impl AssetManager {
         //
         // let t1 = std::time::Instant::now();
         // log::info!("Loaded everything in {}ms", (t1 - t0).as_secs_f32() * 1000.0);
-
 
         let loader = Loader::new(Box::new(asset_io), loader_events_tx, loader_events_rx);
 
@@ -365,12 +353,16 @@ impl AssetManager {
     }
 
     pub fn add_storage<T>(&mut self)
-    where T: TypeUuid + for<'a> serde::Deserialize<'a> + 'static + Send
+    where
+        T: TypeUuid + for<'a> serde::Deserialize<'a> + 'static + Send,
     {
         self.asset_storage.add_storage::<T>();
     }
 
-    pub fn load_asset<T>(&self, object_id: ObjectId) -> Handle<T> {
+    pub fn load_asset<T>(
+        &self,
+        object_id: ObjectId,
+    ) -> Handle<T> {
         //self.asset_io.request_data(LoadHandle(0), object_id, None);
         let load_handle = self.loader.add_engine_ref(object_id);
 

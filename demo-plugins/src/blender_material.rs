@@ -1,6 +1,7 @@
 pub use super::*;
 use std::path::{Path, PathBuf};
 
+use demo_types::blender_material::*;
 use hydrate_model::value::ValueEnum;
 use hydrate_model::{
     DataSet, EditorModel, HashMap, ObjectId, ObjectLocation, ObjectName, SchemaDefType,
@@ -12,7 +13,6 @@ use hydrate_pipeline::{
 };
 use serde::{Deserialize, Serialize};
 use type_uuid::TypeUuid;
-use demo_types::blender_material::*;
 
 // Import this data to be "Default" values?
 // - Import overwrites any unchanged values?

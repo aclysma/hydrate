@@ -5,12 +5,12 @@ use crate::distill_loader::{
 };
 use std::{collections::HashMap, error::Error, sync::Mutex};
 
-use crossbeam_channel::{Sender, Receiver};
-use type_uuid::TypeUuid;
-use crate::distill_core::{AssetUuid, AssetTypeId};
+use crate::distill_core::{AssetTypeId, AssetUuid};
 use crate::distill_loader::handle::SerdeContext;
+use crossbeam_channel::{Receiver, Sender};
 use downcast_rs::Downcast;
 use std::marker::PhantomData;
+use type_uuid::TypeUuid;
 
 // Used to dynamic dispatch into a storage, supports checked downcasting
 pub trait DynAssetStorage: Downcast + Send {
@@ -51,9 +51,7 @@ pub struct AssetStorageSet {
 }
 
 impl AssetStorageSet {
-    pub fn new(
-        refop_sender: Sender<RefOp>,
-    ) -> Self {
+    pub fn new(refop_sender: Sender<RefOp>) -> Self {
         let inner = AssetStorageSetInner {
             storage: Default::default(),
             data_to_asset_type_uuid: Default::default(),
@@ -109,10 +107,7 @@ impl AssetStorageSet {
         assert!(old.is_none());
         inner.storage.insert(
             AssetTypeId(AssetT::UUID),
-            Box::new(Storage::<AssetT>::new(
-                refop_sender,
-                loader,
-            )),
+            Box::new(Storage::<AssetT>::new(refop_sender, loader)),
         );
     }
 
@@ -331,18 +326,14 @@ where
     ) -> Result<UpdateAssetResult<AssetDataT>, Box<dyn Error + Send + 'static>> {
         log::debug!("DefaultAssetLoader update_asset");
 
-        let asset = SerdeContext::with(
-            loader_info,
-            refop_sender.clone(),
-            || {
-                log::debug!("bincode deserialize");
-                let x = bincode::deserialize::<AssetDataT>(data)
-                    // Coerce into boxed error
-                    .map_err(|x| -> Box<dyn Error + Send + 'static> { Box::new(x) });
-                println!("finished deserialize");
-                x
-            }
-        )?;
+        let asset = SerdeContext::with(loader_info, refop_sender.clone(), || {
+            log::debug!("bincode deserialize");
+            let x = bincode::deserialize::<AssetDataT>(data)
+                // Coerce into boxed error
+                .map_err(|x| -> Box<dyn Error + Send + 'static> { Box::new(x) });
+            println!("finished deserialize");
+            x
+        })?;
         log::debug!("call load_op.complete()");
 
         load_op.complete();
@@ -412,7 +403,9 @@ impl<AssetT: TypeUuid + Send> Storage<AssetT> {
         &self,
         handle: &T,
     ) -> Option<(&AssetT, u32)> {
-        self.assets.get(&handle.load_handle()).map(|a| (&a.asset, a.version))
+        self.assets
+            .get(&handle.load_handle())
+            .map(|a| (&a.asset, a.version))
     }
 }
 

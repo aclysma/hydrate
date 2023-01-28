@@ -7,15 +7,25 @@ pub struct DummyAssetStorage {
 }
 
 impl DummyAssetStorage {
-    pub fn prepare(&mut self, object_id: ObjectId, data: Vec<u8>) {
+    pub fn prepare(
+        &mut self,
+        object_id: ObjectId,
+        data: Vec<u8>,
+    ) {
         log::info!("prepare object {:?}", object_id);
     }
 
-    pub fn commmit(&mut self, object_id: ObjectId) {
+    pub fn commmit(
+        &mut self,
+        object_id: ObjectId,
+    ) {
         log::info!("commit object {:?}", object_id);
     }
 
-    pub fn free(&mut self, object_id: ObjectId) {
+    pub fn free(
+        &mut self,
+        object_id: ObjectId,
+    ) {
         log::info!("free object {:?}", object_id);
     }
 }

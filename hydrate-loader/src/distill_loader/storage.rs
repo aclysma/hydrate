@@ -7,10 +7,10 @@ use std::{
     },
 };
 
-use crossbeam_channel::Sender;
-use dashmap::DashMap;
 use crate::distill_core::{AssetRef, AssetTypeId, AssetUuid};
 use crate::loader::LoaderEvent;
+use crossbeam_channel::Sender;
+use dashmap::DashMap;
 
 /// Loading ID allocated by [`Loader`](crate::loader::Loader) to track loading of a particular asset
 /// or an indirect reference to an asset.
@@ -34,7 +34,11 @@ pub struct AssetLoadOp {
 }
 
 impl AssetLoadOp {
-    pub(crate) fn new(sender: Sender<LoaderEvent>, handle: LoadHandle, version: u32) -> Self {
+    pub(crate) fn new(
+        sender: Sender<LoaderEvent>,
+        handle: LoadHandle,
+        version: u32,
+    ) -> Self {
         Self {
             sender: Some(sender),
             handle,
@@ -53,17 +57,27 @@ impl AssetLoadOp {
             .sender
             .as_ref()
             .unwrap()
-            .send(LoaderEvent::LoadResult(HandleOp::Complete(self.handle, self.version)));
+            .send(LoaderEvent::LoadResult(HandleOp::Complete(
+                self.handle,
+                self.version,
+            )));
         self.sender = None;
     }
 
     /// Signals that this load operation has completed with an error.
-    pub fn error<E: Error + 'static + Send>(mut self, error: E) {
-        let _ = self.sender.as_ref().unwrap().send(LoaderEvent::LoadResult(HandleOp::Error(
-            self.handle,
-            self.version,
-            Box::new(error),
-        )));
+    pub fn error<E: Error + 'static + Send>(
+        mut self,
+        error: E,
+    ) {
+        let _ = self
+            .sender
+            .as_ref()
+            .unwrap()
+            .send(LoaderEvent::LoadResult(HandleOp::Error(
+                self.handle,
+                self.version,
+                Box::new(error),
+            )));
         self.sender = None;
     }
 }
@@ -71,7 +85,10 @@ impl AssetLoadOp {
 impl Drop for AssetLoadOp {
     fn drop(&mut self) {
         if let Some(ref sender) = self.sender {
-            let _ = sender.send(LoaderEvent::LoadResult(HandleOp::Drop(self.handle, self.version)));
+            let _ = sender.send(LoaderEvent::LoadResult(HandleOp::Drop(
+                self.handle,
+                self.version,
+            )));
         }
     }
 }
@@ -124,7 +141,12 @@ pub trait AssetStorage {
     ///
     /// * `asset_type_id`: UUID of the asset type.
     /// * `load_handle`: ID allocated by [`Loader`](crate::loader::Loader) to track loading of a particular asset.
-    fn free(&mut self, asset_type_id: &AssetTypeId, load_handle: LoadHandle, version: u32);
+    fn free(
+        &mut self,
+        asset_type_id: &AssetTypeId,
+        load_handle: LoadHandle,
+        version: u32,
+    );
 }
 
 /// Asset loading status.
@@ -168,12 +190,18 @@ pub trait LoaderInfoProvider: Send + Sync {
     /// # Parameters
     ///
     /// * `id`: UUID of the asset.
-    fn get_load_handle(&self, asset_ref: &AssetRef) -> Option<LoadHandle>;
+    fn get_load_handle(
+        &self,
+        asset_ref: &AssetRef,
+    ) -> Option<LoadHandle>;
 
     /// Returns the AssetUUID for the given LoadHandle, if present.
     ///
     /// # Parameters
     ///
     /// * `load_handle`: ID allocated by [`Loader`](crate::loader::Loader) to track loading of the asset.
-    fn get_asset_id(&self, load: LoadHandle) -> Option<AssetUuid>;
+    fn get_asset_id(
+        &self,
+        load: LoadHandle,
+    ) -> Option<AssetUuid>;
 }

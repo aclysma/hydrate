@@ -21,12 +21,14 @@ use hydrate_model::uuid_path::{path_to_uuid, uuid_and_hash_to_path, uuid_to_path
 pub struct BuiltObjectMetadata {
     pub dependencies: Vec<ObjectId>,
     pub subresource_count: u32,
-    pub asset_type: Uuid
-    // size?
+    pub asset_type: Uuid, // size?
 }
 
 impl BuiltObjectMetadata {
-    pub fn write_header<T: std::io::Write>(&self, writer: &mut T) -> std::io::Result<()> {
+    pub fn write_header<T: std::io::Write>(
+        &self,
+        writer: &mut T,
+    ) -> std::io::Result<()> {
         // writer.write(&(self.dependencies.len() as u32).to_le_bytes())?;
         // for dependency in &self.dependencies {
         //     writer.write(&dependency.0.to_le_bytes())?;
@@ -43,7 +45,10 @@ impl BuiltObjectMetadata {
         Ok(())
     }
 
-    pub fn read_header<T: std::io::Read>(&mut self, reader: &mut T) -> std::io::Result<BuiltObjectMetadata> {
+    pub fn read_header<T: std::io::Read>(
+        &mut self,
+        reader: &mut T,
+    ) -> std::io::Result<BuiltObjectMetadata> {
         // let mut buffer = [0; 16];
         // reader.read(&mut buffer[0..4])?;
         // let count = u32::from_le_bytes(&buffer[0..4]);
@@ -233,14 +238,12 @@ impl BuildJobs {
             let metadata = BuiltObjectMetadata {
                 asset_type: Uuid::default(),
                 subresource_count: 0,
-                dependencies: vec![]
+                dependencies: vec![],
             };
 
             let mut file = std::fs::File::create(&path).unwrap();
             metadata.write_header(&mut file).unwrap();
             file.write(&built_data).unwrap();
-
-
 
             //std::fs::write(&path, built_data).unwrap()
         }
@@ -268,17 +271,13 @@ impl BuildJobs {
         toc_path.push("toc");
         std::fs::create_dir_all(&toc_path).unwrap();
 
-        let timestamp = std::time::SystemTime::now().duration_since(std::time::SystemTime::UNIX_EPOCH).unwrap().as_millis();
+        let timestamp = std::time::SystemTime::now()
+            .duration_since(std::time::SystemTime::UNIX_EPOCH)
+            .unwrap()
+            .as_millis();
         toc_path.push(format!("{:0>16x}.toc", timestamp));
 
         std::fs::write(toc_path, format!("{:0>16x}", combined_build_hash)).unwrap();
-
-
-
-
-
-
-
 
         //std::fs::write(self.root_path.join("latest.txt"), format!("{:x}", combined_build_hash)).unwrap();
 
@@ -380,12 +379,11 @@ impl BuilderRegistry {
     pub fn register_handler_instance<T: Builder + 'static>(
         &mut self,
         linker: &mut SchemaLinker,
-        instance: T
+        instance: T,
     ) {
         let handler = Box::new(instance);
         self.registered_builders.push(handler);
     }
-
 
     //
     // Called after finished linking the schema so we can associate schema fingerprints with handlers

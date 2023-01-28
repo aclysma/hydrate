@@ -1,4 +1,7 @@
-use demo_plugins::{BlenderMaterialAssetPlugin, GlslAssetPlugin, GltfAssetPlugin, ImageAssetPlugin, SimpleDataAssetPlugin};
+use demo_plugins::{
+    BlenderMaterialAssetPlugin, GlslAssetPlugin, GltfAssetPlugin, ImageAssetPlugin,
+    SimpleDataAssetPlugin,
+};
 use std::path::PathBuf;
 
 fn schema_def_path() -> PathBuf {

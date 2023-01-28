@@ -3,6 +3,7 @@ use std::collections::VecDeque;
 use std::ops::Range;
 use std::path::{Path, PathBuf};
 
+use demo_types::glsl::*;
 use hydrate_model::{
     DataSet, EditorModel, HashMap, HashSet, ObjectId, ObjectLocation, ObjectName, SchemaLinker,
     SchemaSet, SingleObject, Value,
@@ -14,7 +15,6 @@ use hydrate_pipeline::{
 use serde::{Deserialize, Serialize};
 use shaderc::IncludeType;
 use type_uuid::TypeUuid;
-use demo_types::glsl::*;
 
 fn range_of_line_at_position(
     code: &[char],

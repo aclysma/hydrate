@@ -1,15 +1,18 @@
-use std::io::BufRead;
-use std::path::{Path, PathBuf};
-use std::sync::Arc;
-use std::sync::atomic::{AtomicUsize, Ordering};
-use std::thread::JoinHandle;
-use hydrate_model::ObjectId;
-use crossbeam_channel::{Sender, Receiver};
-use hydrate_base::hashing::HashMap;
 use crate::distill_core::AssetTypeId;
 use crate::distill_loader::LoadHandle;
-use crate::loader::{CombinedBuildHash, Loader, LoaderEvent, LoaderIO, ObjectMetadata, RequestDataResult, RequestMetadataResult};
 use crate::loader::ObjectData;
+use crate::loader::{
+    CombinedBuildHash, Loader, LoaderEvent, LoaderIO, ObjectMetadata, RequestDataResult,
+    RequestMetadataResult,
+};
+use crossbeam_channel::{Receiver, Sender};
+use hydrate_base::hashing::HashMap;
+use hydrate_model::ObjectId;
+use std::io::BufRead;
+use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::Arc;
+use std::thread::JoinHandle;
 
 struct DiskAssetIORequestMetadata {
     object_id: ObjectId,
@@ -28,18 +31,22 @@ struct DiskAssetIORequestData {
 
 enum DiskAssetIORequest {
     Metadata(DiskAssetIORequestMetadata),
-    Data(DiskAssetIORequestData)
+    Data(DiskAssetIORequestData),
 }
-
 
 // Thread that tries to take jobs out of the request channel and ends when the finish channel is signalled
 struct DiskAssetIOWorkerThread {
     finish_tx: Sender<()>,
-    join_handle: JoinHandle<()>
+    join_handle: JoinHandle<()>,
 }
 
 impl DiskAssetIOWorkerThread {
-    fn new(root_path: Arc<PathBuf>, request_rx: Receiver<DiskAssetIORequest>, result_tx: Sender<LoaderEvent>, active_request_count: Arc<AtomicUsize>) -> Self {
+    fn new(
+        root_path: Arc<PathBuf>,
+        request_rx: Receiver<DiskAssetIORequest>,
+        result_tx: Sender<LoaderEvent>,
+        active_request_count: Arc<AtomicUsize>,
+    ) -> Self {
         let (finish_tx, finish_rx) = crossbeam_channel::bounded(1);
         let join_handle = std::thread::Builder::new().name("IO Thread".into()).spawn(move || {
             loop {
@@ -117,7 +124,7 @@ impl DiskAssetIOWorkerThread {
 
         DiskAssetIOWorkerThread {
             finish_tx,
-            join_handle
+            join_handle,
         }
     }
 }
@@ -128,18 +135,27 @@ struct DiskAssetIOThreadPool {
     request_tx: Sender<DiskAssetIORequest>,
     // result_tx: Sender<DiskAssetIOResult>,
     // result_rx: Receiver<DiskAssetIOResult>,
-    active_request_count: Arc<AtomicUsize>
+    active_request_count: Arc<AtomicUsize>,
 }
 
 impl DiskAssetIOThreadPool {
-    fn new(root_path: Arc<PathBuf>, max_requests_in_flight: usize, result_tx: Sender<LoaderEvent>) -> Self {
+    fn new(
+        root_path: Arc<PathBuf>,
+        max_requests_in_flight: usize,
+        result_tx: Sender<LoaderEvent>,
+    ) -> Self {
         let (request_tx, request_rx) = crossbeam_channel::unbounded::<DiskAssetIORequest>();
         //let (result_tx, result_rx) = crossbeam_channel::unbounded();
         let active_request_count = Arc::new(AtomicUsize::new(0));
 
         let mut worker_threads = Vec::with_capacity(max_requests_in_flight);
         for _ in 0..max_requests_in_flight {
-            let worker = DiskAssetIOWorkerThread::new(root_path.clone(), request_rx.clone(), result_tx.clone(), active_request_count.clone());
+            let worker = DiskAssetIOWorkerThread::new(
+                root_path.clone(),
+                request_rx.clone(),
+                result_tx.clone(),
+                active_request_count.clone(),
+            );
             worker_threads.push(worker);
         }
 
@@ -152,7 +168,10 @@ impl DiskAssetIOThreadPool {
         }
     }
 
-    fn add_request(&self, request: DiskAssetIORequest) {
+    fn add_request(
+        &self,
+        request: DiskAssetIORequest,
+    ) {
         self.active_request_count.fetch_add(1, Ordering::Release);
         self.request_tx.send(request).unwrap();
     }
@@ -196,11 +215,14 @@ impl DiskAssetIOThreadPool {
 // }
 
 pub struct BuildManifest {
-    pub asset_build_hashes: HashMap<ObjectId, u64>
+    pub asset_build_hashes: HashMap<ObjectId, u64>,
 }
 
 impl BuildManifest {
-    fn load_from_file(manifest_dir_path: &Path, build_hash: CombinedBuildHash) -> BuildManifest {
+    fn load_from_file(
+        manifest_dir_path: &Path,
+        build_hash: CombinedBuildHash,
+    ) -> BuildManifest {
         let mut asset_build_hashes = HashMap::default();
 
         let file_name = format!("{:0>16x}.manifest", build_hash.0);
@@ -215,7 +237,7 @@ impl BuildManifest {
 
             let separator = line_str.find(",").unwrap();
             let left = &line_str[..separator];
-            let right = &line_str[(separator+1)..];
+            let right = &line_str[(separator + 1)..];
 
             let asset_id = u128::from_str_radix(left, 16).unwrap();
             let build_hash = u64::from_str_radix(right, 16).unwrap();
@@ -223,9 +245,7 @@ impl BuildManifest {
             asset_build_hashes.insert(ObjectId(asset_id), build_hash);
         }
 
-        BuildManifest {
-            asset_build_hashes
-        }
+        BuildManifest { asset_build_hashes }
     }
 }
 
@@ -253,7 +273,7 @@ fn find_latest_toc(toc_dir_path: &Path) -> Option<PathBuf> {
 }
 
 struct BuildToc {
-    build_hash: CombinedBuildHash
+    build_hash: CombinedBuildHash,
 }
 
 // Opens a TOC file and reads contents
@@ -261,7 +281,7 @@ fn read_toc(path: &Path) -> BuildToc {
     let data = std::fs::read_to_string(path).unwrap();
     let build_hash = u64::from_str_radix(&data, 16).unwrap();
     BuildToc {
-        build_hash: CombinedBuildHash(build_hash)
+        build_hash: CombinedBuildHash(build_hash),
     }
 }
 
@@ -279,20 +299,28 @@ impl Drop for DiskAssetIO {
 }
 
 impl DiskAssetIO {
-    pub fn new(build_data_root_path: PathBuf, tx: Sender<LoaderEvent>) -> Result<Self, String> {
+    pub fn new(
+        build_data_root_path: PathBuf,
+        tx: Sender<LoaderEvent>,
+    ) -> Result<Self, String> {
         let max_toc_path = find_latest_toc(&build_data_root_path.join("toc"));
         let max_toc_path = max_toc_path.ok_or_else(|| "Could not find TOC file".to_string())?;
         let build_toc = read_toc(&max_toc_path);
         let build_hash = build_toc.build_hash;
 
-        let manifest = BuildManifest::load_from_file(&build_data_root_path.join("manifests"), build_hash);
-        let thread_pool = Some(DiskAssetIOThreadPool::new(Arc::new(build_data_root_path), 4, tx.clone()));
+        let manifest =
+            BuildManifest::load_from_file(&build_data_root_path.join("manifests"), build_hash);
+        let thread_pool = Some(DiskAssetIOThreadPool::new(
+            Arc::new(build_data_root_path),
+            4,
+            tx.clone(),
+        ));
 
         Ok(DiskAssetIO {
             thread_pool,
             manifest,
             build_hash,
-            tx
+            tx,
         })
     }
 
@@ -300,27 +328,39 @@ impl DiskAssetIO {
         &self.manifest
     }
 
-    pub fn request_data(&self, load_handle: LoadHandle, object_id: ObjectId, subresource: Option<u32>, version: u32, hash: u64) {
+    pub fn request_data(
+        &self,
+        load_handle: LoadHandle,
+        object_id: ObjectId,
+        subresource: Option<u32>,
+        version: u32,
+        hash: u64,
+    ) {
         log::debug!("Request {:?} {:?}", object_id, subresource);
         let hash = self.manifest.asset_build_hashes.get(&object_id);
         if let Some(&hash) = hash {
-            self.thread_pool.as_ref().unwrap().add_request(DiskAssetIORequest::Data(DiskAssetIORequestData {
-                object_id,
-                load_handle,
-                //hash,
-                version,
-                subresource,
-                hash
-            }));
+            self.thread_pool
+                .as_ref()
+                .unwrap()
+                .add_request(DiskAssetIORequest::Data(DiskAssetIORequestData {
+                    object_id,
+                    load_handle,
+                    //hash,
+                    version,
+                    subresource,
+                    hash,
+                }));
         } else {
-            self.tx.send(LoaderEvent::DataRequestComplete(RequestDataResult {
-                object_id,
-                load_handle,
-                version,
-                subresource,
-                //hash: 0,
-                result: Err(std::io::ErrorKind::NotFound.into())
-            })).unwrap();
+            self.tx
+                .send(LoaderEvent::DataRequestComplete(RequestDataResult {
+                    object_id,
+                    load_handle,
+                    version,
+                    subresource,
+                    //hash: 0,
+                    result: Err(std::io::ErrorKind::NotFound.into()),
+                }))
+                .unwrap();
         }
     }
 
@@ -338,28 +378,41 @@ impl LoaderIO for DiskAssetIO {
         self.build_hash
     }
 
-    fn request_metadata(&self, build_hash: CombinedBuildHash, load_handle: LoadHandle, object_id: ObjectId, version: u32) {
+    fn request_metadata(
+        &self,
+        build_hash: CombinedBuildHash,
+        load_handle: LoadHandle,
+        object_id: ObjectId,
+        version: u32,
+    ) {
         log::debug!("request_metadata {:?}", load_handle);
 
         let hash = self.manifest.asset_build_hashes.get(&object_id);
         if let Some(&hash) = hash {
-            self.thread_pool.as_ref().unwrap().request_tx.send(DiskAssetIORequest::Metadata(DiskAssetIORequestMetadata {
-                load_handle,
-                object_id,
-                version,
-                hash,
-            })).unwrap();
+            self.thread_pool
+                .as_ref()
+                .unwrap()
+                .request_tx
+                .send(DiskAssetIORequest::Metadata(DiskAssetIORequestMetadata {
+                    load_handle,
+                    object_id,
+                    version,
+                    hash,
+                }))
+                .unwrap();
         } else {
-            self.tx.send(LoaderEvent::MetadataRequestComplete(RequestMetadataResult {
-                object_id,
-                load_handle,
-                version,
-                //hash: 0,
-                result: Err(std::io::ErrorKind::NotFound.into())
-            })).unwrap();
+            self.tx
+                .send(LoaderEvent::MetadataRequestComplete(
+                    RequestMetadataResult {
+                        object_id,
+                        load_handle,
+                        version,
+                        //hash: 0,
+                        result: Err(std::io::ErrorKind::NotFound.into()),
+                    },
+                ))
+                .unwrap();
         }
-
-
 
         // self.tx.send(LoaderEvent::MetadataRequestComplete(RequestMetadataResult {
         //     load_handle,
@@ -373,16 +426,29 @@ impl LoaderIO for DiskAssetIO {
         // })).unwrap();
     }
 
-    fn request_data(&self, build_hash: CombinedBuildHash, load_handle: LoadHandle, object_id: ObjectId, hash: u64, subresource: Option<u32>, version: u32) {
+    fn request_data(
+        &self,
+        build_hash: CombinedBuildHash,
+        load_handle: LoadHandle,
+        object_id: ObjectId,
+        hash: u64,
+        subresource: Option<u32>,
+        version: u32,
+    ) {
         log::debug!("request_data {:?}", load_handle);
 
-        self.thread_pool.as_ref().unwrap().request_tx.send(DiskAssetIORequest::Data(DiskAssetIORequestData {
-            object_id,
-            load_handle,
-            hash,
-            version,
-            subresource,
-        })).unwrap();
+        self.thread_pool
+            .as_ref()
+            .unwrap()
+            .request_tx
+            .send(DiskAssetIORequest::Data(DiskAssetIORequestData {
+                object_id,
+                load_handle,
+                hash,
+                version,
+                subresource,
+            }))
+            .unwrap();
 
         // self.tx.send(LoaderEvent::DataRequestComplete(RequestDataResult {
         //     load_handle,

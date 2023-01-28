@@ -21,9 +21,15 @@ pub fn draw_properties_window_single_select(
     ));
     let import_info = edit_context.import_info(object_id);
     if let Some(import_info) = import_info {
-        ui.text(im_str!("Imported From: {}", import_info.source_file_path().to_string_lossy()));
+        ui.text(im_str!(
+            "Imported From: {}",
+            import_info.source_file_path().to_string_lossy()
+        ));
         if !import_info.importable_name().is_empty() {
-            ui.text(im_str!("Importable Name: {}", import_info.importable_name()));
+            ui.text(im_str!(
+                "Importable Name: {}",
+                import_info.importable_name()
+            ));
         }
     }
 

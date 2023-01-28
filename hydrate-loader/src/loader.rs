@@ -1,13 +1,13 @@
-use std::fmt::Debug;
-use std::sync::{Arc, Mutex};
-use std::sync::atomic::{AtomicI32, AtomicU32, AtomicU64, Ordering};
 use crossbeam_channel::{Receiver, Sender};
-use hydrate_model::ObjectId;
 use dashmap::DashMap;
+use hydrate_model::ObjectId;
+use std::fmt::Debug;
+use std::sync::atomic::{AtomicI32, AtomicU32, AtomicU64, Ordering};
+use std::sync::{Arc, Mutex};
 //use crate::disk_io::DiskAssetIOResult;
 use crate::distill_core::{AssetRef, AssetTypeId, AssetUuid};
-use crate::distill_loader::{LoadHandle};
 use crate::distill_loader::storage::{AssetLoadOp, AssetStorage, HandleOp, LoaderInfoProvider};
+use crate::distill_loader::LoadHandle;
 
 // Sequence of operations:
 // * User creates a type-safe handle through an interface, as long as it is alive, the asset remains loaded
@@ -47,14 +47,11 @@ use crate::distill_loader::storage::{AssetLoadOp, AssetStorage, HandleOp, Loader
 //   without memory allocation requirements
 // * So we get dependency information from IO abstraction as part of the fetch
 
-
 // Create AssetHandle
 // Create LoadHandle
 // State machine for loader issues requests to IO to get asset
 // IO returns that additional assets are needed (loader adds refs)
 //
-
-
 
 // States are:
 // - Want to load it
@@ -78,7 +75,7 @@ pub struct ObjectMetadata {
 }
 
 pub struct ObjectData {
-    pub data: Vec<u8>
+    pub data: Vec<u8>,
 }
 
 impl std::fmt::Debug for ObjectData {
@@ -98,7 +95,7 @@ pub struct RequestMetadataResult {
     pub load_handle: LoadHandle,
     //pub hash: u64,
     pub version: u32,
-    pub result: std::io::Result<ObjectMetadata>
+    pub result: std::io::Result<ObjectMetadata>,
 }
 
 #[derive(Debug)]
@@ -108,7 +105,7 @@ pub struct RequestDataResult {
     //pub hash: u64,
     pub version: u32,
     pub subresource: Option<u32>,
-    pub result: std::io::Result<ObjectData>
+    pub result: std::io::Result<ObjectData>,
 }
 
 #[derive(Copy, Clone, Debug)]
@@ -129,7 +126,7 @@ pub enum LoaderEvent {
     // Sent by engine code to indicate success or failure at loading an asset
     LoadResult(HandleOp),
     // Sent by LoaderIO when there are new versions available of the given assets.
-    AssetsUpdated(CombinedBuildHash, Vec<ObjectId>)
+    AssetsUpdated(CombinedBuildHash, Vec<ObjectId>),
 }
 
 // do we create a new loader IO for every manifest or same IO?
@@ -147,9 +144,23 @@ pub trait LoaderIO: Sync + Send {
     // Returns the latest known build hash that we are currently able to read from
     fn latest_build_hash(&self) -> CombinedBuildHash;
 
-    fn request_metadata(&self, build_hash: CombinedBuildHash, load_handle: LoadHandle, object_id: ObjectId, version: u32);
+    fn request_metadata(
+        &self,
+        build_hash: CombinedBuildHash,
+        load_handle: LoadHandle,
+        object_id: ObjectId,
+        version: u32,
+    );
     //fn request_metadata_results(&self, object_id: ObjectId) -> &Receiver<RequestMetadataResult>;
-    fn request_data(&self, build_hash: CombinedBuildHash, load_handle: LoadHandle, object_id: ObjectId, hash: u64, subresource: Option<u32>, version: u32);
+    fn request_data(
+        &self,
+        build_hash: CombinedBuildHash,
+        load_handle: LoadHandle,
+        object_id: ObjectId,
+        hash: u64,
+        subresource: Option<u32>,
+        version: u32,
+    );
     //fn request_data_results(&self) -> &Receiver<RequestDataResult>;
 }
 
@@ -246,7 +257,6 @@ struct LoadHandleVersionInfo {
 
     // load handle and version for any assets that need to be released when this is unloaded
     dependencies: Vec<(LoadHandle, u32)>,
-
 }
 
 struct LoadHandleInfo {
@@ -292,7 +302,6 @@ pub struct Loader {
 
     events_tx: Sender<LoaderEvent>,
     events_rx: Receiver<LoaderEvent>,
-
     // Stream of events from end-user's loader implementation to inform loading completed or failed
     //handle_op_tx: Sender<HandleOp>,
     //handle_op_rx: Receiver<HandleOp>,
@@ -303,18 +312,28 @@ pub struct Loader {
 }
 
 impl LoaderInfoProvider for Loader {
-    fn get_load_handle(&self, id: &AssetRef) -> Option<LoadHandle> {
+    fn get_load_handle(
+        &self,
+        id: &AssetRef,
+    ) -> Option<LoadHandle> {
         let object_id = ObjectId(uuid::Uuid::from_bytes(id.expect_uuid().0).as_u128());
         self.object_id_to_handle.get(&object_id).map(|l| *l)
     }
 
-    fn get_asset_id(&self, load: LoadHandle) -> Option<AssetUuid> {
+    fn get_asset_id(
+        &self,
+        load: LoadHandle,
+    ) -> Option<AssetUuid> {
         self.load_handle_infos.get(&load).map(|l| l.asset_id)
     }
 }
 
 impl Loader {
-    pub fn new(loader_io: Box<dyn LoaderIO>, events_tx: Sender<LoaderEvent>, events_rx: Receiver<LoaderEvent>) -> Self {
+    pub fn new(
+        loader_io: Box<dyn LoaderIO>,
+        events_tx: Sender<LoaderEvent>,
+        events_rx: Receiver<LoaderEvent>,
+    ) -> Self {
         //let (handle_op_tx, handle_op_rx) = crossbeam_channel::unbounded();
         //let (object_needs_update_tx, object_needs_update_rx) = crossbeam_channel::unbounded();
         //let (events_tx, events_rx)  = crossbeam_channel::unbounded();
@@ -329,7 +348,7 @@ impl Loader {
             update_state: Mutex::new(LoaderUpdateState {
                 current_build_hash: build_hash,
                 current_reload_action: None,
-                pending_reload_actions: vec![]
+                pending_reload_actions: vec![],
             }),
             loader_io,
             //handle_op_tx,
@@ -341,7 +360,12 @@ impl Loader {
         }
     }
 
-    fn handle_try_load(&self, build_hash: CombinedBuildHash, load_handle: LoadHandle, version: usize) {
+    fn handle_try_load(
+        &self,
+        build_hash: CombinedBuildHash,
+        load_handle: LoadHandle,
+        version: usize,
+    ) {
         log::debug!("handle_try_load {:?}", load_handle);
 
         // Should always exist, we don't delete load handles
@@ -356,7 +380,8 @@ impl Loader {
             // We have not started to load this asset, so we can potentially start it now
             if current_version.dependency_ref_count.load(Ordering::Relaxed) > 0 {
                 // The engine is still referencing it, so we should start loading it now
-                self.loader_io.request_metadata(build_hash, load_handle, object_id, version as u32);
+                self.loader_io
+                    .request_metadata(build_hash, load_handle, object_id, version as u32);
                 current_version.load_state = LoadState::WaitingForMetadata;
             } else {
                 // it's not referenced anymore, don't bother loading it. If it becomes
@@ -368,7 +393,12 @@ impl Loader {
         }
     }
 
-    fn handle_try_unload(&self, load_handle: LoadHandle, version: usize, asset_storage: &mut dyn AssetStorage) {
+    fn handle_try_unload(
+        &self,
+        load_handle: LoadHandle,
+        version: usize,
+        asset_storage: &mut dyn AssetStorage,
+    ) {
         log::debug!("handle_try_unload {:?}", load_handle);
 
         // Should always exist, we don't delete load handles
@@ -390,7 +420,9 @@ impl Loader {
                 // It's not referenced, so go ahead and unloaded it...
 
                 // If it's been loaded, tell asset storage to drop it
-                if current_version.load_state == LoadState::Loading || current_version.load_state == LoadState::Loaded {
+                if current_version.load_state == LoadState::Loading
+                    || current_version.load_state == LoadState::Loaded
+                {
                     asset_storage.free(&current_version.asset_type, load_handle, version as u32);
                 }
 
@@ -406,12 +438,23 @@ impl Loader {
         // Remove dependency refs, we do this after we finish mutating the load info so that we don't
         // take multiple locks, which risks deadlock
         for (depenency_load_handle, version) in dependencies {
-            let mut depenency_load_handle_info = self.load_handle_infos.get_mut(&depenency_load_handle).unwrap();
-            self.do_remove_internal_ref(depenency_load_handle, &mut depenency_load_handle_info, version);
+            let mut depenency_load_handle_info = self
+                .load_handle_infos
+                .get_mut(&depenency_load_handle)
+                .unwrap();
+            self.do_remove_internal_ref(
+                depenency_load_handle,
+                &mut depenency_load_handle_info,
+                version,
+            );
         }
     }
 
-    fn handle_request_metadata_result(&self, build_hash: CombinedBuildHash, result: RequestMetadataResult) {
+    fn handle_request_metadata_result(
+        &self,
+        build_hash: CombinedBuildHash,
+        result: RequestMetadataResult,
+    ) {
         log::debug!("handle_request_metadata_result {:?}", result.load_handle);
 
         if let Some(mut load_state_info) = self.load_handle_infos.get(&result.load_handle) {
@@ -435,21 +478,37 @@ impl Loader {
         let mut dependency_load_handles = vec![];
         for dependency in &metadata.dependencies {
             let dependency_load_handle = self.get_or_insert(*dependency);
-            let mut dependency_load_handle_info = self.load_handle_infos.get_mut(&dependency_load_handle).unwrap();
+            let mut dependency_load_handle_info = self
+                .load_handle_infos
+                .get_mut(&dependency_load_handle)
+                .unwrap();
 
             // We want the latest version - this assumes we add a new version for all changed assets immediately, and only make load requests for latest data
             let version = dependency_load_handle_info.versions.len() as u32 - 1;
 
             dependency_load_handles.push((dependency_load_handle, version));
 
-            self.do_add_internal_ref(dependency_load_handle, &dependency_load_handle_info, version);
+            self.do_add_internal_ref(
+                dependency_load_handle,
+                &dependency_load_handle_info,
+                version,
+            );
 
-            let load_state = dependency_load_handle_info.versions.last().unwrap().load_state;
+            let load_state = dependency_load_handle_info
+                .versions
+                .last()
+                .unwrap()
+                .load_state;
             if load_state != LoadState::Loaded && load_state != LoadState::Committed {
                 blocking_dependency_count += 1;
             }
 
-            dependency_load_handle_info.versions.last_mut().unwrap().blocked_loads.push((result.load_handle, result.version));
+            dependency_load_handle_info
+                .versions
+                .last_mut()
+                .unwrap()
+                .blocked_loads
+                .push((result.load_handle, result.version));
         }
 
         if let Some(mut load_state_info) = self.load_handle_infos.get_mut(&result.load_handle) {
@@ -461,10 +520,21 @@ impl Loader {
 
             if blocking_dependency_count == 0 {
                 log::debug!("load handle {:?} has no dependencies", result.load_handle);
-                self.loader_io.request_data(build_hash, result.load_handle, object_id, metadata.hash, None, result.version);
+                self.loader_io.request_data(
+                    build_hash,
+                    result.load_handle,
+                    object_id,
+                    metadata.hash,
+                    None,
+                    result.version,
+                );
                 version.load_state = LoadState::WaitingForData;
             } else {
-                log::debug!("load handle {:?} has {} dependencies", result.load_handle, blocking_dependency_count);
+                log::debug!(
+                    "load handle {:?} has {} dependencies",
+                    result.load_handle,
+                    blocking_dependency_count
+                );
                 version.blocking_dependency_count = AtomicU32::new(blocking_dependency_count);
                 version.load_state = LoadState::WaitingForDependencies;
                 //TODO: Wait for dependencies, maybe by putting all assets in this state into a list
@@ -477,7 +547,12 @@ impl Loader {
         }
     }
 
-    fn handle_dependencies_loaded(&self, build_hash: CombinedBuildHash, load_handle: LoadHandle, version: usize) {
+    fn handle_dependencies_loaded(
+        &self,
+        build_hash: CombinedBuildHash,
+        load_handle: LoadHandle,
+        version: usize,
+    ) {
         log::debug!("handle_dependencies_loaded {:?}", load_handle);
 
         //are we still in the correct state?
@@ -487,13 +562,27 @@ impl Loader {
             return;
         }
 
-        assert_eq!(load_state_info.versions[version].load_state, LoadState::WaitingForDependencies);
+        assert_eq!(
+            load_state_info.versions[version].load_state,
+            LoadState::WaitingForDependencies
+        );
 
-        self.loader_io.request_data(build_hash, load_handle, load_state_info.object_id, load_state_info.versions[version].hash, None, version as u32);
+        self.loader_io.request_data(
+            build_hash,
+            load_handle,
+            load_state_info.object_id,
+            load_state_info.versions[version].hash,
+            None,
+            version as u32,
+        );
         load_state_info.versions[version].load_state = LoadState::WaitingForData;
     }
 
-    fn handle_request_data_result(&self, result: RequestDataResult, asset_storage: &mut dyn AssetStorage) {
+    fn handle_request_data_result(
+        &self,
+        result: RequestDataResult,
+        asset_storage: &mut dyn AssetStorage,
+    ) {
         log::debug!("handle_request_data_result {:?}", result.load_handle);
 
         // Should always exist, we don't delete load handles
@@ -510,14 +599,24 @@ impl Loader {
             // start loading
             let data = result.result.unwrap();
 
-            let load_op = AssetLoadOp::new(self.events_tx.clone(), result.load_handle, result.version);
+            let load_op =
+                AssetLoadOp::new(self.events_tx.clone(), result.load_handle, result.version);
 
             (load_op, version.asset_type, data)
         };
 
         // We dropped the load_state_info before calling this because the serde deserializer may query for asset references, which
         // can cause deadlocks in dashmap if we are still holding a lock
-        asset_storage.update_asset(self, &asset_type, data.data, result.load_handle, load_op, result.version).unwrap();
+        asset_storage
+            .update_asset(
+                self,
+                &asset_type,
+                data.data,
+                result.load_handle,
+                load_op,
+                result.version,
+            )
+            .unwrap();
 
         // Should always exist, we don't delete load handles
         let mut load_state_info = self.load_handle_infos.get_mut(&result.load_handle).unwrap();
@@ -525,74 +624,102 @@ impl Loader {
         version.load_state = LoadState::Loading;
     }
 
-    fn handle_load_result(&self, load_result: HandleOp, asset_storage: &mut dyn AssetStorage) {
+    fn handle_load_result(
+        &self,
+        load_result: HandleOp,
+        asset_storage: &mut dyn AssetStorage,
+    ) {
         //while let Ok(handle_op) = self.handle_op_rx.try_recv() {
-            // Handle the operation
-            match load_result {
-                HandleOp::Error(load_handle, version, error) => {
-                    log::debug!("handle_load_result error {:?}", load_handle);
-                    //TODO: How to handle error?
-                    log::error!("load error {}", error);
-                    panic!("load error {}", error);
-                }
-                HandleOp::Complete(load_handle, version) => {
-                    log::debug!("handle_load_result complete {:?}", load_handle);
-                    // Advance state... maybe we can commit now, otherwise we have to wait until other
-                    // dependencies are ready
-
-                    // Flag any loads that were waiting on this load to proceed
-                    let mut blocked_loads = Vec::default();
-                    let asset_type = {
-                        let mut load_handle_info = self.load_handle_infos.get_mut(&load_handle).unwrap();
-                        std::mem::swap(&mut blocked_loads, &mut load_handle_info.versions[version as usize].blocked_loads);
-                        load_handle_info.versions[version as usize].asset_type
-                    };
-
-                    for (blocked_load_handle, blocked_load_version) in blocked_loads {
-                        let mut blocked_load = self.load_handle_infos.get_mut(&blocked_load_handle).unwrap();
-                        let previous_blocked_load_count = blocked_load.versions[blocked_load_version as usize].blocking_dependency_count.fetch_sub(1, Ordering::Relaxed);
-                        if previous_blocked_load_count == 1 {
-                            // Kick off the blocked load
-
-                        }
-                    }
-
-                    asset_storage.commit_asset_version(&asset_type, load_handle, version);
-                }
-                HandleOp::Drop(load_handle, version) => {
-                    log::debug!("handle_load_result drop {:?}", load_handle);
-                    log::error!(
-                        "load op dropped without calling complete/error, handle {:?} version {}",
-                        load_handle,
-                        version
-                    );
-                    panic!(
-                        "load op dropped without calling complete/error, handle {:?} version {}",
-                        load_handle, version
-                    )
-                }
+        // Handle the operation
+        match load_result {
+            HandleOp::Error(load_handle, version, error) => {
+                log::debug!("handle_load_result error {:?}", load_handle);
+                //TODO: How to handle error?
+                log::error!("load error {}", error);
+                panic!("load error {}", error);
             }
+            HandleOp::Complete(load_handle, version) => {
+                log::debug!("handle_load_result complete {:?}", load_handle);
+                // Advance state... maybe we can commit now, otherwise we have to wait until other
+                // dependencies are ready
+
+                // Flag any loads that were waiting on this load to proceed
+                let mut blocked_loads = Vec::default();
+                let asset_type = {
+                    let mut load_handle_info =
+                        self.load_handle_infos.get_mut(&load_handle).unwrap();
+                    std::mem::swap(
+                        &mut blocked_loads,
+                        &mut load_handle_info.versions[version as usize].blocked_loads,
+                    );
+                    load_handle_info.versions[version as usize].asset_type
+                };
+
+                for (blocked_load_handle, blocked_load_version) in blocked_loads {
+                    let mut blocked_load = self
+                        .load_handle_infos
+                        .get_mut(&blocked_load_handle)
+                        .unwrap();
+                    let previous_blocked_load_count = blocked_load.versions
+                        [blocked_load_version as usize]
+                        .blocking_dependency_count
+                        .fetch_sub(1, Ordering::Relaxed);
+                    if previous_blocked_load_count == 1 {
+                        // Kick off the blocked load
+                    }
+                }
+
+                asset_storage.commit_asset_version(&asset_type, load_handle, version);
+            }
+            HandleOp::Drop(load_handle, version) => {
+                log::debug!("handle_load_result drop {:?}", load_handle);
+                log::error!(
+                    "load op dropped without calling complete/error, handle {:?} version {}",
+                    load_handle,
+                    version
+                );
+                panic!(
+                    "load op dropped without calling complete/error, handle {:?} version {}",
+                    load_handle, version
+                )
+            }
+        }
         //}
     }
 
-    pub fn update(&self, asset_storage: &mut dyn AssetStorage) {
+    pub fn update(
+        &self,
+        asset_storage: &mut dyn AssetStorage,
+    ) {
         let mut update_state = self.update_state.lock().unwrap();
         let build_hash = update_state.current_build_hash;
 
         while let Ok(loader_event) = self.events_rx.try_recv() {
             log::debug!("handle event {:?}", loader_event);
             match loader_event {
-                LoaderEvent::TryLoad(load_handle, version) => self.handle_try_load(build_hash, load_handle, version as usize),
-                LoaderEvent::TryUnload(load_handle, version) => self.handle_try_unload(load_handle, version as usize, asset_storage),
-                LoaderEvent::MetadataRequestComplete(result) => self.handle_request_metadata_result(build_hash, result),
-                LoaderEvent::DependenciesLoaded(load_handle, version) => self.handle_dependencies_loaded(build_hash, load_handle, version as usize),
-                LoaderEvent::DataRequestComplete(result) => self.handle_request_data_result(result, asset_storage),
-                LoaderEvent::LoadResult(load_result) => self.handle_load_result(load_result, asset_storage),
+                LoaderEvent::TryLoad(load_handle, version) => {
+                    self.handle_try_load(build_hash, load_handle, version as usize)
+                }
+                LoaderEvent::TryUnload(load_handle, version) => {
+                    self.handle_try_unload(load_handle, version as usize, asset_storage)
+                }
+                LoaderEvent::MetadataRequestComplete(result) => {
+                    self.handle_request_metadata_result(build_hash, result)
+                }
+                LoaderEvent::DependenciesLoaded(load_handle, version) => {
+                    self.handle_dependencies_loaded(build_hash, load_handle, version as usize)
+                }
+                LoaderEvent::DataRequestComplete(result) => {
+                    self.handle_request_data_result(result, asset_storage)
+                }
+                LoaderEvent::LoadResult(load_result) => {
+                    self.handle_load_result(load_result, asset_storage)
+                }
                 LoaderEvent::AssetsUpdated(build_hash, updated_assets) => {
                     // We probably want to finish existing work, pause starting new work, and do the reload
                     update_state.pending_reload_actions.push(ReloadAction {
                         build_hash,
-                        updated_assets
+                        updated_assets,
                     });
                 }
             }
@@ -643,7 +770,6 @@ impl Loader {
         //     }
         // }
 
-
         // For each asset queued to do work
         {
             // Check that we still need to do work (compare current state to desired state)
@@ -663,64 +789,102 @@ impl Loader {
         }
     }
 
-    fn get_or_insert(&self, object_id: ObjectId) -> LoadHandle {
-        *self.object_id_to_handle.entry(object_id).or_insert_with(|| {
-            let load_handle_index = self.next_handle_index.fetch_add(1, Ordering::Relaxed);
-            let load_handle = LoadHandle(load_handle_index);
+    fn get_or_insert(
+        &self,
+        object_id: ObjectId,
+    ) -> LoadHandle {
+        *self
+            .object_id_to_handle
+            .entry(object_id)
+            .or_insert_with(|| {
+                let load_handle_index = self.next_handle_index.fetch_add(1, Ordering::Relaxed);
+                let load_handle = LoadHandle(load_handle_index);
 
-            let asset_id = AssetUuid(*uuid::Uuid::from_u128(object_id.0).as_bytes());
+                let asset_id = AssetUuid(*uuid::Uuid::from_u128(object_id.0).as_bytes());
 
-            log::debug!("Allocate load handle {:?} for object id {:?}", load_handle, asset_id);
+                log::debug!(
+                    "Allocate load handle {:?} for object id {:?}",
+                    load_handle,
+                    asset_id
+                );
 
-            self.load_handle_infos.insert(load_handle, LoadHandleInfo {
-                object_id,
-                asset_id,
-                engine_ref_count: AtomicU32::new(0),
-                next_version: 0,
-                //load_state: LoadState::Unloaded,
-                versions: vec![
-                    LoadHandleVersionInfo {
-                        load_state: LoadState::Unloaded,
-                        asset_type: AssetTypeId::default(),
-                        hash: 0,
-                        dependency_ref_count: AtomicU32::new(0),
-                        blocking_dependency_count: AtomicU32::new(0),
-                        blocked_loads: vec![],
-                        dependencies: vec![],
+                self.load_handle_infos.insert(
+                    load_handle,
+                    LoadHandleInfo {
+                        object_id,
+                        asset_id,
+                        engine_ref_count: AtomicU32::new(0),
+                        next_version: 0,
+                        //load_state: LoadState::Unloaded,
+                        versions: vec![LoadHandleVersionInfo {
+                            load_state: LoadState::Unloaded,
+                            asset_type: AssetTypeId::default(),
+                            hash: 0,
+                            dependency_ref_count: AtomicU32::new(0),
+                            blocking_dependency_count: AtomicU32::new(0),
+                            blocked_loads: vec![],
+                            dependencies: vec![],
+                        }],
                     },
-                ],
-            });
+                );
 
-            load_handle
-        })
+                load_handle
+            })
     }
 
-    pub fn add_engine_ref(&self, object_id: ObjectId) -> LoadHandle {
+    pub fn add_engine_ref(
+        &self,
+        object_id: ObjectId,
+    ) -> LoadHandle {
         let load_handle = self.get_or_insert(object_id);
 
         let guard = self.load_handle_infos.get(&load_handle);
         let load_handle_info = guard.as_ref().unwrap();
-        load_handle_info.engine_ref_count.fetch_add(1, Ordering::Relaxed);
+        load_handle_info
+            .engine_ref_count
+            .fetch_add(1, Ordering::Relaxed);
         // Engine always adjusts the latest version count
-        self.do_add_internal_ref(load_handle, load_handle_info, load_handle_info.versions.len() as u32 - 1);
+        self.do_add_internal_ref(
+            load_handle,
+            load_handle_info,
+            load_handle_info.versions.len() as u32 - 1,
+        );
 
         load_handle
     }
 
-    pub fn add_engine_ref_by_handle(&self, load_handle: LoadHandle) {
+    pub fn add_engine_ref_by_handle(
+        &self,
+        load_handle: LoadHandle,
+    ) {
         let guard = self.load_handle_infos.get(&load_handle);
         let load_handle_info = guard.as_ref().unwrap();
-        load_handle_info.engine_ref_count.fetch_add(1, Ordering::Relaxed);
+        load_handle_info
+            .engine_ref_count
+            .fetch_add(1, Ordering::Relaxed);
         // Engine always adjusts the latest version count
-        self.do_add_internal_ref(load_handle, load_handle_info, load_handle_info.versions.len() as u32 - 1);
+        self.do_add_internal_ref(
+            load_handle,
+            load_handle_info,
+            load_handle_info.versions.len() as u32 - 1,
+        );
     }
 
-    pub fn remove_engine_ref(&self, load_handle: LoadHandle) {
+    pub fn remove_engine_ref(
+        &self,
+        load_handle: LoadHandle,
+    ) {
         let guard = self.load_handle_infos.get(&load_handle);
         let load_handle_info = guard.as_ref().unwrap();
-        load_handle_info.engine_ref_count.fetch_sub(1, Ordering::Relaxed);
+        load_handle_info
+            .engine_ref_count
+            .fetch_sub(1, Ordering::Relaxed);
         // Engine always adjusts the latest version count
-        self.do_remove_internal_ref(load_handle, load_handle_info, load_handle_info.versions.len() as u32 - 1);
+        self.do_remove_internal_ref(
+            load_handle,
+            load_handle_info,
+            load_handle_info.versions.len() as u32 - 1,
+        );
     }
 
     // fn add_internal_ref(&self, load_handle: LoadHandle) {
@@ -730,22 +894,45 @@ impl Loader {
     //
     // }
 
-    fn do_add_internal_ref(&self, load_handle: LoadHandle, load_handle_info: &LoadHandleInfo, version: u32) {
-        let previous_ref_count = load_handle_info.versions.last().unwrap().dependency_ref_count.fetch_add(1, Ordering::Relaxed);
+    fn do_add_internal_ref(
+        &self,
+        load_handle: LoadHandle,
+        load_handle_info: &LoadHandleInfo,
+        version: u32,
+    ) {
+        let previous_ref_count = load_handle_info
+            .versions
+            .last()
+            .unwrap()
+            .dependency_ref_count
+            .fetch_add(1, Ordering::Relaxed);
 
         // If this is the first reference to the asset, put it in the queue to be loaded
         if previous_ref_count == 0 {
-            self.events_tx.send(LoaderEvent::TryLoad(load_handle, version)).unwrap();
+            self.events_tx
+                .send(LoaderEvent::TryLoad(load_handle, version))
+                .unwrap();
         }
     }
 
-
-    fn do_remove_internal_ref(&self, load_handle: LoadHandle, load_handle_info: &LoadHandleInfo, version: u32) {
-        let previous_ref_count = load_handle_info.versions.last().unwrap().dependency_ref_count.fetch_sub(1, Ordering::Relaxed);
+    fn do_remove_internal_ref(
+        &self,
+        load_handle: LoadHandle,
+        load_handle_info: &LoadHandleInfo,
+        version: u32,
+    ) {
+        let previous_ref_count = load_handle_info
+            .versions
+            .last()
+            .unwrap()
+            .dependency_ref_count
+            .fetch_sub(1, Ordering::Relaxed);
 
         // If this was the last reference to the asset, put it in queue to be dropped
         if previous_ref_count == 1 {
-            self.events_tx.send(LoaderEvent::TryUnload(load_handle, version)).unwrap();
+            self.events_tx
+                .send(LoaderEvent::TryUnload(load_handle, version))
+                .unwrap();
         }
     }
 }

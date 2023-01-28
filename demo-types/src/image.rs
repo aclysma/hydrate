@@ -1,4 +1,4 @@
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 use type_uuid::TypeUuid;
 
 #[derive(Serialize, Deserialize, TypeUuid)]

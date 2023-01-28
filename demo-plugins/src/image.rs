@@ -2,6 +2,7 @@ pub use super::*;
 use ::image::{EncodableLayout, GenericImageView};
 use std::path::{Path, PathBuf};
 
+use demo_types::image::*;
 use hydrate_model::{
     DataSet, EditorModel, HashMap, ObjectId, ObjectLocation, ObjectName, SchemaLinker, SchemaSet,
     SingleObject, Value,
@@ -12,7 +13,6 @@ use hydrate_pipeline::{
 };
 use serde::{Deserialize, Serialize};
 use type_uuid::TypeUuid;
-use demo_types::image::*;
 
 pub struct ImageAsset {}
 

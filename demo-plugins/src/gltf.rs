@@ -1,6 +1,7 @@
 pub use super::*;
 use std::path::{Path, PathBuf};
 
+use demo_types::gltf::*;
 use hydrate_model::{
     DataSet, EditorModel, HashMap, ObjectId, ObjectLocation, ObjectName, SchemaLinker, SchemaSet,
     SingleObject, Value,
@@ -11,7 +12,6 @@ use hydrate_pipeline::{
 };
 use serde::{Deserialize, Serialize};
 use type_uuid::TypeUuid;
-use demo_types::gltf::*;
 
 pub struct GltfMeshAsset {}
 
@@ -50,11 +50,6 @@ impl GltfMeshImportedData {
     }
 }
 
-
-
-
-
-
 pub struct GltfMaterialAsset {}
 
 impl GltfMaterialAsset {
@@ -92,8 +87,6 @@ impl GltfMaterialImportedData {
     }
 }
 
-
-
 pub struct GltfAssetPlugin;
 
 impl AssetPlugin for GltfAssetPlugin {
@@ -114,14 +107,17 @@ impl AssetPlugin for GltfAssetPlugin {
     }
 }
 
-fn name_or_index(prefix: &str, name: Option<&str>, index: usize) -> String {
+fn name_or_index(
+    prefix: &str,
+    name: Option<&str>,
+    index: usize,
+) -> String {
     if let Some(name) = name {
         format!("{}_{}", prefix, name)
     } else {
         format!("{}_{}", prefix, index)
     }
 }
-
 
 #[derive(TypeUuid, Default)]
 #[uuid = "01d71c49-867c-4d96-ad16-7c08b6cbfaf9"]
@@ -161,7 +157,7 @@ impl Importer for GltfImporter {
             importables.push(ScannedImportable {
                 name: Some(name),
                 asset_type: mesh_asset_type.clone(),
-                file_references: Default::default()
+                file_references: Default::default(),
             });
         }
 
@@ -171,7 +167,7 @@ impl Importer for GltfImporter {
             importables.push(ScannedImportable {
                 name: Some(name),
                 asset_type: material_asset_type.clone(),
-                file_references: Default::default()
+                file_references: Default::default(),
             });
         }
 
@@ -301,9 +297,7 @@ impl Builder for GltfMeshBuilder {
         // Compress the image, or just return the raw image bytes
         //
 
-        let processed_data = GltfBuiltData {
-
-        };
+        let processed_data = GltfBuiltData {};
 
         let serialized = bincode::serialize(&processed_data).unwrap();
         serialized
@@ -358,9 +352,7 @@ impl Builder for GltfMaterialBuilder {
         // Compress the image, or just return the raw image bytes
         //
 
-        let processed_data = GltfBuiltData {
-
-        };
+        let processed_data = GltfBuiltData {};
 
         let serialized = bincode::serialize(&processed_data).unwrap();
         serialized

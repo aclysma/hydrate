@@ -63,7 +63,11 @@ impl<T: 'static> LocalKey<T> {
     ///
     /// On completion of `scope`, the task-local will be dropped.
     #[allow(dead_code)]
-    pub async fn scope<F>(&'static self, value: T, f: F) -> F::Output
+    pub async fn scope<F>(
+        &'static self,
+        value: T,
+        f: F,
+    ) -> F::Output
     where
         F: Future,
     {
@@ -82,7 +86,10 @@ impl<T: 'static> LocalKey<T> {
     /// This function will panic if not called within the context
     /// of a future containing a task-local with the corresponding key.
     #[allow(dead_code)]
-    pub fn with<F, R>(&'static self, f: F) -> R
+    pub fn with<F, R>(
+        &'static self,
+        f: F,
+    ) -> R
     where
         F: FnOnce(&T) -> R,
     {
@@ -97,7 +104,10 @@ impl<T: 'static> LocalKey<T> {
     /// If the task-local with the associated key is not present, this
     /// method will return an `AccessError`. For a panicking variant,
     /// see `with`.
-    pub fn try_with<F, R>(&'static self, f: F) -> Result<R, AccessError>
+    pub fn try_with<F, R>(
+        &'static self,
+        f: F,
+    ) -> Result<R, AccessError>
     where
         F: FnOnce(&T) -> R,
     {
@@ -112,7 +122,10 @@ impl<T: 'static> LocalKey<T> {
 }
 
 impl<T: 'static> fmt::Debug for LocalKey<T> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    fn fmt(
+        &self,
+        f: &mut fmt::Formatter<'_>,
+    ) -> fmt::Result {
         f.pad("LocalKey { .. }")
     }
 }
@@ -127,7 +140,10 @@ pin_project! {
 }
 
 impl<T: 'static, F> TaskLocalFuture<T, F> {
-    fn with_task<F2: FnOnce(Pin<&mut F>) -> R, R>(self: Pin<&mut Self>, f: F2) -> R {
+    fn with_task<F2: FnOnce(Pin<&mut F>) -> R, R>(
+        self: Pin<&mut Self>,
+        f: F2,
+    ) -> R {
         struct Guard<'a, T: 'static> {
             local: &'static LocalKey<T>,
             slot: &'a mut Option<T>,
@@ -159,7 +175,10 @@ impl<T: 'static, F> TaskLocalFuture<T, F> {
 impl<T: 'static, F: Future> Future for TaskLocalFuture<T, F> {
     type Output = F::Output;
 
-    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+    fn poll(
+        self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+    ) -> Poll<Self::Output> {
         self.with_task(|f| f.poll(cx))
     }
 }
@@ -175,13 +194,19 @@ pub struct AccessError {
 }
 
 impl fmt::Debug for AccessError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    fn fmt(
+        &self,
+        f: &mut fmt::Formatter<'_>,
+    ) -> fmt::Result {
         f.debug_struct("AccessError").finish()
     }
 }
 
 impl fmt::Display for AccessError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    fn fmt(
+        &self,
+        f: &mut fmt::Formatter<'_>,
+    ) -> fmt::Result {
         fmt::Display::fmt("task-local value not set", f)
     }
 }

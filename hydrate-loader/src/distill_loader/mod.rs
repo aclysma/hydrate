@@ -1,4 +1,3 @@
-
 /// Handles provide automatic reference counting of assets, similar to [Rc](`std::rc::Rc`).
 pub mod handle;
 

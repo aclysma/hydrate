@@ -14,17 +14,17 @@ pub use storage::LoadHandle;
 
 pub type Result<T> = std::result::Result<T, Box<dyn std::error::Error + Send + 'static>>;
 
-#[cfg(feature = "handle")]
-#[macro_export]
-macro_rules! if_handle_enabled {
-    ($($tt:tt)*) => {
-        $($tt)*
-    };
-}
-
-#[cfg(not(feature = "handle"))]
-#[macro_export]
-#[doc(hidden)]
-macro_rules! if_handle_enabled {
-    ($($tt:tt)*) => {};
-}
+// #[cfg(feature = "handle")]
+// #[macro_export]
+// macro_rules! if_handle_enabled {
+//     ($($tt:tt)*) => {
+//         $($tt)*
+//     };
+// }
+//
+// #[cfg(not(feature = "handle"))]
+// #[macro_export]
+// #[doc(hidden)]
+// macro_rules! if_handle_enabled {
+//     ($($tt:tt)*) => {};
+// }

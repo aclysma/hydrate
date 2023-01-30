@@ -1,7 +1,8 @@
 mod asset_storage;
 mod bincode_loader;
 mod disk_io;
-mod distill_loader;
+mod storage;
+//mod distill_loader;
 mod dummy_asset_storage;
 mod loader;
 
@@ -80,8 +81,8 @@ mod loader;
 
 use crate::asset_storage::AssetStorageSet;
 use crate::disk_io::DiskAssetIO;
-use crate::distill_loader::handle::RefOp;
-use crate::distill_loader::LoadHandle;
+use hydrate_base::handle::RefOp;
+use hydrate_base::LoadHandle;
 use crate::dummy_asset_storage::DummyAssetStorage;
 use crate::loader::{CombinedBuildHash, Loader};
 use crossbeam_channel::{Receiver, Sender};
@@ -92,7 +93,7 @@ use std::io::BufRead;
 use std::path::{Path, PathBuf};
 use type_uuid::TypeUuid;
 
-pub use distill_loader::handle::Handle;
+pub use hydrate_base::handle::Handle;
 
 // Based on distill's AssetStorage
 // trait AssetStorage {

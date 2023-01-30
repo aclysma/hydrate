@@ -11,19 +11,48 @@ use std::{
     },
 };
 
-//use crossbeam_channel::{unbounded, Receiver, Sender};
 use crossbeam_channel::{unbounded, Sender};
-use futures_core::future::{BoxFuture, Future};
+//use futures_core::future::{BoxFuture, Future};
 use serde::{
     de::{self, Deserialize, Visitor},
     ser::{self, Serialize, Serializer},
 };
 
-use super::{
-    storage::{LoadStatus, LoaderInfoProvider},
-    LoadHandle, //Loader,
-};
-use hydrate_base::{AssetRef, AssetUuid};
+// use super::{
+//     storage::{LoadStatus, LoaderInfoProvider},
+// };
+use crate::{AssetRef, AssetUuid};
+
+/// Loading ID allocated by [`Loader`](crate::loader::Loader) to track loading of a particular asset
+/// or an indirect reference to an asset.
+#[derive(Copy, Clone, PartialEq, Eq, Debug, Hash)]
+pub struct LoadHandle(pub u64);
+
+/// Provides information about mappings between `AssetUuid` and `LoadHandle`.
+/// Intended to be used for `Handle` serde.
+pub trait LoaderInfoProvider: Send + Sync {
+    /// Returns the load handle for the asset with the given UUID, if present.
+    ///
+    /// This will only return `Some(..)` if there has been a previous call to [`crate::loader::Loader::add_ref`].
+    ///
+    /// # Parameters
+    ///
+    /// * `id`: UUID of the asset.
+    fn get_load_handle(
+        &self,
+        asset_ref: &AssetRef,
+    ) -> Option<LoadHandle>;
+
+    /// Returns the AssetUUID for the given LoadHandle, if present.
+    ///
+    /// # Parameters
+    ///
+    /// * `load_handle`: ID allocated by [`Loader`](crate::loader::Loader) to track loading of the asset.
+    fn get_asset_id(
+        &self,
+        load: LoadHandle,
+    ) -> Option<AssetUuid>;
+}
 
 /// Operations on an asset reference.
 #[derive(Debug)]
@@ -455,7 +484,7 @@ impl LoaderInfoProvider for DummySerdeContext {
 struct DummySerdeContextHandle {
     dummy: Arc<DummySerdeContext>,
 }
-impl<'a> hydrate_base::importer_context::ImporterContextHandle for DummySerdeContextHandle {
+impl<'a> crate::importer_context::ImporterContextHandle for DummySerdeContextHandle {
     // fn scope<'s>(&'s self, fut: BoxFuture<'s, ()>) -> BoxFuture<'s, ()> {
     //     let sender = self.dummy.ref_sender.clone();
     //     let loader = &*self.dummy;
@@ -504,8 +533,8 @@ impl<'a> hydrate_base::importer_context::ImporterContextHandle for DummySerdeCon
 
 /// Register this context with AssetDaemon to add serde support for Handle.
 pub struct HandleSerdeContextProvider;
-impl hydrate_base::importer_context::ImporterContext for HandleSerdeContextProvider {
-    fn handle(&self) -> Box<dyn hydrate_base::importer_context::ImporterContextHandle> {
+impl crate::importer_context::ImporterContext for HandleSerdeContextProvider {
+    fn handle(&self) -> Box<dyn crate::importer_context::ImporterContextHandle> {
         let dummy = Arc::new(DummySerdeContext::new());
         Box::new(DummySerdeContextHandle { dummy })
     }

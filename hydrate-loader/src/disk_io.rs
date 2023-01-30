@@ -1,5 +1,5 @@
 use hydrate_base::AssetTypeId;
-use crate::distill_loader::LoadHandle;
+use hydrate_base::LoadHandle;
 use crate::loader::ObjectData;
 use crate::loader::{
     CombinedBuildHash, Loader, LoaderEvent, LoaderIO, ObjectMetadata, RequestDataResult,

@@ -7,15 +7,11 @@ use std::{
     },
 };
 
-use hydrate_base::{AssetRef, AssetTypeId, AssetUuid};
+use hydrate_base::{AssetRef, AssetTypeId, AssetUuid, LoadHandle};
 use crate::loader::LoaderEvent;
 use crossbeam_channel::Sender;
 use dashmap::DashMap;
-
-/// Loading ID allocated by [`Loader`](crate::loader::Loader) to track loading of a particular asset
-/// or an indirect reference to an asset.
-#[derive(Copy, Clone, PartialEq, Eq, Debug, Hash)]
-pub struct LoadHandle(pub u64);
+use hydrate_base::handle::LoaderInfoProvider;
 
 #[derive(Debug)]
 pub enum HandleOp {
@@ -180,28 +176,3 @@ pub enum LoadStatus {
 //     pub asset_name: Option<String>,
 // }
 
-/// Provides information about mappings between `AssetUuid` and `LoadHandle`.
-/// Intended to be used for `Handle` serde.
-pub trait LoaderInfoProvider: Send + Sync {
-    /// Returns the load handle for the asset with the given UUID, if present.
-    ///
-    /// This will only return `Some(..)` if there has been a previous call to [`crate::loader::Loader::add_ref`].
-    ///
-    /// # Parameters
-    ///
-    /// * `id`: UUID of the asset.
-    fn get_load_handle(
-        &self,
-        asset_ref: &AssetRef,
-    ) -> Option<LoadHandle>;
-
-    /// Returns the AssetUUID for the given LoadHandle, if present.
-    ///
-    /// # Parameters
-    ///
-    /// * `load_handle`: ID allocated by [`Loader`](crate::loader::Loader) to track loading of the asset.
-    fn get_asset_id(
-        &self,
-        load: LoadHandle,
-    ) -> Option<AssetUuid>;
-}

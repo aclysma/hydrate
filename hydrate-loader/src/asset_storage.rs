@@ -1,16 +1,17 @@
-use crate::distill_loader::{
+use hydrate_base::{
     handle::{AssetHandle, RefOp, TypedAssetStorage},
-    storage::{AssetLoadOp, AssetStorage, LoaderInfoProvider},
     LoadHandle,
 };
 use std::{collections::HashMap, error::Error, sync::Mutex};
 
 use hydrate_base::{AssetTypeId, AssetUuid};
-use crate::distill_loader::handle::SerdeContext;
+use hydrate_base::handle::SerdeContext;
 use crossbeam_channel::{Receiver, Sender};
 use downcast_rs::Downcast;
 use std::marker::PhantomData;
 use type_uuid::TypeUuid;
+use hydrate_base::handle::LoaderInfoProvider;
+use crate::storage::{AssetLoadOp, AssetStorage};
 
 // Used to dynamic dispatch into a storage, supports checked downcasting
 pub trait DynAssetStorage: Downcast + Send {

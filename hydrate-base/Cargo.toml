@@ -9,3 +9,5 @@ edition = "2018"
 [dependencies]
 ahash = "0.7.4"
 uuid = "0.8.2"
+crossbeam-channel = "0.5"
+serde = { default-features = false, version = "1.0.145", features = ["derive"] }

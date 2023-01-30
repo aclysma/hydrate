@@ -6,8 +6,9 @@ use std::sync::atomic::{AtomicI32, AtomicU32, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 //use crate::disk_io::DiskAssetIOResult;
 use hydrate_base::{AssetRef, AssetTypeId, AssetUuid};
-use crate::distill_loader::storage::{AssetLoadOp, AssetStorage, HandleOp, LoaderInfoProvider};
-use crate::distill_loader::LoadHandle;
+use hydrate_base::handle::LoaderInfoProvider;
+use crate::storage::{AssetStorage, AssetLoadOp, HandleOp};
+use hydrate_base::LoadHandle;
 
 // Sequence of operations:
 // * User creates a type-safe handle through an interface, as long as it is alive, the asset remains loaded

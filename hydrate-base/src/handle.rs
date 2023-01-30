@@ -1,4 +1,3 @@
-use std::borrow::{Borrow, BorrowMut};
 use std::cell::RefCell;
 use std::{
     collections::{HashMap, HashSet},
@@ -11,7 +10,7 @@ use std::{
     },
 };
 
-use crossbeam_channel::{unbounded, Sender};
+use crossbeam_channel::Sender;
 //use futures_core::future::{BoxFuture, Future};
 use serde::{
     de::{self, Deserialize, Visitor},
@@ -405,7 +404,7 @@ impl SerdeContext {
 struct DummySerdeContext {
     maps: RwLock<DummySerdeContextMaps>,
     current: Mutex<DummySerdeContextCurrent>,
-    ref_sender: Sender<RefOp>,
+    //ref_sender: Sender<RefOp>,
     handle_gen: AtomicU64,
 }
 
@@ -421,7 +420,7 @@ struct DummySerdeContextCurrent {
 
 impl DummySerdeContext {
     pub fn new() -> Self {
-        let (tx, _) = unbounded();
+        //let (tx, _) = unbounded();
         Self {
             maps: RwLock::new(DummySerdeContextMaps {
                 uuid_to_load: HashMap::default(),
@@ -431,7 +430,7 @@ impl DummySerdeContext {
                 current_serde_dependencies: HashSet::new(),
                 current_serde_asset: None,
             }),
-            ref_sender: tx,
+            //ref_sender: tx,
             handle_gen: AtomicU64::new(1),
         }
     }
@@ -467,14 +466,14 @@ impl LoaderInfoProvider for DummySerdeContext {
         if let Some(asset_ref) = maybe_asset.as_ref() {
             let mut current = self.current.lock().unwrap();
             if let Some(ref current_serde_id) = current.current_serde_asset {
-                if AssetRef::Uuid(*current_serde_id) != *asset_ref
-                    && *asset_ref != AssetRef::Uuid(AssetUuid::default())
+                if AssetRef(*current_serde_id) != *asset_ref
+                    && *asset_ref != AssetRef(AssetUuid::default())
                 {
                     current.current_serde_dependencies.insert(asset_ref.clone());
                 }
             }
         }
-        if let Some(AssetRef::Uuid(uuid)) = maybe_asset {
+        if let Some(AssetRef(uuid)) = maybe_asset {
             Some(uuid)
         } else {
             None
@@ -496,7 +495,7 @@ impl<'a> crate::importer_context::ImporterContextHandle for DummySerdeContextHan
         asset_ref: &AssetRef,
         asset: AssetUuid,
     ) {
-        let new_ref = AssetRef::Uuid(asset);
+        let new_ref = AssetRef(asset);
         let mut maps = self.dummy.maps.write().unwrap();
         if let Some(handle) = maps.uuid_to_load.get(asset_ref) {
             let handle = *handle;
@@ -582,7 +581,7 @@ impl Serialize for GenericHandle {
 
 fn get_handle_ref(asset_ref: AssetRef) -> (LoadHandle, Sender<RefOp>) {
     SerdeContext::with_active(|loader, sender| {
-        let handle = if asset_ref == AssetRef::Uuid(AssetUuid::default()) {
+        let handle = if asset_ref == AssetRef(AssetUuid::default()) {
             LoadHandle(0)
         } else {
             loader
@@ -669,7 +668,7 @@ impl<'de> Visitor<'de> for AssetRefVisitor {
                 "too many elements when deserializing handle",
             ));
         }
-        Ok(AssetRef::Uuid(AssetUuid(uuid)))
+        Ok(AssetRef(AssetUuid(uuid)))
     }
 
     fn visit_str<E>(
@@ -680,26 +679,10 @@ impl<'de> Visitor<'de> for AssetRefVisitor {
         E: de::Error,
     {
         if let Ok(uuid) = uuid::Uuid::parse_str(v) {
-            Ok(AssetRef::Uuid(AssetUuid(*uuid.as_bytes())))
+            Ok(AssetRef(AssetUuid(*uuid.as_bytes())))
         } else {
             Err(E::custom(format!("failed to parse Handle string")))
         }
-
-        // use std::str::FromStr;
-        // match std::path::PathBuf::from_str(v) {
-        //     Ok(path) => {
-        //         uuid::Uuid::parse_str(&path.to_string_lossy())
-        //         // if let Ok(uuid) = uuid::Uuid::parse_str(&path.to_string_lossy()) {
-        //         //     Ok(AssetRef::Uuid(AssetUuid(*uuid.as_bytes())))
-        //         // } else {
-        //         //     Ok(AssetRef::Path(path))
-        //         // }
-        //     }
-        //     Err(err) => Err(E::custom(format!(
-        //         "failed to parse Handle string: {:?}",
-        //         err
-        //     ))),
-        // }
     }
 
     fn visit_bytes<E>(
@@ -718,7 +701,7 @@ impl<'de> Visitor<'de> for AssetRefVisitor {
         } else {
             let mut a = <[u8; 16]>::default();
             a.copy_from_slice(v);
-            Ok(AssetRef::Uuid(AssetUuid(a)))
+            Ok(AssetRef(AssetUuid(a)))
         }
     }
 }

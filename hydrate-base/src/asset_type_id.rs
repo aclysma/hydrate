@@ -1,14 +1,10 @@
 use std::fmt;
-#[cfg(feature = "serde-1")]
-use std::str::FromStr;
 
-#[cfg(feature = "serde-1")]
 use serde::{
     de::{self, Visitor},
     Deserialize, Deserializer, Serialize, Serializer,
 };
 pub use uuid;
-use uuid::Uuid;
 
 /// UUID of an asset's Rust type. Produced by [`TypeUuidDynamic::uuid`].
 ///
@@ -38,7 +34,6 @@ impl fmt::Display for AssetTypeId {
     }
 }
 
-#[cfg(feature = "serde-1")]
 impl Serialize for AssetTypeId {
     fn serialize<S: Serializer>(
         &self,
@@ -52,10 +47,8 @@ impl Serialize for AssetTypeId {
     }
 }
 
-#[cfg(feature = "serde-1")]
 struct AssetTypeIdVisitor;
 
-#[cfg(feature = "serde-1")]
 impl<'a> Visitor<'a> for AssetTypeIdVisitor {
     type Value = AssetTypeId;
 
@@ -76,7 +69,6 @@ impl<'a> Visitor<'a> for AssetTypeIdVisitor {
     }
 }
 
-#[cfg(feature = "serde-1")]
 impl<'de> Deserialize<'de> for AssetTypeId {
     fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
         if deserializer.is_human_readable() {

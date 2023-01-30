@@ -317,7 +317,7 @@ impl LoaderInfoProvider for Loader {
         &self,
         id: &AssetRef,
     ) -> Option<LoadHandle> {
-        let object_id = ObjectId(uuid::Uuid::from_bytes(id.expect_uuid().0).as_u128());
+        let object_id = ObjectId(uuid::Uuid::from_bytes(id.0.0).as_u128());
         self.object_id_to_handle.get(&object_id).map(|l| *l)
     }
 

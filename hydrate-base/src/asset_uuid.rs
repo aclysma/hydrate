@@ -1,8 +1,6 @@
 use std::fmt;
-#[cfg(feature = "serde-1")]
 use std::str::FromStr;
 
-#[cfg(feature = "serde-1")]
 use serde::{
     de::{self, Visitor},
     Deserialize, Deserializer, Serialize, Serializer,
@@ -61,7 +59,6 @@ impl fmt::Display for AssetUuid {
     }
 }
 
-#[cfg(feature = "serde-1")]
 impl Serialize for AssetUuid {
     fn serialize<S: Serializer>(
         &self,
@@ -75,10 +72,8 @@ impl Serialize for AssetUuid {
     }
 }
 
-#[cfg(feature = "serde-1")]
 struct AssetUuidVisitor;
 
-#[cfg(feature = "serde-1")]
 impl<'a> Visitor<'a> for AssetUuidVisitor {
     type Value = AssetUuid;
 
@@ -99,7 +94,6 @@ impl<'a> Visitor<'a> for AssetUuidVisitor {
     }
 }
 
-#[cfg(feature = "serde-1")]
 impl<'de> Deserialize<'de> for AssetUuid {
     fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
         if deserializer.is_human_readable() {

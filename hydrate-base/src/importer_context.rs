@@ -1,4 +1,4 @@
-use futures_core::future::BoxFuture;
+//use futures_core::future::BoxFuture;
 
 use super::{AssetRef, AssetUuid};
 

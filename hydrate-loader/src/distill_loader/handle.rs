@@ -23,7 +23,7 @@ use super::{
     storage::{LoadStatus, LoaderInfoProvider},
     LoadHandle, //Loader,
 };
-use crate::distill_core::{AssetRef, AssetUuid};
+use hydrate_base::{AssetRef, AssetUuid};
 
 /// Operations on an asset reference.
 #[derive(Debug)]
@@ -455,7 +455,7 @@ impl LoaderInfoProvider for DummySerdeContext {
 struct DummySerdeContextHandle {
     dummy: Arc<DummySerdeContext>,
 }
-impl<'a> crate::distill_core::importer_context::ImporterContextHandle for DummySerdeContextHandle {
+impl<'a> hydrate_base::importer_context::ImporterContextHandle for DummySerdeContextHandle {
     // fn scope<'s>(&'s self, fut: BoxFuture<'s, ()>) -> BoxFuture<'s, ()> {
     //     let sender = self.dummy.ref_sender.clone();
     //     let loader = &*self.dummy;
@@ -504,8 +504,8 @@ impl<'a> crate::distill_core::importer_context::ImporterContextHandle for DummyS
 
 /// Register this context with AssetDaemon to add serde support for Handle.
 pub struct HandleSerdeContextProvider;
-impl crate::distill_core::importer_context::ImporterContext for HandleSerdeContextProvider {
-    fn handle(&self) -> Box<dyn crate::distill_core::importer_context::ImporterContextHandle> {
+impl hydrate_base::importer_context::ImporterContext for HandleSerdeContextProvider {
+    fn handle(&self) -> Box<dyn hydrate_base::importer_context::ImporterContextHandle> {
         let dummy = Arc::new(DummySerdeContext::new());
         Box::new(DummySerdeContextHandle { dummy })
     }

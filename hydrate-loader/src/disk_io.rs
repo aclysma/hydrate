@@ -1,4 +1,4 @@
-use crate::distill_core::AssetTypeId;
+use hydrate_base::AssetTypeId;
 use crate::distill_loader::LoadHandle;
 use crate::loader::ObjectData;
 use crate::loader::{

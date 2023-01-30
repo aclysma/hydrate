@@ -7,7 +7,7 @@ use std::{
     },
 };
 
-use crate::distill_core::{AssetRef, AssetTypeId, AssetUuid};
+use hydrate_base::{AssetRef, AssetTypeId, AssetUuid};
 use crate::loader::LoaderEvent;
 use crossbeam_channel::Sender;
 use dashmap::DashMap;

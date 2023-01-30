@@ -5,7 +5,7 @@ use std::fmt::Debug;
 use std::sync::atomic::{AtomicI32, AtomicU32, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 //use crate::disk_io::DiskAssetIOResult;
-use crate::distill_core::{AssetRef, AssetTypeId, AssetUuid};
+use hydrate_base::{AssetRef, AssetTypeId, AssetUuid};
 use crate::distill_loader::storage::{AssetLoadOp, AssetStorage, HandleOp, LoaderInfoProvider};
 use crate::distill_loader::LoadHandle;
 

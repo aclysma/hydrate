@@ -1,7 +1,6 @@
 mod asset_storage;
 mod bincode_loader;
 mod disk_io;
-mod distill_core;
 mod distill_loader;
 mod dummy_asset_storage;
 mod loader;
@@ -81,7 +80,6 @@ mod loader;
 
 use crate::asset_storage::AssetStorageSet;
 use crate::disk_io::DiskAssetIO;
-use crate::distill_core::AssetRef::Uuid;
 use crate::distill_loader::handle::RefOp;
 use crate::distill_loader::LoadHandle;
 use crate::dummy_asset_storage::DummyAssetStorage;

@@ -5,7 +5,7 @@ use crate::distill_loader::{
 };
 use std::{collections::HashMap, error::Error, sync::Mutex};
 
-use crate::distill_core::{AssetTypeId, AssetUuid};
+use hydrate_base::{AssetTypeId, AssetUuid};
 use crate::distill_loader::handle::SerdeContext;
 use crossbeam_channel::{Receiver, Sender};
 use downcast_rs::Downcast;

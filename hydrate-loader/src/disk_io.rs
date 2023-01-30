@@ -8,7 +8,7 @@ use crate::loader::{
 use crossbeam_channel::{Receiver, Sender};
 use hydrate_base::hashing::HashMap;
 use hydrate_model::ObjectId;
-use std::io::BufRead;
+use std::io::{BufRead, Read, SeekFrom};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
@@ -54,6 +54,14 @@ impl DiskAssetIOWorkerThread {
                     recv(request_rx) -> msg => {
                         match msg.unwrap() {
                             DiskAssetIORequest::Metadata(msg) => {
+
+                                // Read the data?
+
+                                let path = hydrate_model::uuid_path::uuid_and_hash_to_path(&*root_path, msg.object_id.as_uuid(), msg.hash, "bf");
+                                let mut reader = std::fs::File::open(path).unwrap();
+                                let metadata = hydrate_model::BuiltObjectMetadata::read_header(&mut reader).unwrap();
+
+
                                 //let path = hydrate_model::uuid_path::uuid_and_hash_to_path(&*root_path, msg.object_id.as_uuid(), msg.hash, "bf");
                                 log::trace!("Start metadata read {:?}", msg.object_id);
                                 //let t0 = std::time::Instant::now();
@@ -69,11 +77,13 @@ impl DiskAssetIOWorkerThread {
                                 // }
 
                                 let metadata = ObjectMetadata {
-                                    dependencies: vec![],
-                                    subresource_count: 0,
-                                    asset_type: AssetTypeId(*uuid::Uuid::parse_str("1a4dde10-5e60-483d-88fa-4f59752e4524").unwrap().as_bytes()),
+                                    dependencies: metadata.dependencies,
+                                    subresource_count: metadata.subresource_count,
+                                    asset_type: AssetTypeId(*metadata.asset_type.as_bytes()), //AssetTypeId(*uuid::Uuid::parse_str("1a4dde10-5e60-483d-88fa-4f59752e4524").unwrap().as_bytes()),
                                     hash: msg.hash,
                                 };
+
+                                println!("read metadata {:?}", metadata);
 
                                 result_tx.send(LoaderEvent::MetadataRequestComplete( RequestMetadataResult {
                                     object_id: msg.object_id,
@@ -87,29 +97,40 @@ impl DiskAssetIOWorkerThread {
                             },
                             DiskAssetIORequest::Data(msg) => {
                                 let path = hydrate_model::uuid_path::uuid_and_hash_to_path(&*root_path, msg.object_id.as_uuid(), msg.hash, "bf");
+                                let mut reader = std::fs::File::open(&path).unwrap();
+                                let metadata = hydrate_model::BuiltObjectMetadata::read_header(&mut reader).unwrap();
+
+                                let mut bytes = Vec::new();
+                                use std::io::Read;
+                                reader.read_to_end(&mut bytes).unwrap();
+
                                 log::trace!("Start read {:?} {:?}", msg.object_id, msg.subresource);
                                 //let t0 = std::time::Instant::now();
-                                let result = std::fs::read(&path);
-                                //let t1 = std::time::Instant::now();
-                                match result {
-                                    Ok(data) => {
-                                        //log::debug!("Read {:?} {:?} {} bytes in {}ms", object_id, subresource, data.len(), (t1 - t0).as_secs_f32() * 1000.0);
+                                //let result = std::fs::read(&path);
 
-                                        result_tx.send(LoaderEvent::DataRequestComplete(RequestDataResult {
-                                            object_id: msg.object_id,
-                                            load_handle: msg.load_handle,
-                                            subresource: msg.subresource,
-                                            version: msg.version,
-                                            //hash: msg.hash,
-                                            result: Ok(ObjectData {
-                                                data
-                                            })
-                                        })).unwrap();
-                                    },
-                                    Err(e) => {
-                                        log::warn!("Failed to read {:?} {:?} at path {:?}", msg.object_id, msg.subresource, path);
-                                    }
-                                }
+                                let mut reader = std::fs::File::open(path).unwrap();
+                                let mut length_bytes = [0u8; 8];
+                                reader.read(&mut length_bytes).unwrap();
+                                use std::io::Seek;
+                                reader.seek(SeekFrom::Current(u64::from_le_bytes(length_bytes) as i64));
+                                let mut data = Vec::default();
+                                reader.read_to_end(&mut data);
+
+                                // This needs to skip the header?
+
+                                //let t1 = std::time::Instant::now();
+                                //log::debug!("Read {:?} {:?} {} bytes in {}ms", object_id, subresource, data.len(), (t1 - t0).as_secs_f32() * 1000.0);
+
+                                result_tx.send(LoaderEvent::DataRequestComplete(RequestDataResult {
+                                    object_id: msg.object_id,
+                                    load_handle: msg.load_handle,
+                                    subresource: msg.subresource,
+                                    version: msg.version,
+                                    //hash: msg.hash,
+                                    result: Ok(ObjectData {
+                                        data
+                                    })
+                                })).unwrap();
 
                                 active_request_count.fetch_sub(1, Ordering::Release);
                             }

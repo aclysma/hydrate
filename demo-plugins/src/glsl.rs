@@ -4,17 +4,11 @@ use std::ops::Range;
 use std::path::{Path, PathBuf};
 
 use demo_types::glsl::*;
-use hydrate_model::{
-    DataSet, EditorModel, HashMap, HashSet, ObjectId, ObjectLocation, ObjectName, SchemaLinker,
-    SchemaSet, SingleObject, Value,
-};
-use hydrate_pipeline::{
-    AssetPlugin, Builder, BuilderRegistry, ImportedImportable, Importer, ImporterRegistry,
-    ReferencedSourceFile, ScannedImportable,
-};
+use hydrate_model::{BuiltObjectMetadata, DataSet, EditorModel, HashMap, HashSet, ObjectId, ObjectLocation, ObjectName, SchemaLinker, SchemaSet, SingleObject, Value};
+use hydrate_pipeline::{AssetPlugin, Builder, BuilderRegistry, BuiltAsset, ImportedImportable, Importer, ImporterRegistry, ReferencedSourceFile, ScannedImportable};
 use serde::{Deserialize, Serialize};
 use shaderc::IncludeType;
-use type_uuid::TypeUuid;
+use type_uuid::{TypeUuid, TypeUuidDynamic};
 
 fn range_of_line_at_position(
     code: &[char],
@@ -850,7 +844,7 @@ impl Builder for GlslBuildTargetBuilder {
         data_set: &DataSet,
         schema: &SchemaSet,
         dependency_data: &HashMap<ObjectId, SingleObject>,
-    ) -> Vec<u8> {
+    ) -> BuiltAsset {
         //
         // Read asset properties
         //
@@ -952,6 +946,13 @@ impl Builder for GlslBuildTargetBuilder {
         }
 
         let serialized = bincode::serialize(&processed_data).unwrap();
-        serialized
+        BuiltAsset {
+            metadata: BuiltObjectMetadata {
+                dependencies: vec![],
+                subresource_count: 0,
+                asset_type: uuid::Uuid::from_bytes(processed_data.uuid())
+            },
+            data: serialized
+        }
     }
 }

@@ -1,7 +1,13 @@
 use hydrate_model::{DataSet, DataSetEntry, ObjectId, SchemaSet};
 use serde::{Deserialize, Serialize};
+use type_uuid::TypeUuid;
 
-#[derive(Serialize, Deserialize)]
+// pub struct TransformRef {
+//     pub transform: Handle<Transform>
+// }
+
+#[derive(Serialize, Deserialize, TypeUuid, Debug)]
+#[uuid = "da334afa-7af9-4894-8b7e-29defe202e90"]
 pub struct Transform {
     pub position: [f32; 3],
     pub rotation: [f32; 4],
@@ -73,6 +79,9 @@ impl DataSetEntry for Transform {
                 .unwrap(),
         ];
 
+        //let test_field = data_set.resolve_property(schema, object_id, "test_ref").unwrap().as_object_ref().unwrap();
+        // Create handle passing the ObjectId?
+
         Transform {
             position,
             rotation,
@@ -81,7 +90,8 @@ impl DataSetEntry for Transform {
     }
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, TypeUuid)]
+#[uuid = "df64f515-7e2f-47c2-b4d3-17ec7f2e63c7"]
 pub struct AllFields {
     pub boolean: bool,
     pub int32: i32,

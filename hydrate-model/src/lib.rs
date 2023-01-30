@@ -12,6 +12,8 @@ use std::fmt::{Debug, Formatter};
 use uuid::Uuid;
 
 pub mod uuid_path;
+mod metadata;
+pub use metadata::BuiltObjectMetadata;
 
 #[derive(Copy, Clone, PartialEq, Eq, Hash)]
 pub struct SchemaFingerprint(u128);

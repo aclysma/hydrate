@@ -3,16 +3,10 @@ use std::path::{Path, PathBuf};
 
 use demo_types::blender_material::*;
 use hydrate_model::value::ValueEnum;
-use hydrate_model::{
-    DataSet, EditorModel, HashMap, ObjectId, ObjectLocation, ObjectName, SchemaDefType,
-    SchemaLinker, SchemaSet, SingleObject, Value,
-};
-use hydrate_pipeline::{
-    AssetPlugin, Builder, BuilderRegistry, ImportedImportable, Importer, ImporterRegistry,
-    ScannedImportable,
-};
+use hydrate_model::{BuiltObjectMetadata, DataSet, EditorModel, HashMap, ObjectId, ObjectLocation, ObjectName, SchemaDefType, SchemaLinker, SchemaSet, SingleObject, Value};
+use hydrate_pipeline::{AssetPlugin, Builder, BuilderRegistry, BuiltAsset, ImportedImportable, Importer, ImporterRegistry, ScannedImportable};
 use serde::{Deserialize, Serialize};
-use type_uuid::TypeUuid;
+use type_uuid::{TypeUuid, TypeUuidDynamic};
 
 // Import this data to be "Default" values?
 // - Import overwrites any unchanged values?
@@ -416,7 +410,7 @@ impl Builder for BlenderMaterialBuilder {
         data_set: &DataSet,
         schema: &SchemaSet,
         dependency_data: &HashMap<ObjectId, SingleObject>,
-    ) -> Vec<u8> {
+    ) -> BuiltAsset {
         //
         // Read asset properties
         //
@@ -587,6 +581,13 @@ impl Builder for BlenderMaterialBuilder {
         };
 
         let serialized = bincode::serialize(&processed_data).unwrap();
-        serialized
+        BuiltAsset {
+            metadata: BuiltObjectMetadata {
+                dependencies: vec![],
+                subresource_count: 0,
+                asset_type: uuid::Uuid::from_bytes(processed_data.uuid())
+            },
+            data: serialized
+        }
     }
 }

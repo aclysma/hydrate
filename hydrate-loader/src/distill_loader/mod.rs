@@ -4,8 +4,6 @@ pub mod handle;
 /// [`AssetStorage`](crate::storage::AssetStorage) is implemented by engines to store loaded asset data.
 pub mod storage;
 
-mod task_local;
-
 pub use crossbeam_channel;
 //pub use loader::Loader;
 #[cfg(feature = "packfile_io")]

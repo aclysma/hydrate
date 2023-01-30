@@ -1,17 +1,16 @@
 use demo_types::simple_data::*;
-use hydrate_model::{
-    DataSet, DataSetEntry, HashMap, ObjectId, SchemaLinker, SchemaSet, SingleObject,
-};
-use hydrate_pipeline::{AssetPlugin, Builder, BuilderRegistry, ImporterRegistry};
+use hydrate_model::{BuiltObjectMetadata, DataSet, DataSetEntry, HashMap, ObjectId, SchemaLinker, SchemaSet, SingleObject};
+use hydrate_pipeline::{AssetPlugin, Builder, BuilderRegistry, BuiltAsset, ImporterRegistry};
 use serde::{Deserialize, Serialize};
 use std::marker::PhantomData;
+use type_uuid::TypeUuid;
 
-pub struct SimpleBincodeDataBuilder<T: DataSetEntry + Sized + Serialize + for<'a> Deserialize<'a>> {
+pub struct SimpleBincodeDataBuilder<T: DataSetEntry + Sized + Serialize + for<'a> Deserialize<'a> + TypeUuid> {
     asset_type: &'static str,
     phantom_data: PhantomData<T>,
 }
 
-impl<T: DataSetEntry + Sized + Serialize + for<'a> Deserialize<'a>> SimpleBincodeDataBuilder<T> {
+impl<T: DataSetEntry + Sized + Serialize + for<'a> Deserialize<'a> + TypeUuid> SimpleBincodeDataBuilder<T> {
     pub fn new(asset_type: &'static str) -> Self {
         SimpleBincodeDataBuilder {
             asset_type,
@@ -20,7 +19,7 @@ impl<T: DataSetEntry + Sized + Serialize + for<'a> Deserialize<'a>> SimpleBincod
     }
 }
 
-impl<T: DataSetEntry + Sized + Serialize + for<'a> Deserialize<'a>> Builder
+impl<T: DataSetEntry + Sized + Serialize + for<'a> Deserialize<'a> + TypeUuid> Builder
     for SimpleBincodeDataBuilder<T>
 {
     fn asset_type(&self) -> &'static str {
@@ -42,11 +41,18 @@ impl<T: DataSetEntry + Sized + Serialize + for<'a> Deserialize<'a>> Builder
         data_set: &DataSet,
         schema: &SchemaSet,
         _dependency_data: &HashMap<ObjectId, SingleObject>,
-    ) -> Vec<u8> {
+    ) -> BuiltAsset {
         let data = T::from_data_set(asset_id, data_set, schema);
 
         let serialized = bincode::serialize(&data).unwrap();
-        serialized
+        BuiltAsset {
+            metadata: BuiltObjectMetadata {
+                dependencies: vec![],
+                subresource_count: 0,
+                asset_type: uuid::Uuid::from_bytes(T::UUID)
+            },
+            data: serialized
+        }
     }
 }
 

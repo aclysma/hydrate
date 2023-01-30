@@ -2,16 +2,10 @@ pub use super::*;
 use std::path::{Path, PathBuf};
 
 use demo_types::gltf::*;
-use hydrate_model::{
-    DataSet, EditorModel, HashMap, ObjectId, ObjectLocation, ObjectName, SchemaLinker, SchemaSet,
-    SingleObject, Value,
-};
-use hydrate_pipeline::{
-    AssetPlugin, Builder, BuilderRegistry, ImportedImportable, Importer, ImporterRegistry,
-    ScannedImportable,
-};
+use hydrate_model::{BuiltObjectMetadata, DataSet, EditorModel, HashMap, ObjectId, ObjectLocation, ObjectName, SchemaLinker, SchemaSet, SingleObject, Value};
+use hydrate_pipeline::{AssetPlugin, Builder, BuilderRegistry, BuiltAsset, ImportedImportable, Importer, ImporterRegistry, ScannedImportable};
 use serde::{Deserialize, Serialize};
-use type_uuid::TypeUuid;
+use type_uuid::{TypeUuid, TypeUuidDynamic};
 
 pub struct GltfMeshAsset {}
 
@@ -141,7 +135,7 @@ impl Importer for GltfImporter {
             .clone();
 
         let material_asset_type = schema_set
-            .find_named_type(GltfMeshAsset::schema_name())
+            .find_named_type(GltfMaterialAsset::schema_name())
             .unwrap()
             .as_record()
             .unwrap()
@@ -272,7 +266,7 @@ impl Builder for GltfMeshBuilder {
         data_set: &DataSet,
         schema: &SchemaSet,
         dependency_data: &HashMap<ObjectId, SingleObject>,
-    ) -> Vec<u8> {
+    ) -> BuiltAsset {
         //
         // Read asset properties
         //
@@ -297,10 +291,17 @@ impl Builder for GltfMeshBuilder {
         // Compress the image, or just return the raw image bytes
         //
 
-        let processed_data = GltfBuiltData {};
+        let processed_data = GltfBuiltMeshData {};
 
         let serialized = bincode::serialize(&processed_data).unwrap();
-        serialized
+        BuiltAsset {
+            metadata: BuiltObjectMetadata {
+                dependencies: vec![],
+                subresource_count: 0,
+                asset_type: uuid::Uuid::from_bytes(processed_data.uuid())
+            },
+            data: serialized
+        }
     }
 }
 
@@ -327,7 +328,7 @@ impl Builder for GltfMaterialBuilder {
         data_set: &DataSet,
         schema: &SchemaSet,
         dependency_data: &HashMap<ObjectId, SingleObject>,
-    ) -> Vec<u8> {
+    ) -> BuiltAsset {
         //
         // Read asset properties
         //
@@ -352,9 +353,16 @@ impl Builder for GltfMaterialBuilder {
         // Compress the image, or just return the raw image bytes
         //
 
-        let processed_data = GltfBuiltData {};
+        let processed_data = GltfBuiltMaterialData {};
 
         let serialized = bincode::serialize(&processed_data).unwrap();
-        serialized
+        BuiltAsset {
+            metadata: BuiltObjectMetadata {
+                dependencies: vec![],
+                subresource_count: 0,
+                asset_type: uuid::Uuid::from_bytes(processed_data.uuid())
+            },
+            data: serialized
+        }
     }
 }

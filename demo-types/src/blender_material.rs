@@ -18,8 +18,9 @@ pub enum MeshAdvBlendMethod {
 
 // This is non-texture data associated with the material. Must convert to
 // MeshMaterialDataShaderParam to bind to a shader uniform
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug, type_uuid::TypeUuid)]
 #[repr(C)]
+#[uuid = "90228283-3d7f-4ba8-9e20-6cc2871ad9ff"]
 pub struct MeshAdvMaterialData {
     // Using f32 arrays for serde support
     pub base_color_factor: [f32; 4], // default: 1,1,1,1

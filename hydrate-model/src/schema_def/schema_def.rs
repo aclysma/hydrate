@@ -743,7 +743,7 @@ fn parse_json_schema_type_ref(
 
             let inner_type = json_value.get("inner_type").ok_or_else(|| {
                 SchemaDefParserError::String(format!(
-                    "{}All dynamic_array types must has an inner_type",
+                    "{}All object_ref types must has an inner_type",
                     error_prefix
                 ))
             })?;

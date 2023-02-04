@@ -72,5 +72,9 @@ impl AssetPlugin for SimpleDataAssetPlugin {
             schema_linker,
             SimpleBincodeDataBuilder::<Transform>::new("Transform"),
         );
+        builder_registry.register_handler_instance(
+            schema_linker,
+            SimpleBincodeDataBuilder::<TransformRef>::new("TransformRef"),
+        );
     }
 }

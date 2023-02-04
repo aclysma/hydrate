@@ -540,7 +540,7 @@ impl Loader {
                 version.load_state = LoadState::WaitingForDependencies;
                 //TODO: Wait for dependencies, maybe by putting all assets in this state into a list
                 // so we only poll assets that are in this state
-                unimplemented!();
+                //unimplemented!();
             }
         } else {
             // We don't recognize the load_handle.. we currently never delete them so this shouldn't happen
@@ -657,6 +657,7 @@ impl Loader {
                 };
 
                 for (blocked_load_handle, blocked_load_version) in blocked_loads {
+                    println!("blocked load {:?}", blocked_load_handle);
                     let mut blocked_load = self
                         .load_handle_infos
                         .get_mut(&blocked_load_handle)
@@ -667,6 +668,7 @@ impl Loader {
                         .fetch_sub(1, Ordering::Relaxed);
                     if previous_blocked_load_count == 1 {
                         // Kick off the blocked load
+                        self.events_tx.send(LoaderEvent::DependenciesLoaded(blocked_load_handle, blocked_load_version)).unwrap();
                     }
                 }
 

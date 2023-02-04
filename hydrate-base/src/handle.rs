@@ -401,10 +401,10 @@ impl SerdeContext {
 /// This context can be used to maintain AssetUuid references through a serialize/deserialize cycle
 /// even if the LoadHandles produced are invalid. This is useful when a loader is not
 /// present, such as when processing in the Distill Daemon.
-struct DummySerdeContext {
+pub struct DummySerdeContext {
     maps: RwLock<DummySerdeContextMaps>,
     current: Mutex<DummySerdeContextCurrent>,
-    //ref_sender: Sender<RefOp>,
+    ref_sender: Sender<RefOp>,
     handle_gen: AtomicU64,
 }
 
@@ -420,7 +420,7 @@ struct DummySerdeContextCurrent {
 
 impl DummySerdeContext {
     pub fn new() -> Self {
-        //let (tx, _) = unbounded();
+        let (tx, _) = crossbeam_channel::unbounded();
         Self {
             maps: RwLock::new(DummySerdeContextMaps {
                 uuid_to_load: HashMap::default(),
@@ -430,7 +430,7 @@ impl DummySerdeContext {
                 current_serde_dependencies: HashSet::new(),
                 current_serde_asset: None,
             }),
-            //ref_sender: tx,
+            ref_sender: tx,
             handle_gen: AtomicU64::new(1),
         }
     }
@@ -480,17 +480,26 @@ impl LoaderInfoProvider for DummySerdeContext {
         }
     }
 }
-struct DummySerdeContextHandle {
+pub struct DummySerdeContextHandle {
     dummy: Arc<DummySerdeContext>,
 }
-impl<'a> crate::importer_context::ImporterContextHandle for DummySerdeContextHandle {
-    // fn scope<'s>(&'s self, fut: BoxFuture<'s, ()>) -> BoxFuture<'s, ()> {
-    //     let sender = self.dummy.ref_sender.clone();
-    //     let loader = &*self.dummy;
-    //     Box::pin(SerdeContext::with(loader, sender, fut))
-    // }
 
-    fn resolve_ref(
+impl Default for DummySerdeContextHandle {
+    fn default() -> Self {
+        DummySerdeContextHandle {
+            dummy: Arc::new(DummySerdeContext::new())
+        }
+    }
+}
+
+impl DummySerdeContextHandle {
+    pub fn scope<'a, T, F: FnOnce() -> T>(&self, f: F) -> T {
+        let sender = self.dummy.ref_sender.clone();
+        let loader = &*self.dummy;
+        SerdeContext::with(loader, sender, f)
+    }
+
+    pub fn resolve_ref(
         &mut self,
         asset_ref: &AssetRef,
         asset: AssetUuid,
@@ -505,7 +514,7 @@ impl<'a> crate::importer_context::ImporterContextHandle for DummySerdeContextHan
     }
 
     /// Begin gathering dependencies for an asset
-    fn begin_serialize_asset(
+    pub fn begin_serialize_asset(
         &mut self,
         asset: AssetUuid,
     ) {
@@ -517,7 +526,7 @@ impl<'a> crate::importer_context::ImporterContextHandle for DummySerdeContextHan
     }
 
     /// Finish gathering dependencies for an asset
-    fn end_serialize_asset(
+    pub fn end_serialize_asset(
         &mut self,
         _asset: AssetUuid,
     ) -> HashSet<AssetRef> {
@@ -531,13 +540,13 @@ impl<'a> crate::importer_context::ImporterContextHandle for DummySerdeContextHan
 }
 
 /// Register this context with AssetDaemon to add serde support for Handle.
-pub struct HandleSerdeContextProvider;
-impl crate::importer_context::ImporterContext for HandleSerdeContextProvider {
-    fn handle(&self) -> Box<dyn crate::importer_context::ImporterContextHandle> {
-        let dummy = Arc::new(DummySerdeContext::new());
-        Box::new(DummySerdeContextHandle { dummy })
-    }
-}
+// pub struct HandleSerdeContextProvider;
+// impl crate::importer_context::ImporterContext for HandleSerdeContextProvider {
+//     fn handle(&self) -> Box<dyn crate::importer_context::ImporterContextHandle> {
+//         let dummy = Arc::new(DummySerdeContext::new());
+//         Box::new(DummySerdeContextHandle { dummy })
+//     }
+// }
 
 fn serialize_handle<S>(
     load: LoadHandle,
@@ -827,4 +836,21 @@ pub trait AssetHandle {
 
     /// Returns the `LoadHandle` of this asset handle.
     fn load_handle(&self) -> LoadHandle;
+}
+
+
+pub fn make_handle<T>(uuid: AssetUuid) -> Handle<T> {
+    SerdeContext::with_active(|loader_info_provider, ref_op_sender| {
+        let load_handle = loader_info_provider
+            .get_load_handle(&AssetRef(uuid))
+            .unwrap();
+        Handle::<T>::new(ref_op_sender.clone(), load_handle)
+    })
+}
+
+pub fn make_handle_from_str<T>(uuid_str: &str) -> Result<Handle<T>, uuid::Error> {
+    use std::str::FromStr;
+    Ok(make_handle(AssetUuid(
+        *uuid::Uuid::from_str(uuid_str)?.as_bytes(),
+    )))
 }

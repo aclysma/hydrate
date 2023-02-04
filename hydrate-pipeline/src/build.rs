@@ -7,6 +7,8 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::SystemTime;
 use uuid::Uuid;
+use hydrate_base::AssetUuid;
+use hydrate_base::handle::{DummySerdeContext, DummySerdeContextHandle};
 
 use super::ImportJobs;
 use hydrate_model::edit_context::EditContext;
@@ -158,8 +160,33 @@ impl BuildJobs {
             imported_data_hash.hash(&mut build_hasher);
             let build_hash = build_hasher.finish();
 
+            //let dummy_serde_context = DummySerdeContext::new();
+
+            //dummy_serde_context.
+
+            let mut ctx = DummySerdeContextHandle::default();
+            ctx.begin_serialize_asset(AssetUuid(*object_id.as_uuid().as_bytes()));
+            let mut built_data = ctx.scope(|| {
+                builder.build_asset(object_id, data_set, schema_set, &imported_data)
+            });
+
+            let referenced_assets = ctx.end_serialize_asset(AssetUuid(*object_id.as_uuid().as_bytes()));
+            built_data.metadata.dependencies = referenced_assets.into_iter().map(|x| ObjectId(uuid::Uuid::from_bytes(x.0.0).as_u128())).collect();
+
+            // let mut built_data;
+            // let context = HandleSerdeContextProvider.handle();
+            // context.scope(Box::new(|| {
+            //     built_data = builder.build_asset(object_id, data_set, schema_set, &imported_data);
+            // }));
+
+
+
+
             // Check if a build for this hash already exists?
-            let built_data = builder.build_asset(object_id, data_set, schema_set, &imported_data);
+            //let built_data = hydrate_base::handle::SerdeContext::with(&dummy_serde_context, dummy_serde_context, || {
+                //builder.build_asset(object_id, data_set, schema_set, &imported_data)
+            //});
+
 
             //
             let path = uuid_and_hash_to_path(

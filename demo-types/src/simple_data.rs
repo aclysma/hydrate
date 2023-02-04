@@ -1,10 +1,33 @@
 use hydrate_model::{DataSet, DataSetEntry, ObjectId, SchemaSet};
 use serde::{Deserialize, Serialize};
 use type_uuid::TypeUuid;
+use hydrate_base::{AssetUuid, Handle};
 
-// pub struct TransformRef {
-//     pub transform: Handle<Transform>
-// }
+#[derive(Serialize, Deserialize, TypeUuid, Debug)]
+#[uuid = "7132d33e-9bbc-4fb1-b857-17962afd44b8"]
+pub struct TransformRef {
+    pub transform: Handle<Transform>
+}
+
+impl DataSetEntry for TransformRef {
+    fn from_data_set(
+        object_id: ObjectId,
+        data_set: &DataSet,
+        schema: &SchemaSet,
+    ) -> Self {
+        let object_id = data_set.resolve_property(schema, object_id, "transform").unwrap().as_object_ref().unwrap();
+
+        let asset_id = AssetUuid(*object_id.as_uuid().as_bytes());
+
+        //TODO: Verify type?
+        let handle = hydrate_base::handle::make_handle::<Transform>(asset_id);
+
+        TransformRef {
+            transform: handle
+        }
+    }
+}
+
 
 #[derive(Serialize, Deserialize, TypeUuid, Debug)]
 #[uuid = "da334afa-7af9-4894-8b7e-29defe202e90"]

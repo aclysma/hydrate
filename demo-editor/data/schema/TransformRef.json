@@ -1,0 +1,12 @@
+[
+  {
+    "type": "record",
+    "name": "TransformRef",
+    "fields": [
+      {
+        "name": "transform",
+        "type": { "name": "object_ref", "inner_type": "Transform" }
+      }
+    ]
+  }
+]

@@ -6,6 +6,7 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+hydrate-base = { path = "../hydrate-base" }
 hydrate-model = { path = "../hydrate-model" }
 uuid = "0.8.2"
 type-uuid = "0.1.2"

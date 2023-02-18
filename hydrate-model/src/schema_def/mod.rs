@@ -7,3 +7,5 @@ pub use schema_linker::*;
 mod enum_type_builder;
 mod fixed_type_builder;
 mod record_type_builder;
+
+mod json_schema;

@@ -4,12 +4,7 @@ use std::sync::Arc;
 use uuid::Uuid;
 
 use crate::editor::undo::{CompletedUndoContextMessage, UndoContext, UndoStack};
-use crate::{
-    BuildInfo, DataObjectInfo, DataSet, DataSetDiff, EditContextKey, EndContextBehavior, HashMap,
-    HashMapKeys, HashSet, HashSetIter, ImportInfo, NullOverride, ObjectId, ObjectLocation,
-    ObjectName, OverrideBehavior, SchemaFingerprint, SchemaNamedType, SchemaRecord, SchemaSet,
-    Value,
-};
+use crate::{BuildInfo, DataObjectInfo, DataSet, DataSetDiff, DataSetResult, EditContextKey, EndContextBehavior, HashMap, HashMapKeys, HashSet, HashSetIter, ImportInfo, NullOverride, ObjectId, ObjectLocation, ObjectName, OverrideBehavior, SchemaFingerprint, SchemaNamedType, SchemaRecord, SchemaSet, Value};
 
 //TODO: Delete unused property data when path ancestor is null or in replace mode
 
@@ -551,7 +546,7 @@ impl EditContext {
         object_id: ObjectId,
         path: impl AsRef<str>,
         value: Value,
-    ) -> bool {
+    ) -> DataSetResult<()> {
         self.track_existing_object(object_id);
         self.data_set
             .set_property_override(&self.schema_set, object_id, path, value)

@@ -13,6 +13,12 @@ pub use data_set::ObjectName;
 pub use data_set::ObjectPath;
 pub use data_set::ObjectSourceId;
 pub use data_set::OverrideBehavior;
+pub use data_set::DataSetError;
+pub use data_set::DataSetResult;
+
+mod data_set_view;
+pub use data_set_view::DataSetView;
+pub use data_set_view::DataSetViewMut;
 
 mod single_object;
 pub use single_object::SingleObject;

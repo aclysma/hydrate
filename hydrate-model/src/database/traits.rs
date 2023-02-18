@@ -1,4 +1,4 @@
-use crate::{DataSet, ObjectId, SchemaSet, SingleObject};
+use crate::{DataSet, DataSetView, ObjectId, SchemaSet, SingleObject};
 
 pub trait SingleObjectEntry {
     fn copy_from_single_object(
@@ -9,9 +9,10 @@ pub trait SingleObjectEntry {
 
 pub trait DataSetEntry {
     fn from_data_set(
-        object_id: ObjectId,
-        data_set: &DataSet,
-        schema: &SchemaSet,
+        // object_id: ObjectId,
+        // data_set: &DataSet,
+        // schema: &SchemaSet,
+        data_set_view: &mut DataSetView,
     ) -> Self;
 }
 

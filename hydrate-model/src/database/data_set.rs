@@ -9,6 +9,14 @@ use std::str::FromStr;
 use std::string::ToString;
 use uuid::Uuid;
 
+pub enum DataSetError {
+    ValueDoesNotMatchSchema,
+    PathParentIsNull,
+    PathDynamicArrayEntryDoesNotExist
+}
+
+pub type DataSetResult<T> = Result<T, DataSetError>;
+
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Ord, PartialOrd)]
 pub struct ObjectSourceId(Uuid);
 
@@ -818,7 +826,7 @@ impl DataSet {
         object_id: ObjectId,
         path: impl AsRef<str>,
         value: Value,
-    ) -> bool {
+    ) -> DataSetResult<()> {
         let object_schema = self.object_schema(object_id).unwrap();
         let property_schema = object_schema
             .find_property_schema(&path, schema_set.schemas())
@@ -832,7 +840,7 @@ impl DataSet {
                 value,
                 property_schema
             );
-            return false;
+            return Err(DataSetError::ValueDoesNotMatchSchema);
         }
 
         // Contains the path segments that we need to check for being null
@@ -857,20 +865,20 @@ impl DataSet {
 
         for checked_property in &nullable_ancestors {
             if self.resolve_is_null(schema_set, object_id, checked_property) != Some(false) {
-                return false;
+                return Err(DataSetError::PathParentIsNull);
             }
         }
 
         for (path, key) in &accessed_dynamic_array_keys {
             let dynamic_array_entries = self.resolve_dynamic_array(schema_set, object_id, path);
             if !dynamic_array_entries.contains(&Uuid::from_str(key).unwrap()) {
-                return false;
+                return Err(DataSetError::PathDynamicArrayEntryDoesNotExist);
             }
         }
 
         let obj = self.objects.get_mut(&object_id).unwrap();
         obj.properties.insert(path.as_ref().to_string(), value);
-        true
+        Ok(())
     }
 
     pub fn remove_property_override(

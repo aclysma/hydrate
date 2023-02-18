@@ -17,4 +17,8 @@ impl SchemaStaticArray {
     pub fn item_type(&self) -> &Schema {
         &*self.item_type
     }
+
+    pub fn length(&self) -> usize {
+        self.length
+    }
 }

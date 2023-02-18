@@ -115,7 +115,7 @@ impl SchemaLinker {
             })?;
 
             for json_object in json_objects {
-                let named_type = super::schema_def::parse_json_schema_def(
+                let named_type = super::json_schema::parse_json_schema_def(
                     &json_object,
                     &format!("[{}]", file.path().display()),
                 )?;

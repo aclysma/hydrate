@@ -313,7 +313,7 @@ impl SchemaDefEnumSymbol {
         SchemaEnumSymbol::new(
             self.symbol_name,
             self.aliases.into_boxed_slice(),
-            self.value,
+            //self.value,
         )
     }
 }

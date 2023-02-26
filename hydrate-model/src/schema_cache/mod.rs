@@ -133,7 +133,7 @@ struct CachedSchemaEnumSymbol {
     name: String,
     #[serde(skip_serializing_if = "Vec::is_empty", default)]
     aliases: Vec<String>,
-    value: i32,
+    //value: i32,
 }
 
 impl CachedSchemaEnumSymbol {
@@ -141,12 +141,12 @@ impl CachedSchemaEnumSymbol {
         CachedSchemaEnumSymbol {
             name: schema.name().to_string(),
             aliases: schema.aliases().iter().cloned().collect(),
-            value: schema.value(),
+            //value: schema.value(),
         }
     }
 
     fn to_schema(self) -> SchemaEnumSymbol {
-        SchemaEnumSymbol::new(self.name, self.aliases.into_boxed_slice(), self.value)
+        SchemaEnumSymbol::new(self.name, self.aliases.into_boxed_slice()/*, self.value*/)
     }
 }
 

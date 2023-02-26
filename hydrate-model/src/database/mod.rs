@@ -17,6 +17,8 @@ pub use data_set::DataSetError;
 pub use data_set::DataSetResult;
 
 mod data_set_view;
+pub use data_set_view::DataContainer;
+pub use data_set_view::DataContainerMut;
 pub use data_set_view::DataSetView;
 pub use data_set_view::DataSetViewMut;
 

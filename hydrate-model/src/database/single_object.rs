@@ -1,7 +1,4 @@
-use crate::{
-    HashMap, HashMapKeys, HashSet, HashSetIter, Schema, SchemaFingerprint, SchemaNamedType,
-    SchemaRecord, Value,
-};
+use crate::{DataSetError, DataSetResult, HashMap, HashMapKeys, HashSet, HashSetIter, Schema, SchemaFingerprint, SchemaNamedType, SchemaRecord, Value};
 use crate::{NullOverride, SchemaSet};
 use std::hash::{Hash, Hasher};
 use std::str::FromStr;
@@ -224,7 +221,7 @@ impl SingleObject {
         schema_set: &SchemaSet,
         path: impl AsRef<str>,
         value: Value,
-    ) -> bool {
+    ) -> DataSetResult<()> {
         let property_schema = self
             .schema
             .find_property_schema(&path, schema_set.schemas())
@@ -238,7 +235,7 @@ impl SingleObject {
                 value,
                 property_schema
             );
-            return false;
+            return Err(DataSetError::ValueDoesNotMatchSchema);
         }
 
         // Contains the path segments that we need to check for being null
@@ -263,19 +260,19 @@ impl SingleObject {
 
         for checked_property in &nullable_ancestors {
             if self.resolve_is_null(schema_set, checked_property) != Some(false) {
-                return false;
+                return Err(DataSetError::PathParentIsNull);
             }
         }
 
         for (path, key) in &accessed_dynamic_array_keys {
             let dynamic_array_entries = self.resolve_dynamic_array(schema_set, path);
             if !dynamic_array_entries.contains(&Uuid::from_str(key).unwrap()) {
-                return false;
+                return Err(DataSetError::PathDynamicArrayEntryDoesNotExist);
             }
         }
 
         self.properties.insert(path.as_ref().to_string(), value);
-        true
+        Ok(())
     }
 
     pub fn remove_property_override(

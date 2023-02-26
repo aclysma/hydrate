@@ -1,4 +1,4 @@
-use hydrate_model::{DataSet, DataSetEntry, DataSetResult, DataSetView, DataSetViewMut, ObjectId, SchemaSet, Value};
+use hydrate_model::{DataContainer, DataSet, DataSetEntry, DataSetResult, DataSetView, DataSetViewMut, ObjectId, SchemaSet, Value};
 use serde::{Deserialize, Serialize};
 use type_uuid::TypeUuid;
 use hydrate_base::{AssetUuid, Handle};
@@ -7,16 +7,33 @@ use super::simple_data_gen_from_schema::*;
 //
 // Hand-implemented helper code for the schema -> engine data conversion
 //
-impl Into<[f32; 3]> for Vec3FromSchema {
-    fn into(self) -> [f32; 3] {
-        [self.x, self.y, self.z]
+trait Load<T> {
+    fn load(&self, data_set_view: &DataContainer) -> DataSetResult<T>;
+}
+
+impl Load<[f32; 3]> for Vec3Record {
+    fn load(&self, data_container: &DataContainer) -> DataSetResult<[f32; 3]> {
+        Ok([self.x().get(data_container)?, self.y().get(data_container)?, self.z().get(data_container)?])
     }
 }
-impl Into<[f32; 4]> for Vec4FromSchema {
-    fn into(self) -> [f32; 4] {
-        [self.x, self.y, self.z, self.w]
+
+impl Load<[f32; 4]> for Vec4Record {
+    fn load(&self, data_container: &DataContainer) -> DataSetResult<[f32; 4]> {
+        Ok([self.x().get(data_container)?, self.y().get(data_container)?, self.z().get(data_container)?, self.w().get(data_container)?])
     }
 }
+
+
+// impl Into<[f32; 3]> for Vec3FromSchema {
+//     fn into(self) -> [f32; 3] {
+//         [self.x, self.y, self.z]
+//     }
+// }
+// impl Into<[f32; 4]> for Vec4FromSchema {
+//     fn into(self) -> [f32; 4] {
+//         [self.x, self.y, self.z, self.w]
+//     }
+// }
 
 //
 // Engine-specific types start here
@@ -30,7 +47,7 @@ pub struct TransformRef {
 
 impl DataSetEntry for TransformRef {
     fn from_data_set(
-        data_set_view: &mut DataSetView,
+        data_set_view: &DataContainer,
     ) -> Self {
         let object_id = data_set_view.resolve_property("transform").unwrap().as_object_ref().unwrap();
 
@@ -55,14 +72,14 @@ pub struct Transform {
 
 impl DataSetEntry for Transform {
     fn from_data_set(
-        data_set_view: &mut DataSetView,
+        data_container: &DataContainer,
     ) -> Self {
-        let data = TransformFromSchema::load(data_set_view);
+        let transform = TransformRecord::default();
 
         Transform {
-            position: data.position.into(),
-            rotation: data.rotation.into(),
-            scale: data.scale.into(),
+            position: transform.position().load(data_container).unwrap(),
+            rotation: transform.rotation().load(data_container).unwrap(),
+            scale: transform.scale().load(data_container).unwrap(),
         }
 
 
@@ -89,6 +106,9 @@ impl DataSetEntry for Transform {
     }
 }
 
+// What if we had a way to "bind" raw rust structs to fields? Needs to know how to read and write,
+// but we really just need to provide method of getting a ref and mutable ref to individual fields
+
 #[derive(Serialize, Deserialize, TypeUuid)]
 #[uuid = "df64f515-7e2f-47c2-b4d3-17ec7f2e63c7"]
 pub struct AllFields {
@@ -99,19 +119,19 @@ pub struct AllFields {
 
 impl DataSetEntry for AllFields {
     fn from_data_set(
-        data_set_view: &mut DataSetView,
+        data_container: &DataContainer,
     ) -> Self {
-        let boolean = data_set_view
+        let boolean = data_container
             .resolve_property("boolean")
             .unwrap()
             .as_boolean()
             .unwrap();
-        let int32 = data_set_view
+        let int32 = data_container
             .resolve_property("int32")
             .unwrap()
             .as_i32()
             .unwrap();
-        let int64 = data_set_view
+        let int64 = data_container
             .resolve_property("int64")
             .unwrap()
             .as_i64()

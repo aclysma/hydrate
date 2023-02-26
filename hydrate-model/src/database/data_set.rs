@@ -9,10 +9,12 @@ use std::str::FromStr;
 use std::string::ToString;
 use uuid::Uuid;
 
+#[derive(Debug)]
 pub enum DataSetError {
     ValueDoesNotMatchSchema,
     PathParentIsNull,
-    PathDynamicArrayEntryDoesNotExist
+    PathDynamicArrayEntryDoesNotExist,
+    UnexpectedEnumSymbol
 }
 
 pub type DataSetResult<T> = Result<T, DataSetError>;

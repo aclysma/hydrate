@@ -1,5 +1,5 @@
 use demo_types::simple_data::*;
-use hydrate_model::{BuiltObjectMetadata, DataSet, DataSetEntry, DataSetView, HashMap, ObjectId, SchemaLinker, SchemaSet, SingleObject};
+use hydrate_model::{BuiltObjectMetadata, DataContainer, DataSet, DataSetEntry, DataSetView, HashMap, ObjectId, SchemaLinker, SchemaSet, SingleObject};
 use hydrate_pipeline::{AssetPlugin, Builder, BuilderRegistry, BuiltAsset, ImporterRegistry};
 use serde::{Deserialize, Serialize};
 use std::marker::PhantomData;
@@ -42,7 +42,7 @@ impl<T: DataSetEntry + Sized + Serialize + for<'a> Deserialize<'a> + TypeUuid> B
         schema: &SchemaSet,
         _dependency_data: &HashMap<ObjectId, SingleObject>,
     ) -> BuiltAsset {
-        let mut data_set_view = DataSetView::new(&data_set, &schema, asset_id);
+        let mut data_set_view = DataContainer::new_dataset(&data_set, &schema, asset_id);
         let data = T::from_data_set(&mut data_set_view);
 
         let serialized = bincode::serialize(&data).unwrap();

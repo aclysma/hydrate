@@ -3,10 +3,12 @@ use std::path::{Path, PathBuf};
 
 use demo_types::blender_material::*;
 use hydrate_model::value::ValueEnum;
-use hydrate_model::{BuiltObjectMetadata, DataSet, EditorModel, HashMap, ObjectId, ObjectLocation, ObjectName, SchemaDefType, SchemaLinker, SchemaSet, SingleObject, Value};
+use hydrate_model::{BooleanField, BuiltObjectMetadata, DataContainer, DataSet, DataSetError, DataSetResult, DataSetView, DataSetViewMut, EditorModel, Enum, EnumField, F32Field, Field, HashMap, ObjectId, ObjectLocation, ObjectName, PropertyPath, SchemaDefType, SchemaLinker, SchemaSet, SingleObject, StringField, Value};
 use hydrate_pipeline::{AssetPlugin, Builder, BuilderRegistry, BuiltAsset, ImportedImportable, Importer, ImporterRegistry, ScannedImportable};
 use serde::{Deserialize, Serialize};
 use type_uuid::{TypeUuid, TypeUuidDynamic};
+use demo_types::simple_data_gen_from_schema::{Vec3Record, Vec4Record};
+//use gltf::Mesh;
 
 // Import this data to be "Default" values?
 // - Import overwrites any unchanged values?
@@ -57,6 +59,121 @@ impl BlenderMaterialAsset {
             .unwrap();
     }
 }
+
+pub enum MeshAdvShadowMethodEnum {
+    None,
+    Opaque
+}
+
+impl Into<MeshAdvShadowMethod> for MeshAdvShadowMethodEnum {
+    fn into(self) -> MeshAdvShadowMethod {
+        match self {
+            MeshAdvShadowMethodEnum::None => MeshAdvShadowMethod::None,
+            MeshAdvShadowMethodEnum::Opaque => MeshAdvShadowMethod::Opaque,
+        }
+    }
+}
+
+impl Enum for MeshAdvShadowMethodEnum {
+    fn to_symbol_name(&self) -> &'static str {
+        match self {
+            MeshAdvShadowMethodEnum::None => "None",
+            MeshAdvShadowMethodEnum::Opaque => "Opaque",
+        }
+    }
+
+    fn from_symbol_name(str: &str) -> Option<MeshAdvShadowMethodEnum> {
+        match str {
+            "None" => Some(MeshAdvShadowMethodEnum::None),
+            "Opaque" => Some(MeshAdvShadowMethodEnum::Opaque),
+            _ => None,
+        }
+    }
+}
+
+pub enum MeshAdvBlendMethodEnum {
+    Opaque,
+    AlphaClip,
+    AlphaBlend,
+}
+
+impl Into<MeshAdvBlendMethod> for MeshAdvBlendMethodEnum {
+    fn into(self) -> MeshAdvBlendMethod {
+        match self {
+            MeshAdvBlendMethodEnum::Opaque => MeshAdvBlendMethod::Opaque,
+            MeshAdvBlendMethodEnum::AlphaClip => MeshAdvBlendMethod::AlphaClip,
+            MeshAdvBlendMethodEnum::AlphaBlend => MeshAdvBlendMethod::AlphaBlend,
+        }
+    }
+}
+
+impl Enum for MeshAdvBlendMethodEnum {
+    fn to_symbol_name(&self) -> &'static str {
+        match self {
+            MeshAdvBlendMethodEnum::Opaque => "Opaque",
+            MeshAdvBlendMethodEnum::AlphaClip => "AlphaClip",
+            MeshAdvBlendMethodEnum::AlphaBlend => "AlphaBlend",
+        }
+    }
+
+    fn from_symbol_name(str: &str) -> Option<MeshAdvBlendMethodEnum> {
+        match str {
+            "Opaque" => Some(MeshAdvBlendMethodEnum::Opaque),
+            "AlphaClip" => Some(MeshAdvBlendMethodEnum::AlphaClip),
+            "AlphaBlend" => Some(MeshAdvBlendMethodEnum::AlphaBlend),
+            _ => None,
+        }
+    }
+}
+
+// pub struct MeshAdvShadowMethodEnum(PropertyPath);
+//
+// impl Field for MeshAdvShadowMethodEnum {
+//     fn new(property_path: PropertyPath) -> Self {
+//         MeshAdvShadowMethodEnum(property_path)
+//     }
+// }
+//
+// impl MeshAdvShadowMethodEnum {
+//     pub fn get(&self, data_set_view: &DataSetView) -> DataSetResult<MeshAdvShadowMethod> {
+//         //data_set_view.schema_set().find_named_type("x").unwrap().as_enum().unwrap().value_from_string()
+//         //data_set_view.schema_set().find_named_type("x").unwrap().as_enum().unwrap().value_from_string()
+//
+//         let e = data_set_view.resolve_property(self.0.path()).ok_or(DataSetError::PathParentIsNull)?.as_enum().unwrap();
+//         MeshAdvShadowMethod::from_str(e.symbol_name()).ok_or(DataSetError::UnexpectedEnumSymbol)
+//
+//     }
+//
+//     pub fn set(&self, data_set_view: &mut DataSetViewMut, value: MeshAdvShadowMethod) -> DataSetResult<()> {
+//         data_set_view.set_property_override(self.0.path(), Value::Enum(ValueEnum::new(value.str().to_string())))
+//     }
+// }
+
+
+#[derive(Default)]
+pub struct BlenderMaterialImportedDataRecord(PropertyPath);
+
+impl BlenderMaterialImportedDataRecord {
+    pub fn base_color_factor(&self) -> Vec4Record { Vec4Record::new(self.0.push("base_color_factor")) }
+    pub fn emissive_factor(&self) -> Vec3Record { Vec3Record::new(self.0.push("emissive_factor")) }
+    pub fn metallic_factor(&self) -> F32Field { F32Field::new(self.0.push("metallic_factor")) }
+    pub fn roughness_factor(&self) -> F32Field { F32Field::new(self.0.push("roughness_factor")) }
+    pub fn normal_texture_scale(&self) -> F32Field { F32Field::new(self.0.push("normal_texture_scale")) }
+
+    pub fn color_texture(&self) -> StringField { StringField::new(self.0.push("color_texture")) }
+    pub fn metallic_roughness_texture(&self) -> StringField { StringField::new(self.0.push("metallic_roughness_texture")) }
+    pub fn normal_texture(&self) -> StringField { StringField::new(self.0.push("normal_texture")) }
+    pub fn emissive_texture(&self) -> StringField { StringField::new(self.0.push("emissive_texture")) }
+
+    pub fn shadow_method(&self) -> EnumField<MeshAdvShadowMethodEnum> { EnumField::<MeshAdvShadowMethodEnum>::new(self.0.push("shadow_method")) }
+    pub fn blend_method(&self) -> EnumField<MeshAdvBlendMethodEnum> { EnumField::<MeshAdvBlendMethodEnum>::new(self.0.push("blend_method")) }
+    pub fn alpha_threshold(&self) -> F32Field { F32Field::new(self.0.push("alpha_threshold")) }
+    pub fn backface_culling(&self) -> BooleanField { BooleanField::new(self.0.push("backface_culling")) }
+    pub fn color_texture_has_alpha_channel(&self) -> BooleanField { BooleanField::new(self.0.push("color_texture_has_alpha_channel")) }
+}
+
+
+
 
 pub struct BlenderMaterialImportedData {}
 
@@ -270,6 +387,12 @@ impl Importer for BlenderMaterialImporter {
             .unwrap();
 
         let mut import_object = SingleObject::new(image_imported_data_schema);
+
+        let x = BlenderMaterialImportedDataRecord::default();
+
+        //let data_set_view = DataSetView::new()
+        //x.base_color_factor().x().get(data_set_view);
+
 
         import_object.set_property_override(
             schema,
@@ -538,6 +661,16 @@ impl Builder for BlenderMaterialBuilder {
             .as_boolean()
             .unwrap();
 
+
+
+        //let data_set_view = DataSetView::new()
+        let data_set_view = DataContainer::new_single_object(imported_data, schema);
+        let value = BlenderMaterialImportedDataRecord::default();
+        let alpha_threshold = value.alpha_threshold().get(&data_set_view).unwrap();
+        let shadow_method = value.shadow_method().get(&data_set_view).unwrap();
+        let blend_method = value.blend_method().get(&data_set_view).unwrap();
+
+
         //
         // Do some processing
         //
@@ -545,18 +678,18 @@ impl Builder for BlenderMaterialBuilder {
         //
         // Store the result
         //
-        let shadow_method = match shadow_method.symbol_name() {
-            "None" => MeshAdvShadowMethod::None,
-            "Opaque" => MeshAdvShadowMethod::Opaque,
-            v @ _ => panic!("unknown shadow method {}", v),
-        };
+        // let shadow_method = match shadow_method.symbol_name() {
+        //     "None" => MeshAdvShadowMethod::None,
+        //     "Opaque" => MeshAdvShadowMethod::Opaque,
+        //     v @ _ => panic!("unknown shadow method {}", v),
+        // };
 
-        let blend_method = match blend_method.symbol_name() {
-            "Opaque" => MeshAdvBlendMethod::Opaque,
-            "AlphaClip" => MeshAdvBlendMethod::AlphaClip,
-            "AlphaBlend" => MeshAdvBlendMethod::AlphaBlend,
-            v @ _ => panic!("unknown blend method {}", v),
-        };
+        // let blend_method = match blend_method.symbol_name() {
+        //     "Opaque" => MeshAdvBlendMethod::Opaque,
+        //     "AlphaClip" => MeshAdvBlendMethod::AlphaClip,
+        //     "AlphaBlend" => MeshAdvBlendMethod::AlphaBlend,
+        //     v @ _ => panic!("unknown blend method {}", v),
+        // };
 
         let processed_data = MeshAdvMaterialData {
             base_color_factor: [
@@ -574,8 +707,8 @@ impl Builder for BlenderMaterialBuilder {
             has_metallic_roughness_texture: !metallic_roughness_texture.is_empty(),
             has_normal_texture: !normal_texture.is_empty(),
             has_emissive_texture: !emissive_texture.is_empty(),
-            shadow_method,
-            blend_method,
+            shadow_method: shadow_method.into(),
+            blend_method: blend_method.into(),
             alpha_threshold,
             backface_culling,
         };

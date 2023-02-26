@@ -1,5 +1,8 @@
+use std::ops::Add;
 use std::path::PathBuf;
 use hydrate::model::{DataSet, Schema, SchemaNamedType, SchemaRecord, SchemaRecordField, SchemaSet};
+
+mod build_test;
 
 fn main() {
     schema_to_rs();
@@ -76,12 +79,13 @@ fn field_schema_to_rust_type(schema_set: &SchemaSet, field_schema: &Schema) -> S
         Schema::DynamicArray(x) => format!("Vec<{}>", field_schema_to_rust_type(schema_set, x.item_type())),
         Schema::Map(x) => format!("HashMap<{}, {}>", field_schema_to_rust_type(schema_set, x.key_type()), field_schema_to_rust_type(schema_set, x.value_type())),
         Schema::ObjectRef(x) => {
-            let inner_type = schema_set.find_named_type_by_fingerprint(*x).unwrap();
-            format!("Handle<{}>", inner_type.name())
+            //let inner_type = schema_set.find_named_type_by_fingerprint(*x).unwrap();
+            //format!("Handle<{}>", inner_type.name())
+            "ObjectId".to_string()
         }
         Schema::NamedType(x) => {
             let inner_type = schema_set.find_named_type_by_fingerprint(*x).unwrap();
-            inner_type.name().to_string()
+            format!("{}FromSchema", inner_type.name().to_string())
             // match inner_type {
             //     SchemaNamedType::Record(_) => {}
             //     SchemaNamedType::Enum(_) => {}
@@ -92,11 +96,93 @@ fn field_schema_to_rust_type(schema_set: &SchemaSet, field_schema: &Schema) -> S
 }
 
 fn generate_struct_for_record(schema_set: &SchemaSet, schema: &SchemaRecord) {
-    println!("struct {} {{", schema.name());
+    println!("struct {}FromSchema {{", schema.name());
     for field in schema.fields() {
         println!("    {}: {},", field.name(), field_schema_to_rust_type(schema_set, field.field_schema()));
     }
     println!("}}");
+}
+
+// fn cast_value_to_type_fn_name(schema: &Schema) -> &str {
+//     match schema {
+//         Schema::Nullable(_) => unimplemented!(),
+//         Schema::Boolean => "as_boolean",
+//         Schema::I32 => "as_i32",
+//         Schema::I64 => "as_i64",
+//         Schema::U32 => "as_u32",
+//         Schema::U64 => "as_u64",
+//         Schema::F32 => "as_f32",
+//         Schema::F64 => "as_f64",
+//         Schema::Bytes => unimplemented!(),
+//         Schema::Buffer => unimplemented!(),
+//         Schema::String => unimplemented!(),
+//         Schema::StaticArray(_) => unimplemented!(),
+//         Schema::DynamicArray(_) => unimplemented!(),
+//         Schema::Map(_) => unimplemented!(),
+//         Schema::ObjectRef(_) => unimplemented!(),
+//         Schema::NamedType(_) => unimplemented!(),
+//     }
+// }
+
+fn generate_resolve_property_call(schema_set: &SchemaSet, schema: &Schema, field_name: &str) -> String {
+    match schema {
+        Schema::Nullable(x) => {
+            let mut lines = "".to_string();
+            lines = lines.add(&format!("if !data_set_view.resolve_is_null(\"{}\").unwrap() {{\n", field_name));
+            lines = lines.add(&format!("    data_set_view.push_property_path(\"{}\");\n", field_name));
+            //println!("        Some(data_set_view.resolve_property("opt_bool.value").unwrap().as_boolean()?)", field.name(), x.name());
+            //lines.generate_load_lines_for_field(schema_set, , field, property_path_prefix);
+            lines = lines.add(&format!("    let value = {};\n", generate_resolve_property_call(schema_set, &*x, "value")));
+            lines = lines.add("    data_set_view.pop_property_path();\n");
+            lines = lines.add("    Some(value)\n");
+            lines = lines.add("} else {\n");
+            lines = lines.add("    None\n");
+            lines = lines.add("}");
+            lines
+        }
+        Schema::Boolean => format!("data_set_view.resolve_property(\"{}\").unwrap().as_boolean().unwrap()", field_name),
+        Schema::I32 => format!("data_set_view.resolve_property(\"{}\").unwrap().as_i32().unwrap()", field_name),
+        Schema::I64 => format!("data_set_view.resolve_property(\"{}\").unwrap().as_i64().unwrap()", field_name),
+        Schema::U32 => format!("data_set_view.resolve_property(\"{}\").unwrap().as_u32().unwrap()", field_name),
+        Schema::U64 => format!("data_set_view.resolve_property(\"{}\").unwrap().as_u64().unwrap()", field_name),
+        Schema::F32 => format!("data_set_view.resolve_property(\"{}\").unwrap().as_f32().unwrap()", field_name),
+        Schema::F64 => format!("data_set_view.resolve_property(\"{}\").unwrap().as_f64().unwrap()", field_name),
+        Schema::Bytes => unimplemented!(),
+        Schema::Buffer => unimplemented!(),
+        Schema::String => format!("data_set_view.resolve_property(\"{}\").unwrap().as_string().unwrap()", field_name),
+        Schema::StaticArray(_) => unimplemented!(),
+        Schema::DynamicArray(_) => {
+            let mut lines = "".to_string();
+            lines = lines.add("{\n");
+
+            // should it be a hash map?
+
+
+            lines = lines.add("}");
+            lines
+        }
+        Schema::Map(_) => unimplemented!(),
+        Schema::ObjectRef(_) => format!("data_set_view.resolve_property(\"{}\").unwrap().as_object_ref().unwrap()", field_name),
+        Schema::NamedType(x) => {
+            let inner_type = schema_set.find_named_type_by_fingerprint(*x).unwrap();
+            match inner_type {
+                SchemaNamedType::Record(x) => {
+                    //generate_load_lines_for_record(schema_set, x, &format!("{}{}.", property_path_prefix, field.name()));
+                    let mut lines = "".to_string();
+                    lines = lines.add("{\n");
+                    lines = lines.add(&format!("        data_set_view.push_property_path(\"{}\");\n", field_name));
+                    lines = lines.add(&format!("        let value = {}FromSchema::load(data_set_view);\n", x.name()));
+                    lines = lines.add("        data_set_view.pop_property_path();\n");
+                    lines = lines.add("        value\n");
+
+                    lines = lines.add("}");
+                    lines
+                }
+                SchemaNamedType::Enum(_) => unimplemented!(),
+                SchemaNamedType::Fixed(_) => unimplemented!(),
+            }
+        }
+    }
 }
 
 fn generate_load_lines_for_field(schema_set: &SchemaSet, schema: &SchemaRecord, field: &SchemaRecordField, property_path_prefix: &str) {
@@ -108,46 +194,71 @@ fn generate_load_lines_for_field(schema_set: &SchemaSet, schema: &SchemaRecord, 
     let property_prefix = format!("{}{}.", property_path_prefix, field.name());
     let property_path = &property_prefix[0..property_prefix.len() - 1];
 
-    match field.field_schema() {
-        Schema::Nullable(_) => {}
-        Schema::Boolean => println!("let field_{} = data_set.resolve_property(schema_set, object_id, \"{}\").unwrap().as_boolean().unwrap();", field.name(), property_path),
-        Schema::I32 => {}
-        Schema::I64 => {}
-        Schema::U32 => {}
-        Schema::U64 => {}
-        Schema::F32 => {}
-        Schema::F64 => {}
-        Schema::Bytes => {}
-        Schema::Buffer => {}
-        Schema::String => {}
-        Schema::StaticArray(_) => {}
-        Schema::DynamicArray(_) => {}
-        Schema::Map(_) => {}
-        Schema::ObjectRef(_) => {}
-        Schema::NamedType(x) => {
-            let inner_type = schema_set.find_named_type_by_fingerprint(*x).unwrap();
-            match inner_type {
-                SchemaNamedType::Record(x) => {
-                    generate_load_lines_for_record(schema_set, x, &format!("{}{}.", property_path_prefix, field.name()));
-                }
-                SchemaNamedType::Enum(_) => {}
-                SchemaNamedType::Fixed(_) => {}
-            }
-        }
-    }
+
+    println!("        let {} = {};", field.name(), generate_resolve_property_call(schema_set, field.field_schema(), field.name()));
+
+
+    // match field.field_schema() {
+    //     Schema::Nullable(x) => {
+    //         println!("let {} = if !data_set_view.resolve_is_null(\"{}\").unwrap() {{", field.name(), property_path);
+    //         println!("        data_set_view.push_property_path(\"{}\");", field.name());
+    //         //println!("        Some(data_set_view.resolve_property("opt_bool.value").unwrap().as_boolean()?)", field.name(), x.name());
+    //         generate_load_lines_for_field(schema_set, , field, property_path_prefix);
+    //         println!("        data_set_view.pop_property_path();");
+    //         println!("}} else {{");
+    //
+    //         println!("}};");
+    //     }
+    //     Schema::Boolean => println!("        let {} = data_set_view.resolve_property(\"{}\").unwrap().as_boolean().unwrap();", field.name(), property_path),
+    //     Schema::I32 => println!("        let {} = data_set_view.resolve_property(\"{}\").unwrap().as_i32().unwrap();", field.name(), property_path),
+    //     Schema::I64 => println!("        let {} = data_set_view.resolve_property(\"{}\").unwrap().as_i64().unwrap();", field.name(), property_path),
+    //     Schema::U32 => println!("        let {} = data_set_view.resolve_property(\"{}\").unwrap().as_u32().unwrap();", field.name(), property_path),
+    //     Schema::U64 => println!("        let {} = data_set_view.resolve_property(\"{}\").unwrap().as_u64().unwrap();", field.name(), property_path),
+    //     Schema::F32 => println!("        let {} = data_set_view.resolve_property(\"{}\").unwrap().as_f32().unwrap();", field.name(), property_path),
+    //     Schema::F64 => println!("        let {} = data_set_view.resolve_property(\"{}\").unwrap().as_f64().unwrap();", field.name(), property_path),
+    //     Schema::Bytes => unimplemented!(),
+    //     Schema::Buffer => unimplemented!(),
+    //     Schema::String => println!("        let {} = data_set_view.resolve_property(\"{}\").unwrap().as_string().unwrap();", field.name(), property_path),
+    //     Schema::StaticArray(_) => unimplemented!(),
+    //     Schema::DynamicArray(_) => unimplemented!(),
+    //     Schema::Map(_) => unimplemented!(),
+    //     Schema::ObjectRef(_) => println!("        let {} = data_set_view.resolve_property(\"{}\").unwrap().as_object_ref().unwrap();", field.name(), property_path),
+    //     Schema::NamedType(x) => {
+    //         let inner_type = schema_set.find_named_type_by_fingerprint(*x).unwrap();
+    //         match inner_type {
+    //             SchemaNamedType::Record(x) => {
+    //                 //generate_load_lines_for_record(schema_set, x, &format!("{}{}.", property_path_prefix, field.name()));
+    //                 println!("        data_set_view.push_property_path(\"{}\");", field.name());
+    //                 println!("        let {} = {}FromSchema::load(data_set_view);", field.name(), x.name());
+    //                 println!("        data_set_view.pop_property_path();");
+    //
+    //             }
+    //             SchemaNamedType::Enum(_) => unimplemented!(),
+    //             SchemaNamedType::Fixed(_) => unimplemented!(),
+    //         }
+    //     }
+    // }
 }
 
 fn generate_load_lines_for_record(schema_set: &SchemaSet, schema: &SchemaRecord, property_path_prefix: &str) {
     for field in schema.fields() {
-        println!("        // load {}{}", property_path_prefix, field.name());
+        //println!("        // load {}{}", property_path_prefix, field.name());
         //println!("data_set.resolve_property(schema, object_id, \"position.x").unwrap().as_f32().unwrap(),
-        println!("");
+        //println!("");
         generate_load_lines_for_field(schema_set, schema, field, property_path_prefix);
     }
+
+    println!("");
+
+    println!("Self {{");
+    for field in schema.fields() {
+        println!("    {},", field.name());
+    }
+    println!("}}");
 }
 
 fn generate_load_fn_for_record(schema_set: &SchemaSet, schema: &SchemaRecord) {
-    println!("    load(object_id: ObjectId, data_set: &DataSet, schema: &SchemaSet) -> Self {{");
+    println!("    pub fn load(data_set_view: &mut DataSetView) -> Self {{");
     generate_load_lines_for_record(schema_set, schema, "");
     // for field in schema.fields() {
     //     println!("        // load {}", field.name());
@@ -158,7 +269,7 @@ fn generate_load_fn_for_record(schema_set: &SchemaSet, schema: &SchemaRecord) {
 }
 
 fn generate_impl_for_record(schema_set: &SchemaSet, schema: &SchemaRecord) {
-    println!("impl {} {{", schema.name());
+    println!("impl {}FromSchema {{", schema.name());
     generate_load_fn_for_record(schema_set, schema);
     println!("}}");
 }

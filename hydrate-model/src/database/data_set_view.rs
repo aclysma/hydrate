@@ -1,5 +1,5 @@
 use uuid::Uuid;
-use crate::{DataSet, ObjectId, Schema, SchemaRecord, SchemaSet, Value};
+use crate::{DataSet, ObjectId, OverrideBehavior, Schema, SchemaRecord, SchemaSet, Value};
 use crate::database::data_set::DataSetResult;
 
 pub fn do_push_property_path(property_path_stack: &mut Vec<String>, property_path: &mut String, path: &str) {
@@ -20,6 +20,20 @@ pub fn do_pop_property_path(property_path_stack: &mut Vec<String>, property_path
         property_path.pop().unwrap();
     }
 }
+
+fn join_path_and_field(property_path: &str, field_name: &str) -> String {
+    if property_path.is_empty() {
+        field_name.to_string()
+    } else {
+        if field_name.is_empty() {
+            property_path.to_string()
+        } else {
+            format!("{}.{}", property_path, field_name)
+        }
+    }
+}
+
+
 
 pub struct DataSetView<'a> {
     data_set: &'a DataSet,
@@ -57,39 +71,19 @@ impl<'a> DataSetView<'a> {
     }
 
     pub fn resolve_property(&self, field_name: &str) -> Option<Value> {
-        if self.property_path.is_empty() {
-            self.data_set.resolve_property(self.schema_set, self.object_id, field_name)
-        } else {
-            if field_name.is_empty() {
-                self.data_set.resolve_property(self.schema_set, self.object_id, &format!("{}", self.property_path))
-            } else {
-                self.data_set.resolve_property(self.schema_set, self.object_id, &format!("{}.{}", self.property_path, field_name))
-            }
-        }
+        self.data_set.resolve_property(self.schema_set, self.object_id, join_path_and_field(&self.property_path, field_name))
     }
 
     pub fn resolve_is_null(&self, field_name: &str) -> Option<bool> {
-        if self.property_path.is_empty() {
-            self.data_set.resolve_is_null(self.schema_set, self.object_id, field_name)
-        } else {
-            if field_name.is_empty() {
-                self.data_set.resolve_is_null(self.schema_set, self.object_id, &format!("{}", self.property_path))
-            } else {
-                self.data_set.resolve_is_null(self.schema_set, self.object_id, &format!("{}.{}", self.property_path, field_name))
-            }
-        }
+        self.data_set.resolve_is_null(self.schema_set, self.object_id, join_path_and_field(&self.property_path, field_name))
     }
 
     pub fn resolve_dynamic_array(&self, field_name: &str) -> Box<[Uuid]> {
-        if self.property_path.is_empty() {
-            self.data_set.resolve_dynamic_array(self.schema_set, self.object_id, field_name)
-        } else {
-            if field_name.is_empty() {
-                self.data_set.resolve_dynamic_array(self.schema_set, self.object_id, &format!("{}", self.property_path))
-            } else {
-                self.data_set.resolve_dynamic_array(self.schema_set, self.object_id, &format!("{}.{}", self.property_path, field_name))
-            }
-        }
+        self.data_set.resolve_dynamic_array(self.schema_set, self.object_id, join_path_and_field(&self.property_path, field_name))
+    }
+
+    pub fn get_override_behavior(&self, field_name: &str) -> OverrideBehavior {
+        self.data_set.get_override_behavior(self.schema_set, self.object_id, join_path_and_field(&self.property_path, field_name))
     }
 
     // pub fn schema(&self, field_name: &str) {
@@ -119,14 +113,10 @@ impl<'a> DataSetViewMut<'a> {
     }
 
     pub fn set_property_override(&mut self, field_name: &str, value: Value) -> DataSetResult<()> {
-        if self.property_path.is_empty() {
-            self.data_set.set_property_override(self.schema_set, self.object_id, field_name, value)
-        } else {
-            if field_name.is_empty() {
-                self.data_set.set_property_override(self.schema_set, self.object_id, &format!("{}", self.property_path), value)
-            } else {
-                self.data_set.set_property_override(self.schema_set, self.object_id, &format!("{}.{}", self.property_path, field_name), value)
-            }
-        }
+        self.data_set.set_property_override(self.schema_set, self.object_id, join_path_and_field(&self.property_path, field_name), value)
+    }
+
+    pub fn set_override_behavior(&mut self, field_name: &str, behavior: OverrideBehavior) {
+        self.data_set.set_override_behavior(self.schema_set, self.object_id, join_path_and_field(&self.property_path, field_name), behavior)
     }
 }

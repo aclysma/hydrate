@@ -1,11 +1,11 @@
 use crate::{DataSet, DataSetView, ObjectId, SchemaSet, SingleObject};
 
-pub trait SingleObjectEntry {
-    fn copy_from_single_object(
-        &mut self,
-        single_object: &SingleObject,
-    );
-}
+// pub trait SingleObjectEntry {
+//     fn copy_from_single_object(
+//         &mut self,
+//         single_object: &SingleObject,
+//     );
+// }
 
 pub trait DataSetEntry {
     fn from_data_set(

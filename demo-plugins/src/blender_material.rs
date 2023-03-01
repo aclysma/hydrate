@@ -183,41 +183,41 @@ impl BlenderMaterialImportedData {
     }
 
     pub fn register_schema(linker: &mut SchemaLinker) {
-        linker
-            .register_enum_type("MeshAdvShadowMethod", |x| {
-                x.add_symbol("None", 0);
-                x.add_symbol("Opaque", 1);
-            })
-            .unwrap();
-
-        linker
-            .register_enum_type("MeshAdvBlendMethod", |x| {
-                x.add_symbol("Opaque", 0);
-                x.add_symbol("AlphaClip", 1);
-                x.add_symbol("AlphaBlend", 2);
-            })
-            .unwrap();
-
-        linker
-            .register_record_type(Self::schema_name(), |x| {
-                x.add_struct("base_color_factor", "Vec4");
-                x.add_struct("emissive_factor", "Vec3");
-                x.add_f32("metallic_factor");
-                x.add_f32("roughness_factor");
-                x.add_f32("normal_texture_scale");
-
-                x.add_string("color_texture");
-                x.add_string("metallic_roughness_texture");
-                x.add_string("normal_texture");
-                x.add_string("emissive_texture");
-
-                x.add_enum("shadow_method", "MeshAdvShadowMethod");
-                x.add_enum("blend_method", "MeshAdvBlendMethod");
-                x.add_f32("alpha_threshold");
-                x.add_boolean("backface_culling");
-                x.add_boolean("color_texture_has_alpha_channel");
-            })
-            .unwrap();
+        // linker
+        //     .register_enum_type("MeshAdvShadowMethod", |x| {
+        //         x.add_symbol("None", 0);
+        //         x.add_symbol("Opaque", 1);
+        //     })
+        //     .unwrap();
+        //
+        // linker
+        //     .register_enum_type("MeshAdvBlendMethod", |x| {
+        //         x.add_symbol("Opaque", 0);
+        //         x.add_symbol("AlphaClip", 1);
+        //         x.add_symbol("AlphaBlend", 2);
+        //     })
+        //     .unwrap();
+        //
+        // linker
+        //     .register_record_type(Self::schema_name(), |x| {
+        //         x.add_struct("base_color_factor", "Vec4");
+        //         x.add_struct("emissive_factor", "Vec3");
+        //         x.add_f32("metallic_factor");
+        //         x.add_f32("roughness_factor");
+        //         x.add_f32("normal_texture_scale");
+        //
+        //         x.add_string("color_texture");
+        //         x.add_string("metallic_roughness_texture");
+        //         x.add_string("normal_texture");
+        //         x.add_string("emissive_texture");
+        //
+        //         x.add_enum("shadow_method", "MeshAdvShadowMethod");
+        //         x.add_enum("blend_method", "MeshAdvBlendMethod");
+        //         x.add_f32("alpha_threshold");
+        //         x.add_boolean("backface_culling");
+        //         x.add_boolean("color_texture_has_alpha_channel");
+        //     })
+        //     .unwrap();
     }
 }
 

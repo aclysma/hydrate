@@ -4,6 +4,9 @@ use hydrate::model::{DataSet, Schema, SchemaNamedType, SchemaRecord, SchemaRecor
 
 mod build_test;
 
+
+
+
 fn main() {
     schema_to_rs();
 }
@@ -26,7 +29,7 @@ fn schema_to_rs() {
         match named_type {
             SchemaNamedType::Record(_) => {
                 generate_struct_for_record(&schema_set, named_type.as_record().unwrap());
-                generate_impl_for_record(&schema_set, named_type.as_record().unwrap());
+                //generate_impl_for_record(&schema_set, named_type.as_record().unwrap());
             },
             SchemaNamedType::Enum(_) => println!("enum"),//generate_code_for_record(schema_set, named_type.as_record().unwrap())
             SchemaNamedType::Fixed(_) => println!("fixed"),//generate_code_for_record(schema_set, named_type.as_record().unwrap())
@@ -62,6 +65,7 @@ fn schema_to_rs() {
 
 }
 
+/*
 fn field_schema_to_rust_type(schema_set: &SchemaSet, field_schema: &Schema) -> String {
     match field_schema {
         Schema::Nullable(x) => format!("Option<{}>", field_schema_to_rust_type(schema_set, &*x)),
@@ -94,13 +98,72 @@ fn field_schema_to_rust_type(schema_set: &SchemaSet, field_schema: &Schema) -> S
         }
     }
 }
+*/
+
+fn field_schema_to_field_type(schema_set: &SchemaSet, field_schema: &Schema) -> Option<String> {
+    Some(match field_schema {
+        Schema::Nullable(x) => format!("NullableField::<{}>", field_schema_to_field_type(schema_set, &*x)?),
+        Schema::Boolean => "BooleanField".to_string(),
+        Schema::I32 => "I32Field".to_string(),
+        Schema::I64 => "I64Field".to_string(),
+        Schema::U32 => "U32Field".to_string(),
+        Schema::U64 => "U64Field".to_string(),
+        Schema::F32 => "F32Field".to_string(),
+        Schema::F64 => "F64Field".to_string(),
+        Schema::Bytes => "BytesField".to_string(), //return None,//"Vec<u8>".to_string(),
+        Schema::Buffer => unimplemented!(), //return None,//"Vec<u8>".to_string(),
+        Schema::String => "StringField".to_string(),
+        Schema::StaticArray(x) => unimplemented!(), //return None,//format!("[{}; {}]", field_schema_to_rust_type(schema_set, x.item_type()), x.length()),
+        Schema::DynamicArray(x) => format!("DynamicArrayField::<{}>", field_schema_to_field_type(schema_set, x.item_type())?),//return None,//format!("Vec<{}>", field_schema_to_rust_type(schema_set, x.item_type())),
+        Schema::Map(x) => unimplemented!(),// return None,//format!("HashMap<{}, {}>", field_schema_to_rust_type(schema_set, x.key_type()), field_schema_to_rust_type(schema_set, x.value_type())),
+        Schema::ObjectRef(x) => "ObjectRefField".to_string(),
+        Schema::NamedType(x) => {
+            let inner_type = schema_set.find_named_type_by_fingerprint(*x).unwrap();
+            format!("{}Record", inner_type.name().to_string())
+            // match inner_type {
+            //     SchemaNamedType::Record(_) => {}
+            //     SchemaNamedType::Enum(_) => {}
+            //     SchemaNamedType::Fixed(_) => {}
+            // }
+        }
+    })
+}
+
 
 fn generate_struct_for_record(schema_set: &SchemaSet, schema: &SchemaRecord) {
-    println!("struct {}FromSchema {{", schema.name());
+    // println!("struct {}Record {{", schema.name());
+    // for field in schema.fields() {
+    //     println!("    {}: {},", field.name(), field_schema_to_rust_type(schema_set, field.field_schema()));
+    // }
+    // println!("}}");
+
+    let mut scope = codegen::Scope::new();
+
+    let record_name = format!("{}Record", schema.name());
+    let s = scope.new_struct(record_name.as_str()).tuple_field("PropertyPath");
+
+    let new_impl = scope.new_impl(record_name.as_str()).impl_trait("Field");
+    let new_fn = new_impl.new_fn("new").arg("property_path", "PropertyPath");
+    new_fn.ret("Self");
+    new_fn.line(format!("{}(property_path)", record_name));
+
+    let mut main_impl = scope.new_impl(record_name.as_str());
+
     for field in schema.fields() {
-        println!("    {}: {},", field.name(), field_schema_to_rust_type(schema_set, field.field_schema()));
+        let field_type = field_schema_to_field_type(schema_set, field.field_schema());
+        if let Some(field_type) = field_type {
+            let mut f = codegen::Function::new(field.name());
+            f.arg_ref_self();
+            f.ret(&field_type);
+            f.line(format!("{}::new(self.0.push(\"{}\"))", field_type, field.name()));
+            main_impl.push_fn(f);
+        }
+
     }
-    println!("}}");
+
+    println!("{}", scope.to_string());
+
+
 }
 
 // fn cast_value_to_type_fn_name(schema: &Schema) -> &str {
@@ -123,7 +186,7 @@ fn generate_struct_for_record(schema_set: &SchemaSet, schema: &SchemaRecord) {
 //         Schema::NamedType(_) => unimplemented!(),
 //     }
 // }
-
+/*
 fn generate_resolve_property_call(schema_set: &SchemaSet, schema: &Schema, field_name: &str) -> String {
     match schema {
         Schema::Nullable(x) => {
@@ -273,3 +336,4 @@ fn generate_impl_for_record(schema_set: &SchemaSet, schema: &SchemaRecord) {
     generate_load_fn_for_record(schema_set, schema);
     println!("}}");
 }
+*/

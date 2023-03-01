@@ -37,7 +37,7 @@ impl Debug for SchemaFingerprint {
 #[derive(Copy, Clone, PartialEq, Eq, Hash, Ord, PartialOrd, Serialize, Deserialize)]
 pub struct ObjectId(pub u128);
 impl ObjectId {
-    pub fn null() -> Self {
+    pub const fn null() -> Self {
         ObjectId(0)
     }
 
@@ -64,7 +64,7 @@ impl Debug for ObjectId {
 #[derive(Copy, Clone, PartialEq, Eq, Hash)]
 pub struct BufferId(u128);
 impl BufferId {
-    pub fn null() -> Self {
+    pub const fn null() -> Self {
         BufferId(0)
     }
 }

@@ -286,7 +286,7 @@ impl SingleObject {
         &self,
         schema_set: &SchemaSet,
         path: impl AsRef<str>,
-    ) -> Option<Value> {
+    ) -> Option<&Value> {
         // Contains the path segments that we need to check for being null
         let mut nullable_ancestors = vec![];
         // Contains the path segments that we need to check for being in append mode
@@ -323,11 +323,11 @@ impl SingleObject {
         }
 
         if let Some(value) = self.properties.get(path.as_ref()) {
-            return Some(value.clone());
+            return Some(value);
         }
 
         //TODO: Return schema default value
-        Some(Value::default_for_schema(&property_schema, schema_set.schemas()).clone())
+        Some(Value::default_for_schema(&property_schema, schema_set.schemas()))
     }
 
     pub fn get_dynamic_array_overrides(

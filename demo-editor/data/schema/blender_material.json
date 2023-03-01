@@ -1,0 +1,91 @@
+[
+  {
+    "type": "enum",
+    "name": "MeshAdvShadowMethod",
+    "symbols": [
+      {
+        "name": "None"
+      },
+      {
+        "name": "Opaque"
+      }
+    ]
+  },
+  {
+    "type": "enum",
+    "name": "MeshAdvBlendMethod",
+    "symbols": [
+      {
+        "name": "Opaque"
+      },
+      {
+        "name": "AlphaClip"
+      },
+      {
+        "name": "AlphaBlend"
+      }
+    ]
+  },
+  {
+    "type": "record",
+    "name": "BlenderMaterialImportedData",
+    "fields": [
+      {
+        "name": "base_color_factor",
+        "type": "Vec4"
+      },
+      {
+        "name": "emissive_factor",
+        "type": "Vec3"
+      },
+      {
+        "name": "metallic_factor",
+        "type": "f32"
+      },
+      {
+        "name": "roughness_factor",
+        "type": "f32"
+      },
+      {
+        "name": "normal_texture_scale",
+        "type": "f32"
+      },
+      {
+        "name": "color_texture",
+        "type": "string"
+      },
+      {
+        "name": "metallic_roughness_texture",
+        "type": "string"
+      },
+      {
+        "name": "normal_texture",
+        "type": "string"
+      },
+      {
+        "name": "emissive_texture",
+        "type": "string"
+      },
+      {
+        "name": "shadow_method",
+        "type": "MeshAdvShadowMethod"
+      },
+      {
+        "name": "blend_method",
+        "type": "MeshAdvBlendMethod"
+      },
+      {
+        "name": "alpha_threshold",
+        "type": "f32"
+      },
+      {
+        "name": "backface_culling",
+        "type": "bool"
+      },
+      {
+        "name": "color_texture_has_alpha_channel",
+        "type": "bool"
+      }
+    ]
+  }
+]

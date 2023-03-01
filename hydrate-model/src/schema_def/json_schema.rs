@@ -239,6 +239,116 @@ fn parse_json_schema_def_record(
     })
 }
 
+fn parse_json_schema_def_enum_symbol(
+    json_object: &serde_json::Value,
+    error_prefix: &str,
+) -> SchemaDefParserResult<SchemaDefEnumSymbol> {
+    let object = json_object.as_object().ok_or_else(|| {
+        SchemaDefParserError::String(format!(
+            "{}Enum schema symbols must be a json object",
+            error_prefix
+        ))
+    })?;
+
+    let symbol_name = object
+        .get("name")
+        .map(|x| x.as_str())
+        .flatten()
+        .ok_or_else(|| {
+            SchemaDefParserError::String(format!(
+                "{}Record symbols must be a name that is a string",
+                error_prefix
+            ))
+        })?
+        .to_string();
+    let json_aliases = object.get("aliases").map(|x| x.as_array()).flatten();
+    let mut aliases = vec![];
+    if let Some(json_aliases) = json_aliases {
+        for json_alias in json_aliases {
+            aliases.push(
+                json_alias
+                    .as_str()
+                    .ok_or_else(|| {
+                        SchemaDefParserError::String(format!(
+                            "{}Fields's aliases must be strings",
+                            error_prefix
+                        ))
+                    })?
+                    .to_string(),
+            )
+        }
+    }
+    // let aliases = if let Some(json_aliases) = object.get("aliases") {
+    //     Self::parse_alias_list(json_aliases, error_prefix)?
+    // } else {
+    //     vec![]
+    // };
+    let error_prefix = format!("{}[Field {}]", error_prefix, symbol_name);
+
+    Ok(SchemaDefEnumSymbol {
+        symbol_name,
+        aliases,
+        //field_type,
+    })
+}
+
+fn parse_json_schema_def_enum(
+    json_object: &serde_json::Map<String, serde_json::Value>,
+    error_prefix: &str,
+) -> SchemaDefParserResult<SchemaDefEnum> {
+    let name = json_object.get("name").ok_or_else(|| {
+        SchemaDefParserError::String(format!("{}Enums must have a name", error_prefix))
+    })?;
+    let name_str = name.as_str().ok_or_else(|| {
+        SchemaDefParserError::String(format!("{}Enums must have a name", error_prefix))
+    })?;
+
+    let error_prefix = format!("{}[Enum {}]", error_prefix, name_str);
+    log::debug!("Parsing enum named '{}'", name_str);
+
+    let json_aliases = json_object.get("aliases").map(|x| x.as_array()).flatten();
+    let mut aliases = vec![];
+    if let Some(json_aliases) = json_aliases {
+        for json_alias in json_aliases {
+            aliases.push(
+                json_alias
+                    .as_str()
+                    .ok_or_else(|| {
+                        SchemaDefParserError::String(format!(
+                            "{}Enum's aliases must be strings",
+                            error_prefix
+                        ))
+                    })?
+                    .to_string(),
+            )
+        }
+    }
+
+    let json_symbols = json_object
+        .get("symbols")
+        .map(|x| x.as_array())
+        .flatten()
+        .ok_or_else(|| {
+            SchemaDefParserError::String(format!(
+                "{}Records must have an array of fields",
+                error_prefix
+            ))
+        })?;
+    let mut symbols = vec![];
+    for json_symbol in json_symbols {
+        symbols.push(parse_json_schema_def_enum_symbol(
+            json_symbol,
+            &error_prefix,
+        )?);
+    }
+
+    Ok(SchemaDefEnum {
+        type_name: name_str.to_string(),
+        aliases,
+        symbols,
+    })
+}
+
 pub(super) fn parse_json_schema_def(
     json_value: &serde_json::Value,
     error_prefix: &str,
@@ -265,17 +375,15 @@ pub(super) fn parse_json_schema_def(
     match object_type_str {
         "record" => {
             let record = parse_json_schema_def_record(object, error_prefix)?;
-            return Ok(SchemaDefNamedType::Record(record));
-
-            //self.types.insert(record.type_name, NamedType::Record())
-
-            //self.records.push(record);
+            Ok(SchemaDefNamedType::Record(record))
+        },
+        "enum" => {
+            let enumeration = parse_json_schema_def_enum(object, error_prefix)?;
+            Ok(SchemaDefNamedType::Enum(enumeration))
         }
         _ => Err(SchemaDefParserError::String(format!(
             "Schema file object has a type field that is unrecognized {:?}",
             object_type_str
-        )))?,
+        ))),
     }
-
-    //Ok(())
 }

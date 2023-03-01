@@ -7,3 +7,5 @@ edition = "2021"
 
 [dependencies]
 hydrate = { path = "../hydrate" }
+
+codegen = "0.2.0"

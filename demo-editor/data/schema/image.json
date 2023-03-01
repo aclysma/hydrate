@@ -1,0 +1,30 @@
+[
+  {
+    "type": "record",
+    "name": "ImageAsset",
+    "fields": [
+      {
+        "name": "compress",
+        "type": "bool"
+      }
+    ]
+  },
+  {
+    "type": "record",
+    "name": "ImageImportedData",
+    "fields": [
+      {
+        "name": "image_bytes",
+        "type": "bytes"
+      },
+      {
+        "name": "width",
+        "type": "u32"
+      },
+      {
+        "name": "height",
+        "type": "u32"
+      }
+    ]
+  }
+]

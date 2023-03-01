@@ -27,7 +27,7 @@ fn draw_property_style<F: FnOnce(&imgui::Ui)>(
 }
 
 fn draw_inspector_simple_property<
-    F: FnOnce(&imgui::Ui, hydrate_model::Value) -> Option<hydrate_model::Value>,
+    F: FnOnce(&imgui::Ui, &hydrate_model::Value) -> Option<hydrate_model::Value>,
 >(
     ui: &imgui::Ui,
     _ui_state: &UiState,
@@ -41,7 +41,7 @@ fn draw_inspector_simple_property<
 ) {
     let v = if property_inherited {
         if let Some(value) = edit_context.resolve_property(object_id, &property_path) {
-            value.clone()
+            value
         } else {
             edit_context.schema_set().default_value_for_schema(schema)
             //Value::default_for_schema(schema).clone()
@@ -50,7 +50,6 @@ fn draw_inspector_simple_property<
         edit_context
             .get_property_override(object_id, &property_path)
             .unwrap()
-            .clone()
     };
 
     let new_value = (f)(ui, v);

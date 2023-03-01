@@ -914,7 +914,7 @@ impl DataSet {
         schema_set: &SchemaSet,
         object_id: ObjectId,
         path: impl AsRef<str>,
-    ) -> Option<Value> {
+    ) -> Option<&Value> {
         let object_schema = self.object_schema(object_id).unwrap();
 
         // Contains the path segments that we need to check for being null
@@ -957,14 +957,14 @@ impl DataSet {
             let obj = self.objects.get(&prototype_id_iter).unwrap();
 
             if let Some(value) = obj.properties.get(path.as_ref()) {
-                return Some(value.clone());
+                return Some(value);
             }
 
             prototype_id = obj.prototype;
         }
 
         //TODO: Return schema default value
-        Some(Value::default_for_schema(&property_schema, schema_set.schemas()).clone())
+        Some(Value::default_for_schema(&property_schema, schema_set.schemas()))
     }
 
     pub fn get_dynamic_array_overrides(

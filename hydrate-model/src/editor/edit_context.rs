@@ -579,7 +579,7 @@ impl EditContext {
         &self,
         object_id: ObjectId,
         path: impl AsRef<str>,
-    ) -> Option<Value> {
+    ) -> Option<&Value> {
         self.data_set
             .resolve_property(&self.schema_set, object_id, path)
     }

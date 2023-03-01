@@ -3,10 +3,46 @@ use ::image::{EncodableLayout, GenericImageView};
 use std::path::{Path, PathBuf};
 
 use demo_types::image::*;
-use hydrate_model::{BuiltObjectMetadata, DataSet, EditorModel, HashMap, ObjectId, ObjectLocation, ObjectName, SchemaLinker, SchemaSet, SingleObject, Value};
+use hydrate_model::{BooleanField, BuiltObjectMetadata, BytesField, DataContainer, DataContainerMut, DataSet, EditorModel, Field, HashMap, ObjectId, ObjectLocation, ObjectName, PropertyPath, SchemaLinker, SchemaSet, SingleObject, U32Field, Value};
 use hydrate_pipeline::{AssetPlugin, Builder, BuilderRegistry, BuiltAsset, ImportedImportable, Importer, ImporterRegistry, ScannedImportable};
 use serde::{Deserialize, Serialize};
+use serde_json::error::Category::Data;
 use type_uuid::{TypeUuid, TypeUuidDynamic};
+
+struct ImageImportedDataRecord(PropertyPath);
+
+impl Field for ImageImportedDataRecord {
+    fn new(property_path: PropertyPath) -> Self {
+        ImageImportedDataRecord(property_path)
+    }
+}
+
+impl ImageImportedDataRecord {
+    fn image_bytes(&self) -> BytesField {
+        BytesField::new(self.0.push("image_bytes"))
+    }
+
+    fn width(&self) -> U32Field {
+        U32Field::new(self.0.push("width"))
+    }
+
+    fn height(&self) -> U32Field {
+        U32Field::new(self.0.push("height"))
+    }
+}
+struct ImageAssetRecord(PropertyPath);
+
+impl Field for ImageAssetRecord {
+    fn new(property_path: PropertyPath) -> Self {
+        ImageAssetRecord(property_path)
+    }
+}
+
+impl ImageAssetRecord {
+    fn compress(&self) -> BooleanField {
+        BooleanField::new(self.0.push("compress"))
+    }
+}
 
 pub struct ImageAsset {}
 
@@ -16,13 +52,13 @@ impl ImageAsset {
     }
 
     pub fn register_schema(linker: &mut SchemaLinker) {
-        linker
-            .register_record_type(Self::schema_name(), |x| {
-                //x.add_reference("imported_data", ImageImportedData::schema_name());
-                //x.add_string("path");
-                x.add_boolean("compress");
-            })
-            .unwrap();
+        // linker
+        //     .register_record_type(Self::schema_name(), |x| {
+        //         //x.add_reference("imported_data", ImageImportedData::schema_name());
+        //         //x.add_string("path");
+        //         x.add_boolean("compress");
+        //     })
+        //     .unwrap();
     }
 }
 
@@ -34,14 +70,14 @@ impl ImageImportedData {
     }
 
     pub fn register_schema(linker: &mut SchemaLinker) {
-        linker
-            .register_record_type(Self::schema_name(), |x| {
-                //x.add_reference("asset", ImageImportedData::schema_name());
-                x.add_bytes("image_bytes"); // TODO: this would be a buffer
-                x.add_u32("width");
-                x.add_u32("height");
-            })
-            .unwrap();
+        // linker
+        //     .register_record_type(Self::schema_name(), |x| {
+        //         //x.add_reference("asset", ImageImportedData::schema_name());
+        //         x.add_bytes("image_bytes"); // TODO: this would be a buffer
+        //         x.add_u32("width");
+        //         x.add_u32("height");
+        //     })
+        //     .unwrap();
     }
 }
 
@@ -120,9 +156,14 @@ impl Importer for ImageImporter {
             .unwrap();
 
         let mut import_object = SingleObject::new(image_imported_data_schema);
-        import_object.set_property_override(schema, "image_bytes", Value::Bytes(image_bytes));
-        import_object.set_property_override(schema, "width", Value::U32(width));
-        import_object.set_property_override(schema, "height", Value::U32(height));
+        // import_object.set_property_override(schema, "image_bytes", Value::Bytes(image_bytes));
+        // import_object.set_property_override(schema, "width", Value::U32(width));
+        // import_object.set_property_override(schema, "height", Value::U32(height));
+        let mut data_container = DataContainerMut::new_single_object(&mut import_object, schema);
+        let data = ImageImportedDataRecord::new(PropertyPath::default());
+        data.image_bytes().set(&mut data_container, image_bytes).unwrap();
+        data.width().set(&mut data_container, width).unwrap();
+        data.height().set(&mut data_container, width).unwrap();
 
         let mut imported_objects = HashMap::default();
         imported_objects.insert(
@@ -174,22 +215,31 @@ impl Builder for ImageBuilder {
         // Read imported data
         //
         let imported_data = &dependency_data[&asset_id];
-        let image_bytes = imported_data
-            .resolve_property(schema, "image_bytes")
-            .unwrap()
-            .as_bytes()
-            .unwrap()
-            .clone();
-        let width = imported_data
-            .resolve_property(schema, "width")
-            .unwrap()
-            .as_u32()
-            .unwrap();
-        let height = imported_data
-            .resolve_property(schema, "height")
-            .unwrap()
-            .as_u32()
-            .unwrap();
+        let data_container = DataContainer::new_single_object(&imported_data, schema);
+        let data = ImageImportedDataRecord::new(PropertyPath::default());
+
+        let image_bytes = data.image_bytes().get(&data_container).unwrap().clone();
+        let width = data.width().get(&data_container).unwrap();
+        let height = data.height().get(&data_container).unwrap();
+
+
+
+        // let image_bytes = imported_data
+        //     .resolve_property(schema, "image_bytes")
+        //     .unwrap()
+        //     .as_bytes()
+        //     .unwrap()
+        //     .clone();
+        // let width = imported_data
+        //     .resolve_property(schema, "width")
+        //     .unwrap()
+        //     .as_u32()
+        //     .unwrap();
+        // let height = imported_data
+        //     .resolve_property(schema, "height")
+        //     .unwrap()
+        //     .as_u32()
+        //     .unwrap();
 
         //
         // Compress the image, or just return the raw image bytes

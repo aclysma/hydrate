@@ -33,7 +33,7 @@ impl SchemaSet {
     pub fn default_value_for_schema(
         &self,
         schema: &Schema,
-    ) -> Value {
+    ) -> &Value {
         Value::default_for_schema(schema, &self.schemas)
     }
 

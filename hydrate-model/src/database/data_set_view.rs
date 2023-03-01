@@ -57,7 +57,7 @@ impl<'a> DataContainer<'a> {
         }
     }
 
-    pub fn resolve_property(&self, path: impl AsRef<str>) -> Option<Value> {
+    pub fn resolve_property(&self, path: impl AsRef<str>) -> Option<&Value> {
         match *self {
             DataContainer::DataSet(data_set, schema_set, object_id) => data_set.resolve_property(schema_set, object_id, path),
             DataContainer::SingleObject(single_object, schema_set) => single_object.resolve_property(schema_set, path)
@@ -98,6 +98,14 @@ pub enum DataContainerMut<'a> {
 }
 
 impl<'a> DataContainerMut<'a> {
+    pub fn new_single_object(single_object: &'a mut SingleObject, schema_set: &'a SchemaSet) -> Self {
+        DataContainerMut::SingleObject(single_object, schema_set)
+    }
+
+    pub fn new_dataset(data_set: &'a mut DataSet, schema_set: &'a SchemaSet, object_id: ObjectId) -> Self {
+        DataContainerMut::DataSet(data_set, schema_set, object_id)
+    }
+
     fn read(&'a self) -> DataContainer<'a> {
         match &*self {
             DataContainerMut::DataSet(a, b, c) => DataContainer::DataSet(a, b, *c),
@@ -105,8 +113,11 @@ impl<'a> DataContainerMut<'a> {
         }
     }
 
-    pub fn resolve_property(&self, path: impl AsRef<str>) -> Option<Value> {
-        self.read().resolve_property(path)
+    pub fn resolve_property(&self, path: impl AsRef<str>) -> Option<&Value> {
+        match self {
+            DataContainerMut::DataSet(data_set, schema_set, object_id) => data_set.resolve_property(schema_set, *object_id, path),
+            DataContainerMut::SingleObject(single_object, schema_set) => single_object.resolve_property(schema_set, path)
+        }
     }
 
     pub fn resolve_is_null(&self, path: impl AsRef<str>) -> Option<bool> {
@@ -234,7 +245,7 @@ impl<'a> DataSetView<'a> {
         do_pop_property_path(&mut self.property_path_stack, &mut self.property_path);
     }
 
-    pub fn resolve_property(&self, field_name: &str) -> Option<Value> {
+    pub fn resolve_property(&self, field_name: &str) -> Option<&Value> {
         self.data_container.resolve_property(join_path_and_field(&self.property_path, field_name))
     }
 

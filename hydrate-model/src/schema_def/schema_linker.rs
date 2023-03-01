@@ -166,7 +166,7 @@ impl SchemaLinker {
             )?);
         }
 
-        symbols.sort_by_key(|x| x.value);
+        symbols.sort_by(|a, b| a.symbol_name.cmp(&b.symbol_name));
 
         let name = name.into();
         let schema_enum = SchemaDefEnum::new(name.clone(), builder.aliases, symbols)?;
@@ -200,6 +200,7 @@ impl SchemaLinker {
         let mut partial_hashes = HashMap::default();
         for (type_name, named_type) in &self.types {
             let mut hasher = siphasher::sip128::SipHasher::default();
+            println!("partial hash {}", named_type.type_name());
             named_type.partial_hash(&mut hasher);
             let partial_fingerprint = hasher.finish128().as_u128();
             partial_hashes.insert(type_name, partial_fingerprint);
@@ -218,7 +219,7 @@ impl SchemaLinker {
                 // We make a copy because otherwise we would be iterating the HashSet while we are appending to it
                 let before_copy: Vec<_> = related_types.iter().cloned().collect();
                 for related_type in &before_copy {
-                    //println!("find related type {}", related_type);
+                    println!("find related type {}", related_type);
                     let related_type = self.types.get(related_type).unwrap();
                     related_type.collect_all_related_types(&mut related_types);
                 }

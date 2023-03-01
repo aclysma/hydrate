@@ -39,7 +39,7 @@ impl PropertyValue {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub struct ValueMap {
     properties: HashMap<Value, Value>,
 }
@@ -161,49 +161,59 @@ impl Hash for Value {
     }
 }
 
+const DEFAULT_VALUE_NULLABLE: Value = Value::Nullable(None);
+const DEFAULT_VALUE_BOOLEAN: Value = Value::Boolean(false);
+const DEFAULT_VALUE_I32: Value = Value::I32(0);
+const DEFAULT_VALUE_I64: Value = Value::I64(0);
+const DEFAULT_VALUE_U32: Value = Value::U32(0);
+const DEFAULT_VALUE_U64: Value = Value::U64(0);
+const DEFAULT_VALUE_F32: Value = Value::F32(0.0);
+const DEFAULT_VALUE_F64: Value = Value::F64(0.0);
+const DEFAULT_VALUE_BUFFER: Value = Value::Buffer(BufferId::null());
+const DEFAULT_VALUE_OBJECT_REF: Value = Value::ObjectRef(ObjectId::null());
+
+lazy_static::lazy_static! {
+    static ref DEFAULT_VALUE_BYTES: Value = Value::Bytes(Default::default());
+    static ref DEFAULT_VALUE_STRING: Value = Value::String(Default::default());
+    static ref DEFAULT_VALUE_STATIC_ARRAY: Value = Value::StaticArray(Default::default());
+    static ref DEFAULT_VALUE_DYNAMIC_ARRAY: Value = Value::DynamicArray(Default::default());
+    static ref DEFAULT_VALUE_MAP: Value = Value::Map(ValueMap::default());
+    static ref DEFAULT_VALUE_RECORD: Value = Value::Record(ValueRecord::default());
+    static ref DEFAULT_VALUE_ENUM: Value = Value::Record(ValueRecord::default());
+    static ref DEFAULT_VALUE_FIXED: Value = Value::Fixed(Box::new([]));
+}
+
+
 impl Value {
+
     pub fn default_for_schema(
         schema: &Schema,
         named_types: &HashMap<SchemaFingerprint, SchemaNamedType>,
-    ) -> Self {
+    ) -> &'static Self {
         match schema {
-            Schema::Nullable(_) => Value::Nullable(Default::default()),
-            Schema::Boolean => Value::Boolean(Default::default()),
-            Schema::I32 => Value::I32(Default::default()),
-            Schema::I64 => Value::I64(Default::default()),
-            Schema::U32 => Value::U32(Default::default()),
-            Schema::U64 => Value::U64(Default::default()),
-            Schema::F32 => Value::F32(Default::default()),
-            Schema::F64 => Value::F64(Default::default()),
-            Schema::Bytes => Value::Bytes(Default::default()),
-            Schema::Buffer => Value::Buffer(BufferId::null()),
-            Schema::String => Value::String(Default::default()),
-            Schema::StaticArray(inner) => Value::StaticArray(vec![Value::default_for_schema(&inner.item_type, named_types); inner.length]),
-            Schema::DynamicArray(_) => Value::DynamicArray(vec![]),
-            Schema::Map(_) => Value::Map(ValueMap {
-                properties: Default::default()
-            }),
-            //Schema::RecordRef(inner) => Value::RecordRef(ObjectId::null()),
-            Schema::ObjectRef(_) => Value::ObjectRef(ObjectId::null()),
+            Schema::Nullable(_) => &DEFAULT_VALUE_NULLABLE,
+            Schema::Boolean => &DEFAULT_VALUE_BOOLEAN,
+            Schema::I32 => &DEFAULT_VALUE_I32,
+            Schema::I64 => &DEFAULT_VALUE_I64,
+            Schema::U32 => &DEFAULT_VALUE_U32,
+            Schema::U64 => &DEFAULT_VALUE_U64,
+            Schema::F32 => &DEFAULT_VALUE_F32,
+            Schema::F64 => &DEFAULT_VALUE_F64,
+            Schema::Bytes => &DEFAULT_VALUE_BYTES,
+            Schema::Buffer => &DEFAULT_VALUE_BUFFER,
+            Schema::String => &DEFAULT_VALUE_STRING,
+            Schema::StaticArray(_) => &DEFAULT_VALUE_STATIC_ARRAY,
+            Schema::DynamicArray(_) => &DEFAULT_VALUE_DYNAMIC_ARRAY,
+            Schema::Map(_) => &DEFAULT_VALUE_MAP,
+            Schema::ObjectRef(_) => &DEFAULT_VALUE_OBJECT_REF,
             Schema::NamedType(named_type_id) => {
                 let named_type = named_types.get(named_type_id).unwrap();
                 match named_type {
-                    SchemaNamedType::Record(_) => Value::Record(ValueRecord {
-                        properties: Default::default()
-                    }),
-                    SchemaNamedType::Enum(inner) => Value::Enum(ValueEnum {
-                        symbol_name: inner.symbols()[0].name().to_string()
-                    }),
-                    SchemaNamedType::Fixed(inner) => Value::Fixed(vec![0u8; inner.length()].into_boxed_slice()),
+                    SchemaNamedType::Record(_) => &DEFAULT_VALUE_RECORD,
+                    SchemaNamedType::Enum(_) => &DEFAULT_VALUE_ENUM,
+                    SchemaNamedType::Fixed(_) => &DEFAULT_VALUE_FIXED,
                 }
             }
-            // Schema::Record(inner) => Value::Record(ValueRecord {
-            //     properties: Default::default()
-            // }),
-            // Schema::Enum(inner) => Value::Enum(ValueEnum {
-            //     symbol_name: inner.symbols()[0].name().to_string()
-            // }),
-            // Schema::Fixed(inner) => Value::Fixed(vec![0u8; inner.length()].into_boxed_slice()),
         }
     }
 

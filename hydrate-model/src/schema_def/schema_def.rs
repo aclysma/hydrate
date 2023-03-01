@@ -257,6 +257,7 @@ impl SchemaDefRecord {
         sorted_fields.sort_by_key(|x| &x.field_name);
 
         for field in sorted_fields {
+            println!("field {}", field.field_name);
             field.partial_hash(hasher);
         }
     }
@@ -285,7 +286,7 @@ impl SchemaDefRecord {
 pub struct SchemaDefEnumSymbol {
     pub(super) symbol_name: String,
     pub(super) aliases: Vec<String>,
-    pub(super) value: i32,
+    //pub(super) value: i32,
 }
 
 impl SchemaDefEnumSymbol {
@@ -297,7 +298,7 @@ impl SchemaDefEnumSymbol {
         Ok(SchemaDefEnumSymbol {
             symbol_name,
             aliases,
-            value,
+            //value,
         })
     }
 
@@ -306,7 +307,7 @@ impl SchemaDefEnumSymbol {
         hasher: &mut T,
     ) {
         self.symbol_name.hash(hasher);
-        self.value.hash(hasher);
+        //self.value.hash(hasher);
     }
 
     fn to_schema(self) -> SchemaEnumSymbol {
@@ -359,7 +360,7 @@ impl SchemaDefEnum {
         self.type_name.hash(hasher);
 
         let mut sorted_symbols: Vec<_> = self.symbols.iter().collect();
-        sorted_symbols.sort_by_key(|x| x.value);
+        sorted_symbols.sort_by(|a, b| a.symbol_name.cmp(&b.symbol_name));
 
         for symbol in sorted_symbols {
             symbol.partial_hash(hasher);
@@ -528,6 +529,7 @@ impl SchemaDefType {
         &self,
         hasher: &mut T,
     ) {
+        println!("ty {:?}", self);
         match self {
             SchemaDefType::Nullable(x) => {
                 "Nullable".hash(hasher);
@@ -642,6 +644,7 @@ impl SchemaDefNamedType {
     ) {
         match self {
             SchemaDefNamedType::Record(x) => {
+                println!("record");
                 "record".hash(hasher);
                 x.partial_hash(hasher);
             }

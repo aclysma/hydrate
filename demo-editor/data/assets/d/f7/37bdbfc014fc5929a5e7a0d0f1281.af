@@ -1,0 +1,19 @@
+{
+  "name": "test_texture.jpg",
+  "parent_dir": "2d4154f7-2b3c-4223-8767-7e8d1fa70447",
+  "schema": "fa3214af-ceb1-1b1a-6a81-1814a69ea069",
+  "schema_name": "ImageAsset",
+  "import_info": {
+    "importer_id": "e7c83acb-f73b-4b3c-b14d-fe5cc17c0fa3",
+    "source_file_path": "/Users/pmd/dev/rust/m3/demo/data/art/test_texture.jpg",
+    "importable_name": "",
+    "file_references": []
+  },
+  "build_info": {
+    "file_reference_overrides": {}
+  },
+  "prototype": null,
+  "properties": {
+    "compress": false
+  }
+}

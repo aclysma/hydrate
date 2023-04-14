@@ -1,0 +1,16 @@
+{
+  "name": "tform",
+  "parent_dir": "2d4154f7-2b3c-4223-8767-7e8d1fa70447",
+  "schema": "4fec8abd-0c1f-2468-2104-0ee0720c7206",
+  "schema_name": "Transform",
+  "import_info": null,
+  "build_info": {
+    "file_reference_overrides": {}
+  },
+  "prototype": null,
+  "properties": {
+    "position.x": 80.0,
+    "position.y": 2.0,
+    "position.z": 416.0
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "name": "sphere.glb.mesh_Sphere",
+  "parent_dir": "2d4154f7-2b3c-4223-8767-7e8d1fa70447",
+  "schema": "686c381b-8215-a4e7-93bb-32d582d5aba2",
+  "schema_name": "GltfMeshAsset",
+  "import_info": {
+    "importer_id": "01d71c49-867c-4d96-ad16-7c08b6cbfaf9",
+    "source_file_path": "/Users/pmd/dev/rust/hydrate/demo-editor/data/art/sphere.glb",
+    "importable_name": "mesh_Sphere",
+    "file_references": []
+  },
+  "build_info": {
+    "file_reference_overrides": {}
+  },
+  "prototype": null,
+  "properties": {}
+}

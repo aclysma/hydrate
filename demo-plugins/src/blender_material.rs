@@ -60,6 +60,27 @@ impl BlenderMaterialAsset {
     }
 }
 
+
+impl Into<MeshAdvBlendMethod> for MeshAdvBlendMethodEnum {
+    fn into(self) -> MeshAdvBlendMethod {
+        match self {
+            MeshAdvBlendMethodEnum::Opaque => MeshAdvBlendMethod::Opaque,
+            MeshAdvBlendMethodEnum::AlphaClip => MeshAdvBlendMethod::AlphaClip,
+            MeshAdvBlendMethodEnum::AlphaBlend => MeshAdvBlendMethod::AlphaBlend,
+        }
+    }
+}
+
+impl Into<MeshAdvShadowMethod> for MeshAdvShadowMethodEnum {
+    fn into(self) -> MeshAdvShadowMethod {
+        match self {
+            MeshAdvShadowMethodEnum::None => MeshAdvShadowMethod::None,
+            MeshAdvShadowMethodEnum::Opaque => MeshAdvShadowMethod::Opaque,
+        }
+    }
+}
+
+/*
 pub enum MeshAdvShadowMethodEnum {
     None,
     Opaque
@@ -171,6 +192,138 @@ impl BlenderMaterialImportedDataRecord {
     pub fn backface_culling(&self) -> BooleanField { BooleanField::new(self.0.push("backface_culling")) }
     pub fn color_texture_has_alpha_channel(&self) -> BooleanField { BooleanField::new(self.0.push("color_texture_has_alpha_channel")) }
 }
+*/
+
+
+
+
+
+
+
+#[derive(Default)]
+struct BlenderMaterialImportedDataRecord(PropertyPath);
+
+impl Field for BlenderMaterialImportedDataRecord {
+    fn new(property_path: PropertyPath) -> Self {
+        BlenderMaterialImportedDataRecord(property_path)
+    }
+}
+
+impl BlenderMaterialImportedDataRecord {
+    fn base_color_factor(&self) -> Vec4Record {
+        Vec4Record::new(self.0.push("base_color_factor"))
+    }
+
+    fn emissive_factor(&self) -> Vec3Record {
+        Vec3Record::new(self.0.push("emissive_factor"))
+    }
+
+    fn metallic_factor(&self) -> F32Field {
+        F32Field::new(self.0.push("metallic_factor"))
+    }
+
+    fn roughness_factor(&self) -> F32Field {
+        F32Field::new(self.0.push("roughness_factor"))
+    }
+
+    fn normal_texture_scale(&self) -> F32Field {
+        F32Field::new(self.0.push("normal_texture_scale"))
+    }
+
+    fn color_texture(&self) -> StringField {
+        StringField::new(self.0.push("color_texture"))
+    }
+
+    fn metallic_roughness_texture(&self) -> StringField {
+        StringField::new(self.0.push("metallic_roughness_texture"))
+    }
+
+    fn normal_texture(&self) -> StringField {
+        StringField::new(self.0.push("normal_texture"))
+    }
+
+    fn emissive_texture(&self) -> StringField {
+        StringField::new(self.0.push("emissive_texture"))
+    }
+
+    fn shadow_method(&self) -> EnumField::<MeshAdvShadowMethodEnum> {
+        EnumField::<MeshAdvShadowMethodEnum>::new(self.0.push("shadow_method"))
+    }
+
+    fn blend_method(&self) -> EnumField::<MeshAdvBlendMethodEnum> {
+        EnumField::<MeshAdvBlendMethodEnum>::new(self.0.push("blend_method"))
+    }
+
+    fn alpha_threshold(&self) -> F32Field {
+        F32Field::new(self.0.push("alpha_threshold"))
+    }
+
+    fn backface_culling(&self) -> BooleanField {
+        BooleanField::new(self.0.push("backface_culling"))
+    }
+
+    fn color_texture_has_alpha_channel(&self) -> BooleanField {
+        BooleanField::new(self.0.push("color_texture_has_alpha_channel"))
+    }
+}
+
+
+
+
+enum MeshAdvBlendMethodEnum {
+    Opaque,
+    AlphaClip,
+    AlphaBlend,
+}
+
+impl Enum for MeshAdvBlendMethodEnum {
+    fn to_symbol_name(&self) -> &'static str {
+        match self {
+            MeshAdvBlendMethodEnum::Opaque => "Opaque",
+            MeshAdvBlendMethodEnum::AlphaClip => "AlphaClip",
+            MeshAdvBlendMethodEnum::AlphaBlend => "AlphaBlend",
+        }
+    }
+
+    fn from_symbol_name(str: &str) -> Option<MeshAdvBlendMethodEnum> {
+        match str {
+            "Opaque" => Some(MeshAdvBlendMethodEnum::Opaque),
+            "AlphaClip" => Some(MeshAdvBlendMethodEnum::AlphaClip),
+            "AlphaBlend" => Some(MeshAdvBlendMethodEnum::AlphaBlend),
+            _ => None,
+        }
+    }
+}
+enum MeshAdvShadowMethodEnum {
+    None,
+    Opaque,
+}
+
+impl Enum for MeshAdvShadowMethodEnum {
+    fn to_symbol_name(&self) -> &'static str {
+        match self {
+            MeshAdvShadowMethodEnum::None => "None",
+            MeshAdvShadowMethodEnum::Opaque => "Opaque",
+        }
+    }
+
+    fn from_symbol_name(str: &str) -> Option<MeshAdvShadowMethodEnum> {
+        match str {
+            "None" => Some(MeshAdvShadowMethodEnum::None),
+            "Opaque" => Some(MeshAdvShadowMethodEnum::Opaque),
+            _ => None,
+        }
+    }
+}
+
+
+
+
+
+
+
+
+
 
 
 

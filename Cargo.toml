@@ -9,7 +9,7 @@ members = [
     "hydrate-pipeline",
     "hydrate-editor",
     "hydrate-loader",
-    "hydrate-cli"
+    "hydrate-codegen"
     #"distill-core",
     #"distill-loader"
 ]

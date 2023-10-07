@@ -223,13 +223,13 @@ pub struct EditContextObjectImportInfoJson {
 
 impl EditContextObjectImportInfoJson {
     pub fn new(import_info: &ImportInfo) -> Self {
-        let source_file_path = import_info.source_file_path.to_string_lossy().to_string();
+        let source_file_path = import_info.source_file_path().to_string_lossy().to_string();
 
         EditContextObjectImportInfoJson {
-            importer_id: import_info.importer_id.0,
+            importer_id: import_info.importer_id().0,
             source_file_path,
-            importable_name: import_info.importable_name.clone(),
-            file_references: import_info.file_references.clone(),
+            importable_name: import_info.importable_name().to_string(),
+            file_references: import_info.file_references().iter().cloned().collect(),
         }
     }
 
@@ -237,12 +237,12 @@ impl EditContextObjectImportInfoJson {
         &self,
         schema_set: &SchemaSet,
     ) -> ImportInfo {
-        ImportInfo {
-            importer_id: ImporterId(self.importer_id),
-            source_file_path: PathBuf::from_str(&self.source_file_path).unwrap(),
-            importable_name: self.importable_name.clone(),
-            file_references: self.file_references.clone(),
-        }
+        ImportInfo::new(
+            ImporterId(self.importer_id),
+            PathBuf::from_str(&self.source_file_path).unwrap(),
+            self.importable_name.clone(),
+            self.file_references.clone(),
+        )
     }
 }
 
@@ -366,26 +366,26 @@ impl EditContextObjectJson {
         let obj = edit_context.objects().get(&object_id).unwrap();
 
         let json_properties = store_json_properties(
-            &obj.properties,
-            &obj.property_null_overrides,
-            Some(&obj.properties_in_replace_mode),
-            &obj.dynamic_array_entries,
+            obj.properties(),
+            obj.property_null_overrides(),
+            Some(obj.properties_in_replace_mode()),
+            obj.dynamic_array_entries(),
         );
 
         let import_info = obj
-            .import_info
+            .import_info()
             .as_ref()
             .map(|x| EditContextObjectImportInfoJson::new(&x));
-        let build_info = EditContextObjectBuildInfoJson::new(&obj.build_info);
+        let build_info = EditContextObjectBuildInfoJson::new(obj.build_info());
 
         let stored_object = EditContextObjectJson {
-            name: obj.object_name.as_string().cloned().unwrap_or_default(),
+            name: obj.object_name().as_string().cloned().unwrap_or_default(),
             parent_dir,
-            schema: obj.schema.fingerprint().as_uuid(),
-            schema_name: obj.schema.name().to_string(),
+            schema: obj.schema().fingerprint().as_uuid(),
+            schema_name: obj.schema().name().to_string(),
             import_info,
             build_info,
-            prototype: obj.prototype.map(|x| Uuid::from_u128(x.0)),
+            prototype: obj.prototype().map(|x| Uuid::from_u128(x.0)),
             properties: json_properties,
         };
 
@@ -404,15 +404,15 @@ pub struct SingleObjectJson {
 impl SingleObjectJson {
     pub fn new(object: &SingleObject) -> SingleObjectJson {
         let json_properties = store_json_properties(
-            &object.properties,
-            &object.property_null_overrides,
+            &object.properties(),
+            &object.property_null_overrides(),
             None,
-            &object.dynamic_array_entries,
+            &object.dynamic_array_entries(),
         );
 
         SingleObjectJson {
-            schema: object.schema.fingerprint().as_uuid(),
-            schema_name: object.schema.name().to_string(),
+            schema: object.schema().fingerprint().as_uuid(),
+            schema_name: object.schema().name().to_string(),
             properties: json_properties,
         }
     }

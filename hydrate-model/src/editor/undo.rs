@@ -206,18 +206,22 @@ impl UndoContext {
         after_state: &mut DataSet,
     ) {
         if !self.tracked_objects.is_empty() {
-            // Overwrite all the objects in the new set with old data
-            let mut objects = Default::default();
-            std::mem::swap(&mut objects, &mut self.before_state.objects);
-            for (object_id, object) in objects {
-                after_state.objects.insert(object_id, object);
+            // Delete newly created objects
+            let keys_to_delete: Vec<_> = after_state.objects().keys().filter(|x| {
+                self.tracked_objects.contains(x) && !self.before_state.objects().contains_key(x)
+            }).copied().collect();
+
+            for key_to_delete in keys_to_delete {
+                after_state.delete_object(key_to_delete);
             }
 
-            // Delete any tracked objects that aren't in the old data
-            after_state.objects.retain(|k, _| {
-                self.tracked_objects.contains(k) && !self.before_state.objects.contains_key(k)
-            });
+            // Overwrite pre-existing objects back to the previous state (before_state only contains
+            // objects that were tracked and were pre-existing)
+            for (object_id, object) in self.before_state.objects() {
+                after_state.copy_from(&self.before_state, *object_id);
+            }
 
+            // before state will be cleared
             self.tracked_objects.clear();
         }
 

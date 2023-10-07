@@ -282,14 +282,14 @@ impl EditorModel {
             // If we detect a cycle, bail and return root path
             ObjectPath::root()
         } else {
-            if let Some(object) = data_set.objects.get(&path_node) {
+            if let Some(object) = data_set.objects().get(&path_node) {
                 if let Some(name) = object.object_name().as_string() {
                     // Parent is found, named, and not a cyclical reference
                     let mut parent = Self::do_populate_path(
                         data_set,
                         path_stack,
                         paths,
-                        object.object_location.path_node_id(),
+                        object.object_location().path_node_id(),
                     );
                     let path = parent.join(name);
                     path
@@ -318,13 +318,13 @@ impl EditorModel {
     ) -> HashMap<ObjectId, ObjectPath> {
         let mut path_stack = HashSet::default();
         let mut paths = HashMap::<ObjectId, ObjectPath>::default();
-        for (object_id, info) in &data_set.objects {
+        for (object_id, info) in data_set.objects() {
             // For objects that *are* path nodes, use their ID directly. For objects that aren't
             // path nodes, use the object ID in their location
-            let path_node_id = if info.schema.fingerprint() == path_node_type.fingerprint() {
+            let path_node_id = if info.schema().fingerprint() == path_node_type.fingerprint() {
                 *object_id
             } else {
-                info.object_location.path_node_id()
+                info.object_location().path_node_id()
             };
 
             Self::do_populate_path(data_set, &mut path_stack, &mut paths, path_node_id);

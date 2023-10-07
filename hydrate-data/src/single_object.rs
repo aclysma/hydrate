@@ -7,10 +7,10 @@ use uuid::Uuid;
 
 #[derive(Clone, Debug)]
 pub struct SingleObject {
-    pub(crate) schema: SchemaRecord,
-    pub(crate) properties: HashMap<String, Value>,
-    pub(crate) property_null_overrides: HashMap<String, NullOverride>,
-    pub(crate) dynamic_array_entries: HashMap<String, HashSet<Uuid>>,
+    schema: SchemaRecord,
+    properties: HashMap<String, Value>,
+    property_null_overrides: HashMap<String, NullOverride>,
+    dynamic_array_entries: HashMap<String, HashSet<Uuid>>,
 }
 
 impl Hash for SingleObject {
@@ -72,7 +72,7 @@ impl SingleObject {
         }
     }
 
-    pub(crate) fn restore(
+    pub fn restore(
         schema_set: &SchemaSet,
         schema: SchemaFingerprint,
         properties: HashMap<String, Value>,
@@ -91,6 +91,18 @@ impl SingleObject {
 
     pub fn schema(&self) -> &SchemaRecord {
         &self.schema
+    }
+
+    pub fn properties(&self) -> &HashMap<String, Value> {
+        &self.properties
+    }
+
+    pub fn property_null_overrides(&self) -> &HashMap<String, NullOverride> {
+        &self.property_null_overrides
+    }
+
+    pub fn dynamic_array_entries(&self) -> &HashMap<String, HashSet<Uuid>> {
+        &self.dynamic_array_entries
     }
 
     pub fn get_null_override(

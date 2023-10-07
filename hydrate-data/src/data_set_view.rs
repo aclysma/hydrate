@@ -1,6 +1,6 @@
 use uuid::Uuid;
 use crate::{DataSet, ObjectId, OverrideBehavior, SchemaSet, SingleObject, Value};
-use crate::database::data_set::DataSetResult;
+use crate::data_set::DataSetResult;
 
 pub fn do_push_property_path(property_path_stack: &mut Vec<String>, property_path: &mut String, path: &str) {
     property_path_stack.push(path.to_string());

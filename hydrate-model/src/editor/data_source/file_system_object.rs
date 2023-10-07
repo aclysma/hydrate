@@ -31,7 +31,7 @@ fn load_asset_files(
                 .objects()
                 .get(&object_id)
                 .unwrap()
-                .object_location
+                .object_location()
                 .clone();
             edit_context.clear_object_modified_flag(object_id);
             edit_context.clear_location_modified_flag(&object_location);

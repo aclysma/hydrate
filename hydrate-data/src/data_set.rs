@@ -27,10 +27,6 @@ impl ObjectSourceId {
         ObjectSourceId(Uuid::new_v4())
     }
 
-    pub(crate) fn new_with_uuid(uuid: Uuid) -> Self {
-        ObjectSourceId(uuid)
-    }
-
     pub fn null() -> Self {
         ObjectSourceId(Uuid::nil())
     }
@@ -259,25 +255,25 @@ pub struct BuilderId(pub usize);
 #[derive(Clone, Debug)]
 pub struct ImportInfo {
     // Set on initial import
-    pub(crate) importer_id: ImporterId,
+    importer_id: ImporterId,
 
     // Set on initial import, or re-import. This affects the import step.
     // Anything that just affects the build step should be an asset property instead.
-    //pub(crate) import_options: SingleObject,
+    //import_options: SingleObject,
 
     // Set on initial import, or re-import. Used to monitor to detect stale imported data and
     // automaticlaly re-import, and as a heuristic when importing other files that reference this
     // file to link to this object rather than importing another copy.
-    pub(crate) source_file_path: PathBuf,
+    source_file_path: PathBuf,
 
     // If the asset comes from a file with more than one importable thing, we require a string key
     // to specify which importable this asset represents. It will be an empty string for simple
     // cases where a file has one importable thing.
-    pub(crate) importable_name: String,
+    importable_name: String,
 
     // All the file references that need to be resolved in order to build the asset (this represents
     // file references encountered in the input data, and only changes when data is re-imported)
-    pub(crate) file_references: Vec<PathBuf>,
+    file_references: Vec<PathBuf>,
 }
 
 impl ImportInfo {
@@ -307,54 +303,86 @@ impl ImportInfo {
     pub fn importable_name(&self) -> &str {
         &self.importable_name
     }
+
+    pub fn file_references(&self) -> &[PathBuf] {
+        &self.file_references
+    }
 }
 
 #[derive(Clone, Debug, Default)]
 pub struct BuildInfo {
-    pub(crate) file_reference_overrides: HashMap<PathBuf, ObjectId>,
+    pub file_reference_overrides: HashMap<PathBuf, ObjectId>,
 }
 
 #[derive(Clone, Debug)]
 pub struct DataObjectInfo {
-    pub(crate) schema: SchemaRecord,
-    //pub(crate) name: Option<String>,
-    //pub(crate) path: ObjectPath,
+    schema: SchemaRecord,
+    //name: Option<String>,
+    //path: ObjectPath,
     //
-    pub(crate) object_name: ObjectName,
-    pub(crate) object_location: ObjectLocation,
+    pub(super) object_name: ObjectName,
+    pub(super) object_location: ObjectLocation,
 
     // Stores the configuration/choices that were made when the asset was last imported
-    pub(crate) import_info: Option<ImportInfo>,
-    pub(crate) build_info: BuildInfo,
+    pub(super) import_info: Option<ImportInfo>,
+    pub(super) build_info: BuildInfo,
 
-    pub(crate) prototype: Option<ObjectId>,
-    pub(crate) properties: HashMap<String, Value>,
-    pub(crate) property_null_overrides: HashMap<String, NullOverride>,
-    pub(crate) properties_in_replace_mode: HashSet<String>,
-    pub(crate) dynamic_array_entries: HashMap<String, HashSet<Uuid>>,
+    pub(super) prototype: Option<ObjectId>,
+    pub(super) properties: HashMap<String, Value>,
+    pub(super) property_null_overrides: HashMap<String, NullOverride>,
+    pub(super) properties_in_replace_mode: HashSet<String>,
+    pub(super) dynamic_array_entries: HashMap<String, HashSet<Uuid>>,
 }
 
 impl DataObjectInfo {
-    pub fn object_location(&self) -> &ObjectLocation {
-        &self.object_location
+    pub fn schema(&self) -> &SchemaRecord {
+        &self.schema
     }
 
     pub fn object_name(&self) -> &ObjectName {
         &self.object_name
     }
 
+    pub fn object_location(&self) -> &ObjectLocation {
+        &self.object_location
+    }
+
+    pub fn import_info(&self) -> &Option<ImportInfo> {
+        &self.import_info
+    }
+
     // pub fn path(&self) -> &ObjectPath {
     //     &self.path
     // }
 
-    pub fn schema(&self) -> &SchemaRecord {
-        &self.schema
+    pub fn build_info(&self) -> &BuildInfo {
+        &self.build_info
+    }
+
+    pub fn prototype(&self) -> Option<ObjectId> {
+        self.prototype
+    }
+
+    pub fn properties(&self) -> &HashMap<String, Value> {
+        &self.properties
+    }
+
+    pub fn property_null_overrides(&self) -> &HashMap<String, NullOverride> {
+        &self.property_null_overrides
+    }
+
+    pub fn properties_in_replace_mode(&self) -> &HashSet<String> {
+        &self.properties_in_replace_mode
+    }
+
+    pub fn dynamic_array_entries(&self) -> &HashMap<String, HashSet<Uuid>> {
+        &self.dynamic_array_entries
     }
 }
 
 #[derive(Default)]
 pub struct DataSet {
-    pub(crate) objects: HashMap<ObjectId, DataObjectInfo>,
+    objects: HashMap<ObjectId, DataObjectInfo>,
 }
 
 impl DataSet {
@@ -362,15 +390,19 @@ impl DataSet {
         self.objects.keys()
     }
 
-    pub(crate) fn objects(&self) -> &HashMap<ObjectId, DataObjectInfo> {
+    pub fn objects(&self) -> &HashMap<ObjectId, DataObjectInfo> {
         &self.objects
     }
 
-    pub(crate) fn objects_mut(&mut self) -> &mut HashMap<ObjectId, DataObjectInfo> {
+    pub fn take_objects(self) -> HashMap<ObjectId, DataObjectInfo> {
+        self.objects
+    }
+
+    pub(super) fn objects_mut(&mut self) -> &mut HashMap<ObjectId, DataObjectInfo> {
         &mut self.objects
     }
 
-    pub(crate) fn insert_object(
+    fn insert_object(
         &mut self,
         obj_info: DataObjectInfo,
     ) -> ObjectId {
@@ -381,7 +413,7 @@ impl DataSet {
         id
     }
 
-    pub(crate) fn restore_object(
+    pub fn restore_object(
         &mut self,
         object_id: ObjectId,
         object_name: ObjectName,

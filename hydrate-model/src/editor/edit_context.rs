@@ -80,10 +80,10 @@ impl EditContext {
             if let Some(object_info) = self.objects().get(&object_id) {
                 if !self
                     .modified_locations
-                    .contains(&object_info.object_location)
+                    .contains(&object_info.object_location())
                 {
                     self.modified_locations
-                        .insert(object_info.object_location.clone());
+                        .insert(object_info.object_location().clone());
                 }
             }
         }
@@ -348,19 +348,19 @@ impl EditContext {
         &mut self,
         data_set: DataSet,
     ) {
-        for (k, v) in data_set.objects {
+        for (k, v) in data_set.take_objects() {
             self.restore_object(
                 k,
-                v.object_name,
-                v.object_location,
-                v.import_info.clone(),
-                v.build_info,
-                v.prototype,
-                v.schema.fingerprint(),
-                v.properties,
-                v.property_null_overrides,
-                v.properties_in_replace_mode,
-                v.dynamic_array_entries,
+                v.object_name().clone(),
+                v.object_location().clone(),
+                v.import_info().clone().clone(),
+                v.build_info().clone(),
+                v.prototype(),
+                v.schema().fingerprint(),
+                v.properties().clone(),
+                v.property_null_overrides().clone(),
+                v.properties_in_replace_mode().clone(),
+                v.dynamic_array_entries().clone(),
             );
         }
     }

@@ -1,6 +1,7 @@
 use crate::{BufferId, HashMap, Schema, SchemaFingerprint, SchemaNamedType};
 use crate::ObjectId;
 use std::hash::{Hash, Hasher};
+
 use hydrate_schema::{SchemaEnum, SchemaSet};
 
 #[derive(Clone, Debug, PartialEq)]

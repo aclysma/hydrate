@@ -155,12 +155,12 @@ impl ObjectDiffSet {
         after_object_id: ObjectId,
         modified_locations: &mut HashSet<ObjectLocation>,
     ) -> Self {
-        let before_obj = before_data_set.objects.get(&before_object_id).unwrap();
-        let after_obj = after_data_set.objects.get(&after_object_id).unwrap();
+        let before_obj = before_data_set.objects().get(&before_object_id).unwrap();
+        let after_obj = after_data_set.objects().get(&after_object_id).unwrap();
 
         assert_eq!(
-            before_obj.schema.fingerprint(),
-            after_obj.schema.fingerprint()
+            before_obj.schema().fingerprint(),
+            after_obj.schema().fingerprint()
         );
 
         let mut apply_diff = ObjectDiff::default();
@@ -458,7 +458,7 @@ impl DataSetDiff {
                 create.build_info.clone(),
                 schema_set,
                 create.prototype,
-                create.schema.fingerprint(),
+                create.schema().fingerprint(),
                 create.properties.clone(),
                 create.property_null_overrides.clone(),
                 create.properties_in_replace_mode.clone(),

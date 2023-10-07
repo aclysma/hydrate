@@ -4,8 +4,8 @@ use crate::{
 
 #[derive(Default, Clone)]
 pub struct SchemaSet {
-    pub(crate) schemas_by_name: HashMap<String, SchemaFingerprint>,
-    pub(crate) schemas: HashMap<SchemaFingerprint, SchemaNamedType>,
+    schemas_by_name: HashMap<String, SchemaFingerprint>,
+    schemas: HashMap<SchemaFingerprint, SchemaNamedType>,
 }
 
 impl SchemaSet {

@@ -24,25 +24,6 @@ impl PropertyPath {
         &self.0
     }
 }
-/*
-trait ReadSource {
-    fn resolve_property(&self, path: impl AsRef<str>) -> Option<&Value>;
-}
-
-impl<'a> ReadSource for DataContainer<'a> {
-    fn resolve_property(&self, path: impl AsRef<str>) -> Option<&Value> {
-        self.resolve_property(path)
-    }
-}
-
-impl<'a> ReadSource for DataContainerMut<'a> {
-    fn resolve_property(&self, path: impl AsRef<str>) -> Option<&Value> {
-        self.resolve_property(path)
-    }
-}
-*/
-
-
 
 pub trait Field {
     fn new(property_path: PropertyPath) -> Self;

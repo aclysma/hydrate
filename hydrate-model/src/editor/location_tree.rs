@@ -1,7 +1,6 @@
-use crate::{DataSet, HashMap, HashSet, ObjectId, ObjectLocation, ObjectPath, ObjectSourceId};
+use crate::{DataSet, HashMap, ObjectId, ObjectLocation, ObjectPath, ObjectSourceId};
 use std::cmp::Ordering;
 use std::collections::BTreeMap;
-use uuid::Uuid;
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct LocationTreeNodeKey {

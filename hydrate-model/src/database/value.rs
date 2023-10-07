@@ -1,6 +1,7 @@
 use crate::{BufferId, HashMap, Schema, SchemaFingerprint, SchemaNamedType};
-use crate::{ObjectId, SchemaEnum};
+use crate::ObjectId;
 use std::hash::{Hash, Hasher};
+use hydrate_schema::{SchemaEnum, SchemaSet};
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum PropertyValue {
@@ -185,10 +186,9 @@ lazy_static::lazy_static! {
 
 
 impl Value {
-
     pub fn default_for_schema(
         schema: &Schema,
-        named_types: &HashMap<SchemaFingerprint, SchemaNamedType>,
+        schema_set: &SchemaSet,
     ) -> &'static Self {
         match schema {
             Schema::Nullable(_) => &DEFAULT_VALUE_NULLABLE,
@@ -207,7 +207,7 @@ impl Value {
             Schema::Map(_) => &DEFAULT_VALUE_MAP,
             Schema::ObjectRef(_) => &DEFAULT_VALUE_OBJECT_REF,
             Schema::NamedType(named_type_id) => {
-                let named_type = named_types.get(named_type_id).unwrap();
+                let named_type = schema_set.schemas().get(named_type_id).unwrap();
                 match named_type {
                     SchemaNamedType::Record(_) => &DEFAULT_VALUE_RECORD,
                     SchemaNamedType::Enum(_) => &DEFAULT_VALUE_ENUM,
@@ -249,12 +249,12 @@ impl Value {
             Value::String(_) => schema.is_string(),
             Value::StaticArray(inner_values) => match schema {
                 Schema::StaticArray(inner_schema) => {
-                    if inner_schema.length != inner_values.len() {
+                    if inner_schema.length() != inner_values.len() {
                         return false;
                     }
 
                     for value in inner_values {
-                        if !value.matches_schema(&*inner_schema.item_type, named_types) {
+                        if !value.matches_schema(&*inner_schema.item_type(), named_types) {
                             return false;
                         }
                     }
@@ -739,6 +739,25 @@ impl Value {
         value: ValueEnum,
     ) {
         *self = Value::Enum(value);
+    }
+
+    pub fn enum_value_from_string(
+        schema_enum: &SchemaEnum,
+        name: &str,
+    ) -> Option<Value> {
+        for symbol in &*schema_enum.symbols() {
+            if symbol.name() == name {
+                return Some(Value::Enum(ValueEnum::new(name.to_string())));
+            }
+
+            for alias in symbol.aliases() {
+                if alias == name {
+                    return Some(Value::Enum(ValueEnum::new(name.to_string())));
+                }
+            }
+        }
+
+        None
     }
 
     //

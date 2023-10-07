@@ -1,6 +1,5 @@
-use std::ops::Deref;
 use uuid::Uuid;
-use crate::{DataSet, ObjectId, OverrideBehavior, Schema, SchemaRecord, SchemaSet, SingleObject, Value};
+use crate::{DataSet, ObjectId, OverrideBehavior, SchemaSet, SingleObject, Value};
 use crate::database::data_set::DataSetResult;
 
 pub fn do_push_property_path(property_path_stack: &mut Vec<String>, property_path: &mut String, path: &str) {

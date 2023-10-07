@@ -2,7 +2,7 @@ use crate::app_state::AppState;
 use crate::ui::asset_browser_grid_drag_drop::AssetBrowserGridPayload;
 use crate::ui_state::UiState;
 use hydrate_model::edit_context::EditContext;
-use hydrate_model::{EndContextBehavior, Schema};
+use hydrate_model::{EndContextBehavior, Schema, Value};
 use imgui::im_str;
 
 fn draw_property_style<F: FnOnce(&imgui::Ui)>(
@@ -43,8 +43,7 @@ fn draw_inspector_simple_property<
         if let Some(value) = edit_context.resolve_property(object_id, &property_path) {
             value
         } else {
-            edit_context.schema_set().default_value_for_schema(schema)
-            //Value::default_for_schema(schema).clone()
+            Value::default_for_schema(schema, edit_context.schema_set())
         }
     } else {
         edit_context

@@ -1,8 +1,5 @@
-use hydrate_model::{DataSet, DataSetEntry, DataSetResult, DataSetView, DataSetViewMut, F32Field, Field, NullableField, ObjectId, PropertyPath, SchemaSet, Value};
-use serde::{Deserialize, Serialize};
-use type_uuid::TypeUuid;
-use hydrate_base::{AssetUuid, Handle};
-use hydrate_base::handle::GenericHandle;
+use hydrate_model::{DataSetResult, DataSetView, DataSetViewMut, F32Field, Field, NullableField, ObjectId, PropertyPath, SchemaSet, Value};
+
 
 #[derive(Default)]
 pub struct Vec3Record(PropertyPath);

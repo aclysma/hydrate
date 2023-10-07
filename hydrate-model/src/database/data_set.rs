@@ -1,8 +1,8 @@
 use crate::{
     HashMap, HashMapKeys, HashSet, HashSetIter, ObjectId, Schema, SchemaFingerprint,
-    SchemaNamedType, SchemaRecord, Value,
+    SchemaRecord, Value,
 };
-use crate::{NullOverride, SchemaSet, SingleObject};
+use crate::{NullOverride, SchemaSet};
 use std::hash::{Hash, Hasher};
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
@@ -897,15 +897,22 @@ impl DataSet {
         schema_set: &SchemaSet,
         object_id: ObjectId,
         path: impl AsRef<str>,
-    ) {
+    ) -> DataSetResult<()> {
         let object = self.objects.get(&object_id).unwrap();
         let prototype_id = object.prototype;
 
         if let Some(prototype_id) = prototype_id {
             let v = self.remove_property_override(object_id, path.as_ref());
             if let Some(v) = v {
-                self.set_property_override(schema_set, prototype_id, path, v);
+                // The property existed on the child, set it on the prototype
+                self.set_property_override(schema_set, prototype_id, path, v)
+            } else {
+                // The property didn't exist on the child, do nothing
+                Ok(())
             }
+        } else {
+            // There is no prototype or it couldn't be found, do nothing
+            Ok(())
         }
     }
 
@@ -964,7 +971,7 @@ impl DataSet {
         }
 
         //TODO: Return schema default value
-        Some(Value::default_for_schema(&property_schema, schema_set.schemas()))
+        Some(Value::default_for_schema(&property_schema, schema_set))
     }
 
     pub fn get_dynamic_array_overrides(

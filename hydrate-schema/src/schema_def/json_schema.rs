@@ -1,8 +1,3 @@
-use crate::{
-    HashMap, HashSet, Schema, SchemaDynamicArray, SchemaEnum, SchemaEnumSymbol, SchemaFingerprint,
-    SchemaFixed, SchemaMap, SchemaNamedType, SchemaRecord, SchemaRecordField, SchemaStaticArray,
-};
-use std::hash::{Hash, Hasher};
 use super::*;
 
 fn parse_json_schema_type_ref(
@@ -283,7 +278,7 @@ fn parse_json_schema_def_enum_symbol(
     // } else {
     //     vec![]
     // };
-    let error_prefix = format!("{}[Field {}]", error_prefix, symbol_name);
+    //let error_prefix = format!("{}[Field {}]", error_prefix, symbol_name);
 
     Ok(SchemaDefEnumSymbol {
         symbol_name,

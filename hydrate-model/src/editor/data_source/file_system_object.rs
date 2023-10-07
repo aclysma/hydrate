@@ -1,7 +1,6 @@
 use crate::edit_context::EditContext;
 use crate::uuid_path::{path_to_uuid, uuid_to_path};
-use crate::{DataSource, HashMap, HashSet, ObjectId, ObjectLocation, ObjectPath, ObjectSourceId};
-use serde::{Deserialize, Serialize};
+use crate::{DataSource, HashSet, ObjectId, ObjectSourceId};
 use std::path::{Path, PathBuf};
 use uuid::Uuid;
 

@@ -2,7 +2,7 @@ use crate::edit_context::EditContext;
 use crate::editor::undo::UndoStack;
 use crate::{
     DataSet, DataSource, FileSystemObjectDataSource, HashMap, HashSet, LocationTree, ObjectId,
-    ObjectLocation, ObjectPath, ObjectSourceId, PathNode, SchemaNamedType, SchemaSet,
+    ObjectPath, ObjectSourceId, PathNode, SchemaNamedType, SchemaSet,
 };
 use slotmap::DenseSlotMap;
 use std::path::PathBuf;

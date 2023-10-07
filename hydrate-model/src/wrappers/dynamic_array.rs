@@ -1,4 +1,4 @@
-use std::ops::{Deref, Index, IndexMut};
+use std::ops::{Index, IndexMut};
 use uuid::Uuid;
 use core::slice::SliceIndex;
 use crate::{DataSetResult, DataSetView, DataSetViewMut, OverrideBehavior};

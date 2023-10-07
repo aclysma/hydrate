@@ -565,7 +565,7 @@ impl EditContext {
         &mut self,
         object_id: ObjectId,
         path: impl AsRef<str>,
-    ) {
+    ) -> DataSetResult<()> {
         self.track_existing_object(object_id);
         if let Some(prototype) = self.object_prototype(object_id) {
             self.track_existing_object(prototype);

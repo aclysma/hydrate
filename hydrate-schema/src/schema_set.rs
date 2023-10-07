@@ -1,5 +1,5 @@
 use crate::{
-    HashMap, Schema, SchemaFingerprint, SchemaLinker, SchemaLinkerResult, SchemaNamedType, Value,
+    HashMap, Schema, SchemaFingerprint, SchemaLinker, SchemaLinkerResult, SchemaNamedType//, Value,
 };
 
 #[derive(Default, Clone)]
@@ -28,13 +28,6 @@ impl SchemaSet {
         fingerprint: SchemaFingerprint,
     ) -> Option<&SchemaNamedType> {
         self.schemas.get(&fingerprint)
-    }
-
-    pub fn default_value_for_schema(
-        &self,
-        schema: &Schema,
-    ) -> &Value {
-        Value::default_for_schema(schema, &self.schemas)
     }
 
     pub fn add_linked_types(

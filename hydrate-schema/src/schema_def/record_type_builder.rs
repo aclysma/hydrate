@@ -1,5 +1,4 @@
 use super::schema_def::{SchemaDefDynamicArray, SchemaDefType};
-use crate::schema_def::enum_type_builder::EnumTypeSymbolBuilder;
 
 pub struct RecordTypeFieldBuilder {
     pub(super) name: String,

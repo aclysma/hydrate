@@ -9,8 +9,6 @@ pub use uuid;
 use uuid::Uuid;
 
 /// A universally unique identifier for an asset.
-/// An asset can be a value of any Rust type that implements
-/// [`TypeUuidDynamic`] + [serde::Serialize] + [Send].
 ///
 /// If using a human-readable format, serializes to a hyphenated UUID format and deserializes from
 /// any format supported by the `uuid` crate. Otherwise, serializes to and from a `[u8; 16]`.

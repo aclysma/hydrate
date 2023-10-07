@@ -4,6 +4,7 @@ members = [
     "demo-game",
     "demo-plugins",
     "demo-types",
+    "hydrate-schema",
     "hydrate-base",
     "hydrate-model",
     "hydrate-pipeline",

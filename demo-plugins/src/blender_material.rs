@@ -3,7 +3,7 @@ use std::path::{Path, PathBuf};
 
 use demo_types::blender_material::*;
 use hydrate_model::value::ValueEnum;
-use hydrate_model::{BooleanField, BuiltObjectMetadata, DataContainer, DataSet, DataSetError, DataSetResult, DataSetView, DataSetViewMut, EditorModel, Enum, EnumField, F32Field, Field, HashMap, ObjectId, ObjectLocation, ObjectName, PropertyPath, SchemaDefType, SchemaLinker, SchemaSet, SingleObject, StringField, Value};
+use hydrate_model::{BooleanField, BuiltObjectMetadata, DataContainer, DataContainerMut, DataSet, DataSetError, DataSetResult, DataSetView, DataSetViewMut, EditorModel, Enum, EnumField, F32Field, Field, HashMap, ObjectId, ObjectLocation, ObjectName, PropertyPath, SchemaDefType, SchemaLinker, SchemaSet, SingleObject, StringField, Value};
 use hydrate_pipeline::{AssetPlugin, Builder, BuilderRegistry, BuiltAsset, ImportedImportable, Importer, ImporterRegistry, ScannedImportable};
 use serde::{Deserialize, Serialize};
 use type_uuid::{TypeUuid, TypeUuidDynamic};
@@ -516,17 +516,17 @@ impl Importer for BlenderMaterialImporter {
 
         //let shadow_method_str = json_data.shadow_method;
         let shadow_method = if let Some(shadow_method_str) = &json_data.shadow_method.as_ref() {
-            shadow_method_enum_type.value_from_string(shadow_method_str)
+            Value::enum_value_from_string(shadow_method_enum_type, shadow_method_str)
         } else {
-            shadow_method_enum_type.value_from_string("Opaque")
+            Value::enum_value_from_string(shadow_method_enum_type, "Opaque")
         }
         .unwrap();
 
         //let blend_method_str = json_data.blend_method;
-        let blend_method = if let Some(blend_method_str) = &json_data.shadow_method.as_ref() {
-            blend_method_enum_type.value_from_string(blend_method_str)
+        let blend_method = if let Some(blend_method_str) = &json_data.blend_method.as_ref() {
+            Value::enum_value_from_string(blend_method_enum_type, blend_method_str)
         } else {
-            blend_method_enum_type.value_from_string("Opaque")
+            Value::enum_value_from_string(blend_method_enum_type, "Opaque")
         }
         .unwrap();
 
@@ -542,6 +542,12 @@ impl Importer for BlenderMaterialImporter {
         let mut import_object = SingleObject::new(image_imported_data_schema);
 
         let x = BlenderMaterialImportedDataRecord::default();
+        {
+            let mut data_container = DataContainerMut::new_single_object(&mut import_object, schema);
+            x.base_color_factor().x().set(&mut data_container, json_data.base_color_factor[0]).unwrap();
+            x.base_color_factor().y().set(&mut data_container, json_data.base_color_factor[1]).unwrap();
+            x.base_color_factor().z().set(&mut data_container, json_data.base_color_factor[2]).unwrap();
+        }
 
         //let data_set_view = DataSetView::new()
         //x.base_color_factor().x().get(data_set_view);

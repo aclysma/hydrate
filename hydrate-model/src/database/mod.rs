@@ -25,9 +25,6 @@ pub use data_set_view::DataSetViewMut;
 mod single_object;
 pub use single_object::SingleObject;
 
-mod schema_set;
-pub use schema_set::SchemaSet;
-
 mod diff;
 pub use diff::DataSetDiff;
 pub use diff::DataSetDiffSet;

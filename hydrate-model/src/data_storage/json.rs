@@ -1,13 +1,15 @@
 use crate::edit_context::EditContext;
 use crate::{
-    BuildInfo, DataObjectInfo, HashMap, HashSet, HashSetIter, ImportInfo, ImporterId, NullOverride,
-    ObjectId, ObjectLocation, ObjectName, ObjectSourceId, OverrideBehavior, Schema,
+    BuildInfo, HashMap, HashSet, ImportInfo, ImporterId, NullOverride,
+    ObjectId, ObjectLocation, ObjectName, ObjectSourceId, Schema,
     SchemaFingerprint, SchemaNamedType, SchemaSet, SingleObject, Value,
 };
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use std::str::FromStr;
 use uuid::Uuid;
+use hydrate_schema::SchemaEnum;
+use crate::value::ValueEnum;
 
 fn property_value_to_json(value: &Value) -> serde_json::Value {
     match value {
@@ -59,7 +61,7 @@ fn json_to_property_value_with_schema(
             let named_type = named_types.get(x).unwrap();
             match named_type {
                 SchemaNamedType::Record(_) => unimplemented!(),
-                SchemaNamedType::Enum(e) => e.value_from_string(value.as_str().unwrap()).unwrap(),
+                SchemaNamedType::Enum(e) => Value::enum_value_from_string(e, value.as_str().unwrap()).unwrap(),
                 SchemaNamedType::Fixed(_) => unimplemented!(),
             }
         }
@@ -210,6 +212,7 @@ fn store_json_properties(
     saved_properties
 }
 
+// Import Info, part of EditContextObjectJson
 #[derive(Debug, Serialize, Deserialize)]
 pub struct EditContextObjectImportInfoJson {
     importer_id: Uuid,
@@ -243,6 +246,7 @@ impl EditContextObjectImportInfoJson {
     }
 }
 
+// Build Info, part of EditContextObjectJson
 #[derive(Debug, Serialize, Deserialize)]
 pub struct EditContextObjectBuildInfoJson {
     #[serde(serialize_with = "ordered_map_uuid")]
@@ -306,7 +310,7 @@ impl EditContextObjectJson {
         };
 
         let object_id = ObjectId(object_id.as_u128());
-        let schema_fingerprint = SchemaFingerprint(stored_object.schema.as_u128());
+        let schema_fingerprint = SchemaFingerprint::from_uuid(stored_object.schema);
         let prototype = stored_object.prototype.map(|x| ObjectId(x.as_u128()));
 
         let named_type = edit_context.find_named_type_by_fingerprint(schema_fingerprint);
@@ -374,7 +378,7 @@ impl EditContextObjectJson {
             .map(|x| EditContextObjectImportInfoJson::new(&x));
         let build_info = EditContextObjectBuildInfoJson::new(&obj.build_info);
 
-        let mut stored_object = EditContextObjectJson {
+        let stored_object = EditContextObjectJson {
             name: obj.object_name.as_string().cloned().unwrap_or_default(),
             parent_dir,
             schema: obj.schema.fingerprint().as_uuid(),
@@ -417,7 +421,7 @@ impl SingleObjectJson {
         &self,
         schema_set: &SchemaSet,
     ) -> SingleObject {
-        let schema_fingerprint = SchemaFingerprint(self.schema.as_u128());
+        let schema_fingerprint = SchemaFingerprint::from_uuid(self.schema);
 
         let named_type = schema_set
             .find_named_type_by_fingerprint(schema_fingerprint)

@@ -3,7 +3,7 @@ mod dynamic_array;
 use std::marker::PhantomData;
 use uuid::Uuid;
 pub use dynamic_array::*;
-use crate::{DataContainer, DataContainerMut, DataSetError, DataSetResult, DataSetView, DataSetViewMut, ObjectId, Value};
+use crate::{DataContainer, DataContainerMut, DataSetError, DataSetResult, DataSetViewMut, ObjectId, Value};
 use crate::value::ValueEnum;
 
 #[derive(Default)]
@@ -24,7 +24,7 @@ impl PropertyPath {
         &self.0
     }
 }
-
+/*
 trait ReadSource {
     fn resolve_property(&self, path: impl AsRef<str>) -> Option<&Value>;
 }
@@ -40,7 +40,7 @@ impl<'a> ReadSource for DataContainerMut<'a> {
         self.resolve_property(path)
     }
 }
-
+*/
 
 
 

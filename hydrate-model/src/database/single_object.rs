@@ -1,4 +1,4 @@
-use crate::{DataSetError, DataSetResult, HashMap, HashMapKeys, HashSet, HashSetIter, Schema, SchemaFingerprint, SchemaNamedType, SchemaRecord, Value};
+use crate::{DataSetError, DataSetResult, HashMap, HashSet, HashSetIter, SchemaFingerprint, SchemaRecord, Value};
 use crate::{NullOverride, SchemaSet};
 use std::hash::{Hash, Hasher};
 use std::str::FromStr;
@@ -19,8 +19,6 @@ impl Hash for SingleObject {
         state: &mut H,
     ) {
         let schema = &self.schema;
-
-        use std::hash::{Hash, Hasher};
 
         schema.fingerprint().hash(state);
 
@@ -327,7 +325,7 @@ impl SingleObject {
         }
 
         //TODO: Return schema default value
-        Some(Value::default_for_schema(&property_schema, schema_set.schemas()))
+        Some(Value::default_for_schema(&property_schema, schema_set))
     }
 
     pub fn get_dynamic_array_overrides(

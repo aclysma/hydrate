@@ -164,6 +164,8 @@ impl BuildJobs {
 
             //dummy_serde_context.
 
+            //TODO: This might be able to be replaced with using the schema info? But that doesn't work with built data
+            // which is arbitrary binary
             let mut ctx = DummySerdeContextHandle::default();
             ctx.begin_serialize_asset(AssetUuid(*object_id.as_uuid().as_bytes()));
             let mut built_data = ctx.scope(|| {
@@ -171,6 +173,7 @@ impl BuildJobs {
             });
 
             let referenced_assets = ctx.end_serialize_asset(AssetUuid(*object_id.as_uuid().as_bytes()));
+            assert!(built_data.metadata.dependencies.is_empty()); //TODO: Pretty big bug here, we overwrite dependencies that the builder returns
             built_data.metadata.dependencies = referenced_assets.into_iter().map(|x| ObjectId(uuid::Uuid::from_bytes(x.0.0).as_u128())).collect();
 
             // let mut built_data;

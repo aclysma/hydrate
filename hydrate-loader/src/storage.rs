@@ -145,22 +145,22 @@ pub trait AssetStorage {
     );
 }
 
-/// Asset loading status.
-#[derive(Debug)]
-pub enum LoadStatus {
-    /// There is no request for the asset to be loaded.
-    NotRequested,
-    /// The asset is being loaded.
-    Loading,
-    /// The asset is loaded.
-    Loaded,
-    /// The asset is being unloaded.
-    Unloading,
-    /// The asset does not exist.
-    DoesNotExist,
-    /// There was an error during loading / unloading of the asset.
-    Error(Box<dyn Error>),
-}
+// /// Asset loading status.
+// #[derive(Debug)]
+// pub enum LoadStatus {
+//     /// There is no request for the asset to be loaded.
+//     NotRequested,
+//     /// The asset is being loaded.
+//     Loading,
+//     /// The asset is loaded.
+//     Loaded,
+//     /// The asset is being unloaded.
+//     Unloading,
+//     /// The asset does not exist.
+//     DoesNotExist,
+//     /// There was an error during loading / unloading of the asset.
+//     Error(Box<dyn Error>),
+// }
 
 // /// Information about an asset load operation.
 // ///

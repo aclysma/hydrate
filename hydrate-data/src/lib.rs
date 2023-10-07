@@ -16,7 +16,6 @@ pub use data_set::ImportInfo;
 pub use data_set::ImporterId;
 pub use data_set::ObjectLocation;
 pub use data_set::ObjectName;
-pub use data_set::ObjectPath;
 pub use data_set::ObjectSourceId;
 pub use data_set::OverrideBehavior;
 pub use data_set::DataSetError;

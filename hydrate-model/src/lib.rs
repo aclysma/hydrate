@@ -20,5 +20,8 @@ pub use editor::*;
 pub mod wrappers;
 pub use wrappers::*;
 
+mod object_path;
+pub use object_path::*;
+
 // mod storage;
 // pub use storage::*;

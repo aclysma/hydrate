@@ -2,7 +2,7 @@ use std::ops::{Index, IndexMut};
 use uuid::Uuid;
 use core::slice::SliceIndex;
 use crate::{DataSetResult, DataSetView, DataSetViewMut, OverrideBehavior};
-
+/*
 trait LoadStore {
     fn load(data_set_view: &mut DataSetView) -> Self;
     fn store(&self, data_set_view: &mut DataSetViewMut) -> DataSetResult<()>;
@@ -81,3 +81,4 @@ impl<T: LoadStore> DynamicArray<T> {
         self.entry_uuids.push(Uuid::default());
     }
 }
+*/

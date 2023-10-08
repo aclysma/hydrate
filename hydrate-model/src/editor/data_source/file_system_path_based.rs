@@ -1,7 +1,7 @@
 use std::path::{Path, PathBuf};
 use hydrate_data::{ObjectId, ObjectLocation, ObjectName, ObjectSourceId};
 use hydrate_schema::{HashMap, SchemaNamedType};
-use crate::{EditContextObjectImportInfoJson, HashSet, PathNode};
+use crate::{EditContextObjectImportInfoJson, HashSet, PathNode, PathNodeRoot};
 use crate::DataSource;
 use crate::edit_context::EditContext;
 
@@ -21,12 +21,17 @@ pub struct FileSystemPathBasedDataSource {
     // deleted IDs need to be cleaned up
     all_object_ids_on_disk_with_on_disk_state: HashMap<ObjectId, ObjectOnDiskState>,
     //all_assigned_path_ids: HashMap<PathBuf, ObjectId>,
+
     path_node_schema: SchemaNamedType,
+    path_node_root_schema: SchemaNamedType,
 }
 
 impl FileSystemPathBasedDataSource {
     fn is_object_owned_by_this_data_source(&self, edit_context: &EditContext, object_id: ObjectId) -> bool {
-        //TODO: is_null means we default to using this source
+        if edit_context.object_schema(object_id).unwrap().fingerprint() == self.path_node_root_schema.fingerprint() {
+            return false;
+        }
+
         let root_location = edit_context.object_location_chain(object_id).last().cloned().unwrap_or_else(ObjectLocation::null);
         self.is_root_location_owned_by_this_data_source(&root_location)
     }
@@ -45,6 +50,7 @@ impl FileSystemPathBasedDataSource {
         object_source_id: ObjectSourceId,
     ) -> Self {
         let path_node_schema = edit_context.schema_set().find_named_type(PathNode::schema_name()).unwrap().clone();
+        let path_node_root_schema = edit_context.schema_set().find_named_type(PathNodeRoot::schema_name()).unwrap().clone();
 
         let file_system_root_path = file_system_root_path.into();
         log::info!(
@@ -56,7 +62,8 @@ impl FileSystemPathBasedDataSource {
             object_source_id,
             file_system_root_path: file_system_root_path.into(),
             all_object_ids_on_disk_with_on_disk_state: Default::default(),
-            path_node_schema
+            path_node_schema,
+            path_node_root_schema,
         }
     }
 

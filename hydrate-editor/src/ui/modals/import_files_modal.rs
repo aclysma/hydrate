@@ -107,44 +107,15 @@ pub fn path_tree(
     db_state.editor_model.refresh_tree_node_cache();
     let tree = db_state.editor_model.cached_location_tree();
 
-    let show_root = false;
-    if show_root {
+    for (child_name, child) in &tree.root_nodes {
         path_tree_node(
             ui,
             db_state,
             ui_state,
-            "db:/",
-            &tree.root_node,
+            child_name.name(),
+            child,
             selected_import_location,
         );
-    } else {
-        // Draw nodes with children first
-        for (child_name, child) in &tree.root_node.children {
-            if !child.children.is_empty() {
-                path_tree_node(
-                    ui,
-                    db_state,
-                    ui_state,
-                    child_name.name(),
-                    child,
-                    selected_import_location,
-                );
-            }
-        }
-
-        // Then draw nodes without children
-        for (child_name, child) in &tree.root_node.children {
-            if child.children.is_empty() {
-                path_tree_node(
-                    ui,
-                    db_state,
-                    ui_state,
-                    child_name.name(),
-                    child,
-                    selected_import_location,
-                );
-            }
-        }
     }
 }
 

@@ -132,6 +132,7 @@ impl EditorModel {
 
     pub fn add_file_system_object_source<RootPathT: Into<PathBuf>>(
         &mut self,
+        data_source_name: &str,
         root_path: RootPathT,
     ) -> ObjectSourceId {
         let root_path_node_schema_object = self
@@ -152,7 +153,7 @@ impl EditorModel {
         let root_object_id = ObjectId::from_uuid(*object_source_id.uuid());
         root_edit_context.new_object_with_id(
             root_object_id,
-            &ObjectName::new("root_object"),
+            &ObjectName::new(data_source_name),
             &ObjectLocation::null(),
             &root_path_node_schema_object,
         ).unwrap();
@@ -304,6 +305,10 @@ impl EditorModel {
         paths: &mut HashMap<ObjectId, ObjectPath>,
         path_node: ObjectId,
     ) -> ObjectPath {
+        if path_node.is_null() {
+            return ObjectPath::root();
+        }
+
         // If we already know the path for the tree node, just return it
         if let Some(parent_path) = paths.get(&path_node) {
             return parent_path.clone();
@@ -348,18 +353,26 @@ impl EditorModel {
     fn populate_paths(
         data_set: &DataSet,
         path_node_type: &SchemaNamedType,
+        path_node_root_type: &SchemaNamedType,
     ) -> HashMap<ObjectId, ObjectPath> {
         let mut path_stack = HashSet::default();
         let mut paths = HashMap::<ObjectId, ObjectPath>::default();
         for (object_id, info) in data_set.objects() {
             // For objects that *are* path nodes, use their ID directly. For objects that aren't
-            // path nodes, use the object ID in their location
-            let path_node_id = if info.schema().fingerprint() == path_node_type.fingerprint() {
+            // path nodes, use their location object ID
+            let path_node_id = if info.schema().fingerprint() == path_node_type.fingerprint() || info.schema().fingerprint() == path_node_root_type.fingerprint() {
                 *object_id
             } else {
-                info.object_location().path_node_id()
+                // We could process objects so that if for some reason the parent nodes don't exist, we can still
+                // generate path lookups for them. Instead we will consider a parent not being found as
+                // the object being at the root level. We could also have a "lost and found" UI.
+                //info.object_location().path_node_id()
+                continue;
             };
 
+            // We will walk up the location chain and cache the path_node_id/path pairs. (We resolve
+            // the parents recursively going all the way up to the root, and then appending the
+            // current node to it's parent's resolved path.)
             Self::do_populate_path(data_set, &mut path_stack, &mut paths, path_node_id);
         }
 
@@ -367,16 +380,27 @@ impl EditorModel {
     }
 
     pub fn refresh_tree_node_cache(&mut self) {
+        // Find the special path node schema types
         let path_node_type = self
             .schema_set
             .find_named_type(PathNode::schema_name())
             .unwrap();
+        let path_node_root_type = self
+            .schema_set
+            .find_named_type(PathNodeRoot::schema_name())
+            .unwrap();
+
+        // Build lookup of object ID to paths. This should only include objects of type
+        // PathNode or PathNodeRoot
         let root_edit_context = self.edit_contexts.get(self.root_edit_context_key).unwrap();
         let path_node_id_to_path =
-            Self::populate_paths(&root_edit_context.data_set, &path_node_type);
+            Self::populate_paths(&root_edit_context.data_set, &path_node_type, &path_node_root_type);
+
         self.path_node_id_to_path = path_node_id_to_path;
+
+        // Build a tree structure of all paths
         self.location_tree =
-            LocationTree::build(&root_edit_context.data_set, &self.path_node_id_to_path);
+            LocationTree::build(&self.data_sources, &root_edit_context.data_set, &self.path_node_id_to_path);
     }
 
     pub fn cached_location_tree(&self) -> &LocationTree {

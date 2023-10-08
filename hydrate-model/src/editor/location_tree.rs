@@ -1,4 +1,4 @@
-use crate::{DataSet, HashMap, ObjectId, ObjectLocation, ObjectPath, ObjectSourceId};
+use crate::{DataSet, DataSource, HashMap, ObjectId, ObjectLocation, ObjectPath, ObjectSourceId};
 use std::cmp::Ordering;
 use std::collections::BTreeMap;
 
@@ -51,20 +51,13 @@ pub struct LocationTreeNode {
 
 #[derive(Debug)]
 pub struct LocationTree {
-    pub root_node: LocationTreeNode,
+    pub root_nodes: BTreeMap<LocationTreeNodeKey, LocationTreeNode>,
 }
 
 impl Default for LocationTree {
     fn default() -> Self {
         LocationTree {
-            root_node: LocationTreeNode {
-                //source: ObjectSourceId::null(),
-                //path: ObjectPath::root(),
-                location: ObjectLocation::new(ObjectId::null()),
-                location_root: ObjectLocation::new(ObjectId::null()),
-                children: Default::default(),
-                has_changes: false,
-            },
+            root_nodes: Default::default(),
         }
     }
 }
@@ -76,83 +69,92 @@ impl LocationTree {
         paths: &HashMap<ObjectId, ObjectPath>,
         tree_node_id: ObjectId,
     ) {
-        // let mut path_object_stack = Vec::default();
+        let mut path_object_stack = vec![ObjectLocation::new(tree_node_id)];
+        path_object_stack.append(&mut data_set.object_location_chain(tree_node_id));
+
         //
-        // // Walk up the path, pushing the object id for each path component onto a stack
-        // let mut obj_iter = tree_node_id;
-        // while !obj_iter.is_null() && !path_object_stack.contains(&obj_iter) {
-        //     path_object_stack.push(obj_iter);
-        //     obj_iter = if let Some(location) = data_set.object_location(tree_node_id) {
-        //         location.path_node_id()
-        //     } else {
-        //         ObjectId::null()
-        //     };
-        // }
+        // Get the node key for the first element of the path. It should already exist because we create
+        // nodes for the data sources.
+        //
+        let root_location = path_object_stack.last().cloned().unwrap();//.unwrap_or(ObjectLocation::new(tree_node_id));
+        let root_location_path_node_id = root_location.path_node_id();
 
-        let mut path_object_stack = data_set.object_location_chain(tree_node_id);
+        let root_tree_node_key = LocationTreeNodeKey {
+            location: root_location.clone(),
+            name: data_set.object_name(root_location_path_node_id).as_string().cloned().unwrap_or_default(),
+        };
 
-        let mut tree_node = &mut self.root_node;
+        path_object_stack.pop();
 
-        while let Some(node_object) = path_object_stack.pop() {
-            // Unnamed objects can't be paths
-            //let node_location = ObjectLocation::new(node_object);
-            let location_chain = data_set.object_location_chain(node_object.path_node_id());
-            let location = location_chain.first().cloned().unwrap_or_else(ObjectLocation::null);
-            let location_root = location_chain.last().cloned().unwrap_or_else(ObjectLocation::null);
+        if let Some(mut tree_node) = self.root_nodes.get_mut(&root_tree_node_key) {
+            while let Some(node_object) = path_object_stack.pop() {
+                // Unnamed objects can't be paths
+                //let node_location = ObjectLocation::new(node_object);
+                let location_chain = data_set.object_location_chain(node_object.path_node_id());
+                let location = location_chain.first().cloned().unwrap_or_else(ObjectLocation::null);
+                //let location_root = location_chain.last().cloned().unwrap_or_else(ObjectLocation::null);
 
-            let node_name = data_set
-                .object_name(node_object.path_node_id())
-                .as_string()
-                .cloned()
-                .unwrap(); //.unwrap_or_else(|| node_object.as_uuid().to_string());
+                let node_name = data_set
+                    .object_name(node_object.path_node_id())
+                    .as_string()
+                    .cloned()
+                    .unwrap(); //.unwrap_or_else(|| node_object.as_uuid().to_string());
 
-            let node_key = LocationTreeNodeKey {
-                name: node_name,
-                location: location.clone(),
-            };
+                let node_key = LocationTreeNodeKey {
+                    name: node_name,
+                    location: node_object.clone(),
+                };
 
-            tree_node = tree_node.children.entry(node_key).or_insert_with(|| {
-                //let path = paths.get(&node_object).unwrap().clone();
-                //let node_location = ObjectLocation::new(source, location.parent_tree_node());
-                //let location = ObjectLocation::new(nod)
-                let has_changes = false; //unsaved_paths.contains(&node_location);
-                LocationTreeNode {
-                    //path,
-                    //source: node_location.source(),
-                    location,
-                    location_root,
-                    children: Default::default(),
-                    has_changes,
-                }
-            });
+                tree_node = tree_node.children.entry(node_key).or_insert_with(|| {
+                    //let path = paths.get(&node_object).unwrap().clone();
+                    //let node_location = ObjectLocation::new(source, location.parent_tree_node());
+                    //let location = ObjectLocation::new(nod)
+                    let has_changes = false; //unsaved_paths.contains(&node_location);
+                    LocationTreeNode {
+                        //path,
+                        //source: node_location.source(),
+                        location: node_object,
+                        location_root: root_location.clone(),
+                        children: Default::default(),
+                        has_changes,
+                    }
+                });
+            }
+        } else {
+            //TODO: Handle this
         }
     }
 
     pub fn build(
+        data_sources: &HashMap<ObjectSourceId, Box<dyn DataSource>>,
         data_set: &DataSet,
         paths: &HashMap<ObjectId, ObjectPath>,
     ) -> Self {
-        //TODO: Change this to use the root objects as nodes
+        // Create root nodes for all the data sources
+        let mut root_nodes: BTreeMap<LocationTreeNodeKey, LocationTreeNode> = Default::default();
+        for (source_id, data_source) in data_sources {
+            let location = ObjectLocation::new(ObjectId::from_uuid(*source_id.uuid()));
+            let name = data_set.object_name(location.path_node_id());
+            root_nodes.insert(
+                LocationTreeNodeKey {
+                    location: location.clone(),
+                    name: name.as_string().cloned().unwrap_or_default(),
+                },
+                LocationTreeNode {
+                    location,
+                    location_root: ObjectLocation::null(),
+                    children: Default::default(),
+                    has_changes: false,
+                }
+            );
+        }
 
-        let root_node = LocationTreeNode {
-            //path: ObjectPath::root(),
-            //source: ObjectSourceId::null(),
-            location: ObjectLocation::null(),
-            location_root: ObjectLocation::null(),
-            children: Default::default(),
-            has_changes: false,
-        };
+        let mut tree = LocationTree { root_nodes };
 
-        let mut tree = LocationTree { root_node };
-
+        // Iterate all known paths and ensure a node exists in the tree for each segment of each path
         for (tree_node_id, path) in paths {
-            let components = path.split_components();
-            if !components.is_empty() {
-                //println!("source {:?}", object_location.path());
-
-                // Skip the root component since it is our root node
-                tree.create_node(data_set, paths, *tree_node_id);
-            }
+            // Skip the root component since it is our root node
+            tree.create_node(data_set, paths, *tree_node_id);
         }
 
         tree

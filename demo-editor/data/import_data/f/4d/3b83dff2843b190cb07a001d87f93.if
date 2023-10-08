@@ -1,7 +1,0 @@
-{
-  "schema": "059854a1-ce0e-99a8-48d8-4b47104d0127",
-  "schema_name": "GlslSourceFileImportedData",
-  "properties": {
-    "code": "// @[export]\n// @[internal_buffer]\nlayout (set = 0, binding = 0) uniform PerViewData {\n    mat4 view;\n    mat4 view_proj;\n} per_view_data;"
-  }
-}

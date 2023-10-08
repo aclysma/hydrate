@@ -226,30 +226,14 @@ pub fn assets_tree_node(
     if let Some(token) = token {
         // Draw nodes with children first
         for (child_name, child) in &tree_node.children {
-            if !child.children.is_empty() {
-                assets_tree_node(
-                    ui,
-                    db_state,
-                    ui_state,
-                    child_name.name(),
-                    action_sender,
-                    child,
-                );
-            }
-        }
-
-        // Then draw nodes without children
-        for (child_name, child) in &tree_node.children {
-            if child.children.is_empty() {
-                assets_tree_node(
-                    ui,
-                    db_state,
-                    ui_state,
-                    child_name.name(),
-                    action_sender,
-                    child,
-                );
-            }
+            assets_tree_node(
+                ui,
+                db_state,
+                ui_state,
+                child_name.name(),
+                action_sender,
+                child,
+            );
         }
     }
 }
@@ -261,45 +245,15 @@ pub fn assets_tree(
     app_state.db_state.editor_model.refresh_tree_node_cache();
     let tree = app_state.db_state.editor_model.cached_location_tree();
     let action_sender = app_state.action_queue.sender();
-
-    let show_root = true;
-    if show_root {
+    for (child_name, child) in &tree.root_nodes {
         assets_tree_node(
             ui,
             &app_state.db_state,
             &mut app_state.ui_state,
-            "db:/",
+            child_name.name(),
             &action_sender,
-            &tree.root_node,
+            child,
         );
-    } else {
-        // Draw nodes with children first
-        for (child_name, child) in &tree.root_node.children {
-            if !child.children.is_empty() {
-                assets_tree_node(
-                    ui,
-                    &app_state.db_state,
-                    &mut app_state.ui_state,
-                    child_name.name(),
-                    &action_sender,
-                    child,
-                );
-            }
-        }
-
-        // Then draw nodes without children
-        for (child_name, child) in &tree.root_node.children {
-            if child.children.is_empty() {
-                assets_tree_node(
-                    ui,
-                    &app_state.db_state,
-                    &mut app_state.ui_state,
-                    child_name.name(),
-                    &action_sender,
-                    child,
-                );
-            }
-        }
     }
 }
 

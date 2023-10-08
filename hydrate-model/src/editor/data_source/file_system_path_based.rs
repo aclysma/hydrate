@@ -176,9 +176,9 @@ impl FileSystemPathBasedDataSource {
         all_paths
     }
 
-    fn ensure_object_location_for_file_exists(
+    fn ensure_object_location_exists(
         &self,
-        mut ancestor_path: PathBuf,
+        ancestor_path: &Path,
         path_to_path_node_id: &mut HashMap<PathBuf, ObjectId>,
         edit_context: &mut EditContext
     ) -> ObjectLocation {
@@ -188,15 +188,17 @@ impl FileSystemPathBasedDataSource {
         // to ensure the entire chain of path nodes exist, creating any that are missing.
         //
         let mut ancestor_paths = Vec::default();
+        let mut ancestor_path_iter = Some(ancestor_path);
         let mut found_root = false;
-        while let Some(path) = ancestor_path.parent() {
+        while let Some(path) = ancestor_path_iter {
             if path == self.file_system_root_path {
                 found_root = true;
                 break;
             }
 
             ancestor_paths.push(path.to_path_buf());
-            ancestor_path = path.to_path_buf();
+            //ancestor_path = path.to_path_buf();
+            ancestor_path_iter = path.parent();
         }
 
         // Make sure that when we crawled up the file tree, we terminated at the root of this data source
@@ -219,6 +221,7 @@ impl FileSystemPathBasedDataSource {
                     &ObjectLocation::new(previous_object_id),
                     self.path_node_schema.as_record().unwrap()
                 );
+                edit_context.clear_object_modified_flag(new_path_node_id);
 
                 // add this path node to our canonical list of paths/IDs
                 path_to_path_node_id.insert(ancestor_path.to_path_buf(), new_path_node_id);
@@ -234,10 +237,23 @@ impl DataSource for FileSystemPathBasedDataSource {
     fn reload_all(&mut self, edit_context: &mut EditContext) {
         let mut path_to_path_node_id = self.canonicalize_all_path_nodes(edit_context);
 
-        //TODO: First visit all folders to create path nodes
+        //
+        // First visit all folders to create path nodes
+        //
+        let walker = globwalk::GlobWalkerBuilder::from_patterns(&self.file_system_root_path, &["**"])
+            .file_type(globwalk::FileType::DIR)
+            .build()
+            .unwrap();
 
+        for file in walker {
+            if let Ok(file) = file {
+                self.ensure_object_location_exists(file.path(), &mut path_to_path_node_id, edit_context);
+            }
+        }
 
+        //
         // Standard load of asset files
+        //
         let walker = globwalk::GlobWalkerBuilder::from_patterns(&self.file_system_root_path, &["**.af"])
             .file_type(globwalk::FileType::FILE)
             .build()
@@ -248,22 +264,27 @@ impl DataSource for FileSystemPathBasedDataSource {
                 println!("asset file {:?}", file);
                 let contents = std::fs::read_to_string(file.path()).unwrap();
 
-                let object_location = self.ensure_object_location_for_file_exists(
-                    file.path().to_path_buf(),
+                let object_location = self.ensure_object_location_exists(
+                    file.path().parent().unwrap(),
                     &mut path_to_path_node_id,
                     edit_context
                 );
-                crate::json_storage::EditContextObjectJson::load_edit_context_object_from_string(
+                let object_id = crate::json_storage::EditContextObjectJson::load_edit_context_object_from_string(
                     edit_context,
                     None,
                     self.object_source_id,
-                    Some(object_location),
+                    Some(object_location.clone()),
                     &contents
                 );
+
+                edit_context.clear_object_modified_flag(object_id);
+                edit_context.clear_location_modified_flag(&object_location);
             }
         }
 
+        //
         // Create assets automatically for loose assets
+        //
     }
 
     fn save_all_modified(&mut self, edit_context: &mut EditContext) {
@@ -366,8 +387,8 @@ impl DataSource for FileSystemPathBasedDataSource {
             let state_on_disk = self.all_object_ids_on_disk_with_on_disk_state.get(&modified_object).unwrap();
 
             if let Ok(contents) = std::fs::read_to_string(&state_on_disk.full_path) {
-                let object_location = self.ensure_object_location_for_file_exists(
-                    state_on_disk.full_path.clone(),
+                let object_location = self.ensure_object_location_exists(
+                    state_on_disk.full_path.parent().unwrap(),
                     &mut path_to_path_node_id,
                     edit_context
                 );

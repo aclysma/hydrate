@@ -43,6 +43,8 @@ fn main() {
         .register_plugin::<GltfAssetPlugin>(&mut linker)
         .register_plugin::<SimpleDataAssetPlugin>(&mut linker);
 
+    //TODO: Take a config file
+    //TODO: Support N sources using path nodes
     let db_state = hydrate::editor::DbState::load_or_init_empty(
         linker,
         &asset_data_source_path(),

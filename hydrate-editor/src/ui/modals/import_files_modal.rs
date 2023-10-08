@@ -107,7 +107,7 @@ pub fn path_tree(
     db_state.editor_model.refresh_tree_node_cache();
     let tree = db_state.editor_model.cached_location_tree();
 
-    let show_root = true;
+    let show_root = false;
     if show_root {
         path_tree_node(
             ui,

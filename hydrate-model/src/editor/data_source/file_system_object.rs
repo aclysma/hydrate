@@ -3,6 +3,7 @@ use crate::uuid_path::{path_to_uuid, uuid_to_path};
 use crate::{DataSource, HashSet, ObjectId, ObjectSourceId};
 use std::path::{Path, PathBuf};
 use uuid::Uuid;
+use hydrate_data::ObjectLocation;
 
 fn load_asset_files(
     edit_context: &mut EditContext,
@@ -82,12 +83,14 @@ impl DataSource for FileSystemObjectDataSource {
 
         for object_id in edit_context.modified_objects() {
             if let Some(object_info) = edit_context.objects().get(object_id) {
-                if object_info.object_location().source() == self.object_source_id {
-                    //let object_path = object_info.object_location.path();
-                    //let parent_dir = self.path_to_dir_uuid.get(object_path).copied();
-
+                if self.is_object_owned_by_this_data_source(edit_context, *object_id) {
                     //TODO: create dir objects?
                     //let parent_dir = self.get_or_create_dir(object_path);
+
+                    if object_id.as_uuid() == *self.object_source_id.uuid() {
+                        // never save the root object
+                        continue;
+                    }
 
                     let parent_dir = object_info.object_location().path_node_id().as_uuid();
                     let parent_dir = if parent_dir == Uuid::nil() {
@@ -121,7 +124,7 @@ impl DataSource for FileSystemObjectDataSource {
         // Find all existing modified objects
         for modified_object in edit_context.modified_objects() {
             if let Some(object_info) = edit_context.objects().get(modified_object) {
-                if object_info.object_location().source() == self.object_source_id {
+                if self.is_object_owned_by_this_data_source(edit_context, *modified_object) {
                     existing_modified_objects.push(*modified_object);
                 }
             }
@@ -149,6 +152,12 @@ impl DataSource for FileSystemObjectDataSource {
 }
 
 impl FileSystemObjectDataSource {
+    fn is_object_owned_by_this_data_source(&self, edit_context: &EditContext, object_id: ObjectId) -> bool {
+        //TODO: is_null means we default to using this source
+        let root_location = edit_context.object_location_chain(object_id).last().cloned().unwrap_or_else(ObjectLocation::null);
+        root_location.path_node_id().as_uuid() == *self.object_source_id.uuid() || root_location.is_null()
+    }
+
     pub fn object_source_id(&self) -> ObjectSourceId {
         self.object_source_id
     }
@@ -156,8 +165,8 @@ impl FileSystemObjectDataSource {
     pub fn new<RootPathT: Into<PathBuf>>(
         file_system_root_path: RootPathT,
         edit_context: &mut EditContext,
+        object_source_id: ObjectSourceId,
     ) -> Self {
-        let object_source_id = ObjectSourceId::new();
         let file_system_root_path = file_system_root_path.into();
         log::info!(
             "Creating file system object data source {:?}",

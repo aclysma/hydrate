@@ -669,7 +669,9 @@ pub fn assets_window_right(
                 .root_edit_context()
                 .objects()
             {
-                filtered_objects.push((*k, v.object_location().clone()));
+                if !app_state.db_state.editor_model.is_a_root_object(*k) {
+                    filtered_objects.push((*k, v.object_location().clone()));
+                }
             }
 
             for i in 0..filtered_objects.len() {

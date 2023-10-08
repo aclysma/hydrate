@@ -1,7 +1,4 @@
-use hydrate_model::{
-    DataSet, EditorModel, ObjectId, ObjectLocation, ObjectName, ObjectPath, PathNode,
-    SchemaCacheSingleFile, SchemaLinker, SchemaSet,
-};
+use hydrate_model::{DataSet, EditorModel, ObjectId, ObjectLocation, ObjectName, ObjectPath, PathNode, PathNodeRoot, SchemaCacheSingleFile, SchemaLinker, SchemaSet};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
@@ -60,6 +57,7 @@ impl DbState {
         let mut schema_set = SchemaSet::default();
 
         PathNode::register_schema(&mut linker);
+        PathNodeRoot::register_schema(&mut linker);
         linker.add_source_dir(schema_def_path, "**.json").unwrap();
         schema_set.add_linked_types(linker).unwrap();
 
@@ -100,19 +98,27 @@ impl DbState {
             .unwrap()
             .clone();
 
+        let root_object_id = ObjectId::from_uuid(*object_source_id.uuid());
+        // db.new_object_with_id(
+        //     root_object_id,
+        //     ObjectName::new("root_object"),
+        //     ObjectLocation::null(),
+        //     &path_node_schema_object,
+        // ).unwrap();
+
         let subdir_obj = db.new_object(
             ObjectName::new("subdir"),
-            ObjectLocation::new(object_source_id, ObjectId::null()),
+            ObjectLocation::new(root_object_id),
             &path_node_schema_object,
         );
 
         let subdir2_obj = db.new_object(
             ObjectName::new("subdir2"),
-            ObjectLocation::new(object_source_id, subdir_obj),
+            ObjectLocation::new(subdir_obj),
             &path_node_schema_object,
         );
 
-        let object_location = ObjectLocation::new(object_source_id, subdir2_obj);
+        let object_location = ObjectLocation::new(subdir2_obj);
 
         let prototype_obj = db.new_object(
             ObjectName::new("object_a"),

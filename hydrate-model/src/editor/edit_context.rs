@@ -316,6 +316,19 @@ impl EditContext {
     //     object_id
     // }
 
+    pub fn new_object_with_id(
+        &mut self,
+        object_id: ObjectId,
+        object_name: &ObjectName,
+        object_location: &ObjectLocation,
+        schema: &SchemaRecord,
+    ) -> DataSetResult<()> {
+        self.data_set
+            .new_object_with_id(object_id, object_name.clone(), object_location.clone(), schema)?;
+        self.track_new_object(object_id, object_location);
+        Ok(())
+    }
+
     pub fn new_object(
         &mut self,
         object_name: &ObjectName,
@@ -435,6 +448,13 @@ impl EditContext {
         object_id: ObjectId,
     ) -> Option<&ObjectLocation> {
         self.data_set.object_location(object_id)
+    }
+
+    pub fn object_location_chain(
+        &self,
+        object_id: ObjectId,
+    ) -> Vec<ObjectLocation> {
+        self.data_set.object_location_chain(object_id)
     }
 
     pub fn import_info(

@@ -64,6 +64,10 @@ impl ObjectId {
         ObjectId(0)
     }
 
+    pub fn from_uuid(uuid: Uuid) -> Self {
+        ObjectId(uuid.as_u128())
+    }
+
     pub fn as_uuid(&self) -> Uuid {
         Uuid::from_u128(self.0)
     }

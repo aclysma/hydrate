@@ -1,12 +1,10 @@
 use crate::edit_context::EditContext;
 use crate::editor::undo::UndoStack;
-use crate::{
-    DataSet, DataSource, FileSystemObjectDataSource, HashMap, HashSet, LocationTree, ObjectId,
-    ObjectPath, ObjectSourceId, PathNode, SchemaNamedType, SchemaSet,
-};
+use crate::{DataSet, DataSource, FileSystemObjectDataSource, HashMap, HashSet, LocationTree, ObjectId, ObjectPath, ObjectSourceId, PathNode, PathNodeRoot, SchemaNamedType, SchemaSet};
 use slotmap::DenseSlotMap;
 use std::path::PathBuf;
 use std::sync::Arc;
+use hydrate_data::{ObjectLocation, ObjectName};
 slotmap::new_key_type! { pub struct EditContextKey; }
 
 pub struct EditorModel {
@@ -119,15 +117,50 @@ impl EditorModel {
         self.data_sources.get(&object_source_id).map(|x| &**x)
     }
 
+    pub fn is_a_root_object(
+        &self,
+        object_id: ObjectId
+    ) -> bool {
+        for source in self.data_sources.keys() {
+            if *source.uuid() == object_id.as_uuid() {
+                return true;
+            }
+        }
+
+        false
+    }
+
     pub fn add_file_system_object_source<RootPathT: Into<PathBuf>>(
         &mut self,
         root_path: RootPathT,
     ) -> ObjectSourceId {
+        let root_path_node_schema_object = self
+            .schema_set
+            .find_named_type(PathNodeRoot::schema_name())
+            .unwrap()
+            .as_record()
+            .unwrap()
+            .clone();
+
         let root_edit_context = self.root_edit_context_mut();
         let root_path = root_path.into();
 
         root_edit_context.commit_pending_undo_context();
-        let mut fs = FileSystemObjectDataSource::new(root_path.clone(), root_edit_context);
+
+        let object_source_id = ObjectSourceId::new();
+
+        let root_object_id = ObjectId::from_uuid(*object_source_id.uuid());
+        root_edit_context.new_object_with_id(
+            root_object_id,
+            &ObjectName::new("root_object"),
+            &ObjectLocation::null(),
+            &root_path_node_schema_object,
+        ).unwrap();
+        // Clear change tracking so that the new root object we just added doesn't appear as a unsaved change.
+        // (It should never serialize)
+        root_edit_context.clear_change_tracking();
+
+        let mut fs = FileSystemObjectDataSource::new(root_path.clone(), root_edit_context, object_source_id);
         fs.reload_all(root_edit_context);
         let object_source_id = fs.object_source_id();
         self.data_sources.insert(object_source_id, Box::new(fs));

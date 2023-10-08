@@ -14,7 +14,8 @@ pub enum DataSetError {
     ValueDoesNotMatchSchema,
     PathParentIsNull,
     PathDynamicArrayEntryDoesNotExist,
-    UnexpectedEnumSymbol
+    UnexpectedEnumSymbol,
+    DuplicateObjectId
 }
 
 pub type DataSetResult<T> = Result<T, DataSetError>;
@@ -57,36 +58,32 @@ impl ObjectName {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Ord, PartialOrd)]
 pub struct ObjectLocation {
-    source: ObjectSourceId,
     path_node_id: ObjectId,
 }
 
 impl ObjectLocation {
     pub fn new(
-        source: ObjectSourceId,
         path_node_id: ObjectId,
     ) -> Self {
         ObjectLocation {
-            source,
             path_node_id,
         }
     }
 
     pub fn null() -> ObjectLocation {
         ObjectLocation {
-            source: ObjectSourceId::null(),
             path_node_id: ObjectId::null(),
         }
     }
 
-    pub fn source(&self) -> ObjectSourceId {
-        self.source
-    }
-
     pub fn path_node_id(&self) -> ObjectId {
         self.path_node_id
+    }
+
+    pub fn is_null(&self) -> bool {
+        self.path_node_id.is_null()
     }
 }
 
@@ -254,15 +251,29 @@ impl DataSet {
         &mut self.objects
     }
 
+    // fn insert_object(
+    //     &mut self,
+    //     obj_info: DataObjectInfo,
+    // ) -> ObjectId {
+    //     let id = ObjectId(uuid::Uuid::new_v4().as_u128());
+    //     self.insert_object_with_id(id, obj_info).unwrap();
+    //
+    //     id
+    // }
+
     fn insert_object(
         &mut self,
+        id: ObjectId,
         obj_info: DataObjectInfo,
-    ) -> ObjectId {
-        let id = ObjectId(uuid::Uuid::new_v4().as_u128());
+    ) -> DataSetResult<()> {
+        if self.objects.contains_key(&id) {
+            return Err(DataSetError::DuplicateObjectId);
+        }
+
         let old = self.objects.insert(id, obj_info);
         assert!(old.is_none());
 
-        id
+        Ok(())
     }
 
     pub fn restore_object(
@@ -298,12 +309,13 @@ impl DataSet {
         self.objects.insert(object_id, obj);
     }
 
-    pub fn new_object(
+    pub fn new_object_with_id(
         &mut self,
+        object_id: ObjectId,
         object_name: ObjectName,
         object_location: ObjectLocation,
         schema: &SchemaRecord,
-    ) -> ObjectId {
+    ) -> DataSetResult<()> {
         let obj = DataObjectInfo {
             schema: schema.clone(),
             object_name,
@@ -317,7 +329,18 @@ impl DataSet {
             dynamic_array_entries: Default::default(),
         };
 
-        self.insert_object(obj)
+        self.insert_object(object_id, obj)
+    }
+
+    pub fn new_object(
+        &mut self,
+        object_name: ObjectName,
+        object_location: ObjectLocation,
+        schema: &SchemaRecord,
+    ) -> ObjectId {
+        let id = ObjectId(uuid::Uuid::new_v4().as_u128());
+        self.new_object_with_id(id, object_name, object_location, schema).unwrap();
+        id
     }
 
     pub fn new_object_from_prototype(
@@ -326,6 +349,7 @@ impl DataSet {
         object_location: ObjectLocation,
         prototype: ObjectId,
     ) -> ObjectId {
+        let id = ObjectId(uuid::Uuid::new_v4().as_u128());
         let prototype_info = self.objects.get(&prototype).unwrap();
         let obj = DataObjectInfo {
             schema: prototype_info.schema.clone(),
@@ -340,7 +364,8 @@ impl DataSet {
             dynamic_array_entries: Default::default(),
         };
 
-        self.insert_object(obj)
+        self.insert_object(id, obj).unwrap();
+        id
     }
 
     pub fn delete_object(
@@ -385,11 +410,45 @@ impl DataSet {
         &object.object_name
     }
 
+    // Returns the object's parent
     pub fn object_location(
         &self,
         object_id: ObjectId,
     ) -> Option<&ObjectLocation> {
         self.objects.get(&object_id).map(|x| &x.object_location)
+    }
+
+    // Returns the object locations from the parent all the way up to the root parent. If a cycle is
+    // detected or any elements in the chain are not found, an empty list is returned.
+    pub fn object_location_chain(
+        &self,
+        object_id: ObjectId,
+    ) -> Vec<ObjectLocation> {
+        let mut object_location_chain = Vec::default();
+
+        // If this object's location is none, return an empty list
+        let Some(mut obj_iter) = self.object_location(object_id).cloned() else {
+            return object_location_chain;
+        };
+
+        // Iterate up the chain
+        while !obj_iter.path_node_id.is_null() {
+            if object_location_chain.contains(&obj_iter) {
+                // Detected a cycle, return an empty list
+                return Vec::default();
+            }
+
+            object_location_chain.push(obj_iter.clone());
+            obj_iter = if let Some(location) = self.object_location(obj_iter.path_node_id).cloned() {
+                // May be null, in which case we will terminate and return this list so far not including the null
+                location
+            } else {
+                // The parent was specified but not found, default to empty list if the chain is in a bad state
+                return Vec::default();
+            };
+        }
+
+        object_location_chain
     }
 
     pub fn import_info(

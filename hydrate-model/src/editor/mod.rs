@@ -15,3 +15,4 @@ pub use data_source::*;
 
 mod path_node;
 pub use path_node::PathNode;
+pub use path_node::PathNodeRoot;

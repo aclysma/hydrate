@@ -301,8 +301,9 @@ impl EditContextObjectJson {
         json: &str,
     ) {
         let stored_object: EditContextObjectJson = serde_json::from_str(json).unwrap();
-        let path_node_id = ObjectId(stored_object.parent_dir.unwrap_or(Uuid::nil()).as_u128());
-        let object_location = ObjectLocation::new(object_source_id, path_node_id);
+        // If no parent is specified, default it to the root node for this data source
+        let path_node_id = ObjectId(stored_object.parent_dir.unwrap_or(*object_source_id.uuid()).as_u128());
+        let object_location = ObjectLocation::new(path_node_id);
         let object_name = if stored_object.name.is_empty() {
             ObjectName::empty()
         } else {

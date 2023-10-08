@@ -23,8 +23,9 @@ fn load_asset_files(
             let contents = std::fs::read_to_string(file.path()).unwrap();
             crate::json_storage::EditContextObjectJson::load_edit_context_object_from_string(
                 edit_context,
-                file_uuid,
+                Some(file_uuid),
                 object_source_id,
+                None,
                 &contents,
             );
             let object_id = ObjectId(file_uuid.as_u128());
@@ -41,7 +42,7 @@ fn load_asset_files(
     }
 }
 
-pub struct FileSystemObjectDataSource {
+pub struct FileSystemIdBasedDataSource {
     object_source_id: ObjectSourceId,
     file_system_root_path: PathBuf,
 
@@ -50,7 +51,7 @@ pub struct FileSystemObjectDataSource {
     all_object_ids_on_disk: HashSet<ObjectId>,
 }
 
-impl FileSystemObjectDataSource {
+impl FileSystemIdBasedDataSource {
     fn is_object_owned_by_this_data_source(&self, edit_context: &EditContext, object_id: ObjectId) -> bool {
         //TODO: is_null means we default to using this source
         let root_location = edit_context.object_location_chain(object_id).last().cloned().unwrap_or_else(ObjectLocation::null);
@@ -72,7 +73,7 @@ impl FileSystemObjectDataSource {
             file_system_root_path,
         );
 
-        FileSystemObjectDataSource {
+        FileSystemIdBasedDataSource {
             object_source_id,
             file_system_root_path: file_system_root_path.into(),
             all_object_ids_on_disk: Default::default(),
@@ -80,7 +81,7 @@ impl FileSystemObjectDataSource {
     }
 }
 
-impl DataSource for FileSystemObjectDataSource {
+impl DataSource for FileSystemIdBasedDataSource {
     fn reload_all(
         &mut self,
         edit_context: &mut EditContext,
@@ -122,7 +123,12 @@ impl DataSource for FileSystemObjectDataSource {
                         Some(parent_dir)
                     };
 
-                    let data = crate::json_storage::EditContextObjectJson::save_edit_context_object_to_string(edit_context, *object_id, parent_dir);
+                    let data = crate::json_storage::EditContextObjectJson::save_edit_context_object_to_string(
+                        edit_context,
+                        *object_id,
+                        false, //don't include ID because we assume it by file name
+                        parent_dir
+                    );
                     let file_path =
                         uuid_to_path(&self.file_system_root_path, object_id.as_uuid(), "af");
                     self.all_object_ids_on_disk.insert(*object_id);
@@ -145,6 +151,7 @@ impl DataSource for FileSystemObjectDataSource {
         let mut saved_modified_objects: Vec<_> = Default::default();
 
         // Find all existing modified objects
+        // I think this includes added, deleted, and edited objects?
         for modified_object in edit_context.modified_objects() {
             if let Some(object_info) = edit_context.objects().get(modified_object) {
                 if self.is_object_owned_by_this_data_source(edit_context, *modified_object) {
@@ -168,7 +175,13 @@ impl DataSource for FileSystemObjectDataSource {
                 uuid_to_path(&self.file_system_root_path, modified_object.as_uuid(), "af");
 
             if let Ok(contents) = std::fs::read_to_string(file_path) {
-                crate::json_storage::EditContextObjectJson::load_edit_context_object_from_string(edit_context, modified_object.as_uuid(), self.object_source_id, &contents);
+                crate::json_storage::EditContextObjectJson::load_edit_context_object_from_string(
+                    edit_context,
+                    Some(modified_object.as_uuid()),
+                    self.object_source_id,
+                    None,
+                    &contents
+                );
             }
         }
     }

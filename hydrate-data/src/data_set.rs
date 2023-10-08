@@ -49,6 +49,10 @@ impl ObjectName {
         ObjectName(String::default())
     }
 
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
+
     pub fn as_string(&self) -> Option<&String> {
         if self.0.is_empty() {
             None

@@ -1,10 +1,11 @@
 use crate::edit_context::EditContext;
 use crate::editor::undo::UndoStack;
-use crate::{DataSet, DataSource, FileSystemObjectDataSource, HashMap, HashSet, LocationTree, ObjectId, ObjectPath, ObjectSourceId, PathNode, PathNodeRoot, SchemaNamedType, SchemaSet};
+use crate::{DataSet, DataSource, FileSystemIdBasedDataSource, FileSystemPathBasedDataSource, HashMap, HashSet, LocationTree, ObjectId, ObjectPath, ObjectSourceId, PathNode, PathNodeRoot, SchemaNamedType, SchemaSet};
 use slotmap::DenseSlotMap;
 use std::path::PathBuf;
 use std::sync::Arc;
 use hydrate_data::{ObjectLocation, ObjectName};
+use hydrate_schema::SchemaRecord;
 slotmap::new_key_type! { pub struct EditContextKey; }
 
 pub struct EditorModel {
@@ -18,6 +19,9 @@ pub struct EditorModel {
     path_node_id_to_path: HashMap<ObjectId, ObjectPath>,
     //path_to_object_id: HashMap<ObjectPath, ObjectId>,
     location_tree: LocationTree,
+
+    path_node_schema: SchemaNamedType,
+    path_node_root_schema: SchemaNamedType,
 }
 
 impl EditorModel {
@@ -28,6 +32,16 @@ impl EditorModel {
         let root_edit_context_key = edit_contexts
             .insert_with_key(|key| EditContext::new(key, schema_set.clone(), &undo_stack));
 
+        let path_node_root_schema = schema_set
+            .find_named_type(PathNodeRoot::schema_name())
+            .unwrap()
+            .clone();
+
+        let path_node_schema = schema_set
+            .find_named_type(PathNode::schema_name())
+            .unwrap()
+            .clone();
+
         EditorModel {
             schema_set,
             undo_stack,
@@ -36,6 +50,8 @@ impl EditorModel {
             data_sources: Default::default(),
             location_tree: Default::default(),
             path_node_id_to_path: Default::default(),
+            path_node_root_schema,
+            path_node_schema,
         }
     }
 
@@ -92,21 +108,22 @@ impl EditorModel {
     ) -> String {
         let root_data_set = &self.root_edit_context().data_set;
         let location = root_data_set.object_location(object_id);
+
+        // Look up the location, if we don't find it just assume the object is at the root. This
+        // allows some degree of robustness even when data is in a bad state (like cyclical references)
         let path = location
             .map(|x| self.path_node_id_to_path(x.path_node_id()))
-            .flatten();
+            .flatten()
+            .cloned()
+            .unwrap_or_else(ObjectPath::root);
 
-        if let Some(path) = path {
-            let name = root_data_set.object_name(object_id);
-            if let Some(name) = name.as_string() {
-                path.join(name).as_str().to_string()
-            } else {
-                path.join(&format!("{}", object_id.as_uuid()))
-                    .as_str()
-                    .to_string()
-            }
+        let name = root_data_set.object_name(object_id);
+        if let Some(name) = name.as_string() {
+            path.join(name).as_str().to_string()
         } else {
-            object_id.as_uuid().to_string()
+            path.join(&format!("{}", object_id.as_uuid()))
+                .as_str()
+                .to_string()
         }
     }
 
@@ -130,40 +147,79 @@ impl EditorModel {
         false
     }
 
-    pub fn add_file_system_object_source<RootPathT: Into<PathBuf>>(
+    pub fn add_file_system_id_based_data_source<RootPathT: Into<PathBuf>>(
         &mut self,
         data_source_name: &str,
-        root_path: RootPathT,
+        file_system_root_path: RootPathT,
     ) -> ObjectSourceId {
-        let root_path_node_schema_object = self
-            .schema_set
-            .find_named_type(PathNodeRoot::schema_name())
-            .unwrap()
-            .as_record()
-            .unwrap()
-            .clone();
-
+        let path_node_root_schema = self.path_node_root_schema.as_record().unwrap().clone();
         let root_edit_context = self.root_edit_context_mut();
-        let root_path = root_path.into();
+        let file_system_root_path = file_system_root_path.into();
 
+        // Commit any pending changes so we have a clean change tracking state
         root_edit_context.commit_pending_undo_context();
 
+        //
+        // Create the PathNodeRoot object that acts as the root location for all objects in this DS
+        //
         let object_source_id = ObjectSourceId::new();
-
         let root_object_id = ObjectId::from_uuid(*object_source_id.uuid());
         root_edit_context.new_object_with_id(
             root_object_id,
             &ObjectName::new(data_source_name),
             &ObjectLocation::null(),
-            &root_path_node_schema_object,
+            &path_node_root_schema,
         ).unwrap();
+
         // Clear change tracking so that the new root object we just added doesn't appear as a unsaved change.
         // (It should never serialize)
         root_edit_context.clear_change_tracking();
 
-        let mut fs = FileSystemObjectDataSource::new(root_path.clone(), root_edit_context, object_source_id);
+        //
+        // Create the data source and force full reload of it
+        //
+        let mut fs = FileSystemIdBasedDataSource::new(file_system_root_path.clone(), root_edit_context, object_source_id);
         fs.reload_all(root_edit_context);
-        let object_source_id = fs.object_source_id();
+
+        self.data_sources.insert(object_source_id, Box::new(fs));
+
+        object_source_id
+    }
+
+    pub fn add_file_system_path_based_data_source<RootPathT: Into<PathBuf>>(
+        &mut self,
+        data_source_name: &str,
+        file_system_root_path: RootPathT,
+    ) -> ObjectSourceId {
+        let path_node_root_schema = self.path_node_root_schema.as_record().unwrap().clone();
+        let root_edit_context = self.root_edit_context_mut();
+        let file_system_root_path = file_system_root_path.into();
+
+        // Commit any pending changes so we have a clean change tracking state
+        root_edit_context.commit_pending_undo_context();
+
+        //
+        // Create the PathNodeRoot object that acts as the root location for all objects in this DS
+        //
+        let object_source_id = ObjectSourceId::new();
+        let root_object_id = ObjectId::from_uuid(*object_source_id.uuid());
+        root_edit_context.new_object_with_id(
+            root_object_id,
+            &ObjectName::new(data_source_name),
+            &ObjectLocation::null(),
+            &path_node_root_schema,
+        ).unwrap();
+
+        // Clear change tracking so that the new root object we just added doesn't appear as a unsaved change.
+        // (It should never serialize)
+        root_edit_context.clear_change_tracking();
+
+        //
+        // Create the data source and force full reload of it
+        //
+        let mut fs = FileSystemPathBasedDataSource::new(file_system_root_path.clone(), root_edit_context, object_source_id);
+        fs.reload_all(root_edit_context);
+
         self.data_sources.insert(object_source_id, Box::new(fs));
 
         object_source_id
@@ -380,21 +436,11 @@ impl EditorModel {
     }
 
     pub fn refresh_tree_node_cache(&mut self) {
-        // Find the special path node schema types
-        let path_node_type = self
-            .schema_set
-            .find_named_type(PathNode::schema_name())
-            .unwrap();
-        let path_node_root_type = self
-            .schema_set
-            .find_named_type(PathNodeRoot::schema_name())
-            .unwrap();
-
         // Build lookup of object ID to paths. This should only include objects of type
         // PathNode or PathNodeRoot
         let root_edit_context = self.edit_contexts.get(self.root_edit_context_key).unwrap();
         let path_node_id_to_path =
-            Self::populate_paths(&root_edit_context.data_set, &path_node_type, &path_node_root_type);
+            Self::populate_paths(&root_edit_context.data_set, &self.path_node_schema, &self.path_node_root_schema);
 
         self.path_node_id_to_path = path_node_id_to_path;
 

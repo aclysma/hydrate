@@ -1,7 +1,11 @@
-mod file_system_object;
+mod file_system_id_based;
+pub use file_system_id_based::*;
+
 use crate::edit_context::EditContext;
 use crate::{EditorModel, ObjectId};
-pub use file_system_object::*;
+
+mod file_system_path_based;
+pub use file_system_path_based::*;
 
 enum FileOperation {
     // add
@@ -29,34 +33,4 @@ pub trait DataSource {
     //
     //
     // fn save_objects(objects: &[ObjectId]);
-}
-
-struct DummyDataSource {}
-
-impl DummyDataSource {
-    fn new() {
-        // Just create it, no file access here
-    }
-
-    fn load_all(editor_model: &mut EditorModel) {}
-
-    fn load_some(
-        editor_model: &mut EditorModel,
-        objects: &[ObjectId],
-    ) {
-    }
-
-    fn save_all(editor_model: &mut EditorModel) {}
-
-    fn save_some(
-        editor_model: &mut EditorModel,
-        objects: &[ObjectId],
-    ) {
-    }
-
-    // fn pending_vcs_locks() {
-    //
-    // }
-
-    fn pending_vcs_operations() {}
 }

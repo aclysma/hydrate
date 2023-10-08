@@ -1,5 +1,5 @@
 use hydrate_model::{
-    DataSet, DataSource, EditorModel, FileSystemObjectDataSource, HashMap, HashMapKeys, ImportInfo,
+    DataSet, DataSource, EditorModel, HashMap, HashMapKeys, ImportInfo,
     ImporterId, ObjectId, ObjectLocation, ObjectName, ObjectSourceId, Schema, SchemaFingerprint,
     SchemaLinker, SchemaNamedType, SchemaRecord, SchemaSet, SingleObject, Value,
 };

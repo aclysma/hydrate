@@ -15,8 +15,12 @@ fn schema_cache_file_path() -> PathBuf {
     ))
 }
 
-fn asset_data_source_path() -> PathBuf {
-    PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/data/assets"))
+fn asset_id_based_data_source_path() -> PathBuf {
+    PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/data/assets_id_based"))
+}
+
+fn asset_path_based_data_source_path() -> PathBuf {
+    PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/data/assets_path_based"))
 }
 
 pub fn import_data_source_path() -> PathBuf {
@@ -47,7 +51,8 @@ fn main() {
     //TODO: Support N sources using path nodes
     let db_state = hydrate::editor::DbState::load_or_init_empty(
         linker,
-        &asset_data_source_path(),
+        &asset_id_based_data_source_path(),
+        &asset_path_based_data_source_path(),
         &schema_def_path(),
         &schema_cache_file_path(),
     );

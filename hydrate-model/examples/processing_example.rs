@@ -312,7 +312,7 @@ fn main() {
         "/examples/data/processing_example/asset_data"
     ));
     let source_id =
-        editor_model.add_file_system_object_source(data_source_path, ObjectPath::root());
+        editor_model.add_file_system_id_based_data_source(data_source_path, ObjectPath::root());
 
     let image_asset_schema_record = schema_set
         .find_named_type("ImageAsset")

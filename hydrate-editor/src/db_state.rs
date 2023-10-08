@@ -70,7 +70,8 @@ impl DbState {
 
     fn init_empty_model(
         schema_set: Arc<SchemaSet>,
-        asset_data_path: &Path,
+        asset_id_based_data_path: &Path,
+        asset_path_based_data_path: &Path,
     ) -> EditorModel {
         //let mut undo_stack = UndoStack::default();
         //let mut db = hydrate_model::Database::new(Arc::new(schema_set), &undo_stack);
@@ -78,7 +79,8 @@ impl DbState {
 
         let mut edit_model = EditorModel::new(schema_set.clone());
 
-        let object_source_id = edit_model.add_file_system_object_source("id_file_system", asset_data_path);
+        let object_source_id = edit_model.add_file_system_id_based_data_source("id_file_system", asset_id_based_data_path);
+        let object_source_path = edit_model.add_file_system_path_based_data_source("path_file_system", asset_path_based_data_path);
 
         // let file_system = edit_model
         //     .file_system_treedata_source(tree_source_id)
@@ -202,10 +204,12 @@ impl DbState {
 
     fn try_load(
         schema_set: Arc<SchemaSet>,
-        asset_data_path: &Path,
+        asset_id_based_data_path: &Path,
+        asset_path_based_data_path: &Path,
     ) -> Option<EditorModel> {
         let mut editor_model = EditorModel::new(schema_set);
-        editor_model.add_file_system_object_source("id_file_system", asset_data_path);
+        editor_model.add_file_system_id_based_data_source("id_file_system", asset_id_based_data_path);
+        editor_model.add_file_system_path_based_data_source("path_file_system", asset_path_based_data_path);
         if editor_model.root_edit_context().all_objects().len() == 0 {
             None
         } else {
@@ -215,7 +219,8 @@ impl DbState {
 
     pub fn load_or_init_empty(
         linker: SchemaLinker,
-        asset_data_path: &Path,
+        asset_id_based_data_path: &Path,
+        asset_path_based_data_path: &Path,
         schema_def_path: &Path,
         schema_cache_file_path: &Path,
     ) -> Self {
@@ -224,11 +229,11 @@ impl DbState {
             schema_def_path,
             schema_cache_file_path,
         ));
-        let editor_model = if let Some(loaded) = Self::try_load(schema_set.clone(), asset_data_path)
+        let editor_model = if let Some(loaded) = Self::try_load(schema_set.clone(), asset_id_based_data_path, asset_path_based_data_path)
         {
             loaded
         } else {
-            Self::init_empty_model(schema_set, asset_data_path)
+            Self::init_empty_model(schema_set, asset_id_based_data_path, asset_path_based_data_path)
         };
 
         DbState {

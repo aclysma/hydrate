@@ -282,6 +282,7 @@ impl EditContextObjectBuildInfoJson {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct EditContextObjectJson {
+    id: Option<Uuid>,
     name: String,
     parent_dir: Option<Uuid>,
     schema: Uuid,
@@ -296,21 +297,38 @@ pub struct EditContextObjectJson {
 impl EditContextObjectJson {
     pub fn load_edit_context_object_from_string(
         edit_context: &mut EditContext,
-        object_id: Uuid,
+        override_object_id: Option<Uuid>,
+        // If the file doesn't claim a location and we don't override it, we will default to this
         object_source_id: ObjectSourceId,
+        // If set, we use this instead of what the file says to use
+        override_object_location: Option<ObjectLocation>,
         json: &str,
-    ) {
+    ) -> ObjectId {
         let stored_object: EditContextObjectJson = serde_json::from_str(json).unwrap();
-        // If no parent is specified, default it to the root node for this data source
-        let path_node_id = ObjectId(stored_object.parent_dir.unwrap_or(*object_source_id.uuid()).as_u128());
-        let object_location = ObjectLocation::new(path_node_id);
+
+        // Use the provided override, or what's in the file, or worst case default to object_source_id
+        let object_location = if let Some(override_object_location) = override_object_location {
+            override_object_location
+        } else {
+            // If no parent is specified, default it to the root node for this data source
+            let path_node_id = ObjectId(stored_object.parent_dir.unwrap_or(*object_source_id.uuid()).as_u128());
+            ObjectLocation::new(path_node_id)
+        };
+
         let object_name = if stored_object.name.is_empty() {
             ObjectName::empty()
         } else {
             ObjectName::new(stored_object.name)
         };
 
-        let object_id = ObjectId(object_id.as_u128());
+        let object_id = if let Some(override_object_id) = override_object_id {
+            // If an ID was provided, use it
+            ObjectId(override_object_id.as_u128())
+        } else {
+            // Otherwise read it from the file. If there was no ID specified, generate a new one
+            ObjectId(stored_object.id.unwrap_or_else(Uuid::new_v4).as_u128())
+        };
+
         let schema_fingerprint = SchemaFingerprint::from_uuid(stored_object.schema);
         let prototype = stored_object.prototype.map(|x| ObjectId(x.as_u128()));
 
@@ -357,11 +375,16 @@ impl EditContextObjectJson {
             properties_in_replace_mode,
             dynamic_array_entries,
         );
+
+        object_id
     }
 
     pub fn save_edit_context_object_to_string(
         edit_context: &EditContext,
         object_id: ObjectId,
+        // We only save the ID in the file if using path-based file system storage. Otherwise the
+        // id is the file path/name
+        include_object_id_in_file: bool,
         parent_dir: Option<Uuid>,
     ) -> String {
         let obj = edit_context.objects().get(&object_id).unwrap();
@@ -379,7 +402,13 @@ impl EditContextObjectJson {
             .map(|x| EditContextObjectImportInfoJson::new(&x));
         let build_info = EditContextObjectBuildInfoJson::new(obj.build_info());
 
+        let written_object_id = if include_object_id_in_file {
+            Some(object_id.as_uuid())
+        } else {
+            None
+        };
         let stored_object = EditContextObjectJson {
+            id: written_object_id,
             name: obj.object_name().as_string().cloned().unwrap_or_default(),
             parent_dir,
             schema: obj.schema().fingerprint().as_uuid(),

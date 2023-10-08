@@ -1,0 +1,18 @@
+{
+  "id": "e1560fa9-3a1a-4b24-b58e-35f543c05312",
+  "name": "test_material.blender_material",
+  "parent_dir": null,
+  "schema": "596faa29-deda-a90e-b7bd-0ff78f45d286",
+  "schema_name": "BlenderMaterialAsset",
+  "import_info": {
+    "importer_id": "e76bab79-654a-476f-93b1-88cd5fee7d1f",
+    "source_file_path": "/Users/pmd/dev/rust/hydrate/demo-editor/data/art/test_material.blender_material",
+    "importable_name": "",
+    "file_references": []
+  },
+  "build_info": {
+    "file_reference_overrides": {}
+  },
+  "prototype": null,
+  "properties": {}
+}

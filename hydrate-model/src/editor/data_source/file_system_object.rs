@@ -21,7 +21,7 @@ fn load_asset_files(
             println!("asset file {:?}", file);
             let file_uuid = path_to_uuid(root_path, file.path()).unwrap();
             let contents = std::fs::read_to_string(file.path()).unwrap();
-            crate::data_storage::json::EditContextObjectJson::load_edit_context_object_from_string(
+            crate::json_storage::EditContextObjectJson::load_edit_context_object_from_string(
                 edit_context,
                 file_uuid,
                 object_source_id,
@@ -122,7 +122,7 @@ impl DataSource for FileSystemObjectDataSource {
                         Some(parent_dir)
                     };
 
-                    let data = crate::data_storage::json::EditContextObjectJson::save_edit_context_object_to_string(edit_context, *object_id, parent_dir);
+                    let data = crate::json_storage::EditContextObjectJson::save_edit_context_object_to_string(edit_context, *object_id, parent_dir);
                     let file_path =
                         uuid_to_path(&self.file_system_root_path, object_id.as_uuid(), "af");
                     self.all_object_ids_on_disk.insert(*object_id);
@@ -168,7 +168,7 @@ impl DataSource for FileSystemObjectDataSource {
                 uuid_to_path(&self.file_system_root_path, modified_object.as_uuid(), "af");
 
             if let Ok(contents) = std::fs::read_to_string(file_path) {
-                crate::data_storage::json::EditContextObjectJson::load_edit_context_object_from_string(edit_context, modified_object.as_uuid(), self.object_source_id, &contents);
+                crate::json_storage::EditContextObjectJson::load_edit_context_object_from_string(edit_context, modified_object.as_uuid(), self.object_source_id, &contents);
             }
         }
     }

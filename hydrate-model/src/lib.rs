@@ -11,14 +11,14 @@ pub use hydrate_schema::*;
 
 pub use hydrate_data::*;
 
-mod data_storage;
-pub use data_storage::*;
+mod json_storage;
+pub use json_storage::*;
 
 mod editor;
 pub use editor::*;
 
-pub mod wrappers;
-pub use wrappers::*;
+pub mod field_wrappers;
+pub use field_wrappers::*;
 
 mod object_path;
 pub use object_path::*;

@@ -2,7 +2,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use hydrate_model::edit_context::EditContext;
-use hydrate_model::json::TreeSourceDataStorageJsonSingleFile;
+use hydrate_model::json_storage::TreeSourceDataStorageJsonSingleFile;
 use hydrate_model::*;
 
 fn main() {

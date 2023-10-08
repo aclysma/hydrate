@@ -11,7 +11,7 @@ use type_uuid::{TypeUuid, TypeUuidDynamic};
 use uuid::Uuid;
 
 use hydrate_model::edit_context::EditContext;
-use hydrate_model::json::SingleObjectJson;
+use hydrate_model::SingleObjectJson;
 use hydrate_model::uuid_path::{path_to_uuid, uuid_to_path};
 
 fn hash_file_metadata(metadata: &std::fs::Metadata) -> u64 {

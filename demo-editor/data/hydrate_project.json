@@ -1,0 +1,12 @@
+{
+  "sources": {
+    "553c27ac-048d-4a8f-bf15-8aaf3dc41d27": {
+      "type": "PathBasedFileSystem",
+      "path": "assets_path_based"
+    },
+    "fb9b4f1b-b1ab-4007-a130-e11e9a1da665": {
+      "type": "IDBasedFileSystem",
+      "path": "assets"
+    }
+  }
+}

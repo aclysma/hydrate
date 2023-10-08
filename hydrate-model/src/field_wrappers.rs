@@ -1,8 +1,6 @@
-mod dynamic_array;
 
 use std::marker::PhantomData;
 use uuid::Uuid;
-pub use dynamic_array::*;
 use crate::{DataContainer, DataContainerMut, DataSetError, DataSetResult, DataSetViewMut, ObjectId, Value};
 use crate::value::ValueEnum;
 

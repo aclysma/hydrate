@@ -1,13 +1,25 @@
 use std::hash::{Hash, Hasher};
 use std::path::{Path, PathBuf};
 
-mod build;
-pub use build::*;
+mod import_jobs;
+pub use import_jobs::*;
 
-mod import;
-pub use import::*;
+mod import_types;
+pub use import_types::*;
 
-use hydrate_model::{
+mod importer_registry;
+pub use importer_registry::*;
+
+mod build_jobs;
+pub use build_jobs::*;
+
+mod build_types;
+pub use build_types::*;
+
+mod builder_registry;
+pub use builder_registry::*;
+
+use crate::{
     BuilderId, EditorModel, HashMap, ImporterId, ObjectId, SchemaFingerprint, SchemaLinker,
     SchemaSet,
 };

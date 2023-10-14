@@ -1,4 +1,6 @@
 mod file_system_id_based;
+
+use std::path::Path;
 pub use file_system_id_based::*;
 
 use crate::edit_context::EditContext;
@@ -7,11 +9,26 @@ use crate::{EditorModel, ObjectId};
 mod file_system_path_based;
 pub use file_system_path_based::*;
 
-enum FileOperation {
-    // add
-    // delete
-    // modify
+
+trait SourceFileHandler {
+    fn supported_file_extensions(&self) -> &[&'static str];
+
+    fn generate_default_asset(
+        &self,
+        importable_name: Option<String>,
+        edit_context: &EditContext
+    ) -> Vec<ObjectId>;
+
+    // importer also implements scan file
 }
+
+// impl SourceFileHandler {
+//     fn handles_file(path: &Path) -> bool {
+//
+//     }
+// }
+
+
 
 pub trait DataSource {
     fn reload_all(

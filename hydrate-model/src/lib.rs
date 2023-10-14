@@ -2,11 +2,6 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 use std::fmt::{Debug, Formatter};
 
-pub mod uuid_path;
-
-mod metadata;
-pub use metadata::BuiltObjectMetadata;
-
 pub use hydrate_schema::*;
 
 pub use hydrate_data::*;
@@ -23,5 +18,8 @@ pub use field_wrappers::*;
 mod object_path;
 pub use object_path::*;
 
-// mod storage;
-// pub use storage::*;
+mod data_source;
+pub use data_source::*;
+
+pub mod pipeline;
+pub use pipeline::*;

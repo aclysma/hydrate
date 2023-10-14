@@ -7,10 +7,6 @@ edition = "2021"
 
 [dependencies]
 hydrate-base = { path = "../hydrate-base" }
-hydrate-model = { path = "../hydrate-model" }
-
-#distill-core = { path = "../distill-core" }
-#distill-loader = { path = "../distill-loader" }
 
 log = "0.4.14"
 crossbeam-channel = "0.5"

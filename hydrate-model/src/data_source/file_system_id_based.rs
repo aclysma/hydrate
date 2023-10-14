@@ -1,5 +1,5 @@
 use crate::edit_context::EditContext;
-use crate::uuid_path::{path_to_uuid, uuid_to_path};
+use hydrate_base::uuid_path::{path_to_uuid, uuid_to_path};
 use crate::{DataSource, HashSet, ObjectId, ObjectSourceId, PathNode, PathNodeRoot};
 use std::path::{Path, PathBuf};
 use uuid::Uuid;

@@ -5,9 +5,9 @@ members = [
     "demo-plugins",
     "demo-types",
     "hydrate-schema",
+    "hydrate-data",
     "hydrate-base",
     "hydrate-model",
-    "hydrate-pipeline",
     "hydrate-editor",
     "hydrate-loader",
     "hydrate-codegen"

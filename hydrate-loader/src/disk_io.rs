@@ -7,7 +7,7 @@ use crate::loader::{
 };
 use crossbeam_channel::{Receiver, Sender};
 use hydrate_base::hashing::HashMap;
-use hydrate_model::ObjectId;
+use hydrate_base::ObjectId;
 use std::io::{BufRead, Read, SeekFrom};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -57,9 +57,9 @@ impl DiskAssetIOWorkerThread {
 
                                 // Read the data?
 
-                                let path = hydrate_model::uuid_path::uuid_and_hash_to_path(&*root_path, msg.object_id.as_uuid(), msg.hash, "bf");
+                                let path = hydrate_base::uuid_path::uuid_and_hash_to_path(&*root_path, msg.object_id.as_uuid(), msg.hash, "bf");
                                 let mut reader = std::fs::File::open(path).unwrap();
-                                let metadata = hydrate_model::BuiltObjectMetadata::read_header(&mut reader).unwrap();
+                                let metadata = hydrate_base::BuiltObjectMetadata::read_header(&mut reader).unwrap();
 
 
                                 //let path = hydrate_model::uuid_path::uuid_and_hash_to_path(&*root_path, msg.object_id.as_uuid(), msg.hash, "bf");
@@ -96,9 +96,9 @@ impl DiskAssetIOWorkerThread {
                                 active_request_count.fetch_sub(1, Ordering::Release);
                             },
                             DiskAssetIORequest::Data(msg) => {
-                                let path = hydrate_model::uuid_path::uuid_and_hash_to_path(&*root_path, msg.object_id.as_uuid(), msg.hash, "bf");
+                                let path = hydrate_base::uuid_path::uuid_and_hash_to_path(&*root_path, msg.object_id.as_uuid(), msg.hash, "bf");
                                 let mut reader = std::fs::File::open(&path).unwrap();
-                                let metadata = hydrate_model::BuiltObjectMetadata::read_header(&mut reader).unwrap();
+                                let metadata = hydrate_base::BuiltObjectMetadata::read_header(&mut reader).unwrap();
 
                                 let mut bytes = Vec::new();
                                 use std::io::Read;

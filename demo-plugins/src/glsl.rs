@@ -4,8 +4,10 @@ use std::ops::Range;
 use std::path::{Path, PathBuf};
 
 use demo_types::glsl::*;
-use hydrate_model::{BuiltObjectMetadata, DataSet, EditorModel, HashMap, HashSet, ObjectId, ObjectLocation, ObjectName, SchemaLinker, SchemaSet, SingleObject, Value};
-use hydrate_pipeline::{AssetPlugin, Builder, BuilderRegistry, BuiltAsset, ImportedImportable, Importer, ImporterRegistry, ReferencedSourceFile, ScannedImportable};
+use hydrate_base::BuiltObjectMetadata;
+use hydrate_model::{DataSet, EditorModel, HashMap, HashSet, ObjectId, ObjectLocation, ObjectName, SchemaLinker, SchemaSet, SingleObject, Value};
+use hydrate_model::pipeline::{AssetPlugin, Builder, BuilderRegistry, BuiltAsset, ImporterRegistry};
+use hydrate_model::pipeline::{ImportedImportable, ReferencedSourceFile, ScannedImportable, Importer};
 use serde::{Deserialize, Serialize};
 use shaderc::IncludeType;
 use type_uuid::{TypeUuid, TypeUuidDynamic};

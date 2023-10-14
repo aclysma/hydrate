@@ -3,7 +3,7 @@ use crate::imgui_support::ImguiManager;
 use crate::ui::modals::{ConfirmQuitWithoutSavingModal, ImportFilesModal};
 use crate::ui_state::UiState;
 use hydrate_model::{EndContextBehavior, HashSet, ObjectId, ObjectLocation, ObjectPath};
-use hydrate_pipeline::{
+use hydrate_model::pipeline::{
     AssetEngine, BuildJobs, Builder, BuilderRegistry, ImportJobs, ImporterRegistry,
 };
 use imgui::sys::{ImGuiCond, ImVec2};

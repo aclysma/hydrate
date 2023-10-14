@@ -7,6 +7,5 @@ edition = "2021"
 
 [dependencies]
 hydrate-editor = { path = "../hydrate-editor" }
-hydrate-pipeline = { path = "../hydrate-pipeline" }
 hydrate-model = { path = "../hydrate-model" }
 hydrate-loader = { path = "../hydrate-loader" }

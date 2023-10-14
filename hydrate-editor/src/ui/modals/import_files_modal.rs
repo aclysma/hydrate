@@ -4,7 +4,8 @@ use crate::ui_state::UiState;
 use hydrate_model::{
     HashMap, ImportInfo, ImporterId, LocationTreeNode, ObjectId, ObjectLocation, ObjectName,
 };
-use hydrate_pipeline::{AssetEngine, ImportJobs, Importer, ImporterRegistry};
+use hydrate_model::pipeline::Importer;
+use hydrate_model::pipeline::{AssetEngine, ImportJobs, ImporterRegistry};
 use imgui::sys::ImVec2;
 use imgui::{im_str, PopupModal, StyleColor, TreeNodeFlags};
 use std::path::{Path, PathBuf};

@@ -8,7 +8,6 @@ edition = "2021"
 [dependencies]
 hydrate-base = { path = "../hydrate-base" }
 hydrate-model = { path = "../hydrate-model" }
-hydrate-pipeline = { path = "../hydrate-pipeline" }
 
 demo-types = { path = "../demo-types" }
 

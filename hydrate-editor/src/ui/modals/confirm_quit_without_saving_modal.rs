@@ -4,7 +4,7 @@ use crate::ui_state::UiState;
 use crate::QueuedActions;
 use hydrate_model::edit_context::EditContext;
 use hydrate_model::{EditorModel, HashSet, ObjectId, ObjectLocation};
-use hydrate_pipeline::{AssetEngine, ImportJobs, ImporterRegistry};
+use hydrate_model::pipeline::{AssetEngine, ImportJobs, ImporterRegistry};
 use imgui::{im_str, PopupModal};
 
 pub struct ConfirmQuitWithoutSavingModal {

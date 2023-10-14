@@ -3,8 +3,10 @@ use ::image::{EncodableLayout, GenericImageView};
 use std::path::{Path, PathBuf};
 
 use demo_types::image::*;
-use hydrate_model::{BooleanField, BuiltObjectMetadata, BytesField, DataContainer, DataContainerMut, DataSet, EditorModel, Field, HashMap, ObjectId, ObjectLocation, ObjectName, PropertyPath, SchemaLinker, SchemaSet, SingleObject, U32Field, Value};
-use hydrate_pipeline::{AssetPlugin, Builder, BuilderRegistry, BuiltAsset, ImportedImportable, Importer, ImporterRegistry, ScannedImportable};
+use hydrate_base::BuiltObjectMetadata;
+use hydrate_model::{BooleanField, BytesField, DataContainer, DataContainerMut, DataSet, EditorModel, Field, HashMap, ObjectId, ObjectLocation, ObjectName, PropertyPath, SchemaLinker, SchemaSet, SingleObject, U32Field, Value};
+use hydrate_model::pipeline::{AssetPlugin, Builder, BuilderRegistry, BuiltAsset, ImporterRegistry};
+use hydrate_model::pipeline::{ImportedImportable, ScannedImportable, Importer};
 use serde::{Deserialize, Serialize};
 use serde_json::error::Category::Data;
 use type_uuid::{TypeUuid, TypeUuidDynamic};

@@ -1,6 +1,7 @@
 use demo_types::simple_data::*;
-use hydrate_model::{BuiltObjectMetadata, DataContainer, DataSet, DataSetEntry, DataSetView, HashMap, ObjectId, SchemaLinker, SchemaSet, SingleObject};
-use hydrate_pipeline::{AssetPlugin, Builder, BuilderRegistry, BuiltAsset, ImporterRegistry};
+use hydrate_base::BuiltObjectMetadata;
+use hydrate_model::{DataContainer, DataSet, DataSetEntry, DataSetView, HashMap, ObjectId, SchemaLinker, SchemaSet, SingleObject};
+use hydrate_model::pipeline::{AssetPlugin, Builder, BuilderRegistry, BuiltAsset, ImporterRegistry};
 use serde::{Deserialize, Serialize};
 use std::marker::PhantomData;
 use type_uuid::TypeUuid;

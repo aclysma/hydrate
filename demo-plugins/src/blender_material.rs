@@ -3,8 +3,10 @@ use std::path::{Path, PathBuf};
 
 use demo_types::blender_material::*;
 use hydrate_model::value::ValueEnum;
-use hydrate_model::{BooleanField, BuiltObjectMetadata, DataContainer, DataContainerMut, DataSet, DataSetError, DataSetResult, DataSetView, DataSetViewMut, EditorModel, Enum, EnumField, F32Field, Field, HashMap, ObjectId, ObjectLocation, ObjectName, PropertyPath, SchemaDefType, SchemaLinker, SchemaSet, SingleObject, StringField, Value};
-use hydrate_pipeline::{AssetPlugin, Builder, BuilderRegistry, BuiltAsset, ImportedImportable, Importer, ImporterRegistry, ScannedImportable};
+use hydrate_base::BuiltObjectMetadata;
+use hydrate_model::{BooleanField, DataContainer, DataContainerMut, DataSet, DataSetError, DataSetResult, DataSetView, DataSetViewMut, EditorModel, Enum, EnumField, F32Field, Field, HashMap, ObjectId, ObjectLocation, ObjectName, PropertyPath, SchemaDefType, SchemaLinker, SchemaSet, SingleObject, StringField, Value};
+use hydrate_model::pipeline::{AssetPlugin, Builder, BuilderRegistry, BuiltAsset, ImporterRegistry};
+use hydrate_model::pipeline::{ImportedImportable, ScannedImportable, Importer};
 use serde::{Deserialize, Serialize};
 use type_uuid::{TypeUuid, TypeUuidDynamic};
 use demo_types::simple_data_gen_from_schema::{Vec3Record, Vec4Record};

@@ -1,4 +1,4 @@
-use hydrate_model::{
+use crate::{
     DataSet, DataSource, EditorModel, HashMap, HashMapKeys, ImportInfo,
     ImporterId, ObjectId, ObjectLocation, ObjectName, ObjectSourceId, Schema, SchemaFingerprint,
     SchemaLinker, SchemaNamedType, SchemaRecord, SchemaSet, SingleObject, Value,
@@ -10,9 +10,12 @@ use std::sync::Arc;
 use type_uuid::{TypeUuid, TypeUuidDynamic};
 use uuid::Uuid;
 
-use hydrate_model::edit_context::EditContext;
-use hydrate_model::SingleObjectJson;
-use hydrate_model::uuid_path::{path_to_uuid, uuid_to_path};
+use crate::edit_context::EditContext;
+use crate::SingleObjectJson;
+use hydrate_base::uuid_path::{path_to_uuid, uuid_to_path};
+
+use super::import_types::*;
+use super::importer_registry::*;
 
 fn hash_file_metadata(metadata: &std::fs::Metadata) -> u64 {
     let mut hasher = siphasher::sip::SipHasher::default();
@@ -194,7 +197,7 @@ impl ImportJobs {
         //
         // Scan import dir for known import data
         //
-        let walker = globwalk::GlobWalkerBuilder::from_patterns(root_path, &["**.i"])
+        let walker = globwalk::GlobWalkerBuilder::from_patterns(root_path, &["**.if"])
             .file_type(globwalk::FileType::FILE)
             .build()
             .unwrap();
@@ -258,79 +261,6 @@ impl ImportJobs {
     }
 }
 
-// Keeps track of all known importers
-#[derive(Default)]
-pub struct ImporterRegistry {
-    registered_importers: HashMap<ImporterId, Box<dyn Importer>>,
-    file_extension_associations: HashMap<String, Vec<ImporterId>>,
-    //asset_to_importer: HashMap<SchemaFingerprint, ImporterId>,
-}
-
-impl ImporterRegistry {
-    //
-    // Called before creating the schema to add handlers
-    //
-    pub fn register_handler<T: TypeUuid + Importer + Default + 'static>(
-        &mut self,
-        linker: &mut SchemaLinker,
-    ) {
-        let handler = Box::new(T::default());
-        //handler.register_schemas(linker);
-        let importer_id = ImporterId(Uuid::from_bytes(T::UUID));
-        self.registered_importers.insert(importer_id, handler);
-
-        for extension in self.registered_importers[&importer_id].supported_file_extensions() {
-            self.file_extension_associations
-                .entry(extension.to_string())
-                .or_default()
-                .push(importer_id);
-        }
-    }
-
-    //
-    // Called after finished linking the schema so we can associate schema fingerprints with handlers
-    //
-    pub fn finished_linking(
-        &mut self,
-        schema_set: &SchemaSet,
-    ) {
-        // let mut asset_to_importer = HashMap::default();
-        //
-        // for (importer_id, importer) in &self.registered_importers {
-        //     // for asset_type in importer.asset_types() {
-        //     //     let asset_type = schema_set.find_named_type(asset_type).unwrap().fingerprint();
-        //     //     let insert_result = asset_to_importer.insert(asset_type, *importer_id);
-        //     //     if insert_result.is_some() {
-        //     //         panic!("Multiple handlers registered to handle the same asset")
-        //     //     }
-        //     // }
-        // }
-
-        //self.asset_to_importer = asset_to_importer;
-    }
-
-    pub fn importers_for_file_extension(
-        &self,
-        extension: &str,
-    ) -> &[ImporterId] {
-        const EMPTY_LIST: &'static [ImporterId] = &[];
-        self.file_extension_associations
-            .get(extension)
-            .map(|x| x.as_slice())
-            .unwrap_or(EMPTY_LIST)
-    }
-
-    // pub fn handler_for_asset(&self, fingerprint: SchemaFingerprint) -> Option<ImporterId> {
-    //     self.asset_to_importer.get(&fingerprint).copied()
-    // }
-
-    pub fn importer(
-        &self,
-        importer_id: ImporterId,
-    ) -> Option<&Box<dyn Importer>> {
-        self.registered_importers.get(&importer_id)
-    }
-}
 
 // struct ScanContext {
 //     referenced_files: Vec<PathBuf>,
@@ -379,51 +309,3 @@ impl ImporterRegistry {
 //         unimplemented!();
 //     }
 // }
-
-// Represents a path to another file encountered in a file that will need to be resolved to an asset
-// at build time
-pub struct ReferencedSourceFile {
-    pub importer_id: ImporterId,
-    pub path: PathBuf,
-}
-
-// Metadata for all importable data from a file. For example, a GLTF could contain textures, meshes,
-// materials, etc.
-pub struct ScannedImportable {
-    pub name: Option<String>,
-    pub asset_type: SchemaRecord,
-    pub file_references: Vec<ReferencedSourceFile>,
-}
-
-pub struct ImportedImportable {
-    pub file_references: Vec<ReferencedSourceFile>,
-    pub data: SingleObject,
-}
-
-// Interface all importers must implement
-pub trait Importer: TypeUuidDynamic {
-    fn importer_id(&self) -> ImporterId {
-        ImporterId(Uuid::from_bytes(self.uuid()))
-    }
-
-    // Used to allow the importer registry to return all importers compatible with a given filename extension
-    fn supported_file_extensions(&self) -> &[&'static str];
-
-    // Open the file and determine what assets exist in it that can be imported
-    fn scan_file(
-        &self,
-        path: &Path,
-        schema_set: &SchemaSet,
-    ) -> Vec<ScannedImportable>;
-
-    // Open the file and extract all the data from it required for the build step, or for build
-    // steps for assets referencing this asset
-    fn import_file(
-        &self,
-        path: &Path,
-        object_ids: &HashMap<Option<String>, ObjectId>,
-        schema: &SchemaSet,
-        //import_info: &ImportInfo,
-        //referenced_source_file_paths: &mut Vec<PathBuf>,
-    ) -> HashMap<Option<String>, ImportedImportable>;
-}

@@ -1,6 +1,6 @@
 use crossbeam_channel::{Receiver, Sender};
 use dashmap::DashMap;
-use hydrate_model::ObjectId;
+use hydrate_base::ObjectId;
 use std::fmt::Debug;
 use std::sync::atomic::{AtomicI32, AtomicU32, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};

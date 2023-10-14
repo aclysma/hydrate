@@ -10,9 +10,6 @@ pub use undo::UndoStack;
 mod location_tree;
 pub use location_tree::*;
 
-mod data_source;
-pub use data_source::*;
-
 mod path_node;
 pub use path_node::PathNode;
 pub use path_node::PathNodeRoot;

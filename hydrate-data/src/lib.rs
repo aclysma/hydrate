@@ -41,6 +41,9 @@ use property_util_fn::*;
 mod traits;
 pub use traits::*;
 
+mod field_wrappers;
+pub use field_wrappers::*;
+
 #[cfg(test)]
 mod tests;
 

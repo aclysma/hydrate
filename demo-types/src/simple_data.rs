@@ -1,4 +1,4 @@
-use hydrate_model::{DataContainer, DataSet, DataSetEntry, DataSetResult, DataSetView, DataSetViewMut, ObjectId, SchemaSet, Value};
+use hydrate_data::{DataContainer, DataSet, DataSetEntry, DataSetResult, DataSetView, DataSetViewMut, ObjectId, SchemaSet, Value};
 use serde::{Deserialize, Serialize};
 use type_uuid::TypeUuid;
 use hydrate_base::{AssetUuid, Handle};

@@ -1,4 +1,4 @@
-use hydrate_model::{DataSetResult, DataSetView, DataSetViewMut, F32Field, Field, NullableField, ObjectId, PropertyPath, SchemaSet, Value};
+use hydrate_data::{DataSetResult, DataSetView, DataSetViewMut, F32Field, Field, NullableField, ObjectId, PropertyPath, SchemaSet, Value};
 
 
 #[derive(Default)]

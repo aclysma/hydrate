@@ -77,6 +77,9 @@ impl AssetEngineBuilder {
             &editor_model,
             build_data_path, /*DbState::build_data_source_path()*/
         );
+
+        //TODO: Consider looking at disk to determine previous combined build hash so we don't for a rebuild every time we open
+
         AssetEngine {
             importer_registry: self.importer_registry,
             import_jobs,

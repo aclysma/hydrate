@@ -12,9 +12,6 @@ pub use json_storage::*;
 mod editor;
 pub use editor::*;
 
-pub mod field_wrappers;
-pub use field_wrappers::*;
-
 mod object_path;
 pub use object_path::*;
 

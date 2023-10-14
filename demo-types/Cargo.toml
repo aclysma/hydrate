@@ -7,7 +7,7 @@ edition = "2021"
 
 [dependencies]
 hydrate-base = { path = "../hydrate-base" }
-hydrate-model = { path = "../hydrate-model" }
+hydrate-data = { path = "../hydrate-data" }
 
 serde = { default-features = false, version = "1.0.145", features = ["derive"] }
 type-uuid = "0.1.2"

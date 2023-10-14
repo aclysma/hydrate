@@ -62,5 +62,8 @@ fn main() {
         build_data_source_path(),
     );
 
+    //Headless
+    //asset_engine.update(&db_state.editor_model);
+
     hydrate::editor::run(db_state, asset_engine);
 }

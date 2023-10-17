@@ -62,7 +62,7 @@ fn main() {
     // ));
 
     let load_handle_transform_ref: Handle<TransformRef> = loader.load_asset(ObjectId(
-        uuid::Uuid::parse_str("d106c118863e4f8ab53938b99089974f")
+        uuid::Uuid::parse_str("798bd93be6d14f459d31d7e689c28c03")
             .unwrap()
             .as_u128(),
     ));

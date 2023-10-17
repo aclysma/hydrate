@@ -1,0 +1,15 @@
+{
+  "id": "798bd93b-e6d1-4f45-9d31-d7e689c28c03",
+  "name": "test",
+  "parent_dir": null,
+  "schema": "1e7e7a04-d8ab-d29b-a9d1-56438b7aeed3",
+  "schema_name": "TransformRef",
+  "import_info": null,
+  "build_info": {
+    "file_reference_overrides": {}
+  },
+  "prototype": null,
+  "properties": {
+    "transform": "cd298259-7b41-49fe-a4c3-fea1765dff93"
+  }
+}

@@ -1,11 +1,12 @@
 use crate::edit_context::EditContext;
 use crate::editor::undo::UndoStack;
-use crate::{DataSet, DataSource, FileSystemIdBasedDataSource, FileSystemPathBasedDataSource, HashMap, HashSet, LocationTree, ObjectId, ObjectPath, ObjectSourceId, PathNode, PathNodeRoot, SchemaNamedType, SchemaSet};
+use crate::{AssetEngine, DataSet, DataSource, FileSystemIdBasedDataSource, FileSystemPathBasedDataSource, HashMap, HashSet, ImporterRegistry, LocationTree, ObjectId, ObjectPath, ObjectSourceId, PathNode, PathNodeRoot, SchemaNamedType, SchemaSet};
 use slotmap::DenseSlotMap;
 use std::path::PathBuf;
 use std::sync::Arc;
 use hydrate_data::{ObjectLocation, ObjectName};
 use hydrate_schema::SchemaRecord;
+use crate::import_util::ImportToQueue;
 slotmap::new_key_type! { pub struct EditContextKey; }
 
 pub struct EditorModel {
@@ -151,6 +152,7 @@ impl EditorModel {
         &mut self,
         data_source_name: &str,
         file_system_root_path: RootPathT,
+        imports_to_queue: &mut Vec<ImportToQueue>,
     ) -> ObjectSourceId {
         let path_node_root_schema = self.path_node_root_schema.as_record().unwrap().clone();
         let root_edit_context = self.root_edit_context_mut();
@@ -179,7 +181,7 @@ impl EditorModel {
         // Create the data source and force full reload of it
         //
         let mut fs = FileSystemIdBasedDataSource::new(file_system_root_path.clone(), root_edit_context, object_source_id);
-        fs.reload_all(root_edit_context);
+        fs.reload_all(root_edit_context, imports_to_queue);
 
         self.data_sources.insert(object_source_id, Box::new(fs));
 
@@ -190,6 +192,8 @@ impl EditorModel {
         &mut self,
         data_source_name: &str,
         file_system_root_path: RootPathT,
+        importer_registry: &ImporterRegistry,
+        imports_to_queue: &mut Vec<ImportToQueue>,
     ) -> ObjectSourceId {
         let path_node_root_schema = self.path_node_root_schema.as_record().unwrap().clone();
         let root_edit_context = self.root_edit_context_mut();
@@ -217,8 +221,8 @@ impl EditorModel {
         //
         // Create the data source and force full reload of it
         //
-        let mut fs = FileSystemPathBasedDataSource::new(file_system_root_path.clone(), root_edit_context, object_source_id);
-        fs.reload_all(root_edit_context);
+        let mut fs = FileSystemPathBasedDataSource::new(file_system_root_path.clone(), root_edit_context, object_source_id, importer_registry);
+        fs.reload_all(root_edit_context, imports_to_queue);
 
         self.data_sources.insert(object_source_id, Box::new(fs));
 

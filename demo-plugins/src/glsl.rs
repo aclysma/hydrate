@@ -5,7 +5,7 @@ use std::path::{Path, PathBuf};
 
 use demo_types::glsl::*;
 use hydrate_base::BuiltObjectMetadata;
-use hydrate_model::{DataSet, EditorModel, HashMap, HashSet, ObjectId, ObjectLocation, ObjectName, SchemaLinker, SchemaSet, SingleObject, Value};
+use hydrate_model::{BuilderRegistryBuilder, DataSet, EditorModel, HashMap, HashSet, ImporterRegistryBuilder, ObjectId, ObjectLocation, ObjectName, SchemaLinker, SchemaSet, SingleObject, Value};
 use hydrate_model::pipeline::{AssetPlugin, Builder, BuilderRegistry, BuiltAsset, ImporterRegistry};
 use hydrate_model::pipeline::{ImportedImportable, ReferencedSourceFile, ScannedImportable, Importer};
 use serde::{Deserialize, Serialize};
@@ -611,8 +611,8 @@ pub struct GlslAssetPlugin;
 impl AssetPlugin for GlslAssetPlugin {
     fn setup(
         schema_linker: &mut SchemaLinker,
-        importer_registry: &mut ImporterRegistry,
-        builder_registry: &mut BuilderRegistry,
+        importer_registry: &mut ImporterRegistryBuilder,
+        builder_registry: &mut BuilderRegistryBuilder,
     ) {
         GlslSourceFileAsset::register_schema(schema_linker);
         GlslSourceFileImportedData::register_schema(schema_linker);

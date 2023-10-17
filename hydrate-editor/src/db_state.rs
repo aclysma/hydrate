@@ -1,6 +1,7 @@
-use hydrate_model::{DataSet, EditorModel, ObjectId, ObjectLocation, ObjectName, ObjectPath, PathNode, PathNodeRoot, SchemaCacheSingleFile, SchemaLinker, SchemaSet};
+use hydrate_model::{AssetEngine, DataSet, EditorModel, ImporterRegistry, ObjectId, ObjectLocation, ObjectName, ObjectPath, PathNode, PathNodeRoot, SchemaCacheSingleFile, SchemaLinker, SchemaSet};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
+use hydrate_model::import_util::ImportToQueue;
 
 pub struct DbState {
     //pub db: hydrate_model::Database,
@@ -49,29 +50,12 @@ impl DbState {
     //     ))
     // }
 
-    fn load_schema(
-        mut linker: SchemaLinker,
-        schema_def_path: &Path,
-        schema_cache_file_path: &Path,
-    ) -> SchemaSet {
-        let mut schema_set = SchemaSet::default();
-
-        PathNode::register_schema(&mut linker);
-        PathNodeRoot::register_schema(&mut linker);
-        linker.add_source_dir(schema_def_path, "**.json").unwrap();
-        schema_set.add_linked_types(linker).unwrap();
-
-        if let Some(schema_cache_str) = std::fs::read_to_string(schema_cache_file_path).ok() {
-            SchemaCacheSingleFile::load_string(&mut schema_set, &schema_cache_str);
-        }
-
-        schema_set
-    }
-
     fn init_empty_model(
         schema_set: Arc<SchemaSet>,
+        importer_registry: &ImporterRegistry,
         asset_id_based_data_path: &Path,
         asset_path_based_data_path: &Path,
+        imports_to_queue: &mut Vec<ImportToQueue>,
     ) -> EditorModel {
         //let mut undo_stack = UndoStack::default();
         //let mut db = hydrate_model::Database::new(Arc::new(schema_set), &undo_stack);
@@ -79,8 +63,8 @@ impl DbState {
 
         let mut edit_model = EditorModel::new(schema_set.clone());
 
-        let object_source_id = edit_model.add_file_system_id_based_data_source("id_file_system", asset_id_based_data_path);
-        let object_source_path = edit_model.add_file_system_path_based_data_source("path_file_system", asset_path_based_data_path);
+        let object_source_id = edit_model.add_file_system_id_based_data_source("id_file_system", asset_id_based_data_path, imports_to_queue);
+        let object_source_path = edit_model.add_file_system_path_based_data_source("path_file_system", asset_path_based_data_path, importer_registry, imports_to_queue);
 
         // let file_system = edit_model
         //     .file_system_treedata_source(tree_source_id)
@@ -204,12 +188,14 @@ impl DbState {
 
     fn try_load(
         schema_set: Arc<SchemaSet>,
+        importer_registry: &ImporterRegistry,
         asset_id_based_data_path: &Path,
         asset_path_based_data_path: &Path,
+        imports_to_queue: &mut Vec<ImportToQueue>,
     ) -> Option<EditorModel> {
         let mut editor_model = EditorModel::new(schema_set);
-        editor_model.add_file_system_id_based_data_source("id_file_system", asset_id_based_data_path);
-        editor_model.add_file_system_path_based_data_source("path_file_system", asset_path_based_data_path);
+        editor_model.add_file_system_id_based_data_source("id_file_system", asset_id_based_data_path, imports_to_queue);
+        editor_model.add_file_system_path_based_data_source("path_file_system", asset_path_based_data_path, importer_registry, imports_to_queue);
         if editor_model.root_edit_context().all_objects().len() == 0 {
             None
         } else {
@@ -217,23 +203,40 @@ impl DbState {
         }
     }
 
-    pub fn load_or_init_empty(
-        linker: SchemaLinker,
-        asset_id_based_data_path: &Path,
-        asset_path_based_data_path: &Path,
+
+    pub fn load_schema(
+        mut linker: SchemaLinker,
         schema_def_path: &Path,
         schema_cache_file_path: &Path,
+    ) -> Arc<SchemaSet> {
+        let mut schema_set = SchemaSet::default();
+
+        PathNode::register_schema(&mut linker);
+        PathNodeRoot::register_schema(&mut linker);
+        linker.add_source_dir(schema_def_path, "**.json").unwrap();
+        schema_set.add_linked_types(linker).unwrap();
+
+        if let Some(schema_cache_str) = std::fs::read_to_string(schema_cache_file_path).ok() {
+            SchemaCacheSingleFile::load_string(&mut schema_set, &schema_cache_str);
+        }
+
+        Arc::new(schema_set)
+    }
+
+    pub fn load_or_init_empty(
+        schema_set: &Arc<SchemaSet>,
+        importer_registry: &ImporterRegistry,
+        asset_id_based_data_path: &Path,
+        asset_path_based_data_path: &Path,
+        schema_cache_file_path: &Path,
+        imports_to_queue: &mut Vec<ImportToQueue>,
     ) -> Self {
-        let schema_set = Arc::new(Self::load_schema(
-            linker,
-            schema_def_path,
-            schema_cache_file_path,
-        ));
-        let editor_model = if let Some(loaded) = Self::try_load(schema_set.clone(), asset_id_based_data_path, asset_path_based_data_path)
+
+        let editor_model = if let Some(loaded) = Self::try_load(schema_set.clone(), importer_registry, asset_id_based_data_path, asset_path_based_data_path, imports_to_queue)
         {
             loaded
         } else {
-            Self::init_empty_model(schema_set, asset_id_based_data_path, asset_path_based_data_path)
+            Self::init_empty_model(schema_set.clone(), importer_registry, asset_id_based_data_path, asset_path_based_data_path, imports_to_queue)
         };
 
         DbState {

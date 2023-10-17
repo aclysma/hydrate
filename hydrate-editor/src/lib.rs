@@ -17,7 +17,7 @@ mod ui_state;
 use crate::app_state::QueuedActions;
 pub use crate::db_state::DbState;
 use hydrate_model::pipeline::{
-    AssetEngine, AssetEngineBuilder, BuildJobs, BuilderRegistry, ImportJobs, ImporterRegistry,
+    AssetEngine, BuildJobs, BuilderRegistry, ImportJobs, ImporterRegistry,
 };
 // use demo_plugins::{
 //     BlenderMaterialAssetPlugin, GlslAssetPlugin, ImageAssetPlugin, SimpleDataAssetPlugin,

@@ -1,10 +1,11 @@
 use crate::edit_context::EditContext;
 use hydrate_base::uuid_path::{path_to_uuid, uuid_to_path};
-use crate::{DataSource, HashSet, ObjectId, ObjectSourceId, PathNode, PathNodeRoot};
+use crate::{AssetEngine, DataSource, HashSet, ObjectId, ObjectSourceId, PathNode, PathNodeRoot};
 use std::path::{Path, PathBuf};
 use uuid::Uuid;
 use hydrate_data::ObjectLocation;
 use hydrate_schema::SchemaNamedType;
+use crate::import_util::ImportToQueue;
 
 fn load_asset_files(
     edit_context: &mut EditContext,
@@ -113,6 +114,7 @@ impl DataSource for FileSystemIdBasedDataSource {
     fn reload_all(
         &mut self,
         edit_context: &mut EditContext,
+        imports_to_queue: &mut Vec<ImportToQueue>,
     ) {
         load_asset_files(
             edit_context,

@@ -17,14 +17,48 @@ use hydrate_base::uuid_path::{path_to_uuid, uuid_to_path};
 use super::import_types::*;
 
 // Keeps track of all known importers
-#[derive(Default)]
-pub struct ImporterRegistry {
+pub struct ImporterRegistryInner {
     registered_importers: HashMap<ImporterId, Box<dyn Importer>>,
     file_extension_associations: HashMap<String, Vec<ImporterId>>,
     //asset_to_importer: HashMap<SchemaFingerprint, ImporterId>,
 }
 
+#[derive(Clone)]
+pub struct ImporterRegistry {
+    inner: Arc<ImporterRegistryInner>
+}
+
 impl ImporterRegistry {
+    pub fn importers_for_file_extension(
+        &self,
+        extension: &str,
+    ) -> &[ImporterId] {
+        const EMPTY_LIST: &'static [ImporterId] = &[];
+        self.inner.file_extension_associations
+            .get(extension)
+            .map(|x| x.as_slice())
+            .unwrap_or(EMPTY_LIST)
+    }
+
+    // pub fn handler_for_asset(&self, fingerprint: SchemaFingerprint) -> Option<ImporterId> {
+    //     self.asset_to_importer.get(&fingerprint).copied()
+    // }
+
+    pub fn importer(
+        &self,
+        importer_id: ImporterId,
+    ) -> Option<&Box<dyn Importer>> {
+        self.inner.registered_importers.get(&importer_id)
+    }
+}
+
+#[derive(Default)]
+pub struct ImporterRegistryBuilder {
+    registered_importers: HashMap<ImporterId, Box<dyn Importer>>,
+    file_extension_associations: HashMap<String, Vec<ImporterId>>,
+}
+
+impl ImporterRegistryBuilder {
     //
     // Called before creating the schema to add handlers
     //
@@ -67,25 +101,14 @@ impl ImporterRegistry {
         //self.asset_to_importer = asset_to_importer;
     }
 
-    pub fn importers_for_file_extension(
-        &self,
-        extension: &str,
-    ) -> &[ImporterId] {
-        const EMPTY_LIST: &'static [ImporterId] = &[];
-        self.file_extension_associations
-            .get(extension)
-            .map(|x| x.as_slice())
-            .unwrap_or(EMPTY_LIST)
-    }
+    pub fn build(self) -> ImporterRegistry {
+        let inner = ImporterRegistryInner {
+            registered_importers: self.registered_importers,
+            file_extension_associations: self.file_extension_associations,
+        };
 
-    // pub fn handler_for_asset(&self, fingerprint: SchemaFingerprint) -> Option<ImporterId> {
-    //     self.asset_to_importer.get(&fingerprint).copied()
-    // }
-
-    pub fn importer(
-        &self,
-        importer_id: ImporterId,
-    ) -> Option<&Box<dyn Importer>> {
-        self.registered_importers.get(&importer_id)
+        ImporterRegistry {
+            inner: Arc::new(inner)
+        }
     }
 }

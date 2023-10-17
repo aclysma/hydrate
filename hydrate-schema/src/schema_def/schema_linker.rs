@@ -191,7 +191,7 @@ impl SchemaLinker {
         self.add_named_type(named_type)
     }
 
-    pub(crate) fn finish(mut self) -> SchemaLinkerResult<LinkedSchemas> {
+    pub(crate) fn link_schemas(mut self) -> SchemaLinkerResult<LinkedSchemas> {
         // Apply aliases
         for (_, named_type) in &mut self.types {
             named_type.apply_type_aliases(&self.type_aliases);
@@ -200,7 +200,7 @@ impl SchemaLinker {
         let mut partial_hashes = HashMap::default();
         for (type_name, named_type) in &self.types {
             let mut hasher = siphasher::sip128::SipHasher::default();
-            println!("partial hash {}", named_type.type_name());
+            //println!("partial hash {}", named_type.type_name());
             named_type.partial_hash(&mut hasher);
             let partial_fingerprint = hasher.finish128().as_u128();
             partial_hashes.insert(type_name, partial_fingerprint);
@@ -219,7 +219,7 @@ impl SchemaLinker {
                 // We make a copy because otherwise we would be iterating the HashSet while we are appending to it
                 let before_copy: Vec<_> = related_types.iter().cloned().collect();
                 for related_type in &before_copy {
-                    println!("find related type {}", related_type);
+                    //println!("find related type {}", related_type);
                     let related_type = self.types.get(related_type).unwrap();
                     related_type.collect_all_related_types(&mut related_types);
                 }
@@ -242,11 +242,11 @@ impl SchemaLinker {
             }
             let fingerprint = SchemaFingerprint(hasher.finish128().as_u128());
 
-            log::debug!(
-                "type {} fingerprint is {}",
-                type_name,
-                fingerprint.as_uuid()
-            );
+            // log::debug!(
+            //     "type {} fingerprint is {}",
+            //     type_name,
+            //     fingerprint.as_uuid()
+            // );
             schemas_by_name.insert(type_name.to_string(), fingerprint);
         }
 

@@ -257,7 +257,7 @@ impl SchemaDefRecord {
         sorted_fields.sort_by_key(|x| &x.field_name);
 
         for field in sorted_fields {
-            println!("field {}", field.field_name);
+            //println!("field {}", field.field_name);
             field.partial_hash(hasher);
         }
     }
@@ -529,7 +529,7 @@ impl SchemaDefType {
         &self,
         hasher: &mut T,
     ) {
-        println!("ty {:?}", self);
+        //println!("ty {:?}", self);
         match self {
             SchemaDefType::Nullable(x) => {
                 "Nullable".hash(hasher);
@@ -644,7 +644,7 @@ impl SchemaDefNamedType {
     ) {
         match self {
             SchemaDefNamedType::Record(x) => {
-                println!("record");
+                //println!("record");
                 "record".hash(hasher);
                 x.partial_hash(hasher);
             }

@@ -159,6 +159,7 @@ impl ImportJobs {
                 //&mut referenced_source_file_paths
             );
 
+            //TODO: Validate that all requested importables exist?
             for (name, imported_object) in imported_objects {
                 if let Some(object_id) = import_op.object_ids.get(&name) {
                     let data =

@@ -4,7 +4,7 @@ use std::path::{Path, PathBuf};
 
 use demo_types::image::*;
 use hydrate_base::BuiltObjectMetadata;
-use hydrate_model::{BooleanField, BytesField, DataContainer, DataContainerMut, DataSet, EditorModel, Field, HashMap, ObjectId, ObjectLocation, ObjectName, PropertyPath, SchemaLinker, SchemaSet, SingleObject, U32Field, Value};
+use hydrate_model::{BooleanField, BuilderRegistryBuilder, BytesField, DataContainer, DataContainerMut, DataSet, EditorModel, Field, HashMap, ImporterRegistryBuilder, ObjectId, ObjectLocation, ObjectName, PropertyPath, SchemaLinker, SchemaSet, SingleObject, U32Field, Value};
 use hydrate_model::pipeline::{AssetPlugin, Builder, BuilderRegistry, BuiltAsset, ImporterRegistry};
 use hydrate_model::pipeline::{ImportedImportable, ScannedImportable, Importer};
 use serde::{Deserialize, Serialize};
@@ -88,8 +88,8 @@ pub struct ImageAssetPlugin;
 impl AssetPlugin for ImageAssetPlugin {
     fn setup(
         schema_linker: &mut SchemaLinker,
-        importer_registry: &mut ImporterRegistry,
-        builder_registry: &mut BuilderRegistry,
+        importer_registry: &mut ImporterRegistryBuilder,
+        builder_registry: &mut BuilderRegistryBuilder,
     ) {
         ImageAsset::register_schema(schema_linker);
         ImageImportedData::register_schema(schema_linker);

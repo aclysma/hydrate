@@ -19,6 +19,8 @@ pub use build_types::*;
 mod builder_registry;
 pub use builder_registry::*;
 
+pub mod import_util;
+
 use crate::{
     BuilderId, EditorModel, HashMap, ImporterId, ObjectId, SchemaFingerprint, SchemaLinker,
     SchemaSet,
@@ -27,19 +29,19 @@ use crate::{
 pub trait AssetPlugin {
     fn setup(
         schema_linker: &mut SchemaLinker,
-        importer_registry: &mut ImporterRegistry,
-        builder_registry: &mut BuilderRegistry,
+        importer_registry: &mut ImporterRegistryBuilder,
+        builder_registry: &mut BuilderRegistryBuilder,
     );
 }
 
-pub struct AssetEngineBuilder {
-    importer_registry: ImporterRegistry,
-    builder_registry: BuilderRegistry,
+pub struct AssetPluginRegistrationHelper {
+    importer_registry: ImporterRegistryBuilder,
+    builder_registry: BuilderRegistryBuilder,
 }
 
-impl AssetEngineBuilder {
+impl AssetPluginRegistrationHelper {
     pub fn new() -> Self {
-        AssetEngineBuilder {
+        AssetPluginRegistrationHelper {
             importer_registry: Default::default(),
             builder_registry: Default::default(),
         }
@@ -57,36 +59,13 @@ impl AssetEngineBuilder {
         self
     }
 
-    pub fn build(
-        mut self,
-        editor_model: &EditorModel,
-        import_data_path: PathBuf,
-        build_data_path: PathBuf,
-    ) -> AssetEngine {
+    pub fn finish(mut self, schema_set: &SchemaSet) -> (ImporterRegistry, BuilderRegistry) {
         self.importer_registry
-            .finished_linking(editor_model.schema_set());
+            .finished_linking(schema_set);
         self.builder_registry
-            .finished_linking(editor_model.schema_set());
-        let import_jobs = ImportJobs::new(
-            &self.importer_registry,
-            &editor_model,
-            import_data_path, /*DbState::import_data_source_path()*/
-        );
-        let build_jobs = BuildJobs::new(
-            &self.builder_registry,
-            &editor_model,
-            build_data_path, /*DbState::build_data_source_path()*/
-        );
+            .finished_linking(schema_set);
 
-        //TODO: Consider looking at disk to determine previous combined build hash so we don't for a rebuild every time we open
-
-        AssetEngine {
-            importer_registry: self.importer_registry,
-            import_jobs,
-            builder_registry: self.builder_registry,
-            build_jobs,
-            previous_combined_build_hash: None,
-        }
+        (self.importer_registry.build(), self.builder_registry.build())
     }
 }
 
@@ -99,23 +78,37 @@ pub struct AssetEngine {
 }
 
 impl AssetEngine {
-    pub fn register_plugin<T: AssetPlugin>(
-        &mut self,
-        schema_linker: &mut SchemaLinker,
-    ) {
-        T::setup(
-            schema_linker,
-            &mut self.importer_registry,
-            &mut self.builder_registry,
+    pub fn new(
+        importer_registry: ImporterRegistry,
+        builder_registry: BuilderRegistry,
+        editor_model: &EditorModel,
+        import_data_path: PathBuf,
+        build_data_path: PathBuf,
+    ) -> Self {
+        let import_jobs = ImportJobs::new(
+            &importer_registry,
+            &editor_model,
+            import_data_path, /*DbState::import_data_source_path()*/
         );
+        let build_jobs = BuildJobs::new(
+            &builder_registry,
+            &editor_model,
+            build_data_path, /*DbState::build_data_source_path()*/
+        );
+
+        //TODO: Consider looking at disk to determine previous combined build hash so we don't for a rebuild every time we open
+
+        AssetEngine {
+            importer_registry,
+            import_jobs,
+            builder_registry,
+            build_jobs,
+            previous_combined_build_hash: None,
+        }
     }
 
-    pub fn finish_linking(
-        &mut self,
-        schema_set: &SchemaSet,
-    ) {
-        self.importer_registry.finished_linking(schema_set);
-        self.builder_registry.finished_linking(schema_set);
+    pub fn importer_registry(&self) -> &ImporterRegistry {
+        &self.importer_registry
     }
 
     pub fn update(

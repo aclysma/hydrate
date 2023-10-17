@@ -494,3 +494,40 @@ impl SingleObjectJson {
         serde_json::to_string_pretty(&stored_object).unwrap()
     }
 }
+
+#[derive(Default, Clone)]
+pub struct MetaFile {
+    pub past_id_assignments: HashMap<String, ObjectId>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct MetaFileJson {
+    #[serde(serialize_with = "ordered_map_uuid")]
+    pub past_id_assignments: HashMap<String, Uuid>,
+}
+
+impl MetaFileJson {
+    pub fn load_from_string(json: &str) -> MetaFile {
+        let meta_file: MetaFileJson = serde_json::from_str(json).unwrap();
+        let mut past_id_assignments = HashMap::default();
+        for past_id_assignment in meta_file.past_id_assignments {
+            past_id_assignments.insert(past_id_assignment.0, ObjectId(past_id_assignment.1.as_u128()));
+        }
+
+        MetaFile {
+            past_id_assignments
+        }
+    }
+
+    pub fn store_to_string(meta_file: &MetaFile) -> String {
+        let mut past_id_assignments = HashMap::default();
+        for past_id_assignment in &meta_file.past_id_assignments {
+            past_id_assignments.insert(past_id_assignment.0.clone(), past_id_assignment.1.as_uuid());
+        }
+
+        let json_object = MetaFileJson {
+            past_id_assignments
+        };
+        serde_json::to_string_pretty(&json_object).unwrap()
+    }
+}

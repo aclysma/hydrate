@@ -443,6 +443,15 @@ impl EditContext {
         self.data_set.object_name(object_id)
     }
 
+    pub fn set_object_name(
+        &mut self,
+        object_id: ObjectId,
+        object_name: ObjectName,
+    ) {
+        self.track_existing_object(object_id);
+        self.data_set.set_object_name(object_id, object_name);
+    }
+
     pub fn object_location(
         &self,
         object_id: ObjectId,

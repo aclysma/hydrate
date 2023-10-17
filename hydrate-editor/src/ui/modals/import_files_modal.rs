@@ -9,6 +9,7 @@ use hydrate_model::pipeline::{AssetEngine, ImportJobs, ImporterRegistry};
 use imgui::sys::ImVec2;
 use imgui::{im_str, PopupModal, StyleColor, TreeNodeFlags};
 use std::path::{Path, PathBuf};
+use hydrate_model::import_util::ImportToQueue;
 
 pub struct ImportFilesModal {
     finished_first_draw: bool,
@@ -120,144 +121,152 @@ pub fn path_tree(
     }
 }
 
-fn import_file(
+fn recursively_gather_import_operations_and_create_assets(
     file: &Path,
     importer: &Box<dyn Importer>,
     db_state: &mut DbState,
     asset_engine: &AssetEngine,
     selected_import_location: &ObjectLocation,
-    imports_to_queue: &mut Vec<(HashMap<Option<String>, ObjectId>, ImporterId, PathBuf)>,
+    imports_to_queue: &mut Vec<ImportToQueue>,
 ) -> Option<ObjectId> {
+    hydrate_model::pipeline::import_util::recursively_gather_import_operations_and_create_assets(
+        file,
+        importer,
+        db_state.editor_model.root_edit_context_mut(),
+        asset_engine.importer_registry(),
+        selected_import_location,
+        imports_to_queue
+    )
+    // //
+    // // We now build a list of things we will be importing from the file.
+    // // 1. Scan the file to see what's available
+    // // 2. Create/Find objects for all the things we want to import
+    // // 3. Enqueue the import operation
+    // //
+    // let mut object_ids = HashMap::default();
+    // let mut default_importable_object_id = None;
     //
-    // We now build a list of things we will be importing from the file.
-    // 1. Scan the file to see what's available
-    // 2. Create/Find objects for all the things we want to import
-    // 3. Enqueue the import operation
+    // let scanned_importables = importer.scan_file(file, db_state.editor_model.schema_set());
+    // for scanned_importable in &scanned_importables {
+    //     let mut file_references = Vec::default();
+    //     for file_reference in &scanned_importable.file_references {
+    //         file_references.push(file_reference.path.clone());
+    //     }
     //
-    let mut object_ids = HashMap::default();
-    let mut default_importable_object_id = None;
-
-    let scanned_importables = importer.scan_file(file, db_state.editor_model.schema_set());
-    for scanned_importable in &scanned_importables {
-        let mut file_references = Vec::default();
-        for file_reference in &scanned_importable.file_references {
-            file_references.push(file_reference.path.clone());
-        }
-
-        //
-        // When we import, set the import info so we track where the import comes from
-        //
-        let import_info = ImportInfo::new(
-            importer.importer_id(),
-            file.to_path_buf(),
-            scanned_importable.name.clone().unwrap_or_default(),
-            file_references,
-        );
-
-        //
-        // Pick name for the asset for this file
-        //
-        let object_name = if let Some(file_name) = file.file_name() {
-            let file_name = file_name.to_string_lossy();
-            if let Some(importable_name) = &scanned_importable.name {
-                ObjectName::new(format!("{}.{}", file_name, importable_name))
-            } else {
-                ObjectName::new(file_name.to_string())
-            }
-        } else {
-            ObjectName::empty()
-        };
-
-        let mut referenced_source_file_object_ids = Vec::default();
-
-        //TODO: Check referenced source files to find existing imported assets or import referenced files
-        for referenced_source_file in &scanned_importable.file_references {
-            let referenced_file_absolute_path = if referenced_source_file.path.is_relative() {
-                file.parent()
-                    .unwrap()
-                    .join(&referenced_source_file.path)
-                    .canonicalize()
-                    .unwrap()
-            } else {
-                referenced_source_file.path.clone()
-            };
-
-            // Does it already exist?
-            let mut found = None;
-            for object_id in db_state.editor_model.root_edit_context().all_objects() {
-                if let Some(import_info) = db_state
-                    .editor_model
-                    .root_edit_context()
-                    .import_info(*object_id)
-                {
-                    if import_info.importable_name().is_empty()
-                        && import_info.source_file_path() == referenced_file_absolute_path
-                    {
-                        found = Some(*object_id);
-                    }
-                }
-            }
-
-            // If we didn't find it, try to import it
-            if found.is_none() {
-                let importer = asset_engine
-                    .importer(referenced_source_file.importer_id)
-                    .unwrap();
-                found = import_file(
-                    &referenced_file_absolute_path,
-                    importer,
-                    db_state,
-                    asset_engine,
-                    selected_import_location,
-                    imports_to_queue,
-                );
-            }
-
-            referenced_source_file_object_ids.push(found);
-        }
-
-        assert_eq!(
-            referenced_source_file_object_ids.len(),
-            scanned_importable.file_references.len()
-        );
-
-        let object_id = db_state.editor_model.root_edit_context_mut().new_object(
-            &object_name,
-            selected_import_location,
-            &scanned_importable.asset_type,
-        );
-        //TODO: Do this when we actually import to avoid potential race conditions
-        db_state
-            .editor_model
-            .root_edit_context_mut()
-            .set_import_info(object_id, import_info.clone());
-
-        for (k, v) in scanned_importable
-            .file_references
-            .iter()
-            .zip(referenced_source_file_object_ids)
-        {
-            if let Some(v) = v {
-                db_state
-                    .editor_model
-                    .root_edit_context_mut()
-                    .set_file_reference_override(object_id, k.path.clone(), v);
-            }
-        }
-
-        object_ids.insert(scanned_importable.name.clone(), object_id);
-
-        //db_state.editor_model.root_edit_context().build_info_mut().
-
-        if scanned_importable.name.is_none() {
-            default_importable_object_id = Some(object_id);
-        }
-    }
-
-    //asset_engine.queue_import_operation(object_ids, importer.importer_id(), file.to_path_buf());
-    imports_to_queue.push((object_ids, importer.importer_id(), file.to_path_buf()));
-
-    default_importable_object_id
+    //     //
+    //     // When we import, set the import info so we track where the import comes from
+    //     //
+    //     let import_info = ImportInfo::new(
+    //         importer.importer_id(),
+    //         file.to_path_buf(),
+    //         scanned_importable.name.clone().unwrap_or_default(),
+    //         file_references,
+    //     );
+    //
+    //     //
+    //     // Pick name for the asset for this file
+    //     //
+    //     let object_name = if let Some(file_name) = file.file_name() {
+    //         let file_name = file_name.to_string_lossy();
+    //         if let Some(importable_name) = &scanned_importable.name {
+    //             ObjectName::new(format!("{}.{}", file_name, importable_name))
+    //         } else {
+    //             ObjectName::new(file_name.to_string())
+    //         }
+    //     } else {
+    //         ObjectName::empty()
+    //     };
+    //
+    //     let mut referenced_source_file_object_ids = Vec::default();
+    //
+    //     //TODO: Check referenced source files to find existing imported assets or import referenced files
+    //     for referenced_source_file in &scanned_importable.file_references {
+    //         let referenced_file_absolute_path = if referenced_source_file.path.is_relative() {
+    //             file.parent()
+    //                 .unwrap()
+    //                 .join(&referenced_source_file.path)
+    //                 .canonicalize()
+    //                 .unwrap()
+    //         } else {
+    //             referenced_source_file.path.clone()
+    //         };
+    //
+    //         // Does it already exist?
+    //         let mut found = None;
+    //         for object_id in db_state.editor_model.root_edit_context().all_objects() {
+    //             if let Some(import_info) = db_state
+    //                 .editor_model
+    //                 .root_edit_context()
+    //                 .import_info(*object_id)
+    //             {
+    //                 if import_info.importable_name().is_empty()
+    //                     && import_info.source_file_path() == referenced_file_absolute_path
+    //                 {
+    //                     found = Some(*object_id);
+    //                 }
+    //             }
+    //         }
+    //
+    //         // If we didn't find it, try to import it
+    //         if found.is_none() {
+    //             let importer = asset_engine
+    //                 .importer(referenced_source_file.importer_id)
+    //                 .unwrap();
+    //             found = import_file(
+    //                 &referenced_file_absolute_path,
+    //                 importer,
+    //                 db_state,
+    //                 asset_engine,
+    //                 selected_import_location,
+    //                 imports_to_queue,
+    //             );
+    //         }
+    //
+    //         referenced_source_file_object_ids.push(found);
+    //     }
+    //
+    //     assert_eq!(
+    //         referenced_source_file_object_ids.len(),
+    //         scanned_importable.file_references.len()
+    //     );
+    //
+    //     let object_id = db_state.editor_model.root_edit_context_mut().new_object(
+    //         &object_name,
+    //         selected_import_location,
+    //         &scanned_importable.asset_type,
+    //     );
+    //     //TODO: Do this when we actually import to avoid potential race conditions
+    //     db_state
+    //         .editor_model
+    //         .root_edit_context_mut()
+    //         .set_import_info(object_id, import_info.clone());
+    //
+    //     for (k, v) in scanned_importable
+    //         .file_references
+    //         .iter()
+    //         .zip(referenced_source_file_object_ids)
+    //     {
+    //         if let Some(v) = v {
+    //             db_state
+    //                 .editor_model
+    //                 .root_edit_context_mut()
+    //                 .set_file_reference_override(object_id, k.path.clone(), v);
+    //         }
+    //     }
+    //
+    //     object_ids.insert(scanned_importable.name.clone(), object_id);
+    //
+    //     //db_state.editor_model.root_edit_context().build_info_mut().
+    //
+    //     if scanned_importable.name.is_none() {
+    //         default_importable_object_id = Some(object_id);
+    //     }
+    // }
+    //
+    // //asset_engine.queue_import_operation(object_ids, importer.importer_id(), file.to_path_buf());
+    // imports_to_queue.push((object_ids, importer.importer_id(), file.to_path_buf()));
+    //
+    // default_importable_object_id
 }
 
 impl ModalAction for ImportFilesModal {
@@ -322,7 +331,7 @@ impl ModalAction for ImportFilesModal {
                             let importer = asset_engine.importer(handlers[0]).unwrap();
 
                             let mut imports_to_queue = Vec::default();
-                            import_file(
+                            recursively_gather_import_operations_and_create_assets(
                                 file,
                                 importer,
                                 db_state,
@@ -333,9 +342,9 @@ impl ModalAction for ImportFilesModal {
 
                             for import_to_queue in imports_to_queue {
                                 asset_engine.queue_import_operation(
-                                    import_to_queue.0,
-                                    import_to_queue.1,
-                                    import_to_queue.2,
+                                    import_to_queue.requested_importables,
+                                    import_to_queue.importer_id,
+                                    import_to_queue.source_file_path,
                                 );
                             }
 

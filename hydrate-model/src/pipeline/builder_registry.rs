@@ -3,6 +3,7 @@ use std::fs::File;
 use std::hash::{Hash, Hasher};
 use std::io::{Write};
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 use hydrate_base::{BuiltObjectMetadata, AssetUuid};
 use hydrate_base::handle::DummySerdeContextHandle;
 
@@ -13,14 +14,52 @@ use hydrate_base::uuid_path::{path_to_uuid, uuid_and_hash_to_path, uuid_to_path}
 use super::build_types::*;
 
 // Keeps track of all known builders
-#[derive(Default)]
-pub struct BuilderRegistry {
+pub struct BuilderRegistryInner {
     registered_builders: Vec<Box<dyn Builder>>,
     //file_extension_associations: HashMap<String, Vec<BuilderId>>,
     asset_type_to_builder: HashMap<SchemaFingerprint, BuilderId>,
 }
 
+#[derive(Clone)]
+pub struct BuilderRegistry {
+    inner: Arc<BuilderRegistryInner>
+}
+
 impl BuilderRegistry {
+    // pub fn importers_for_file_extension(&self, extension: &str) -> &[BuilderId] {
+    //     const EMPTY_LIST: &'static [BuilderId] = &[];
+    //     self.file_extension_associations.get(extension).map(|x| x.as_slice()).unwrap_or(EMPTY_LIST)
+    // }
+
+    pub fn builder_for_asset(
+        &self,
+        fingerprint: SchemaFingerprint,
+    ) -> Option<&Box<dyn Builder>> {
+        // if let Some(builder_id) = self.asset_type_to_builder.get(&fingerprint).copied() {
+        //     Some(&self.registered_builders[builder_id.0])
+        // } else {
+        //     None
+        // }
+        self.inner.asset_type_to_builder
+            .get(&fingerprint)
+            .copied()
+            .map(|x| &self.inner.registered_builders[x.0])
+    }
+
+    // pub fn builder(&self, builder_id: BuilderId) -> Option<&Box<Builder>> {
+    //     self.registered_builders.get(&builder_id)
+    // }
+}
+
+// Keeps track of all known builders
+#[derive(Default)]
+pub struct BuilderRegistryBuilder {
+    registered_builders: Vec<Box<dyn Builder>>,
+    //file_extension_associations: HashMap<String, Vec<BuilderId>>,
+    asset_type_to_builder: HashMap<SchemaFingerprint, BuilderId>,
+}
+
+impl BuilderRegistryBuilder {
     //
     // Called before creating the schema to add handlers
     //
@@ -70,27 +109,14 @@ impl BuilderRegistry {
         self.asset_type_to_builder = asset_type_to_builder;
     }
 
-    // pub fn importers_for_file_extension(&self, extension: &str) -> &[BuilderId] {
-    //     const EMPTY_LIST: &'static [BuilderId] = &[];
-    //     self.file_extension_associations.get(extension).map(|x| x.as_slice()).unwrap_or(EMPTY_LIST)
-    // }
+    pub fn build(self) -> BuilderRegistry {
+        let inner = BuilderRegistryInner {
+            registered_builders: self.registered_builders,
+            asset_type_to_builder: self.asset_type_to_builder,
+        };
 
-    pub fn builder_for_asset(
-        &self,
-        fingerprint: SchemaFingerprint,
-    ) -> Option<&Box<dyn Builder>> {
-        // if let Some(builder_id) = self.asset_type_to_builder.get(&fingerprint).copied() {
-        //     Some(&self.registered_builders[builder_id.0])
-        // } else {
-        //     None
-        // }
-        self.asset_type_to_builder
-            .get(&fingerprint)
-            .copied()
-            .map(|x| &self.registered_builders[x.0])
+        BuilderRegistry {
+            inner: Arc::new(inner)
+        }
     }
-
-    // pub fn builder(&self, builder_id: BuilderId) -> Option<&Box<Builder>> {
-    //     self.registered_builders.get(&builder_id)
-    // }
 }

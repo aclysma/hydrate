@@ -4,7 +4,7 @@ use std::path::{Path, PathBuf};
 use demo_types::blender_material::*;
 use hydrate_model::value::ValueEnum;
 use hydrate_base::BuiltObjectMetadata;
-use hydrate_model::{BooleanField, DataContainer, DataContainerMut, DataSet, DataSetError, DataSetResult, DataSetView, DataSetViewMut, EditorModel, Enum, EnumField, F32Field, Field, HashMap, ObjectId, ObjectLocation, ObjectName, PropertyPath, SchemaDefType, SchemaLinker, SchemaSet, SingleObject, StringField, Value};
+use hydrate_model::{BooleanField, BuilderRegistryBuilder, DataContainer, DataContainerMut, DataSet, DataSetError, DataSetResult, DataSetView, DataSetViewMut, EditorModel, Enum, EnumField, F32Field, Field, HashMap, ImporterRegistryBuilder, ObjectId, ObjectLocation, ObjectName, PropertyPath, SchemaDefType, SchemaLinker, SchemaSet, SingleObject, StringField, Value};
 use hydrate_model::pipeline::{AssetPlugin, Builder, BuilderRegistry, BuiltAsset, ImporterRegistry};
 use hydrate_model::pipeline::{ImportedImportable, ScannedImportable, Importer};
 use serde::{Deserialize, Serialize};
@@ -449,8 +449,8 @@ pub struct BlenderMaterialAssetPlugin;
 impl AssetPlugin for BlenderMaterialAssetPlugin {
     fn setup(
         schema_linker: &mut SchemaLinker,
-        importer_registry: &mut ImporterRegistry,
-        builder_registry: &mut BuilderRegistry,
+        importer_registry: &mut ImporterRegistryBuilder,
+        builder_registry: &mut BuilderRegistryBuilder,
     ) {
         BlenderMaterialAsset::register_schema(schema_linker);
         BlenderMaterialImportedData::register_schema(schema_linker);

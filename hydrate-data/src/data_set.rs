@@ -414,6 +414,14 @@ impl DataSet {
         &object.object_name
     }
 
+    pub fn set_object_name(
+        &mut self,
+        object_id: ObjectId,
+        object_name: ObjectName
+    ) {
+        self.objects.get_mut(&object_id).unwrap().object_name = object_name;
+    }
+
     // Returns the object's parent
     pub fn object_location(
         &self,

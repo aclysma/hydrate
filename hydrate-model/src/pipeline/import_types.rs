@@ -17,6 +17,7 @@ use hydrate_base::uuid_path::{path_to_uuid, uuid_to_path};
 
 // Represents a path to another file encountered in a file that will need to be resolved to an asset
 // at build time
+#[derive(Debug)]
 pub struct ReferencedSourceFile {
     pub importer_id: ImporterId,
     pub path: PathBuf,
@@ -24,6 +25,7 @@ pub struct ReferencedSourceFile {
 
 // Metadata for all importable data from a file. For example, a GLTF could contain textures, meshes,
 // materials, etc.
+#[derive(Debug)]
 pub struct ScannedImportable {
     pub name: Option<String>,
     pub asset_type: SchemaRecord,

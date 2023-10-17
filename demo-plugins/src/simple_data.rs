@@ -1,6 +1,6 @@
 use demo_types::simple_data::*;
 use hydrate_base::BuiltObjectMetadata;
-use hydrate_model::{DataContainer, DataSet, DataSetEntry, DataSetView, HashMap, ObjectId, SchemaLinker, SchemaSet, SingleObject};
+use hydrate_model::{BuilderRegistryBuilder, DataContainer, DataSet, DataSetEntry, DataSetView, HashMap, ImporterRegistryBuilder, ObjectId, SchemaLinker, SchemaSet, SingleObject};
 use hydrate_model::pipeline::{AssetPlugin, Builder, BuilderRegistry, BuiltAsset, ImporterRegistry};
 use serde::{Deserialize, Serialize};
 use std::marker::PhantomData;
@@ -63,8 +63,8 @@ pub struct SimpleDataAssetPlugin;
 impl AssetPlugin for SimpleDataAssetPlugin {
     fn setup(
         schema_linker: &mut SchemaLinker,
-        importer_registry: &mut ImporterRegistry,
-        builder_registry: &mut BuilderRegistry,
+        importer_registry: &mut ImporterRegistryBuilder,
+        builder_registry: &mut BuilderRegistryBuilder,
     ) {
         builder_registry.register_handler_instance(
             schema_linker,

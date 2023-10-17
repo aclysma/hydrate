@@ -3,6 +3,7 @@ use demo_plugins::{
     SimpleDataAssetPlugin,
 };
 use std::path::PathBuf;
+use hydrate::pipeline::AssetEngine;
 
 fn schema_def_path() -> PathBuf {
     PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/data/schema"))
@@ -40,7 +41,7 @@ fn main() {
 
     let mut linker = hydrate::model::SchemaLinker::default();
 
-    let mut asset_engine_builder = hydrate::pipeline::AssetEngineBuilder::new()
+    let mut asset_plugin_registration_helper = hydrate::pipeline::AssetPluginRegistrationHelper::new()
         .register_plugin::<ImageAssetPlugin>(&mut linker)
         .register_plugin::<BlenderMaterialAssetPlugin>(&mut linker)
         .register_plugin::<GlslAssetPlugin>(&mut linker)
@@ -49,21 +50,43 @@ fn main() {
 
     //TODO: Take a config file
     //TODO: Support N sources using path nodes
-    let db_state = hydrate::editor::DbState::load_or_init_empty(
+    let schema_set = hydrate::editor::DbState::load_schema(
         linker,
+        &schema_def_path(),
+        &schema_cache_file_path()
+    );
+
+    let (importer_registry, builder_registry) = asset_plugin_registration_helper.finish(&*schema_set);
+
+    let mut imports_to_queue = Vec::default();
+    let db_state = hydrate::editor::DbState::load_or_init_empty(
+        &schema_set,
+        &importer_registry,
         &asset_id_based_data_source_path(),
         &asset_path_based_data_source_path(),
-        &schema_def_path(),
         &schema_cache_file_path(),
+        &mut imports_to_queue
     );
-    let asset_engine = asset_engine_builder.build(
+
+    let mut asset_engine = AssetEngine::new(
+        importer_registry,
+        builder_registry,
         &db_state.editor_model,
         import_data_source_path(),
         build_data_source_path(),
     );
 
+    for import_to_queue in imports_to_queue {
+        println!("Queueing import operation {:?}", import_to_queue);
+        asset_engine.queue_import_operation(
+            import_to_queue.requested_importables,
+            import_to_queue.importer_id,
+            import_to_queue.source_file_path
+        );
+    }
+
     //Headless
-    //asset_engine.update(&db_state.editor_model);
+    asset_engine.update(&db_state.editor_model);
 
     hydrate::editor::run(db_state, asset_engine);
 }

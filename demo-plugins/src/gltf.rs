@@ -3,7 +3,7 @@ use std::path::{Path, PathBuf};
 
 use demo_types::gltf::*;
 use hydrate_base::BuiltObjectMetadata;
-use hydrate_model::{DataSet, EditorModel, HashMap, ObjectId, ObjectLocation, ObjectName, SchemaLinker, SchemaSet, SingleObject, Value};
+use hydrate_model::{BuilderRegistryBuilder, DataSet, EditorModel, HashMap, ImporterRegistryBuilder, ObjectId, ObjectLocation, ObjectName, SchemaLinker, SchemaSet, SingleObject, Value};
 use hydrate_model::pipeline::{AssetPlugin, Builder, BuilderRegistry, BuiltAsset, ImporterRegistry};
 use hydrate_model::pipeline::{ImportedImportable, ScannedImportable, Importer};
 use serde::{Deserialize, Serialize};
@@ -88,8 +88,8 @@ pub struct GltfAssetPlugin;
 impl AssetPlugin for GltfAssetPlugin {
     fn setup(
         schema_linker: &mut SchemaLinker,
-        importer_registry: &mut ImporterRegistry,
-        builder_registry: &mut BuilderRegistry,
+        importer_registry: &mut ImporterRegistryBuilder,
+        builder_registry: &mut BuilderRegistryBuilder,
     ) {
         GltfMeshAsset::register_schema(schema_linker);
         GltfMeshImportedData::register_schema(schema_linker);

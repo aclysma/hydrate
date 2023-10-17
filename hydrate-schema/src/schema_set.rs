@@ -34,7 +34,7 @@ impl SchemaSet {
         &mut self,
         linker: SchemaLinker,
     ) -> SchemaLinkerResult<()> {
-        let linked = linker.finish()?;
+        let linked = linker.link_schemas()?;
 
         //TODO: check no name collisions and merge with DB
 

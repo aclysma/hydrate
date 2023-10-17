@@ -4,10 +4,11 @@ use std::path::Path;
 pub use file_system_id_based::*;
 
 use crate::edit_context::EditContext;
-use crate::{EditorModel, ObjectId};
+use crate::{AssetEngine, EditorModel, ObjectId};
 
 mod file_system_path_based;
 pub use file_system_path_based::*;
+use crate::import_util::ImportToQueue;
 
 
 trait SourceFileHandler {
@@ -34,6 +35,7 @@ pub trait DataSource {
     fn reload_all(
         &mut self,
         edit_context: &mut EditContext,
+        imports_to_queue: &mut Vec<ImportToQueue>,
     );
 
     fn save_all_modified(

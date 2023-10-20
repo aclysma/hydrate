@@ -10,15 +10,13 @@ use imgui::{im_str, PopupModal};
 pub struct ConfirmQuitWithoutSavingModal {
     finished_first_draw: bool,
     unsaved_objects: HashSet<ObjectId>,
-    unsaved_locations: HashSet<ObjectLocation>,
 }
 
 impl ConfirmQuitWithoutSavingModal {
-    pub fn new(model: &EditorModel) -> Self {
+    pub fn new(unsaved_objects: HashSet<ObjectId>) -> Self {
         ConfirmQuitWithoutSavingModal {
             finished_first_draw: false,
-            unsaved_objects: model.root_edit_context().modified_objects().clone(),
-            unsaved_locations: model.root_edit_context().modified_locations().clone(),
+            unsaved_objects,
         }
     }
 }

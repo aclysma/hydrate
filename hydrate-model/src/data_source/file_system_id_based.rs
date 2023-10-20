@@ -111,11 +111,37 @@ impl FileSystemIdBasedDataSource {
 }
 
 impl DataSource for FileSystemIdBasedDataSource {
-    fn reload_all(
+    fn is_generated_asset(&self, object_id: ObjectId) -> bool {
+        // this data source does not contain source files so can't have generated assets
+        false
+    }
+
+    fn persist_generated_asset(&mut self, edit_context: &mut EditContext, object_id: ObjectId) {
+        // this data source does not contain source files so can't have generated assets
+    }
+
+    fn load_from_storage(
         &mut self,
         edit_context: &mut EditContext,
         imports_to_queue: &mut Vec<ImportToQueue>,
     ) {
+        //
+        // Delete all objects from the database owned by this data source
+        //
+        let mut objects_to_delete = Vec::default();
+        for (object_id, _) in edit_context.objects() {
+            if self.is_object_owned_by_this_data_source(edit_context, *object_id) {
+                objects_to_delete.push(*object_id);
+            }
+        }
+
+        for object_to_delete in objects_to_delete {
+            edit_context.delete_object(object_to_delete);
+        }
+
+        //
+        // Recreate all assets from storage
+        //
         load_asset_files(
             edit_context,
             &self.file_system_root_path,
@@ -124,7 +150,7 @@ impl DataSource for FileSystemIdBasedDataSource {
         );
     }
 
-    fn save_all_modified(
+    fn flush_to_storage(
         &mut self,
         edit_context: &mut EditContext,
     ) {
@@ -174,46 +200,7 @@ impl DataSource for FileSystemIdBasedDataSource {
         }
     }
 
-    fn reload_all_modified(
-        &mut self,
-        edit_context: &mut EditContext,
-    ) {
-        let mut existing_modified_objects: Vec<_> = Default::default();
-        let mut saved_modified_objects: Vec<_> = Default::default();
-
-        // Find all existing modified objects
-        // I think this includes added, deleted, and edited objects?
-        for modified_object in &self.find_all_modified_objects(edit_context) {
-            if let Some(object_info) = edit_context.objects().get(modified_object) {
-                if self.is_object_owned_by_this_data_source(edit_context, *modified_object) {
-                    existing_modified_objects.push(*modified_object);
-                }
-            }
-
-            if self.all_object_ids_on_disk.contains(modified_object) {
-                saved_modified_objects.push(*modified_object);
-            }
-        }
-
-        // Delete any modified object that exists in the edit context belonging to this data source
-        for modified_object in existing_modified_objects {
-            edit_context.delete_object(modified_object);
-        }
-
-        // Reload any modified object that exists on disk belonging to this data source
-        for modified_object in saved_modified_objects {
-            let file_path =
-                uuid_to_path(&self.file_system_root_path, modified_object.as_uuid(), "af");
-
-            if let Ok(contents) = std::fs::read_to_string(file_path) {
-                crate::json_storage::EditContextObjectJson::load_edit_context_object_from_string(
-                    edit_context,
-                    Some(modified_object.as_uuid()),
-                    self.object_source_id,
-                    None,
-                    &contents
-                );
-            }
-        }
-    }
+    //TODO: revert_some(object_id_list)
+    // - Delete any object in the list
+    // - Load from file any object in the list
 }

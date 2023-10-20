@@ -379,7 +379,9 @@ pub fn draw_asset(
 ) {
     let id = items[index].0;
     let location = &items[index].1;
-    let is_modified = app_state
+
+    let is_generated = app_state.db_state.editor_model.is_generated_asset(id);
+    let is_modified = !is_generated && app_state
         .db_state
         .editor_model
         .root_edit_context()
@@ -433,7 +435,9 @@ pub fn draw_asset(
                 id,
             );
 
-            let color = if is_modified {
+            let color = if is_generated {
+                [0.3, 0.3, 0.3, 1.0]
+            } else if is_modified {
                 [1.0, 1.0, 0.0, 1.0]
             } else {
                 [1.0, 1.0, 1.0, 1.0]

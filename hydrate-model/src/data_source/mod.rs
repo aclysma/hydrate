@@ -32,20 +32,33 @@ trait SourceFileHandler {
 
 
 pub trait DataSource {
-    fn reload_all(
+    // Replace memory with storage state
+    // Reset memory to storage
+    // Load storage state to memory
+    fn load_from_storage(
         &mut self,
         edit_context: &mut EditContext,
         imports_to_queue: &mut Vec<ImportToQueue>,
     );
 
-    fn save_all_modified(
+    // Replace storage state with memory state
+    // Flush memory to storage
+    fn flush_to_storage(
         &mut self,
         edit_context: &mut EditContext,
     );
-    fn reload_all_modified(
-        &mut self,
-        edit_context: &mut EditContext,
-    );
+
+    fn is_generated_asset(
+        &self,
+        object_id: ObjectId
+    ) -> bool;
+
+    fn persist_generated_asset(&mut self, edit_context: &mut EditContext, object_id: ObjectId);
+    // fn revert_all_modified(
+    //     &mut self,
+    //     edit_context: &mut EditContext,
+    //     imports_to_queue: &mut Vec<ImportToQueue>,
+    // );
 
     // fn get_file_operations_required_to_save();
     //

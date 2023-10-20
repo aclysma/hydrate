@@ -56,6 +56,26 @@ impl EditorModel {
         }
     }
 
+    pub fn is_generated_asset(&self, object_id: ObjectId) -> bool {
+        for data_source in self.data_sources.values() {
+            if data_source.is_generated_asset(object_id) {
+                return true;
+            }
+        }
+
+        false
+    }
+
+    pub fn persist_generated_asset(&mut self, object_id: ObjectId) {
+        for (_, data_source) in &mut self.data_sources {
+            let root_edit_context = self.edit_contexts
+                .get_mut(self.root_edit_context_key)
+                .unwrap();
+
+            data_source.persist_generated_asset(root_edit_context, object_id);
+        }
+    }
+
     pub fn commit_all_pending_undo_contexts(&mut self) {
         for (_, context) in &mut self.edit_contexts {
             context.commit_pending_undo_context();
@@ -181,7 +201,7 @@ impl EditorModel {
         // Create the data source and force full reload of it
         //
         let mut fs = FileSystemIdBasedDataSource::new(file_system_root_path.clone(), root_edit_context, object_source_id);
-        fs.reload_all(root_edit_context, imports_to_queue);
+        fs.load_from_storage(root_edit_context, imports_to_queue);
 
         self.data_sources.insert(object_source_id, Box::new(fs));
 
@@ -222,7 +242,7 @@ impl EditorModel {
         // Create the data source and force full reload of it
         //
         let mut fs = FileSystemPathBasedDataSource::new(file_system_root_path.clone(), root_edit_context, object_source_id, importer_registry);
-        fs.reload_all(root_edit_context, imports_to_queue);
+        fs.load_from_storage(root_edit_context, imports_to_queue);
 
         self.data_sources.insert(object_source_id, Box::new(fs));
 
@@ -240,7 +260,7 @@ impl EditorModel {
         root_edit_context.commit_pending_undo_context();
 
         for (id, data_source) in &mut self.data_sources {
-            data_source.save_all_modified(root_edit_context);
+            data_source.flush_to_storage(root_edit_context);
         }
 
         //
@@ -249,7 +269,10 @@ impl EditorModel {
         root_edit_context.clear_change_tracking();
     }
 
-    pub fn revert_root_edit_context(&mut self) {
+    pub fn revert_root_edit_context(
+        &mut self,
+        imports_to_queue: &mut Vec<ImportToQueue>,
+    ) {
         //
         // Ensure pending edits are cleared
         //
@@ -270,7 +293,7 @@ impl EditorModel {
         );
 
         for (id, data_source) in &mut self.data_sources {
-            data_source.reload_all_modified(root_edit_context);
+            data_source.load_from_storage(root_edit_context, imports_to_queue);
         }
 
         //

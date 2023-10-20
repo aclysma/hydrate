@@ -13,6 +13,7 @@ use std::fmt::Formatter;
 use std::path::PathBuf;
 use std::sync::mpsc::{Receiver, Sender};
 use std::sync::{mpsc, Arc};
+use hydrate_model::import_util::ImportToQueue;
 
 #[derive(Debug)]
 pub enum QueuedActions {
@@ -25,6 +26,7 @@ pub enum QueuedActions {
     HandleDroppedFiles(Vec<PathBuf>),
     TryBeginModalAction(Box<ModalAction>),
     MoveObjects(Vec<ObjectId>, ObjectLocation),
+    PersistAssets(Vec<ObjectId>),
     //RevertAll,
     //ResetWindowLayout,
     //SelectObjectsInAssetBrowser(Vec<ObjectId>)
@@ -170,23 +172,24 @@ impl AppState {
     }
 
     pub fn process_queued_actions(&mut self) {
+        let mut imports_to_queue = Vec::<ImportToQueue>::default();
         while let Ok(queued_action) = self.action_queue.action_queue_rx.try_recv() {
             match queued_action {
                 QueuedActions::SaveAll => self.db_state.editor_model.save_root_edit_context(),
-                QueuedActions::RevertAll => self.db_state.editor_model.revert_root_edit_context(),
+                QueuedActions::RevertAll => self.db_state.editor_model.revert_root_edit_context(&mut imports_to_queue),
                 QueuedActions::Undo => self.db_state.editor_model.undo(),
                 QueuedActions::Redo => self.db_state.editor_model.redo(),
                 QueuedActions::Quit => {
                     self.db_state
                         .editor_model
                         .commit_all_pending_undo_contexts();
-                    if self
-                        .db_state
-                        .editor_model
-                        .any_edit_context_has_unsaved_changes()
-                    {
+
+                    let mut unsaved_objects = self.db_state.editor_model.root_edit_context().modified_objects().clone();
+                    unsaved_objects.retain(|x| !self.db_state.editor_model.is_generated_asset(*x));
+
+                    if !unsaved_objects.is_empty() {
                         self.try_set_modal_action(ConfirmQuitWithoutSavingModal::new(
-                            &self.db_state.editor_model,
+                            unsaved_objects,
                         ));
                     } else {
                         self.ready_to_quit = true;
@@ -213,7 +216,16 @@ impl AppState {
                             EndContextBehavior::Finish
                         });
                 }
+                QueuedActions::PersistAssets(objects) => {
+                    for object_id in objects {
+                        self.db_state.editor_model.persist_generated_asset(object_id)
+                    }
+                }
             }
+        }
+
+        for import_to_queue in imports_to_queue {
+            self.asset_engine.queue_import_operation(import_to_queue.requested_importables, import_to_queue.importer_id, import_to_queue.source_file_path);
         }
     }
 

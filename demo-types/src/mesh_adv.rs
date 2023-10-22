@@ -101,27 +101,3 @@ pub struct MeshAdvAssetData {
 
 
 
-
-#[cfg(feature = "editor-types")]
-use super::generated::{MeshAdvShadowMethodEnum, MeshAdvBlendMethodEnum};
-
-#[cfg(feature = "editor-types")]
-impl Into<MeshAdvBlendMethod> for MeshAdvBlendMethodEnum {
-    fn into(self) -> MeshAdvBlendMethod {
-        match self {
-            MeshAdvBlendMethodEnum::Opaque => MeshAdvBlendMethod::Opaque,
-            MeshAdvBlendMethodEnum::AlphaClip => MeshAdvBlendMethod::AlphaClip,
-            MeshAdvBlendMethodEnum::AlphaBlend => MeshAdvBlendMethod::AlphaBlend,
-        }
-    }
-}
-
-#[cfg(feature = "editor-types")]
-impl Into<MeshAdvShadowMethod> for MeshAdvShadowMethodEnum {
-    fn into(self) -> MeshAdvShadowMethod {
-        match self {
-            MeshAdvShadowMethodEnum::None => MeshAdvShadowMethod::None,
-            MeshAdvShadowMethodEnum::Opaque => MeshAdvShadowMethod::Opaque,
-        }
-    }
-}

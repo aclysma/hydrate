@@ -11,7 +11,7 @@ use hydrate_model::pipeline::{ImportedImportable, ReferencedSourceFile, ScannedI
 use serde::{Deserialize, Serialize};
 use shaderc::IncludeType;
 use type_uuid::{TypeUuid, TypeUuidDynamic};
-use demo_types::generated::{GlslBuildTargetAssetRecord, GlslSourceFileAssetRecord, GlslSourceFileImportedDataRecord};
+use super::generated::{GlslBuildTargetAssetRecord, GlslSourceFileAssetRecord, GlslSourceFileImportedDataRecord};
 
 fn range_of_line_at_position(
     code: &[char],

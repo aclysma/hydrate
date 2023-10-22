@@ -9,7 +9,7 @@ use hydrate_model::pipeline::{AssetPlugin, Builder, BuiltAsset};
 use hydrate_model::pipeline::{ImportedImportable, ScannedImportable, Importer};
 use serde::{Serialize};
 use type_uuid::{TypeUuid, TypeUuidDynamic};
-use demo_types::generated::{ImageAssetRecord, ImageImportedDataRecord};
+use super::generated::{ImageAssetRecord, ImageImportedDataRecord};
 
 #[derive(TypeUuid, Default)]
 #[uuid = "e7c83acb-f73b-4b3c-b14d-fe5cc17c0fa3"]

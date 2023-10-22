@@ -4,7 +4,7 @@ use hydrate_model::{BuilderRegistryBuilder, DataContainer, ImporterRegistryBuild
 use hydrate_model::pipeline::{AssetPlugin, Builder};
 use serde::{Deserialize, Serialize};
 use type_uuid::TypeUuid;
-use demo_types::generated::{AllFieldsRecord, TransformRecord, TransformRefRecord};
+use super::generated::{AllFieldsRecord, TransformRecord, TransformRefRecord};
 
 mod simple_data_trait;
 pub use simple_data_trait::SimpleData;

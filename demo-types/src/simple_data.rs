@@ -2,8 +2,7 @@ use hydrate_data::{Field, DataContainer, DataSet, DataSetResult, DataSetView, Da
 use serde::{Deserialize, Serialize};
 use type_uuid::TypeUuid;
 use hydrate_base::{AssetUuid, Handle};
-#[cfg(feature = "editor-types")]
-use super::generated::{Vec3Record, Vec4Record, TransformRecord, AllFieldsRecord};
+
 
 //
 // Engine-specific types start here

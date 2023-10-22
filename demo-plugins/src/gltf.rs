@@ -8,8 +8,7 @@ use hydrate_model::pipeline::{AssetPlugin, Builder, BuilderRegistry, BuiltAsset,
 use hydrate_model::pipeline::{ImportedImportable, ScannedImportable, Importer};
 use serde::{Deserialize, Serialize};
 use type_uuid::{TypeUuid, TypeUuidDynamic};
-use demo_types::generated::{MeshAdvMaterialAssetRecord, MeshAdvMaterialImportedDataRecord, MeshAdvMeshAssetRecord};
-use demo_types::generated_wrapper::MeshAdvMeshImportedDataRecord;
+use super::generated::{MeshAdvMaterialAssetRecord, MeshAdvMaterialImportedDataRecord, MeshAdvMeshAssetRecord, MeshAdvMeshImportedDataRecord};
 
 fn name_or_index(
     prefix: &str,

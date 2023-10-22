@@ -15,3 +15,6 @@ pub use crate::gltf::*;
 
 mod mesh_adv;
 pub use mesh_adv::*;
+
+pub mod generated_wrapper;
+pub use generated_wrapper as generated;

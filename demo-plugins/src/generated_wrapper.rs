@@ -1,5 +1,7 @@
-
+use demo_types::mesh_adv::{MeshAdvBlendMethod, MeshAdvShadowMethod};
+use hydrate_model::{DataContainer, DataContainerMut, DataSetResult};
 use hydrate_data::*;
+
 include!("generated.rs");
 
 impl Vec3Record {
@@ -33,5 +35,25 @@ impl Vec4Record {
         let z = self.z().get(data_container)?;
         let w = self.w().get(data_container)?;
         Ok([x, y, z, w])
+    }
+}
+
+
+impl Into<MeshAdvBlendMethod> for MeshAdvBlendMethodEnum {
+    fn into(self) -> MeshAdvBlendMethod {
+        match self {
+            MeshAdvBlendMethodEnum::Opaque => MeshAdvBlendMethod::Opaque,
+            MeshAdvBlendMethodEnum::AlphaClip => MeshAdvBlendMethod::AlphaClip,
+            MeshAdvBlendMethodEnum::AlphaBlend => MeshAdvBlendMethod::AlphaBlend,
+        }
+    }
+}
+
+impl Into<MeshAdvShadowMethod> for MeshAdvShadowMethodEnum {
+    fn into(self) -> MeshAdvShadowMethod {
+        match self {
+            MeshAdvShadowMethodEnum::None => MeshAdvShadowMethod::None,
+            MeshAdvShadowMethodEnum::Opaque => MeshAdvShadowMethod::Opaque,
+        }
     }
 }

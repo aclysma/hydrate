@@ -5,7 +5,7 @@ use hydrate_model::pipeline::{AssetPlugin, Builder, BuilderRegistry, BuiltAsset,
 use serde::{Deserialize, Serialize};
 use std::marker::PhantomData;
 use type_uuid::TypeUuid;
-use demo_types::generated::{AllFieldsRecord, TransformRecord};
+use crate::generated::{AllFieldsRecord, TransformRecord};
 
 use super::SimpleData;
 

@@ -2,7 +2,6 @@ use demo_types::image::ImageBuiltData;
 use hydrate::loader::Handle;
 use hydrate::model::ObjectId;
 use std::path::PathBuf;
-use demo_types::gltf::{GltfBuiltMaterialData, GltfBuiltMeshData};
 use demo_types::simple_data::{Transform, TransformRef};
 
 pub fn build_data_source_path() -> PathBuf {
@@ -21,8 +20,6 @@ fn main() {
 
     let mut loader = hydrate::loader::AssetManager::new(build_data_source_path()).unwrap();
     loader.add_storage::<ImageBuiltData>();
-    loader.add_storage::<GltfBuiltMaterialData>();
-    loader.add_storage::<GltfBuiltMeshData>();
     loader.add_storage::<Transform>();
     loader.add_storage::<TransformRef>();
 

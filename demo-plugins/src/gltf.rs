@@ -1,7 +1,6 @@
 pub use super::*;
 use std::path::{Path, PathBuf};
 
-use demo_types::gltf::*;
 use hydrate_base::BuiltObjectMetadata;
 use hydrate_model::{BuilderRegistryBuilder, DataContainerMut, DataSet, EditorModel, HashMap, ImporterRegistryBuilder, ObjectId, ObjectLocation, ObjectName, Record, SchemaLinker, SchemaSet, SingleObject, Value};
 use hydrate_model::pipeline::{AssetPlugin, Builder, BuilderRegistry, BuiltAsset, ImporterRegistry};

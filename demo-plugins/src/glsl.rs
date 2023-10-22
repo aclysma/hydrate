@@ -5,12 +5,13 @@ use std::path::{Path, PathBuf};
 
 use demo_types::glsl::*;
 use hydrate_base::BuiltObjectMetadata;
-use hydrate_model::{BuilderRegistryBuilder, DataSet, EditorModel, HashMap, HashSet, ImporterRegistryBuilder, ObjectId, ObjectLocation, ObjectName, SchemaLinker, SchemaSet, SingleObject, Value};
+use hydrate_model::{BuilderRegistryBuilder, DataContainer, DataContainerMut, DataSet, EditorModel, HashMap, HashSet, ImporterRegistryBuilder, ObjectId, ObjectLocation, ObjectName, Record, SchemaLinker, SchemaSet, SingleObject, Value};
 use hydrate_model::pipeline::{AssetPlugin, Builder, BuilderRegistry, BuiltAsset, ImporterRegistry};
 use hydrate_model::pipeline::{ImportedImportable, ReferencedSourceFile, ScannedImportable, Importer};
 use serde::{Deserialize, Serialize};
 use shaderc::IncludeType;
 use type_uuid::{TypeUuid, TypeUuidDynamic};
+use demo_types::generated::{GlslBuildTargetAssetRecord, GlslSourceFileAssetRecord, GlslSourceFileImportedDataRecord};
 
 fn range_of_line_at_position(
     code: &[char],
@@ -537,93 +538,8 @@ pub(crate) fn include_impl(
             requested_from, resolved_path
         ))
     }
-
-    //let content = "".to_string();
-
-    // let content = std::fs::read_to_string(&resolved_path).map_err(|e| {
-    //     format!(
-    //         "Could not read file {:?} when trying to include {:?} from {:?}: {:?}",
-    //         resolved_path, requested_path, requested_from, e
-    //     )
-    // })?;
-
-    // Ok(shaderc::ResolvedInclude {
-    //     resolved_name: resolved_path.to_str().unwrap().to_string(),
-    //     content,
-    // })
 }
 
-// pub(crate) fn shaderc_include_callback(
-//     requested_path: &str,
-//     include_type: shaderc::IncludeType,
-//     requested_from: &str,
-//     include_depth: usize,
-// ) -> shaderc::IncludeCallbackResult {
-//     let requested_path: PathBuf = requested_path.into();
-//     let requested_from: PathBuf = requested_from.into();
-//     include_impl(
-//         &requested_path,
-//         include_type.into(),
-//         &requested_from,
-//         include_depth,
-//     )
-//         //.map(|x| x.into())
-//         .map_err(|x| x.into())
-// }
-
-pub struct GlslSourceFileAsset {}
-
-impl GlslSourceFileAsset {
-    pub fn schema_name() -> &'static str {
-        "GlslSourceFileAsset"
-    }
-
-    pub fn register_schema(linker: &mut SchemaLinker) {
-        linker
-            .register_record_type(Self::schema_name(), |x| {})
-            .unwrap();
-    }
-}
-
-pub struct GlslSourceFileImportedData {}
-
-impl GlslSourceFileImportedData {
-    pub fn schema_name() -> &'static str {
-        "GlslSourceFileImportedData"
-    }
-
-    pub fn register_schema(linker: &mut SchemaLinker) {
-        linker
-            .register_record_type(Self::schema_name(), |x| {
-                x.add_string("code");
-            })
-            .unwrap();
-    }
-}
-
-#[derive(Serialize, Deserialize)]
-struct GlslSourceFileBuiltData {
-    code: String,
-}
-
-pub struct GlslAssetPlugin;
-
-impl AssetPlugin for GlslAssetPlugin {
-    fn setup(
-        schema_linker: &mut SchemaLinker,
-        importer_registry: &mut ImporterRegistryBuilder,
-        builder_registry: &mut BuilderRegistryBuilder,
-    ) {
-        GlslSourceFileAsset::register_schema(schema_linker);
-        GlslSourceFileImportedData::register_schema(schema_linker);
-        GlslBuildTargetAsset::register_schema(schema_linker);
-
-        importer_registry.register_handler::<GlslSourceFileImporter>(schema_linker);
-        //builder_registry.register_handler::<GlslBuilder>(schema_linker);
-
-        builder_registry.register_handler::<GlslBuildTargetBuilder>(schema_linker);
-    }
-}
 
 #[derive(TypeUuid, Default)]
 #[uuid = "d2b0a4ec-5b57-4251-8bd4-affa1755f7cc"]
@@ -652,25 +568,8 @@ impl Importer for GlslSourceFileImporter {
             })
             .collect();
 
-        //
-        // let mut compile_options = shaderc::CompileOptions::new().unwrap();
-        // compile_options.set_include_callback(include::shaderc_include_callback);
-        // compile_options.set_optimization_level(shaderc::OptimizationLevel::Performance);
-        //
-        // let compiler = shaderc::Compiler::new().unwrap();
-        // compiler
-        //     .preprocess(
-        //         &code,
-        //         shader_kind,
-        //         glsl_file.to_str().unwrap(),
-        //         entry_point_name,
-        //         Some(&compile_options),
-        //     ).unwrap();
-
-        //TODO: Find the include paths
-
         let asset_type = schema_set
-            .find_named_type(GlslSourceFileAsset::schema_name())
+            .find_named_type(GlslSourceFileAssetRecord::schema_name())
             .unwrap()
             .as_record()
             .unwrap()
@@ -686,9 +585,12 @@ impl Importer for GlslSourceFileImporter {
         &self,
         path: &Path,
         object_ids: &HashMap<Option<String>, ObjectId>,
-        schema: &SchemaSet,
+        schema_set: &SchemaSet,
         //import_info: &ImportInfo,
     ) -> HashMap<Option<String>, ImportedImportable> {
+        //
+        // Read the file
+        //
         let code = std::fs::read_to_string(path).unwrap();
         let code_chars: Vec<_> = code.chars().collect();
 
@@ -701,93 +603,38 @@ impl Importer for GlslSourceFileImporter {
             })
             .collect();
 
-        let glsl_imported_data_schema = schema
-            .find_named_type(GlslSourceFileImportedData::schema_name())
-            .unwrap()
-            .as_record()
-            .unwrap();
+        //
+        // Create import data
+        //
+        let import_data = {
+            let mut import_object = GlslSourceFileImportedDataRecord::new_single_object(schema_set).unwrap();
+            let mut import_data_container = DataContainerMut::new_single_object(&mut import_object, schema_set);
+            let x = GlslSourceFileImportedDataRecord::default();
+            x.code().set(&mut import_data_container, code).unwrap();
+            import_object
+        };
 
-        let mut import_object = SingleObject::new(glsl_imported_data_schema);
-        import_object.set_property_override(schema, "code", Value::String(code));
+        let default_asset = {
+            let mut default_asset_object = GlslSourceFileAssetRecord::new_single_object(schema_set).unwrap();
+            let mut _default_asset_data_container = DataContainerMut::new_single_object(&mut default_asset_object, schema_set);
+            let _x = GlslSourceFileAssetRecord::default();
+            // Nothing to set
+            default_asset_object
+        };
 
+        //
+        // Return the created objects
+        //
         let mut imported_objects = HashMap::default();
         imported_objects.insert(
             None,
             ImportedImportable {
                 file_references: referenced_source_files,
-                data: import_object,
+                import_data,
+                default_asset
             },
         );
         imported_objects
-    }
-}
-
-// #[derive(TypeUuid, Default)]
-// #[uuid = "884303cd-3655-4a72-9131-b07b5121ed29"]
-// pub struct GlslBuilder {}
-//
-// impl Builder for GlslBuilder {
-//     fn asset_type(&self) -> &'static str {
-//         GlslSourceFileAsset::schema_name()
-//     }
-//
-//     fn dependencies(&self, asset_id: ObjectId, data_set: &DataSet, schema: &SchemaSet) -> Vec<ObjectId> {
-//         vec![asset_id]
-//     }
-//
-//     fn build_asset(
-//         &self,
-//         asset_id: ObjectId,
-//         data_set: &DataSet,
-//         schema: &SchemaSet,
-//         dependency_data: &HashMap<ObjectId, SingleObject>
-//     ) -> Vec<u8> {
-//         //
-//         // Read asset properties
-//         //
-//         // let compressed = data_set
-//         //     .resolve_property(schema, asset_id, "compress")
-//         //     .unwrap()
-//         //     .as_boolean()
-//         //     .unwrap();
-//
-//         //
-//         // Read imported data
-//         //
-//         let imported_data = &dependency_data[&asset_id];
-//         let code = imported_data
-//             .resolve_property(schema, "code")
-//             .unwrap()
-//             .as_string()
-//             .unwrap()
-//             .to_string();
-//
-//         let processed_data = GlslSourceFileBuiltData {
-//             code,
-//         };
-//
-//         let serialized = bincode::serialize(&processed_data).unwrap();
-//         serialized
-//     }
-// }
-
-pub struct GlslBuildTargetAsset {
-    entry_point: String,
-    source_file: ObjectId,
-}
-
-impl GlslBuildTargetAsset {
-    pub fn schema_name() -> &'static str {
-        "GlslBuildTargetAsset"
-    }
-
-    pub fn register_schema(linker: &mut SchemaLinker) {
-        linker
-            .register_record_type(Self::schema_name(), |x| {
-                x.add_string("entry_point");
-                x.add_reference("source_file", "GlslSourceFileAsset");
-            })
-            .unwrap();
     }
 }
 
@@ -797,27 +644,29 @@ pub struct GlslBuildTargetBuilder {}
 
 impl Builder for GlslBuildTargetBuilder {
     fn asset_type(&self) -> &'static str {
-        GlslBuildTargetAsset::schema_name()
+        GlslBuildTargetAssetRecord::schema_name()
     }
 
-    fn build_dependencies(
+    fn enumerate_dependencies(
         &self,
         asset_id: ObjectId,
         data_set: &DataSet,
-        schema: &SchemaSet,
+        schema_set: &SchemaSet,
     ) -> Vec<ObjectId> {
-        let source_file = data_set
-            .resolve_property(schema, asset_id, "source_file")
-            .unwrap()
-            .as_object_ref()
-            .unwrap();
+        let data_container = DataContainer::new_dataset(data_set, schema_set, asset_id);
+        let x = GlslBuildTargetAssetRecord::default();
+
+        // The source file is the "top level" file where the GLSL entry point is defined
+        let source_file = x.source_file().get(&data_container).unwrap();
 
         //TODO: Error?
         if source_file.is_null() {
             return vec![];
         }
 
-        // Set up the referenced source file to be visited
+        // We walk through the source file and any files that it includes directly or indirectly
+        // We build a queue of files (visit_queue) to visit and track all files that have already
+        // been queued
         let mut queued = HashSet::default();
         let mut visit_queue = VecDeque::default();
         visit_queue.push_back(source_file);
@@ -844,36 +693,21 @@ impl Builder for GlslBuildTargetBuilder {
         &self,
         asset_id: ObjectId,
         data_set: &DataSet,
-        schema: &SchemaSet,
+        schema_set: &SchemaSet,
         dependency_data: &HashMap<ObjectId, SingleObject>,
     ) -> BuiltAsset {
         //
         // Read asset properties
         //
-        // let compressed = data_set
-        //     .resolve_property(schema, asset_id, "compress")
-        //     .unwrap()
-        //     .as_boolean()
-        //     .unwrap();
+        let data_container = DataContainer::new_dataset(data_set, schema_set, asset_id);
+        let x = GlslBuildTargetAssetRecord::default();
+
+        let source_file = x.source_file().get(&data_container).unwrap();
+        let entry_point = x.entry_point().get(&data_container).unwrap();
 
         //
-        // Read imported data
+        // Build a lookup of source file ObjectID to PathBuf that it was imported from
         //
-        //let imported_data = &dependency_data[&asset_id];
-
-        let entry_point = data_set
-            .resolve_property(schema, asset_id, "entry_point")
-            .unwrap()
-            .as_string()
-            .unwrap()
-            .to_string();
-
-        let source_file = data_set
-            .resolve_property(schema, asset_id, "source_file")
-            .unwrap()
-            .as_object_ref()
-            .unwrap();
-
         let mut dependency_lookup = HashMap::default();
         for (&dependency_object_id, _) in dependency_data {
             let all_references = data_set
@@ -891,16 +725,17 @@ impl Builder for GlslBuildTargetBuilder {
 
         println!("DEPENDENCY LOOKUPS {:?}", dependency_lookup);
 
-        let mut processed_data = GlslBuildTargetBuiltData {
-            spv: Default::default(),
-        };
+        //
+        // Compile the shader
+        //
+        let mut compiled_spv = Vec::default();
 
         //TODO: Return error if source file not found
         if !source_file.is_null() {
             let source_file_import_info = data_set.import_info(source_file).unwrap();
             let source_file_import_data = &dependency_data[&source_file];
             let code = source_file_import_data
-                .resolve_property(schema, "code")
+                .resolve_property(schema_set, "code")
                 .unwrap()
                 .as_string()
                 .unwrap()
@@ -918,7 +753,7 @@ impl Builder for GlslBuildTargetBuilder {
                     include_type.into(),
                     &requested_from,
                     include_depth,
-                    schema,
+                    schema_set,
                     &dependency_lookup,
                     dependency_data,
                 )
@@ -941,12 +776,22 @@ impl Builder for GlslBuildTargetBuilder {
 
             if let Ok(compiled_code) = compiled_code {
                 println!("SUCCESS BUILDING SHADER");
-                processed_data.spv = compiled_code.as_binary_u8().to_vec();
+                compiled_spv = compiled_code.as_binary_u8().to_vec();
             } else {
                 println!("Error: {:?}", compiled_code.err());
             }
         }
 
+        //
+        // Create the processed data
+        //
+        let mut processed_data = GlslBuildTargetBuiltData {
+            spv: compiled_spv,
+        };
+
+        //
+        // Serialize and return
+        //
         let serialized = bincode::serialize(&processed_data).unwrap();
         BuiltAsset {
             metadata: BuiltObjectMetadata {
@@ -956,5 +801,18 @@ impl Builder for GlslBuildTargetBuilder {
             },
             data: serialized
         }
+    }
+}
+
+pub struct GlslAssetPlugin;
+
+impl AssetPlugin for GlslAssetPlugin {
+    fn setup(
+        schema_linker: &mut SchemaLinker,
+        importer_registry: &mut ImporterRegistryBuilder,
+        builder_registry: &mut BuilderRegistryBuilder,
+    ) {
+        importer_registry.register_handler::<GlslSourceFileImporter>(schema_linker);
+        builder_registry.register_handler::<GlslBuildTargetBuilder>(schema_linker);
     }
 }

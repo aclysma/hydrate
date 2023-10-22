@@ -123,7 +123,7 @@ impl CachedSchemaRecord {
             self.name,
             SchemaFingerprint(self.fingerprint.as_u128()),
             self.aliases.into_boxed_slice(),
-            fields.into_boxed_slice(),
+            fields,
         )
     }
 }

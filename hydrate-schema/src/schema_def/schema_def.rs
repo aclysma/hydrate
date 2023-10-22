@@ -277,7 +277,7 @@ impl SchemaDefRecord {
             self.type_name,
             fingerprint,
             self.aliases.into_boxed_slice(),
-            fields.into_boxed_slice(),
+            fields,
         )
     }
 }

@@ -17,28 +17,22 @@ pub struct BuiltAsset {
 
 // Interface all builders must implement
 pub trait Builder {
-    // fn builder_id(&self) -> BuilderId {
-    //     BuilderId(Uuid::from_bytes(self.uuid()))
-    // }
-
-    //fn register_schemas(&self, schema_linker: &mut SchemaLinker);
-
     // The type of asset that this builder handles
     fn asset_type(&self) -> &'static str;
 
     // Returns the assets that this build job needs to be available to complete
-    fn build_dependencies(
+    fn enumerate_dependencies(
         &self,
         asset_id: ObjectId,
         data_set: &DataSet,
-        schema: &SchemaSet,
+        schema_set: &SchemaSet,
     ) -> Vec<ObjectId>;
 
     fn build_asset(
         &self,
         asset_id: ObjectId,
         data_set: &DataSet,
-        schema: &SchemaSet,
+        schema_set: &SchemaSet,
         dependency_data: &HashMap<ObjectId, SingleObject>,
     ) -> BuiltAsset;
 }

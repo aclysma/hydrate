@@ -163,7 +163,7 @@ impl ImportJobs {
             for (name, imported_object) in imported_objects {
                 if let Some(object_id) = import_op.object_ids.get(&name) {
                     let data =
-                        SingleObjectJson::save_single_object_to_string(&imported_object.data);
+                        SingleObjectJson::save_single_object_to_string(&imported_object.import_data);
                     let path = uuid_to_path(&self.root_path, object_id.as_uuid(), "if");
 
                     if let Some(parent) = path.parent() {

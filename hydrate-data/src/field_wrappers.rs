@@ -1,7 +1,8 @@
 
 use std::marker::PhantomData;
 use uuid::Uuid;
-use crate::{DataContainer, DataContainerMut, DataSetError, DataSetResult, DataSetViewMut, ObjectId, Value};
+use hydrate_schema::SchemaSet;
+use crate::{DataContainer, DataContainerMut, DataSetError, DataSetResult, DataSetViewMut, ObjectId, SingleObject, Value};
 use crate::value::ValueEnum;
 
 #[derive(Default)]
@@ -32,6 +33,19 @@ pub trait Enum: Sized {
     fn from_symbol_name(str: &str) -> Option<Self>;
 }
 
+pub trait Record {
+    fn schema_name() -> &'static str;
+
+    fn new_single_object(schema_set: &SchemaSet) -> Option<SingleObject> {
+        let schema = schema_set
+            .find_named_type(Self::schema_name())
+            .unwrap()
+            .as_record()?;
+
+        Some(SingleObject::new(schema))
+    }
+}
+
 
 
 pub struct EnumField<T: Enum>(PropertyPath, PhantomData<T>);
@@ -45,6 +59,7 @@ impl<T: Enum> Field for EnumField<T> {
 impl<T: Enum> EnumField<T> {
     pub fn get(&self, data_container: &DataContainer) -> DataSetResult<T> {
         let e = data_container.resolve_property(self.0.path()).ok_or(DataSetError::PathParentIsNull)?;
+        println!("it's {:?}", e);
         T::from_symbol_name(e.as_enum().unwrap().symbol_name()).ok_or(DataSetError::UnexpectedEnumSymbol)
     }
 

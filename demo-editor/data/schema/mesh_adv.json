@@ -28,7 +28,14 @@
   },
   {
     "type": "record",
-    "name": "BlenderMaterialImportedData",
+    "name": "MeshAdvMaterialImportedData",
+    "fields": [
+
+    ]
+  },
+  {
+    "type": "record",
+    "name": "MeshAdvMaterialAsset",
     "fields": [
       {
         "name": "base_color_factor",
@@ -86,6 +93,20 @@
         "name": "color_texture_has_alpha_channel",
         "type": "bool"
       }
+    ]
+  },
+  {
+    "type": "record",
+    "name": "MeshAdvMeshImportedData",
+    "fields": [
+
+    ]
+  },
+  {
+    "type": "record",
+    "name": "MeshAdvMeshAsset",
+    "fields": [
+
     ]
   }
 ]

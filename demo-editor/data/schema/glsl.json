@@ -1,0 +1,33 @@
+[
+  {
+    "type": "record",
+    "name": "GlslSourceFileImportedData",
+    "fields": [
+      {
+        "name": "code",
+        "type": "string"
+      }
+    ]
+  },
+  {
+    "type": "record",
+    "name": "GlslSourceFileAsset",
+    "fields": [
+
+    ]
+  },
+  {
+    "type": "record",
+    "name": "GlslBuildTargetAsset",
+    "fields": [
+      {
+        "name": "entry_point",
+        "type": "string"
+      },
+      {
+        "name": "source_file",
+        "type": { "name": "object_ref", "inner_type": "GlslSourceFileAsset" }
+      }
+    ]
+  }
+]

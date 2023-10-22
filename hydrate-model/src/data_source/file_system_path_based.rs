@@ -843,6 +843,8 @@ impl DataSource for FileSystemPathBasedDataSource {
         }
 
         // Delete anything on disk that shouldn't still be on disk
+        // Maybe check before we start saving anything if the disk state has changed and offer to reload?
+
         //TODO: Implement probably in passes? Files first then directories? Or maybe we can just
         // reverse sort by filename length?
 

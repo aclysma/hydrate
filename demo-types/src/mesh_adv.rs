@@ -1,4 +1,6 @@
 use serde::{Deserialize, Serialize};
+use type_uuid::TypeUuid;
+use hydrate_base::Handle;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum MeshAdvShadowMethod {
@@ -58,6 +60,68 @@ impl Default for MeshAdvMaterialData {
             blend_method: MeshAdvBlendMethod::Opaque,
             alpha_threshold: 0.5,
             backface_culling: true,
+        }
+    }
+}
+
+
+
+
+
+pub struct MeshAdvBufferAssetData {
+    //pub resource_type: RafxResourceType,
+    pub alignment: u32,
+    pub data: Vec<u8>,
+}
+
+#[derive(Serialize, Deserialize, Clone)]
+pub struct MeshAdvPartAssetData {
+    pub vertex_full_buffer_offset_in_bytes: u32,
+    pub vertex_full_buffer_size_in_bytes: u32,
+    pub vertex_position_buffer_offset_in_bytes: u32,
+    pub vertex_position_buffer_size_in_bytes: u32,
+    pub index_buffer_offset_in_bytes: u32,
+    pub index_buffer_size_in_bytes: u32,
+    //pub mesh_material: Handle<MeshMaterialAdvAsset>,
+    //pub index_type: RafxIndexType,
+}
+
+#[derive(TypeUuid, Serialize, Deserialize, Clone)]
+#[uuid = "4c888448-2650-4f56-82dc-71ba81f4295b"]
+pub struct MeshAdvAssetData {
+    pub mesh_parts: Vec<MeshAdvPartAssetData>,
+    pub vertex_full_buffer: Handle<MeshAdvBufferAssetData>, // Vertex type is MeshVertexFull
+    pub vertex_position_buffer: Handle<MeshAdvBufferAssetData>, // Vertex type is MeshVertexPosition
+    pub index_buffer: Handle<MeshAdvBufferAssetData>,       // u16 indices
+    //pub visible_bounds: VisibleBounds,
+}
+
+
+
+
+
+
+
+#[cfg(feature = "editor-types")]
+use super::generated::{MeshAdvShadowMethodEnum, MeshAdvBlendMethodEnum};
+
+#[cfg(feature = "editor-types")]
+impl Into<MeshAdvBlendMethod> for MeshAdvBlendMethodEnum {
+    fn into(self) -> MeshAdvBlendMethod {
+        match self {
+            MeshAdvBlendMethodEnum::Opaque => MeshAdvBlendMethod::Opaque,
+            MeshAdvBlendMethodEnum::AlphaClip => MeshAdvBlendMethod::AlphaClip,
+            MeshAdvBlendMethodEnum::AlphaBlend => MeshAdvBlendMethod::AlphaBlend,
+        }
+    }
+}
+
+#[cfg(feature = "editor-types")]
+impl Into<MeshAdvShadowMethod> for MeshAdvShadowMethodEnum {
+    fn into(self) -> MeshAdvShadowMethod {
+        match self {
+            MeshAdvShadowMethodEnum::None => MeshAdvShadowMethod::None,
+            MeshAdvShadowMethodEnum::Opaque => MeshAdvShadowMethod::Opaque,
         }
     }
 }

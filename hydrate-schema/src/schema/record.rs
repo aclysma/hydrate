@@ -62,7 +62,7 @@ impl SchemaRecord {
         name: String,
         fingerprint: SchemaFingerprint,
         aliases: Box<[String]>,
-        fields: Box<[SchemaRecordField]>,
+        mut fields: Vec<SchemaRecordField>,
     ) -> Self {
         // Check names are unique
         for i in 0..fields.len() {
@@ -71,11 +71,13 @@ impl SchemaRecord {
             }
         }
 
+        fields.sort_by(|lhs, rhs| lhs.name.cmp(&rhs.name));
+
         let inner = SchemaRecordInner {
             name,
             fingerprint,
             aliases,
-            fields,
+            fields: fields.into_boxed_slice(),
         };
 
         SchemaRecord {

@@ -219,6 +219,8 @@ impl SchemaLinker {
                 // We make a copy because otherwise we would be iterating the HashSet while we are appending to it
                 let before_copy: Vec<_> = related_types.iter().cloned().collect();
                 for related_type in &before_copy {
+                    // If you hit this unwrap, a schema file is likely referencing a type that does not exist
+                    // Keep in mind it's case-sensitive
                     //println!("find related type {}", related_type);
                     let related_type = self.types.get(related_type).unwrap();
                     related_type.collect_all_related_types(&mut related_types);

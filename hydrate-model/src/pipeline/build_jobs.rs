@@ -117,7 +117,7 @@ impl BuildJobs {
             };
 
             log::info!("building object type {}", object_type.name());
-            let dependencies = builder.build_dependencies(object_id, data_set, schema_set);
+            let dependencies = builder.enumerate_dependencies(object_id, data_set, schema_set);
 
             let mut imported_data = HashMap::default();
             let mut imported_data_hash = 0;

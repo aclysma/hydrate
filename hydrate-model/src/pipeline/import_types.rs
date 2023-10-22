@@ -34,7 +34,8 @@ pub struct ScannedImportable {
 
 pub struct ImportedImportable {
     pub file_references: Vec<ReferencedSourceFile>,
-    pub data: SingleObject,
+    pub default_asset: SingleObject,
+    pub import_data: SingleObject,
 }
 
 

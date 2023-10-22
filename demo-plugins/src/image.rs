@@ -1,103 +1,15 @@
 pub use super::*;
-use ::image::{EncodableLayout, GenericImageView};
-use std::path::{Path, PathBuf};
+use ::image::{GenericImageView};
+use std::path::{Path};
 
 use demo_types::image::*;
 use hydrate_base::BuiltObjectMetadata;
-use hydrate_model::{BooleanField, BuilderRegistryBuilder, BytesField, DataContainer, DataContainerMut, DataSet, EditorModel, Field, HashMap, ImporterRegistryBuilder, ObjectId, ObjectLocation, ObjectName, PropertyPath, SchemaLinker, SchemaSet, SingleObject, U32Field, Value};
-use hydrate_model::pipeline::{AssetPlugin, Builder, BuilderRegistry, BuiltAsset, ImporterRegistry};
+use hydrate_model::{BooleanField, BuilderRegistryBuilder, BytesField, DataContainer, DataContainerMut, DataSet, Field, HashMap, ImporterRegistryBuilder, ObjectId, PropertyPath, Record, SchemaLinker, SchemaSet, SingleObject, U32Field};
+use hydrate_model::pipeline::{AssetPlugin, Builder, BuiltAsset};
 use hydrate_model::pipeline::{ImportedImportable, ScannedImportable, Importer};
-use serde::{Deserialize, Serialize};
-use serde_json::error::Category::Data;
+use serde::{Serialize};
 use type_uuid::{TypeUuid, TypeUuidDynamic};
-
-struct ImageImportedDataRecord(PropertyPath);
-
-impl Field for ImageImportedDataRecord {
-    fn new(property_path: PropertyPath) -> Self {
-        ImageImportedDataRecord(property_path)
-    }
-}
-
-impl ImageImportedDataRecord {
-    fn image_bytes(&self) -> BytesField {
-        BytesField::new(self.0.push("image_bytes"))
-    }
-
-    fn width(&self) -> U32Field {
-        U32Field::new(self.0.push("width"))
-    }
-
-    fn height(&self) -> U32Field {
-        U32Field::new(self.0.push("height"))
-    }
-}
-struct ImageAssetRecord(PropertyPath);
-
-impl Field for ImageAssetRecord {
-    fn new(property_path: PropertyPath) -> Self {
-        ImageAssetRecord(property_path)
-    }
-}
-
-impl ImageAssetRecord {
-    fn compress(&self) -> BooleanField {
-        BooleanField::new(self.0.push("compress"))
-    }
-}
-
-pub struct ImageAsset {}
-
-impl ImageAsset {
-    pub fn schema_name() -> &'static str {
-        "ImageAsset"
-    }
-
-    pub fn register_schema(linker: &mut SchemaLinker) {
-        // linker
-        //     .register_record_type(Self::schema_name(), |x| {
-        //         //x.add_reference("imported_data", ImageImportedData::schema_name());
-        //         //x.add_string("path");
-        //         x.add_boolean("compress");
-        //     })
-        //     .unwrap();
-    }
-}
-
-pub struct ImageImportedData {}
-
-impl ImageImportedData {
-    pub fn schema_name() -> &'static str {
-        "ImageImportedData"
-    }
-
-    pub fn register_schema(linker: &mut SchemaLinker) {
-        // linker
-        //     .register_record_type(Self::schema_name(), |x| {
-        //         //x.add_reference("asset", ImageImportedData::schema_name());
-        //         x.add_bytes("image_bytes"); // TODO: this would be a buffer
-        //         x.add_u32("width");
-        //         x.add_u32("height");
-        //     })
-        //     .unwrap();
-    }
-}
-
-pub struct ImageAssetPlugin;
-
-impl AssetPlugin for ImageAssetPlugin {
-    fn setup(
-        schema_linker: &mut SchemaLinker,
-        importer_registry: &mut ImporterRegistryBuilder,
-        builder_registry: &mut BuilderRegistryBuilder,
-    ) {
-        ImageAsset::register_schema(schema_linker);
-        ImageImportedData::register_schema(schema_linker);
-
-        importer_registry.register_handler::<ImageImporter>(schema_linker);
-        builder_registry.register_handler::<ImageBuilder>(schema_linker);
-    }
-}
+use demo_types::generated::{ImageAssetRecord, ImageImportedDataRecord};
 
 #[derive(TypeUuid, Default)]
 #[uuid = "e7c83acb-f73b-4b3c-b14d-fe5cc17c0fa3"]
@@ -114,7 +26,7 @@ impl Importer for ImageImporter {
         schema_set: &SchemaSet,
     ) -> Vec<ScannedImportable> {
         let asset_type = schema_set
-            .find_named_type(ImageAsset::schema_name())
+            .find_named_type(ImageAssetRecord::schema_name())
             .unwrap()
             .as_record()
             .unwrap()
@@ -126,53 +38,54 @@ impl Importer for ImageImporter {
         }]
     }
 
-    //fn create_default_asset(&self, editor_model: &mut EditorModel, object_name: ObjectName, object_location: ObjectLocation) -> ObjectId {
-    //    let schema_record = editor_model.root_edit_context_mut().schema_set().find_named_type(ImageAsset::schema_name()).unwrap().as_record().unwrap().clone();
-    //    editor_model.root_edit_context_mut().new_object(&object_name, &object_location, &schema_record)
-    //}
-
     fn import_file(
         &self,
         path: &Path,
         object_ids: &HashMap<Option<String>, ObjectId>,
-        schema: &SchemaSet,
-        //import_info: &ImportInfo,
+        schema_set: &SchemaSet,
     ) -> HashMap<Option<String>, ImportedImportable> {
-        // TODO: Replace with a shim so we can track what files are being read
-        // - We trigger the importer for them by specifying the file path and kind of file (i.e. an image, specific type of JSON file, etc.)
-        // - We may need to let the "import" dialog try to perform the import to get error messages and discover what will end up being imported
-        //let bytes = std::fs::read(path).unwrap();
-
-        // let decoded_image =
-        //     ::image::load_from_memory_with_format(&bytes, ::image::ImageFormat::Png).unwrap();
-
+        //
+        // Read the file
+        //
         let decoded_image = ::image::open(path).unwrap();
 
         let (width, height) = decoded_image.dimensions();
         let image_bytes = decoded_image.into_rgba8().to_vec();
 
-        let image_imported_data_schema = schema
-            .find_named_type(ImageImportedData::schema_name())
-            .unwrap()
-            .as_record()
-            .unwrap();
+        //
+        // Create import data
+        //
+        let import_data = {
+            let mut import_object = ImageImportedDataRecord::new_single_object(schema_set).unwrap();
+            let mut import_data_container = DataContainerMut::new_single_object(&mut import_object, schema_set);
+            let x = ImageImportedDataRecord::default();
+            x.image_bytes().set(&mut import_data_container, image_bytes).unwrap();
+            x.width().set(&mut import_data_container, width).unwrap();
+            x.height().set(&mut import_data_container, width).unwrap();
+            import_object
+        };
 
-        let mut import_object = SingleObject::new(image_imported_data_schema);
-        // import_object.set_property_override(schema, "image_bytes", Value::Bytes(image_bytes));
-        // import_object.set_property_override(schema, "width", Value::U32(width));
-        // import_object.set_property_override(schema, "height", Value::U32(height));
-        let mut data_container = DataContainerMut::new_single_object(&mut import_object, schema);
-        let data = ImageImportedDataRecord::new(PropertyPath::default());
-        data.image_bytes().set(&mut data_container, image_bytes).unwrap();
-        data.width().set(&mut data_container, width).unwrap();
-        data.height().set(&mut data_container, width).unwrap();
+        //
+        // Create the default asset
+        //
+        let default_asset = {
+            let mut default_asset_object = ImageAssetRecord::new_single_object(schema_set).unwrap();
+            let mut default_asset_data_container = DataContainerMut::new_single_object(&mut default_asset_object, schema_set);
+            let x = ImageAssetRecord::default();
+            x.compress().set(&mut default_asset_data_container, false).unwrap();
+            default_asset_object
+        };
 
+        //
+        // Return the created objects
+        //
         let mut imported_objects = HashMap::default();
         imported_objects.insert(
             None,
             ImportedImportable {
                 file_references: Default::default(),
-                data: import_object,
+                import_data,
+                default_asset,
             },
         );
         imported_objects
@@ -185,14 +98,14 @@ pub struct ImageBuilder {}
 
 impl Builder for ImageBuilder {
     fn asset_type(&self) -> &'static str {
-        ImageAsset::schema_name()
+        ImageAssetRecord::schema_name()
     }
 
-    fn build_dependencies(
+    fn enumerate_dependencies(
         &self,
         asset_id: ObjectId,
         data_set: &DataSet,
-        schema: &SchemaSet,
+        schema_set: &SchemaSet,
     ) -> Vec<ObjectId> {
         vec![asset_id]
     }
@@ -201,47 +114,26 @@ impl Builder for ImageBuilder {
         &self,
         asset_id: ObjectId,
         data_set: &DataSet,
-        schema: &SchemaSet,
+        schema_set: &SchemaSet,
         dependency_data: &HashMap<ObjectId, SingleObject>,
     ) -> BuiltAsset {
         //
         // Read asset properties
         //
-        let compressed = data_set
-            .resolve_property(schema, asset_id, "compress")
-            .unwrap()
-            .as_boolean()
-            .unwrap();
+        let data_container = DataContainer::new_dataset(data_set, schema_set, asset_id);
+        let x = ImageAssetRecord::default();
+        let compressed = x.compress().get(&data_container).unwrap();
 
         //
         // Read imported data
         //
         let imported_data = &dependency_data[&asset_id];
-        let data_container = DataContainer::new_single_object(&imported_data, schema);
-        let data = ImageImportedDataRecord::new(PropertyPath::default());
+        let data_container = DataContainer::new_single_object(&imported_data, schema_set);
+        let x = ImageImportedDataRecord::new(PropertyPath::default());
 
-        let image_bytes = data.image_bytes().get(&data_container).unwrap().clone();
-        let width = data.width().get(&data_container).unwrap();
-        let height = data.height().get(&data_container).unwrap();
-
-
-
-        // let image_bytes = imported_data
-        //     .resolve_property(schema, "image_bytes")
-        //     .unwrap()
-        //     .as_bytes()
-        //     .unwrap()
-        //     .clone();
-        // let width = imported_data
-        //     .resolve_property(schema, "width")
-        //     .unwrap()
-        //     .as_u32()
-        //     .unwrap();
-        // let height = imported_data
-        //     .resolve_property(schema, "height")
-        //     .unwrap()
-        //     .as_u32()
-        //     .unwrap();
+        let image_bytes = x.image_bytes().get(&data_container).unwrap().clone();
+        let width = x.width().get(&data_container).unwrap();
+        let height = x.height().get(&data_container).unwrap();
 
         //
         // Compress the image, or just return the raw image bytes
@@ -270,12 +162,18 @@ impl Builder for ImageBuilder {
             image_bytes
         };
 
+        //
+        // Create the processed data
+        //
         let processed_data = ImageBuiltData {
             image_bytes,
             width,
             height,
         };
 
+        //
+        // Serialize and return
+        //
         let serialized = bincode::serialize(&processed_data).unwrap();
         BuiltAsset {
             metadata: BuiltObjectMetadata {
@@ -285,5 +183,18 @@ impl Builder for ImageBuilder {
             },
             data: serialized
         }
+    }
+}
+
+pub struct ImageAssetPlugin;
+
+impl AssetPlugin for ImageAssetPlugin {
+    fn setup(
+        schema_linker: &mut SchemaLinker,
+        importer_registry: &mut ImporterRegistryBuilder,
+        builder_registry: &mut BuilderRegistryBuilder,
+    ) {
+        importer_registry.register_handler::<ImageImporter>(schema_linker);
+        builder_registry.register_handler::<ImageBuilder>(schema_linker);
     }
 }

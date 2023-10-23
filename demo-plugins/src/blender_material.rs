@@ -1,13 +1,15 @@
 pub use super::*;
-use std::path::{Path};
+use std::path::{Path, PathBuf};
+use std::str::FromStr;
 
 use demo_types::mesh_adv::*;
 use hydrate_base::BuiltObjectMetadata;
-use hydrate_model::{BuilderRegistryBuilder, DataContainer, DataContainerMut, DataSet, Enum, HashMap, ImporterRegistryBuilder, ObjectId, Record, SchemaLinker, SchemaSet, SingleObject};
+use hydrate_model::{BuilderRegistryBuilder, DataContainer, DataContainerMut, DataSet, Enum, HashMap, ImportableObject, ImporterId, ImporterRegistryBuilder, ObjectId, Record, ReferencedSourceFile, SchemaLinker, SchemaSet, SingleObject};
 use hydrate_model::pipeline::{AssetPlugin, Builder, BuiltAsset};
 use hydrate_model::pipeline::{ImportedImportable, ScannedImportable, Importer};
 use serde::{Deserialize, Serialize};
 use type_uuid::{TypeUuid, TypeUuidDynamic};
+use uuid::Uuid;
 
 use super::generated::{MeshAdvMaterialImportedDataRecord, MeshAdvMaterialAssetRecord, MeshAdvBlendMethodEnum, MeshAdvShadowMethodEnum};
 
@@ -54,23 +56,56 @@ impl Importer for BlenderMaterialImporter {
         path: &Path,
         schema_set: &SchemaSet,
     ) -> Vec<ScannedImportable> {
+        let importer_image_id = ImporterId(Uuid::from_bytes(ImageImporter::UUID));
+
         let asset_type = schema_set
             .find_named_type(MeshAdvMaterialAssetRecord::schema_name())
             .unwrap()
             .as_record()
             .unwrap()
             .clone();
+
+        let json_str = std::fs::read_to_string(path).unwrap();
+        let json_data: MaterialJsonFileFormat = serde_json::from_str(&json_str).unwrap();
+
+        let mut file_references: Vec<ReferencedSourceFile> = Default::default();
+
+        if let Some(color_texture) = json_data.color_texture {
+            file_references.push(ReferencedSourceFile {
+                importer_id: importer_image_id,
+                path: PathBuf::from_str(&color_texture).unwrap(),
+            })
+        }
+        if let Some(metallic_roughness_texture) = json_data.metallic_roughness_texture {
+            file_references.push(ReferencedSourceFile {
+                importer_id: importer_image_id,
+                path: PathBuf::from_str(&metallic_roughness_texture).unwrap(),
+            })
+        }
+        if let Some(normal_texture) = json_data.normal_texture {
+            file_references.push(ReferencedSourceFile {
+                importer_id: importer_image_id,
+                path: PathBuf::from_str(&normal_texture).unwrap(),
+            })
+        }
+        if let Some(emissive_texture) = json_data.emissive_texture {
+            file_references.push(ReferencedSourceFile {
+                importer_id: importer_image_id,
+                path: PathBuf::from_str(&emissive_texture).unwrap(),
+            })
+        }
+
         vec![ScannedImportable {
             name: None,
             asset_type,
-            file_references: Default::default(),
+            file_references,
         }]
     }
 
     fn import_file(
         &self,
         path: &Path,
-        object_ids: &HashMap<Option<String>, ObjectId>,
+        importable_objects: &HashMap<Option<String>, ImportableObject>,
         schema_set: &SchemaSet,
     ) -> HashMap<Option<String>, ImportedImportable> {
         //
@@ -84,6 +119,7 @@ impl Importer for BlenderMaterialImporter {
         //
         let shadow_method = if let Some(shadow_method_string) = &json_data.shadow_method {
             //TODO: This relies on input json and code matching perfectly, ideally we would search schema type for aliases
+            println!("find {:?}", shadow_method_string);
             MeshAdvShadowMethodEnum::from_symbol_name(shadow_method_string.as_str()).unwrap()
         } else {
             MeshAdvShadowMethodEnum::None
@@ -94,31 +130,6 @@ impl Importer for BlenderMaterialImporter {
             MeshAdvBlendMethodEnum::from_symbol_name(blend_method_string.as_str()).unwrap()
         } else {
             MeshAdvBlendMethodEnum::Opaque
-        };
-
-        //
-        // Create import data
-        //
-        let import_data = {
-            let mut import_object = MeshAdvMaterialImportedDataRecord::new_single_object(schema_set).unwrap();
-            let mut import_data_container = DataContainerMut::new_single_object(&mut import_object, schema_set);
-            let x = MeshAdvMaterialImportedDataRecord::default();
-            // x.base_color_factor().set_vec4(&mut import_data_container, json_data.base_color_factor).unwrap();
-            // x.emissive_factor().set_vec3(&mut import_data_container, json_data.emissive_factor).unwrap();
-            // x.metallic_factor().set(&mut import_data_container, json_data.metallic_factor).unwrap();
-            // x.roughness_factor().set(&mut import_data_container, json_data.roughness_factor).unwrap();
-            // x.normal_texture_scale().set(&mut import_data_container, json_data.normal_texture_scale).unwrap();
-            // x.color_texture().set(&mut import_data_container, json_data.color_texture.unwrap_or_default().clone()).unwrap();
-            // x.metallic_roughness_texture().set(&mut import_data_container, json_data.metallic_roughness_texture.unwrap_or_default().clone()).unwrap();
-            // x.normal_texture().set(&mut import_data_container, json_data.normal_texture.unwrap_or_default()).unwrap();
-            // x.emissive_texture().set(&mut import_data_container, json_data.emissive_texture.unwrap_or_default()).unwrap();
-            // x.shadow_method().set(&mut import_data_container, shadow_method).unwrap();
-            // x.blend_method().set(&mut import_data_container, blend_method).unwrap();
-            // x.alpha_threshold().set(&mut import_data_container, json_data.alpha_threshold.unwrap_or(0.5)).unwrap();
-            // x.backface_culling().set(&mut import_data_container, json_data.backface_culling.unwrap_or(true)).unwrap();
-            // //TODO: Does this incorrectly write older enum string names when code is older than schema file?
-            // x.color_texture_has_alpha_channel().set(&mut import_data_container, json_data.color_texture_has_alpha_channel).unwrap();
-            import_object
         };
 
         //
@@ -133,10 +144,31 @@ impl Importer for BlenderMaterialImporter {
             x.metallic_factor().set(&mut default_asset_data_container, json_data.metallic_factor).unwrap();
             x.roughness_factor().set(&mut default_asset_data_container, json_data.roughness_factor).unwrap();
             x.normal_texture_scale().set(&mut default_asset_data_container, json_data.normal_texture_scale).unwrap();
-            x.color_texture().set(&mut default_asset_data_container, json_data.color_texture.unwrap_or_default()).unwrap();
-            x.metallic_roughness_texture().set(&mut default_asset_data_container, json_data.metallic_roughness_texture.unwrap_or_default()).unwrap();
-            x.normal_texture().set(&mut default_asset_data_container, json_data.normal_texture.unwrap_or_default()).unwrap();
-            x.emissive_texture().set(&mut default_asset_data_container, json_data.emissive_texture.unwrap_or_default()).unwrap();
+
+            if let Some(color_texture) = json_data.color_texture {
+                if let Some(referenced_object_id) = importable_objects.get(&None).unwrap().referenced_paths.get(&PathBuf::from_str(&color_texture).unwrap()) {
+                    x.color_texture().set(&mut default_asset_data_container, *referenced_object_id).unwrap();
+                }
+            }
+
+            if let Some(metallic_roughness_texture) = json_data.metallic_roughness_texture {
+                if let Some(referenced_object_id) = importable_objects.get(&None).unwrap().referenced_paths.get(&PathBuf::from_str(&metallic_roughness_texture).unwrap()) {
+                    x.metallic_roughness_texture().set(&mut default_asset_data_container, *referenced_object_id).unwrap();
+                }
+            }
+
+            if let Some(normal_texture) = json_data.normal_texture {
+                if let Some(referenced_object_id) = importable_objects.get(&None).unwrap().referenced_paths.get(&PathBuf::from_str(&normal_texture).unwrap()) {
+                    x.normal_texture().set(&mut default_asset_data_container, *referenced_object_id).unwrap();
+                }
+            }
+
+            if let Some(emissive_texture) = json_data.emissive_texture {
+                if let Some(referenced_object_id) = importable_objects.get(&None).unwrap().referenced_paths.get(&PathBuf::from_str(&emissive_texture).unwrap()) {
+                    x.emissive_texture().set(&mut default_asset_data_container, *referenced_object_id).unwrap();
+                }
+            }
+
             x.shadow_method().set(&mut default_asset_data_container, shadow_method).unwrap();
             x.blend_method().set(&mut default_asset_data_container, blend_method).unwrap();
             x.alpha_threshold().set(&mut default_asset_data_container, json_data.alpha_threshold.unwrap_or(0.5)).unwrap();
@@ -154,8 +186,8 @@ impl Importer for BlenderMaterialImporter {
             None,
             ImportedImportable {
                 file_references: Default::default(),
-                import_data,
-                default_asset
+                import_data: None,
+                default_asset: Some(default_asset)
             },
         );
         imported_objects

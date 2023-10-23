@@ -195,8 +195,11 @@ impl Enum for MeshAdvBlendMethodEnum {
     fn from_symbol_name(str: &str) -> Option<MeshAdvBlendMethodEnum> {
         match str {
             "Opaque" => Some(MeshAdvBlendMethodEnum::Opaque),
+            "OPAQUE" => Some(MeshAdvBlendMethodEnum::Opaque),
             "AlphaClip" => Some(MeshAdvBlendMethodEnum::AlphaClip),
+            "ALPHA_CLIP" => Some(MeshAdvBlendMethodEnum::AlphaClip),
             "AlphaBlend" => Some(MeshAdvBlendMethodEnum::AlphaBlend),
+            "ALPHA_BLEND" => Some(MeshAdvBlendMethodEnum::AlphaBlend),
             _ => None,
         }
     }
@@ -239,8 +242,8 @@ impl MeshAdvMaterialAssetRecord {
         EnumField::<MeshAdvBlendMethodEnum>::new(self.0.push("blend_method"))
     }
 
-    pub fn color_texture(&self) -> StringField {
-        StringField::new(self.0.push("color_texture"))
+    pub fn color_texture(&self) -> ObjectRefField {
+        ObjectRefField::new(self.0.push("color_texture"))
     }
 
     pub fn color_texture_has_alpha_channel(&self) -> BooleanField {
@@ -251,20 +254,20 @@ impl MeshAdvMaterialAssetRecord {
         Vec3Record::new(self.0.push("emissive_factor"))
     }
 
-    pub fn emissive_texture(&self) -> StringField {
-        StringField::new(self.0.push("emissive_texture"))
+    pub fn emissive_texture(&self) -> ObjectRefField {
+        ObjectRefField::new(self.0.push("emissive_texture"))
     }
 
     pub fn metallic_factor(&self) -> F32Field {
         F32Field::new(self.0.push("metallic_factor"))
     }
 
-    pub fn metallic_roughness_texture(&self) -> StringField {
-        StringField::new(self.0.push("metallic_roughness_texture"))
+    pub fn metallic_roughness_texture(&self) -> ObjectRefField {
+        ObjectRefField::new(self.0.push("metallic_roughness_texture"))
     }
 
-    pub fn normal_texture(&self) -> StringField {
-        StringField::new(self.0.push("normal_texture"))
+    pub fn normal_texture(&self) -> ObjectRefField {
+        ObjectRefField::new(self.0.push("normal_texture"))
     }
 
     pub fn normal_texture_scale(&self) -> F32Field {
@@ -348,6 +351,7 @@ impl Enum for MeshAdvShadowMethodEnum {
         match str {
             "None" => Some(MeshAdvShadowMethodEnum::None),
             "Opaque" => Some(MeshAdvShadowMethodEnum::Opaque),
+            "OPAQUE" => Some(MeshAdvShadowMethodEnum::Opaque),
             _ => None,
         }
     }

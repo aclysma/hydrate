@@ -97,6 +97,9 @@ fn generate_enum(schema_set: &SchemaSet, schema: &SchemaEnum) -> codegen::Scope 
     from_symbol_name_fn.line("match str {");
     for symbol in schema.symbols() {
         from_symbol_name_fn.line(format!("    \"{}\" => Some({}::{}),", symbol.name(), enum_name, symbol.name()));
+        for alias in symbol.aliases() {
+            from_symbol_name_fn.line(format!("    \"{}\" => Some({}::{}),", alias, enum_name, symbol.name()));
+        }
     }
     from_symbol_name_fn.line("    _ => None,");
     from_symbol_name_fn.line("}");

@@ -5,7 +5,7 @@ use std::path::{Path, PathBuf};
 
 use demo_types::glsl::*;
 use hydrate_base::BuiltObjectMetadata;
-use hydrate_model::{BuilderRegistryBuilder, DataContainer, DataContainerMut, DataSet, EditorModel, HashMap, HashSet, ImporterRegistryBuilder, ObjectId, ObjectLocation, ObjectName, Record, SchemaLinker, SchemaSet, SingleObject, Value};
+use hydrate_model::{BuilderRegistryBuilder, DataContainer, DataContainerMut, DataSet, EditorModel, HashMap, HashSet, ImportableObject, ImporterRegistryBuilder, ObjectId, ObjectLocation, ObjectName, Record, SchemaLinker, SchemaSet, SingleObject, Value};
 use hydrate_model::pipeline::{AssetPlugin, Builder, BuilderRegistry, BuiltAsset, ImporterRegistry};
 use hydrate_model::pipeline::{ImportedImportable, ReferencedSourceFile, ScannedImportable, Importer};
 use serde::{Deserialize, Serialize};
@@ -584,7 +584,7 @@ impl Importer for GlslSourceFileImporter {
     fn import_file(
         &self,
         path: &Path,
-        object_ids: &HashMap<Option<String>, ObjectId>,
+        importable_objects: &HashMap<Option<String>, ImportableObject>,
         schema_set: &SchemaSet,
         //import_info: &ImportInfo,
     ) -> HashMap<Option<String>, ImportedImportable> {
@@ -630,8 +630,8 @@ impl Importer for GlslSourceFileImporter {
             None,
             ImportedImportable {
                 file_references: referenced_source_files,
-                import_data,
-                default_asset
+                import_data: Some(import_data),
+                default_asset: Some(default_asset),
             },
         );
         imported_objects

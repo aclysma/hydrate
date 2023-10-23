@@ -63,6 +63,7 @@ pub fn recursively_gather_import_operations_and_create_assets(
     //
     let mut requested_importables = HashMap::default();
     let mut default_importable_object_id = None;
+    let mut assets_to_regenerate = HashSet::default();
 
     let scanned_importables = importer.scan_file(source_file_path, editor_context.schema_set());
     for scanned_importable in &scanned_importables {
@@ -161,6 +162,10 @@ pub fn recursively_gather_import_operations_and_create_assets(
 
         requested_importables.insert(scanned_importable.name.clone(), object_id);
 
+        // These are all newly created objects so we should populate their properties based on source file contents
+        // A re-import of data from the source file might not want to do this
+        assets_to_regenerate.insert(object_id);
+
         //editor_context.build_info_mut().
 
         if scanned_importable.name.is_none() {
@@ -174,7 +179,7 @@ pub fn recursively_gather_import_operations_and_create_assets(
         source_file_path: source_file_path.to_path_buf(),
         importer_id: importer.importer_id(),
         requested_importables,
-        assets_to_regenerate: Default::default()
+        assets_to_regenerate
     });
 
     default_importable_object_id

@@ -156,38 +156,49 @@ impl ImportJobs {
             //let importer_id = importer_registry.asset_to_importer.get(&fingerprint).unwrap();
             let importer = importer_registry.importer(importer_id).unwrap();
 
-            //let mut referenced_source_file_paths = Vec::default();
+            let mut importable_objects = HashMap::<Option<String>, ImportableObject>::default();
+            for (name, object_id) in &import_op.object_ids {
+                let referenced_paths = editor_model.root_edit_context().resolve_all_file_references(*object_id).unwrap_or_default();
+                importable_objects.insert(name.clone(), ImportableObject {
+                    id: *object_id,
+                    referenced_paths
+                });
+            }
+
             let imported_objects = importer.import_file(
                 &import_op.path,
-                &import_op.object_ids,
+                &importable_objects,
                 editor_model.schema_set(),
-                //&mut referenced_source_file_paths
             );
 
             //TODO: Validate that all requested importables exist?
             for (name, imported_object) in imported_objects {
                 if let Some(object_id) = import_op.object_ids.get(&name) {
                     if import_op.assets_to_regenerate.contains(object_id) {
-                        editor_model.root_edit_context_mut().copy_from_single_object(&*schema_set, *object_id, &imported_object.default_asset).unwrap();
+                        if let Some(default_asset) = &imported_object.default_asset {
+                            editor_model.root_edit_context_mut().copy_from_single_object(&*schema_set, *object_id, default_asset).unwrap();
+                        }
                     }
 
-                    let data =
-                        SingleObjectJson::save_single_object_to_string(&imported_object.import_data);
-                    let path = uuid_to_path(&self.root_path, object_id.as_uuid(), "if");
+                    if let Some(import_data) = &imported_object.import_data {
+                        let data =
+                            SingleObjectJson::save_single_object_to_string(import_data);
+                        let path = uuid_to_path(&self.root_path, object_id.as_uuid(), "if");
 
-                    if let Some(parent) = path.parent() {
-                        std::fs::create_dir_all(parent).unwrap();
+                        if let Some(parent) = path.parent() {
+                            std::fs::create_dir_all(parent).unwrap();
+                        }
+
+                        std::fs::write(&path, data).unwrap();
+                        let metadata = path.metadata().unwrap();
+                        let metadata_hash = hash_file_metadata(&metadata);
+                        let mut import_job = self
+                            .import_jobs
+                            .entry(*object_id)
+                            .or_insert_with(|| ImportJob::new(*object_id));
+                        import_job.import_data_exists = true;
+                        import_job.imported_data_hash = Some(metadata_hash);
                     }
-
-                    std::fs::write(&path, data).unwrap();
-                    let metadata = path.metadata().unwrap();
-                    let metadata_hash = hash_file_metadata(&metadata);
-                    let mut import_job = self
-                        .import_jobs
-                        .entry(*object_id)
-                        .or_insert_with(|| ImportJob::new(*object_id));
-                    import_job.import_data_exists = true;
-                    import_job.imported_data_hash = Some(metadata_hash);
                 }
             }
         }

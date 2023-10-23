@@ -7,7 +7,8 @@
         "name": "None"
       },
       {
-        "name": "Opaque"
+        "name": "Opaque",
+        "aliases": ["OPAQUE"]
       }
     ]
   },
@@ -16,13 +17,16 @@
     "name": "MeshAdvBlendMethod",
     "symbols": [
       {
-        "name": "Opaque"
+        "name": "Opaque",
+        "aliases": ["OPAQUE"]
       },
       {
-        "name": "AlphaClip"
+        "name": "AlphaClip",
+        "aliases": ["ALPHA_CLIP"]
       },
       {
-        "name": "AlphaBlend"
+        "name": "AlphaBlend",
+        "aliases": ["ALPHA_BLEND"]
       }
     ]
   },
@@ -59,19 +63,19 @@
       },
       {
         "name": "color_texture",
-        "type": "string"
+        "type": { "name": "object_ref", "inner_type": "ImageAsset" }
       },
       {
         "name": "metallic_roughness_texture",
-        "type": "string"
+        "type": { "name": "object_ref", "inner_type": "ImageAsset" }
       },
       {
         "name": "normal_texture",
-        "type": "string"
+        "type": { "name": "object_ref", "inner_type": "ImageAsset" }
       },
       {
         "name": "emissive_texture",
-        "type": "string"
+        "type": { "name": "object_ref", "inner_type": "ImageAsset" }
       },
       {
         "name": "shadow_method",

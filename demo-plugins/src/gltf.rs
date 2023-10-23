@@ -2,7 +2,7 @@ pub use super::*;
 use std::path::{Path, PathBuf};
 
 use hydrate_base::BuiltObjectMetadata;
-use hydrate_model::{BuilderRegistryBuilder, DataContainerMut, DataSet, EditorModel, HashMap, ImporterRegistryBuilder, ObjectId, ObjectLocation, ObjectName, Record, SchemaLinker, SchemaSet, SingleObject, Value};
+use hydrate_model::{BuilderRegistryBuilder, DataContainerMut, DataSet, EditorModel, HashMap, ImportableObject, ImporterRegistryBuilder, ObjectId, ObjectLocation, ObjectName, Record, SchemaLinker, SchemaSet, SingleObject, Value};
 use hydrate_model::pipeline::{AssetPlugin, Builder, BuilderRegistry, BuiltAsset, ImporterRegistry};
 use hydrate_model::pipeline::{ImportedImportable, ScannedImportable, Importer};
 use serde::{Deserialize, Serialize};
@@ -79,7 +79,7 @@ impl Importer for GltfImporter {
     fn import_file(
         &self,
         path: &Path,
-        object_ids: &HashMap<Option<String>, ObjectId>,
+        importable_objects: &HashMap<Option<String>, ImportableObject>,
         schema_set: &SchemaSet,
         //import_info: &ImportInfo,
     ) -> HashMap<Option<String>, ImportedImportable> {
@@ -92,7 +92,7 @@ impl Importer for GltfImporter {
 
         for (i, mesh) in doc.meshes().enumerate() {
             let name = Some(name_or_index("mesh", mesh.name(), i));
-            if object_ids.contains_key(&name) {
+            if importable_objects.contains_key(&name) {
                 //
                 // Create import data
                 //
@@ -121,8 +121,8 @@ impl Importer for GltfImporter {
                     name,
                     ImportedImportable {
                         file_references: Default::default(),
-                        import_data,
-                        default_asset
+                        import_data: Some(import_data),
+                        default_asset: Some(default_asset)
                     },
                 );
             }
@@ -130,16 +130,7 @@ impl Importer for GltfImporter {
 
         for (i, material) in doc.materials().enumerate() {
             let name = Some(name_or_index("material", material.name(), i));
-            if object_ids.contains_key(&name) {
-                //
-                // Create import data
-                //
-                let import_data = {
-                    let mut import_object = MeshAdvMaterialImportedDataRecord::new_single_object(schema_set).unwrap();
-                    let mut import_data_container = DataContainerMut::new_single_object(&mut import_object, schema_set);
-                    let x = MeshAdvMaterialImportedDataRecord::default();
-                    import_object
-                };
+            if importable_objects.contains_key(&name) {
 
                 //
                 // Create the default asset
@@ -149,7 +140,50 @@ impl Importer for GltfImporter {
                     let mut default_asset_object = MeshAdvMaterialAssetRecord::new_single_object(schema_set).unwrap();
                     let mut default_asset_data_container = DataContainerMut::new_single_object(&mut default_asset_object, schema_set);
                     let x = MeshAdvMaterialAssetRecord::default();
-                    //material.emissive_factor()
+                    x.base_color_factor().set_vec4(&mut default_asset_data_container, material.pbr_metallic_roughness().base_color_factor()).unwrap();
+                    x.emissive_factor().set_vec3(&mut default_asset_data_container, material.emissive_factor()).unwrap();
+                    x.metallic_factor().set(&mut default_asset_data_container, material.pbr_metallic_roughness().metallic_factor()).unwrap();
+                    x.roughness_factor().set(&mut default_asset_data_container, material.pbr_metallic_roughness().roughness_factor()).unwrap();
+                    x.normal_texture_scale().set(&mut default_asset_data_container, material.normal_texture().map_or(1.0, |x| x.scale())).unwrap();
+
+                    //TODO: This needs to be updated to handle images in the GLTF or referenced externally
+
+                    // x.color_texture().set(&mut default_asset_data_container, material.color_texture().unwrap_or_default()).unwrap();
+                    // x.metallic_roughness_texture().set(&mut default_asset_data_container, material.metallic_roughness_texture().unwrap_or_default()).unwrap();
+                    // x.normal_texture().set(&mut default_asset_data_container, material.normal_texture().unwrap_or_default()).unwrap();
+                    // x.emissive_texture().set(&mut default_asset_data_container, material.emissive_texture().unwrap_or_default()).unwrap();
+
+                    // if let Some(color_texture) = material.pbr_metallic_roughness().base_color_texture() {
+                    //     if let Some(referenced_object_id) = importable_objects.get(&None).unwrap().referenced_paths.get(&PathBuf::from_str(&color_texture.).unwrap()) {
+                    //         x.color_texture().set(&mut default_asset_data_container, *referenced_object_id).unwrap();
+                    //     }
+                    // }
+                    //
+                    // if let Some(metallic_roughness_texture) = json_data.metallic_roughness_texture {
+                    //     if let Some(referenced_object_id) = importable_objects.get(&None).unwrap().referenced_paths.get(&PathBuf::from_str(&metallic_roughness_texture).unwrap()) {
+                    //         x.color_texture().set(&mut default_asset_data_container, *referenced_object_id).unwrap();
+                    //     }
+                    // }
+                    //
+                    // if let Some(normal_texture) = json_data.normal_texture {
+                    //     if let Some(referenced_object_id) = importable_objects.get(&None).unwrap().referenced_paths.get(&PathBuf::from_str(&normal_texture).unwrap()) {
+                    //         x.color_texture().set(&mut default_asset_data_container, *referenced_object_id).unwrap();
+                    //     }
+                    // }
+                    //
+                    // if let Some(emissive_texture) = json_data.emissive_texture {
+                    //     if let Some(referenced_object_id) = importable_objects.get(&None).unwrap().referenced_paths.get(&PathBuf::from_str(&emissive_texture).unwrap()) {
+                    //         x.color_texture().set(&mut default_asset_data_container, *referenced_object_id).unwrap();
+                    //     }
+                    // }
+
+
+                    //x.shadow_method().set(&mut default_asset_data_container, shadow_method).unwrap();
+                    //x.blend_method().set(&mut default_asset_data_container, blend_method).unwrap();
+                    x.alpha_threshold().set(&mut default_asset_data_container, material.alpha_cutoff().unwrap_or(0.5)).unwrap();
+                    x.backface_culling().set(&mut default_asset_data_container, false).unwrap();
+                    //TODO: Does this incorrectly write older enum string names when code is older than schema file?
+                    x.color_texture_has_alpha_channel().set(&mut default_asset_data_container, false).unwrap();
                     default_asset_object
                 };
 
@@ -160,8 +194,8 @@ impl Importer for GltfImporter {
                     name,
                     ImportedImportable {
                         file_references: Default::default(),
-                        import_data,
-                        default_asset
+                        import_data: None,
+                        default_asset: Some(default_asset)
                     },
                 );
             }

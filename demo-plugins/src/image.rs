@@ -4,7 +4,7 @@ use std::path::{Path};
 
 use demo_types::image::*;
 use hydrate_base::BuiltObjectMetadata;
-use hydrate_model::{BooleanField, BuilderRegistryBuilder, BytesField, DataContainer, DataContainerMut, DataSet, Field, HashMap, ImporterRegistryBuilder, ObjectId, PropertyPath, Record, SchemaLinker, SchemaSet, SingleObject, U32Field};
+use hydrate_model::{BooleanField, BuilderRegistryBuilder, BytesField, DataContainer, DataContainerMut, DataSet, Field, HashMap, ImportableObject, ImporterRegistryBuilder, ObjectId, PropertyPath, Record, SchemaLinker, SchemaSet, SingleObject, U32Field};
 use hydrate_model::pipeline::{AssetPlugin, Builder, BuiltAsset};
 use hydrate_model::pipeline::{ImportedImportable, ScannedImportable, Importer};
 use serde::{Serialize};
@@ -41,7 +41,7 @@ impl Importer for ImageImporter {
     fn import_file(
         &self,
         path: &Path,
-        object_ids: &HashMap<Option<String>, ObjectId>,
+        importable_objects: &HashMap<Option<String>, ImportableObject>,
         schema_set: &SchemaSet,
     ) -> HashMap<Option<String>, ImportedImportable> {
         //
@@ -84,8 +84,8 @@ impl Importer for ImageImporter {
             None,
             ImportedImportable {
                 file_references: Default::default(),
-                import_data,
-                default_asset,
+                import_data: Some(import_data),
+                default_asset: Some(default_asset),
             },
         );
         imported_objects

@@ -34,10 +34,28 @@ pub struct ScannedImportable {
 
 pub struct ImportedImportable {
     pub file_references: Vec<ReferencedSourceFile>,
-    pub default_asset: SingleObject,
-    pub import_data: SingleObject,
+    pub default_asset: Option<SingleObject>,
+    pub import_data: Option<SingleObject>,
 }
 
+pub trait ImporterStatic: TypeUuid {
+    fn importer_id() -> ImporterId {
+        ImporterId(Uuid::from_bytes(Self::UUID))
+    }
+}
+
+// #[derive(PartialEq, Eq, Hash, Debug, Clone)]
+// pub struct FileReferenceKey {
+//     // The object ID that is referencing something by path
+//     pub importable_name: String,
+//     // The path used to reference some other object
+//     pub referenced_path: PathBuf,
+// }
+
+pub struct ImportableObject {
+    pub id: ObjectId,
+    pub referenced_paths: HashMap<PathBuf, ObjectId>,
+}
 
 // Interface all importers must implement
 pub trait Importer: TypeUuidDynamic {
@@ -60,7 +78,7 @@ pub trait Importer: TypeUuidDynamic {
     fn import_file(
         &self,
         path: &Path,
-        object_ids: &HashMap<Option<String>, ObjectId>,
+        importable_objects: &HashMap<Option<String>, ImportableObject>,
         schema: &SchemaSet,
         //import_info: &ImportInfo,
         //referenced_source_file_paths: &mut Vec<PathBuf>,

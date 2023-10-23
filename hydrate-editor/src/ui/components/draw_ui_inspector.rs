@@ -2,8 +2,9 @@ use crate::app_state::AppState;
 use crate::ui::asset_browser_grid_drag_drop::AssetBrowserGridPayload;
 use crate::ui_state::UiState;
 use hydrate_model::edit_context::EditContext;
-use hydrate_model::{EndContextBehavior, Schema, Value};
+use hydrate_model::{EndContextBehavior, Schema, SchemaEnum, Value};
 use imgui::im_str;
+use hydrate_model::value::ValueEnum;
 
 fn draw_property_style<F: FnOnce(&imgui::Ui)>(
     ui: &imgui::Ui,
@@ -73,6 +74,58 @@ fn draw_inspector_simple_property<
     if let Some(new_value) = new_value {
         edit_context.set_property_override(object_id, &property_path, new_value);
     }
+}
+
+fn draw_inspector_simple_property_enum(
+    ui: &imgui::Ui,
+    ui_state: &mut UiState,
+    edit_context: &mut EditContext,
+    is_editing: &mut bool,
+    is_editing_complete: &mut bool,
+    object_id: hydrate_model::ObjectId,
+    property_path: &str,
+    property_name: &str,
+    schema: &hydrate_model::Schema,
+    property_inherited: bool,
+    schema_enum: &SchemaEnum,
+) {
+    use hydrate_model::*;
+
+    draw_inspector_simple_property(
+        ui,
+        ui_state,
+        edit_context,
+        object_id,
+        property_path,
+        property_name,
+        schema,
+        property_inherited,
+        |ui, value| {
+            let mut v = value.as_enum().unwrap();
+            let property_im_str = im_str!("{}", &property_name);
+
+            let items: Vec<_> = schema_enum.symbols().iter().map(|x| x.name()).collect();
+            let items_imstr: Vec<_> = items.iter().map(|x| im_str!("{}", x)).collect();
+            let items_imstr_ref: Vec<_> = items_imstr.iter().map(|x| x).collect();
+            let mut selected = items.iter().position(|x| *x == v.symbol_name()).unwrap_or_default();
+
+            let modified = imgui::ComboBox::new(&property_im_str).build_simple_string(ui, &mut selected, items_imstr_ref.as_slice());
+
+            if ui.is_item_active() {
+                *is_editing = true;
+            }
+
+            if ui.is_item_deactivated_after_edit() {
+                *is_editing_complete = true;
+            }
+
+            if modified {
+                Some(Value::Enum(ValueEnum::new(items[selected].to_string())))
+            } else {
+                None
+            }
+        },
+    )
 }
 
 fn draw_inspector_simple_property_bool(
@@ -516,6 +569,14 @@ fn draw_inspector_object_ref(
     // )
 }
 
+fn draw_inspector_unimplemented_property(
+    ui: &imgui::Ui,
+    property_name: &str,
+    type_name: &str,
+) {
+    ui.text(im_str!("Unsupported property {} {}", property_name, type_name));
+}
+
 fn draw_inspector_nexdb_property(
     ui: &imgui::Ui,
     ui_state: &mut UiState,
@@ -716,8 +777,20 @@ fn draw_inspector_nexdb_property(
                 );
             });
         }
-        Schema::Bytes => {}
-        Schema::Buffer => {}
+        Schema::Bytes => {
+            draw_inspector_unimplemented_property(
+                ui,
+                property_name,
+                "bytes"
+            );
+        }
+        Schema::Buffer => {
+            draw_inspector_unimplemented_property(
+                ui,
+                property_name,
+                "buffer"
+            );
+        }
         Schema::String => {
             let property_inherited = !edit_context.has_property_override(object_id, &property_path);
             draw_property_style(ui, property_inherited, false, |ui| {
@@ -735,7 +808,13 @@ fn draw_inspector_nexdb_property(
                 );
             });
         }
-        Schema::StaticArray(_) => {}
+        Schema::StaticArray(_) => {
+            draw_inspector_unimplemented_property(
+                ui,
+                property_name,
+                "static array"
+            );
+        }
         Schema::DynamicArray(array) => {
             let resolve = edit_context.resolve_dynamic_array(object_id, &property_path);
             let overrides: Vec<_> = edit_context
@@ -783,7 +862,13 @@ fn draw_inspector_nexdb_property(
                 ui.unindent();
             }
         }
-        Schema::Map(_) => {}
+        Schema::Map(_) => {
+            draw_inspector_unimplemented_property(
+                ui,
+                property_name,
+                "map"
+            );
+        }
         //Schema::RecordRef(_) => {}
         Schema::ObjectRef(_named_type_fingerprint) => {
             let property_inherited = !edit_context.has_property_override(object_id, &property_path);
@@ -845,8 +930,34 @@ fn draw_inspector_nexdb_property(
                         }
                     }
                 }
-                SchemaNamedType::Enum(_) => {}
-                SchemaNamedType::Fixed(_) => {}
+                SchemaNamedType::Enum(schema_enum) => {
+                    // draw_inspector_unimplemented_property(
+                    //     ui,
+                    //     property_name,
+                    //     "enum"
+                    // );
+                    let property_inherited = !edit_context.has_property_override(object_id, &property_path);
+                    draw_inspector_simple_property_enum(
+                        ui,
+                        ui_state,
+                        edit_context,
+                        is_editing,
+                        is_editing_complete,
+                        object_id,
+                        property_path,
+                        property_name,
+                        schema,
+                        property_inherited,
+                        &schema_enum
+                    );
+                }
+                SchemaNamedType::Fixed(_) => {
+                    draw_inspector_unimplemented_property(
+                        ui,
+                        property_name,
+                        "fixed"
+                    );
+                }
             }
         } // Schema::Record(record) => {
           //     if property_path.is_empty() || imgui::CollapsingHeader::new(&im_str!("{}", property_name)).build(ui) {

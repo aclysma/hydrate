@@ -44,6 +44,9 @@ pub use traits::*;
 mod field_wrappers;
 pub use field_wrappers::*;
 
+mod schema_set;
+pub use schema_set::*;
+
 #[cfg(test)]
 mod tests;
 

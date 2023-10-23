@@ -1,7 +1,4 @@
-use crate::{
-    HashMap, HashMapKeys, HashSet, HashSetIter, ObjectId, Schema, SchemaFingerprint,
-    SchemaRecord, Value,
-};
+use crate::{HashMap, HashMapKeys, HashSet, HashSetIter, ObjectId, Schema, SchemaFingerprint, SchemaRecord, SingleObject, Value};
 use crate::{NullOverride, SchemaSet};
 use std::hash::{Hash, Hasher};
 use std::path::{Path, PathBuf};
@@ -370,6 +367,32 @@ impl DataSet {
 
         self.insert_object(id, obj).unwrap();
         id
+    }
+
+    pub fn copy_from_single_object(
+        &mut self,
+        schema_set: &SchemaSet,
+        object_id: ObjectId,
+        single_object: &SingleObject
+    ) -> DataSetResult<()> {
+        let object = self.objects.get_mut(&object_id).unwrap();
+        for (property, value) in single_object.properties() {
+            //self.set_property_override(schema_set, object_id, property, value.clone())?;
+            object.properties.insert(property.clone(), value.clone());
+        }
+
+        for (property, null_override) in single_object.property_null_overrides() {
+            object.property_null_overrides.insert(property.clone(), *null_override);
+        }
+
+        for (property, dynamic_array_entries) in single_object.dynamic_array_entries() {
+            let mut property_entry = object.dynamic_array_entries.entry(property.clone()).or_default();
+            for element in &*dynamic_array_entries {
+                property_entry.insert(*element);
+            }
+        }
+
+        Ok(())
     }
 
     pub fn delete_object(
@@ -871,12 +894,12 @@ impl DataSet {
         }
     }
 
-    pub fn resolve_property(
-        &self,
-        schema_set: &SchemaSet,
+    pub fn resolve_property<'a>(
+        &'a self,
+        schema_set: &'a SchemaSet,
         object_id: ObjectId,
         path: impl AsRef<str>,
-    ) -> Option<&Value> {
+    ) -> Option<&'a Value> {
         let object_schema = self.object_schema(object_id).unwrap();
 
         // Contains the path segments that we need to check for being null

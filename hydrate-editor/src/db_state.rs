@@ -203,7 +203,6 @@ impl DbState {
         }
     }
 
-
     pub fn load_schema(
         mut linker: SchemaLinker,
         schema_def_path: &Path,
@@ -217,7 +216,8 @@ impl DbState {
         schema_set.add_linked_types(linker).unwrap();
 
         if let Some(schema_cache_str) = std::fs::read_to_string(schema_cache_file_path).ok() {
-            SchemaCacheSingleFile::load_string(&mut schema_set, &schema_cache_str);
+            let named_types = SchemaCacheSingleFile::load_string(&schema_cache_str);
+            schema_set.restore_named_types(named_types);
         }
 
         Arc::new(schema_set)
@@ -247,7 +247,7 @@ impl DbState {
 
     pub fn save(&mut self) {
         log::debug!("saving schema cache to {:?}", self.schema_cache_file_path);
-        let schema_cache = SchemaCacheSingleFile::store_string(self.editor_model.schema_set());
+        let schema_cache = SchemaCacheSingleFile::store_string(self.editor_model.schema_set().schemas());
         std::fs::write(&self.schema_cache_file_path, schema_cache).unwrap();
 
         self.editor_model.save_root_edit_context();

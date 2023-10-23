@@ -2,6 +2,7 @@ use std::path::PathBuf;
 use std::sync::mpsc::Sender;
 use std::sync::Arc;
 use uuid::Uuid;
+use hydrate_data::SingleObject;
 
 use crate::editor::undo::{CompletedUndoContextMessage, UndoContext, UndoStack};
 use crate::{BuildInfo, DataObjectInfo, DataSet, DataSetDiff, DataSetResult, EditContextKey, EndContextBehavior, HashMap, HashMapKeys, HashSet, HashSetIter, ImportInfo, NullOverride, ObjectId, ObjectLocation, ObjectName, OverrideBehavior, SchemaFingerprint, SchemaNamedType, SchemaRecord, SchemaSet, Value};
@@ -355,6 +356,20 @@ impl EditContext {
         );
         self.track_new_object(object_id, &object_location);
         object_id
+    }
+
+    pub fn copy_from_single_object(
+        &mut self,
+        schema_set: &SchemaSet,
+        object_id: ObjectId,
+        single_object: &SingleObject
+    ) -> DataSetResult<()> {
+        self.track_existing_object(object_id);
+        self.data_set.copy_from_single_object(
+            schema_set,
+            object_id,
+            single_object
+        )
     }
 
     pub fn restore_objects_from(

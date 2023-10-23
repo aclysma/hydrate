@@ -18,6 +18,7 @@ pub use build_types::*;
 
 mod builder_registry;
 pub use builder_registry::*;
+use hydrate_base::hashing::HashSet;
 
 pub mod import_util;
 
@@ -113,7 +114,7 @@ impl AssetEngine {
 
     pub fn update(
         &mut self,
-        editor_model: &EditorModel,
+        editor_model: &mut EditorModel,
     ) {
         //
         // If user changes any asset data, cancel the in-flight build
@@ -215,9 +216,10 @@ impl AssetEngine {
         object_ids: HashMap<Option<String>, ObjectId>,
         importer_id: ImporterId,
         path: PathBuf,
+        assets_to_regenerate: HashSet<ObjectId>,
     ) {
         self.import_jobs
-            .queue_import_operation(object_ids, importer_id, path);
+            .queue_import_operation(object_ids, importer_id, path, assets_to_regenerate);
     }
 
     pub fn queue_build_operation(

@@ -651,6 +651,7 @@ impl DataSource for FileSystemPathBasedDataSource {
             let mut source_file_disk_state = source_files_disk_state.get_mut(source_file_path).unwrap();
 
             let mut requested_importables = HashMap::default();
+            let mut assets_to_regenerate = HashSet::default();
             for scanned_importable in &scanned_source_file.scanned_importables {
                 // The ID assigned to this importable. We have this now because we previously scanned
                 // all source files and assigned IDs to any importable
@@ -737,12 +738,16 @@ impl DataSource for FileSystemPathBasedDataSource {
                 }
 
                 requested_importables.insert(scanned_importable.name.clone(), importable_object_id);
+                if !asset_file_exists {
+                    assets_to_regenerate.insert(importable_object_id);
+                }
             }
 
             imports_to_queue.push(ImportToQueue {
                 source_file_path: source_file_path.to_path_buf(),
                 importer_id: scanned_source_file.importer.importer_id(),
-                requested_importables
+                requested_importables,
+                assets_to_regenerate
             });
         }
 

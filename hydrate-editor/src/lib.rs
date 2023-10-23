@@ -156,7 +156,7 @@ pub fn run(
                 imgui_manager.begin_frame(&window);
                 app_state
                     .asset_engine
-                    .update(&app_state.db_state.editor_model);
+                    .update(&mut app_state.db_state.editor_model);
                 draw_ui::draw_imgui(&imgui_manager, &mut imnodes_example_editor, &mut app_state);
                 imgui_manager.render(&window);
                 if let Err(e) = renderer.draw(&window, imgui_manager.draw_data(), &app_state) {

@@ -1,7 +1,4 @@
-use crate::{
-    Schema, SchemaDynamicArray, SchemaEnum, SchemaEnumSymbol, SchemaFingerprint, SchemaFixed,
-    SchemaMap, SchemaNamedType, SchemaRecord, SchemaRecordField, SchemaSet, SchemaStaticArray,
-};
+use crate::{HashMap, Schema, SchemaDynamicArray, SchemaEnum, SchemaEnumSymbol, SchemaFingerprint, SchemaFixed, SchemaMap, SchemaNamedType, SchemaRecord, SchemaRecordField, SchemaStaticArray};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -341,10 +338,10 @@ pub struct SchemaCacheSingleFile {
 }
 
 impl SchemaCacheSingleFile {
-    pub fn store_string(schema_set: &SchemaSet) -> String {
+    pub fn store_string(schemas: &HashMap<SchemaFingerprint, SchemaNamedType>) -> String {
         let mut cached_schemas: Vec<CachedSchemaNamedType> = Default::default();
 
-        for (_, schema) in schema_set.schemas() {
+        for (_, schema) in schemas {
             cached_schemas.push(CachedSchemaNamedType::new_from_schema(schema));
         }
 
@@ -356,15 +353,13 @@ impl SchemaCacheSingleFile {
     }
 
     pub fn load_string(
-        schema_set: &mut SchemaSet,
         cache: &str,
-    ) {
+    ) -> Vec<SchemaNamedType> {
         let cache: SchemaCacheSingleFile = serde_json::from_str(cache).unwrap();
-        let schemas: Vec<_> = cache
+        cache
             .cached_schemas
             .into_iter()
             .map(|x| x.to_schema())
-            .collect();
-        schema_set.restore_named_types(schemas);
+            .collect()
     }
 }

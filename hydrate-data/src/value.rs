@@ -1,8 +1,8 @@
-use crate::{BufferId, HashMap, Schema, SchemaFingerprint, SchemaNamedType};
+use crate::{BufferId, HashMap, Schema, SchemaFingerprint, SchemaNamedType, SchemaSet};
 use crate::ObjectId;
 use std::hash::{Hash, Hasher};
 
-use hydrate_schema::{SchemaEnum, SchemaSet};
+use hydrate_schema::{SchemaEnum};
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum PropertyValue {
@@ -96,7 +96,7 @@ impl ValueRecord {
     }
 }
 */
-#[derive(Clone, Debug, PartialEq, Hash)]
+#[derive(Clone, Debug, Default, PartialEq, Hash)]
 pub struct ValueEnum {
     //symbol_index: u32,
     symbol_name: String,
@@ -181,16 +181,16 @@ lazy_static::lazy_static! {
     static ref DEFAULT_VALUE_DYNAMIC_ARRAY: Value = Value::DynamicArray(Default::default());
     static ref DEFAULT_VALUE_MAP: Value = Value::Map(ValueMap::default());
     static ref DEFAULT_VALUE_RECORD: Value = Value::Record(ValueRecord::default());
-    static ref DEFAULT_VALUE_ENUM: Value = Value::Record(ValueRecord::default());
+    static ref DEFAULT_VALUE_ENUM: Value = Value::Enum(ValueEnum::default());
     static ref DEFAULT_VALUE_FIXED: Value = Value::Fixed(Box::new([]));
 }
 
 
 impl Value {
-    pub fn default_for_schema(
+    pub fn default_for_schema<'a>(
         schema: &Schema,
-        schema_set: &SchemaSet,
-    ) -> &'static Self {
+        schema_set: &'a SchemaSet,
+    ) -> &'a Self {
         match schema {
             Schema::Nullable(_) => &DEFAULT_VALUE_NULLABLE,
             Schema::Boolean => &DEFAULT_VALUE_BOOLEAN,
@@ -211,7 +211,7 @@ impl Value {
                 let named_type = schema_set.schemas().get(named_type_id).unwrap();
                 match named_type {
                     SchemaNamedType::Record(_) => &DEFAULT_VALUE_RECORD,
-                    SchemaNamedType::Enum(_) => &DEFAULT_VALUE_ENUM,
+                    SchemaNamedType::Enum(enum_schema) => schema_set.default_value_for_enum(enum_schema.fingerprint()).unwrap(),
                     SchemaNamedType::Fixed(_) => &DEFAULT_VALUE_FIXED,
                 }
             }

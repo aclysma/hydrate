@@ -41,9 +41,9 @@ fn main() {
     let mut asset_plugin_registration_helper = hydrate::pipeline::AssetPluginRegistrationHelper::new()
         .register_plugin::<ImageAssetPlugin>(&mut linker)
         .register_plugin::<BlenderMaterialAssetPlugin>(&mut linker)
-        //.register_plugin::<MeshAdvMaterialAssetPlugin>(&mut linker)
+        .register_plugin::<MeshAdvMaterialAssetPlugin>(&mut linker)
         .register_plugin::<GlslAssetPlugin>(&mut linker)
-        //.register_plugin::<GltfAssetPlugin>(&mut linker)
+        .register_plugin::<GltfAssetPlugin>(&mut linker)
         .register_plugin::<SimpleDataAssetPlugin>(&mut linker);
 
     //TODO: Take a config file
@@ -57,7 +57,7 @@ fn main() {
     let (importer_registry, builder_registry) = asset_plugin_registration_helper.finish(&*schema_set);
 
     let mut imports_to_queue = Vec::default();
-    let db_state = hydrate::editor::DbState::load_or_init_empty(
+    let mut db_state = hydrate::editor::DbState::load_or_init_empty(
         &schema_set,
         &importer_registry,
         &asset_id_based_data_source_path(),
@@ -79,12 +79,13 @@ fn main() {
         asset_engine.queue_import_operation(
             import_to_queue.requested_importables,
             import_to_queue.importer_id,
-            import_to_queue.source_file_path
+            import_to_queue.source_file_path,
+            import_to_queue.assets_to_regenerate
         );
     }
 
     //Headless
-    asset_engine.update(&db_state.editor_model);
+    asset_engine.update(&mut db_state.editor_model);
 
     hydrate::editor::run(db_state, asset_engine);
 }

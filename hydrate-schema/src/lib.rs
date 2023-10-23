@@ -20,9 +20,6 @@ pub use schema_def::*;
 mod schema_cache;
 pub use schema_cache::*;
 
-mod schema_set;
-pub use schema_set::*;
-
 #[derive(Copy, Clone, PartialEq, Eq, Hash)]
 pub struct SchemaFingerprint(u128);
 impl SchemaFingerprint {

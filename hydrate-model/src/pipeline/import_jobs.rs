@@ -9,6 +9,7 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use type_uuid::{TypeUuid, TypeUuidDynamic};
 use uuid::Uuid;
+use hydrate_base::hashing::HashSet;
 
 use crate::edit_context::EditContext;
 use crate::SingleObjectJson;
@@ -34,6 +35,7 @@ struct ImportOp {
     object_ids: HashMap<Option<String>, ObjectId>,
     importer_id: ImporterId,
     path: PathBuf,
+    assets_to_regenerate: HashSet<ObjectId>,
     //pub(crate) import_info: ImportInfo,
 }
 
@@ -91,11 +93,13 @@ impl ImportJobs {
         object_ids: HashMap<Option<String>, ObjectId>,
         importer_id: ImporterId,
         path: PathBuf,
+        assets_to_regenerate: HashSet<ObjectId>,
     ) {
         self.import_operations.push(ImportOp {
             object_ids,
             importer_id,
             path,
+            assets_to_regenerate,
             //import_info
         })
     }
@@ -142,8 +146,9 @@ impl ImportJobs {
     pub fn update(
         &mut self,
         importer_registry: &ImporterRegistry,
-        editor_model: &EditorModel,
+        editor_model: &mut EditorModel,
     ) {
+        let schema_set = editor_model.clone_schema_set();
         for import_op in &self.import_operations {
             //let importer_id = editor_model.root_edit_context().import_info()
             let importer_id = import_op.importer_id;
@@ -162,6 +167,10 @@ impl ImportJobs {
             //TODO: Validate that all requested importables exist?
             for (name, imported_object) in imported_objects {
                 if let Some(object_id) = import_op.object_ids.get(&name) {
+                    if import_op.assets_to_regenerate.contains(object_id) {
+                        editor_model.root_edit_context_mut().copy_from_single_object(&*schema_set, *object_id, &imported_object.default_asset).unwrap();
+                    }
+
                     let data =
                         SingleObjectJson::save_single_object_to_string(&imported_object.import_data);
                     let path = uuid_to_path(&self.root_path, object_id.as_uuid(), "if");

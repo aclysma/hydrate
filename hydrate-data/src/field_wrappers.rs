@@ -1,8 +1,7 @@
 
 use std::marker::PhantomData;
 use uuid::Uuid;
-use hydrate_schema::SchemaSet;
-use crate::{DataContainer, DataContainerMut, DataSetError, DataSetResult, DataSetViewMut, ObjectId, SingleObject, Value};
+use crate::{DataContainer, DataContainerMut, DataSetError, DataSetResult, DataSetViewMut, ObjectId, SchemaSet, SingleObject, Value};
 use crate::value::ValueEnum;
 
 #[derive(Default)]
@@ -59,7 +58,6 @@ impl<T: Enum> Field for EnumField<T> {
 impl<T: Enum> EnumField<T> {
     pub fn get(&self, data_container: &DataContainer) -> DataSetResult<T> {
         let e = data_container.resolve_property(self.0.path()).ok_or(DataSetError::PathParentIsNull)?;
-        println!("it's {:?}", e);
         T::from_symbol_name(e.as_enum().unwrap().symbol_name()).ok_or(DataSetError::UnexpectedEnumSymbol)
     }
 

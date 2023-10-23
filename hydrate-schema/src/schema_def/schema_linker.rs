@@ -191,7 +191,7 @@ impl SchemaLinker {
         self.add_named_type(named_type)
     }
 
-    pub(crate) fn link_schemas(mut self) -> SchemaLinkerResult<LinkedSchemas> {
+    pub fn link_schemas(mut self) -> SchemaLinkerResult<LinkedSchemas> {
         // Apply aliases
         for (_, named_type) in &mut self.types {
             named_type.apply_type_aliases(&self.type_aliases);
@@ -265,7 +265,7 @@ impl SchemaLinker {
     }
 }
 
-pub(crate) struct LinkedSchemas {
-    pub(crate) schemas_by_name: HashMap<String, SchemaFingerprint>,
-    pub(crate) schemas: HashMap<SchemaFingerprint, SchemaNamedType>,
+pub struct LinkedSchemas {
+    pub schemas_by_name: HashMap<String, SchemaFingerprint>,
+    pub schemas: HashMap<SchemaFingerprint, SchemaNamedType>,
 }

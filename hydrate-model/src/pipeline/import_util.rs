@@ -2,13 +2,15 @@ use crate::{HashMap, ImportInfo, ImporterId, LocationTreeNode, ObjectId, ObjectL
 use crate::pipeline::Importer;
 use crate::pipeline::{AssetEngine, ImportJobs, ImporterRegistry};
 use std::path::{Path, PathBuf};
+use hydrate_base::hashing::HashSet;
 use crate::edit_context::EditContext;
 
 #[derive(Debug)]
 pub struct ImportToQueue {
     pub source_file_path: PathBuf,
     pub importer_id: ImporterId,
-    pub requested_importables: HashMap<Option<String>, ObjectId>
+    pub requested_importables: HashMap<Option<String>, ObjectId>,
+    pub assets_to_regenerate: HashSet<ObjectId>,
 }
 
 pub fn create_import_info(source_file_path: &Path, importer: &Box<dyn Importer>, scanned_importable: &ScannedImportable) -> ImportInfo {
@@ -171,7 +173,8 @@ pub fn recursively_gather_import_operations_and_create_assets(
     imports_to_queue.push(ImportToQueue {
         source_file_path: source_file_path.to_path_buf(),
         importer_id: importer.importer_id(),
-        requested_importables
+        requested_importables,
+        assets_to_regenerate: Default::default()
     });
 
     default_importable_object_id

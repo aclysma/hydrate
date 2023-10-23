@@ -80,6 +80,8 @@ impl SchemaEnum {
         //     assert!(symbols[i].value < symbols[i + 1].value);
         // }
 
+        assert!(!symbols.is_empty());
+
         // Check names are unique
         for i in 0..symbols.len() {
             for j in 0..i {
@@ -109,6 +111,10 @@ impl SchemaEnum {
 
     pub fn symbols(&self) -> &[SchemaEnumSymbol] {
         &*self.symbols
+    }
+
+    pub fn default_value(&self) -> &SchemaEnumSymbol {
+        &self.symbols[0]
     }
 
     pub fn fingerprint(&self) -> SchemaFingerprint {

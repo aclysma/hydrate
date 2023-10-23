@@ -292,11 +292,11 @@ impl SingleObject {
         self.properties.remove(path.as_ref())
     }
 
-    pub fn resolve_property(
-        &self,
-        schema_set: &SchemaSet,
+    pub fn resolve_property<'a>(
+        &'a self,
+        schema_set: &'a SchemaSet,
         path: impl AsRef<str>,
-    ) -> Option<&Value> {
+    ) -> Option<&'a Value> {
         // Contains the path segments that we need to check for being null
         let mut nullable_ancestors = vec![];
         // Contains the path segments that we need to check for being in append mode

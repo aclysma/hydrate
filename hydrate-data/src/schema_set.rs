@@ -1,16 +1,20 @@
-use crate::{
-    HashMap, Schema, SchemaFingerprint, SchemaLinker, SchemaLinkerResult, SchemaNamedType//, Value,
-};
+use crate::{HashMap, Schema, SchemaFingerprint, SchemaLinker, SchemaLinkerResult, SchemaNamedType, Value};
+use crate::value::ValueEnum;
 
 #[derive(Default, Clone)]
 pub struct SchemaSet {
     schemas_by_name: HashMap<String, SchemaFingerprint>,
     schemas: HashMap<SchemaFingerprint, SchemaNamedType>,
+    default_enum_values: HashMap<SchemaFingerprint, Value>,
 }
 
 impl SchemaSet {
     pub fn schemas(&self) -> &HashMap<SchemaFingerprint, SchemaNamedType> {
         &self.schemas
+    }
+
+    pub fn default_value_for_enum(&self, fingerprint: SchemaFingerprint) -> Option<&Value> {
+        self.default_enum_values.get(&fingerprint)
     }
 
     pub fn find_named_type(
@@ -39,6 +43,11 @@ impl SchemaSet {
         //TODO: check no name collisions and merge with DB
 
         for (k, v) in linked.schemas {
+            if let Some(enum_schema) = v.as_enum() {
+                let old = self.default_enum_values.insert(k, Value::Enum(ValueEnum::new(enum_schema.default_value().name().to_string())));
+                //TODO: Assert values are the same
+                //assert!(old.is_none());
+            }
             let old = self.schemas.insert(k, v);
             //assert!(old.is_none());
             //TODO: Assert schemas are the same
@@ -52,7 +61,7 @@ impl SchemaSet {
         Ok(())
     }
 
-    pub(crate) fn restore_named_types(
+    pub fn restore_named_types(
         &mut self,
         named_types: Vec<SchemaNamedType>,
     ) {

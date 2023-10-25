@@ -4,7 +4,7 @@ use std::str::FromStr;
 
 use demo_types::mesh_adv::*;
 use hydrate_base::BuiltObjectMetadata;
-use hydrate_model::{BuilderRegistryBuilder, DataContainer, DataContainerMut, DataSet, Enum, HashMap, ImportableObject, ImporterId, ImporterRegistryBuilder, ObjectId, Record, ReferencedSourceFile, SchemaLinker, SchemaSet, SingleObject};
+use hydrate_model::{BuilderRegistryBuilder, DataContainer, DataContainerMut, DataSet, Enum, HashMap, ImportableObject, ImporterId, ImporterRegistryBuilder, ObjectId, ObjectRefField, Record, ReferencedSourceFile, SchemaLinker, SchemaSet, SingleObject};
 use hydrate_model::pipeline::{AssetPlugin, Builder, BuiltAsset};
 use hydrate_model::pipeline::{ImportedImportable, ScannedImportable, Importer};
 use serde::{Deserialize, Serialize};
@@ -56,7 +56,6 @@ impl Importer for BlenderMaterialImporter {
         path: &Path,
         schema_set: &SchemaSet,
     ) -> Vec<ScannedImportable> {
-        let importer_image_id = ImporterId(Uuid::from_bytes(ImageImporter::UUID));
 
         let asset_type = schema_set
             .find_named_type(MeshAdvMaterialAssetRecord::schema_name())
@@ -70,30 +69,20 @@ impl Importer for BlenderMaterialImporter {
 
         let mut file_references: Vec<ReferencedSourceFile> = Default::default();
 
-        if let Some(color_texture) = json_data.color_texture {
-            file_references.push(ReferencedSourceFile {
-                importer_id: importer_image_id,
-                path: PathBuf::from_str(&color_texture).unwrap(),
-            })
+        fn try_add_file_reference<T: TypeUuid>(file_references: &mut Vec<ReferencedSourceFile>, path_as_string: &Option<String>) {
+            let importer_image_id = ImporterId(Uuid::from_bytes(T::UUID));
+            if let Some(path_as_string) = path_as_string {
+                file_references.push(ReferencedSourceFile {
+                    importer_id: importer_image_id,
+                    path: PathBuf::from_str(path_as_string).unwrap(),
+                })
+            }
         }
-        if let Some(metallic_roughness_texture) = json_data.metallic_roughness_texture {
-            file_references.push(ReferencedSourceFile {
-                importer_id: importer_image_id,
-                path: PathBuf::from_str(&metallic_roughness_texture).unwrap(),
-            })
-        }
-        if let Some(normal_texture) = json_data.normal_texture {
-            file_references.push(ReferencedSourceFile {
-                importer_id: importer_image_id,
-                path: PathBuf::from_str(&normal_texture).unwrap(),
-            })
-        }
-        if let Some(emissive_texture) = json_data.emissive_texture {
-            file_references.push(ReferencedSourceFile {
-                importer_id: importer_image_id,
-                path: PathBuf::from_str(&emissive_texture).unwrap(),
-            })
-        }
+
+        try_add_file_reference::<GpuImageImporter>(&mut file_references, &json_data.color_texture);
+        try_add_file_reference::<GpuImageImporter>(&mut file_references, &json_data.metallic_roughness_texture);
+        try_add_file_reference::<GpuImageImporter>(&mut file_references, &json_data.normal_texture);
+        try_add_file_reference::<GpuImageImporter>(&mut file_references, &json_data.emissive_texture);
 
         vec![ScannedImportable {
             name: None,
@@ -119,7 +108,7 @@ impl Importer for BlenderMaterialImporter {
         //
         let shadow_method = if let Some(shadow_method_string) = &json_data.shadow_method {
             //TODO: This relies on input json and code matching perfectly, ideally we would search schema type for aliases
-            println!("find {:?}", shadow_method_string);
+            println!("find MeshAdvShadowMethodEnum {:?}", shadow_method_string);
             MeshAdvShadowMethodEnum::from_symbol_name(shadow_method_string.as_str()).unwrap()
         } else {
             MeshAdvShadowMethodEnum::None
@@ -127,6 +116,7 @@ impl Importer for BlenderMaterialImporter {
 
         let blend_method = if let Some(blend_method_string) = &json_data.blend_method {
             //TODO: This relies on input json and code matching perfectly, ideally we would search schema type for alias
+            println!("find MeshAdvBlendMethodEnum {:?}", blend_method_string);
             MeshAdvBlendMethodEnum::from_symbol_name(blend_method_string.as_str()).unwrap()
         } else {
             MeshAdvBlendMethodEnum::Opaque
@@ -145,29 +135,23 @@ impl Importer for BlenderMaterialImporter {
             x.roughness_factor().set(&mut default_asset_data_container, json_data.roughness_factor).unwrap();
             x.normal_texture_scale().set(&mut default_asset_data_container, json_data.normal_texture_scale).unwrap();
 
-            if let Some(color_texture) = json_data.color_texture {
-                if let Some(referenced_object_id) = importable_objects.get(&None).unwrap().referenced_paths.get(&PathBuf::from_str(&color_texture).unwrap()) {
-                    x.color_texture().set(&mut default_asset_data_container, *referenced_object_id).unwrap();
+            fn try_find_file_reference(
+                importable_objects: &HashMap<Option<String>, ImportableObject>,
+                data_container: &mut DataContainerMut,
+                ref_field: ObjectRefField,
+                path_as_string: &Option<String>
+            ) {
+                if let Some(path_as_string) = path_as_string {
+                    if let Some(referenced_object_id) = importable_objects.get(&None).unwrap().referenced_paths.get(&PathBuf::from_str(path_as_string).unwrap()) {
+                        ref_field.set(data_container, *referenced_object_id).unwrap();
+                    }
                 }
             }
 
-            if let Some(metallic_roughness_texture) = json_data.metallic_roughness_texture {
-                if let Some(referenced_object_id) = importable_objects.get(&None).unwrap().referenced_paths.get(&PathBuf::from_str(&metallic_roughness_texture).unwrap()) {
-                    x.metallic_roughness_texture().set(&mut default_asset_data_container, *referenced_object_id).unwrap();
-                }
-            }
-
-            if let Some(normal_texture) = json_data.normal_texture {
-                if let Some(referenced_object_id) = importable_objects.get(&None).unwrap().referenced_paths.get(&PathBuf::from_str(&normal_texture).unwrap()) {
-                    x.normal_texture().set(&mut default_asset_data_container, *referenced_object_id).unwrap();
-                }
-            }
-
-            if let Some(emissive_texture) = json_data.emissive_texture {
-                if let Some(referenced_object_id) = importable_objects.get(&None).unwrap().referenced_paths.get(&PathBuf::from_str(&emissive_texture).unwrap()) {
-                    x.emissive_texture().set(&mut default_asset_data_container, *referenced_object_id).unwrap();
-                }
-            }
+            try_find_file_reference(&importable_objects, &mut default_asset_data_container, x.color_texture(), &json_data.color_texture);
+            try_find_file_reference(&importable_objects, &mut default_asset_data_container, x.metallic_roughness_texture(), &json_data.metallic_roughness_texture);
+            try_find_file_reference(&importable_objects, &mut default_asset_data_container, x.normal_texture(), &json_data.normal_texture);
+            try_find_file_reference(&importable_objects, &mut default_asset_data_container, x.emissive_texture(), &json_data.emissive_texture);
 
             x.shadow_method().set(&mut default_asset_data_container, shadow_method).unwrap();
             x.blend_method().set(&mut default_asset_data_container, blend_method).unwrap();

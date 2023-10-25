@@ -14,3 +14,6 @@ hydrate-data = { path = "../hydrate-data" }
 
 serde = { default-features = false, version = "1.0.145", features = ["derive"] }
 type-uuid = "0.1.2"
+
+glam = { version = "0.13.1", features = [ "serde" ] }
+rafx-api = { version = "0.0.14", features = [] }

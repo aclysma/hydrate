@@ -85,6 +85,10 @@ impl<T: Field> DynamicArrayField<T> {
     pub fn entry(&self, entry_uuid: Uuid) -> T {
         T::new(self.0.push(&entry_uuid.to_string()))
     }
+
+    pub fn add_entry(&self, data_container: &mut DataContainerMut) -> Uuid {
+        data_container.add_dynamic_array_override(self.0.path())
+    }
 }
 
 pub struct NullableField<T: Field>(pub PropertyPath, PhantomData<T>);

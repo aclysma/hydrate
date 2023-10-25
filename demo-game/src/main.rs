@@ -1,4 +1,4 @@
-use demo_types::image::ImageBuiltData;
+use demo_types::image::GpuImageBuiltData;
 use hydrate::loader::Handle;
 use hydrate::model::ObjectId;
 use std::path::PathBuf;
@@ -19,7 +19,7 @@ fn main() {
         .init();
 
     let mut loader = hydrate::loader::AssetManager::new(build_data_source_path()).unwrap();
-    loader.add_storage::<ImageBuiltData>();
+    loader.add_storage::<GpuImageBuiltData>();
     loader.add_storage::<Transform>();
     loader.add_storage::<TransformRef>();
 

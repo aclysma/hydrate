@@ -3,3 +3,4 @@ Cargo.lock
 .idea
 .DS_store
 /demo-editor/data/build_data/
+/test_data/

@@ -9,15 +9,15 @@ use hydrate_model::pipeline::{AssetPlugin, Builder, BuiltAsset};
 use hydrate_model::pipeline::{ImportedImportable, ScannedImportable, Importer};
 use serde::{Serialize};
 use type_uuid::{TypeUuid, TypeUuidDynamic};
-use super::generated::{ImageAssetRecord, ImageImportedDataRecord};
+use super::generated::{GpuImageAssetRecord, GpuImageImportedDataRecord};
 
 #[derive(TypeUuid, Default)]
 #[uuid = "e7c83acb-f73b-4b3c-b14d-fe5cc17c0fa3"]
-pub struct ImageImporter;
+pub struct GpuImageImporter;
 
-impl Importer for ImageImporter {
+impl Importer for GpuImageImporter {
     fn supported_file_extensions(&self) -> &[&'static str] {
-        &["png", "jpg"]
+        &["png", "jpg", "tif"]
     }
 
     fn scan_file(
@@ -26,7 +26,7 @@ impl Importer for ImageImporter {
         schema_set: &SchemaSet,
     ) -> Vec<ScannedImportable> {
         let asset_type = schema_set
-            .find_named_type(ImageAssetRecord::schema_name())
+            .find_named_type(GpuImageAssetRecord::schema_name())
             .unwrap()
             .as_record()
             .unwrap()
@@ -56,9 +56,9 @@ impl Importer for ImageImporter {
         // Create import data
         //
         let import_data = {
-            let mut import_object = ImageImportedDataRecord::new_single_object(schema_set).unwrap();
+            let mut import_object = GpuImageImportedDataRecord::new_single_object(schema_set).unwrap();
             let mut import_data_container = DataContainerMut::new_single_object(&mut import_object, schema_set);
-            let x = ImageImportedDataRecord::default();
+            let x = GpuImageImportedDataRecord::default();
             x.image_bytes().set(&mut import_data_container, image_bytes).unwrap();
             x.width().set(&mut import_data_container, width).unwrap();
             x.height().set(&mut import_data_container, width).unwrap();
@@ -69,9 +69,9 @@ impl Importer for ImageImporter {
         // Create the default asset
         //
         let default_asset = {
-            let mut default_asset_object = ImageAssetRecord::new_single_object(schema_set).unwrap();
+            let mut default_asset_object = GpuImageAssetRecord::new_single_object(schema_set).unwrap();
             let mut default_asset_data_container = DataContainerMut::new_single_object(&mut default_asset_object, schema_set);
-            let x = ImageAssetRecord::default();
+            let x = GpuImageAssetRecord::default();
             x.compress().set(&mut default_asset_data_container, false).unwrap();
             default_asset_object
         };
@@ -94,11 +94,11 @@ impl Importer for ImageImporter {
 
 #[derive(TypeUuid, Default)]
 #[uuid = "da6760e7-5b24-43b4-830d-6ee4515096b8"]
-pub struct ImageBuilder {}
+pub struct GpuImageBuilder {}
 
-impl Builder for ImageBuilder {
+impl Builder for GpuImageBuilder {
     fn asset_type(&self) -> &'static str {
-        ImageAssetRecord::schema_name()
+        GpuImageAssetRecord::schema_name()
     }
 
     fn enumerate_dependencies(
@@ -121,7 +121,7 @@ impl Builder for ImageBuilder {
         // Read asset properties
         //
         let data_container = DataContainer::new_dataset(data_set, schema_set, asset_id);
-        let x = ImageAssetRecord::default();
+        let x = GpuImageAssetRecord::default();
         let compressed = x.compress().get(&data_container).unwrap();
 
         //
@@ -129,7 +129,7 @@ impl Builder for ImageBuilder {
         //
         let imported_data = &dependency_data[&asset_id];
         let data_container = DataContainer::new_single_object(&imported_data, schema_set);
-        let x = ImageImportedDataRecord::new(PropertyPath::default());
+        let x = GpuImageImportedDataRecord::new(PropertyPath::default());
 
         let image_bytes = x.image_bytes().get(&data_container).unwrap().clone();
         let width = x.width().get(&data_container).unwrap();
@@ -165,7 +165,7 @@ impl Builder for ImageBuilder {
         //
         // Create the processed data
         //
-        let processed_data = ImageBuiltData {
+        let processed_data = GpuImageBuiltData {
             image_bytes,
             width,
             height,
@@ -186,15 +186,15 @@ impl Builder for ImageBuilder {
     }
 }
 
-pub struct ImageAssetPlugin;
+pub struct GpuImageAssetPlugin;
 
-impl AssetPlugin for ImageAssetPlugin {
+impl AssetPlugin for GpuImageAssetPlugin {
     fn setup(
         schema_linker: &mut SchemaLinker,
         importer_registry: &mut ImporterRegistryBuilder,
         builder_registry: &mut BuilderRegistryBuilder,
     ) {
-        importer_registry.register_handler::<ImageImporter>(schema_linker);
-        builder_registry.register_handler::<ImageBuilder>(schema_linker);
+        importer_registry.register_handler::<GpuImageImporter>(schema_linker);
+        builder_registry.register_handler::<GpuImageBuilder>(schema_linker);
     }
 }

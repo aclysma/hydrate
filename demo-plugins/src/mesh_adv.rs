@@ -8,6 +8,7 @@ use hydrate_model::pipeline::{AssetPlugin, Builder, BuiltAsset};
 use hydrate_model::pipeline::{ImportedImportable, ScannedImportable, Importer};
 use serde::{Deserialize, Serialize};
 use type_uuid::{TypeUuid, TypeUuidDynamic};
+use crate::generated::MeshAdvMeshAssetRecord;
 
 use super::generated::{MeshAdvMaterialImportedDataRecord, MeshAdvMaterialAssetRecord, MeshAdvBlendMethodEnum, MeshAdvShadowMethodEnum};
 
@@ -98,14 +99,87 @@ impl Builder for MeshAdvMaterialBuilder {
 }
 
 
-pub struct MeshAdvMaterialAssetPlugin;
 
-impl AssetPlugin for MeshAdvMaterialAssetPlugin {
+
+#[derive(TypeUuid, Default)]
+#[uuid = "658b712f-e498-4c64-a26d-d83d775affb6"]
+pub struct MeshAdvMeshBuilder {}
+
+impl Builder for MeshAdvMeshBuilder {
+    fn asset_type(&self) -> &'static str {
+        MeshAdvMeshAssetRecord::schema_name()
+    }
+
+    fn enumerate_dependencies(
+        &self,
+        asset_id: ObjectId,
+        data_set: &DataSet,
+        schema_set: &SchemaSet,
+    ) -> Vec<ObjectId> {
+        vec![]
+    }
+
+    fn build_asset(
+        &self,
+        asset_id: ObjectId,
+        data_set: &DataSet,
+        schema_set: &SchemaSet,
+        dependency_data: &HashMap<ObjectId, SingleObject>,
+    ) -> BuiltAsset {
+
+
+        //TODO:
+        // - Can I fire off jobs and link them together like a UUID graph?
+        // - Importer pulled in mesh data in a generic but maybe wasteful way. Like an array
+        //   of positions, array of UVs, array of normals, Uint32 indexes. We could make this generic
+        //   like streams of data keyed by string
+        // - Builder decides we need certain kinds of vertex buffers (position only, full, etc.)
+        // - Need to kick jobs for each unique vertex buffer type
+        // - Need a final built mesh that references the correct buffer types
+        //
+        // Maybe we need a job trait?
+        // Probably can store intermediate steps with non-schema form
+
+
+
+
+        //
+        // Create the processed data
+        //
+        let processed_data = MeshAdvMeshAssetData {
+
+        };
+
+        //
+        // Serialize and return
+        //
+        let serialized = bincode::serialize(&processed_data).unwrap();
+        BuiltAsset {
+            metadata: BuiltObjectMetadata {
+                dependencies: vec![],
+                subresource_count: 0,
+                asset_type: uuid::Uuid::from_bytes(processed_data.uuid())
+            },
+            data: serialized
+        }
+    }
+}
+
+
+
+
+
+
+
+pub struct MeshAdvAssetPlugin;
+
+impl AssetPlugin for MeshAdvAssetPlugin {
     fn setup(
         schema_linker: &mut SchemaLinker,
         importer_registry: &mut ImporterRegistryBuilder,
         builder_registry: &mut BuilderRegistryBuilder,
     ) {
         builder_registry.register_handler::<MeshAdvMaterialBuilder>(schema_linker);
+        builder_registry.register_handler::<MeshAdvMeshBuilder>(schema_linker);
     }
 }

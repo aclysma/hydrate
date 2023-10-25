@@ -4,7 +4,8 @@
     "name": "MeshAdvShadowMethod",
     "symbols": [
       {
-        "name": "None"
+        "name": "None",
+        "aliases": ["NONE"]
       },
       {
         "name": "Opaque",
@@ -26,7 +27,7 @@
       },
       {
         "name": "AlphaBlend",
-        "aliases": ["ALPHA_BLEND"]
+        "aliases": ["ALPHA_BLEND", "BLEND"]
       }
     ]
   },
@@ -63,19 +64,19 @@
       },
       {
         "name": "color_texture",
-        "type": { "name": "object_ref", "inner_type": "ImageAsset" }
+        "type": { "name": "object_ref", "inner_type": "GpuImageAsset" }
       },
       {
         "name": "metallic_roughness_texture",
-        "type": { "name": "object_ref", "inner_type": "ImageAsset" }
+        "type": { "name": "object_ref", "inner_type": "GpuImageAsset" }
       },
       {
         "name": "normal_texture",
-        "type": { "name": "object_ref", "inner_type": "ImageAsset" }
+        "type": { "name": "object_ref", "inner_type": "GpuImageAsset" }
       },
       {
         "name": "emissive_texture",
-        "type": { "name": "object_ref", "inner_type": "ImageAsset" }
+        "type": { "name": "object_ref", "inner_type": "GpuImageAsset" }
       },
       {
         "name": "shadow_method",
@@ -100,10 +101,77 @@
     ]
   },
   {
+    "type": "enum",
+    "name": "MeshAdvIndexType",
+    "symbols": [
+      {
+        "name": "Uint16",
+        "aliases": []
+      },
+      {
+        "name": "Uint32",
+        "aliases": []
+      }
+    ]
+  },
+  {
+    "type": "record",
+    "name": "MeshAdvMeshImportedDataMeshPart",
+    "fields": [
+      {
+        "name": "vertex_full_buffer_offset_in_bytes",
+        "type": "u32"
+      },
+      {
+        "name": "vertex_full_buffer_size_in_bytes",
+        "type": "u32"
+      },
+      {
+        "name": "vertex_position_buffer_offset_in_bytes",
+        "type": "u32"
+      },
+      {
+        "name": "vertex_position_buffer_size_in_bytes",
+        "type": "u32"
+      },
+      {
+        "name": "index_buffer_offset_in_bytes",
+        "type": "u32"
+      },
+      {
+        "name": "index_buffer_size_in_bytes",
+        "type": "u32"
+      },
+      {
+        "name": "mesh_material",
+        "type": { "name": "object_ref", "inner_type": "MeshAdvMaterialAsset" }
+      },
+      {
+        "name": "index_type",
+        "type": "MeshAdvIndexType"
+      }
+    ]
+  },
+  {
     "type": "record",
     "name": "MeshAdvMeshImportedData",
     "fields": [
-
+      {
+        "name": "mesh_parts",
+        "type": { "name": "dynamic_array", "inner_type": "MeshAdvMeshImportedDataMeshPart" }
+      },
+      {
+        "name": "vertex_full_buffer",
+        "type": { "name": "object_ref", "inner_type": "GpuBufferAsset" }
+      },
+      {
+        "name": "vertex_position_buffer",
+        "type": { "name": "object_ref", "inner_type": "GpuBufferAsset" }
+      },
+      {
+        "name": "index_buffer",
+        "type": { "name": "object_ref", "inner_type": "GpuBufferAsset" }
+      }
     ]
   },
   {

@@ -129,41 +129,86 @@ impl GlslSourceFileImportedDataRecord {
     }
 }
 #[derive(Default)]
-pub struct ImageAssetRecord(PropertyPath);
+pub struct GpuBufferAssetRecord(PropertyPath);
 
-impl Field for ImageAssetRecord {
+impl Field for GpuBufferAssetRecord {
     fn new(property_path: PropertyPath) -> Self {
-        ImageAssetRecord(property_path)
+        GpuBufferAssetRecord(property_path)
     }
 }
 
-impl Record for ImageAssetRecord {
+impl Record for GpuBufferAssetRecord {
     fn schema_name() -> &'static str {
-        "ImageAsset"
+        "GpuBufferAsset"
     }
 }
 
-impl ImageAssetRecord {
+impl GpuBufferAssetRecord {
+}
+#[derive(Default)]
+pub struct GpuBufferImportedDataRecord(PropertyPath);
+
+impl Field for GpuBufferImportedDataRecord {
+    fn new(property_path: PropertyPath) -> Self {
+        GpuBufferImportedDataRecord(property_path)
+    }
+}
+
+impl Record for GpuBufferImportedDataRecord {
+    fn schema_name() -> &'static str {
+        "GpuBufferImportedData"
+    }
+}
+
+impl GpuBufferImportedDataRecord {
+    pub fn alignment(&self) -> U32Field {
+        U32Field::new(self.0.push("alignment"))
+    }
+
+    pub fn data(&self) -> BytesField {
+        BytesField::new(self.0.push("data"))
+    }
+
+    pub fn resource_type(&self) -> U32Field {
+        U32Field::new(self.0.push("resource_type"))
+    }
+}
+#[derive(Default)]
+pub struct GpuImageAssetRecord(PropertyPath);
+
+impl Field for GpuImageAssetRecord {
+    fn new(property_path: PropertyPath) -> Self {
+        GpuImageAssetRecord(property_path)
+    }
+}
+
+impl Record for GpuImageAssetRecord {
+    fn schema_name() -> &'static str {
+        "GpuImageAsset"
+    }
+}
+
+impl GpuImageAssetRecord {
     pub fn compress(&self) -> BooleanField {
         BooleanField::new(self.0.push("compress"))
     }
 }
 #[derive(Default)]
-pub struct ImageImportedDataRecord(PropertyPath);
+pub struct GpuImageImportedDataRecord(PropertyPath);
 
-impl Field for ImageImportedDataRecord {
+impl Field for GpuImageImportedDataRecord {
     fn new(property_path: PropertyPath) -> Self {
-        ImageImportedDataRecord(property_path)
+        GpuImageImportedDataRecord(property_path)
     }
 }
 
-impl Record for ImageImportedDataRecord {
+impl Record for GpuImageImportedDataRecord {
     fn schema_name() -> &'static str {
-        "ImageImportedData"
+        "GpuImageImportedData"
     }
 }
 
-impl ImageImportedDataRecord {
+impl GpuImageImportedDataRecord {
     pub fn height(&self) -> U32Field {
         U32Field::new(self.0.push("height"))
     }
@@ -200,6 +245,7 @@ impl Enum for MeshAdvBlendMethodEnum {
             "ALPHA_CLIP" => Some(MeshAdvBlendMethodEnum::AlphaClip),
             "AlphaBlend" => Some(MeshAdvBlendMethodEnum::AlphaBlend),
             "ALPHA_BLEND" => Some(MeshAdvBlendMethodEnum::AlphaBlend),
+            "BLEND" => Some(MeshAdvBlendMethodEnum::AlphaBlend),
             _ => None,
         }
     }
@@ -208,6 +254,34 @@ impl Enum for MeshAdvBlendMethodEnum {
 impl MeshAdvBlendMethodEnum {
     pub fn schema_name() -> &'static str {
         "MeshAdvBlendMethod"
+    }
+}
+#[derive(Copy, Clone)]
+pub enum MeshAdvIndexTypeEnum {
+    Uint16,
+    Uint32,
+}
+
+impl Enum for MeshAdvIndexTypeEnum {
+    fn to_symbol_name(&self) -> &'static str {
+        match self {
+            MeshAdvIndexTypeEnum::Uint16 => "Uint16",
+            MeshAdvIndexTypeEnum::Uint32 => "Uint32",
+        }
+    }
+
+    fn from_symbol_name(str: &str) -> Option<MeshAdvIndexTypeEnum> {
+        match str {
+            "Uint16" => Some(MeshAdvIndexTypeEnum::Uint16),
+            "Uint32" => Some(MeshAdvIndexTypeEnum::Uint32),
+            _ => None,
+        }
+    }
+}
+
+impl MeshAdvIndexTypeEnum {
+    pub fn schema_name() -> &'static str {
+        "MeshAdvIndexType"
     }
 }
 #[derive(Default)]
@@ -332,6 +406,69 @@ impl Record for MeshAdvMeshImportedDataRecord {
 }
 
 impl MeshAdvMeshImportedDataRecord {
+    pub fn index_buffer(&self) -> ObjectRefField {
+        ObjectRefField::new(self.0.push("index_buffer"))
+    }
+
+    pub fn mesh_parts(&self) -> DynamicArrayField::<MeshAdvMeshImportedDataMeshPartRecord> {
+        DynamicArrayField::<MeshAdvMeshImportedDataMeshPartRecord>::new(self.0.push("mesh_parts"))
+    }
+
+    pub fn vertex_full_buffer(&self) -> ObjectRefField {
+        ObjectRefField::new(self.0.push("vertex_full_buffer"))
+    }
+
+    pub fn vertex_position_buffer(&self) -> ObjectRefField {
+        ObjectRefField::new(self.0.push("vertex_position_buffer"))
+    }
+}
+#[derive(Default)]
+pub struct MeshAdvMeshImportedDataMeshPartRecord(PropertyPath);
+
+impl Field for MeshAdvMeshImportedDataMeshPartRecord {
+    fn new(property_path: PropertyPath) -> Self {
+        MeshAdvMeshImportedDataMeshPartRecord(property_path)
+    }
+}
+
+impl Record for MeshAdvMeshImportedDataMeshPartRecord {
+    fn schema_name() -> &'static str {
+        "MeshAdvMeshImportedDataMeshPart"
+    }
+}
+
+impl MeshAdvMeshImportedDataMeshPartRecord {
+    pub fn index_buffer_offset_in_bytes(&self) -> U32Field {
+        U32Field::new(self.0.push("index_buffer_offset_in_bytes"))
+    }
+
+    pub fn index_buffer_size_in_bytes(&self) -> U32Field {
+        U32Field::new(self.0.push("index_buffer_size_in_bytes"))
+    }
+
+    pub fn index_type(&self) -> EnumField::<MeshAdvIndexTypeEnum> {
+        EnumField::<MeshAdvIndexTypeEnum>::new(self.0.push("index_type"))
+    }
+
+    pub fn mesh_material(&self) -> ObjectRefField {
+        ObjectRefField::new(self.0.push("mesh_material"))
+    }
+
+    pub fn vertex_full_buffer_offset_in_bytes(&self) -> U32Field {
+        U32Field::new(self.0.push("vertex_full_buffer_offset_in_bytes"))
+    }
+
+    pub fn vertex_full_buffer_size_in_bytes(&self) -> U32Field {
+        U32Field::new(self.0.push("vertex_full_buffer_size_in_bytes"))
+    }
+
+    pub fn vertex_position_buffer_offset_in_bytes(&self) -> U32Field {
+        U32Field::new(self.0.push("vertex_position_buffer_offset_in_bytes"))
+    }
+
+    pub fn vertex_position_buffer_size_in_bytes(&self) -> U32Field {
+        U32Field::new(self.0.push("vertex_position_buffer_size_in_bytes"))
+    }
 }
 #[derive(Copy, Clone)]
 pub enum MeshAdvShadowMethodEnum {
@@ -350,6 +487,7 @@ impl Enum for MeshAdvShadowMethodEnum {
     fn from_symbol_name(str: &str) -> Option<MeshAdvShadowMethodEnum> {
         match str {
             "None" => Some(MeshAdvShadowMethodEnum::None),
+            "NONE" => Some(MeshAdvShadowMethodEnum::None),
             "Opaque" => Some(MeshAdvShadowMethodEnum::Opaque),
             "OPAQUE" => Some(MeshAdvShadowMethodEnum::Opaque),
             _ => None,

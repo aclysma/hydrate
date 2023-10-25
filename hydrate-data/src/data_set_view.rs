@@ -77,7 +77,7 @@ impl<'a> DataContainer<'a> {
         }
     }
 
-    pub fn get_override_behavior2(&self, path: impl AsRef<str>) -> OverrideBehavior {
+    pub fn get_override_behavior(&self, path: impl AsRef<str>) -> OverrideBehavior {
         match *self {
             DataContainer::DataSet(data_set, schema_set, object_id) => data_set.get_override_behavior(schema_set, object_id, path),
             DataContainer::SingleObject(single_object, schema_set) => OverrideBehavior::Replace,
@@ -127,8 +127,8 @@ impl<'a> DataContainerMut<'a> {
         self.read().resolve_dynamic_array(path)
     }
 
-    pub fn get_override_behavior2(&self, path: impl AsRef<str>) -> OverrideBehavior {
-        self.read().get_override_behavior2(path)
+    pub fn get_override_behavior(&self, path: impl AsRef<str>) -> OverrideBehavior {
+        self.read().get_override_behavior(path)
     }
 
     pub fn set_property_override(&mut self, path: impl AsRef<str>, value: Value) -> DataSetResult<()> {
@@ -142,6 +142,13 @@ impl<'a> DataContainerMut<'a> {
         match self {
             DataContainerMut::DataSet(data_set, schema_set, object_id) => data_set.set_override_behavior(schema_set, *object_id, path, behavior),
             DataContainerMut::SingleObject(_, _) => {}
+        }
+    }
+
+    pub fn add_dynamic_array_override(&mut self, path: impl AsRef<str>) -> Uuid {
+        match self {
+            DataContainerMut::DataSet(data_set, schema_set, object_id) => data_set.add_dynamic_array_override(schema_set, *object_id, path),
+            DataContainerMut::SingleObject(single_object, schema_set) => single_object.add_dynamic_array_override(schema_set, path),
         }
     }
 }
@@ -256,8 +263,8 @@ impl<'a> DataSetView<'a> {
         self.data_container.resolve_dynamic_array(join_path_and_field(&self.property_path, field_name))
     }
 
-    pub fn get_override_behavior2(&self, field_name: &str) -> OverrideBehavior {
-        self.data_container.get_override_behavior2(join_path_and_field(&self.property_path, field_name))
+    pub fn get_override_behavior(&self, field_name: &str) -> OverrideBehavior {
+        self.data_container.get_override_behavior(join_path_and_field(&self.property_path, field_name))
     }
 
     // pub fn schema(&self, field_name: &str) {

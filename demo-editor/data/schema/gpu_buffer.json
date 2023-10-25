@@ -1,0 +1,27 @@
+[
+  {
+    "type": "record",
+    "name": "GpuBufferImportedData",
+    "fields": [
+      {
+        "name": "resource_type",
+        "type": "u32"
+      },
+      {
+        "name": "alignment",
+        "type": "u32"
+      },
+      {
+        "name": "data",
+        "type": "bytes"
+      }
+    ]
+  },
+  {
+    "type": "record",
+    "name": "GpuBufferAsset",
+    "fields": [
+
+    ]
+  }
+]

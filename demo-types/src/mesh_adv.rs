@@ -1,6 +1,103 @@
 use serde::{Deserialize, Serialize};
 use type_uuid::TypeUuid;
 use hydrate_base::Handle;
+use rafx_api::{RafxBlendState, RafxCullMode, RafxDepthState, RafxFillMode, RafxFrontFace, RafxIndexType, RafxRasterizerState, RafxSamplerDef};
+
+#[derive(TypeUuid, Serialize, Deserialize, Debug, Clone, Hash, PartialEq)]
+#[uuid = "7f30b29c-7fb9-4b31-a354-7cefbbade2f9"]
+pub struct SamplerAssetData {
+    pub sampler: RafxSamplerDef,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Hash, PartialEq)]
+pub enum AlphaBlendingPreset {
+    Disabled,
+    Enabled,
+    Custom,
+}
+
+impl Default for AlphaBlendingPreset {
+    fn default() -> Self {
+        AlphaBlendingPreset::Disabled
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Hash, PartialEq)]
+pub enum DepthBufferPreset {
+    Disabled,
+    Enabled,
+    ReadOnly,
+    EnabledReverseZ,
+    ReadOnlyReverseZ,
+    WriteOnly,
+    Custom,
+}
+
+impl Default for DepthBufferPreset {
+    fn default() -> Self {
+        DepthBufferPreset::Disabled
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Hash, PartialEq)]
+pub struct FixedFunctionStateData {
+    #[serde(default)]
+    blend_state: RafxBlendState,
+    #[serde(default)]
+    depth_state: RafxDepthState,
+    #[serde(default)]
+    rasterizer_state: RafxRasterizerState,
+
+    // These override the above states
+    #[serde(default)]
+    alpha_blending: AlphaBlendingPreset,
+    #[serde(default)]
+    depth_testing: DepthBufferPreset,
+    #[serde(default)]
+    cull_mode: Option<RafxCullMode>,
+    #[serde(default)]
+    front_face: Option<RafxFrontFace>,
+    #[serde(default)]
+    fill_mode: Option<RafxFillMode>,
+    #[serde(default)]
+    depth_bias: Option<i32>,
+}
+
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub enum MaterialShaderStage {
+    Vertex,
+    TessellationControl,
+    TessellationEvaluation,
+    Geometry,
+    Fragment,
+    Compute,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct GraphicsPipelineShaderStage {
+    pub stage: MaterialShaderStage,
+    //pub shader_module: Handle<ShaderAsset>,
+    pub entry_name: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct MaterialPassData {
+    pub name: Option<String>,
+    pub phase: Option<String>,
+    pub fixed_function_state: FixedFunctionStateData,
+    pub shaders: Vec<GraphicsPipelineShaderStage>,
+}
+
+#[derive(TypeUuid, Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[uuid = "ad94bca2-1f02-4e5f-9117-1a7b03456a11"]
+pub struct MaterialAssetData {
+    pub passes: Vec<MaterialPassData>,
+}
+
+
+
+
+
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum MeshAdvShadowMethod {
@@ -66,6 +163,17 @@ impl Default for MeshAdvMaterialData {
 
 
 
+#[derive(TypeUuid, Serialize, Deserialize, Clone)]
+#[uuid = "41ea076f-19d7-4deb-8af1-983148af5383"]
+pub struct MeshAdvMaterialAssetData {
+    //pub material_asset: Handle<MaterialAsset>,
+    //pub material_data: MeshAdvMaterialData,
+    //pub color_texture: Option<Handle<ImageAsset>>,
+    //pub metallic_roughness_texture: Option<Handle<ImageAsset>>,
+    //pub normal_texture: Option<Handle<ImageAsset>>,
+    //pub emissive_texture: Option<Handle<ImageAsset>>,
+}
+
 
 
 pub struct MeshAdvBufferAssetData {
@@ -83,21 +191,34 @@ pub struct MeshAdvPartAssetData {
     pub index_buffer_offset_in_bytes: u32,
     pub index_buffer_size_in_bytes: u32,
     //pub mesh_material: Handle<MeshMaterialAdvAsset>,
-    //pub index_type: RafxIndexType,
+    pub index_type: RafxIndexType,
 }
 
 #[derive(TypeUuid, Serialize, Deserialize, Clone)]
 #[uuid = "4c888448-2650-4f56-82dc-71ba81f4295b"]
-pub struct MeshAdvAssetData {
-    pub mesh_parts: Vec<MeshAdvPartAssetData>,
-    pub vertex_full_buffer: Handle<MeshAdvBufferAssetData>, // Vertex type is MeshVertexFull
-    pub vertex_position_buffer: Handle<MeshAdvBufferAssetData>, // Vertex type is MeshVertexPosition
-    pub index_buffer: Handle<MeshAdvBufferAssetData>,       // u16 indices
+pub struct MeshAdvMeshAssetData {
+    // pub mesh_parts: Vec<MeshAdvPartAssetData>,
+    // pub vertex_full_buffer: Handle<MeshAdvBufferAssetData>, // Vertex type is MeshVertexFull
+    // pub vertex_position_buffer: Handle<MeshAdvBufferAssetData>, // Vertex type is MeshVertexPosition
+    // pub index_buffer: Handle<MeshAdvBufferAssetData>,       // u16 indices
     //pub visible_bounds: VisibleBounds,
 }
 
+#[derive(Copy, Clone, Debug, Serialize, Deserialize, Default)]
+#[repr(C)]
+pub struct MeshVertexFull {
+    pub position: [f32; 3],
+    pub normal: [f32; 3],
+    pub tangent: [f32; 3],
+    pub binormal: [f32; 3],
+    pub tex_coord: [f32; 2],
+}
 
-
+#[derive(Copy, Clone, Debug, Serialize, Deserialize, Default)]
+#[repr(C)]
+pub struct MeshVertexPosition {
+    pub position: [f32; 3],
+}
 
 
 

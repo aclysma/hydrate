@@ -1,4 +1,4 @@
-use demo_plugins::{BlenderMaterialAssetPlugin, GlslAssetPlugin, GltfAssetPlugin, ImageAssetPlugin, MeshAdvMaterialAssetPlugin, SimpleDataAssetPlugin};
+use demo_plugins::{BlenderMaterialAssetPlugin, BlenderMeshAssetPlugin, GlslAssetPlugin, GltfAssetPlugin, GpuBufferAssetPlugin, GpuImageAssetPlugin, MeshAdvAssetPlugin, SimpleDataAssetPlugin};
 use std::path::PathBuf;
 use hydrate::pipeline::AssetEngine;
 
@@ -39,9 +39,11 @@ fn main() {
     let mut linker = hydrate::model::SchemaLinker::default();
 
     let mut asset_plugin_registration_helper = hydrate::pipeline::AssetPluginRegistrationHelper::new()
-        .register_plugin::<ImageAssetPlugin>(&mut linker)
+        .register_plugin::<GpuBufferAssetPlugin>(&mut linker)
+        .register_plugin::<GpuImageAssetPlugin>(&mut linker)
         .register_plugin::<BlenderMaterialAssetPlugin>(&mut linker)
-        .register_plugin::<MeshAdvMaterialAssetPlugin>(&mut linker)
+        .register_plugin::<BlenderMeshAssetPlugin>(&mut linker)
+        .register_plugin::<MeshAdvAssetPlugin>(&mut linker)
         .register_plugin::<GlslAssetPlugin>(&mut linker)
         .register_plugin::<GltfAssetPlugin>(&mut linker)
         .register_plugin::<SimpleDataAssetPlugin>(&mut linker);

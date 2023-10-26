@@ -69,29 +69,38 @@ use hydrate_base::ObjectId;
 use hydrate_data::{DataSet, SchemaSet, SingleObject};
 use hydrate_model::BuiltAsset;
 
+fn enqueue_build_task<T: BuildJobWithInput>(job_api: &dyn BuildJobApi, input: <T as BuildJobWithInput>::InputT) -> Uuid {
+    let mut hasher = siphasher::sip128::SipHasher::default();
+    input.hash(&mut hasher);
+    let input_hash = hasher.finish128().as_u128();
+
+    let input_data = bincode::serialize(&input).unwrap();
+
+    let queued_job = NewJob {
+        job_type: Uuid::from_bytes(T::UUID),
+        input_hash,
+        input_data,
+    };
+
+    job_api.enqueue_build_task(queued_job)
+}
 
 //
 // API Design
 //
-struct BuildJobApi {
-
-}
-
-impl BuildJobApi {
-    pub fn enqueue_build_task<'a, T: BuildJobWithInput<'a>>(&self, input: T::InputT) -> Uuid {
-        unimplemented!()
-    }
+trait BuildJobApi {
+    fn enqueue_build_task(&self, job: NewJob) -> Uuid;
 }
 
 
 //
 // Job Traits
 //
-trait BuildJobInput: Hash {
+trait BuildJobInput: Hash + Serialize + for<'a> Deserialize<'a> {
 
 }
 
-trait BuildJobOutput {
+trait BuildJobOutput: Serialize + for<'a> Deserialize<'a> {
 
 }
 
@@ -115,11 +124,11 @@ trait BuildJobAbstract {
         data_set: &DataSet,
         schema_set: &SchemaSet,
         dependency_data: &HashMap<ObjectId, SingleObject>,
-        build_job_api: &mut BuildJobApi
+        build_job_api: &dyn BuildJobApi
     ) -> Vec<u8>;
 }
 
-trait BuildJobWithInput<'a>: TypeUuid {
+trait BuildJobWithInput: TypeUuid {
     type InputT: BuildJobInput + 'static;
     type OutputT: BuildJobOutput + 'static;
 
@@ -136,27 +145,228 @@ trait BuildJobWithInput<'a>: TypeUuid {
         data_set: &DataSet,
         schema_set: &SchemaSet,
         dependency_data: &HashMap<ObjectId, SingleObject>,
-        build_job_api: &mut BuildJobApi
+        build_job_api: &dyn BuildJobApi
     ) -> Self::OutputT;
 }
 
-struct BuildJobWrapper<T: for<'a> BuildJobWithInput<'a>>(T);
+struct BuildJobWrapper<T: BuildJobWithInput>(T);
 
-impl<T: for<'a> BuildJobWithInput<'a>> BuildJobAbstract for BuildJobWrapper<T>
+impl<T: BuildJobWithInput> BuildJobAbstract for BuildJobWrapper<T>
     where
-        for<'a> <T as BuildJobWithInput<'a>>::InputT: Deserialize<'a> + 'static,
-        for<'a> <T as BuildJobWithInput<'a>>::OutputT: Serialize + 'static {
+        <T as BuildJobWithInput>::InputT: for<'a> Deserialize<'a> + 'static,
+        <T as BuildJobWithInput>::OutputT: Serialize + 'static {
     fn enumerate_dependencies_inner(&self, input: &Vec<u8>, data_set: &DataSet, schema_set: &SchemaSet) -> BuildJobRunDependencies {
         let data: <T as BuildJobWithInput>::InputT = bincode::deserialize(input.as_slice()).unwrap();
         self.0.enumerate_dependencies(&data, data_set, schema_set)
     }
 
-    fn run_inner(&self, input: &Vec<u8>, data_set: &DataSet, schema_set: &SchemaSet, dependency_data: &HashMap<ObjectId, SingleObject>, build_job_api: &mut BuildJobApi) -> Vec<u8> {
+    fn run_inner(&self, input: &Vec<u8>, data_set: &DataSet, schema_set: &SchemaSet, dependency_data: &HashMap<ObjectId, SingleObject>, build_job_api: &dyn BuildJobApi) -> Vec<u8> {
         let data: <T as BuildJobWithInput>::InputT = bincode::deserialize(input.as_slice()).unwrap();
         let output = self.0.run(&data, data_set, schema_set, dependency_data, build_job_api);
         bincode::serialize(&output).unwrap()
     }
 }
+
+struct JobState {
+    job_type: Uuid,
+    dependencies: BuildJobRunDependencies,
+    input_data: Vec<u8>,
+    // This would eventually be stored on file system
+    output_data: Option<Vec<u8>>,
+}
+
+struct NewJob {
+    job_type: Uuid,
+    input_hash: u128,
+    input_data: Vec<u8>,
+}
+
+struct QueuedJob {
+    job_type: Uuid,
+    job_id: Uuid,
+    input_data: Vec<u8>,
+}
+
+struct CompletedJob {
+    job_id: Uuid,
+    output_data: Vec<u8>,
+}
+
+struct BuildJobExecutor {
+    builders: HashMap<Uuid, Box<dyn BuildJobAbstract>>,
+    jobs: HashMap<Uuid, JobState>,
+
+    job_create_queue_tx: Sender<QueuedJob>,
+    job_create_queue_rx: Receiver<QueuedJob>,
+
+    // job_ready_queue_tx: Sender<QueuedJob>,
+    // job_ready_queue_rx: Receiver<QueuedJob>,
+    //
+    job_completed_queue_tx: Sender<CompletedJob>,
+    job_completed_queue_rx: Receiver<CompletedJob>,
+}
+
+impl BuildJobApi for BuildJobExecutor {
+    fn enqueue_build_task(&self, new_job: NewJob) -> Uuid {
+        let job_id = Uuid::from_u128(new_job.input_hash);
+        self.job_create_queue_tx.send(QueuedJob {
+            job_id,
+            job_type: new_job.job_type,
+            input_data: new_job.input_data,
+        }).unwrap();
+        job_id
+    }
+}
+
+impl Default for BuildJobExecutor {
+    fn default() -> Self {
+        let (job_create_queue_tx, job_create_queue_rx) = crossbeam_channel::unbounded();
+        let (job_completed_queue_tx, job_completed_queue_rx) = crossbeam_channel::unbounded();
+
+        BuildJobExecutor {
+            builders: Default::default(),
+            jobs: Default::default(),
+            job_create_queue_tx,
+            job_create_queue_rx,
+            job_completed_queue_tx,
+            job_completed_queue_rx,
+        }
+    }
+}
+
+impl BuildJobExecutor {
+    pub fn register_job_type<T: BuildJobWithInput + 'static>(&mut self, builder: T)
+        where
+            <T as BuildJobWithInput>::InputT: for<'a> Deserialize<'a>,
+            <T as BuildJobWithInput>::OutputT: Serialize,
+    {
+        self.builders.insert(Uuid::from_bytes(T::UUID), Box::new(BuildJobWrapper(builder)));
+    }
+
+    fn clear_create_queue(&mut self) {
+        while let Ok(queued_job) = self.job_create_queue_rx.try_recv() {
+
+        }
+    }
+
+    fn handle_create_queue(&mut self, data_set: &DataSet, schema_set: &SchemaSet) {
+        while let Ok(queued_job) = self.job_create_queue_rx.try_recv() {
+            if !self.jobs.contains_key(&queued_job.job_id) {
+                let builder = self.builders.get(&queued_job.job_type).unwrap();
+                let dependencies = builder.enumerate_dependencies_inner(&queued_job.input_data, data_set, schema_set);
+
+                self.jobs.insert(queued_job.job_id, JobState {
+                    job_type: queued_job.job_type,
+                    dependencies,
+                    input_data: queued_job.input_data,
+                    output_data: None
+                });
+            }
+        }
+    }
+
+    fn handle_completed_queue(&mut self) {
+        while let Ok(completed_job) = self.job_completed_queue_rx.try_recv() {
+            self.jobs.get_mut(&completed_job.job_id).unwrap().output_data = Some(completed_job.output_data);
+        }
+    }
+
+    pub fn update(&mut self, data_set: &DataSet, schema_set: &SchemaSet) {
+        //
+        // Pull jobs off the create queue. Determine their dependencies and prepare them to run.
+        //
+        self.handle_create_queue(data_set, schema_set);
+
+        //TODO: Don't iterate every job in existence
+        for (&job_id, job_state) in &self.jobs {
+            if job_state.output_data.is_some() {
+                continue;
+            }
+
+            // TODO: Check dependencies
+            let mut dependencies_met = true;
+
+            for build_job_dependency in &job_state.dependencies.build_jobs {
+                let dependency = self.jobs.get(build_job_dependency);
+                let Some(dependency_job_state) = dependency else {
+                    panic!("Build job has a dependency on a job that has not been created");
+                    dependencies_met = false;
+                    break;
+                };
+
+                if dependency_job_state.output_data.is_none() {
+                    dependencies_met = false;
+                    break;
+                }
+            }
+
+            if !dependencies_met {
+                continue;
+            }
+
+            // Load the import data
+            // Load the dependency data
+
+            let builder = self.builders.get(&job_state.job_type).unwrap();
+            let dependency_data = HashMap::default();
+            let output_data = builder.run_inner(&job_state.input_data, data_set, schema_set, &dependency_data, self);
+
+            // Send via crossbeam, this will eventually be on a thread pool
+            self.job_completed_queue_tx.send(CompletedJob {
+                job_id,
+                output_data
+            }).unwrap();
+        }
+
+        self.handle_completed_queue();
+    }
+
+    pub fn stop(&mut self) {
+        //TODO: If we have a thread pool do we need to notify them to stop?
+        self.clear_create_queue();
+        self.handle_completed_queue();
+
+        self.jobs.clear();
+    }
+
+    pub fn is_idle(&self) -> bool {
+        if !self.job_create_queue_rx.is_empty() {
+            return false;
+        }
+
+        if !self.job_completed_queue_rx.is_empty() {
+            return false;
+        }
+
+        //TODO: Don't iterate, keep a count
+        for (id, job) in &self.jobs {
+            if job.output_data.is_none() {
+                return false;
+            }
+        }
+
+        true
+    }
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 //
 // Example Job Impl - Imagine this kicking off scatter job(s), and then a gather job that produces the final output
@@ -168,14 +378,17 @@ struct ExampleBuildJobTopLevelInput {
 }
 impl BuildJobInput for ExampleBuildJobTopLevelInput {}
 
-struct ExampleBuildJobTopLevelOutput;
+#[derive(Serialize, Deserialize)]
+struct ExampleBuildJobTopLevelOutput {
+    final_task: Uuid
+}
 impl BuildJobOutput for ExampleBuildJobTopLevelOutput {}
 
 #[derive(TypeUuid)]
 #[uuid = "2e2c39f2-e672-4d2f-9d22-9e9ff84adf09"]
 struct ExampleBuildJobTopLevel;
 
-impl<'a> BuildJobWithInput<'a> for ExampleBuildJobTopLevel {
+impl BuildJobWithInput for ExampleBuildJobTopLevel {
     type InputT = ExampleBuildJobTopLevelInput;
     type OutputT = ExampleBuildJobTopLevelOutput;
 
@@ -185,7 +398,8 @@ impl<'a> BuildJobWithInput<'a> for ExampleBuildJobTopLevel {
         data_set: &DataSet,
         schema_set: &SchemaSet,
     ) -> BuildJobRunDependencies {
-        unimplemented!()
+        // No dependencies
+        BuildJobRunDependencies::default()
     }
 
     fn run(
@@ -194,28 +408,29 @@ impl<'a> BuildJobWithInput<'a> for ExampleBuildJobTopLevel {
         data_set: &DataSet,
         schema_set: &SchemaSet,
         dependency_data: &HashMap<ObjectId, SingleObject>,
-        build_job_api: &mut BuildJobApi
+        build_job_api: &dyn BuildJobApi
     ) -> Self::OutputT {
-        let task_id1 = build_job_api.enqueue_build_task::<ExampleBuildJobScatter>(ExampleBuildJobScatterInput {
+        let task_id1 = enqueue_build_task::<ExampleBuildJobScatter>(build_job_api, ExampleBuildJobScatterInput {
             asset_id: input.asset_id,
             some_other_parameter: "Test1".to_string()
         });
-        let task_id2 = build_job_api.enqueue_build_task::<ExampleBuildJobScatter>(ExampleBuildJobScatterInput {
+        let task_id2 = enqueue_build_task::<ExampleBuildJobScatter>(build_job_api, ExampleBuildJobScatterInput {
             asset_id: input.asset_id,
             some_other_parameter: "Test2".to_string()
         });
-        let task_id3 = build_job_api.enqueue_build_task::<ExampleBuildJobScatter>(ExampleBuildJobScatterInput {
+        let task_id3 = enqueue_build_task::<ExampleBuildJobScatter>(build_job_api, ExampleBuildJobScatterInput {
             asset_id: input.asset_id,
             some_other_parameter: "Test3".to_string()
         });
 
-        let final_task = build_job_api.enqueue_build_task::<ExampleBuildJobGather>(ExampleBuildJobGatherInput {
+        let final_task = enqueue_build_task::<ExampleBuildJobGather>(build_job_api, ExampleBuildJobGatherInput {
             asset_id: input.asset_id,
             scatter_tasks: vec![task_id1, task_id2, task_id3]
         });
 
+        println!("ExampleBuildJobTopLevel");
         ExampleBuildJobTopLevelOutput {
-
+            final_task
         }
     }
 }
@@ -231,6 +446,7 @@ struct ExampleBuildJobScatterInput {
 }
 impl BuildJobInput for ExampleBuildJobScatterInput {}
 
+#[derive(Serialize, Deserialize)]
 struct ExampleBuildJobScatterOutput;
 impl BuildJobOutput for ExampleBuildJobScatterOutput {}
 
@@ -238,7 +454,7 @@ impl BuildJobOutput for ExampleBuildJobScatterOutput {}
 #[uuid = "29755562-5298-4908-8384-7b13b2cedf26"]
 struct ExampleBuildJobScatter;
 
-impl<'a> BuildJobWithInput<'a> for ExampleBuildJobScatter {
+impl BuildJobWithInput for ExampleBuildJobScatter {
     type InputT = ExampleBuildJobScatterInput;
     type OutputT = ExampleBuildJobScatterOutput;
 
@@ -248,7 +464,8 @@ impl<'a> BuildJobWithInput<'a> for ExampleBuildJobScatter {
         data_set: &DataSet,
         schema_set: &SchemaSet,
     ) -> BuildJobRunDependencies {
-        unimplemented!()
+        // No dependencies
+        BuildJobRunDependencies::default()
     }
 
     fn run(
@@ -257,12 +474,17 @@ impl<'a> BuildJobWithInput<'a> for ExampleBuildJobScatter {
         data_set: &DataSet,
         schema_set: &SchemaSet,
         dependency_data: &HashMap<ObjectId, SingleObject>,
-        build_job_api: &mut BuildJobApi
+        build_job_api: &dyn BuildJobApi
     ) -> Self::OutputT {
         //Do stuff
         // We could return the result
         // build_job_api.publish_intermediate_data(...);
-        unimplemented!();
+        //unimplemented!();
+
+        println!("ExampleBuildJobScatter");
+        ExampleBuildJobScatterOutput {
+
+        }
     }
 }
 
@@ -278,6 +500,7 @@ struct ExampleBuildJobGatherInput {
 }
 impl BuildJobInput for ExampleBuildJobGatherInput {}
 
+#[derive(Serialize, Deserialize)]
 struct ExampleBuildJobGatherOutput;
 impl BuildJobOutput for ExampleBuildJobGatherOutput {}
 
@@ -285,7 +508,7 @@ impl BuildJobOutput for ExampleBuildJobGatherOutput {}
 #[uuid = "e5f3de94-2bb6-43a9-bea0-cc91467cdcc3"]
 struct ExampleBuildJobGather;
 
-impl<'a> BuildJobWithInput<'a> for ExampleBuildJobGather {
+impl BuildJobWithInput for ExampleBuildJobGather {
     type InputT = ExampleBuildJobGatherInput;
     type OutputT = ExampleBuildJobGatherOutput;
 
@@ -295,7 +518,10 @@ impl<'a> BuildJobWithInput<'a> for ExampleBuildJobGather {
         data_set: &DataSet,
         schema_set: &SchemaSet,
     ) -> BuildJobRunDependencies {
-        unimplemented!()
+        BuildJobRunDependencies {
+            import_data: Default::default(),
+            build_jobs: input.scatter_tasks.clone(),
+        }
     }
 
     fn run(
@@ -304,116 +530,53 @@ impl<'a> BuildJobWithInput<'a> for ExampleBuildJobGather {
         data_set: &DataSet,
         schema_set: &SchemaSet,
         dependency_data: &HashMap<ObjectId, SingleObject>,
-        build_job_api: &mut BuildJobApi
+        build_job_api: &dyn BuildJobApi
     ) -> Self::OutputT {
         // Now use inputs from other jobs to produce an output
         //build_job_api.publish_built_asset(...);
 
-        unimplemented!();
-    }
-}
+        println!("ExampleBuildJobGather");
+        ExampleBuildJobGatherOutput {
 
-struct JobState {
-    input_data: Vec<u8>,
-    // This would eventually be stored on file system
-    output_data: Option<Vec<u8>>,
-}
-
-struct QueuedJob {
-    job_type: Uuid,
-    job_id: Uuid,
-    input_data: Vec<u8>,
-}
-
-struct BuildJobExecutor {
-    builders: HashMap<Uuid, Box<dyn BuildJobAbstract>>,
-    jobs: HashMap<Uuid, JobState>,
-    job_create_queue_tx: Sender<QueuedJob>,
-    job_create_queue_rx: Receiver<QueuedJob>
-}
-
-impl Default for BuildJobExecutor {
-    fn default() -> Self {
-        let (job_create_queue_tx, job_create_queue_rx) = crossbeam_channel::unbounded();
-
-        BuildJobExecutor {
-            builders: Default::default(),
-            jobs: Default::default(),
-            job_create_queue_tx,
-            job_create_queue_rx
         }
     }
 }
 
-impl BuildJobExecutor {
-    pub fn register_job_type<T: for<'a> BuildJobWithInput<'a> + 'static>(&mut self, builder: T)
-        where
-            for<'a> <T as BuildJobWithInput<'a>>::InputT: Deserialize<'a>,
-            for<'a> <T as BuildJobWithInput<'a>>::OutputT: Serialize,
-    {
-        self.builders.insert(Uuid::from_bytes(T::UUID), Box::new(BuildJobWrapper(builder)));
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#[test]
+fn test_builders() {
+    let mut executor = BuildJobExecutor::default();
+    executor.register_job_type(ExampleBuildJobTopLevel);
+    executor.register_job_type(ExampleBuildJobGather);
+    executor.register_job_type(ExampleBuildJobScatter);
+
+    let job_id = enqueue_build_task::<ExampleBuildJobTopLevel>(&executor, ExampleBuildJobTopLevelInput {
+        asset_id: ObjectId::null(),
+    });
+
+    let data_set = DataSet::default();
+    let schema_set = SchemaSet::default();
+
+    while !executor.is_idle() {
+        executor.update(&data_set, &schema_set);
     }
 
-    pub fn enqueue_build_task<T: for<'a> BuildJobWithInput<'a>>(&mut self, input: <T as BuildJobWithInput>::InputT) -> Uuid
-        where for<'a> <T as BuildJobWithInput<'a>>::InputT: Serialize,
-    {
-        let mut hasher = siphasher::sip128::SipHasher::default();
-        input.hash(&mut hasher);
-        let input_hash = hasher.finish128().as_u128();
-
-        let job_id = Uuid::from_u128(input_hash);
-        let input_data = bincode::serialize(&input).unwrap();
-        self.job_create_queue_tx.send(QueuedJob {
-            job_type: Uuid::from_bytes(T::UUID),
-            job_id,
-            input_data,
-        }).unwrap();
-
-        job_id
-    }
-
-    pub fn update(&mut self, data_set: &DataSet, schema_set: &SchemaSet) {
-        for queued_job in self.job_create_queue_rx.iter() {
-            if !self.jobs.contains_key(&queued_job.job_id) {
-                let builder = self.builders.get(&queued_job.job_type).unwrap();
-                let dependencies = builder.enumerate_dependencies_inner(&queued_job.input_data, data_set, schema_set);
-
-                self.jobs.insert(queued_job.job_id, JobState {
-                    input_data: queued_job.input_data,
-                    output_data: None
-                });
-            }
-        }
-    }
-
-    pub fn is_idle(&self) -> bool {
-        if !self.job_create_queue_rx.is_empty() {
-            return false;
-        }
-
-        //TODO: Don't iterate, keep a count
-        for (id, job) in &self.jobs {
-            if job.output_data.is_none() {
-                return false;
-            }
-        }
-
-        true
-    }
-
-    pub fn test() {
-        let mut executor = BuildJobExecutor::default();
-        executor.enqueue_build_task::<ExampleBuildJobTopLevel>(ExampleBuildJobTopLevelInput {
-            asset_id: ObjectId::null(),
-        });
-
-        let data_set = DataSet::default();
-        let schema_set = SchemaSet::default();
-
-        while !executor.is_idle() {
-            executor.update(&data_set, &schema_set);
-        }
-
-    }
+    // Get results
 }
-

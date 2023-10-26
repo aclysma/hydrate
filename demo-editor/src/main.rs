@@ -77,7 +77,7 @@ fn main() {
     );
 
     for import_to_queue in imports_to_queue {
-        println!("Queueing import operation {:?}", import_to_queue);
+        //println!("Queueing import operation {:?}", import_to_queue);
         asset_engine.queue_import_operation(
             import_to_queue.requested_importables,
             import_to_queue.importer_id,

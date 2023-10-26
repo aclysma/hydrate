@@ -25,6 +25,10 @@ fn hash_file_metadata(metadata: &std::fs::Metadata) -> u64 {
     hasher.finish()
 }
 
+pub struct ImportDataHash {
+    pub metadata_hash: u64,
+}
+
 pub struct ImportData {
     pub import_data: SingleObject,
     pub metadata_hash: u64,
@@ -102,6 +106,21 @@ impl ImportJobs {
             assets_to_regenerate,
             //import_info
         })
+    }
+
+    pub fn load_import_data_hash(
+        &self,
+        schema_set: &SchemaSet,
+        object_id: ObjectId,
+    ) -> ImportDataHash {
+        let path = uuid_to_path(&self.root_path, object_id.as_uuid(), "if");
+        //println!("LOAD DATA HASH PATH {:?}", path);
+        let str = std::fs::read_to_string(&path).unwrap();
+        let metadata = path.metadata().unwrap();
+        let metadata_hash = hash_file_metadata(&metadata);
+        ImportDataHash {
+            metadata_hash,
+        }
     }
 
     pub fn load_import_data(
@@ -182,14 +201,36 @@ impl ImportJobs {
 
                     if let Some(import_data) = &imported_object.import_data {
                         let data =
-                            SingleObjectJson::save_single_object_to_string(import_data);
+                            SingleObjectJson::save_single_object_to_string(import_data).into_bytes();
                         let path = uuid_to_path(&self.root_path, object_id.as_uuid(), "if");
 
                         if let Some(parent) = path.parent() {
                             std::fs::create_dir_all(parent).unwrap();
                         }
 
-                        std::fs::write(&path, data).unwrap();
+                        let mut file_needs_write = true;
+                        if path.exists() {
+                            let data_on_disk = std::fs::read(&path).unwrap();
+
+                            let mut data_hasher = siphasher::sip::SipHasher::default();
+                            data_on_disk.hash(&mut data_hasher);
+                            let data_on_disk_hash = data_hasher.finish();
+
+                            let mut data_hasher = siphasher::sip::SipHasher::default();
+                            data.hash(&mut data_hasher);
+                            let data_hash = data_hasher.finish();
+
+                            if data_on_disk_hash == data_hash {
+                                file_needs_write = false;
+                            }
+                        }
+
+                        if file_needs_write {
+                            // Avoid unnecessary writes, they mutate the last modified date of the
+                            // file and trigger unnecessary rebuilds
+                            std::fs::write(&path, data).unwrap();
+                        }
+
                         let metadata = path.metadata().unwrap();
                         let metadata_hash = hash_file_metadata(&metadata);
                         let mut import_job = self
@@ -225,9 +266,9 @@ impl ImportJobs {
 
         for file in walker {
             if let Ok(file) = file {
-                println!("dir file {:?}", file);
-                let dir_uuid = path_to_uuid(root_path, file.path()).unwrap();
-                let object_id = ObjectId(dir_uuid.as_u128());
+                //println!("import file {:?}", file);
+                let import_file_uuid = path_to_uuid(root_path, file.path()).unwrap();
+                let object_id = ObjectId(import_file_uuid.as_u128());
                 let job = import_jobs
                     .entry(object_id)
                     .or_insert_with(|| ImportJob::new(object_id));

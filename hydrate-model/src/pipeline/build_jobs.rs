@@ -8,7 +8,7 @@ use hydrate_base::handle::DummySerdeContextHandle;
 
 use super::ImportJobs;
 
-use hydrate_base::uuid_path::{path_to_uuid, uuid_and_hash_to_path, uuid_to_path};
+use hydrate_base::uuid_path::{path_to_uuid, path_to_uuid_and_hash, uuid_and_hash_to_path, uuid_to_path};
 
 use super::*;
 
@@ -23,7 +23,7 @@ struct BuildOp {
 // It could be in a completed state, or there could be a problem with it and we need to re-run it.
 struct BuildJob {
     object_id: ObjectId,
-    build_data_exists: bool,
+    build_data_exists: HashSet<u64>,
     asset_exists: bool,
 }
 
@@ -31,7 +31,7 @@ impl BuildJob {
     pub fn new(object_id: ObjectId) -> Self {
         BuildJob {
             object_id,
-            build_data_exists: false,
+            build_data_exists: Default::default(),
             asset_exists: false,
         }
     }
@@ -116,13 +116,16 @@ impl BuildJobs {
                 builder.unwrap()
             };
 
-            log::info!("building object type {}", object_type.name());
+            //log::info!("building object type {}", object_type.name());
             let dependencies = builder.enumerate_dependencies(object_id, data_set, schema_set);
 
             let mut imported_data = HashMap::default();
             let mut imported_data_hash = 0;
 
-            for dependency_object_id in dependencies {
+            //
+            // Just load in the import data hashes
+            //
+            for &dependency_object_id in &dependencies {
                 // Not all objects have import info...
                 let import_info = data_set.import_info(dependency_object_id);
                 if import_info.is_none() {
@@ -130,19 +133,14 @@ impl BuildJobs {
                 }
 
                 // Load data from disk
-                let import_data = import_jobs.load_import_data(schema_set, dependency_object_id);
+                let import_data_hash = import_jobs.load_import_data_hash(schema_set, dependency_object_id);
 
                 // Hash the dependency import data for the build
                 let mut inner_hasher = siphasher::sip::SipHasher::default();
                 dependency_object_id.hash(&mut inner_hasher);
-                import_data.import_data.hash(&mut inner_hasher);
+                import_data_hash.metadata_hash.hash(&mut inner_hasher);
+                //TODO: We could also hash the raw bytes of the file
                 imported_data_hash = imported_data_hash ^ inner_hasher.finish();
-
-                // validate the file metadata hash is what we expected to see
-                //import_data.metadata_hash
-
-                // Place in map for the builder to use
-                imported_data.insert(dependency_object_id, import_data.import_data);
             }
 
             let properties_hash = editor_model
@@ -160,55 +158,77 @@ impl BuildJobs {
 
             //dummy_serde_context.
 
-            //TODO: This might be able to be replaced with using the schema info? But that doesn't work with built data
-            // which is arbitrary binary
-            let mut ctx = DummySerdeContextHandle::default();
-            ctx.begin_serialize_asset(AssetUuid(*object_id.as_uuid().as_bytes()));
-            let mut built_data = ctx.scope(|| {
-                builder.build_asset(object_id, data_set, schema_set, &imported_data)
-            });
-
-            let referenced_assets = ctx.end_serialize_asset(AssetUuid(*object_id.as_uuid().as_bytes()));
-            assert!(built_data.metadata.dependencies.is_empty()); //TODO: Pretty big bug here, we overwrite dependencies that the builder returns
-            built_data.metadata.dependencies = referenced_assets.into_iter().map(|x| ObjectId(uuid::Uuid::from_bytes(x.0.0).as_u128())).collect();
-
-            // let mut built_data;
-            // let context = HandleSerdeContextProvider.handle();
-            // context.scope(Box::new(|| {
-            //     built_data = builder.build_asset(object_id, data_set, schema_set, &imported_data);
-            // }));
-
-
-
-
-            // Check if a build for this hash already exists?
-            //let built_data = hydrate_base::handle::SerdeContext::with(&dummy_serde_context, dummy_serde_context, || {
-                //builder.build_asset(object_id, data_set, schema_set, &imported_data)
-            //});
-
-
-            //
-            let path = uuid_and_hash_to_path(
-                &self.root_path,
-                build_op.object_id.as_uuid(),
-                build_hash,
-                "bf",
-            );
-            build_hashes.insert(build_op.object_id, build_hash);
-
-            if let Some(parent) = path.parent() {
-                std::fs::create_dir_all(parent).unwrap();
+            let mut can_use_cached_build_data = false;
+            if let Some(build_job) = self.build_jobs.get(&object_id) {
+                if build_job.build_data_exists.contains(&build_hash) {
+                    can_use_cached_build_data = true;
+                }
             }
 
-            // let metadata = hydrate_model::BuiltObjectMetadata {
-            //     asset_type: Uuid::default(),
-            //     subresource_count: 0,
-            //     dependencies: vec![],
-            // };
+            // Include this data in the manifest
+            build_hashes.insert(build_op.object_id, build_hash);
 
-            let mut file = std::fs::File::create(&path).unwrap();
-            built_data.metadata.write_header(&mut file).unwrap();
-            file.write(&built_data.data).unwrap();
+            if can_use_cached_build_data {
+                //println!("  using cached build data {:?}", data_set.object_name(object_id));
+            } else {
+                println!("  rebuilding asset {:?}", data_set.object_name(object_id));
+                //
+                // Go get the actual import data
+                //
+                for dependency_object_id in dependencies {
+                    // Not all objects have import info...
+                    let import_info = data_set.import_info(dependency_object_id);
+                    if import_info.is_none() {
+                        continue;
+                    }
+
+                    // Load data from disk
+                    let import_data = import_jobs.load_import_data(schema_set, dependency_object_id);
+
+                    // Place in map for the builder to use
+                    imported_data.insert(dependency_object_id, import_data.import_data);
+                }
+
+                //TODO: This might be able to be replaced with using the schema info? But that doesn't work with built data
+                // which is arbitrary binary
+                let mut ctx = DummySerdeContextHandle::default();
+                ctx.begin_serialize_asset(AssetUuid(*object_id.as_uuid().as_bytes()));
+                let mut built_data = ctx.scope(|| {
+                    builder.build_asset(object_id, data_set, schema_set, &imported_data)
+                });
+
+                let referenced_assets = ctx.end_serialize_asset(AssetUuid(*object_id.as_uuid().as_bytes()));
+                assert!(built_data.metadata.dependencies.is_empty()); //TODO: Pretty big bug here, we overwrite dependencies that the builder returns
+                built_data.metadata.dependencies = referenced_assets.into_iter().map(|x| ObjectId(uuid::Uuid::from_bytes(x.0.0).as_u128())).collect();
+
+                //
+                let path = uuid_and_hash_to_path(
+                    &self.root_path,
+                    build_op.object_id.as_uuid(),
+                    build_hash,
+                    "bf",
+                );
+
+                if let Some(parent) = path.parent() {
+                    std::fs::create_dir_all(parent).unwrap();
+                }
+
+                // let metadata = hydrate_model::BuiltObjectMetadata {
+                //     asset_type: Uuid::default(),
+                //     subresource_count: 0,
+                //     dependencies: vec![],
+                // };
+
+                let mut file = std::fs::File::create(&path).unwrap();
+                built_data.metadata.write_header(&mut file).unwrap();
+                file.write(&built_data.data).unwrap();
+
+                let job = self.build_jobs
+                    .entry(object_id)
+                    .or_insert_with(|| BuildJob::new(object_id));
+                job.asset_exists = true;
+                job.build_data_exists.insert(build_hash);
+            }
 
             //std::fs::write(&path, built_data).unwrap()
         }
@@ -261,20 +281,20 @@ impl BuildJobs {
         //
         // Scan build dir for known build data
         //
-        let walker = globwalk::GlobWalkerBuilder::from_patterns(root_path, &["**.i"])
+        let walker = globwalk::GlobWalkerBuilder::from_patterns(root_path, &["**.bf"])
             .file_type(globwalk::FileType::FILE)
             .build()
             .unwrap();
 
         for file in walker {
             if let Ok(file) = file {
-                println!("dir file {:?}", file);
-                let dir_uuid = path_to_uuid(root_path, file.path()).unwrap();
-                let object_id = ObjectId(dir_uuid.as_u128());
+                //println!("built file {:?}", file);
+                let (built_file_uuid, built_file_hash) = path_to_uuid_and_hash(root_path, file.path()).unwrap();
+                let object_id = ObjectId(built_file_uuid.as_u128());
                 let job = build_jobs
                     .entry(object_id)
                     .or_insert_with(|| BuildJob::new(object_id));
-                job.build_data_exists = true;
+                job.build_data_exists.insert(built_file_hash);
             }
         }
 

@@ -108,7 +108,7 @@ impl Importer for BlenderMaterialImporter {
         //
         let shadow_method = if let Some(shadow_method_string) = &json_data.shadow_method {
             //TODO: This relies on input json and code matching perfectly, ideally we would search schema type for aliases
-            println!("find MeshAdvShadowMethodEnum {:?}", shadow_method_string);
+            //println!("find MeshAdvShadowMethodEnum {:?}", shadow_method_string);
             MeshAdvShadowMethodEnum::from_symbol_name(shadow_method_string.as_str()).unwrap()
         } else {
             MeshAdvShadowMethodEnum::None
@@ -116,7 +116,7 @@ impl Importer for BlenderMaterialImporter {
 
         let blend_method = if let Some(blend_method_string) = &json_data.blend_method {
             //TODO: This relies on input json and code matching perfectly, ideally we would search schema type for alias
-            println!("find MeshAdvBlendMethodEnum {:?}", blend_method_string);
+            //println!("find MeshAdvBlendMethodEnum {:?}", blend_method_string);
             MeshAdvBlendMethodEnum::from_symbol_name(blend_method_string.as_str()).unwrap()
         } else {
             MeshAdvBlendMethodEnum::Opaque

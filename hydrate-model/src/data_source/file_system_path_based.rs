@@ -493,7 +493,7 @@ impl DataSource for FileSystemPathBasedDataSource {
                 println!("Could not find source file, can't re-import data. Restore the source file or delete the meta file.");
                 continue;
             }
-            println!("meta file {:?} source file {:?}", meta_file, source_file);
+            //println!("meta file {:?} source file {:?}", meta_file, source_file);
 
             let contents = std::fs::read_to_string(meta_file.as_path()).unwrap();
             let meta_file_contents = crate::json_storage::MetaFileJson::load_from_string(&contents);
@@ -517,7 +517,7 @@ impl DataSource for FileSystemPathBasedDataSource {
         // Load any asset files.
         //
         for asset_file in asset_files {
-            println!("asset file {:?}", asset_file);
+            //println!("asset file {:?}", asset_file);
             let contents = std::fs::read_to_string(asset_file.as_path()).unwrap();
 
             let object_location = self.ensure_object_location_exists(
@@ -576,7 +576,7 @@ impl DataSource for FileSystemPathBasedDataSource {
         let empty_string = "".to_string();
 
         for source_file in source_files {
-            println!("source file first pass {:?}", source_file);
+            //println!("source file first pass {:?}", source_file);
             // Does a meta file exist?
             // - If it does: re-import it, but only create new assets if there is not already an asset file
             // - If it does not: re-import it and create all new asset files
@@ -601,7 +601,7 @@ impl DataSource for FileSystemPathBasedDataSource {
                 let scanned_importables = importer.scan_file(
                     &source_file, edit_context.schema_set());
 
-                println!("  find meta file {:?}", source_file);
+                //println!("  find meta file {:?}", source_file);
                 let mut meta_file = source_file_meta_files.get(&source_file).cloned().unwrap_or_default();
                 for scanned_importable in &scanned_importables {
                     // Does it exist in the meta file? If so, we need to reuse the ID
@@ -643,9 +643,9 @@ impl DataSource for FileSystemPathBasedDataSource {
         // Re-import source files
         //
         for (source_file_path, scanned_source_file) in &scanned_source_files {
-            println!("source file second pass {:?}", source_file_path);
+            //println!("source file second pass {:?}", source_file_path);
             let parent_dir = source_file_path.parent().unwrap();
-            println!("  import to dir {:?}", parent_dir);
+            //println!("  import to dir {:?}", parent_dir);
             let import_location = ObjectLocation::new(*path_to_path_node_id.get(parent_dir).unwrap());
 
             let mut source_file_disk_state = source_files_disk_state.get_mut(source_file_path).unwrap();

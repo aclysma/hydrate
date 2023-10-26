@@ -20,7 +20,7 @@ fn load_asset_files(
 
     for file in walker {
         if let Ok(file) = file {
-            println!("asset file {:?}", file);
+            //println!("asset file {:?}", file);
             let file_uuid = path_to_uuid(root_path, file.path()).unwrap();
             let contents = std::fs::read_to_string(file.path()).unwrap();
             crate::json_storage::EditContextObjectJson::load_edit_context_object_from_string(

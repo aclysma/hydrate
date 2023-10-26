@@ -118,7 +118,7 @@ pub fn path_to_uuid_and_hash(
         }
 
         if let Some(hash_begin) = last_str.find('-') {
-            hash = u64::from_str_radix(&last_str[hash_begin..], 16).ok()?;
+            hash = u64::from_str_radix(&last_str[(hash_begin + 1)..], 16).ok()?;
             last_str = last_str.strip_suffix(&last_str[hash_begin..]).unwrap();
         }
 

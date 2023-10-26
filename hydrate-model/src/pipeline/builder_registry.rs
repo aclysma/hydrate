@@ -96,11 +96,11 @@ impl BuilderRegistryBuilder {
                 .unwrap()
                 .fingerprint();
             let insert_result = asset_type_to_builder.insert(asset_type, builder_id);
-            println!(
-                "builder {} handles asset fingerprint {}",
-                builder_id.0,
-                asset_type.as_uuid()
-            );
+            // println!(
+            //     "builder {} handles asset fingerprint {}",
+            //     builder_id.0,
+            //     asset_type.as_uuid()
+            // );
             if insert_result.is_some() {
                 panic!("Multiple handlers registered to handle the same asset")
             }

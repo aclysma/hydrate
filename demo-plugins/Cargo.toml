@@ -25,3 +25,5 @@ gltf = "1.0.0"
 uuid = "0.8.2"
 glam = { version = "0.13.1", features = [ "serde" ] }
 rafx-api = { version = "0.0.14", features = [] }
+siphasher = "0.3"
+crossbeam-channel = "0.5"

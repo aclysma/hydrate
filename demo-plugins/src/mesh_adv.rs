@@ -8,6 +8,7 @@ use hydrate_model::pipeline::{AssetPlugin, Builder, BuiltAsset};
 use hydrate_model::pipeline::{ImportedImportable, ScannedImportable, Importer};
 use serde::{Deserialize, Serialize};
 use type_uuid::{TypeUuid, TypeUuidDynamic};
+use uuid::Uuid;
 use crate::generated::MeshAdvMeshAssetRecord;
 
 use super::generated::{MeshAdvMaterialImportedDataRecord, MeshAdvMaterialAssetRecord, MeshAdvBlendMethodEnum, MeshAdvShadowMethodEnum};
@@ -164,11 +165,6 @@ impl Builder for MeshAdvMeshBuilder {
         }
     }
 }
-
-
-
-
-
 
 
 pub struct MeshAdvAssetPlugin;

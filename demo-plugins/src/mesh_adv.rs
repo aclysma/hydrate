@@ -3,7 +3,7 @@ use std::path::{Path};
 
 use demo_types::mesh_adv::*;
 use hydrate_base::BuiltObjectMetadata;
-use hydrate_model::{BuilderRegistryBuilder, DataContainer, DataContainerMut, DataSet, Enum, HashMap, ImporterRegistryBuilder, ObjectId, Record, SchemaLinker, SchemaSet, SingleObject};
+use hydrate_model::{BuilderRegistryBuilder, DataContainer, DataContainerMut, DataSet, Enum, HashMap, ImporterRegistryBuilder, JobApi, JobProcessorRegistryBuilder, ObjectId, Record, SchemaLinker, SchemaSet, SingleObject};
 use hydrate_model::pipeline::{AssetPlugin, Builder, BuiltAsset};
 use hydrate_model::pipeline::{ImportedImportable, ScannedImportable, Importer};
 use serde::{Deserialize, Serialize};
@@ -22,6 +22,16 @@ pub struct MeshAdvMaterialBuilder {}
 impl Builder for MeshAdvMaterialBuilder {
     fn asset_type(&self) -> &'static str {
         MeshAdvMaterialAssetRecord::schema_name()
+    }
+
+    fn start_jobs(
+        &self,
+        asset_id: ObjectId,
+        data_set: &DataSet,
+        schema_set: &SchemaSet,
+        job_api: &dyn JobApi
+    ) {
+
     }
 
     fn enumerate_dependencies(
@@ -89,6 +99,7 @@ impl Builder for MeshAdvMaterialBuilder {
         //
         let serialized = bincode::serialize(&processed_data).unwrap();
         BuiltAsset {
+            asset_id,
             metadata: BuiltObjectMetadata {
                 dependencies: vec![],
                 subresource_count: 0,
@@ -109,6 +120,16 @@ pub struct MeshAdvMeshBuilder {}
 impl Builder for MeshAdvMeshBuilder {
     fn asset_type(&self) -> &'static str {
         MeshAdvMeshAssetRecord::schema_name()
+    }
+
+    fn start_jobs(
+        &self,
+        asset_id: ObjectId,
+        data_set: &DataSet,
+        schema_set: &SchemaSet,
+        job_api: &dyn JobApi
+    ) {
+
     }
 
     fn enumerate_dependencies(
@@ -156,6 +177,7 @@ impl Builder for MeshAdvMeshBuilder {
         //
         let serialized = bincode::serialize(&processed_data).unwrap();
         BuiltAsset {
+            asset_id,
             metadata: BuiltObjectMetadata {
                 dependencies: vec![],
                 subresource_count: 0,
@@ -174,6 +196,7 @@ impl AssetPlugin for MeshAdvAssetPlugin {
         schema_linker: &mut SchemaLinker,
         importer_registry: &mut ImporterRegistryBuilder,
         builder_registry: &mut BuilderRegistryBuilder,
+        job_processor_registry: &mut JobProcessorRegistryBuilder,
     ) {
         builder_registry.register_handler::<MeshAdvMaterialBuilder>(schema_linker);
         builder_registry.register_handler::<MeshAdvMeshBuilder>(schema_linker);

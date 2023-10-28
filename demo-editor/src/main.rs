@@ -60,7 +60,7 @@ fn main() {
         &schema_cache_file_path()
     );
 
-    let (importer_registry, builder_registry) = asset_plugin_registration_helper.finish(&*schema_set);
+    let (importer_registry, builder_registry, job_processor_registry) = asset_plugin_registration_helper.finish(&*schema_set);
 
     let mut imports_to_queue = Vec::default();
     let mut db_state = hydrate::editor::DbState::load_or_init_empty(
@@ -75,6 +75,7 @@ fn main() {
     let mut asset_engine = AssetEngine::new(
         importer_registry,
         builder_registry,
+        job_processor_registry,
         &db_state.editor_model,
         import_data_path(),
         job_data_path(),

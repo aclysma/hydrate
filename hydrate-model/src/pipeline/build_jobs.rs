@@ -1,7 +1,7 @@
+use std::collections::VecDeque;
 use crate::{BuildInfo, BuilderId, DataSet, DataSource, EditorModel, HashMap, HashMapKeys, ObjectId, ObjectLocation, ObjectName, ObjectSourceId, Schema, SchemaFingerprint, SchemaLinker, SchemaNamedType, SchemaRecord, SchemaSet, SingleObject, Value};
-use std::fs::File;
 use std::hash::{Hash, Hasher};
-use std::io::{Write};
+use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 use hydrate_base::{BuiltObjectMetadata, AssetUuid};
 use hydrate_base::handle::DummySerdeContextHandle;
@@ -11,6 +11,10 @@ use super::ImportJobs;
 use hydrate_base::uuid_path::{path_to_uuid, path_to_uuid_and_hash, uuid_and_hash_to_path, uuid_to_path};
 
 use super::*;
+
+struct BuildRequest {
+    object_id: ObjectId,
+}
 
 // An in-flight build operation we want to perform
 struct BuildOp {
@@ -42,7 +46,7 @@ impl BuildJob {
 // job is complete, or is in a failed or stale state.
 pub struct BuildJobs {
     build_data_root_path: PathBuf,
-    job_executor: BuildJobExecutor,
+    job_executor: JobExecutor,
     build_jobs: HashMap<ObjectId, BuildJob>,
     //force_rebuild_operations: Vec<BuildOp>
 }
@@ -50,11 +54,12 @@ pub struct BuildJobs {
 impl BuildJobs {
     pub fn new(
         builder_registry: &BuilderRegistry,
+        job_processor_registry: &JobProcessorRegistry,
         editor_model: &EditorModel,
         job_data_root_path: PathBuf,
         build_data_root_path: PathBuf,
     ) -> Self {
-        let job_executor = BuildJobExecutor::new(job_data_root_path);
+        let job_executor = JobExecutor::new(job_data_root_path, job_processor_registry);
         let build_jobs = BuildJobs::find_all_jobs(builder_registry, editor_model, &build_data_root_path);
 
         BuildJobs {
@@ -75,6 +80,7 @@ impl BuildJobs {
         // })
 
         //TODO: Force it to appear as stale?
+        unimplemented!();
     }
 
     pub fn update(
@@ -89,60 +95,112 @@ impl BuildJobs {
         let data_set = editor_model.root_edit_context().data_set();
         let schema_set = editor_model.schema_set();
 
-        // let mut build_operations = Vec::default();
-        // for (&object_id, build_job) in &editor_model.root_edit_context().objects() {
-        //     //TODO: Check if it's stale? For now just assume we build everything
         //
-        //     build_operations.push(BuildOp {
-        //         object_id
-        //     })
-        // }
-
-        let mut build_operations = Vec::default();
+        // Decide what assets we will initially request. This could be everything or just
+        // a small set of assets (like a level, or all assets marked as "always export")
+        //
+        let mut requested_build_ops = VecDeque::default();
         for (&object_id, _) in object_hashes {
-            build_operations.push(BuildOp { object_id });
+            //TODO: Skip objects that aren't explicitly requested, if any were requested
+            //      For now just build everything
+            requested_build_ops.push_back(BuildRequest { object_id });
         }
 
+        //
+        // Main loop driving processing of jobs in dependency order. We may queue up additional
+        // assets during this loop.
+        //
+        let mut started_build_ops = HashMap::<ObjectId, BuildOp>::default();
         let mut build_hashes = HashMap::default();
+        loop {
+            //
+            // If the job is finished, exit the loop
+            //
+            if requested_build_ops.is_empty() && self.job_executor.is_idle() {
+                break;
+            }
 
+            //
+            // For all the requested assets, see if there is a builder for the asset. If there is,
+            // kick off the jobs needed to produce the asset for it
+            //
+            while let Some(request) = requested_build_ops.pop_front() {
+                if started_build_ops.contains_key(&request.object_id) {
+                    continue;
+                }
 
+                let object_id = request.object_id;
+                let object_type = editor_model
+                    .root_edit_context()
+                    .object_schema(object_id)
+                    .unwrap();
 
+                let Some(builder) = builder_registry.builder_for_asset(object_type.fingerprint()) else {
+                    continue;
+                };
 
+                builder.start_jobs(object_id, data_set, schema_set, &self.job_executor);
+            }
 
+            //
+            // Pump the job executor, this will schedule work to be done on threads
+            //
+            self.job_executor.update(data_set, schema_set, import_jobs);
 
+            //
+            // Jobs will produce finished assets. We will save these to disk and possibly trigger
+            // additional jobs for assets that they reference.
+            //
+            let built_assets = self.job_executor.take_built_assets();
+            for built_asset in built_assets {
+                //
+                // Trigger building any dependencies
+                //
+                for &dependency_object_id in &built_asset.metadata.dependencies {
+                    requested_build_ops.push_back(BuildRequest { object_id: dependency_object_id });
+                }
 
-        //TODO: Generate build jobs
-        // - We scan asset database to decide what needs to be built and what jobs need to run to build it
+                //
+                // Serialize the assets to disk
+                //
+                let mut hasher = siphasher::sip::SipHasher::default();
+                built_asset.data.hash(&mut hasher);
+                built_asset.metadata.hash(&mut hasher);
+                let build_hash = hasher.finish();
 
-        {
-            let root_edit_context = editor_model.root_edit_context();
-            while !self.job_executor.is_idle() {
-                self.job_executor.update(root_edit_context.data_set(), root_edit_context.schema_set(), import_jobs);
+                let path = uuid_and_hash_to_path(
+                    &self.build_data_root_path,
+                    built_asset.asset_id.as_uuid(),
+                    build_hash,
+                    "bf",
+                );
+
+                if let Some(parent) = path.parent() {
+                    std::fs::create_dir_all(parent).unwrap();
+                }
+
+                let mut file = std::fs::File::create(&path).unwrap();
+                built_asset.metadata.write_header(&mut file).unwrap();
+                file.write(&built_asset.data).unwrap();
+
+                //
+                // Ensure the asset will be in the metadata
+                //
+                build_hashes.insert(built_asset.asset_id, build_hash);
+
+                let job = self.build_jobs
+                    .entry(built_asset.asset_id)
+                    .or_insert_with(|| BuildJob::new(built_asset.asset_id));
+                job.asset_exists = true;
+                job.build_data_exists.insert(build_hash);
             }
         }
 
-        //TODO: Extract result from build jobs to create assets
-        // - We merge the assets produced by the job system together and build the manifest/TOC
 
-
-
+        /*
 
 
         for build_op in &build_operations {
-            let object_id = build_op.object_id;
-            let object_type = editor_model
-                .root_edit_context()
-                .object_schema(object_id)
-                .unwrap();
-
-            let builder = builder_registry.builder_for_asset(object_type.fingerprint());
-            let builder = if builder.is_none() {
-                log::trace!("can't find builder for object type {}", object_type.name());
-                continue;
-            } else {
-                builder.unwrap()
-            };
-
             //log::info!("building object type {}", object_type.name());
             let dependencies = builder.enumerate_dependencies(object_id, data_set, schema_set);
 
@@ -176,90 +234,11 @@ impl BuildJobs {
                 .hash_properties(object_id)
                 .unwrap();
 
-            let mut build_hasher = siphasher::sip::SipHasher::default();
-            properties_hash.hash(&mut build_hasher);
-            //TODO: This doesn't handle looking at objects referenced by this object
-            imported_data_hash.hash(&mut build_hasher);
-            let build_hash = build_hasher.finish();
-
-            //let dummy_serde_context = DummySerdeContext::new();
-
-            //dummy_serde_context.
-
-            let mut can_use_cached_build_data = false;
-            if let Some(build_job) = self.build_jobs.get(&object_id) {
-                if build_job.build_data_exists.contains(&build_hash) {
-                    can_use_cached_build_data = true;
-                }
-            }
-
-            // Include this data in the manifest
-            build_hashes.insert(build_op.object_id, build_hash);
-
-            if can_use_cached_build_data {
-                //println!("  using cached build data {:?}", data_set.object_name(object_id));
-            } else {
-                println!("  rebuilding asset {:?}", data_set.object_name(object_id));
-                //
-                // Go get the actual import data
-                //
-                for dependency_object_id in dependencies {
-                    // Not all objects have import info...
-                    let import_info = data_set.import_info(dependency_object_id);
-                    if import_info.is_none() {
-                        continue;
-                    }
-
-                    // Load data from disk
-                    let import_data = import_jobs.load_import_data(schema_set, dependency_object_id);
-
-                    // Place in map for the builder to use
-                    imported_data.insert(dependency_object_id, import_data.import_data);
-                }
-
-                //TODO: This might be able to be replaced with using the schema info? But that doesn't work with built data
-                // which is arbitrary binary
-                let mut ctx = DummySerdeContextHandle::default();
-                ctx.begin_serialize_asset(AssetUuid(*object_id.as_uuid().as_bytes()));
-                let mut built_data = ctx.scope(|| {
-                    builder.build_asset(object_id, data_set, schema_set, &imported_data)
-                });
-
-                let referenced_assets = ctx.end_serialize_asset(AssetUuid(*object_id.as_uuid().as_bytes()));
-                assert!(built_data.metadata.dependencies.is_empty()); //TODO: Pretty big bug here, we overwrite dependencies that the builder returns
-                built_data.metadata.dependencies = referenced_assets.into_iter().map(|x| ObjectId(uuid::Uuid::from_bytes(x.0.0).as_u128())).collect();
-
-                //
-                let path = uuid_and_hash_to_path(
-                    &self.build_data_root_path,
-                    build_op.object_id.as_uuid(),
-                    build_hash,
-                    "bf",
-                );
-
-                if let Some(parent) = path.parent() {
-                    std::fs::create_dir_all(parent).unwrap();
-                }
-
-                // let metadata = hydrate_model::BuiltObjectMetadata {
-                //     asset_type: Uuid::default(),
-                //     subresource_count: 0,
-                //     dependencies: vec![],
-                // };
-
-                let mut file = std::fs::File::create(&path).unwrap();
-                built_data.metadata.write_header(&mut file).unwrap();
-                file.write(&built_data.data).unwrap();
-
-                let job = self.build_jobs
-                    .entry(object_id)
-                    .or_insert_with(|| BuildJob::new(object_id));
-                job.asset_exists = true;
-                job.build_data_exists.insert(build_hash);
-            }
 
             //std::fs::write(&path, built_data).unwrap()
         }
+*/
+
 
         //
         // Write the manifest file
@@ -269,7 +248,7 @@ impl BuildJobs {
         manifest_path.push("manifests");
         std::fs::create_dir_all(&manifest_path).unwrap();
         manifest_path.push(format!("{:0>16x}.manifest", combined_build_hash));
-        let file = File::create(manifest_path).unwrap();
+        let file = std::fs::File::create(manifest_path).unwrap();
         let mut file = std::io::BufWriter::new(file);
         for (object_id, build_hash) in build_hashes {
             write!(file, "{:0>16x},{:0>16x}\n", object_id.0, build_hash).unwrap();
@@ -293,10 +272,6 @@ impl BuildJobs {
         std::fs::write(toc_path, format!("{:0>16x}", combined_build_hash)).unwrap();
 
         //std::fs::write(self.root_path.join("latest.txt"), format!("{:x}", combined_build_hash)).unwrap();
-
-        //self.build_operations.clear();
-
-        // Send/mark for processing?
     }
 
     fn find_all_jobs(

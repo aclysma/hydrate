@@ -2,7 +2,7 @@ pub use super::*;
 use std::path::{Path, PathBuf};
 
 use hydrate_base::BuiltObjectMetadata;
-use hydrate_model::{BuilderRegistryBuilder, DataContainerMut, DataSet, EditorModel, HashMap, ImportableObject, ImporterRegistryBuilder, ObjectId, ObjectLocation, ObjectName, Record, SchemaLinker, SchemaSet, SingleObject, Value};
+use hydrate_model::{BuilderRegistryBuilder, DataContainerMut, DataSet, EditorModel, HashMap, ImportableObject, ImporterRegistryBuilder, JobProcessorRegistryBuilder, ObjectId, ObjectLocation, ObjectName, Record, SchemaLinker, SchemaSet, SingleObject, Value};
 use hydrate_model::pipeline::{AssetPlugin, Builder, BuilderRegistry, BuiltAsset, ImporterRegistry};
 use hydrate_model::pipeline::{ImportedImportable, ScannedImportable, Importer};
 use serde::{Deserialize, Serialize};
@@ -212,6 +212,7 @@ impl AssetPlugin for GltfAssetPlugin {
         schema_linker: &mut SchemaLinker,
         importer_registry: &mut ImporterRegistryBuilder,
         builder_registry: &mut BuilderRegistryBuilder,
+        job_processor_registry: &mut JobProcessorRegistryBuilder,
     ) {
         importer_registry.register_handler::<GltfImporter>(schema_linker);
     }

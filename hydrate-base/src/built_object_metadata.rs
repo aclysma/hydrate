@@ -3,7 +3,7 @@ use serde::{Serialize, Deserialize};
 use uuid::Uuid;
 use crate::ObjectId;
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Hash)]
 pub struct BuiltObjectMetadata {
     pub dependencies: Vec<ObjectId>,
     pub subresource_count: u32,

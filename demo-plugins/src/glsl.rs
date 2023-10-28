@@ -5,7 +5,7 @@ use std::path::{Path, PathBuf};
 
 use demo_types::glsl::*;
 use hydrate_base::BuiltObjectMetadata;
-use hydrate_model::{BuilderRegistryBuilder, DataContainer, DataContainerMut, DataSet, EditorModel, HashMap, HashSet, ImportableObject, ImporterRegistryBuilder, ObjectId, ObjectLocation, ObjectName, Record, SchemaLinker, SchemaSet, SingleObject, Value};
+use hydrate_model::{BuilderRegistryBuilder, DataContainer, DataContainerMut, DataSet, EditorModel, HashMap, HashSet, ImportableObject, ImporterRegistryBuilder, JobApi, JobProcessorRegistryBuilder, ObjectId, ObjectLocation, ObjectName, Record, SchemaLinker, SchemaSet, SingleObject, Value};
 use hydrate_model::pipeline::{AssetPlugin, Builder, BuilderRegistry, BuiltAsset, ImporterRegistry};
 use hydrate_model::pipeline::{ImportedImportable, ReferencedSourceFile, ScannedImportable, Importer};
 use serde::{Deserialize, Serialize};
@@ -647,6 +647,16 @@ impl Builder for GlslBuildTargetBuilder {
         GlslBuildTargetAssetRecord::schema_name()
     }
 
+    fn start_jobs(
+        &self,
+        asset_id: ObjectId,
+        data_set: &DataSet,
+        schema_set: &SchemaSet,
+        job_api: &dyn JobApi
+    ) {
+
+    }
+
     fn enumerate_dependencies(
         &self,
         asset_id: ObjectId,
@@ -794,6 +804,7 @@ impl Builder for GlslBuildTargetBuilder {
         //
         let serialized = bincode::serialize(&processed_data).unwrap();
         BuiltAsset {
+            asset_id,
             metadata: BuiltObjectMetadata {
                 dependencies: vec![],
                 subresource_count: 0,
@@ -811,6 +822,7 @@ impl AssetPlugin for GlslAssetPlugin {
         schema_linker: &mut SchemaLinker,
         importer_registry: &mut ImporterRegistryBuilder,
         builder_registry: &mut BuilderRegistryBuilder,
+        job_processor_registry: &mut JobProcessorRegistryBuilder,
     ) {
         importer_registry.register_handler::<GlslSourceFileImporter>(schema_linker);
         builder_registry.register_handler::<GlslBuildTargetBuilder>(schema_linker);

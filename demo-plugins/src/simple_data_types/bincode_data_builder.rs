@@ -1,6 +1,6 @@
 use demo_types::simple_data::*;
 use hydrate_base::{AssetUuid, BuiltObjectMetadata};
-use hydrate_model::{BuilderRegistryBuilder, DataContainer, DataSet, DataSetView, HashMap, ImporterRegistryBuilder, ObjectId, SchemaLinker, SchemaSet, SingleObject};
+use hydrate_model::{BuilderRegistryBuilder, DataContainer, DataSet, DataSetView, HashMap, ImporterRegistryBuilder, JobApi, ObjectId, SchemaLinker, SchemaSet, SingleObject};
 use hydrate_model::pipeline::{AssetPlugin, Builder, BuilderRegistry, BuiltAsset, ImporterRegistry};
 use serde::{Deserialize, Serialize};
 use std::marker::PhantomData;
@@ -33,6 +33,16 @@ for SimpleBincodeDataBuilder<T>
         self.asset_type
     }
 
+    fn start_jobs(
+        &self,
+        asset_id: ObjectId,
+        data_set: &DataSet,
+        schema_set: &SchemaSet,
+        job_api: &dyn JobApi
+    ) {
+
+    }
+
     fn enumerate_dependencies(
         &self,
         asset_id: ObjectId,
@@ -54,6 +64,7 @@ for SimpleBincodeDataBuilder<T>
 
         let serialized = bincode::serialize(&data).unwrap();
         BuiltAsset {
+            asset_id,
             metadata: BuiltObjectMetadata {
                 dependencies: vec![],
                 subresource_count: 0,

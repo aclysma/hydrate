@@ -24,19 +24,19 @@ use hydrate_model::pipeline::job_system::*;
 pub struct ExampleBuildJobTopLevelInput {
     pub asset_id: ObjectId,
 }
-impl BuildJobInput for ExampleBuildJobTopLevelInput {}
+impl JobInput for ExampleBuildJobTopLevelInput {}
 
 #[derive(Serialize, Deserialize)]
 pub struct ExampleBuildJobTopLevelOutput {
     pub final_task: JobId
 }
-impl BuildJobOutput for ExampleBuildJobTopLevelOutput {}
+impl JobOutput for ExampleBuildJobTopLevelOutput {}
 
 #[derive(TypeUuid)]
 #[uuid = "2e2c39f2-e672-4d2f-9d22-9e9ff84adf09"]
 pub struct ExampleBuildJobTopLevel;
 
-impl BuildJobWithInput for ExampleBuildJobTopLevel {
+impl JobProcessor for ExampleBuildJobTopLevel {
     type InputT = ExampleBuildJobTopLevelInput;
     type OutputT = ExampleBuildJobTopLevelOutput;
 
@@ -59,23 +59,22 @@ impl BuildJobWithInput for ExampleBuildJobTopLevel {
         input: &Self::InputT,
         data_set: &DataSet,
         schema_set: &SchemaSet,
-        dependency_data: &HashMap<ObjectId, SingleObject>,
-        build_job_api: &dyn BuildJobApi
+        dependency_data: &HashMap<ObjectId, SingleObject>, job_api: &dyn JobApi
     ) -> Self::OutputT {
-        let task_id1 = job_system::enqueue_build_task::<ExampleBuildJobScatter>(build_job_api, data_set, schema_set, ExampleBuildJobScatterInput {
+        let task_id1 = job_system::enqueue_job::<ExampleBuildJobScatter>(data_set, schema_set, job_api, ExampleBuildJobScatterInput {
             asset_id: input.asset_id,
             some_other_parameter: "Test1".to_string()
         });
-        let task_id2 = job_system::enqueue_build_task::<ExampleBuildJobScatter>(build_job_api, data_set, schema_set, ExampleBuildJobScatterInput {
+        let task_id2 = job_system::enqueue_job::<ExampleBuildJobScatter>(data_set, schema_set, job_api, ExampleBuildJobScatterInput {
             asset_id: input.asset_id,
             some_other_parameter: "Test2".to_string()
         });
-        let task_id3 = job_system::enqueue_build_task::<ExampleBuildJobScatter>(build_job_api, data_set, schema_set, ExampleBuildJobScatterInput {
+        let task_id3 = job_system::enqueue_job::<ExampleBuildJobScatter>(data_set, schema_set, job_api, ExampleBuildJobScatterInput {
             asset_id: input.asset_id,
             some_other_parameter: "Test3".to_string()
         });
 
-        let final_task = job_system::enqueue_build_task::<ExampleBuildJobGather>(build_job_api, data_set, schema_set, ExampleBuildJobGatherInput {
+        let final_task = job_system::enqueue_job::<ExampleBuildJobGather>(data_set, schema_set, job_api, ExampleBuildJobGatherInput {
             asset_id: input.asset_id,
             scatter_tasks: vec![task_id1, task_id2, task_id3]
         });
@@ -96,17 +95,17 @@ pub struct ExampleBuildJobScatterInput {
     pub asset_id: ObjectId,
     pub some_other_parameter: String,
 }
-impl BuildJobInput for ExampleBuildJobScatterInput {}
+impl JobInput for ExampleBuildJobScatterInput {}
 
 #[derive(Serialize, Deserialize)]
 pub struct ExampleBuildJobScatterOutput;
-impl BuildJobOutput for ExampleBuildJobScatterOutput {}
+impl JobOutput for ExampleBuildJobScatterOutput {}
 
 #[derive(TypeUuid)]
 #[uuid = "29755562-5298-4908-8384-7b13b2cedf26"]
 pub struct ExampleBuildJobScatter;
 
-impl BuildJobWithInput for ExampleBuildJobScatter {
+impl JobProcessor for ExampleBuildJobScatter {
     type InputT = ExampleBuildJobScatterInput;
     type OutputT = ExampleBuildJobScatterOutput;
 
@@ -130,11 +129,11 @@ impl BuildJobWithInput for ExampleBuildJobScatter {
         data_set: &DataSet,
         schema_set: &SchemaSet,
         dependency_data: &HashMap<ObjectId, SingleObject>,
-        build_job_api: &dyn BuildJobApi
+        job_api: &dyn JobApi
     ) -> Self::OutputT {
         //Do stuff
         // We could return the result
-        // build_job_api.publish_intermediate_data(...);
+        // job_api.publish_intermediate_data(...);
         //unimplemented!();
 
         println!("ExampleBuildJobScatter");
@@ -154,17 +153,17 @@ pub struct ExampleBuildJobGatherInput {
     pub asset_id: ObjectId,
     pub scatter_tasks: Vec<JobId>,
 }
-impl BuildJobInput for ExampleBuildJobGatherInput {}
+impl JobInput for ExampleBuildJobGatherInput {}
 
 #[derive(Serialize, Deserialize)]
 pub struct ExampleBuildJobGatherOutput;
-impl BuildJobOutput for ExampleBuildJobGatherOutput {}
+impl JobOutput for ExampleBuildJobGatherOutput {}
 
 #[derive(TypeUuid)]
 #[uuid = "e5f3de94-2bb6-43a9-bea0-cc91467cdcc3"]
 pub struct ExampleBuildJobGather;
 
-impl BuildJobWithInput for ExampleBuildJobGather {
+impl JobProcessor for ExampleBuildJobGather {
     type InputT = ExampleBuildJobGatherInput;
     type OutputT = ExampleBuildJobGatherOutput;
 
@@ -190,10 +189,10 @@ impl BuildJobWithInput for ExampleBuildJobGather {
         data_set: &DataSet,
         schema_set: &SchemaSet,
         dependency_data: &HashMap<ObjectId, SingleObject>,
-        build_job_api: &dyn BuildJobApi
+        job_api: &dyn JobApi
     ) -> Self::OutputT {
         // Now use inputs from other jobs to produce an output
-        //build_job_api.publish_built_asset(...);
+        //job_api.publish_built_asset(...);
 
         println!("ExampleBuildJobGather");
         ExampleBuildJobGatherOutput {

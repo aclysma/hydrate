@@ -2,10 +2,11 @@ use std::hash::Hash;
 use crossbeam_channel::{Receiver, Sender};
 use serde::{Deserialize, Serialize};
 use siphasher::sip128::Hasher128;
-use type_uuid::{Bytes, TypeUuid};
+use type_uuid::{Bytes, TypeUuid, TypeUuidDynamic};
 use uuid::Uuid;
 use hydrate_base::hashing::HashMap;
-use hydrate_base::ObjectId;
+use hydrate_base::{AssetUuid, BuiltObjectMetadata, ObjectId};
+use hydrate_base::handle::DummySerdeContextHandle;
 use hydrate_data::{DataSet, SchemaSet, SingleObject};
 use crate::{BuiltAsset, ImportData, ImportJobs};
 use super::{JobId, JobTypeId};
@@ -39,19 +40,21 @@ pub struct NewJob {
 //
 // API Design
 //
-pub trait BuildJobApi {
-    fn enqueue_build_task(&self, data_set: &DataSet, schema_set: &SchemaSet, job: NewJob) -> JobId;
+pub trait JobApi {
+    fn enqueue_job(&self, data_set: &DataSet, schema_set: &SchemaSet, job: NewJob) -> JobId;
+
+    fn produce_asset(&self, asset: BuiltAsset);
 }
 
 
 //
 // Job Traits
 //
-pub trait BuildJobInput: Hash + Serialize + for<'a> Deserialize<'a> {
+pub trait JobInput: Hash + Serialize + for<'a> Deserialize<'a> {
 
 }
 
-pub trait BuildJobOutput: Serialize + for<'a> Deserialize<'a> {
+pub trait JobOutput: Serialize + for<'a> Deserialize<'a> {
 
 }
 
@@ -75,7 +78,7 @@ pub struct JobEnumeratedDependencies {
     pub upstream_jobs: Vec<JobId>,
 }
 
-pub trait BuildJobAbstract {
+pub trait JobProcessorAbstract {
     fn version_inner(&self) -> u32;
 
     fn enumerate_dependencies_inner(
@@ -91,13 +94,13 @@ pub trait BuildJobAbstract {
         data_set: &DataSet,
         schema_set: &SchemaSet,
         dependency_data: &HashMap<ObjectId, SingleObject>,
-        build_job_api: &dyn BuildJobApi
+        job_api: &dyn JobApi
     ) -> Vec<u8>;
 }
 
-pub trait BuildJobWithInput: TypeUuid {
-    type InputT: BuildJobInput + 'static;
-    type OutputT: BuildJobOutput + 'static;
+pub trait JobProcessor: TypeUuid {
+    type InputT: JobInput + 'static;
+    type OutputT: JobOutput + 'static;
 
     fn version(&self) -> u32;
 
@@ -114,12 +117,17 @@ pub trait BuildJobWithInput: TypeUuid {
         data_set: &DataSet,
         schema_set: &SchemaSet,
         dependency_data: &HashMap<ObjectId, SingleObject>,
-        build_job_api: &dyn BuildJobApi
+        job_api: &dyn JobApi
     ) -> Self::OutputT;
 }
 
 
-pub fn enqueue_build_task<T: BuildJobWithInput>(job_api: &dyn BuildJobApi, data_set: &DataSet, schema_set: &SchemaSet, input: <T as BuildJobWithInput>::InputT) -> JobId {
+pub fn enqueue_job<T: JobProcessor>(
+    data_set: &DataSet,
+    schema_set: &SchemaSet,
+    job_api: &dyn JobApi,
+    input: <T as JobProcessor>::InputT
+) -> JobId {
     let mut hasher = siphasher::sip128::SipHasher::default();
     input.hash(&mut hasher);
     let input_hash = hasher.finish128().as_u128();
@@ -132,5 +140,30 @@ pub fn enqueue_build_task<T: BuildJobWithInput>(job_api: &dyn BuildJobApi, data_
         input_data,
     };
 
-    job_api.enqueue_build_task(data_set, schema_set, queued_job)
+    job_api.enqueue_job(data_set, schema_set, queued_job)
+}
+
+pub fn produce_asset<T: TypeUuid + Serialize>(
+    job_api: &dyn JobApi,
+    asset_id: ObjectId,
+    asset: T
+) {
+    let mut ctx = DummySerdeContextHandle::default();
+    ctx.begin_serialize_asset(AssetUuid(*asset_id.as_uuid().as_bytes()));
+
+    let mut built_data = ctx.scope(|| {
+        bincode::serialize(&asset).unwrap()
+    });
+
+    let referenced_assets = ctx.end_serialize_asset(AssetUuid(*asset_id.as_uuid().as_bytes()));
+
+    job_api.produce_asset(BuiltAsset {
+        asset_id,
+        metadata: BuiltObjectMetadata {
+            dependencies: referenced_assets.into_iter().map(|x| ObjectId::from_uuid(Uuid::from_bytes(x.0.0))).collect(),
+            subresource_count: 0,
+            asset_type: uuid::Uuid::from_bytes(asset.uuid())
+        },
+        data: built_data
+    });
 }

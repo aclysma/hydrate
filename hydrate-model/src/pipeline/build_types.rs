@@ -1,4 +1,4 @@
-use crate::{BuildInfo, BuilderId, DataSet, DataSource, EditorModel, HashMap, HashMapKeys, ObjectId, ObjectLocation, ObjectName, ObjectSourceId, Schema, SchemaFingerprint, SchemaLinker, SchemaNamedType, SchemaRecord, SchemaSet, SingleObject, Value};
+use crate::{BuildInfo, BuilderId, DataSet, DataSource, EditorModel, HashMap, HashMapKeys, ObjectId, ObjectLocation, ObjectName, ObjectSourceId, Schema, SchemaFingerprint, SchemaLinker, SchemaNamedType, SchemaRecord, SchemaSet, SingleObject, Value, JobApi};
 use std::fs::File;
 use std::hash::{Hash, Hasher};
 use std::io::{Write};
@@ -11,6 +11,7 @@ use super::ImportJobs;
 use hydrate_base::uuid_path::{path_to_uuid, uuid_and_hash_to_path, uuid_to_path};
 
 pub struct BuiltAsset {
+    pub asset_id: ObjectId,
     pub metadata: BuiltObjectMetadata,
     pub data: Vec<u8>
 }
@@ -19,6 +20,18 @@ pub struct BuiltAsset {
 pub trait Builder {
     // The type of asset that this builder handles
     fn asset_type(&self) -> &'static str;
+
+    fn start_jobs(
+        &self,
+        asset_id: ObjectId,
+        data_set: &DataSet,
+        schema_set: &SchemaSet,
+        job_api: &dyn JobApi
+    );
+
+    fn is_job_based(&self) -> bool {
+        false
+    }
 
     // Returns the assets that this build job needs to be available to complete
     fn enumerate_dependencies(

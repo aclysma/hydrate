@@ -43,7 +43,6 @@ pub fn draw_properties_window_single_select(
     if is_generated {
         if ui.button(im_str!("Persist Asset")) {
             app_state.action_queue.queue_action(QueuedActions::PersistAssets(vec![object_id]));
-            //app_state.asset_engine.queue_build_operation(object_id);
         }
 
         unsafe {

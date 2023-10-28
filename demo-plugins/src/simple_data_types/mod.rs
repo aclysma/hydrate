@@ -1,6 +1,6 @@
 use demo_types::simple_data::*;
 use hydrate_base::AssetUuid;
-use hydrate_model::{BuilderRegistryBuilder, DataContainer, ImporterRegistryBuilder, SchemaLinker};
+use hydrate_model::{BuilderRegistryBuilder, DataContainer, ImporterRegistryBuilder, JobProcessorRegistryBuilder, SchemaLinker};
 use hydrate_model::pipeline::{AssetPlugin, Builder};
 use serde::{Deserialize, Serialize};
 use type_uuid::TypeUuid;
@@ -70,6 +70,7 @@ impl AssetPlugin for SimpleDataAssetPlugin {
         schema_linker: &mut SchemaLinker,
         importer_registry: &mut ImporterRegistryBuilder,
         builder_registry: &mut BuilderRegistryBuilder,
+        job_processor_registry: &mut JobProcessorRegistryBuilder,
     ) {
         macro_rules! register {
             ($data_type:ty, $name:literal) => {

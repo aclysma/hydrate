@@ -35,12 +35,14 @@ pub trait AssetPlugin {
         schema_linker: &mut SchemaLinker,
         importer_registry: &mut ImporterRegistryBuilder,
         builder_registry: &mut BuilderRegistryBuilder,
+        job_processor_registry: &mut JobProcessorRegistryBuilder,
     );
 }
 
 pub struct AssetPluginRegistrationHelper {
     importer_registry: ImporterRegistryBuilder,
     builder_registry: BuilderRegistryBuilder,
+    job_processor_registry: JobProcessorRegistryBuilder,
 }
 
 impl AssetPluginRegistrationHelper {
@@ -48,6 +50,7 @@ impl AssetPluginRegistrationHelper {
         AssetPluginRegistrationHelper {
             importer_registry: Default::default(),
             builder_registry: Default::default(),
+            job_processor_registry: Default::default(),
         }
     }
 
@@ -59,17 +62,18 @@ impl AssetPluginRegistrationHelper {
             schema_linker,
             &mut self.importer_registry,
             &mut self.builder_registry,
+            &mut self.job_processor_registry,
         );
         self
     }
 
-    pub fn finish(mut self, schema_set: &SchemaSet) -> (ImporterRegistry, BuilderRegistry) {
+    pub fn finish(mut self, schema_set: &SchemaSet) -> (ImporterRegistry, BuilderRegistry, JobProcessorRegistry) {
         self.importer_registry
             .finished_linking(schema_set);
         self.builder_registry
             .finished_linking(schema_set);
 
-        (self.importer_registry.build(), self.builder_registry.build())
+        (self.importer_registry.build(), self.builder_registry.build(), self.job_processor_registry.build())
     }
 }
 
@@ -86,6 +90,7 @@ impl AssetEngine {
     pub fn new(
         importer_registry: ImporterRegistry,
         builder_registry: BuilderRegistry,
+        job_processor_registry: JobProcessorRegistry,
         editor_model: &EditorModel,
         import_data_path: PathBuf,
         job_data_path: PathBuf,
@@ -99,6 +104,7 @@ impl AssetEngine {
 
         let build_jobs = BuildJobs::new(
             &builder_registry,
+            &job_processor_registry,
             &editor_model,
             job_data_path,
             build_data_path, /*DbState::build_data_source_path()*/

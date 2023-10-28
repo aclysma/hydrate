@@ -4,7 +4,7 @@ use std::str::FromStr;
 
 use demo_types::mesh_adv::*;
 use hydrate_base::BuiltObjectMetadata;
-use hydrate_model::{BuilderRegistryBuilder, DataContainer, DataContainerMut, DataSet, Enum, HashMap, ImportableObject, ImporterId, ImporterRegistryBuilder, ObjectId, ObjectRefField, Record, ReferencedSourceFile, SchemaLinker, SchemaSet, SingleObject};
+use hydrate_model::{BuilderRegistryBuilder, DataContainer, DataContainerMut, DataSet, Enum, HashMap, ImportableObject, ImporterId, ImporterRegistryBuilder, JobProcessorRegistryBuilder, ObjectId, ObjectRefField, Record, ReferencedSourceFile, SchemaLinker, SchemaSet, SingleObject};
 use hydrate_model::pipeline::{AssetPlugin, Builder, BuiltAsset};
 use hydrate_model::pipeline::{ImportedImportable, ScannedImportable, Importer};
 use serde::{Deserialize, Serialize};
@@ -185,6 +185,7 @@ impl AssetPlugin for BlenderMaterialAssetPlugin {
         schema_linker: &mut SchemaLinker,
         importer_registry: &mut ImporterRegistryBuilder,
         builder_registry: &mut BuilderRegistryBuilder,
+        job_processor_registry: &mut JobProcessorRegistryBuilder,
     ) {
         importer_registry.register_handler::<BlenderMaterialImporter>(schema_linker);
     }

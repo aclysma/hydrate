@@ -4,10 +4,10 @@ use std::path::{Path};
 
 use demo_types::image::*;
 use hydrate_base::BuiltObjectMetadata;
-use hydrate_model::{BooleanField, BuilderRegistryBuilder, BytesField, DataContainer, DataContainerMut, DataSet, Field, HashMap, ImportableObject, ImporterRegistryBuilder, ObjectId, PropertyPath, Record, SchemaLinker, SchemaSet, SingleObject, U32Field};
+use hydrate_model::{BooleanField, BuilderRegistryBuilder, BytesField, DataContainer, DataContainerMut, DataSet, Field, HashMap, ImportableObject, ImporterRegistryBuilder, job_system, JobApi, JobEnumeratedDependencies, JobId, JobInput, JobOutput, JobProcessor, JobProcessorRegistry, JobProcessorRegistryBuilder, NewJob, ObjectId, PropertyPath, Record, SchemaLinker, SchemaSet, SingleObject, U32Field};
 use hydrate_model::pipeline::{AssetPlugin, Builder, BuiltAsset};
 use hydrate_model::pipeline::{ImportedImportable, ScannedImportable, Importer};
-use serde::{Serialize};
+use serde::{Deserialize, Serialize};
 use type_uuid::{TypeUuid, TypeUuidDynamic};
 use super::generated::{GpuImageAssetRecord, GpuImageImportedDataRecord};
 
@@ -92,6 +92,117 @@ impl Importer for GpuImageImporter {
     }
 }
 
+#[derive(Hash, Serialize, Deserialize)]
+pub struct GpuImageJobInput {
+    pub asset_id: ObjectId,
+    pub compressed: bool,
+}
+impl JobInput for GpuImageJobInput {}
+
+#[derive(Serialize, Deserialize)]
+pub struct GpuImageJobOutput {
+
+}
+impl JobOutput for GpuImageJobOutput {}
+
+#[derive(Default, TypeUuid)]
+#[uuid = "5311c92e-470e-4fdc-88cd-3abaf1c28f39"]
+pub struct GpuImageJobProcessor;
+
+impl JobProcessor for GpuImageJobProcessor {
+    type InputT = GpuImageJobInput;
+    type OutputT = GpuImageJobOutput;
+
+    fn version(&self) -> u32 {
+        1
+    }
+
+    fn enumerate_dependencies(
+        &self,
+        input: &GpuImageJobInput,
+        data_set: &DataSet,
+        schema_set: &SchemaSet,
+    ) -> JobEnumeratedDependencies {
+        // No dependencies
+        JobEnumeratedDependencies {
+            import_data: vec![input.asset_id],
+            upstream_jobs: Vec::default()
+        }
+    }
+
+    fn run(
+        &self,
+        input: &GpuImageJobInput,
+        data_set: &DataSet,
+        schema_set: &SchemaSet,
+        dependency_data: &HashMap<ObjectId, SingleObject>,
+        job_api: &dyn JobApi
+    ) -> GpuImageJobOutput {
+        //
+        // Read asset properties
+        //
+        let data_container = DataContainer::new_dataset(data_set, schema_set, input.asset_id);
+        let x = GpuImageAssetRecord::default();
+        let compressed = x.compress().get(&data_container).unwrap();
+
+        //
+        // Read imported data
+        //
+        let imported_data = &dependency_data[&input.asset_id];
+        let data_container = DataContainer::new_single_object(&imported_data, schema_set);
+        let x = GpuImageImportedDataRecord::new(PropertyPath::default());
+
+        let image_bytes = x.image_bytes().get(&data_container).unwrap().clone();
+        let width = x.width().get(&data_container).unwrap();
+        let height = x.height().get(&data_container).unwrap();
+
+        //
+        // Compress the image, or just return the raw image bytes
+        //
+        let image_bytes = if compressed {
+            let mut compressor_params = basis_universal::CompressorParams::new();
+            compressor_params.set_basis_format(basis_universal::BasisTextureFormat::UASTC4x4);
+            compressor_params.set_generate_mipmaps(true);
+            compressor_params.set_color_space(basis_universal::ColorSpace::Srgb);
+            compressor_params.set_uastc_quality_level(basis_universal::UASTC_QUALITY_DEFAULT);
+
+            let mut source_image = compressor_params.source_image_mut(0);
+
+            source_image.init(&image_bytes, width, height, 4);
+            let mut compressor = basis_universal::Compressor::new(4);
+            unsafe {
+                compressor.init(&compressor_params);
+                log::debug!("Compressing texture");
+                compressor.process().unwrap();
+                log::debug!("Compressed texture");
+            }
+            let compressed_basis_data = compressor.basis_file().to_vec();
+            compressed_basis_data
+        } else {
+            log::debug!("Not compressing texture");
+            image_bytes
+        };
+
+        //
+        // Create the processed data
+        //
+        let processed_data = GpuImageBuiltData {
+            image_bytes,
+            width,
+            height,
+        };
+
+        //
+        // Serialize and return
+        //
+        job_system::produce_asset(job_api, input.asset_id, processed_data);
+
+        GpuImageJobOutput {
+
+        }
+    }
+}
+
 #[derive(TypeUuid, Default)]
 #[uuid = "da6760e7-5b24-43b4-830d-6ee4515096b8"]
 pub struct GpuImageBuilder {}
@@ -99,6 +210,28 @@ pub struct GpuImageBuilder {}
 impl Builder for GpuImageBuilder {
     fn asset_type(&self) -> &'static str {
         GpuImageAssetRecord::schema_name()
+    }
+
+    fn start_jobs(
+        &self,
+        asset_id: ObjectId,
+        data_set: &DataSet,
+        schema_set: &SchemaSet,
+        job_api: &dyn JobApi
+    ) {
+        let data_container = DataContainer::new_dataset(data_set, schema_set, asset_id);
+        let x = GpuImageAssetRecord::default();
+        let compressed = x.compress().get(&data_container).unwrap();
+
+        //Future: Might produce jobs per-platform
+        hydrate_model::job_system::enqueue_job::<GpuImageJobProcessor>(data_set, schema_set, job_api, GpuImageJobInput {
+            asset_id,
+            compressed,
+        });
+    }
+
+    fn is_job_based(&self) -> bool {
+        true
     }
 
     fn enumerate_dependencies(
@@ -176,6 +309,7 @@ impl Builder for GpuImageBuilder {
         //
         let serialized = bincode::serialize(&processed_data).unwrap();
         BuiltAsset {
+            asset_id,
             metadata: BuiltObjectMetadata {
                 dependencies: vec![],
                 subresource_count: 0,
@@ -193,8 +327,10 @@ impl AssetPlugin for GpuImageAssetPlugin {
         schema_linker: &mut SchemaLinker,
         importer_registry: &mut ImporterRegistryBuilder,
         builder_registry: &mut BuilderRegistryBuilder,
+        job_processor_registry: &mut JobProcessorRegistryBuilder,
     ) {
         importer_registry.register_handler::<GpuImageImporter>(schema_linker);
         builder_registry.register_handler::<GpuImageBuilder>(schema_linker);
+        job_processor_registry.register_job_processor::<GpuImageJobProcessor>();
     }
 }

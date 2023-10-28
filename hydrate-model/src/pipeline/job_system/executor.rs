@@ -1,5 +1,6 @@
 use std::hash::Hash;
 use std::path::PathBuf;
+use std::sync::Arc;
 use crossbeam_channel::{Receiver, Sender};
 use serde::{Deserialize, Serialize};
 use siphasher::sip128::Hasher128;
@@ -13,24 +14,24 @@ use crate::BuiltAsset;
 use super::*;
 use super::traits::*;
 
-struct BuildJobWrapper<T: BuildJobWithInput>(T);
+struct JobWrapper<T: JobProcessor>(T);
 
-impl<T: BuildJobWithInput> BuildJobAbstract for BuildJobWrapper<T>
+impl<T: JobProcessor> JobProcessorAbstract for JobWrapper<T>
     where
-        <T as BuildJobWithInput>::InputT: for<'a> Deserialize<'a> + 'static,
-        <T as BuildJobWithInput>::OutputT: Serialize + 'static {
+        <T as JobProcessor>::InputT: for<'a> Deserialize<'a> + 'static,
+        <T as JobProcessor>::OutputT: Serialize + 'static {
     fn version_inner(&self) -> u32 {
         self.0.version()
     }
     
     fn enumerate_dependencies_inner(&self, input: &Vec<u8>, data_set: &DataSet, schema_set: &SchemaSet) -> JobEnumeratedDependencies {
-        let data: <T as BuildJobWithInput>::InputT = bincode::deserialize(input.as_slice()).unwrap();
+        let data: <T as JobProcessor>::InputT = bincode::deserialize(input.as_slice()).unwrap();
         self.0.enumerate_dependencies(&data, data_set, schema_set)
     }
 
-    fn run_inner(&self, input: &Vec<u8>, data_set: &DataSet, schema_set: &SchemaSet, dependency_data: &HashMap<ObjectId, SingleObject>, build_job_api: &dyn BuildJobApi) -> Vec<u8> {
-        let data: <T as BuildJobWithInput>::InputT = bincode::deserialize(input.as_slice()).unwrap();
-        let output = self.0.run(&data, data_set, schema_set, dependency_data, build_job_api);
+    fn run_inner(&self, input: &Vec<u8>, data_set: &DataSet, schema_set: &SchemaSet, dependency_data: &HashMap<ObjectId, SingleObject>, job_api: &dyn JobApi) -> Vec<u8> {
+        let data: <T as JobProcessor>::InputT = bincode::deserialize(input.as_slice()).unwrap();
+        let output = self.0.run(&data, data_set, schema_set, dependency_data, job_api);
         bincode::serialize(&output).unwrap()
     }
 }
@@ -41,7 +42,7 @@ struct JobOutput {
 }
 
 struct JobHistory {
-    // version() returned from the builder, if it bumps we invalidate the job
+    // version() returned from the processor, if it bumps we invalidate the job
     job_version: u32,
 
     // The dependencies that existed when we ran this job last time (may not need this?)
@@ -77,15 +78,74 @@ struct CompletedJob {
     output_data: Vec<u8>,
 }
 
-pub struct BuildJobExecutor {
-    root_path: PathBuf,
 
-    builders: HashMap<JobTypeId, Box<dyn BuildJobAbstract>>,
+
+#[derive(Default)]
+pub struct JobProcessorRegistryBuilder {
+    job_processors: HashMap<JobTypeId, Box<dyn JobProcessorAbstract>>,
+}
+
+impl JobProcessorRegistryBuilder {
+    pub fn register_job_processor<T: JobProcessor + Default + 'static>(&mut self)
+        where
+            <T as JobProcessor>::InputT: for<'a> Deserialize<'a>,
+            <T as JobProcessor>::OutputT: Serialize,
+    {
+        self.job_processors.insert(JobTypeId::from_bytes(T::UUID), Box::new(JobWrapper(T::default())));
+    }
+
+    pub fn register_job_processor_instance<T: JobProcessor + 'static>(&mut self, job_processor: T)
+        where
+            <T as JobProcessor>::InputT: for<'a> Deserialize<'a>,
+            <T as JobProcessor>::OutputT: Serialize,
+    {
+        self.job_processors.insert(JobTypeId::from_bytes(T::UUID), Box::new(JobWrapper(job_processor)));
+    }
+
+
+
+
+    pub fn build(self) -> JobProcessorRegistry {
+        let inner = JobProcessorRegistryInner {
+            job_processors: self.job_processors
+        };
+
+        JobProcessorRegistry {
+            inner: Arc::new(inner)
+        }
+    }
+}
+
+pub struct JobProcessorRegistryInner {
+    job_processors: HashMap<JobTypeId, Box<dyn JobProcessorAbstract>>,
+}
+
+impl JobProcessorRegistry {
+    fn get(&self, job_type_id: JobTypeId) -> Option<&dyn JobProcessorAbstract> {
+        self.inner.job_processors.get(&job_type_id).map(|x| &**x)
+    }
+
+    fn contains_key(&self, job_type_id: JobTypeId) -> bool {
+        self.inner.job_processors.contains_key(&job_type_id)
+    }
+}
+
+#[derive(Clone)]
+pub struct JobProcessorRegistry {
+    inner: Arc<JobProcessorRegistryInner>,
+}
+
+
+
+
+pub struct JobExecutor {
+    root_path: PathBuf,
+    job_processor_registry: JobProcessorRegistry,
 
     // Represents all known previous executions of a job
     job_history: HashMap<JobId, JobHistory>,
-    // All the jobs that we have run or will run in this build cycle
-    jobs: HashMap<JobId, JobState>,
+    // All the jobs that we have run or will run in this job batch
+    current_jobs: HashMap<JobId, JobState>,
 
     // Queue for jobs to request additional jobs to run
     job_create_queue_tx: Sender<QueuedJob>,
@@ -96,21 +156,30 @@ pub struct BuildJobExecutor {
     // Queue for jobs to notify that they have completed
     job_completed_queue_tx: Sender<CompletedJob>,
     job_completed_queue_rx: Receiver<CompletedJob>,
+
+
+    built_asset_queue_tx: Sender<BuiltAsset>,
+    built_asset_queue_rx: Receiver<BuiltAsset>,
 }
 
-impl BuildJobApi for BuildJobExecutor {
-    fn enqueue_build_task(&self, data_set: &DataSet, schema_set: &SchemaSet, new_job: NewJob) -> JobId {
+impl JobApi for JobExecutor {
+    fn enqueue_job(
+        &self,
+        data_set: &DataSet,
+        schema_set: &SchemaSet,
+        new_job: NewJob
+    ) -> JobId {
         // Dependencies:
-        // - Builder/Job Versioning - so if logic changes we can bump version of the builder and kick jobs to rerun
+        // - Job Versioning - so if logic changes we can bump version of the processor and kick jobs to rerun
         // - Asset (we need to know hash of data in it)
         // - Import Data (we need to know hash of data in it)
-        // - Build Data (we need the build hash, which takes into account the asset/import data
         // - Intermediate data (we need the job's input hash, which takes into account the parameters of the job including
         //   hashes of above stuff
+        // - Build Data (we need the build hash, which takes into account the asset/import data
         let job_id = JobId::from_u128(new_job.input_hash);
-        let builder = self.builders.get(&new_job.job_type).unwrap();
-        let dependencies = builder.enumerate_dependencies_inner(&new_job.input_data, data_set, schema_set);
-        self.enqueue_build_task_internal(data_set, schema_set, QueuedJob {
+        let processor = self.job_processor_registry.get(new_job.job_type).unwrap();
+        let dependencies = processor.enumerate_dependencies_inner(&new_job.input_data, data_set, schema_set);
+        self.enqueue_job_internal(data_set, schema_set, QueuedJob {
             job_id,
             job_type: new_job.job_type,
             input_data: new_job.input_data,
@@ -118,35 +187,43 @@ impl BuildJobApi for BuildJobExecutor {
         });
         job_id
     }
+
+    fn produce_asset(&self, asset: BuiltAsset) {
+        self.built_asset_queue_tx.send(asset).unwrap();
+    }
 }
 
-impl BuildJobExecutor {
-    pub fn new(root_path: PathBuf) -> Self {
+impl JobExecutor {
+    pub fn new(root_path: PathBuf, job_processor_registry: &JobProcessorRegistry) -> Self {
         let (job_create_queue_tx, job_create_queue_rx) = crossbeam_channel::unbounded();
         let (job_completed_queue_tx, job_completed_queue_rx) = crossbeam_channel::unbounded();
+        let (built_asset_queue_tx, built_asset_queue_rx) = crossbeam_channel::unbounded();
 
-        BuildJobExecutor {
+        JobExecutor {
             root_path,
-            builders: Default::default(),
+            job_processor_registry: job_processor_registry.clone(),
             job_history: Default::default(),
-            jobs: Default::default(),
+            current_jobs: Default::default(),
             job_create_queue_tx,
             job_create_queue_rx,
             job_completed_queue_tx,
             job_completed_queue_rx,
+            built_asset_queue_tx,
+            built_asset_queue_rx
         }
     }
 
-    fn enqueue_build_task_internal(&self, data_set: &DataSet, schema_set: &SchemaSet, job: QueuedJob) {
-        self.job_create_queue_tx.send(job).unwrap();
+    pub fn take_built_assets(&self) -> Vec<BuiltAsset> {
+        let mut built_assets = Vec::default();
+        while let Ok(built_asset) = self.built_asset_queue_rx.try_recv() {
+            built_assets.push(built_asset);
+        }
+
+        built_assets
     }
 
-    pub fn register_job_type<T: BuildJobWithInput + 'static>(&mut self, builder: T)
-        where
-            <T as BuildJobWithInput>::InputT: for<'a> Deserialize<'a>,
-            <T as BuildJobWithInput>::OutputT: Serialize,
-    {
-        self.builders.insert(JobTypeId::from_bytes(T::UUID), Box::new(BuildJobWrapper(builder)));
+    fn enqueue_job_internal(&self, data_set: &DataSet, schema_set: &SchemaSet, job: QueuedJob) {
+        self.job_create_queue_tx.send(job).unwrap();
     }
 
     fn clear_create_queue(&mut self) {
@@ -159,10 +236,10 @@ impl BuildJobExecutor {
     fn handle_create_queue(&mut self, data_set: &DataSet, schema_set: &SchemaSet) {
         while let Ok(queued_job) = self.job_create_queue_rx.try_recv() {
             // If key exists, we already queued a job with these exact inputs and we can reuse the outputs
-            if !self.jobs.contains_key(&queued_job.job_id) {
-                assert!(self.builders.contains_key(&queued_job.job_type));
+            if !self.current_jobs.contains_key(&queued_job.job_id) {
+                assert!(self.job_processor_registry.contains_key(queued_job.job_type));
 
-                self.jobs.insert(queued_job.job_id, JobState {
+                self.current_jobs.insert(queued_job.job_id, JobState {
                     job_type: queued_job.job_type,
                     dependencies: queued_job.dependencies,
                     input_data: queued_job.input_data,
@@ -174,7 +251,7 @@ impl BuildJobExecutor {
 
     fn handle_completed_queue(&mut self) {
         while let Ok(completed_job) = self.job_completed_queue_rx.try_recv() {
-            self.jobs.get_mut(&completed_job.job_id).unwrap().output_data = Some(completed_job.output_data);
+            self.current_jobs.get_mut(&completed_job.job_id).unwrap().output_data = Some(completed_job.output_data);
         }
     }
 
@@ -185,7 +262,7 @@ impl BuildJobExecutor {
         self.handle_create_queue(data_set, schema_set);
 
         //TODO: Don't iterate every job in existence
-        for (&job_id, job_state) in &self.jobs {
+        for (&job_id, job_state) in &self.current_jobs {
             //
             // See if we already did this job during the current execution cycle
             //
@@ -198,7 +275,7 @@ impl BuildJobExecutor {
             //
             let mut waiting_on_upstream_job = false;
             for upstream_job in &job_state.dependencies.upstream_jobs {
-                let dependency = self.jobs.get(upstream_job);
+                let dependency = self.current_jobs.get(upstream_job);
                 let Some(dependency_job_state) = dependency else {
                     panic!("Job has a dependency on another job that has not been created");
                     //TODO: We would not terminate if we remove the panic
@@ -236,7 +313,7 @@ impl BuildJobExecutor {
                 if has_run_job_before && can_reuse_result {
                     // Kick off child jobs
                     for downstream_job in &job_history.downstream_jobs {
-                        self.enqueue_build_task_internal(data_set, schema_set, downstream_job.clone());
+                        self.enqueue_job_internal(data_set, schema_set, downstream_job.clone());
                     }
 
                     // Bail, we will reuse the output from the previous run
@@ -253,18 +330,17 @@ impl BuildJobExecutor {
 
             // Load the import data
             let mut required_import_data = HashMap::default();
-            for import_data_id in &job_state.dependencies.import_data {
-                let import_data = import_data_provider.load_import_data(schema_set, *import_data_id);
-                required_import_data.insert(import_data_id, import_data);
+            for &import_data_id in &job_state.dependencies.import_data {
+                let import_data = import_data_provider.load_import_data(schema_set, import_data_id);
+                required_import_data.insert(import_data_id, import_data.import_data);
             }
 
             // Load the upstream job result data
 
 
             // Execute the job
-            let builder = self.builders.get(&job_state.job_type).unwrap();
-            let dependency_data = HashMap::default();
-            let output_data = builder.run_inner(&job_state.input_data, data_set, schema_set, &dependency_data, self);
+            let job_processor = self.job_processor_registry.get(job_state.job_type).unwrap();
+            let output_data = job_processor.run_inner(&job_state.input_data, data_set, schema_set, &required_import_data, self);
 
             //TODO: Write to file
             //hydrate_base::uuid_path::uuid_to_path()
@@ -284,7 +360,7 @@ impl BuildJobExecutor {
         self.clear_create_queue();
         self.handle_completed_queue();
 
-        self.jobs.clear();
+        self.current_jobs.clear();
     }
 
     pub fn is_idle(&self) -> bool {
@@ -296,8 +372,12 @@ impl BuildJobExecutor {
             return false;
         }
 
+        if !self.built_asset_queue_rx.is_empty() {
+            return false;
+        }
+
         //TODO: Don't iterate, keep a count
-        for (id, job) in &self.jobs {
+        for (id, job) in &self.current_jobs {
             if job.output_data.is_none() {
                 return false;
             }

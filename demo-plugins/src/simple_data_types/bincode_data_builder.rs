@@ -33,6 +33,8 @@ for SimpleBincodeDataBuilder<T>
         self.asset_type
     }
 
+    fn is_job_based(&self) -> bool { false }
+
     fn start_jobs(
         &self,
         asset_id: ObjectId,
@@ -42,7 +44,7 @@ for SimpleBincodeDataBuilder<T>
     ) {
 
     }
-
+/*
     fn enumerate_dependencies(
         &self,
         asset_id: ObjectId,
@@ -73,5 +75,7 @@ for SimpleBincodeDataBuilder<T>
             data: serialized
         }
     }
+
+ */
 }
 

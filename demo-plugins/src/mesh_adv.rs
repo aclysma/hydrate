@@ -24,6 +24,8 @@ impl Builder for MeshAdvMaterialBuilder {
         MeshAdvMaterialAssetRecord::schema_name()
     }
 
+    fn is_job_based(&self) -> bool { false }
+
     fn start_jobs(
         &self,
         asset_id: ObjectId,
@@ -33,7 +35,7 @@ impl Builder for MeshAdvMaterialBuilder {
     ) {
 
     }
-
+/*
     fn enumerate_dependencies(
         &self,
         asset_id: ObjectId,
@@ -108,6 +110,8 @@ impl Builder for MeshAdvMaterialBuilder {
             data: serialized
         }
     }
+
+ */
 }
 
 
@@ -122,6 +126,8 @@ impl Builder for MeshAdvMeshBuilder {
         MeshAdvMeshAssetRecord::schema_name()
     }
 
+    fn is_job_based(&self) -> bool { false }
+
     fn start_jobs(
         &self,
         asset_id: ObjectId,
@@ -131,7 +137,7 @@ impl Builder for MeshAdvMeshBuilder {
     ) {
 
     }
-
+/*
     fn enumerate_dependencies(
         &self,
         asset_id: ObjectId,
@@ -186,6 +192,8 @@ impl Builder for MeshAdvMeshBuilder {
             data: serialized
         }
     }
+
+ */
 }
 
 

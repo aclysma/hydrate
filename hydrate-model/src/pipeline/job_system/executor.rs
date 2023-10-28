@@ -91,7 +91,10 @@ impl JobProcessorRegistryBuilder {
             <T as JobProcessor>::InputT: for<'a> Deserialize<'a>,
             <T as JobProcessor>::OutputT: Serialize,
     {
-        self.job_processors.insert(JobTypeId::from_bytes(T::UUID), Box::new(JobWrapper(T::default())));
+        let old = self.job_processors.insert(JobTypeId::from_bytes(T::UUID), Box::new(JobWrapper(T::default())));
+        if old.is_some() {
+            panic!("Multiple job processors registered with the same UUID");
+        }
     }
 
     pub fn register_job_processor_instance<T: JobProcessor + 'static>(&mut self, job_processor: T)
@@ -99,7 +102,10 @@ impl JobProcessorRegistryBuilder {
             <T as JobProcessor>::InputT: for<'a> Deserialize<'a>,
             <T as JobProcessor>::OutputT: Serialize,
     {
-        self.job_processors.insert(JobTypeId::from_bytes(T::UUID), Box::new(JobWrapper(job_processor)));
+        let old = self.job_processors.insert(JobTypeId::from_bytes(T::UUID), Box::new(JobWrapper(job_processor)));
+        if old.is_some() {
+            panic!("Multiple job processors registered with the same UUID");
+        }
     }
 
 

@@ -30,22 +30,22 @@ pub trait Builder {
     );
 
     fn is_job_based(&self) -> bool {
-        false
+        true
     }
 
     // Returns the assets that this build job needs to be available to complete
-    fn enumerate_dependencies(
-        &self,
-        asset_id: ObjectId,
-        data_set: &DataSet,
-        schema_set: &SchemaSet,
-    ) -> Vec<ObjectId>;
+    // fn enumerate_dependencies(
+    //     &self,
+    //     asset_id: ObjectId,
+    //     data_set: &DataSet,
+    //     schema_set: &SchemaSet,
+    // ) -> Vec<ObjectId>;
 
-    fn build_asset(
-        &self,
-        asset_id: ObjectId,
-        data_set: &DataSet,
-        schema_set: &SchemaSet,
-        dependency_data: &HashMap<ObjectId, SingleObject>,
-    ) -> BuiltAsset;
+    // fn build_asset(
+    //     &self,
+    //     asset_id: ObjectId,
+    //     data_set: &DataSet,
+    //     schema_set: &SchemaSet,
+    //     dependency_data: &HashMap<ObjectId, SingleObject>,
+    // ) -> BuiltAsset;
 }

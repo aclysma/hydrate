@@ -5,7 +5,7 @@ use std::path::{Path, PathBuf};
 
 use demo_types::glsl::*;
 use hydrate_base::BuiltObjectMetadata;
-use hydrate_model::{BuilderRegistryBuilder, DataContainer, DataContainerMut, DataSet, EditorModel, HashMap, HashSet, ImportableObject, ImporterRegistryBuilder, JobApi, JobProcessorRegistryBuilder, ObjectId, ObjectLocation, ObjectName, Record, SchemaLinker, SchemaSet, SingleObject, Value};
+use hydrate_model::{BuilderRegistryBuilder, DataContainer, DataContainerMut, DataSet, EditorModel, HashMap, HashSet, ImportableObject, ImporterRegistryBuilder, job_system, JobApi, JobEnumeratedDependencies, JobInput, JobOutput, JobProcessor, JobProcessorRegistryBuilder, ObjectId, ObjectLocation, ObjectName, Record, SchemaLinker, SchemaSet, SingleObject, Value};
 use hydrate_model::pipeline::{AssetPlugin, Builder, BuilderRegistry, BuiltAsset, ImporterRegistry};
 use hydrate_model::pipeline::{ImportedImportable, ReferencedSourceFile, ScannedImportable, Importer};
 use serde::{Deserialize, Serialize};
@@ -540,7 +540,6 @@ pub(crate) fn include_impl(
     }
 }
 
-
 #[derive(TypeUuid, Default)]
 #[uuid = "d2b0a4ec-5b57-4251-8bd4-affa1755f7cc"]
 pub struct GlslSourceFileImporter;
@@ -638,6 +637,270 @@ impl Importer for GlslSourceFileImporter {
     }
 }
 
+
+
+
+
+
+
+
+
+
+
+
+
+#[derive(Hash, Serialize, Deserialize)]
+pub struct GlslBuildTargetJobInput {
+    asset_id: ObjectId
+}
+impl JobInput for GlslBuildTargetJobInput {}
+
+#[derive(Serialize, Deserialize)]
+pub struct GlslBuildTargetJobOutput {
+
+}
+impl JobOutput for GlslBuildTargetJobOutput {}
+
+#[derive(Default, TypeUuid)]
+#[uuid = "8348dd56-40b5-426b-9d8e-67512d58eee4"]
+pub struct GlslBuildTargetJobProcessor;
+
+impl JobProcessor for GlslBuildTargetJobProcessor {
+    type InputT = GlslBuildTargetJobInput;
+    type OutputT = GlslBuildTargetJobOutput;
+
+    fn version(&self) -> u32 {
+        1
+    }
+
+    fn enumerate_dependencies(
+        &self,
+        input: &GlslBuildTargetJobInput,
+        data_set: &DataSet,
+        schema_set: &SchemaSet,
+    ) -> JobEnumeratedDependencies {
+        let data_container = DataContainer::new_dataset(data_set, schema_set, input.asset_id);
+        let x = GlslBuildTargetAssetRecord::default();
+
+        // The source file is the "top level" file where the GLSL entry point is defined
+        let source_file = x.source_file().get(&data_container).unwrap();
+
+        //TODO: Error?
+        if source_file.is_null() {
+            return JobEnumeratedDependencies::default();
+        }
+
+        // We walk through the source file and any files that it includes directly or indirectly
+        // We build a queue of files (visit_queue) to visit and track all files that have already
+        // been queued
+        let mut queued = HashSet::default();
+        let mut visit_queue = VecDeque::default();
+        visit_queue.push_back(source_file);
+        queued.insert(source_file);
+
+        // Follow references to find all included source files without re-visiting the same file twice
+        while let Some(next_reference) = visit_queue.pop_front() {
+            let references = data_set
+                .resolve_all_file_references(next_reference)
+                .unwrap();
+
+            for (_, &v) in &references {
+                if !queued.contains(&v) {
+                    visit_queue.push_back(v);
+                    queued.insert(v);
+                }
+            }
+        }
+
+        JobEnumeratedDependencies {
+            import_data: queued.into_iter().collect(),
+            upstream_jobs: Vec::default()
+        }
+    }
+
+    fn run(
+        &self,
+        input: &GlslBuildTargetJobInput,
+        data_set: &DataSet,
+        schema_set: &SchemaSet,
+        dependency_data: &HashMap<ObjectId, SingleObject>,
+        job_api: &dyn JobApi
+    ) -> GlslBuildTargetJobOutput {
+        //
+        // Read asset properties
+        //
+        let data_container = DataContainer::new_dataset(data_set, schema_set, input.asset_id);
+        let x = GlslBuildTargetAssetRecord::default();
+
+        let source_file = x.source_file().get(&data_container).unwrap();
+        let entry_point = x.entry_point().get(&data_container).unwrap();
+
+        //
+        // Build a lookup of source file ObjectID to PathBuf that it was imported from
+        //
+        let mut dependency_lookup = HashMap::default();
+        for (&dependency_object_id, _) in dependency_data {
+            let all_references = data_set
+                .resolve_all_file_references(dependency_object_id)
+                .unwrap();
+            let this_path = data_set
+                .import_info(dependency_object_id)
+                .unwrap()
+                .source_file_path();
+
+            for (ref_path, ref_obj) in all_references {
+                dependency_lookup.insert((this_path.to_path_buf(), ref_path), ref_obj);
+            }
+        }
+
+        println!("DEPENDENCY LOOKUPS {:?}", dependency_lookup);
+
+        //
+        // Compile the shader
+        //
+        let mut compiled_spv = Vec::default();
+
+        //TODO: Return error if source file not found
+        if !source_file.is_null() {
+            let source_file_import_info = data_set.import_info(source_file).unwrap();
+            let source_file_import_data = &dependency_data[&source_file];
+            let code = source_file_import_data
+                .resolve_property(schema_set, "code")
+                .unwrap()
+                .as_string()
+                .unwrap()
+                .to_string();
+
+            let shaderc_include_callback = |requested_path: &str,
+                                            include_type: shaderc::IncludeType,
+                                            requested_from: &str,
+                                            include_depth: usize|
+                                            -> shaderc::IncludeCallbackResult {
+                let requested_path: PathBuf = requested_path.into();
+                let requested_from: PathBuf = requested_from.into();
+                include_impl(
+                    &requested_path,
+                    include_type.into(),
+                    &requested_from,
+                    include_depth,
+                    schema_set,
+                    &dependency_lookup,
+                    dependency_data,
+                )
+                    .map_err(|x| x.into())
+            };
+
+            let mut compile_options = shaderc::CompileOptions::new().unwrap();
+            compile_options.set_include_callback(shaderc_include_callback);
+            compile_options.set_optimization_level(shaderc::OptimizationLevel::Performance);
+            //NOTE: Could also use shaderc::OptimizationLevel::Size
+
+            let compiler = shaderc::Compiler::new().unwrap();
+            let compiled_code = compiler.compile_into_spirv(
+                &code,
+                shaderc::ShaderKind::Vertex,
+                source_file_import_info.source_file_path().to_str().unwrap(),
+                &entry_point,
+                Some(&compile_options),
+            );
+
+            if let Ok(compiled_code) = compiled_code {
+                println!("SUCCESS BUILDING SHADER");
+                compiled_spv = compiled_code.as_binary_u8().to_vec();
+            } else {
+                println!("Error: {:?}", compiled_code.err());
+            }
+        }
+
+        //
+        // Create the processed data
+        //
+        let mut processed_data = GlslBuildTargetBuiltData {
+            spv: compiled_spv,
+        };
+        job_system::produce_asset(job_api, input.asset_id, processed_data);
+        GlslBuildTargetJobOutput {
+
+        }
+
+        // //
+        // // Serialize and return
+        // //
+        // let serialized = bincode::serialize(&processed_data).unwrap();
+        //
+        // BuiltAsset {
+        //     asset_id,
+        //     metadata: BuiltObjectMetadata {
+        //         dependencies: vec![],
+        //         subresource_count: 0,
+        //         asset_type: uuid::Uuid::from_bytes(processed_data.uuid())
+        //     },
+        //     data: serialized
+        // }
+    }
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 #[derive(TypeUuid, Default)]
 #[uuid = "884303cd-3655-4a72-9131-b07b5121ed29"]
 pub struct GlslBuildTargetBuilder {}
@@ -654,9 +917,11 @@ impl Builder for GlslBuildTargetBuilder {
         schema_set: &SchemaSet,
         job_api: &dyn JobApi
     ) {
-
+        job_system::enqueue_job::<GlslBuildTargetJobProcessor>(data_set, schema_set, job_api, GlslBuildTargetJobInput {
+            asset_id,
+        });
     }
-
+/*
     fn enumerate_dependencies(
         &self,
         asset_id: ObjectId,
@@ -813,6 +1078,8 @@ impl Builder for GlslBuildTargetBuilder {
             data: serialized
         }
     }
+
+ */
 }
 
 pub struct GlslAssetPlugin;
@@ -826,5 +1093,6 @@ impl AssetPlugin for GlslAssetPlugin {
     ) {
         importer_registry.register_handler::<GlslSourceFileImporter>(schema_linker);
         builder_registry.register_handler::<GlslBuildTargetBuilder>(schema_linker);
+        job_processor_registry.register_job_processor::<GlslBuildTargetJobProcessor>();
     }
 }

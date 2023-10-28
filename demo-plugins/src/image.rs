@@ -230,94 +230,16 @@ impl Builder for GpuImageBuilder {
         });
     }
 
-    fn is_job_based(&self) -> bool {
-        true
-    }
+    fn is_job_based(&self) -> bool { true }
 
-    fn enumerate_dependencies(
-        &self,
-        asset_id: ObjectId,
-        data_set: &DataSet,
-        schema_set: &SchemaSet,
-    ) -> Vec<ObjectId> {
-        vec![asset_id]
-    }
-
-    fn build_asset(
-        &self,
-        asset_id: ObjectId,
-        data_set: &DataSet,
-        schema_set: &SchemaSet,
-        dependency_data: &HashMap<ObjectId, SingleObject>,
-    ) -> BuiltAsset {
-        //
-        // Read asset properties
-        //
-        let data_container = DataContainer::new_dataset(data_set, schema_set, asset_id);
-        let x = GpuImageAssetRecord::default();
-        let compressed = x.compress().get(&data_container).unwrap();
-
-        //
-        // Read imported data
-        //
-        let imported_data = &dependency_data[&asset_id];
-        let data_container = DataContainer::new_single_object(&imported_data, schema_set);
-        let x = GpuImageImportedDataRecord::new(PropertyPath::default());
-
-        let image_bytes = x.image_bytes().get(&data_container).unwrap().clone();
-        let width = x.width().get(&data_container).unwrap();
-        let height = x.height().get(&data_container).unwrap();
-
-        //
-        // Compress the image, or just return the raw image bytes
-        //
-        let image_bytes = if compressed {
-            let mut compressor_params = basis_universal::CompressorParams::new();
-            compressor_params.set_basis_format(basis_universal::BasisTextureFormat::UASTC4x4);
-            compressor_params.set_generate_mipmaps(true);
-            compressor_params.set_color_space(basis_universal::ColorSpace::Srgb);
-            compressor_params.set_uastc_quality_level(basis_universal::UASTC_QUALITY_DEFAULT);
-
-            let mut source_image = compressor_params.source_image_mut(0);
-
-            source_image.init(&image_bytes, width, height, 4);
-            let mut compressor = basis_universal::Compressor::new(4);
-            unsafe {
-                compressor.init(&compressor_params);
-                log::debug!("Compressing texture");
-                compressor.process().unwrap();
-                log::debug!("Compressed texture");
-            }
-            let compressed_basis_data = compressor.basis_file().to_vec();
-            compressed_basis_data
-        } else {
-            log::debug!("Not compressing texture");
-            image_bytes
-        };
-
-        //
-        // Create the processed data
-        //
-        let processed_data = GpuImageBuiltData {
-            image_bytes,
-            width,
-            height,
-        };
-
-        //
-        // Serialize and return
-        //
-        let serialized = bincode::serialize(&processed_data).unwrap();
-        BuiltAsset {
-            asset_id,
-            metadata: BuiltObjectMetadata {
-                dependencies: vec![],
-                subresource_count: 0,
-                asset_type: uuid::Uuid::from_bytes(processed_data.uuid())
-            },
-            data: serialized
-        }
-    }
+    // fn enumerate_dependencies(
+    //     &self,
+    //     asset_id: ObjectId,
+    //     data_set: &DataSet,
+    //     schema_set: &SchemaSet,
+    // ) -> Vec<ObjectId> {
+    //     vec![asset_id]
+    // }
 }
 
 pub struct GpuImageAssetPlugin;

@@ -24,6 +24,8 @@ impl Builder for GpuBufferBuilder {
         GpuBufferAssetRecord::schema_name()
     }
 
+    fn is_job_based(&self) -> bool { false }
+
     fn start_jobs(
         &self,
         asset_id: ObjectId,
@@ -33,7 +35,7 @@ impl Builder for GpuBufferBuilder {
     ) {
 
     }
-
+/*
     fn enumerate_dependencies(
         &self,
         asset_id: ObjectId,
@@ -82,6 +84,8 @@ impl Builder for GpuBufferBuilder {
             data: serialized
         }
     }
+
+ */
 }
 
 pub struct GpuBufferAssetPlugin;

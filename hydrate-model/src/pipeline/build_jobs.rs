@@ -151,6 +151,7 @@ impl BuildJobs {
 
             let mut build_hasher = siphasher::sip::SipHasher::default();
             properties_hash.hash(&mut build_hasher);
+            //TODO: This doesn't handle looking at objects referenced by this object
             imported_data_hash.hash(&mut build_hasher);
             let build_hash = build_hasher.finish();
 

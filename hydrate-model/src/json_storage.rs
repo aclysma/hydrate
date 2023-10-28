@@ -1,12 +1,14 @@
+use std::hash::{Hash, Hasher};
 use crate::edit_context::EditContext;
 use crate::{
     BuildInfo, HashMap, HashSet, ImportInfo, ImporterId, NullOverride,
     ObjectId, ObjectLocation, ObjectName, ObjectSourceId, Schema,
     SchemaFingerprint, SchemaNamedType, SchemaSet, SingleObject, Value,
 };
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, ser, Serialize};
 use std::path::PathBuf;
 use std::str::FromStr;
+use siphasher::sip128::Hasher128;
 use uuid::Uuid;
 use hydrate_schema::SchemaEnum;
 use crate::value::ValueEnum;
@@ -423,8 +425,14 @@ impl EditContextObjectJson {
     }
 }
 
+pub struct SingleObjectWithContentsHash {
+    pub single_object: SingleObject,
+    pub contents_hash: u64,
+}
+
 #[derive(Debug, Serialize, Deserialize)]
 pub struct SingleObjectJson {
+    contents_hash: u64,
     schema: Uuid,
     schema_name: String,
     #[serde(serialize_with = "ordered_map_json_value")]
@@ -432,7 +440,7 @@ pub struct SingleObjectJson {
 }
 
 impl SingleObjectJson {
-    pub fn new(object: &SingleObject) -> SingleObjectJson {
+    fn new(object: &SingleObject) -> SingleObjectJson {
         let json_properties = store_json_properties(
             &object.properties(),
             &object.property_null_overrides(),
@@ -440,14 +448,19 @@ impl SingleObjectJson {
             &object.dynamic_array_entries(),
         );
 
+        let mut hasher = siphasher::sip::SipHasher::default();
+        // This includes schema, all other contents of the object
+        object.hash(&mut hasher);
+
         SingleObjectJson {
+            contents_hash: hasher.finish().into(),
             schema: object.schema().fingerprint().as_uuid(),
             schema_name: object.schema().name().to_string(),
             properties: json_properties,
         }
     }
 
-    pub fn to_single_object(
+    fn to_single_object(
         &self,
         schema_set: &SchemaSet,
     ) -> SingleObject {
@@ -481,12 +494,23 @@ impl SingleObjectJson {
         )
     }
 
+    // pub fn try_load_contents_hash_from_string(
+    //     json: &str,
+    // ) -> Option<u64> {
+    //     let value: serde_json::Value = serde_json::from_str(json).unwrap();
+    //     value.as_object()?.get("contents_hash")?.as_u64()
+    // }
+
     pub fn load_single_object_from_string(
         schema_set: &SchemaSet,
         json: &str,
-    ) -> SingleObject {
+    ) -> SingleObjectWithContentsHash {
         let stored_object: SingleObjectJson = serde_json::from_str(json).unwrap();
-        stored_object.to_single_object(schema_set)
+        let contents_hash = stored_object.contents_hash;
+        SingleObjectWithContentsHash {
+            single_object: stored_object.to_single_object(schema_set),
+            contents_hash
+        }
     }
 
     pub fn save_single_object_to_string(object: &SingleObject) -> String {

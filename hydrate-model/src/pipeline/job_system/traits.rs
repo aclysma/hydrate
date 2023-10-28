@@ -7,11 +7,31 @@ use uuid::Uuid;
 use hydrate_base::hashing::HashMap;
 use hydrate_base::ObjectId;
 use hydrate_data::{DataSet, SchemaSet, SingleObject};
-use hydrate_model::BuiltAsset;
+use crate::{BuiltAsset, ImportData, ImportJobs};
+use super::{JobId, JobTypeId};
 
+pub trait ImportDataProvider {
+    fn clone_import_data_metadata_hashes(&self) -> HashMap<ObjectId, u64>;
+
+    fn load_import_data(
+        &self,
+        schema_set: &SchemaSet,
+        object_id: ObjectId,
+    ) -> ImportData;
+}
+
+impl ImportDataProvider for ImportJobs {
+    fn clone_import_data_metadata_hashes(&self) -> HashMap<ObjectId, u64> {
+        self.clone_import_data_metadata_hashes()
+    }
+
+    fn load_import_data(&self, schema_set: &SchemaSet, object_id: ObjectId) -> ImportData {
+        self.load_import_data(schema_set, object_id)
+    }
+}
 
 pub struct NewJob {
-    pub job_type: Uuid,
+    pub job_type: JobTypeId,
     pub input_hash: u128,
     pub input_data: Vec<u8>,
 }
@@ -20,7 +40,7 @@ pub struct NewJob {
 // API Design
 //
 pub trait BuildJobApi {
-    fn enqueue_build_task(&self, job: NewJob, data_set: &DataSet, schema_set: &SchemaSet) -> Uuid;
+    fn enqueue_build_task(&self, data_set: &DataSet, schema_set: &SchemaSet, job: NewJob) -> JobId;
 }
 
 
@@ -35,8 +55,8 @@ pub trait BuildJobOutput: Serialize + for<'a> Deserialize<'a> {
 
 }
 
-#[derive(Default)]
-pub struct BuildJobRunDependencies {
+#[derive(Default, Clone)]
+pub struct JobEnumeratedDependencies {
     // The contents of assets can affect the output so we need to include a hash of the contents of
     // the asset. But assets can ref other assets, task needs to list all objects that are touched
     // (including prototypes of those objects).
@@ -51,16 +71,19 @@ pub struct BuildJobRunDependencies {
     // Alternatively, jobs that read assets must always copy data out of the data set into a hashable
     // form and pass it as input to a job.
     pub import_data: Vec<ObjectId>,
-    pub build_jobs: Vec<Uuid>,
+    //pub built_data: Vec<ObjectId>,
+    pub upstream_jobs: Vec<JobId>,
 }
 
 pub trait BuildJobAbstract {
+    fn version_inner(&self) -> u32;
+
     fn enumerate_dependencies_inner(
         &self,
         input: &Vec<u8>,
         data_set: &DataSet,
         schema_set: &SchemaSet,
-    ) -> BuildJobRunDependencies;
+    ) -> JobEnumeratedDependencies;
 
     fn run_inner(
         &self,
@@ -76,12 +99,14 @@ pub trait BuildJobWithInput: TypeUuid {
     type InputT: BuildJobInput + 'static;
     type OutputT: BuildJobOutput + 'static;
 
+    fn version(&self) -> u32;
+
     fn enumerate_dependencies(
         &self,
         input: &Self::InputT,
         data_set: &DataSet,
         schema_set: &SchemaSet,
-    ) -> BuildJobRunDependencies;
+    ) -> JobEnumeratedDependencies;
 
     fn run(
         &self,
@@ -94,7 +119,7 @@ pub trait BuildJobWithInput: TypeUuid {
 }
 
 
-pub fn enqueue_build_task<T: BuildJobWithInput>(job_api: &dyn BuildJobApi, data_set: &DataSet, schema_set: &SchemaSet, input: <T as BuildJobWithInput>::InputT) -> Uuid {
+pub fn enqueue_build_task<T: BuildJobWithInput>(job_api: &dyn BuildJobApi, data_set: &DataSet, schema_set: &SchemaSet, input: <T as BuildJobWithInput>::InputT) -> JobId {
     let mut hasher = siphasher::sip128::SipHasher::default();
     input.hash(&mut hasher);
     let input_hash = hasher.finish128().as_u128();
@@ -102,10 +127,10 @@ pub fn enqueue_build_task<T: BuildJobWithInput>(job_api: &dyn BuildJobApi, data_
     let input_data = bincode::serialize(&input).unwrap();
 
     let queued_job = NewJob {
-        job_type: Uuid::from_bytes(T::UUID),
+        job_type: JobTypeId::from_bytes(T::UUID),
         input_hash,
         input_data,
     };
 
-    job_api.enqueue_build_task(queued_job, data_set, schema_set)
+    job_api.enqueue_build_task(data_set, schema_set, queued_job)
 }

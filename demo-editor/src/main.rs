@@ -21,12 +21,16 @@ fn asset_path_based_data_source_path() -> PathBuf {
     PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/data/assets_path_based"))
 }
 
-pub fn import_data_source_path() -> PathBuf {
+pub fn import_data_path() -> PathBuf {
     PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/data/import_data"))
 }
 
-pub fn build_data_source_path() -> PathBuf {
+pub fn build_data_path() -> PathBuf {
     PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/data/build_data"))
+}
+
+pub fn job_data_path() -> PathBuf {
+    PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/data/job_data"))
 }
 
 fn main() {
@@ -72,8 +76,9 @@ fn main() {
         importer_registry,
         builder_registry,
         &db_state.editor_model,
-        import_data_source_path(),
-        build_data_source_path(),
+        import_data_path(),
+        job_data_path(),
+        build_data_path(),
     );
 
     for import_to_queue in imports_to_queue {
@@ -89,5 +94,5 @@ fn main() {
     //Headless
     asset_engine.update(&mut db_state.editor_model);
 
-    hydrate::editor::run(db_state, asset_engine);
+    //hydrate::editor::run(db_state, asset_engine);
 }

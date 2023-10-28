@@ -10,6 +10,9 @@ pub use import_types::*;
 mod importer_registry;
 pub use importer_registry::*;
 
+pub mod job_system;
+pub use job_system::*;
+
 mod build_jobs;
 pub use build_jobs::*;
 
@@ -75,6 +78,7 @@ pub struct AssetEngine {
     import_jobs: ImportJobs,
     builder_registry: BuilderRegistry,
     build_jobs: BuildJobs,
+
     previous_combined_build_hash: Option<u64>,
 }
 
@@ -84,6 +88,7 @@ impl AssetEngine {
         builder_registry: BuilderRegistry,
         editor_model: &EditorModel,
         import_data_path: PathBuf,
+        job_data_path: PathBuf,
         build_data_path: PathBuf,
     ) -> Self {
         let import_jobs = ImportJobs::new(
@@ -91,9 +96,11 @@ impl AssetEngine {
             &editor_model,
             import_data_path, /*DbState::import_data_source_path()*/
         );
+
         let build_jobs = BuildJobs::new(
             &builder_registry,
             &editor_model,
+            job_data_path,
             build_data_path, /*DbState::build_data_source_path()*/
         );
 
@@ -172,6 +179,7 @@ impl AssetEngine {
         // Process the in-flight build. It will be cancelled and restarted if any data is detected
         // as changing during the build.
         //
+
 
         // Check if our import state is consistent, if it is we save expected hashes and run builds
         self.build_jobs.update(

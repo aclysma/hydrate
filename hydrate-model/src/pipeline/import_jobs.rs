@@ -25,12 +25,13 @@ fn hash_file_metadata(metadata: &std::fs::Metadata) -> u64 {
     hasher.finish()
 }
 
-pub struct ImportDataHash {
+pub struct ImportDataMetadataHash {
     pub metadata_hash: u64,
 }
 
 pub struct ImportData {
     pub import_data: SingleObject,
+    pub contents_hash: u64,
     pub metadata_hash: u64,
 }
 
@@ -110,15 +111,13 @@ impl ImportJobs {
 
     pub fn load_import_data_hash(
         &self,
-        schema_set: &SchemaSet,
         object_id: ObjectId,
-    ) -> ImportDataHash {
+    ) -> ImportDataMetadataHash {
         let path = uuid_to_path(&self.root_path, object_id.as_uuid(), "if");
         //println!("LOAD DATA HASH PATH {:?}", path);
-        let str = std::fs::read_to_string(&path).unwrap();
         let metadata = path.metadata().unwrap();
         let metadata_hash = hash_file_metadata(&metadata);
-        ImportDataHash {
+        ImportDataMetadataHash {
             metadata_hash,
         }
     }
@@ -135,11 +134,14 @@ impl ImportJobs {
         let metadata_hash = hash_file_metadata(&metadata);
         let import_data = SingleObjectJson::load_single_object_from_string(schema_set, &str);
         ImportData {
-            import_data,
+            import_data: import_data.single_object,
+            contents_hash: import_data.contents_hash,
             metadata_hash,
         }
     }
 
+    // We do a clone because we want to allow background processing of this data and detecting if
+    // import data changed at end of the build - which would invalidate it
     pub fn clone_import_data_metadata_hashes(&self) -> HashMap<ObjectId, u64> {
         let mut metadata_hashes = HashMap::default();
         for (k, v) in &self.import_jobs {
@@ -296,13 +298,6 @@ impl ImportJobs {
                     job.asset_exists = true;
                 }
             }
-
-            //let schema_fingerprint = data_set.object_schema(*object_id).unwrap().fingerprint();
-            // let importer = importer_registry.handler_for_asset(schema_fingerprint);
-            // if importer.is_some() {
-            //     let job = import_jobs.entry(*object_id).or_insert_with(|| ImportJob::new(*object_id));
-            //     job.asset_exists = true;
-            // }
         }
 
         import_jobs
@@ -322,52 +317,3 @@ impl ImportJobs {
         // }
     }
 }
-
-
-// struct ScanContext {
-//     referenced_files: Vec<PathBuf>,
-//     referenced_assets: Vec<ObjectId>,
-// }
-//
-// impl ScanContext {
-//     // Will read the file, and if we are live-reloading changes, trigger a re-import if the file changes
-//     // This is used when the file is not referenced by another asset, or there is no desire to
-//     // import it once and have several assets share it
-//     pub fn read(path: &Path) -> Vec<u8> {
-//         unimplemented!();
-//     }
-//
-//     pub fn read_to_string(path: &Path) -> String {
-//         unimplemented!();
-//     }
-//
-//     // Will trigger an importer for a referenced file and return the imported asset ID
-//     pub fn import_file(path: &Path) -> ObjectId {
-//         unimplemented!();
-//     }
-// }
-//
-//
-//
-// struct ImportContext {
-//     referenced_files: Vec<PathBuf>,
-//     referenced_assets: Vec<ObjectId>,
-// }
-//
-// impl ImportContext {
-//     // Will read the file, and if we are live-reloading changes, trigger a re-import if the file changes
-//     // This is used when the file is not referenced by another asset, or there is no desire to
-//     // import it once and have several assets share it
-//     pub fn read(path: &Path) -> Vec<u8> {
-//         unimplemented!();
-//     }
-//
-//     pub fn read_to_string(path: &Path) -> String {
-//         unimplemented!();
-//     }
-//
-//     // Will trigger an importer for a referenced file and return the imported asset ID
-//     pub fn import_file(path: &Path) -> ObjectId {
-//         unimplemented!();
-//     }
-// }

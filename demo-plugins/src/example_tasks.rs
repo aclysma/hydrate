@@ -8,8 +8,8 @@ use hydrate_base::hashing::HashMap;
 use hydrate_base::ObjectId;
 use hydrate_data::{DataSet, SchemaSet, SingleObject};
 use hydrate_model::BuiltAsset;
-
-use super::traits::*;
+use hydrate_model::pipeline::job_system;
+use hydrate_model::pipeline::job_system::*;
 
 
 
@@ -28,7 +28,7 @@ impl BuildJobInput for ExampleBuildJobTopLevelInput {}
 
 #[derive(Serialize, Deserialize)]
 pub struct ExampleBuildJobTopLevelOutput {
-    pub final_task: Uuid
+    pub final_task: JobId
 }
 impl BuildJobOutput for ExampleBuildJobTopLevelOutput {}
 
@@ -40,14 +40,18 @@ impl BuildJobWithInput for ExampleBuildJobTopLevel {
     type InputT = ExampleBuildJobTopLevelInput;
     type OutputT = ExampleBuildJobTopLevelOutput;
 
+    fn version(&self) -> u32 {
+        1
+    }
+
     fn enumerate_dependencies(
         &self,
         input: &Self::InputT,
         data_set: &DataSet,
         schema_set: &SchemaSet,
-    ) -> BuildJobRunDependencies {
+    ) -> JobEnumeratedDependencies {
         // No dependencies
-        BuildJobRunDependencies::default()
+        JobEnumeratedDependencies::default()
     }
 
     fn run(
@@ -58,20 +62,20 @@ impl BuildJobWithInput for ExampleBuildJobTopLevel {
         dependency_data: &HashMap<ObjectId, SingleObject>,
         build_job_api: &dyn BuildJobApi
     ) -> Self::OutputT {
-        let task_id1 = super::traits::enqueue_build_task::<ExampleBuildJobScatter>(build_job_api, data_set, schema_set, ExampleBuildJobScatterInput {
+        let task_id1 = job_system::enqueue_build_task::<ExampleBuildJobScatter>(build_job_api, data_set, schema_set, ExampleBuildJobScatterInput {
             asset_id: input.asset_id,
             some_other_parameter: "Test1".to_string()
         });
-        let task_id2 = super::enqueue_build_task::<ExampleBuildJobScatter>(build_job_api, data_set, schema_set, ExampleBuildJobScatterInput {
+        let task_id2 = job_system::enqueue_build_task::<ExampleBuildJobScatter>(build_job_api, data_set, schema_set, ExampleBuildJobScatterInput {
             asset_id: input.asset_id,
             some_other_parameter: "Test2".to_string()
         });
-        let task_id3 = super::enqueue_build_task::<ExampleBuildJobScatter>(build_job_api, data_set, schema_set, ExampleBuildJobScatterInput {
+        let task_id3 = job_system::enqueue_build_task::<ExampleBuildJobScatter>(build_job_api, data_set, schema_set, ExampleBuildJobScatterInput {
             asset_id: input.asset_id,
             some_other_parameter: "Test3".to_string()
         });
 
-        let final_task = super::enqueue_build_task::<ExampleBuildJobGather>(build_job_api, data_set, schema_set, ExampleBuildJobGatherInput {
+        let final_task = job_system::enqueue_build_task::<ExampleBuildJobGather>(build_job_api, data_set, schema_set, ExampleBuildJobGatherInput {
             asset_id: input.asset_id,
             scatter_tasks: vec![task_id1, task_id2, task_id3]
         });
@@ -106,14 +110,18 @@ impl BuildJobWithInput for ExampleBuildJobScatter {
     type InputT = ExampleBuildJobScatterInput;
     type OutputT = ExampleBuildJobScatterOutput;
 
+    fn version(&self) -> u32 {
+        1
+    }
+
     fn enumerate_dependencies(
         &self,
         input: &Self::InputT,
         data_set: &DataSet,
         schema_set: &SchemaSet,
-    ) -> BuildJobRunDependencies {
+    ) -> JobEnumeratedDependencies {
         // No dependencies
-        BuildJobRunDependencies::default()
+        JobEnumeratedDependencies::default()
     }
 
     fn run(
@@ -144,7 +152,7 @@ impl BuildJobWithInput for ExampleBuildJobScatter {
 #[uuid = "f9b45d02-93ba-44df-8252-555f8e01d0b7"]
 pub struct ExampleBuildJobGatherInput {
     pub asset_id: ObjectId,
-    pub scatter_tasks: Vec<Uuid>,
+    pub scatter_tasks: Vec<JobId>,
 }
 impl BuildJobInput for ExampleBuildJobGatherInput {}
 
@@ -160,15 +168,19 @@ impl BuildJobWithInput for ExampleBuildJobGather {
     type InputT = ExampleBuildJobGatherInput;
     type OutputT = ExampleBuildJobGatherOutput;
 
+    fn version(&self) -> u32 {
+        1
+    }
+
     fn enumerate_dependencies(
         &self,
         input: &Self::InputT,
         data_set: &DataSet,
         schema_set: &SchemaSet,
-    ) -> BuildJobRunDependencies {
-        BuildJobRunDependencies {
+    ) -> JobEnumeratedDependencies {
+        JobEnumeratedDependencies {
             import_data: Default::default(),
-            build_jobs: input.scatter_tasks.clone(),
+            upstream_jobs: input.scatter_tasks.clone(),
         }
     }
 

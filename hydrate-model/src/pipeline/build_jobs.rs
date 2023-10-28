@@ -41,7 +41,8 @@ impl BuildJob {
 // We find these by scanning existing assets. We also inspect the asset and built data to see if the
 // job is complete, or is in a failed or stale state.
 pub struct BuildJobs {
-    root_path: PathBuf,
+    build_data_root_path: PathBuf,
+    job_executor: BuildJobExecutor,
     build_jobs: HashMap<ObjectId, BuildJob>,
     //force_rebuild_operations: Vec<BuildOp>
 }
@@ -50,12 +51,15 @@ impl BuildJobs {
     pub fn new(
         builder_registry: &BuilderRegistry,
         editor_model: &EditorModel,
-        root_path: PathBuf,
+        job_data_root_path: PathBuf,
+        build_data_root_path: PathBuf,
     ) -> Self {
-        let build_jobs = BuildJobs::find_all_jobs(builder_registry, editor_model, &root_path);
+        let job_executor = BuildJobExecutor::new(job_data_root_path);
+        let build_jobs = BuildJobs::find_all_jobs(builder_registry, editor_model, &build_data_root_path);
 
         BuildJobs {
-            root_path,
+            build_data_root_path,
+            job_executor,
             build_jobs,
             //force_rebuild_operations: Default::default()
         }
@@ -101,6 +105,29 @@ impl BuildJobs {
 
         let mut build_hashes = HashMap::default();
 
+
+
+
+
+
+
+        //TODO: Generate build jobs
+        // - We scan asset database to decide what needs to be built and what jobs need to run to build it
+
+        {
+            let root_edit_context = editor_model.root_edit_context();
+            while !self.job_executor.is_idle() {
+                self.job_executor.update(root_edit_context.data_set(), root_edit_context.schema_set(), import_jobs);
+            }
+        }
+
+        //TODO: Extract result from build jobs to create assets
+        // - We merge the assets produced by the job system together and build the manifest/TOC
+
+
+
+
+
         for build_op in &build_operations {
             let object_id = build_op.object_id;
             let object_type = editor_model
@@ -133,7 +160,7 @@ impl BuildJobs {
                 }
 
                 // Load data from disk
-                let import_data_hash = import_jobs.load_import_data_hash(schema_set, dependency_object_id);
+                let import_data_hash = import_jobs.load_import_data_hash(dependency_object_id);
 
                 // Hash the dependency import data for the build
                 let mut inner_hasher = siphasher::sip::SipHasher::default();
@@ -204,7 +231,7 @@ impl BuildJobs {
 
                 //
                 let path = uuid_and_hash_to_path(
-                    &self.root_path,
+                    &self.build_data_root_path,
                     build_op.object_id.as_uuid(),
                     build_hash,
                     "bf",
@@ -238,7 +265,7 @@ impl BuildJobs {
         // Write the manifest file
         //TODO: Only if it doesn't already exist? We could skip the whole building process in that case
         //
-        let mut manifest_path = self.root_path.clone();
+        let mut manifest_path = self.build_data_root_path.clone();
         manifest_path.push("manifests");
         std::fs::create_dir_all(&manifest_path).unwrap();
         manifest_path.push(format!("{:0>16x}.manifest", combined_build_hash));
@@ -253,7 +280,7 @@ impl BuildJobs {
         //
         // Write a new TOC with summary of this build
         //
-        let mut toc_path = self.root_path.clone();
+        let mut toc_path = self.build_data_root_path.clone();
         toc_path.push("toc");
         std::fs::create_dir_all(&toc_path).unwrap();
 

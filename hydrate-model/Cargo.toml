@@ -21,6 +21,7 @@ globwalk = "0.8.1"
 base64 = "0.20.0"
 bincode = "1.3.1"
 lazy_static = "1.4.0"
+crossbeam-channel = "0.5"
 
 # for pipeline
 type-uuid = "0.1.2"

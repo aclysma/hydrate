@@ -5,10 +5,10 @@ use siphasher::sip128::Hasher128;
 use type_uuid::{Bytes, TypeUuid, TypeUuidDynamic};
 use uuid::Uuid;
 use hydrate_base::hashing::HashMap;
-use hydrate_base::{AssetUuid, BuiltObjectMetadata, ObjectId};
-use hydrate_base::handle::DummySerdeContextHandle;
+use hydrate_base::{ArtifactId, AssetUuid, BuiltObjectMetadata, Handle, ObjectId};
+use hydrate_base::handle::{DummySerdeContextHandle};
 use hydrate_data::{DataSet, SchemaSet, SingleObject};
-use crate::{BuiltAsset, ImportData, ImportJobs};
+use crate::{AssetArtifactIdPair, BuiltArtifact, BuiltAsset, ImportData, ImportJobs};
 use super::{JobId, JobTypeId};
 
 pub trait ImportDataProvider {
@@ -37,13 +37,29 @@ pub struct NewJob {
     pub input_data: Vec<u8>,
 }
 
+fn create_artifact_id<T: Hash>(asset_id: ObjectId, artifact_key: Option<T>) -> ArtifactId {
+    if let Some(artifact_key) = artifact_key {
+        let mut hasher = siphasher::sip128::SipHasher::default();
+        asset_id.hash(&mut hasher);
+        artifact_key.hash(&mut hasher);
+        let input_hash = hasher.finish128().as_u128();
+        ArtifactId::from_u128(input_hash)
+    } else {
+        ArtifactId::from_u128(asset_id.0)
+    }
+}
+
 //
 // API Design
 //
 pub trait JobApi {
     fn enqueue_job(&self, data_set: &DataSet, schema_set: &SchemaSet, job: NewJob) -> JobId;
 
-    fn produce_asset(&self, asset: BuiltAsset);
+    //fn produce_asset(&self, asset: BuiltAsset);
+
+    fn artifact_handle_created(&self, asset_id: ObjectId, artifact_id: ArtifactId);
+
+    fn produce_artifact(&self, artifact: BuiltArtifact);
 }
 
 
@@ -148,7 +164,8 @@ pub fn produce_asset<T: TypeUuid + Serialize>(
     asset_id: ObjectId,
     asset: T
 ) {
-    produce_asset_with_handles(job_api, asset_id, || asset);
+    //produce_asset_with_handles(job_api, asset_id, || asset);
+    produce_artifact_with_handles(job_api, asset_id, None::<u32>, || asset);
 }
 
 pub fn produce_asset_with_handles<T: TypeUuid + Serialize, F: FnOnce() -> T>(
@@ -156,6 +173,50 @@ pub fn produce_asset_with_handles<T: TypeUuid + Serialize, F: FnOnce() -> T>(
     asset_id: ObjectId,
     asset_fn: F
 ) {
+    produce_artifact_with_handles(job_api, asset_id, None::<u32>, asset_fn);
+    // let mut ctx = DummySerdeContextHandle::default();
+    // ctx.begin_serialize_asset(AssetUuid(*asset_id.as_uuid().as_bytes()));
+    //
+    // let (built_data, asset_type) = ctx.scope(|| {
+    //     let asset = (asset_fn)();
+    //     let built_data = bincode::serialize(&asset).unwrap();
+    //     (built_data, asset.uuid())
+    // });
+    //
+    // let referenced_assets = ctx.end_serialize_asset(AssetUuid(*asset_id.as_uuid().as_bytes()));
+    //
+    // job_api.produce_asset(BuiltAsset {
+    //     asset_id,
+    //     metadata: BuiltObjectMetadata {
+    //         dependencies: referenced_assets.into_iter().map(|x| ObjectId::from_uuid(Uuid::from_bytes(x.0.0))).collect(),
+    //         subresource_count: 0,
+    //         asset_type: uuid::Uuid::from_bytes(asset_type)
+    //     },
+    //     data: built_data
+    // });
+}
+
+pub fn produce_artifact<T: TypeUuid + Serialize, U: Hash>(
+    job_api: &dyn JobApi,
+    asset_id: ObjectId,
+    artifact_key: Option<U>,
+    asset: T
+) -> AssetArtifactIdPair {
+    let artifact_id = produce_artifact_with_handles(job_api, asset_id, artifact_key, || asset);
+    AssetArtifactIdPair {
+        asset_id,
+        artifact_id
+    }
+}
+
+pub fn produce_artifact_with_handles<T: TypeUuid + Serialize, U: Hash, F: FnOnce() -> T>(
+    job_api: &dyn JobApi,
+    asset_id: ObjectId,
+    artifact_key: Option<U>,
+    asset_fn: F
+) -> ArtifactId {
+    let artifact_id = create_artifact_id(asset_id, artifact_key);
+
     let mut ctx = DummySerdeContextHandle::default();
     ctx.begin_serialize_asset(AssetUuid(*asset_id.as_uuid().as_bytes()));
 
@@ -167,13 +228,50 @@ pub fn produce_asset_with_handles<T: TypeUuid + Serialize, F: FnOnce() -> T>(
 
     let referenced_assets = ctx.end_serialize_asset(AssetUuid(*asset_id.as_uuid().as_bytes()));
 
-    job_api.produce_asset(BuiltAsset {
+    job_api.produce_artifact(BuiltArtifact {
         asset_id,
+        artifact_id,
         metadata: BuiltObjectMetadata {
-            dependencies: referenced_assets.into_iter().map(|x| ObjectId::from_uuid(Uuid::from_bytes(x.0.0))).collect(),
+            dependencies: referenced_assets.into_iter().map(|x| ArtifactId::from_uuid(Uuid::from_bytes(x.0.0))).collect(),
             subresource_count: 0,
             asset_type: uuid::Uuid::from_bytes(asset_type)
         },
         data: built_data
     });
+
+    artifact_id
+}
+
+pub fn make_handle_to_default_artifact<T>(
+    job_api: &dyn JobApi,
+    asset_id: ObjectId
+) -> Handle<T> {
+    make_handle_to_artifact_key(job_api, asset_id, None::<u32>)
+}
+
+pub fn make_handle_to_artifact<T>(
+    job_api: &dyn JobApi,
+    asset_artifact_id_pair: AssetArtifactIdPair,
+) -> Handle<T> {
+    job_api.artifact_handle_created(asset_artifact_id_pair.asset_id, asset_artifact_id_pair.artifact_id);
+    hydrate_base::handle::make_handle::<T>(AssetUuid(*asset_artifact_id_pair.artifact_id.as_uuid().as_bytes()))
+}
+
+pub fn make_handle_to_artifact_raw<T>(
+    job_api: &dyn JobApi,
+    asset_id: ObjectId,
+    artifact_id: ArtifactId,
+) -> Handle<T> {
+    job_api.artifact_handle_created(asset_id, artifact_id);
+    hydrate_base::handle::make_handle::<T>(AssetUuid(*artifact_id.as_uuid().as_bytes()))
+}
+
+pub fn make_handle_to_artifact_key<T, K: Hash>(
+    job_api: &dyn JobApi,
+    asset_id: ObjectId,
+    artifact_key: Option<K>,
+) -> Handle<T> {
+    let artifact_id = create_artifact_id(asset_id, artifact_key);
+    job_api.artifact_handle_created(asset_id, artifact_id);
+    hydrate_base::handle::make_handle::<T>(AssetUuid(*asset_id.as_uuid().as_bytes()))
 }

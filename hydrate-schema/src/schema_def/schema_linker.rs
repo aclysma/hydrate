@@ -221,8 +221,9 @@ impl SchemaLinker {
                 for related_type in &before_copy {
                     // If you hit this unwrap, a schema file is likely referencing a type that does not exist
                     // Keep in mind it's case-sensitive
-                    //println!("find related type {}", related_type);
-                    let related_type = self.types.get(related_type).unwrap();
+                    let Some(related_type) = self.types.get(related_type) else {
+                        panic!("Type named {} was referenced but undefined", related_type);
+                    };
                     related_type.collect_all_related_types(&mut related_types);
                 }
 

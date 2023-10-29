@@ -119,36 +119,24 @@
     "name": "MeshAdvMeshImportedDataMeshPart",
     "fields": [
       {
-        "name": "vertex_full_buffer_offset_in_bytes",
+        "name": "positions",
+        "type": "bytes"
+      },
+      {
+        "name": "normals",
+        "type": "bytes"
+      },
+      {
+        "name": "texture_coordinates",
+        "type": "bytes"
+      },
+      {
+        "name": "indices",
+        "type": "bytes"
+      },
+      {
+        "name": "material_index",
         "type": "u32"
-      },
-      {
-        "name": "vertex_full_buffer_size_in_bytes",
-        "type": "u32"
-      },
-      {
-        "name": "vertex_position_buffer_offset_in_bytes",
-        "type": "u32"
-      },
-      {
-        "name": "vertex_position_buffer_size_in_bytes",
-        "type": "u32"
-      },
-      {
-        "name": "index_buffer_offset_in_bytes",
-        "type": "u32"
-      },
-      {
-        "name": "index_buffer_size_in_bytes",
-        "type": "u32"
-      },
-      {
-        "name": "mesh_material",
-        "type": { "name": "object_ref", "inner_type": "MeshAdvMaterialAsset" }
-      },
-      {
-        "name": "index_type",
-        "type": "MeshAdvIndexType"
       }
     ]
   },
@@ -159,18 +147,6 @@
       {
         "name": "mesh_parts",
         "type": { "name": "dynamic_array", "inner_type": "MeshAdvMeshImportedDataMeshPart" }
-      },
-      {
-        "name": "vertex_full_buffer",
-        "type": { "name": "object_ref", "inner_type": "GpuBufferAsset" }
-      },
-      {
-        "name": "vertex_position_buffer",
-        "type": { "name": "object_ref", "inner_type": "GpuBufferAsset" }
-      },
-      {
-        "name": "index_buffer",
-        "type": { "name": "object_ref", "inner_type": "GpuBufferAsset" }
       }
     ]
   },
@@ -178,7 +154,10 @@
     "type": "record",
     "name": "MeshAdvMeshAsset",
     "fields": [
-
+      {
+        "name": "material_slots",
+        "type": { "name": "dynamic_array", "inner_type": { "name": "object_ref", "inner_type": "MeshAdvMaterialAsset" }}
+      }
     ]
   }
 ]

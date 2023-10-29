@@ -12,6 +12,9 @@ pub use asset_uuid::AssetUuid;
 mod object_id;
 pub use object_id::ObjectId;
 
+mod artifact_id;
+pub use artifact_id::ArtifactId;
+
 mod asset_type_id;
 pub use asset_type_id::AssetTypeId;
 

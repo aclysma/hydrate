@@ -10,7 +10,7 @@ pub use uuid;
 ///
 /// If using a human-readable format, serializes to a hyphenated UUID format and deserializes from
 /// any format supported by the `uuid` crate. Otherwise, serializes to and from a `[u8; 16]`.
-#[derive(PartialEq, Eq, Debug, Clone, Copy, Default, Hash)]
+#[derive(PartialEq, Eq, Clone, Copy, Default, Hash)]
 pub struct AssetTypeId(pub [u8; 16]);
 
 impl AsMut<[u8]> for AssetTypeId {
@@ -22,6 +22,17 @@ impl AsMut<[u8]> for AssetTypeId {
 impl AsRef<[u8]> for AssetTypeId {
     fn as_ref(&self) -> &[u8] {
         &self.0
+    }
+}
+
+impl fmt::Debug for AssetTypeId {
+    fn fmt(
+        &self,
+        f: &mut fmt::Formatter<'_>,
+    ) -> fmt::Result {
+        f.debug_tuple("AssetTypeId")
+            .field(&uuid::Uuid::from_bytes(self.0))
+            .finish()
     }
 }
 

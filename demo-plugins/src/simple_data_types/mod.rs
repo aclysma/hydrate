@@ -1,6 +1,6 @@
 use demo_types::simple_data::*;
 use hydrate_base::AssetUuid;
-use hydrate_model::{BuilderRegistryBuilder, DataContainer, ImporterRegistryBuilder, JobProcessorRegistryBuilder, SchemaLinker};
+use hydrate_model::{BuilderRegistryBuilder, DataContainer, ImporterRegistryBuilder, job_system, JobApi, JobProcessorRegistryBuilder, SchemaLinker};
 use hydrate_model::pipeline::{AssetPlugin, Builder};
 use serde::{Deserialize, Serialize};
 use type_uuid::TypeUuid;
@@ -15,13 +15,13 @@ use bincode_data_builder::{SimpleBincodeDataJobProcessor, SimpleBincodeDataBuild
 impl SimpleData for TransformRef {
     fn from_data_container(
         data_set_view: &DataContainer,
+        job_api: &dyn JobApi,
     ) -> Self {
         let x = TransformRefRecord::default();
         let transform = x.transform().get(data_set_view).unwrap();
 
         //TODO: Verify type?
-        let asset_id = AssetUuid(*transform.as_uuid().as_bytes());
-        let handle = hydrate_base::handle::make_handle::<Transform>(asset_id);
+        let handle = job_system::make_handle_to_default_artifact(job_api, transform);
 
         TransformRef {
             transform: handle
@@ -32,6 +32,7 @@ impl SimpleData for TransformRef {
 impl SimpleData for Transform {
     fn from_data_container(
         data_container: &DataContainer,
+        job_api: &dyn JobApi,
     ) -> Self {
         let x = TransformRecord::default();
         let position = x.position().get_vec3(data_container).unwrap();
@@ -49,6 +50,7 @@ impl SimpleData for Transform {
 impl SimpleData for AllFields {
     fn from_data_container(
         data_container: &DataContainer,
+        job_api: &dyn JobApi,
     ) -> Self {
         let x = AllFieldsRecord::default();
         let boolean = x.boolean().get(data_container).unwrap();

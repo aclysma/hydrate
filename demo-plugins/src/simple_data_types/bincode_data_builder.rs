@@ -65,7 +65,7 @@ impl<T: SimpleData + Sized + Serialize + for<'a> Deserialize<'a> + TypeUuid> Job
         // Serialize and return
         //
         job_system::produce_asset_with_handles(job_api, input.asset_id, || {
-            T::from_data_container(&mut data_set_view)
+            T::from_data_container(&mut data_set_view, job_api)
         });
         SimpleBincodeDataJobOutput {
 

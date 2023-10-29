@@ -848,6 +848,15 @@ pub fn make_handle<T>(uuid: AssetUuid) -> Handle<T> {
     })
 }
 
+// pub fn make_handle_to_asset<T>(uuid: AssetUuid) -> Handle<T> {
+//     SerdeContext::with_active(|loader_info_provider, ref_op_sender| {
+//         let load_handle = loader_info_provider
+//             .get_load_handle(&AssetRef(uuid))
+//             .unwrap();
+//         Handle::<T>::new(ref_op_sender.clone(), load_handle)
+//     })
+// }
+
 pub fn make_handle_from_str<T>(uuid_str: &str) -> Result<Handle<T>, uuid::Error> {
     use std::str::FromStr;
     Ok(make_handle(AssetUuid(

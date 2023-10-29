@@ -1,6 +1,6 @@
 use crossbeam_channel::{Receiver, Sender};
 use dashmap::DashMap;
-use hydrate_base::ObjectId;
+use hydrate_base::{ArtifactId, ObjectId};
 use std::fmt::Debug;
 use std::sync::atomic::{AtomicI32, AtomicU32, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
@@ -68,7 +68,7 @@ use hydrate_base::LoadHandle;
 
 #[derive(Debug)]
 pub struct ObjectMetadata {
-    pub dependencies: Vec<ObjectId>,
+    pub dependencies: Vec<ArtifactId>,
     pub subresource_count: u32,
     pub asset_type: AssetTypeId,
     pub hash: u64,
@@ -92,7 +92,7 @@ impl std::fmt::Debug for ObjectData {
 
 #[derive(Debug)]
 pub struct RequestMetadataResult {
-    pub object_id: ObjectId,
+    pub object_id: ArtifactId,
     pub load_handle: LoadHandle,
     //pub hash: u64,
     pub version: u32,
@@ -101,7 +101,7 @@ pub struct RequestMetadataResult {
 
 #[derive(Debug)]
 pub struct RequestDataResult {
-    pub object_id: ObjectId,
+    pub object_id: ArtifactId,
     pub load_handle: LoadHandle,
     //pub hash: u64,
     pub version: u32,
@@ -149,7 +149,7 @@ pub trait LoaderIO: Sync + Send {
         &self,
         build_hash: CombinedBuildHash,
         load_handle: LoadHandle,
-        object_id: ObjectId,
+        object_id: ArtifactId,
         version: u32,
     );
     //fn request_metadata_results(&self, object_id: ObjectId) -> &Receiver<RequestMetadataResult>;
@@ -157,7 +157,7 @@ pub trait LoaderIO: Sync + Send {
         &self,
         build_hash: CombinedBuildHash,
         load_handle: LoadHandle,
-        object_id: ObjectId,
+        object_id: ArtifactId,
         hash: u64,
         subresource: Option<u32>,
         version: u32,
@@ -262,7 +262,7 @@ struct LoadHandleVersionInfo {
 
 struct LoadHandleInfo {
     //strong_ref_count: AtomicU32,
-    object_id: ObjectId,
+    object_id: ArtifactId,
     asset_id: AssetUuid,
     //ref_count: AtomicU32,
     engine_ref_count: AtomicU32,
@@ -296,7 +296,7 @@ struct LoaderUpdateState {
 pub struct Loader {
     next_handle_index: AtomicU64,
     load_handle_infos: DashMap<LoadHandle, LoadHandleInfo>,
-    object_id_to_handle: DashMap<ObjectId, LoadHandle>,
+    object_id_to_handle: DashMap<ArtifactId, LoadHandle>,
     //current_build_hash: AtomicU64,
     loader_io: Box<dyn LoaderIO>,
     update_state: Mutex<LoaderUpdateState>,
@@ -317,7 +317,7 @@ impl LoaderInfoProvider for Loader {
         &self,
         id: &AssetRef,
     ) -> Option<LoadHandle> {
-        let object_id = ObjectId(uuid::Uuid::from_bytes(id.0.0).as_u128());
+        let object_id = ArtifactId(uuid::Uuid::from_bytes(id.0.0).as_u128());
         self.object_id_to_handle.get(&object_id).map(|l| *l)
     }
 
@@ -794,7 +794,7 @@ impl Loader {
 
     fn get_or_insert(
         &self,
-        object_id: ObjectId,
+        object_id: ArtifactId,
     ) -> LoadHandle {
         *self
             .object_id_to_handle
@@ -837,7 +837,7 @@ impl Loader {
 
     pub fn add_engine_ref(
         &self,
-        object_id: ObjectId,
+        object_id: ArtifactId,
     ) -> LoadHandle {
         let load_handle = self.get_or_insert(object_id);
 

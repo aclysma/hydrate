@@ -85,7 +85,7 @@ use hydrate_base::handle::RefOp;
 use crate::loader::{CombinedBuildHash, Loader};
 use crossbeam_channel::{Receiver, Sender};
 use hydrate_base::hashing::HashSet;
-use hydrate_base::ObjectId;
+use hydrate_base::{ArtifactId, ObjectId};
 use std::io::BufRead;
 use std::path::{Path, PathBuf};
 use type_uuid::TypeUuid;
@@ -288,7 +288,7 @@ pub fn process_ref_ops(
                 loader.add_engine_ref_by_handle(handle);
             }
             RefOp::IncreaseUuid(uuid) => {
-                loader.add_engine_ref(ObjectId(uuid::Uuid::from_bytes(uuid.0).as_u128()));
+                loader.add_engine_ref(ArtifactId(uuid::Uuid::from_bytes(uuid.0).as_u128()));
             }
         }
     }
@@ -357,7 +357,7 @@ impl AssetManager {
 
     pub fn load_asset<T>(
         &self,
-        object_id: ObjectId,
+        object_id: ArtifactId,
     ) -> Handle<T> {
         //self.asset_io.request_data(LoadHandle(0), object_id, None);
         let load_handle = self.loader.add_engine_ref(object_id);

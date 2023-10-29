@@ -139,12 +139,12 @@ impl AssetStorage for AssetStorageSet {
         println!("call AssetStorageSet::update_asset");
         let mut inner = self.inner.lock().unwrap();
 
+        println!("asset type {}", asset_data_type_id);
         let asset_type_id = *inner
             .data_to_asset_type_uuid
             .get(asset_data_type_id)
             .expect("unknown asset data type");
 
-        println!("AAAAA");
         let x = inner
             .storage
             .get_mut(&asset_type_id)

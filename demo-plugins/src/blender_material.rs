@@ -22,13 +22,13 @@ struct MaterialJsonFileFormat {
     pub normal_texture_scale: f32,   // default: 1
 
     #[serde(default)]
-    pub color_texture: Option<String>,
+    pub color_texture: Option<PathBuf>,
     #[serde(default)]
-    pub metallic_roughness_texture: Option<String>,
+    pub metallic_roughness_texture: Option<PathBuf>,
     #[serde(default)]
-    pub normal_texture: Option<String>,
+    pub normal_texture: Option<PathBuf>,
     #[serde(default)]
-    pub emissive_texture: Option<String>,
+    pub emissive_texture: Option<PathBuf>,
 
     #[serde(default)]
     pub shadow_method: Option<String>,
@@ -69,12 +69,12 @@ impl Importer for BlenderMaterialImporter {
 
         let mut file_references: Vec<ReferencedSourceFile> = Default::default();
 
-        fn try_add_file_reference<T: TypeUuid>(file_references: &mut Vec<ReferencedSourceFile>, path_as_string: &Option<String>) {
+        fn try_add_file_reference<T: TypeUuid>(file_references: &mut Vec<ReferencedSourceFile>, path_as_string: &Option<PathBuf>) {
             let importer_image_id = ImporterId(Uuid::from_bytes(T::UUID));
             if let Some(path_as_string) = path_as_string {
                 file_references.push(ReferencedSourceFile {
                     importer_id: importer_image_id,
-                    path: PathBuf::from_str(path_as_string).unwrap(),
+                    path: path_as_string.clone(),
                 })
             }
         }
@@ -139,10 +139,10 @@ impl Importer for BlenderMaterialImporter {
                 importable_objects: &HashMap<Option<String>, ImportableObject>,
                 data_container: &mut DataContainerMut,
                 ref_field: ObjectRefField,
-                path_as_string: &Option<String>
+                path_as_string: &Option<PathBuf>
             ) {
                 if let Some(path_as_string) = path_as_string {
-                    if let Some(referenced_object_id) = importable_objects.get(&None).unwrap().referenced_paths.get(&PathBuf::from_str(path_as_string).unwrap()) {
+                    if let Some(referenced_object_id) = importable_objects.get(&None).unwrap().referenced_paths.get(path_as_string) {
                         ref_field.set(data_container, *referenced_object_id).unwrap();
                     }
                 }

@@ -7,9 +7,9 @@ use siphasher::sip128::Hasher128;
 use type_uuid::{Bytes, TypeUuid};
 use uuid::Uuid;
 use hydrate_base::hashing::HashMap;
-use hydrate_base::ObjectId;
+use hydrate_base::{ArtifactId, ObjectId};
 use hydrate_data::{DataSet, SchemaSet, SingleObject};
-use crate::BuiltAsset;
+use crate::{BuiltArtifact, BuiltAsset};
 
 use super::*;
 use super::traits::*;
@@ -142,7 +142,10 @@ pub struct JobProcessorRegistry {
 }
 
 
-
+pub struct AssetArtifactIdPair {
+    pub asset_id: ObjectId,
+    pub artifact_id: ArtifactId,
+}
 
 pub struct JobExecutor {
     root_path: PathBuf,
@@ -163,9 +166,15 @@ pub struct JobExecutor {
     job_completed_queue_tx: Sender<CompletedJob>,
     job_completed_queue_rx: Receiver<CompletedJob>,
 
+    artifact_handle_created_tx: Sender<AssetArtifactIdPair>,
+    artifact_handle_created_rx: Receiver<AssetArtifactIdPair>,
 
-    built_asset_queue_tx: Sender<BuiltAsset>,
-    built_asset_queue_rx: Receiver<BuiltAsset>,
+    // built_asset_queue_tx: Sender<BuiltAsset>,
+    // built_asset_queue_rx: Receiver<BuiltAsset>,
+
+    built_artifact_queue_tx: Sender<BuiltArtifact>,
+    built_artifact_queue_rx: Receiver<BuiltArtifact>,
+
 }
 
 impl JobApi for JobExecutor {
@@ -194,8 +203,19 @@ impl JobApi for JobExecutor {
         job_id
     }
 
-    fn produce_asset(&self, asset: BuiltAsset) {
-        self.built_asset_queue_tx.send(asset).unwrap();
+    // fn produce_asset(&self, asset: BuiltAsset) {
+    //     self.built_asset_queue_tx.send(asset).unwrap();
+    // }
+
+    fn artifact_handle_created(&self, asset_id: ObjectId, artifact_id: ArtifactId) {
+        self.artifact_handle_created_tx.send(AssetArtifactIdPair {
+            asset_id,
+            artifact_id,
+        }).unwrap();
+    }
+
+    fn produce_artifact(&self, artifact: BuiltArtifact) {
+        self.built_artifact_queue_tx.send(artifact).unwrap();
     }
 }
 
@@ -203,7 +223,10 @@ impl JobExecutor {
     pub fn new(root_path: PathBuf, job_processor_registry: &JobProcessorRegistry) -> Self {
         let (job_create_queue_tx, job_create_queue_rx) = crossbeam_channel::unbounded();
         let (job_completed_queue_tx, job_completed_queue_rx) = crossbeam_channel::unbounded();
-        let (built_asset_queue_tx, built_asset_queue_rx) = crossbeam_channel::unbounded();
+        //let (built_asset_queue_tx, built_asset_queue_rx) = crossbeam_channel::unbounded();
+
+        let (artifact_handle_created_tx, artifact_handle_created_rx) = crossbeam_channel::unbounded();
+        let (built_artifact_queue_tx, built_artifact_queue_rx) = crossbeam_channel::unbounded();
 
         JobExecutor {
             root_path,
@@ -214,18 +237,41 @@ impl JobExecutor {
             job_create_queue_rx,
             job_completed_queue_tx,
             job_completed_queue_rx,
-            built_asset_queue_tx,
-            built_asset_queue_rx
+            // built_asset_queue_tx,
+            // built_asset_queue_rx,
+            artifact_handle_created_tx,
+            artifact_handle_created_rx,
+            built_artifact_queue_tx,
+            built_artifact_queue_rx,
         }
     }
 
-    pub fn take_built_assets(&self) -> Vec<BuiltAsset> {
-        let mut built_assets = Vec::default();
-        while let Ok(built_asset) = self.built_asset_queue_rx.try_recv() {
-            built_assets.push(built_asset);
+    // pub fn take_built_assets(&self) -> Vec<BuiltAsset> {
+    //     let mut built_assets = Vec::default();
+    //     while let Ok(built_asset) = self.built_asset_queue_rx.try_recv() {
+    //         built_assets.push(built_asset);
+    //     }
+    //
+    //     built_assets
+    // }
+
+    pub fn take_built_artifacts(&self, artifact_asset_lookup: &mut HashMap<ArtifactId, ObjectId>) -> Vec<BuiltArtifact> {
+        let mut built_artifacts = Vec::default();
+        while let Ok(built_artifact) = self.built_artifact_queue_rx.try_recv() {
+            built_artifacts.push(built_artifact);
         }
 
-        built_assets
+        // This happens after taking built artifacts because the built artifacts might have handles
+        // to artifacts and we need to know the asset ID associated with them.
+        while let Ok(asset_artifact_pair) = self.artifact_handle_created_rx.try_recv() {
+            println!("pair {:?} {:?}", asset_artifact_pair.artifact_id, asset_artifact_pair.asset_id);
+            let old = artifact_asset_lookup.insert(asset_artifact_pair.artifact_id, asset_artifact_pair.asset_id);
+            if old.is_some() {
+                assert_eq!(old, Some(asset_artifact_pair.asset_id));
+            }
+        }
+
+        built_artifacts
     }
 
     fn enqueue_job_internal(&self, data_set: &DataSet, schema_set: &SchemaSet, job: QueuedJob) {
@@ -378,7 +424,11 @@ impl JobExecutor {
             return false;
         }
 
-        if !self.built_asset_queue_rx.is_empty() {
+        // if !self.built_asset_queue_rx.is_empty() {
+        //     return false;
+        // }
+
+        if !self.built_artifact_queue_rx.is_empty() {
             return false;
         }
 

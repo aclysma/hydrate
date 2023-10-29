@@ -71,6 +71,13 @@ macro_rules! create_uuid_newtype {
 create_uuid_newtype!(JobId, "JobId");
 create_uuid_newtype!(JobTypeId, "JobTypeId");
 create_uuid_newtype!(JobHash, "JobTypeId");
+//create_uuid_newtype!(ArtifactId, "ArtifactId");
+
+// #[derive(Copy, Clone, PartialEq, Eq, Hash, Ord, PartialOrd, Serialize, Deserialize)]
+// pub struct ArtifactId {
+//     pub artifact_id: ArtifactIdInner,
+//     pub asset_id: ObjectId,
+// }
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, Ord, PartialOrd, Serialize, Deserialize)]
 pub struct JobVersion(u32);

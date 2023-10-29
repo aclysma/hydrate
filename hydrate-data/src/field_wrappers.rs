@@ -134,7 +134,7 @@ impl Field for BytesField {
 }
 
 impl BytesField {
-    pub fn get<'a>(&'a self, data_container: &'a DataContainer) -> DataSetResult<&Vec<u8>> {
+    pub fn get<'a, 'b>(&'a self, data_container: &'b DataContainer) -> DataSetResult<&'b Vec<u8>> {
         Ok(data_container.resolve_property(self.0.path()).ok_or(DataSetError::PathParentIsNull)?.as_bytes().unwrap())
     }
 

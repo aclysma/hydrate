@@ -36,7 +36,7 @@ struct MeshPartJson {
     pub indices: u32,
     pub index_type: MeshPartJsonIndexType,
     // path to .blender_material
-    pub material: String,
+    pub material: PathBuf,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -81,13 +81,6 @@ impl Importer for BlenderMeshImporter {
             .unwrap()
             .clone();
 
-        let gpu_buffer_asset_type = schema_set
-            .find_named_type(GpuBufferAssetRecord::schema_name())
-            .unwrap()
-            .as_record()
-            .unwrap()
-            .clone();
-
         let bytes = std::fs::read(path).unwrap();
 
         let b3f_reader = B3FReader::new(&bytes)
@@ -95,17 +88,17 @@ impl Importer for BlenderMeshImporter {
         let mesh_as_json: MeshJson =
             serde_json::from_slice(b3f_reader.get_block(0)).map_err(|e| e.to_string()).unwrap();
 
-        fn try_add_file_reference<T: TypeUuid>(file_references: &mut Vec<ReferencedSourceFile>, path_as_string: &String) {
+        fn try_add_file_reference<T: TypeUuid>(file_references: &mut Vec<ReferencedSourceFile>, path: PathBuf) {
             let importer_image_id = ImporterId(Uuid::from_bytes(T::UUID));
             file_references.push(ReferencedSourceFile {
                 importer_id: importer_image_id,
-                path: PathBuf::from_str(path_as_string).unwrap(),
+                path,
             })
         }
 
         let mut mesh_file_references = Vec::default();
         for mesh_part in &mesh_as_json.mesh_parts {
-            try_add_file_reference::<BlenderMaterialImporter>(&mut mesh_file_references, &mesh_part.material);
+            try_add_file_reference::<BlenderMaterialImporter>(&mut mesh_file_references, mesh_part.material.clone());
         }
 
         let mut scanned_importables = Vec::default();
@@ -114,24 +107,6 @@ impl Importer for BlenderMeshImporter {
             asset_type: mesh_adv_asset_type,
             file_references: mesh_file_references,
         });
-
-        // scanned_importables.push(ScannedImportable {
-        //     name: Some("vertex_full_buffer".to_string()),
-        //     asset_type: gpu_buffer_asset_type.clone(),
-        //     file_references: vec![],
-        // });
-        //
-        // scanned_importables.push(ScannedImportable {
-        //     name: Some("vertex_position_buffer_id".to_string()),
-        //     asset_type: gpu_buffer_asset_type.clone(),
-        //     file_references: vec![],
-        // });
-        //
-        // scanned_importables.push(ScannedImportable {
-        //     name: Some("index_buffer_id".to_string()),
-        //     asset_type: gpu_buffer_asset_type,
-        //     file_references: vec![],
-        // });
 
         scanned_importables
     }
@@ -152,16 +127,22 @@ impl Importer for BlenderMeshImporter {
         let mesh_as_json: MeshJson =
             serde_json::from_slice(b3f_reader.get_block(0)).map_err(|e| e.to_string()).unwrap();
 
+        let mut import_data = MeshAdvMeshImportedDataRecord::new_single_object(schema_set).unwrap();
+        let mut import_data_container = DataContainerMut::new_single_object(&mut import_data, schema_set);
+        let x = MeshAdvMeshImportedDataRecord::default();
 
-        let mut all_positions = Vec::<glam::Vec3>::with_capacity(1024);
-        let mut all_position_indices = Vec::<u32>::with_capacity(8192);
-
-        let mut all_vertices_full = PushBuffer::new(16384);
-        let mut all_vertices_position = PushBuffer::new(16384);
-        let mut all_indices = PushBuffer::new(16384);
-
-        let mut mesh_parts: Vec<MeshAdvPartAssetData> =
-            Vec::with_capacity(mesh_as_json.mesh_parts.len());
+        //
+        // Find the materials and assign them unique slot indexes
+        //
+        let mut material_slots = Vec::default();
+        let mut material_slots_lookup = HashMap::default();
+        for mesh_part in &mesh_as_json.mesh_parts {
+            if !material_slots_lookup.contains_key(&mesh_part.material) {
+                let slot_index = material_slots.len() as u32;
+                material_slots.push(mesh_part.material.clone());
+                material_slots_lookup.insert(mesh_part.material.clone(), slot_index);
+            }
+        }
 
         for mesh_part in &mesh_as_json.mesh_parts {
             //
@@ -178,97 +159,41 @@ impl Importer for BlenderMeshImporter {
             //
             // Get strongly typed slices of all input data for this mesh part
             //
-            let positions = try_cast_u8_slice::<[f32; 3]>(positions_bytes)
-                .ok_or("Could not cast due to alignment").unwrap();
-            let normals = try_cast_u8_slice::<[f32; 3]>(normals_bytes)
-                .ok_or("Could not cast due to alignment").unwrap();
-            let tex_coords = try_cast_u8_slice::<[f32; 2]>(tex_coords_bytes)
-                .ok_or("Could not cast due to alignment").unwrap();
 
             // Indices may be encoded as u16 or u32, either way copy them out to a Vec<u32>
-            let mut part_indices = Vec::<u32>::default();
+            let mut part_indices_u32 = Vec::<u32>::default();
             match mesh_part.index_type {
                 MeshPartJsonIndexType::U16 => {
-                    let part_indices_u16 = try_cast_u8_slice::<u16>(part_indices_bytes)
+                    let part_indices_u16_ref = try_cast_u8_slice::<u16>(part_indices_bytes)
                         .ok_or("Could not cast due to alignment").unwrap();
-                    part_indices.reserve(part_indices_u16.len());
-                    for &part_index in part_indices_u16 {
-                        part_indices.push(part_index as u32);
+                    part_indices_u32.reserve(part_indices_u16_ref.len());
+                    for &part_index in part_indices_u16_ref {
+                        part_indices_u32.push(part_index as u32);
                     }
                 }
                 MeshPartJsonIndexType::U32 => {
-                    let part_indices_u32 = try_cast_u8_slice::<u32>(part_indices_bytes)
+                    let part_indices_u32_ref = try_cast_u8_slice::<u32>(part_indices_bytes)
                         .ok_or("Could not cast due to alignment").unwrap();
-                    part_indices.reserve(part_indices_u32.len());
-                    for &part_index in part_indices_u32 {
-                        part_indices.push(part_index);
+                    part_indices_u32.reserve(part_indices_u32_ref.len());
+                    for &part_index in part_indices_u32_ref {
+                        part_indices_u32.push(part_index);
                     }
                 }
             };
 
-            let part_data = super::mesh_util::process_mesh_part(
-                &part_indices,
-                &positions,
-                &normals,
-                &tex_coords,
-                &mut all_vertices_full,
-                &mut all_vertices_position,
-                &mut all_indices,
-            );
+            let mut part_indices = PushBuffer::from_vec(&part_indices_u32).into_data();
 
-            //
-            // Positions and indices for the visibility system
-            //
-            for index in part_indices {
-                all_position_indices.push(index as u32);
-            }
+            let material_index = *material_slots_lookup.get(&mesh_part.material).unwrap();
 
-            for i in 0..positions.len() {
-                all_positions.push(Vec3::new(positions[i][0], positions[i][1], positions[i][2]));
-            }
-
-            // if let Some(referenced_object_id) = importable_objects.get(&None).unwrap().referenced_paths.get(&PathBuf::from_str(&mesh_part.material).unwrap()) {
-            //     ref_field.set(data_container, *referenced_object_id).unwrap();
-            // }
-
-            mesh_parts.push(MeshAdvPartAssetData {
-                //mesh_material,
-                vertex_full_buffer_offset_in_bytes: part_data.vertex_full_buffer_offset_in_bytes,
-                vertex_full_buffer_size_in_bytes: part_data.vertex_full_buffer_size_in_bytes,
-                vertex_position_buffer_offset_in_bytes: part_data
-                    .vertex_position_buffer_offset_in_bytes,
-                vertex_position_buffer_size_in_bytes: part_data
-                    .vertex_position_buffer_size_in_bytes,
-                index_buffer_offset_in_bytes: part_data.index_buffer_offset_in_bytes,
-                index_buffer_size_in_bytes: part_data.index_buffer_size_in_bytes,
-                index_type: part_data.index_type,
-            })
-        }
-
-        //TODO: Build the mesh
-        // Figure out how to move this work to the build step
-        // We want to produce the buffers as separate built assets without processing the file more than once
-
-        //
-        // Read imported data
-        //
-        let import_data = {
-            let mut import_data_object = MeshAdvMeshImportedDataRecord::new_single_object(schema_set).unwrap();
-            let mut import_data_container = DataContainerMut::new_single_object(&mut import_data_object, schema_set);
-            let x = MeshAdvMeshImportedDataRecord::default();
             let entry_uuid = x.mesh_parts().add_entry(&mut import_data_container);
             let entry = x.mesh_parts().entry(entry_uuid);
-            entry.vertex_full_buffer_offset_in_bytes().set(&mut import_data_container, 1).unwrap();
-            entry.vertex_full_buffer_size_in_bytes().set(&mut import_data_container, 1).unwrap();
-            entry.vertex_position_buffer_offset_in_bytes().set(&mut import_data_container, 1).unwrap();
-            entry.vertex_position_buffer_size_in_bytes().set(&mut import_data_container, 1).unwrap();
-            entry.index_buffer_offset_in_bytes().set(&mut import_data_container, 1).unwrap();
-            entry.index_buffer_size_in_bytes().set(&mut import_data_container, 1).unwrap();
-            //entry.mesh_material().set(&mut import_data_container, )
-            entry.index_type().set(&mut import_data_container, MeshAdvIndexTypeEnum::Uint16).unwrap();
+            entry.positions().set(&mut import_data_container, positions_bytes.to_vec()).unwrap();
+            entry.normals().set(&mut import_data_container, normals_bytes.to_vec()).unwrap();
+            entry.texture_coordinates().set(&mut import_data_container, tex_coords_bytes.to_vec()).unwrap();
+            entry.indices().set(&mut import_data_container, part_indices).unwrap();
+            entry.material_index().set(&mut import_data_container, material_index).unwrap();
+        }
 
-            import_data_object
-        };
 
         //
         // Create the default asset
@@ -277,6 +202,16 @@ impl Importer for BlenderMeshImporter {
             let mut default_asset_object = MeshAdvMeshAssetRecord::new_single_object(schema_set).unwrap();
             let mut default_asset_data_container = DataContainerMut::new_single_object(&mut default_asset_object, schema_set);
             let x = MeshAdvMeshAssetRecord::default();
+
+            //
+            // Set up the material slots
+            //
+            for material_slot in material_slots {
+                let object_id = importable_objects.get(&None).unwrap().referenced_paths.get(&material_slot).unwrap();
+                let entry = x.material_slots().add_entry(&mut default_asset_data_container);
+                x.material_slots().entry(entry).set(&mut default_asset_data_container, *object_id).unwrap();
+            }
+
             default_asset_object
         };
 

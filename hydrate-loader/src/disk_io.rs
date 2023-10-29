@@ -1,4 +1,4 @@
-use hydrate_base::AssetTypeId;
+use hydrate_base::{ArtifactId, AssetTypeId};
 use hydrate_base::LoadHandle;
 use crate::loader::ObjectData;
 use crate::loader::{
@@ -15,14 +15,14 @@ use std::sync::Arc;
 use std::thread::JoinHandle;
 
 struct DiskAssetIORequestMetadata {
-    object_id: ObjectId,
+    object_id: ArtifactId,
     load_handle: LoadHandle,
     version: u32,
     hash: u64,
 }
 
 struct DiskAssetIORequestData {
-    object_id: ObjectId,
+    object_id: ArtifactId,
     load_handle: LoadHandle,
     hash: u64,
     version: u32,
@@ -236,7 +236,7 @@ impl DiskAssetIOThreadPool {
 // }
 
 pub struct BuildManifest {
-    pub asset_build_hashes: HashMap<ObjectId, u64>,
+    pub asset_build_hashes: HashMap<ArtifactId, u64>,
 }
 
 impl BuildManifest {
@@ -263,7 +263,7 @@ impl BuildManifest {
             let asset_id = u128::from_str_radix(left, 16).unwrap();
             let build_hash = u64::from_str_radix(right, 16).unwrap();
 
-            asset_build_hashes.insert(ObjectId(asset_id), build_hash);
+            asset_build_hashes.insert(ArtifactId(asset_id), build_hash);
         }
 
         BuildManifest { asset_build_hashes }
@@ -352,7 +352,7 @@ impl DiskAssetIO {
     pub fn request_data(
         &self,
         load_handle: LoadHandle,
-        object_id: ObjectId,
+        object_id: ArtifactId,
         subresource: Option<u32>,
         version: u32,
         hash: u64,
@@ -403,7 +403,7 @@ impl LoaderIO for DiskAssetIO {
         &self,
         build_hash: CombinedBuildHash,
         load_handle: LoadHandle,
-        object_id: ObjectId,
+        object_id: ArtifactId,
         version: u32,
     ) {
         log::debug!("request_metadata {:?}", load_handle);
@@ -451,7 +451,7 @@ impl LoaderIO for DiskAssetIO {
         &self,
         build_hash: CombinedBuildHash,
         load_handle: LoadHandle,
-        object_id: ObjectId,
+        object_id: ArtifactId,
         hash: u64,
         subresource: Option<u32>,
         version: u32,

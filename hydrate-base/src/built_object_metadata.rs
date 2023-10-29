@@ -1,11 +1,11 @@
 
 use serde::{Serialize, Deserialize};
 use uuid::Uuid;
-use crate::ObjectId;
+use crate::{ArtifactId, ObjectId};
 
 #[derive(Debug, Serialize, Deserialize, Hash)]
 pub struct BuiltObjectMetadata {
-    pub dependencies: Vec<ObjectId>,
+    pub dependencies: Vec<ArtifactId>,
     pub subresource_count: u32,
     pub asset_type: Uuid, // size?
 }

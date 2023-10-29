@@ -195,6 +195,10 @@ impl ImportJobs {
             //TODO: Validate that all requested importables exist?
             for (name, imported_object) in imported_objects {
                 if let Some(object_id) = import_op.object_ids.get(&name) {
+
+                    let type_name = editor_model.root_edit_context().data_set().object_schema(*object_id).unwrap().name();
+                    println!("importing {:?} {:?} {:?}", import_op.path, name, type_name);
+
                     if import_op.assets_to_regenerate.contains(object_id) {
                         if let Some(default_asset) = &imported_object.default_asset {
                             editor_model.root_edit_context_mut().copy_from_single_object(&*schema_set, *object_id, default_asset).unwrap();

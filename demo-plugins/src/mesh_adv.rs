@@ -1,8 +1,10 @@
 pub use super::*;
 use std::path::{Path};
+use glam::Vec3;
+use rafx_api::RafxResourceType;
 
 use demo_types::mesh_adv::*;
-use hydrate_base::BuiltObjectMetadata;
+use hydrate_base::{AssetUuid, BuiltObjectMetadata};
 use hydrate_model::{BuilderRegistryBuilder, DataContainer, DataContainerMut, DataSet, Enum, HashMap, ImporterRegistryBuilder, job_system, JobApi, JobEnumeratedDependencies, JobInput, JobOutput, JobProcessor, JobProcessorRegistryBuilder, ObjectId, Record, SchemaLinker, SchemaSet, SingleObject};
 use hydrate_model::pipeline::{AssetPlugin, Builder, BuiltAsset};
 use hydrate_model::pipeline::{ImportedImportable, ScannedImportable, Importer};
@@ -10,6 +12,8 @@ use serde::{Deserialize, Serialize};
 use type_uuid::{TypeUuid, TypeUuidDynamic};
 use uuid::Uuid;
 use crate::generated::MeshAdvMeshAssetRecord;
+use crate::generated_wrapper::MeshAdvMeshImportedDataRecord;
+use crate::push_buffer::PushBuffer;
 
 use super::generated::{MeshAdvMaterialImportedDataRecord, MeshAdvMaterialAssetRecord, MeshAdvBlendMethodEnum, MeshAdvShadowMethodEnum};
 
@@ -139,6 +143,265 @@ impl Builder for MeshAdvMaterialBuilder {
 
 
 
+
+
+
+
+
+
+
+fn try_cast_u8_slice<T: Copy + 'static>(data: &[u8]) -> Option<&[T]> {
+    if data.len() % std::mem::size_of::<T>() != 0 {
+        return None;
+    }
+
+    let ptr = data.as_ptr() as *const T;
+    if ptr as usize % std::mem::align_of::<T>() != 0 {
+        return None;
+    }
+
+    let casted: &[T] =
+        unsafe { std::slice::from_raw_parts(ptr, data.len() / std::mem::size_of::<T>()) };
+
+    Some(casted)
+}
+
+
+
+
+
+
+
+#[derive(Hash, Serialize, Deserialize)]
+pub struct MeshAdvMeshPreprocessJobInput {
+    pub asset_id: ObjectId,
+}
+impl JobInput for MeshAdvMeshPreprocessJobInput {}
+
+#[derive(Serialize, Deserialize)]
+pub struct MeshAdvMeshPreprocessJobOutput {
+
+}
+impl JobOutput for MeshAdvMeshPreprocessJobOutput {}
+
+#[derive(Default, TypeUuid)]
+#[uuid = "d1a87176-09b5-4722-802e-60012653966d"]
+pub struct MeshAdvMeshPreprocessJobProcessor;
+
+impl JobProcessor for MeshAdvMeshPreprocessJobProcessor {
+    type InputT = MeshAdvMeshPreprocessJobInput;
+    type OutputT = MeshAdvMeshPreprocessJobOutput;
+
+    fn version(&self) -> u32 {
+        1
+    }
+
+    fn enumerate_dependencies(
+        &self,
+        input: &MeshAdvMeshPreprocessJobInput,
+        data_set: &DataSet,
+        schema_set: &SchemaSet,
+    ) -> JobEnumeratedDependencies {
+        // No dependencies
+        JobEnumeratedDependencies {
+            import_data: vec![input.asset_id],
+            upstream_jobs: Vec::default()
+        }
+    }
+
+    fn run(
+        &self,
+        input: &MeshAdvMeshPreprocessJobInput,
+        data_set: &DataSet,
+        schema_set: &SchemaSet,
+        dependency_data: &HashMap<ObjectId, SingleObject>,
+        job_api: &dyn JobApi
+    ) -> MeshAdvMeshPreprocessJobOutput {
+        //
+        // Read asset data
+        //
+        let data_container = DataContainer::new_dataset(data_set, schema_set, input.asset_id);
+        let x = MeshAdvMeshAssetRecord::default();
+        let mut materials = Vec::default();
+        for entry in x.material_slots().resolve_entries(&data_container).into_iter() {
+            let entry = x.material_slots().entry(*entry).get(&data_container).unwrap();
+            materials.push(entry);
+        }
+
+        //
+        // Read import data
+        //
+        let imported_data = &dependency_data[&input.asset_id];
+        let data_container = DataContainer::new_single_object(imported_data, schema_set);
+        let x = MeshAdvMeshImportedDataRecord::default();
+
+        let mut all_positions = Vec::<glam::Vec3>::with_capacity(1024);
+        let mut all_position_indices = Vec::<u32>::with_capacity(8192);
+
+        let mut all_vertices_full = PushBuffer::new(16384);
+        let mut all_vertices_position = PushBuffer::new(16384);
+        let mut all_indices = PushBuffer::new(16384);
+
+        let mut mesh_part_data = Vec::default();
+        for entry in x.mesh_parts().resolve_entries(&data_container).into_iter() {
+            let entry = x.mesh_parts().entry(*entry);
+
+            //
+            // Get byte slices of all input data for this mesh part
+            //
+            let positions_bytes = entry.positions().get(&data_container).unwrap();
+            let normals_bytes = entry.normals().get(&data_container).unwrap();
+            let tex_coords_bytes = entry.texture_coordinates().get(&data_container).unwrap();
+            let indices_bytes = entry.indices().get(&data_container).unwrap();
+
+            // let mut tex_coords_pb = PushBuffer::new(tex_coords_bytes.len());
+            // let tex_coords_pb_result = tex_coords_pb.push_bytes(&tex_coords_bytes, std::mem::align_of::<[f32; 2]>());
+            // let tex_coords_data = tex_coords_pb.into_data();
+            // let tex_coords_slice = unsafe {
+            //     std::slice::from_raw_parts(tex_coords_data.as_ptr().add(tex_coords_pb_result.offset()), tex_coords_pb_result.size())
+            // };
+
+            //
+            // Get strongly typed slices of all input data for this mesh part
+            //
+            let positions = try_cast_u8_slice::<[f32; 3]>(positions_bytes)
+                .ok_or("Could not cast due to alignment").unwrap();
+            let normals = try_cast_u8_slice::<[f32; 3]>(normals_bytes)
+                .ok_or("Could not cast due to alignment").unwrap();
+            let tex_coords = try_cast_u8_slice::<[f32; 2]>(tex_coords_bytes)
+                .ok_or("Could not cast due to alignment").unwrap();
+            let part_indices = try_cast_u8_slice::<u32>(indices_bytes)
+                .ok_or("Could not cast due to alignment").unwrap();
+
+            //
+            // Part data which mostly contains offsets in the buffers for this part
+            //
+            let part_data = super::mesh_util::process_mesh_part(
+                part_indices,
+                positions,
+                normals,
+                tex_coords,
+                &mut all_vertices_full,
+                &mut all_vertices_position,
+                &mut all_indices,
+            );
+
+            mesh_part_data.push(part_data);
+
+            //
+            // Positions and indices for the visibility system
+            //
+            for index in part_indices {
+                all_position_indices.push(*index as u32);
+            }
+
+            for i in 0..positions.len() {
+                all_positions.push(Vec3::new(positions[i][0], positions[i][1], positions[i][2]));
+            }
+        }
+
+        //
+        // Vertex Full Buffer
+        //
+        println!("asset id {:?}", input.asset_id);
+        let vertex_buffer_full_artifact_id = if !all_vertices_full.is_empty() {
+            Some(job_system::produce_artifact(
+                job_api,
+                input.asset_id,
+                Some("full"),
+                MeshAdvBufferAssetData {
+                    resource_type: RafxResourceType::VERTEX_BUFFER,
+                    alignment: std::mem::size_of::<MeshVertexFull>() as u32,
+                    data: all_vertices_full.into_data(),
+                }
+            ))
+        } else {
+            None
+        };
+
+        //
+        // Vertex Position Buffer
+        //
+        let vertex_buffer_position_artifact_id = if !all_vertices_position.is_empty() {
+            Some(job_system::produce_artifact(
+                job_api,
+                input.asset_id,
+                Some("position"),
+                MeshAdvBufferAssetData {
+                    resource_type: RafxResourceType::VERTEX_BUFFER,
+                    alignment: std::mem::size_of::<MeshVertexPosition>() as u32,
+                    data: all_vertices_position.into_data(),
+                }
+            ))
+        } else {
+            None
+        };
+
+        //
+        // Mesh asset
+        //
+        job_system::produce_asset_with_handles(job_api, input.asset_id, || {
+            let mut mesh_parts = Vec::default();
+            for (entry, part_data) in x.mesh_parts().resolve_entries(&data_container).into_iter().zip(mesh_part_data) {
+                let entry = x.mesh_parts().entry(*entry);
+
+                let material_slot_index = entry.material_index().get(&data_container).unwrap();
+                let material_object_id = materials[material_slot_index as usize];
+                let material_handle = job_system::make_handle_to_default_artifact(job_api, material_object_id);
+
+                mesh_parts.push(MeshAdvPartAssetData {
+                    vertex_full_buffer_offset_in_bytes: part_data.vertex_full_buffer_offset_in_bytes,
+                    vertex_full_buffer_size_in_bytes: part_data.vertex_full_buffer_size_in_bytes,
+                    vertex_position_buffer_offset_in_bytes: part_data
+                        .vertex_position_buffer_offset_in_bytes,
+                    vertex_position_buffer_size_in_bytes: part_data
+                        .vertex_position_buffer_size_in_bytes,
+                    index_buffer_offset_in_bytes: part_data.index_buffer_offset_in_bytes,
+                    index_buffer_size_in_bytes: part_data.index_buffer_size_in_bytes,
+                    mesh_material: material_handle,
+                    index_type: part_data.index_type,
+                })
+            }
+
+            let vertex_full_buffer = vertex_buffer_full_artifact_id.map(|x| job_system::make_handle_to_artifact(job_api, x));
+            let vertex_position_buffer = vertex_buffer_position_artifact_id.map(|x| job_system::make_handle_to_artifact(job_api, x));
+
+            MeshAdvMeshAssetData {
+                mesh_parts,
+                vertex_full_buffer,
+                vertex_position_buffer
+            }
+        });
+
+        MeshAdvMeshPreprocessJobOutput {
+
+        }
+    }
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 #[derive(TypeUuid, Default)]
 #[uuid = "658b712f-e498-4c64-a26d-d83d775affb6"]
 pub struct MeshAdvMeshBuilder {}
@@ -155,65 +418,16 @@ impl Builder for MeshAdvMeshBuilder {
         schema_set: &SchemaSet,
         job_api: &dyn JobApi
     ) {
+        // Produce an intermediate with all data
+        // Produce buffers for various vertex types
+        // Some day I might want to look at the materials to decide what vertex buffers should exist
 
-    }
-/*
-    fn enumerate_dependencies(
-        &self,
-        asset_id: ObjectId,
-        data_set: &DataSet,
-        schema_set: &SchemaSet,
-    ) -> Vec<ObjectId> {
-        vec![]
-    }
-
-    fn build_asset(
-        &self,
-        asset_id: ObjectId,
-        data_set: &DataSet,
-        schema_set: &SchemaSet,
-        dependency_data: &HashMap<ObjectId, SingleObject>,
-    ) -> BuiltAsset {
-
-
-        //TODO:
-        // - Can I fire off jobs and link them together like a UUID graph?
-        // - Importer pulled in mesh data in a generic but maybe wasteful way. Like an array
-        //   of positions, array of UVs, array of normals, Uint32 indexes. We could make this generic
-        //   like streams of data keyed by string
-        // - Builder decides we need certain kinds of vertex buffers (position only, full, etc.)
-        // - Need to kick jobs for each unique vertex buffer type
-        // - Need a final built mesh that references the correct buffer types
-        //
-        // Maybe we need a job trait?
-        // Probably can store intermediate steps with non-schema form
-
-
-
-
-        //
-        // Create the processed data
-        //
-        let processed_data = MeshAdvMeshAssetData {
-
-        };
-
-        //
-        // Serialize and return
-        //
-        let serialized = bincode::serialize(&processed_data).unwrap();
-        BuiltAsset {
+        let preprocess_job_id = job_system::enqueue_job::<MeshAdvMeshPreprocessJobProcessor>(data_set, schema_set, job_api, MeshAdvMeshPreprocessJobInput {
             asset_id,
-            metadata: BuiltObjectMetadata {
-                dependencies: vec![],
-                subresource_count: 0,
-                asset_type: uuid::Uuid::from_bytes(processed_data.uuid())
-            },
-            data: serialized
-        }
-    }
+        });
 
- */
+
+    }
 }
 
 
@@ -230,6 +444,7 @@ impl AssetPlugin for MeshAdvAssetPlugin {
         job_processor_registry.register_job_processor::<MeshAdvMaterialJobProcessor>();
 
         builder_registry.register_handler::<MeshAdvMeshBuilder>(schema_linker);
+        job_processor_registry.register_job_processor::<MeshAdvMeshPreprocessJobProcessor>();
 
     }
 }

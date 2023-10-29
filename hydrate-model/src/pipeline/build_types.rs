@@ -3,7 +3,7 @@ use std::fs::File;
 use std::hash::{Hash, Hasher};
 use std::io::{Write};
 use std::path::{Path, PathBuf};
-use hydrate_base::{BuiltObjectMetadata, AssetUuid};
+use hydrate_base::{BuiltObjectMetadata, AssetUuid, ArtifactId};
 use hydrate_base::handle::DummySerdeContextHandle;
 
 use super::ImportJobs;
@@ -12,6 +12,13 @@ use hydrate_base::uuid_path::{path_to_uuid, uuid_and_hash_to_path, uuid_to_path}
 
 pub struct BuiltAsset {
     pub asset_id: ObjectId,
+    pub metadata: BuiltObjectMetadata,
+    pub data: Vec<u8>
+}
+
+pub struct BuiltArtifact {
+    pub asset_id: ObjectId,
+    pub artifact_id: ArtifactId,
     pub metadata: BuiltObjectMetadata,
     pub data: Vec<u8>
 }

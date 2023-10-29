@@ -389,6 +389,9 @@ impl Record for MeshAdvMeshAssetRecord {
 }
 
 impl MeshAdvMeshAssetRecord {
+    pub fn material_slots(&self) -> DynamicArrayField::<ObjectRefField> {
+        DynamicArrayField::<ObjectRefField>::new(self.0.push("material_slots"))
+    }
 }
 #[derive(Default)]
 pub struct MeshAdvMeshImportedDataRecord(PropertyPath);
@@ -406,20 +409,8 @@ impl Record for MeshAdvMeshImportedDataRecord {
 }
 
 impl MeshAdvMeshImportedDataRecord {
-    pub fn index_buffer(&self) -> ObjectRefField {
-        ObjectRefField::new(self.0.push("index_buffer"))
-    }
-
     pub fn mesh_parts(&self) -> DynamicArrayField::<MeshAdvMeshImportedDataMeshPartRecord> {
         DynamicArrayField::<MeshAdvMeshImportedDataMeshPartRecord>::new(self.0.push("mesh_parts"))
-    }
-
-    pub fn vertex_full_buffer(&self) -> ObjectRefField {
-        ObjectRefField::new(self.0.push("vertex_full_buffer"))
-    }
-
-    pub fn vertex_position_buffer(&self) -> ObjectRefField {
-        ObjectRefField::new(self.0.push("vertex_position_buffer"))
     }
 }
 #[derive(Default)]
@@ -438,36 +429,24 @@ impl Record for MeshAdvMeshImportedDataMeshPartRecord {
 }
 
 impl MeshAdvMeshImportedDataMeshPartRecord {
-    pub fn index_buffer_offset_in_bytes(&self) -> U32Field {
-        U32Field::new(self.0.push("index_buffer_offset_in_bytes"))
+    pub fn indices(&self) -> BytesField {
+        BytesField::new(self.0.push("indices"))
     }
 
-    pub fn index_buffer_size_in_bytes(&self) -> U32Field {
-        U32Field::new(self.0.push("index_buffer_size_in_bytes"))
+    pub fn material_index(&self) -> U32Field {
+        U32Field::new(self.0.push("material_index"))
     }
 
-    pub fn index_type(&self) -> EnumField::<MeshAdvIndexTypeEnum> {
-        EnumField::<MeshAdvIndexTypeEnum>::new(self.0.push("index_type"))
+    pub fn normals(&self) -> BytesField {
+        BytesField::new(self.0.push("normals"))
     }
 
-    pub fn mesh_material(&self) -> ObjectRefField {
-        ObjectRefField::new(self.0.push("mesh_material"))
+    pub fn positions(&self) -> BytesField {
+        BytesField::new(self.0.push("positions"))
     }
 
-    pub fn vertex_full_buffer_offset_in_bytes(&self) -> U32Field {
-        U32Field::new(self.0.push("vertex_full_buffer_offset_in_bytes"))
-    }
-
-    pub fn vertex_full_buffer_size_in_bytes(&self) -> U32Field {
-        U32Field::new(self.0.push("vertex_full_buffer_size_in_bytes"))
-    }
-
-    pub fn vertex_position_buffer_offset_in_bytes(&self) -> U32Field {
-        U32Field::new(self.0.push("vertex_position_buffer_offset_in_bytes"))
-    }
-
-    pub fn vertex_position_buffer_size_in_bytes(&self) -> U32Field {
-        U32Field::new(self.0.push("vertex_position_buffer_size_in_bytes"))
+    pub fn texture_coordinates(&self) -> BytesField {
+        BytesField::new(self.0.push("texture_coordinates"))
     }
 }
 #[derive(Copy, Clone)]

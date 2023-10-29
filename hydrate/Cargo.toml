@@ -6,6 +6,7 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+hydrate-base = { path = "../hydrate-base" }
 hydrate-editor = { path = "../hydrate-editor" }
 hydrate-model = { path = "../hydrate-model" }
 hydrate-loader = { path = "../hydrate-loader" }

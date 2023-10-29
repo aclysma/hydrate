@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use type_uuid::TypeUuid;
 use hydrate_base::Handle;
-use rafx_api::{RafxBlendState, RafxCullMode, RafxDepthState, RafxFillMode, RafxFrontFace, RafxIndexType, RafxRasterizerState, RafxSamplerDef};
+use rafx_api::{RafxBlendState, RafxCullMode, RafxDepthState, RafxFillMode, RafxFrontFace, RafxIndexType, RafxRasterizerState, RafxResourceType, RafxSamplerDef};
 
 #[derive(TypeUuid, Serialize, Deserialize, Debug, Clone, Hash, PartialEq)]
 #[uuid = "7f30b29c-7fb9-4b31-a354-7cefbbade2f9"]
@@ -176,13 +176,15 @@ pub struct MeshAdvMaterialAssetData {
 
 
 
+#[derive(TypeUuid, Serialize, Deserialize, Clone)]
+#[uuid = "4b53d85c-98e6-4d77-af8b-0914e67e10dc"]
 pub struct MeshAdvBufferAssetData {
-    //pub resource_type: RafxResourceType,
+    pub resource_type: RafxResourceType,
     pub alignment: u32,
     pub data: Vec<u8>,
 }
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct MeshAdvPartAssetData {
     pub vertex_full_buffer_offset_in_bytes: u32,
     pub vertex_full_buffer_size_in_bytes: u32,
@@ -190,16 +192,16 @@ pub struct MeshAdvPartAssetData {
     pub vertex_position_buffer_size_in_bytes: u32,
     pub index_buffer_offset_in_bytes: u32,
     pub index_buffer_size_in_bytes: u32,
-    //pub mesh_material: Handle<MeshMaterialAdvAsset>,
+    pub mesh_material: Handle<MeshAdvMaterialData>,
     pub index_type: RafxIndexType,
 }
 
-#[derive(TypeUuid, Serialize, Deserialize, Clone)]
+#[derive(TypeUuid, Serialize, Deserialize, Clone, Debug)]
 #[uuid = "4c888448-2650-4f56-82dc-71ba81f4295b"]
 pub struct MeshAdvMeshAssetData {
-    // pub mesh_parts: Vec<MeshAdvPartAssetData>,
-    // pub vertex_full_buffer: Handle<MeshAdvBufferAssetData>, // Vertex type is MeshVertexFull
-    // pub vertex_position_buffer: Handle<MeshAdvBufferAssetData>, // Vertex type is MeshVertexPosition
+    pub mesh_parts: Vec<MeshAdvPartAssetData>,
+    pub vertex_full_buffer: Option<Handle<MeshAdvBufferAssetData>>, // Vertex type is MeshVertexFull
+    pub vertex_position_buffer: Option<Handle<MeshAdvBufferAssetData>>, // Vertex type is MeshVertexPosition
     // pub index_buffer: Handle<MeshAdvBufferAssetData>,       // u16 indices
     //pub visible_bounds: VisibleBounds,
 }

@@ -3,7 +3,7 @@ use crate::{BuildInfo, BuilderId, DataSet, DataSource, EditorModel, HashMap, Has
 use std::hash::{Hash, Hasher};
 use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
-use hydrate_base::{BuiltObjectMetadata, AssetUuid};
+use hydrate_base::{BuiltObjectMetadata, AssetUuid, ArtifactId};
 use hydrate_base::handle::DummySerdeContextHandle;
 
 use super::ImportJobs;
@@ -27,7 +27,7 @@ struct BuildOp {
 // It could be in a completed state, or there could be a problem with it and we need to re-run it.
 struct BuildJob {
     object_id: ObjectId,
-    build_data_exists: HashSet<u64>,
+    build_data_exists: HashSet<(ArtifactId, u64)>,
     asset_exists: bool,
 }
 
@@ -60,7 +60,8 @@ impl BuildJobs {
         build_data_root_path: PathBuf,
     ) -> Self {
         let job_executor = JobExecutor::new(job_data_root_path, job_processor_registry);
-        let build_jobs = BuildJobs::find_all_jobs(builder_registry, editor_model, &build_data_root_path);
+        //let build_jobs = BuildJobs::find_all_jobs(builder_registry, editor_model, &build_data_root_path);
+        let build_jobs = Default::default();
 
         BuildJobs {
             build_data_root_path,
@@ -112,6 +113,7 @@ impl BuildJobs {
         //
         let mut started_build_ops = HashMap::<ObjectId, BuildOp>::default();
         let mut build_hashes = HashMap::default();
+        let mut artifact_asset_lookup = HashMap::default();
         loop {
             //
             // If the job is finished, exit the loop
@@ -139,7 +141,7 @@ impl BuildJobs {
                     continue;
                 };
 
-                println!("start job for {:?} {}", object_id, object_type.name());
+                println!("building {:?} {}", object_id, object_type.name());
                 builder.start_jobs(object_id, data_set, schema_set, &self.job_executor);
             }
 
@@ -149,29 +151,32 @@ impl BuildJobs {
             self.job_executor.update(data_set, schema_set, import_jobs);
 
             //
-            // Jobs will produce finished assets. We will save these to disk and possibly trigger
+            // Jobs will produce artifacts. We will save these to disk and possibly trigger
             // additional jobs for assets that they reference.
             //
-            let built_assets = self.job_executor.take_built_assets();
-            for built_asset in built_assets {
+            let built_artifacts = self.job_executor.take_built_artifacts(&mut artifact_asset_lookup);
+            for built_artifact in built_artifacts {
                 //
                 // Trigger building any dependencies
                 //
-                for &dependency_object_id in &built_asset.metadata.dependencies {
+                //TODO: I'm getting back handles to artifacts but I don't know what the associated asset
+                // ID is
+                for &dependency_artifact_id in &built_artifact.metadata.dependencies {
+                    let dependency_object_id = *artifact_asset_lookup.get(&dependency_artifact_id).unwrap();
                     requested_build_ops.push_back(BuildRequest { object_id: dependency_object_id });
                 }
 
                 //
-                // Serialize the assets to disk
+                // Serialize the artifacts to disk
                 //
                 let mut hasher = siphasher::sip::SipHasher::default();
-                built_asset.data.hash(&mut hasher);
-                built_asset.metadata.hash(&mut hasher);
+                built_artifact.data.hash(&mut hasher);
+                built_artifact.metadata.hash(&mut hasher);
                 let build_hash = hasher.finish();
 
                 let path = uuid_and_hash_to_path(
                     &self.build_data_root_path,
-                    built_asset.asset_id.as_uuid(),
+                    built_artifact.artifact_id.as_uuid(),
                     build_hash,
                     "bf",
                 );
@@ -181,19 +186,19 @@ impl BuildJobs {
                 }
 
                 let mut file = std::fs::File::create(&path).unwrap();
-                built_asset.metadata.write_header(&mut file).unwrap();
-                file.write(&built_asset.data).unwrap();
+                built_artifact.metadata.write_header(&mut file).unwrap();
+                file.write(&built_artifact.data).unwrap();
 
                 //
-                // Ensure the asset will be in the metadata
+                // Ensure the artifact will be in the metadata
                 //
-                build_hashes.insert(built_asset.asset_id, build_hash);
+                build_hashes.insert(built_artifact.artifact_id, build_hash);
 
                 let job = self.build_jobs
-                    .entry(built_asset.asset_id)
-                    .or_insert_with(|| BuildJob::new(built_asset.asset_id));
+                    .entry(built_artifact.asset_id)
+                    .or_insert_with(|| BuildJob::new(built_artifact.asset_id));
                 job.asset_exists = true;
-                job.build_data_exists.insert(build_hash);
+                job.build_data_exists.insert((built_artifact.artifact_id, build_hash));
             }
         }
 
@@ -251,8 +256,8 @@ impl BuildJobs {
         manifest_path.push(format!("{:0>16x}.manifest", combined_build_hash));
         let file = std::fs::File::create(manifest_path).unwrap();
         let mut file = std::io::BufWriter::new(file);
-        for (object_id, build_hash) in build_hashes {
-            write!(file, "{:0>16x},{:0>16x}\n", object_id.0, build_hash).unwrap();
+        for (artifact_id, build_hash) in build_hashes {
+            write!(file, "{:0>16x},{:0>16x}\n", artifact_id.as_u128(), build_hash).unwrap();
             //file.write(&object_id.0.to_le_bytes()).unwrap();
             //file.write(&build_hash.to_le_bytes()).unwrap();
         }
@@ -275,6 +280,7 @@ impl BuildJobs {
         //std::fs::write(self.root_path.join("latest.txt"), format!("{:x}", combined_build_hash)).unwrap();
     }
 
+    /*
     fn find_all_jobs(
         builder_registry: &BuilderRegistry,
         editor_model: &EditorModel,
@@ -343,4 +349,5 @@ impl BuildJobs {
         //     }
         // }
     }
+    */
 }

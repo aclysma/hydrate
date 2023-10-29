@@ -3,7 +3,7 @@ use std::path::{Path};
 
 use demo_types::mesh_adv::*;
 use hydrate_base::BuiltObjectMetadata;
-use hydrate_model::{BuilderRegistryBuilder, DataContainer, DataContainerMut, DataSet, Enum, HashMap, ImporterRegistryBuilder, JobApi, JobProcessorRegistryBuilder, ObjectId, Record, SchemaLinker, SchemaSet, SingleObject};
+use hydrate_model::{BuilderRegistryBuilder, DataContainer, DataContainerMut, DataSet, Enum, HashMap, ImporterRegistryBuilder, job_system, JobApi, JobEnumeratedDependencies, JobInput, JobOutput, JobProcessor, JobProcessorRegistryBuilder, ObjectId, Record, SchemaLinker, SchemaSet, SingleObject};
 use hydrate_model::pipeline::{AssetPlugin, Builder, BuiltAsset};
 use hydrate_model::pipeline::{ImportedImportable, ScannedImportable, Importer};
 use serde::{Deserialize, Serialize};
@@ -15,47 +15,52 @@ use super::generated::{MeshAdvMaterialImportedDataRecord, MeshAdvMaterialAssetRe
 
 
 
-#[derive(TypeUuid, Default)]
-#[uuid = "02f17f4e-8df2-4b79-95cf-d2ee62e92a01"]
-pub struct MeshAdvMaterialBuilder {}
+#[derive(Hash, Serialize, Deserialize)]
+pub struct MeshAdvMaterialJobInput {
+    pub asset_id: ObjectId,
+}
+impl JobInput for MeshAdvMaterialJobInput {}
 
-impl Builder for MeshAdvMaterialBuilder {
-    fn asset_type(&self) -> &'static str {
-        MeshAdvMaterialAssetRecord::schema_name()
+#[derive(Serialize, Deserialize)]
+pub struct MeshAdvMaterialJobOutput {
+
+}
+impl JobOutput for MeshAdvMaterialJobOutput {}
+
+#[derive(Default, TypeUuid)]
+#[uuid = "d28004fa-6eb7-4110-8a17-10d42d92a956"]
+pub struct MeshAdvMaterialJobProcessor;
+
+impl JobProcessor for MeshAdvMaterialJobProcessor {
+    type InputT = MeshAdvMaterialJobInput;
+    type OutputT = MeshAdvMaterialJobOutput;
+
+    fn version(&self) -> u32 {
+        1
     }
 
-    fn is_job_based(&self) -> bool { false }
-
-    fn start_jobs(
-        &self,
-        asset_id: ObjectId,
-        data_set: &DataSet,
-        schema_set: &SchemaSet,
-        job_api: &dyn JobApi
-    ) {
-
-    }
-/*
     fn enumerate_dependencies(
         &self,
-        asset_id: ObjectId,
+        input: &MeshAdvMaterialJobInput,
         data_set: &DataSet,
         schema_set: &SchemaSet,
-    ) -> Vec<ObjectId> {
-        vec![]
+    ) -> JobEnumeratedDependencies {
+        // No dependencies
+        JobEnumeratedDependencies::default()
     }
 
-    fn build_asset(
+    fn run(
         &self,
-        asset_id: ObjectId,
+        input: &MeshAdvMaterialJobInput,
         data_set: &DataSet,
         schema_set: &SchemaSet,
         dependency_data: &HashMap<ObjectId, SingleObject>,
-    ) -> BuiltAsset {
+        job_api: &dyn JobApi
+    ) -> MeshAdvMaterialJobOutput {
         //
         // Read asset data
         //
-        let data_container = DataContainer::new_dataset(data_set, schema_set, asset_id);
+        let data_container = DataContainer::new_dataset(data_set, schema_set, input.asset_id);
         let x = MeshAdvMaterialAssetRecord::default();
 
         let base_color_factor = x.base_color_factor().get_vec4(&data_container).unwrap();
@@ -99,19 +104,36 @@ impl Builder for MeshAdvMaterialBuilder {
         //
         // Serialize and return
         //
-        let serialized = bincode::serialize(&processed_data).unwrap();
-        BuiltAsset {
-            asset_id,
-            metadata: BuiltObjectMetadata {
-                dependencies: vec![],
-                subresource_count: 0,
-                asset_type: uuid::Uuid::from_bytes(processed_data.uuid())
-            },
-            data: serialized
+        job_system::produce_asset(job_api, input.asset_id, processed_data);
+
+        MeshAdvMaterialJobOutput {
+
         }
     }
+}
 
- */
+
+#[derive(TypeUuid, Default)]
+#[uuid = "02f17f4e-8df2-4b79-95cf-d2ee62e92a01"]
+pub struct MeshAdvMaterialBuilder {}
+
+impl Builder for MeshAdvMaterialBuilder {
+    fn asset_type(&self) -> &'static str {
+        MeshAdvMaterialAssetRecord::schema_name()
+    }
+
+    fn start_jobs(
+        &self,
+        asset_id: ObjectId,
+        data_set: &DataSet,
+        schema_set: &SchemaSet,
+        job_api: &dyn JobApi
+    ) {
+        //Future: Might produce jobs per-platform
+        job_system::enqueue_job::<MeshAdvMaterialJobProcessor>(data_set, schema_set, job_api, MeshAdvMaterialJobInput {
+            asset_id,
+        });
+    }
 }
 
 
@@ -125,8 +147,6 @@ impl Builder for MeshAdvMeshBuilder {
     fn asset_type(&self) -> &'static str {
         MeshAdvMeshAssetRecord::schema_name()
     }
-
-    fn is_job_based(&self) -> bool { false }
 
     fn start_jobs(
         &self,
@@ -207,6 +227,9 @@ impl AssetPlugin for MeshAdvAssetPlugin {
         job_processor_registry: &mut JobProcessorRegistryBuilder,
     ) {
         builder_registry.register_handler::<MeshAdvMaterialBuilder>(schema_linker);
+        job_processor_registry.register_job_processor::<MeshAdvMaterialJobProcessor>();
+
         builder_registry.register_handler::<MeshAdvMeshBuilder>(schema_linker);
+
     }
 }

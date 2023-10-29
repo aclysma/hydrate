@@ -148,11 +148,21 @@ pub fn produce_asset<T: TypeUuid + Serialize>(
     asset_id: ObjectId,
     asset: T
 ) {
+    produce_asset_with_handles(job_api, asset_id, || asset);
+}
+
+pub fn produce_asset_with_handles<T: TypeUuid + Serialize, F: FnOnce() -> T>(
+    job_api: &dyn JobApi,
+    asset_id: ObjectId,
+    asset_fn: F
+) {
     let mut ctx = DummySerdeContextHandle::default();
     ctx.begin_serialize_asset(AssetUuid(*asset_id.as_uuid().as_bytes()));
 
-    let mut built_data = ctx.scope(|| {
-        bincode::serialize(&asset).unwrap()
+    let (built_data, asset_type) = ctx.scope(|| {
+        let asset = (asset_fn)();
+        let built_data = bincode::serialize(&asset).unwrap();
+        (built_data, asset.uuid())
     });
 
     let referenced_assets = ctx.end_serialize_asset(AssetUuid(*asset_id.as_uuid().as_bytes()));
@@ -162,7 +172,7 @@ pub fn produce_asset<T: TypeUuid + Serialize>(
         metadata: BuiltObjectMetadata {
             dependencies: referenced_assets.into_iter().map(|x| ObjectId::from_uuid(Uuid::from_bytes(x.0.0))).collect(),
             subresource_count: 0,
-            asset_type: uuid::Uuid::from_bytes(asset.uuid())
+            asset_type: uuid::Uuid::from_bytes(asset_type)
         },
         data: built_data
     });

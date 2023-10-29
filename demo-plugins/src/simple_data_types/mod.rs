@@ -10,7 +10,7 @@ mod simple_data_trait;
 pub use simple_data_trait::SimpleData;
 
 mod bincode_data_builder;
-use bincode_data_builder::SimpleBincodeDataBuilder;
+use bincode_data_builder::{SimpleBincodeDataJobProcessor, SimpleBincodeDataBuilder};
 
 impl SimpleData for TransformRef {
     fn from_data_container(
@@ -78,6 +78,7 @@ impl AssetPlugin for SimpleDataAssetPlugin {
                     schema_linker,
                     SimpleBincodeDataBuilder::<$data_type>::new($name),
                 );
+                job_processor_registry.register_job_processor::<SimpleBincodeDataJobProcessor::<$data_type>>()
             }
         }
 

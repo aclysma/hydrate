@@ -224,22 +224,11 @@ impl Builder for GpuImageBuilder {
         let compressed = x.compress().get(&data_container).unwrap();
 
         //Future: Might produce jobs per-platform
-        hydrate_model::job_system::enqueue_job::<GpuImageJobProcessor>(data_set, schema_set, job_api, GpuImageJobInput {
+        job_system::enqueue_job::<GpuImageJobProcessor>(data_set, schema_set, job_api, GpuImageJobInput {
             asset_id,
             compressed,
         });
     }
-
-    fn is_job_based(&self) -> bool { true }
-
-    // fn enumerate_dependencies(
-    //     &self,
-    //     asset_id: ObjectId,
-    //     data_set: &DataSet,
-    //     schema_set: &SchemaSet,
-    // ) -> Vec<ObjectId> {
-    //     vec![asset_id]
-    // }
 }
 
 pub struct GpuImageAssetPlugin;

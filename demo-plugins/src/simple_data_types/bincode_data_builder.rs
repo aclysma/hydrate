@@ -1,13 +1,77 @@
 use demo_types::simple_data::*;
 use hydrate_base::{AssetUuid, BuiltObjectMetadata};
-use hydrate_model::{BuilderRegistryBuilder, DataContainer, DataSet, DataSetView, HashMap, ImporterRegistryBuilder, JobApi, ObjectId, SchemaLinker, SchemaSet, SingleObject};
+use hydrate_model::{BuilderRegistryBuilder, DataContainer, DataSet, DataSetView, HashMap, ImporterRegistryBuilder, job_system, JobApi, JobEnumeratedDependencies, JobInput, JobOutput, JobProcessor, ObjectId, SchemaLinker, SchemaSet, SingleObject};
 use hydrate_model::pipeline::{AssetPlugin, Builder, BuilderRegistry, BuiltAsset, ImporterRegistry};
 use serde::{Deserialize, Serialize};
 use std::marker::PhantomData;
-use type_uuid::TypeUuid;
+use type_uuid::{Bytes, TypeUuid};
 use crate::generated::{AllFieldsRecord, TransformRecord};
 
 use super::SimpleData;
+
+
+#[derive(Hash, Serialize, Deserialize)]
+pub struct SimpleBincodeDataJobInput {
+    pub asset_id: ObjectId,
+}
+impl JobInput for SimpleBincodeDataJobInput {}
+
+#[derive(Serialize, Deserialize)]
+pub struct SimpleBincodeDataJobOutput {
+
+}
+impl JobOutput for SimpleBincodeDataJobOutput {}
+
+pub struct SimpleBincodeDataJobProcessor<T: SimpleData + Sized + Serialize + for<'a> Deserialize<'a> + TypeUuid>(PhantomData<T>);
+impl<T: SimpleData + Sized + Serialize + for<'a> Deserialize<'a> + TypeUuid>  Default for SimpleBincodeDataJobProcessor<T> {
+    fn default() -> Self {
+        Self(PhantomData)
+    }
+}
+
+impl<T: SimpleData + Sized + Serialize + for<'a> Deserialize<'a> + TypeUuid> TypeUuid for SimpleBincodeDataJobProcessor<T> {
+    const UUID: Bytes = T::UUID;
+}
+
+impl<T: SimpleData + Sized + Serialize + for<'a> Deserialize<'a> + TypeUuid> JobProcessor for SimpleBincodeDataJobProcessor<T> {
+    type InputT = SimpleBincodeDataJobInput;
+    type OutputT = SimpleBincodeDataJobOutput;
+
+    fn version(&self) -> u32 {
+        1
+    }
+
+    fn enumerate_dependencies(
+        &self,
+        input: &SimpleBincodeDataJobInput,
+        data_set: &DataSet,
+        schema_set: &SchemaSet,
+    ) -> JobEnumeratedDependencies {
+        // No dependencies
+        JobEnumeratedDependencies::default()
+    }
+
+    fn run(
+        &self,
+        input: &SimpleBincodeDataJobInput,
+        data_set: &DataSet,
+        schema_set: &SchemaSet,
+        dependency_data: &HashMap<ObjectId, SingleObject>,
+        job_api: &dyn JobApi
+    ) -> SimpleBincodeDataJobOutput {
+        let mut data_set_view = DataContainer::new_dataset(&data_set, schema_set, input.asset_id);
+
+        //
+        // Serialize and return
+        //
+        job_system::produce_asset_with_handles(job_api, input.asset_id, || {
+            T::from_data_container(&mut data_set_view)
+        });
+        SimpleBincodeDataJobOutput {
+
+        }
+    }
+}
 
 //
 // Implement SimpleBincodeDataBuilder for all SimpleData
@@ -33,8 +97,6 @@ for SimpleBincodeDataBuilder<T>
         self.asset_type
     }
 
-    fn is_job_based(&self) -> bool { false }
-
     fn start_jobs(
         &self,
         asset_id: ObjectId,
@@ -42,40 +104,9 @@ for SimpleBincodeDataBuilder<T>
         schema_set: &SchemaSet,
         job_api: &dyn JobApi
     ) {
-
-    }
-/*
-    fn enumerate_dependencies(
-        &self,
-        asset_id: ObjectId,
-        data_set: &DataSet,
-        schema_set: &SchemaSet,
-    ) -> Vec<ObjectId> {
-        vec![asset_id]
-    }
-
-    fn build_asset(
-        &self,
-        asset_id: ObjectId,
-        data_set: &DataSet,
-        schema_set: &SchemaSet,
-        _dependency_data: &HashMap<ObjectId, SingleObject>,
-    ) -> BuiltAsset {
-        let mut data_set_view = DataContainer::new_dataset(&data_set, schema_set, asset_id);
-        let data = T::from_data_container(&mut data_set_view);
-
-        let serialized = bincode::serialize(&data).unwrap();
-        BuiltAsset {
+        job_system::enqueue_job::<SimpleBincodeDataJobProcessor<T>>(data_set, schema_set, job_api, SimpleBincodeDataJobInput {
             asset_id,
-            metadata: BuiltObjectMetadata {
-                dependencies: vec![],
-                subresource_count: 0,
-                asset_type: uuid::Uuid::from_bytes(T::UUID)
-            },
-            data: serialized
-        }
+        });
     }
-
- */
 }
 

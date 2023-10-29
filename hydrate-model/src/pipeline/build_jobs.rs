@@ -136,7 +136,6 @@ impl BuildJobs {
                     .unwrap();
 
                 let Some(builder) = builder_registry.builder_for_asset(object_type.fingerprint()) else {
-                    println!("no builder for {:?}", object_type.name());
                     continue;
                 };
 

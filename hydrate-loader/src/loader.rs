@@ -169,7 +169,7 @@ pub trait LoaderIO: Sync + Send {
 // struct LoadHandle(u64);
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
-enum LoadState {
+pub enum LoadState {
     // Not loaded, and we haven't started trying to load it. Ref count > 0 implies we want to start
     // loading.
     Unloaded,

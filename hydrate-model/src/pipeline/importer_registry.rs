@@ -66,7 +66,15 @@ impl ImporterRegistryBuilder {
         &mut self,
         linker: &mut SchemaLinker,
     ) {
-        let handler = Box::new(T::default());
+        self.register_handler_instance(linker, T::default())
+    }
+
+    pub fn register_handler_instance<T: TypeUuid + Importer + 'static>(
+        &mut self,
+        linker: &mut SchemaLinker,
+        importer: T
+    ) {
+        let handler = Box::new(importer);
         //handler.register_schemas(linker);
         let importer_id = ImporterId(Uuid::from_bytes(T::UUID));
         self.registered_importers.insert(importer_id, handler);

@@ -20,7 +20,7 @@ fn main() -> Result<(), String> {
 
     if let Err(e) = run(&args) {
         eprintln!("{}", e.to_string());
-        Err("Shader processor failed".to_string())
+        Err("Hydrate codegen failed".to_string())
     } else {
         Ok(())
     }

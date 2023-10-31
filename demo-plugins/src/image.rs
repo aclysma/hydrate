@@ -186,7 +186,7 @@ impl JobProcessor for GpuImageJobProcessor {
         //
         // Create the processed data
         //
-        let processed_data = GpuImageBuiltData {
+        let processed_data = GpuImageAssetData {
             image_bytes,
             width,
             height,

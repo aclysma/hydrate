@@ -13,6 +13,10 @@ use crossbeam_channel::Sender;
 use dashmap::DashMap;
 use hydrate_base::handle::LoaderInfoProvider;
 
+//TODO: This is a placeholder to make migration from distill easier, probably just
+// remove it later
+pub struct IndirectionTable;
+
 #[derive(Debug)]
 pub enum HandleOp {
     Error(LoadHandle, u32, Box<dyn Error + Send>),

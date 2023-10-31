@@ -1,10 +1,12 @@
-mod asset_storage;
+pub mod asset_storage;
 mod bincode_loader;
 mod disk_io;
-mod storage;
+pub mod storage;
 //mod distill_loader;
 mod dummy_asset_storage;
 mod loader;
+pub use loader::LoadState;
+
 
 //States from distill's loader
 // /// Indeterminate state - may transition into a load, or result in removal if ref count is == 0
@@ -79,7 +81,7 @@ mod loader;
 //     pub type_id: AssetTypeId,
 // }
 
-use crate::asset_storage::AssetStorageSet;
+pub use crate::asset_storage::{AssetStorageSet, DynAssetLoader};
 use crate::disk_io::DiskAssetIO;
 use hydrate_base::handle::RefOp;
 use crate::loader::{CombinedBuildHash, Loader};
@@ -354,6 +356,19 @@ impl AssetManager {
     {
         self.asset_storage.add_storage::<T>();
     }
+
+    pub fn add_storage_with_loader<AssetDataT, AssetT, LoaderT>(
+        &mut self,
+        loader: Box<LoaderT>,
+    ) where
+        AssetDataT: TypeUuid + for<'a> serde::Deserialize<'a> + 'static,
+        AssetT: TypeUuid + 'static + Send,
+        LoaderT: DynAssetLoader<AssetT> + 'static,
+    {
+        self.asset_storage
+            .add_storage_with_loader::<AssetDataT, AssetT, LoaderT>(loader);
+    }
+
 
     pub fn load_asset<T>(
         &self,

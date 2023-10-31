@@ -1,10 +1,14 @@
-use demo_types::image::GpuImageBuiltData;
-use hydrate::loader::Handle;
+use std::error::Error;
+use demo_types::image::GpuImageAssetData;
+use hydrate::loader::{Handle, DynAssetLoader};
 use std::path::PathBuf;
+use type_uuid::TypeUuid;
 use demo_types::gpu_buffer::GpuBufferBuiltData;
 use demo_types::mesh_adv::{MeshAdvBufferAssetData, MeshAdvMaterialAssetData, MeshAdvMaterialData, MeshAdvMeshAssetData};
 use demo_types::simple_data::{Transform, TransformRef};
-use hydrate::base::ArtifactId;
+use hydrate::base::{ArtifactId, LoadHandle};
+use hydrate::base::handle::{LoaderInfoProvider, RefOp, SerdeContext};
+use hydrate::loader::asset_storage::UpdateAssetResult;
 
 pub fn build_data_source_path() -> PathBuf {
     PathBuf::from(concat!(
@@ -12,6 +16,57 @@ pub fn build_data_source_path() -> PathBuf {
         "/../demo-editor/data/build_data"
     ))
 }
+
+#[derive(TypeUuid, Clone)]
+#[uuid = "3ebc8afd-09d2-427e-b9e9-50a53fcbde84"]
+struct GpuImageAsset {
+    pub image_bytes: Vec<u8>,
+    pub width: u32,
+    pub height: u32,
+}
+
+struct GpuImageLoader;
+
+impl DynAssetLoader<GpuImageAsset> for GpuImageLoader {
+    fn update_asset(
+        &mut self,
+        refop_sender: &crossbeam_channel::Sender<RefOp>,
+        loader_info: &dyn LoaderInfoProvider,
+        data: &[u8],
+        load_handle: LoadHandle,
+        load_op: hydrate::loader::storage::AssetLoadOp, version: u32
+    ) -> Result<hydrate::loader::asset_storage::UpdateAssetResult<GpuImageAsset>, Box<dyn Error + Send + 'static>> {
+        log::debug!("GpuImageLoader update_asset");
+
+        let asset_data = SerdeContext::with(loader_info, refop_sender.clone(), || {
+            log::debug!("bincode deserialize");
+            let x = bincode::deserialize::<GpuImageAssetData>(data)
+                // Coerce into boxed error
+                .map_err(|x| -> Box<dyn Error + Send + 'static> { Box::new(x) });
+            println!("finished deserialize");
+            x
+        })?;
+        log::debug!("call load_op.complete()");
+
+        load_op.complete();
+        log::debug!("return");
+        Ok(UpdateAssetResult::Result(GpuImageAsset {
+            image_bytes: asset_data.image_bytes,
+            width: asset_data.width,
+            height: asset_data.height,
+        }))
+    }
+
+    fn commit_asset_version(&mut self, handle: LoadHandle, version: u32) {
+
+    }
+
+    fn free(&mut self, handle: LoadHandle) {
+
+    }
+}
+
+
 
 fn main() {
     // Setup logging
@@ -21,7 +76,7 @@ fn main() {
         .init();
 
     let mut loader = hydrate::loader::AssetManager::new(build_data_source_path()).unwrap();
-    loader.add_storage::<GpuImageBuiltData>();
+    loader.add_storage_with_loader::<GpuImageAssetData, GpuImageAsset, GpuImageLoader>(Box::new(GpuImageLoader));
     loader.add_storage::<GpuBufferBuiltData>();
     loader.add_storage::<Transform>();
     loader.add_storage::<TransformRef>();
@@ -30,41 +85,6 @@ fn main() {
     loader.add_storage::<MeshAdvMaterialAssetData>();
     loader.add_storage::<MeshAdvMaterialData>();
 
-    // let load_handle_image: Handle<ImageBuiltData> = loader.load_asset(ObjectId(
-    //     uuid::Uuid::parse_str("df737bdbfc014fc5929a5e7a0d0f1281")
-    //         .unwrap()
-    //         .as_u128(),
-    // ));
-    //
-    //
-    // let load_handle_mesh: Handle<GltfBuiltMeshData> = loader.load_asset(ObjectId(
-    //     uuid::Uuid::parse_str("ced7b55b693240b281feed577fcc4cba")
-    //         .unwrap()
-    //         .as_u128(),
-    // ));
-    //
-    //
-    // let load_handle_material: Handle<GltfBuiltMaterialData> = loader.load_asset(ObjectId(
-    //     uuid::Uuid::parse_str("ccd1f453d6224b2fab9bc8021a6c7dde")
-    //         .unwrap()
-    //         .as_u128(),
-    // ));
-    //
-    //
-    //
-    // let load_handle_material2: Handle<GltfBuiltMaterialData> = loader.load_asset(ObjectId(
-    //     uuid::Uuid::parse_str("ccd1f453d6224b2fab9bc8021a6c7dde")
-    //         .unwrap()
-    //         .as_u128(),
-    // ));
-    //
-    //
-    // let load_handle_transform: Handle<Transform> = loader.load_asset(ObjectId(
-    //     uuid::Uuid::parse_str("dece7fdfc3fc4691b93101c0b25cb822")
-    //         .unwrap()
-    //         .as_u128(),
-    // ));
-
     let load_handle_transform_ref: Handle<TransformRef> = loader.load_asset(ArtifactId(
         uuid::Uuid::parse_str("798bd93be6d14f459d31d7e689c28c03")
             .unwrap()
@@ -72,51 +92,22 @@ fn main() {
     ));
 
 
-    let load_handle_mesh_ref: Handle<MeshAdvMeshAssetData> = loader.load_asset(ArtifactId(
+    let load_handle_mesh: Handle<MeshAdvMeshAssetData> = loader.load_asset(ArtifactId(
         uuid::Uuid::parse_str("522aaf98-5dc3-4578-a4cc-411ca6c0a826")
             .unwrap()
             .as_u128(),
     ));
 
 
+    let load_handle_image: Handle<GpuImageAsset> = loader.load_asset(ArtifactId(
+        uuid::Uuid::parse_str("fe9a9f83-a7c1-4a00-b61d-17a1dca43717")
+            .unwrap()
+            .as_u128(),
+    ));
+
     loop {
         std::thread::sleep(std::time::Duration::from_millis(15));
         loader.update();
-
-        // let data = load_handle_image.asset(loader.storage());
-        // if let Some(data) = data {
-        //     //println!("{} {}", data.width, data.height);
-        // } else {
-        //     println!("not loaded");
-        // }
-        //
-        // let data = load_handle_mesh.asset(loader.storage());
-        // if let Some(data) = data {
-        //     //println!("mesh loaded");
-        // } else {
-        //     println!("mesh not loaded");
-        // }
-        //
-        // let data = load_handle_material.asset(loader.storage());
-        // if let Some(data) = data {
-        //     //println!("material loaded");
-        // } else {
-        //     println!("material not loaded");
-        // }
-        //
-        // let data = load_handle_material2.asset(loader.storage());
-        // if let Some(data) = data {
-        //     //println!("material loaded");
-        // } else {
-        //     println!("material not loaded");
-        // }
-        //
-        // let data = load_handle_transform.asset(loader.storage());
-        // if let Some(data) = data {
-        //     //println!("transform loaded {:?}", data);
-        // } else {
-        //     println!("material not loaded");
-        // }
 
         let data = load_handle_transform_ref.asset(loader.storage());
         if let Some(data) = data {
@@ -128,7 +119,7 @@ fn main() {
             println!("material not loaded");
         }
 
-        let data = load_handle_mesh_ref.asset(loader.storage());
+        let data = load_handle_mesh.asset(loader.storage());
         if let Some(data) = data {
             let data_full_vb = data.vertex_position_buffer.as_ref().map(|x| x.asset(loader.storage()).unwrap());
             let data_position_vb = data.vertex_position_buffer.as_ref().map(|x| x.asset(loader.storage()).unwrap());
@@ -143,6 +134,13 @@ fn main() {
 
         } else {
             println!("material not loaded");
+        }
+
+        let data = load_handle_image.asset(loader.storage());
+        if let Some(data) = data {
+            println!("image loaded {:?}", data.image_bytes.len());
+        } else {
+            println!("image not loaded");
         }
     }
 }

@@ -15,3 +15,42 @@ const WINDOW_NAME_ASSETS_RIGHT: &str = "AssetsWindowRight";
 const WINDOW_NAME_EXTERNAL_REFERENCES: &str = "ExternalReferencesWindow";
 const WINDOW_NAME_EXTERNAL_REFERENCES_LEFT: &str = "ExternalReferencesWindowLeft";
 const WINDOW_NAME_EXTERNAL_REFERENCES_RIGHT: &str = "ExternalReferencesWindowRight";
+
+struct ImguiDisableHelper {
+    is_disabled: bool
+}
+
+impl ImguiDisableHelper {
+    pub fn new(is_disabled: bool) -> Self {
+        if is_disabled {
+            unsafe {
+                imgui::sys::igPushItemFlag(imgui::sys::ImGuiItemFlags__ImGuiItemFlags_Disabled as _, true);
+            }
+        }
+
+        ImguiDisableHelper {
+            is_disabled
+        }
+    }
+}
+
+impl Default for ImguiDisableHelper {
+    fn default() -> Self {
+        unsafe {
+            imgui::sys::igPushItemFlag(imgui::sys::ImGuiItemFlags__ImGuiItemFlags_Disabled as _, true);
+            ImguiDisableHelper {
+                is_disabled: true
+            }
+        }
+    }
+}
+
+impl Drop for ImguiDisableHelper {
+    fn drop(&mut self) {
+        if self.is_disabled {
+            unsafe {
+                imgui::sys::igPopItemFlag();
+            }
+        }
+    }
+}

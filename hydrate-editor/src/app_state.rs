@@ -24,7 +24,7 @@ pub enum QueuedActions {
     Quit,
     QuitNoConfirm,
     HandleDroppedFiles(Vec<PathBuf>),
-    TryBeginModalAction(Box<ModalAction>),
+    TryBeginModalAction(Box<dyn ModalAction>),
     MoveObjects(Vec<ObjectId>, ObjectLocation),
     PersistAssets(Vec<ObjectId>),
     //RevertAll,
@@ -123,7 +123,7 @@ pub trait ModalAction {
     ) -> ModalActionControlFlow;
 }
 
-impl std::fmt::Debug for ModalAction {
+impl std::fmt::Debug for dyn ModalAction {
     fn fmt(
         &self,
         f: &mut Formatter<'_>,
@@ -144,7 +144,7 @@ pub struct AppState {
     pub asset_engine: AssetEngine,
     pub action_queue: ActionQueueReceiver,
     ready_to_quit: bool,
-    pub modal_action: Option<Box<ModalAction>>,
+    pub modal_action: Option<Box<dyn ModalAction>>,
 }
 
 impl AppState {

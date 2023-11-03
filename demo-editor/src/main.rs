@@ -56,7 +56,7 @@ fn main() {
     //TODO: Support N sources using path nodes
     let schema_set = hydrate::editor::DbState::load_schema(
         linker,
-        &schema_def_path(),
+        &[&schema_def_path()],
         &schema_cache_file_path()
     );
 

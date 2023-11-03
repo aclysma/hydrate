@@ -44,10 +44,6 @@ pub fn draw_properties_window_single_select(
         if ui.button(im_str!("Persist Asset")) {
             app_state.action_queue.queue_action(QueuedActions::PersistAssets(vec![object_id]));
         }
-
-        unsafe {
-            is::igPushItemFlag(is::ImGuiItemFlags__ImGuiItemFlags_Disabled as _, true);
-        }
     }
 
     ui.text(im_str!(
@@ -80,14 +76,20 @@ pub fn draw_properties_window_single_select(
         ui.text(format!("Prototype: {}", prototype_display_name));
     }
 
-    crate::ui::components::draw_ui_inspector::draw_inspector_nexdb(ui, app_state, object_id);
+
+    // unsafe {
+    //     is::igPushItemFlag(is::ImGuiItemFlags__ImGuiItemFlags_Disabled as _, true);
+    // }
+
+    let read_only = is_generated;
+    crate::ui::components::draw_ui_inspector::draw_inspector_nexdb(ui, app_state, object_id, read_only);
 
 
-    if is_generated {
-        unsafe {
-            is::igPopItemFlag();
-        }
-    }
+    // if is_generated {
+    //     unsafe {
+    //         is::igPopItemFlag();
+    //     }
+    // }
 }
 
 pub fn draw_properties_window(

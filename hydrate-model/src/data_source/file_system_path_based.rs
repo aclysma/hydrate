@@ -643,7 +643,7 @@ impl DataSource for FileSystemPathBasedDataSource {
         // Re-import source files
         //
         for (source_file_path, scanned_source_file) in &scanned_source_files {
-            //println!("source file second pass {:?}", source_file_path);
+            println!("source file second pass {:?}", source_file_path);
             let parent_dir = source_file_path.parent().unwrap();
             //println!("  import to dir {:?}", parent_dir);
             let import_location = ObjectLocation::new(*path_to_path_node_id.get(parent_dir).unwrap());
@@ -716,6 +716,7 @@ impl DataSource for FileSystemPathBasedDataSource {
                         file_reference.path.clone()
                     };
 
+                    println!("referenced {:?} {:?}", file_reference_absolute_path, scanned_source_files.keys());
                     let referenced_object = scanned_source_files.get(&file_reference_absolute_path).unwrap();
                     assert_eq!(file_reference.importer_id, referenced_object.importer.importer_id());
                     referenced_source_file_object_ids.push(referenced_object.meta_file.past_id_assignments.get(""));

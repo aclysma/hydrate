@@ -205,14 +205,16 @@ impl DbState {
 
     pub fn load_schema(
         mut linker: SchemaLinker,
-        schema_def_path: &Path,
+        schema_def_paths: &[&Path],
         schema_cache_file_path: &Path,
     ) -> Arc<SchemaSet> {
         let mut schema_set = SchemaSet::default();
 
         PathNode::register_schema(&mut linker);
         PathNodeRoot::register_schema(&mut linker);
-        linker.add_source_dir(schema_def_path, "**.json").unwrap();
+        for path in schema_def_paths {
+            linker.add_source_dir(path, "**.json").unwrap();
+        }
         schema_set.add_linked_types(linker).unwrap();
 
         if let Some(schema_cache_str) = std::fs::read_to_string(schema_cache_file_path).ok() {

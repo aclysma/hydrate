@@ -1,3 +1,4 @@
+use std::fs::read;
 use crate::app_state::AppState;
 use crate::ui::asset_browser_grid_drag_drop::AssetBrowserGridPayload;
 use crate::ui_state::UiState;
@@ -5,6 +6,7 @@ use hydrate_model::edit_context::EditContext;
 use hydrate_model::{EndContextBehavior, Schema, SchemaEnum, Value};
 use imgui::im_str;
 use hydrate_model::value::ValueEnum;
+use crate::ui::ImguiDisableHelper;
 
 fn draw_property_style<F: FnOnce(&imgui::Ui)>(
     ui: &imgui::Ui,
@@ -38,8 +40,10 @@ fn draw_inspector_simple_property<
     _property_name: &str,
     schema: &hydrate_model::Schema,
     property_inherited: bool,
+    read_only: bool,
     f: F,
 ) {
+    let disabled_helper = ImguiDisableHelper::new(read_only);
     let v = if property_inherited {
         if let Some(value) = edit_context.resolve_property(object_id, &property_path) {
             value
@@ -88,6 +92,7 @@ fn draw_inspector_simple_property_enum(
     schema: &hydrate_model::Schema,
     property_inherited: bool,
     schema_enum: &SchemaEnum,
+    read_only: bool,
 ) {
     use hydrate_model::*;
 
@@ -100,6 +105,7 @@ fn draw_inspector_simple_property_enum(
         property_name,
         schema,
         property_inherited,
+        read_only,
         |ui, value| {
             let mut v = value.as_enum().unwrap();
             let property_im_str = im_str!("{}", &property_name);
@@ -139,6 +145,7 @@ fn draw_inspector_simple_property_bool(
     property_name: &str,
     schema: &hydrate_model::Schema,
     property_inherited: bool,
+    read_only: bool,
 ) {
     use hydrate_model::*;
 
@@ -151,6 +158,7 @@ fn draw_inspector_simple_property_bool(
         property_name,
         schema,
         property_inherited,
+        read_only,
         |ui, value| {
             let mut v = value.as_boolean().unwrap();
             let property_im_str = im_str!("{}", &property_name);
@@ -184,6 +192,7 @@ fn draw_inspector_simple_property_i32(
     property_name: &str,
     schema: &hydrate_model::Schema,
     property_inherited: bool,
+    read_only: bool,
 ) {
     use hydrate_model::*;
 
@@ -196,6 +205,7 @@ fn draw_inspector_simple_property_i32(
         property_name,
         schema,
         property_inherited,
+        read_only,
         |ui, value| {
             let mut v = value.as_i32().unwrap();
             let property_im_str = im_str!("{}", &property_name);
@@ -230,6 +240,7 @@ fn draw_inspector_simple_property_u32(
     property_name: &str,
     schema: &hydrate_model::Schema,
     property_inherited: bool,
+    read_only: bool,
 ) {
     use hydrate_model::*;
 
@@ -242,6 +253,7 @@ fn draw_inspector_simple_property_u32(
         property_name,
         schema,
         property_inherited,
+        read_only,
         |ui, value| {
             let mut v = value.as_u32().unwrap();
             let property_im_str = im_str!("{}", &property_name);
@@ -275,6 +287,7 @@ fn draw_inspector_simple_property_i64(
     property_name: &str,
     schema: &hydrate_model::Schema,
     property_inherited: bool,
+    read_only: bool,
 ) {
     use hydrate_model::*;
 
@@ -287,6 +300,7 @@ fn draw_inspector_simple_property_i64(
         property_name,
         schema,
         property_inherited,
+        read_only,
         |ui, value| {
             let mut v = value.as_i64().unwrap();
             let property_im_str = im_str!("{}", &property_name);
@@ -320,6 +334,7 @@ fn draw_inspector_simple_property_u64(
     property_name: &str,
     schema: &hydrate_model::Schema,
     property_inherited: bool,
+    read_only: bool,
 ) {
     use hydrate_model::*;
 
@@ -332,6 +347,7 @@ fn draw_inspector_simple_property_u64(
         property_name,
         schema,
         property_inherited,
+        read_only,
         |ui, value| {
             let mut v = value.as_u64().unwrap();
             let property_im_str = im_str!("{}", &property_name);
@@ -365,6 +381,7 @@ fn draw_inspector_simple_property_f32(
     property_name: &str,
     schema: &hydrate_model::Schema,
     property_inherited: bool,
+    read_only: bool,
 ) {
     use hydrate_model::*;
 
@@ -377,6 +394,7 @@ fn draw_inspector_simple_property_f32(
         property_name,
         schema,
         property_inherited,
+        read_only,
         |ui, value| {
             let mut v = value.as_f32().unwrap();
             let property_im_str = im_str!("{}", &property_name);
@@ -410,6 +428,7 @@ fn draw_inspector_simple_property_f64(
     property_name: &str,
     schema: &hydrate_model::Schema,
     property_inherited: bool,
+    read_only: bool,
 ) {
     use hydrate_model::*;
 
@@ -422,6 +441,7 @@ fn draw_inspector_simple_property_f64(
         property_name,
         schema,
         property_inherited,
+        read_only,
         |ui, value| {
             let mut v = value.as_f64().unwrap();
             let property_im_str = im_str!("{}", &property_name);
@@ -455,6 +475,7 @@ fn draw_inspector_simple_property_string(
     property_name: &str,
     schema: &hydrate_model::Schema,
     property_inherited: bool,
+    read_only: bool,
 ) {
     use hydrate_model::*;
 
@@ -467,6 +488,7 @@ fn draw_inspector_simple_property_string(
         property_name,
         schema,
         property_inherited,
+        read_only,
         |ui, value| {
             let v = value.as_string().unwrap();
             let property_im_str = im_str!("{}", &property_name);
@@ -503,6 +525,7 @@ fn draw_inspector_object_ref(
     property_name: &str,
     schema: &hydrate_model::Schema,
     property_inherited: bool,
+    read_only: bool,
 ) {
     use hydrate_model::*;
 
@@ -515,6 +538,7 @@ fn draw_inspector_object_ref(
         property_name,
         schema,
         property_inherited,
+        read_only,
         |ui, value| {
             let v = value.as_object_ref().unwrap();
             let property_im_str = im_str!("{}", &property_name);
@@ -587,6 +611,7 @@ fn draw_inspector_nexdb_property(
     property_path: &str,
     property_name: &str,
     schema: &hydrate_model::Schema,
+    read_only: bool,
 ) {
     use hydrate_model::*;
 
@@ -605,6 +630,8 @@ fn draw_inspector_nexdb_property(
                 });
 
                 ui.indent();
+
+                let disable_helper = ImguiDisableHelper::new(read_only);
 
                 if is_nulled {
                     if ui.button(im_str!("Set Non-Null")) {
@@ -631,6 +658,7 @@ fn draw_inspector_nexdb_property(
                     edit_context.remove_null_override(object_id, property_path);
                 }
 
+                drop(disable_helper);
                 if !is_nulled {
                     ui.indent();
 
@@ -651,6 +679,7 @@ fn draw_inspector_nexdb_property(
                         &inner_property_path,
                         "value",
                         &*inner_schema,
+                        read_only
                     );
                     id_token.pop();
                     ui.unindent();
@@ -672,6 +701,7 @@ fn draw_inspector_nexdb_property(
                     property_name,
                     schema,
                     property_inherited,
+                    read_only,
                 );
             });
         }
@@ -689,6 +719,7 @@ fn draw_inspector_nexdb_property(
                     property_name,
                     schema,
                     property_inherited,
+                    read_only,
                 );
             });
         }
@@ -706,6 +737,7 @@ fn draw_inspector_nexdb_property(
                     property_name,
                     schema,
                     property_inherited,
+                    read_only,
                 );
             });
         }
@@ -723,6 +755,7 @@ fn draw_inspector_nexdb_property(
                     property_name,
                     schema,
                     property_inherited,
+                    read_only,
                 );
             });
         }
@@ -740,6 +773,7 @@ fn draw_inspector_nexdb_property(
                     property_name,
                     schema,
                     property_inherited,
+                    read_only,
                 );
             });
         }
@@ -757,6 +791,7 @@ fn draw_inspector_nexdb_property(
                     property_name,
                     schema,
                     property_inherited,
+                    read_only,
                 );
             });
         }
@@ -774,6 +809,7 @@ fn draw_inspector_nexdb_property(
                     property_name,
                     schema,
                     property_inherited,
+                    read_only,
                 );
             });
         }
@@ -805,6 +841,7 @@ fn draw_inspector_nexdb_property(
                     property_name,
                     schema,
                     property_inherited,
+                    read_only,
                 );
             });
         }
@@ -839,6 +876,7 @@ fn draw_inspector_nexdb_property(
                         &field_path,
                         &id.to_string(),
                         array.item_type(),
+                        read_only,
                     );
                     id_token.pop();
                 }
@@ -856,6 +894,7 @@ fn draw_inspector_nexdb_property(
                         &field_path,
                         &id.to_string(),
                         array.item_type(),
+                        read_only,
                     );
                     id_token.pop();
                 }
@@ -884,6 +923,7 @@ fn draw_inspector_nexdb_property(
                     property_name,
                     schema,
                     property_inherited,
+                    read_only,
                 );
             });
         }
@@ -920,6 +960,7 @@ fn draw_inspector_nexdb_property(
                                 &field_path,
                                 field.name(),
                                 field.field_schema(),
+                                read_only,
                             );
                             id_token.pop();
                         }
@@ -948,7 +989,8 @@ fn draw_inspector_nexdb_property(
                         property_name,
                         schema,
                         property_inherited,
-                        &schema_enum
+                        &schema_enum,
+                        read_only,
                     );
                 }
                 SchemaNamedType::Fixed(_) => {
@@ -989,6 +1031,7 @@ pub fn draw_inspector_nexdb(
     ui: &imgui::Ui,
     app_state: &mut AppState,
     object_id: hydrate_model::ObjectId,
+    read_only: bool,
 ) {
     let ui_state = &mut app_state.ui_state;
     app_state
@@ -1011,6 +1054,7 @@ pub fn draw_inspector_nexdb(
                     "",
                     "",
                     &Schema::NamedType(schema.fingerprint()),
+                    read_only,
                 );
             } else {
                 ui.text("WARNING: Could not find schema");

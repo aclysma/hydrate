@@ -141,7 +141,7 @@ pub struct JobProcessorRegistry {
     inner: Arc<JobProcessorRegistryInner>,
 }
 
-
+#[derive(Clone, Debug)]
 pub struct AssetArtifactIdPair {
     pub asset_id: ObjectId,
     pub artifact_id: ArtifactId,

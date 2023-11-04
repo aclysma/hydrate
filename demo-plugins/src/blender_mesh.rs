@@ -5,7 +5,7 @@ use glam::Vec3;
 
 use demo_types::mesh_adv::*;
 use hydrate_base::BuiltObjectMetadata;
-use hydrate_model::{BuilderRegistryBuilder, DataContainer, DataContainerMut, DataSet, Enum, HashMap, ImportableObject, ImporterId, ImporterRegistryBuilder, JobProcessorRegistryBuilder, ObjectId, ObjectRefField, Record, ReferencedSourceFile, SchemaLinker, SchemaSet, SingleObject};
+use hydrate_model::{BuilderRegistryBuilder, DataContainer, DataContainerMut, DataSet, Enum, HashMap, ImportableObject, ImporterId, ImporterRegistry, ImporterRegistryBuilder, JobProcessorRegistryBuilder, ObjectId, ObjectRefField, Record, ReferencedSourceFile, SchemaLinker, SchemaSet, SingleObject};
 use hydrate_model::pipeline::{AssetPlugin, Builder, BuiltAsset};
 use hydrate_model::pipeline::{ImportedImportable, ScannedImportable, Importer};
 use serde::{Deserialize, Serialize};
@@ -73,6 +73,7 @@ impl Importer for BlenderMeshImporter {
         &self,
         path: &Path,
         schema_set: &SchemaSet,
+        importer_registry: &ImporterRegistry,
     ) -> Vec<ScannedImportable> {
         let mesh_adv_asset_type = schema_set
             .find_named_type(MeshAdvMeshAssetRecord::schema_name())

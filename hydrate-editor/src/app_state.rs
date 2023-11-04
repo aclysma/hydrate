@@ -197,7 +197,7 @@ impl AppState {
                 }
                 QueuedActions::QuitNoConfirm => self.ready_to_quit = true,
                 QueuedActions::HandleDroppedFiles(files) => {
-                    self.try_set_modal_action(ImportFilesModal::new(files));
+                    self.try_set_modal_action(ImportFilesModal::new(files, self.asset_engine.importer_registry()));
                 }
                 QueuedActions::TryBeginModalAction(modal_action) => {
                     if self.modal_action.is_none() {

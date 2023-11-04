@@ -1,5 +1,5 @@
 use uuid::Uuid;
-use crate::{DataSet, ObjectId, OverrideBehavior, SchemaSet, SingleObject, Value};
+use crate::{DataSet, NullOverride, ObjectId, OverrideBehavior, SchemaSet, SingleObject, Value};
 use crate::data_set::DataSetResult;
 
 pub fn do_push_property_path(property_path_stack: &mut Vec<String>, property_path: &mut String, path: &str) {
@@ -63,6 +63,13 @@ impl<'a> DataContainer<'a> {
         }
     }
 
+    pub fn get_null_override(&self, path: impl AsRef<str>) -> Option<NullOverride> {
+        match *self {
+            DataContainer::DataSet(data_set, schema_set, object_id) => data_set.get_null_override(schema_set, object_id, path),
+            DataContainer::SingleObject(single_object, schema_set) => single_object.get_null_override(schema_set, path)
+        }
+    }
+
     pub fn resolve_is_null(&self, path: impl AsRef<str>) -> Option<bool> {
         match *self {
             DataContainer::DataSet(data_set, schema_set, object_id) => data_set.resolve_is_null(schema_set, object_id, path),
@@ -116,6 +123,24 @@ impl<'a> DataContainerMut<'a> {
         match self {
             DataContainerMut::DataSet(data_set, schema_set, object_id) => data_set.resolve_property(schema_set, *object_id, path),
             DataContainerMut::SingleObject(single_object, schema_set) => single_object.resolve_property(schema_set, path)
+        }
+    }
+
+    pub fn get_null_override(&self, path: impl AsRef<str>, null_override: NullOverride) -> Option<NullOverride> {
+        self.read().get_null_override(path)
+    }
+
+    pub fn set_null_override(&mut self, path: impl AsRef<str>, null_override: NullOverride) {
+        match self {
+            DataContainerMut::DataSet(data_set, schema_set, object_id) => data_set.set_null_override(schema_set, *object_id, path, null_override),
+            DataContainerMut::SingleObject(single_object, schema_set) => single_object.set_null_override(schema_set, path, null_override)
+        }
+    }
+
+    pub fn remove_null_override(&mut self, path: impl AsRef<str>) {
+        match self {
+            DataContainerMut::DataSet(data_set, schema_set, object_id) => data_set.remove_null_override(schema_set, *object_id, path),
+            DataContainerMut::SingleObject(single_object, schema_set) => single_object.remove_null_override(schema_set, path)
         }
     }
 
@@ -255,6 +280,10 @@ impl<'a> DataSetView<'a> {
         self.data_container.resolve_property(join_path_and_field(&self.property_path, field_name))
     }
 
+    pub fn get_null_override(&self, field_name: &str) -> Option<NullOverride> {
+        self.data_container.get_null_override(join_path_and_field(&self.property_path, field_name))
+    }
+
     pub fn resolve_is_null(&self, field_name: &str) -> Option<bool> {
         self.data_container.resolve_is_null(join_path_and_field(&self.property_path, field_name))
     }
@@ -291,6 +320,14 @@ impl<'a> DataSetViewMut<'a> {
 
     pub fn pop_property_path(&mut self) {
         do_pop_property_path(&mut self.property_path_stack, &mut self.property_path);
+    }
+
+    pub fn set_null_override(&mut self, field_name: &str, null_override: NullOverride) {
+        self.data_container.set_null_override(join_path_and_field(&self.property_path, field_name), null_override);
+    }
+
+    pub fn remove_null_override(&mut self, field_name: &str) {
+        self.data_container.remove_null_override(join_path_and_field(&self.property_path, field_name));
     }
 
     pub fn set_property_override(&mut self, field_name: &str, value: Value) -> DataSetResult<()> {

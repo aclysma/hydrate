@@ -1,9 +1,7 @@
 use crate::app_state::{ActionQueueSender, AppState, ModalAction, ModalActionControlFlow};
 use crate::db_state::DbState;
 use crate::ui_state::UiState;
-use hydrate_model::{
-    HashMap, ImportInfo, ImporterId, LocationTreeNode, ObjectId, ObjectLocation, ObjectName,
-};
+use hydrate_model::{HashMap, ImportInfo, ImporterId, LocationTreeNode, ObjectId, ObjectLocation, ObjectName, HashSet};
 use hydrate_model::pipeline::Importer;
 use hydrate_model::pipeline::{AssetEngine, ImportJobs, ImporterRegistry};
 use imgui::sys::ImVec2;
@@ -18,10 +16,35 @@ pub struct ImportFilesModal {
 }
 
 impl ImportFilesModal {
-    pub fn new(files_to_import: Vec<PathBuf>) -> Self {
+    pub fn new(files_to_import: Vec<PathBuf>, importer_registry: &ImporterRegistry) -> Self {
+        println!("show ImportFilesModal {:?}", files_to_import);
+
+        let mut all_files_to_import: HashSet<PathBuf> = files_to_import.iter().cloned().collect();
+
+        for file in &files_to_import {
+            // Recursively look for files
+            if file.is_dir() {
+                let walker = globwalk::GlobWalkerBuilder::from_patterns(file, &["**"])
+                    .file_type(globwalk::FileType::FILE)
+                    .build()
+                    .unwrap();
+
+                for file in walker {
+                    if let Ok(file) = file {
+                        if let Some(extension) = file.path().extension() {
+                            if !importer_registry.importers_for_file_extension(&*extension.to_string_lossy()).is_empty() {
+                                all_files_to_import.insert(file.path().to_path_buf());
+                                println!("import {:?}", file);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
         ImportFilesModal {
             finished_first_draw: false,
-            files_to_import,
+            files_to_import: all_files_to_import.into_iter().collect(),
             selected_import_location: ObjectLocation::null(),
         }
     }
@@ -318,6 +341,30 @@ impl ModalAction for ImportFilesModal {
 
             ui.same_line();
             if ui.button(imgui::im_str!("Import")) {
+                //let mut files_to_import: HashSet<PathBuf> = self.files_to_import.iter().cloned().collect();
+
+                // for file in &self.files_to_import {
+                //     // Recursively look for files
+                //     if file.is_dir() {
+                //         let walker = globwalk::GlobWalkerBuilder::from_patterns(file, &["**"])
+                //             .file_type(globwalk::FileType::FILE)
+                //             .build()
+                //             .unwrap();
+                //
+                //         for file in walker {
+                //             if let Ok(file) = file {
+                //                 if let Some(extension) = file.path().extension() {
+                //                     if !asset_engine.importer_registry().importers_for_file_extension(&*extension.to_string_lossy()).is_empty() {
+                //                         files_to_import.insert(file.path().to_path_buf());
+                //                         println!("import {:?}", file);
+                //                     }
+                //                 }
+                //             }
+                //         }
+                //     }
+                // }
+
+
                 for file in &self.files_to_import {
                     let extension = file.extension();
                     if let Some(extension) = extension {

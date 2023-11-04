@@ -1,8 +1,4 @@
-use crate::{
-    DataSet, DataSource, EditorModel, HashMap, HashMapKeys, ImportInfo,
-    ImporterId, ObjectId, ObjectLocation, ObjectName, ObjectSourceId, Schema, SchemaFingerprint,
-    SchemaLinker, SchemaNamedType, SchemaRecord, SchemaSet, SingleObject, Value,
-};
+use crate::{DataSet, DataSource, EditorModel, HashMap, HashMapKeys, ImportInfo, ImporterId, ObjectId, ObjectLocation, ObjectName, ObjectSourceId, Schema, SchemaFingerprint, SchemaLinker, SchemaNamedType, SchemaRecord, SchemaSet, SingleObject, Value, ImporterRegistry};
 use serde::{Deserialize, Serialize};
 use std::hash::{Hash, Hasher};
 use std::path::{Path, PathBuf};
@@ -71,6 +67,7 @@ pub trait Importer: TypeUuidDynamic {
         &self,
         path: &Path,
         schema_set: &SchemaSet,
+        importer_registry: &ImporterRegistry,
     ) -> Vec<ScannedImportable>;
 
     // Open the file and extract all the data from it required for the build step, or for build

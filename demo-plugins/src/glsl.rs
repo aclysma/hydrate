@@ -553,6 +553,7 @@ impl Importer for GlslSourceFileImporter {
         &self,
         path: &Path,
         schema_set: &SchemaSet,
+        importer_registry: &ImporterRegistry,
     ) -> Vec<ScannedImportable> {
         log::info!("GlslSourceFileImporter reading file {:?}", path);
         let code = std::fs::read_to_string(path).unwrap();

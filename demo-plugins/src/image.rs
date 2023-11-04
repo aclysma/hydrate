@@ -4,7 +4,7 @@ use std::path::{Path};
 
 use demo_types::image::*;
 use hydrate_base::BuiltObjectMetadata;
-use hydrate_model::{BooleanField, BuilderRegistryBuilder, BytesField, DataContainer, DataContainerMut, DataSet, Field, HashMap, ImportableObject, ImporterRegistryBuilder, job_system, JobApi, JobEnumeratedDependencies, JobId, JobInput, JobOutput, JobProcessor, JobProcessorRegistry, JobProcessorRegistryBuilder, NewJob, ObjectId, PropertyPath, Record, SchemaLinker, SchemaSet, SingleObject, U32Field};
+use hydrate_model::{BooleanField, BuilderRegistryBuilder, BytesField, DataContainer, DataContainerMut, DataSet, Field, HashMap, ImportableObject, ImporterRegistry, ImporterRegistryBuilder, job_system, JobApi, JobEnumeratedDependencies, JobId, JobInput, JobOutput, JobProcessor, JobProcessorRegistry, JobProcessorRegistryBuilder, NewJob, ObjectId, PropertyPath, Record, SchemaLinker, SchemaSet, SingleObject, U32Field};
 use hydrate_model::pipeline::{AssetPlugin, Builder, BuiltAsset};
 use hydrate_model::pipeline::{ImportedImportable, ScannedImportable, Importer};
 use serde::{Deserialize, Serialize};
@@ -24,6 +24,7 @@ impl Importer for GpuImageImporter {
         &self,
         path: &Path,
         schema_set: &SchemaSet,
+        importer_registry: &ImporterRegistry,
     ) -> Vec<ScannedImportable> {
         let asset_type = schema_set
             .find_named_type(GpuImageAssetRecord::schema_name())

@@ -599,7 +599,7 @@ impl DataSource for FileSystemPathBasedDataSource {
                 let importer = self.importer_registry.importer(importers[0]).unwrap();
 
                 let scanned_importables = importer.scan_file(
-                    &source_file, edit_context.schema_set());
+                    &source_file, edit_context.schema_set(), &self.importer_registry);
 
                 //println!("  find meta file {:?}", source_file);
                 let mut meta_file = source_file_meta_files.get(&source_file).cloned().unwrap_or_default();
@@ -716,7 +716,7 @@ impl DataSource for FileSystemPathBasedDataSource {
                         file_reference.path.clone()
                     };
 
-                    println!("referenced {:?} {:?}", file_reference_absolute_path, scanned_source_files.keys());
+                    //println!("referenced {:?} {:?}", file_reference_absolute_path, scanned_source_files.keys());
                     let referenced_object = scanned_source_files.get(&file_reference_absolute_path).unwrap();
                     assert_eq!(file_reference.importer_id, referenced_object.importer.importer_id());
                     referenced_source_file_object_ids.push(referenced_object.meta_file.past_id_assignments.get(""));

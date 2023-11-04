@@ -1,7 +1,7 @@
 
 use std::marker::PhantomData;
 use uuid::Uuid;
-use crate::{DataContainer, DataContainerMut, DataSetError, DataSetResult, DataSetViewMut, ObjectId, SchemaSet, SingleObject, Value};
+use crate::{DataContainer, DataContainerMut, DataSetError, DataSetResult, DataSetViewMut, NullOverride, ObjectId, SchemaSet, SingleObject, Value};
 use crate::value::ValueEnum;
 
 #[derive(Default)]
@@ -100,24 +100,31 @@ impl<T: Field> Field for NullableField<T> {
 }
 
 impl<T: Field> NullableField<T> {
-    pub fn get(&self, data_container: &DataContainer) -> T {
-        // if data_container.resolve_is_null(self.0.path()) == Some(false) {
-        //     Some(T::new(self.0.push("value")))
-        // } else {
-        //     None
-        // }
+    pub fn resolve_null(&self, data_container: &DataContainer) -> Option<T> {
+        if !self.is_null(data_container) {
+            Some(T::new(self.0.push("value")))
+        } else {
+            None
+        }
+    }
 
-        T::new(self.0.push("value"))
+    pub fn is_null(&self, data_container: &DataContainer) -> bool {
+        data_container.resolve_is_null(self.0.path()).unwrap()
     }
 
     // set_is_null
 
     // is_null
 
-    // pub fn set(&self, data_container: &mut DataSetViewMut, value: f32) -> DataSetResult<()> {
-    //     //TODO: This is wrong
-    //     //data_container.set_property_override(self.0.path(), Value::F32(value))
-    // }
+    pub fn set_not_null(&self, data_container: &mut DataContainerMut) -> T {
+        data_container.set_null_override(self.0.path(), NullOverride::SetNonNull);
+        T::new(self.0.push("value"))
+
+
+
+        //TODO: This is wrong
+        //data_container.set_property_override(self.0.path(), Value::F32(value))
+    }
 }
 
 // Getter, Accessor, Field, Member, Prop, Property, Value, Schema, Path,

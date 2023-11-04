@@ -34,6 +34,7 @@ impl Importer for GltfImporter {
         &self,
         path: &Path,
         schema_set: &SchemaSet,
+        importer_registry: &ImporterRegistry,
     ) -> Vec<ScannedImportable> {
         let mesh_asset_type = schema_set
             .find_named_type(MeshAdvMeshAssetRecord::schema_name())

@@ -14,6 +14,8 @@ use hydrate_model::{Schema, SchemaEnum, SchemaNamedType, SchemaRecord, SchemaSet
 pub struct HydrateCodegenArgs {
     #[structopt(name = "schema-path", long, parse(from_os_str))]
     pub schema_path: PathBuf,
+    #[structopt(name = "included-schema", long, parse(from_os_str))]
+    pub included_schema: Vec<PathBuf>,
     #[structopt(name = "outfile", long, parse(from_os_str))]
     pub outfile: PathBuf,
     #[structopt(name = "trace", long)]
@@ -22,28 +24,40 @@ pub struct HydrateCodegenArgs {
 
 
 pub fn run(args: &HydrateCodegenArgs) -> Result<(), Box<dyn Error>> {
-    schema_to_rs(&args.schema_path, &args.outfile)
+    schema_to_rs(&args.schema_path, &args.included_schema, &args.outfile)
 }
 
 
 fn schema_to_rs(
     schema_path: &Path,
+    referenced_schema_paths: &[PathBuf],
     outfile: &Path,
 ) -> Result<(), Box<dyn Error>> {
 
     let mut linker = hydrate_model::SchemaLinker::default();
     linker.add_source_dir(&schema_path, "**.json").unwrap();
 
+    let named_types_to_build = linker.unlinked_type_names();
+
+    for referenced_schema_path in referenced_schema_paths {
+        linker.add_source_dir(referenced_schema_path, "**.json").unwrap();
+    }
+
     let mut schema_set = SchemaSet::default();
     schema_set.add_linked_types(linker).unwrap();
 
-    let mut code_fragments_as_string = Vec::default();
+    let mut all_schemas_to_build = Vec::default();
+    for named_type_to_build in named_types_to_build {
+        let named_type = schema_set.find_named_type(named_type_to_build).unwrap();
+        all_schemas_to_build.push((named_type.fingerprint(), named_type));
+    }
 
     // Sort by name so we have a deterministic output ordering for codegen
-    let mut all_schemas: Vec<_> = schema_set.schemas().iter().map(|(k, v)| (k, v)).collect();
-    all_schemas.sort_by(|lhs, rhs| lhs.1.name().cmp(rhs.1.name()));
+    all_schemas_to_build.sort_by(|lhs, rhs| lhs.1.name().cmp(rhs.1.name()));
 
-    for (fingerprint, named_type) in all_schemas {
+    let mut code_fragments_as_string = Vec::default();
+
+    for (fingerprint, named_type) in all_schemas_to_build {
         //println!("{:?} {:?}", fingerprint, named_type);
 
         let scope = match named_type {

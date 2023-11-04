@@ -132,6 +132,7 @@ impl BuildJobs {
                 }
 
                 let object_id = request.object_id;
+                println!("find {:?}", object_id);
                 let object_type = editor_model
                     .root_edit_context()
                     .object_schema(object_id)

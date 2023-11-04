@@ -43,6 +43,10 @@ pub struct SchemaLinker {
 }
 
 impl SchemaLinker {
+    pub fn unlinked_type_names(&self) -> Vec<String> {
+        self.types.keys().cloned().collect()
+    }
+
     fn add_named_type(
         &mut self,
         named_type: SchemaDefNamedType,

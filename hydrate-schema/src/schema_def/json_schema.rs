@@ -71,8 +71,6 @@ fn parse_json_schema_type_ref(
             unimplemented!()
         }
         "object_ref" => {
-            //unimplemented!()
-
             let inner_type = json_value.get("inner_type").ok_or_else(|| {
                 SchemaDefParserError::String(format!(
                     "{}All object_ref types must has an inner_type",

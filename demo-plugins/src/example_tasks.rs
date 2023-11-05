@@ -134,8 +134,6 @@ impl JobProcessor for ExampleBuildJobScatter {
         //Do stuff
         // We could return the result
         // job_api.publish_intermediate_data(...);
-        //unimplemented!();
-
         println!("ExampleBuildJobScatter");
         ExampleBuildJobScatterOutput {
 

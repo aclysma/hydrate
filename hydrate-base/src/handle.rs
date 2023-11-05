@@ -27,6 +27,28 @@ use crate::{AssetRef, AssetUuid};
 #[derive(Copy, Clone, PartialEq, Eq, Debug, Hash)]
 pub struct LoadHandle(pub u64);
 
+impl LoadHandle {
+    pub fn new(load_handle: u64, is_indirect: bool) -> Self {
+        if is_indirect {
+            Self(load_handle | (1<<63))
+        } else {
+            Self(load_handle)
+        }
+    }
+
+    /// Returns true if the handle needs to be resolved through the [`IndirectionTable`] before use.
+    /// An "indirect" LoadHandle represents a load operation for an identifier that is late-bound,
+    /// meaning the identifier may change which [`AssetUuid`] it resolves to.
+    /// An example of an indirect LoadHandle would be one that loads by filesystem path.
+    /// The specific asset at a path may change as files change, move or are deleted, while a direct
+    /// LoadHandle (one that addresses by AssetUuid) is guaranteed to refer to an AssetUuid for its
+    /// whole lifetime.
+    pub fn is_indirect(&self) -> bool {
+        (self.0 & (1 << 63)) == 1 << 63
+    }
+}
+
+// Brought to hydrate_base from hydrate_loader because handle is in hydrate_base
 /// Provides information about mappings between `AssetUuid` and `LoadHandle`.
 /// Intended to be used for `Handle` serde.
 pub trait LoaderInfoProvider: Send + Sync {
@@ -61,20 +83,8 @@ pub enum RefOp {
     IncreaseUuid(AssetUuid),
 }
 
+// Moved up to hydrate_loader because it depends on Loader
 // pub fn process_ref_ops(loader: &Loader, rx: &Receiver<RefOp>) {
-//     loop {
-//         match rx.try_recv() {
-//             Err(_) => break,
-//             Ok(RefOp::Decrease(handle)) => loader.remove_ref(handle),
-//             Ok(RefOp::Increase(handle)) => {
-//                 loader.add_ref_handle(handle);
-//             }
-//             Ok(RefOp::IncreaseUuid(uuid)) => {
-//                 loader.add_ref(uuid);
-//             }
-//         }
-//     }
-// }
 
 /// Keeps track of whether a handle ref is a strong, weak or "internal" ref
 #[derive(Debug)]
@@ -761,6 +771,15 @@ pub trait TypedAssetStorage<A> {
     ) -> Option<(&A, u32)>;
 }
 
+pub enum LoadStatus {
+    Unloaded,
+    Loaded
+}
+
+pub trait LoadStatusProvider {
+    fn get_load_status(&self, load_handle: LoadHandle) -> LoadStatus;
+}
+
 /// The contract of an asset handle.
 ///
 /// There are two types of asset handles:
@@ -777,9 +796,9 @@ pub trait AssetHandle {
     /// # Type Parameters
     ///
     /// * `L`: Asset loader type.
-    // fn load_status(&self, loader: &Loader) -> LoadStatus {
-    //     loader.get_load_status(self.load_handle())
-    // }
+    fn load_status<T: LoadStatusProvider>(&self, loader: &T) -> LoadStatus {
+        loader.get_load_status(self.load_handle())
+    }
 
     /// Returns an immutable reference to the asset if it is committed.
     ///
@@ -857,9 +876,9 @@ pub fn make_handle<T>(uuid: AssetUuid) -> Handle<T> {
 //     })
 // }
 
-pub fn make_handle_from_str<T>(uuid_str: &str) -> Result<Handle<T>, uuid::Error> {
-    use std::str::FromStr;
-    Ok(make_handle(AssetUuid(
-        *uuid::Uuid::from_str(uuid_str)?.as_bytes(),
-    )))
-}
+// pub fn make_handle_from_str<T>(uuid_str: &str) -> Result<Handle<T>, uuid::Error> {
+//     use std::str::FromStr;
+//     Ok(make_handle(AssetUuid(
+//         *uuid::Uuid::from_str(uuid_str)?.as_bytes(),
+//     )))
+// }

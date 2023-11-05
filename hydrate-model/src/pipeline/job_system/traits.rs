@@ -228,12 +228,12 @@ pub fn produce_artifact_with_handles<T: TypeUuid + Serialize, U: Hash, F: FnOnce
 
     let referenced_assets = ctx.end_serialize_asset(AssetUuid(*asset_id.as_uuid().as_bytes()));
 
+    println!("produce_artifact {:?} {:?}", asset_id, artifact_id);
     job_api.produce_artifact(BuiltArtifact {
         asset_id,
         artifact_id,
         metadata: BuiltObjectMetadata {
             dependencies: referenced_assets.into_iter().map(|x| ArtifactId::from_uuid(Uuid::from_bytes(x.0.0))).collect(),
-            subresource_count: 0,
             asset_type: uuid::Uuid::from_bytes(asset_type)
         },
         data: built_data

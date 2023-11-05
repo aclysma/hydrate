@@ -116,6 +116,10 @@ impl DataSource for FileSystemIdBasedDataSource {
         false
     }
 
+    // fn object_symbol_name(&self, object_id: ObjectId) -> Option<String> {
+    //     None
+    // }
+
     fn persist_generated_asset(&mut self, edit_context: &mut EditContext, object_id: ObjectId) {
         // this data source does not contain source files so can't have generated assets
     }

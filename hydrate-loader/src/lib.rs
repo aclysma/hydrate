@@ -1,11 +1,9 @@
 pub mod asset_storage;
-mod bincode_loader;
 mod disk_io;
 pub mod storage;
-//mod distill_loader;
-mod dummy_asset_storage;
-mod loader;
+pub mod loader;
 pub use loader::LoadState;
+
 
 
 //States from distill's loader
@@ -93,6 +91,7 @@ use std::path::{Path, PathBuf};
 use type_uuid::TypeUuid;
 
 pub use hydrate_base::handle::Handle;
+use crate::storage::IndirectIdentifier;
 
 // Based on distill's AssetStorage
 // trait AssetStorage {
@@ -314,8 +313,9 @@ impl AssetManager {
         let (loader_events_tx, loader_events_rx) = crossbeam_channel::unbounded();
 
         let asset_io = DiskAssetIO::new(build_data_root_path, loader_events_tx.clone())?;
+        let loader = Loader::new(Box::new(asset_io), loader_events_tx, loader_events_rx);
         //let asset_storage = DummyAssetStorage::default();
-        let asset_storage = AssetStorageSet::new(ref_op_tx.clone());
+        let asset_storage = AssetStorageSet::new(ref_op_tx.clone(), loader.indirection_table());
 
         // let t0 = std::time::Instant::now();
         // for (k, v) in &asset_io.manifest().asset_build_hashes {
@@ -329,7 +329,6 @@ impl AssetManager {
         // let t1 = std::time::Instant::now();
         // log::info!("Loaded everything in {}ms", (t1 - t0).as_secs_f32() * 1000.0);
 
-        let loader = Loader::new(Box::new(asset_io), loader_events_tx, loader_events_rx);
 
         let mut loader = AssetManager {
             //build_root_path,
@@ -344,6 +343,10 @@ impl AssetManager {
         println!("returing loader");
 
         Ok(loader)
+    }
+
+    pub fn loader(&self) -> &Loader {
+        &self.loader
     }
 
     pub fn storage(&self) -> &AssetStorageSet {
@@ -383,6 +386,24 @@ impl AssetManager {
         // Issue disk IO requests
         // Wait until they are completed
         // Possibly some extra on-load-complete stuff
+    }
+
+    pub fn load_asset_path<T: TypeUuid + 'static + Send, U: Into<String>>(
+        &self,
+        path: U,
+    ) -> Handle<T> {
+        let data_type_uuid = self
+            .storage()
+            .asset_to_data_type_uuid::<T>()
+            .expect("Called load_asset_path with unregistered asset type");
+
+        let load_handle = self
+            .loader
+            .add_engine_ref_indirect(IndirectIdentifier::PathWithType(
+                path.into(),
+                data_type_uuid,
+            ));
+        Handle::<T>::new(self.ref_op_tx.clone(), load_handle)
     }
 
     pub fn update(&mut self) {

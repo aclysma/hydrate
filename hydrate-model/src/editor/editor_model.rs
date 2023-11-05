@@ -5,7 +5,7 @@ use slotmap::DenseSlotMap;
 use std::path::PathBuf;
 use std::sync::Arc;
 use hydrate_data::{ObjectLocation, ObjectName};
-use hydrate_schema::SchemaRecord;
+use hydrate_schema::{SchemaFingerprint, SchemaRecord};
 use crate::import_util::ImportToQueue;
 slotmap::new_key_type! { pub struct EditContextKey; }
 
@@ -55,6 +55,20 @@ impl EditorModel {
             path_node_schema,
         }
     }
+
+    pub fn is_path_node_or_root(&self, fingerprint: SchemaFingerprint) -> bool {
+        self.path_node_schema.fingerprint() == fingerprint || self.path_node_root_schema.fingerprint() == fingerprint
+    }
+
+    // pub fn object_symbol_name(&self, object_id: ObjectId) -> Option<String> {
+    //     for data_source in self.data_sources.values() {
+    //         if let Some(symbol_name) = data_source.object_symbol_name(object_id) {
+    //             Some(symbol_name)
+    //         }
+    //     }
+    //
+    //     None
+    // }
 
     pub fn is_generated_asset(&self, object_id: ObjectId) -> bool {
         for data_source in self.data_sources.values() {

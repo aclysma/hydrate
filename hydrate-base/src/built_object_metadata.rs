@@ -3,10 +3,23 @@ use serde::{Serialize, Deserialize};
 use uuid::Uuid;
 use crate::{ArtifactId, ObjectId};
 
+#[derive(Serialize, Deserialize)]
+pub struct ManifestFileEntryJson {
+    pub artifact_id: ArtifactId,
+    pub build_hash: u64,
+    pub symbol_name: String,
+    pub artifact_type: Uuid,
+    //pub dependencies: Vec<ArtifactId>,
+}
+
+#[derive(Serialize, Deserialize, Default)]
+pub struct ManifestFileJson {
+    pub artifacts: Vec<ManifestFileEntryJson>
+}
+
 #[derive(Debug, Serialize, Deserialize, Hash)]
 pub struct BuiltObjectMetadata {
     pub dependencies: Vec<ArtifactId>,
-    pub subresource_count: u32,
     pub asset_type: Uuid, // size?
 }
 

@@ -13,10 +13,6 @@ use crossbeam_channel::Sender;
 use dashmap::DashMap;
 use hydrate_base::handle::LoaderInfoProvider;
 
-//TODO: This is a placeholder to make migration from distill easier, probably just
-// remove it later
-pub struct IndirectionTable;
-
 #[derive(Debug)]
 pub enum HandleOp {
     Error(LoadHandle, u32, Box<dyn Error + Send>),
@@ -149,6 +145,8 @@ pub trait AssetStorage {
     );
 }
 
+// Sort of replaced with LoadState
+
 // /// Asset loading status.
 // #[derive(Debug)]
 // pub enum LoadStatus {
@@ -180,3 +178,74 @@ pub trait AssetStorage {
 //     pub asset_name: Option<String>,
 // }
 
+// LoaderInfoProvider - Moved to hydrate_base
+// HandleAllocator - Removed
+
+
+/// An indirect identifier that can be resolved to a specific [`AssetUuid`] by an [`IndirectionResolver`] impl.
+#[derive(Clone, PartialEq, Eq, Debug, Hash)]
+pub enum IndirectIdentifier {
+    //PathWithTagAndType(String, String, AssetTypeId),
+    PathWithType(String, AssetTypeId),
+    //Path(String),
+}
+impl IndirectIdentifier {
+    pub fn path(&self) -> &str {
+        match self {
+            //IndirectIdentifier::PathWithTagAndType(path, _, _) => path.as_str(),
+            IndirectIdentifier::PathWithType(path, _) => path.as_str(),
+            //IndirectIdentifier::Path(path) => path.as_str(),
+        }
+    }
+
+    pub fn type_id(&self) -> Option<&AssetTypeId> {
+        match self {
+            //IndirectIdentifier::PathWithTagAndType(_, _, ty) => Some(ty),
+            IndirectIdentifier::PathWithType(_, ty) => Some(ty),
+            //IndirectIdentifier::Path(_) => None,
+        }
+    }
+}
+
+// Should not need a resolver, paths are unambiguous
+
+// /// Resolves ambiguous [`IndirectIdentifier`]s to a single asset ID given a set of candidates.
+// pub trait IndirectionResolver {
+//     fn resolve(
+//         &self,
+//         id: &IndirectIdentifier,
+//         candidates: Vec<(PathBuf, Vec<AssetMetadata>)>,
+//     ) -> Option<AssetUuid>;
+// }
+//
+// /// Default implementation of [`IndirectionResolver`] which resolves to the first asset in the list of candidates
+// /// of the appropriate type.
+// pub struct DefaultIndirectionResolver;
+// impl IndirectionResolver for DefaultIndirectionResolver {
+//     fn resolve(
+//         &self,
+//         id: &IndirectIdentifier,
+//         candidates: Vec<(PathBuf, Vec<AssetMetadata>)>,
+//     ) -> Option<AssetUuid> {
+//         let id_type = id.type_id();
+//         for candidate in candidates {
+//             for asset in candidate.1 {
+//                 if let Some(artifact) = asset.artifact {
+//                     if id_type.is_none() || *id_type.unwrap() == artifact.type_id {
+//                         return Some(asset.id);
+//                     }
+//                 }
+//             }
+//         }
+//         None
+//     }
+// }
+
+/// Resolves indirect [`LoadHandle`]s. See [`LoadHandle::is_indirect`] for details.
+#[derive(Clone)]
+pub struct IndirectionTable(pub(crate) Arc<DashMap<LoadHandle, LoadHandle>>);
+impl IndirectionTable {
+    pub fn resolve(&self, indirect_handle: LoadHandle) -> Option<LoadHandle> {
+        self.0.get(&indirect_handle).map(|l| *l)
+    }
+}

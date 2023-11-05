@@ -372,6 +372,11 @@ impl DataSource for FileSystemPathBasedDataSource {
         }
     }
 
+    // fn object_symbol_name(&self, edit_context: &EditContext, object_id: ObjectId) -> Option<String> {
+    //     //let location_path = edit_context.ro
+    //     None
+    // }
+
     fn persist_generated_asset(&mut self, edit_context: &mut EditContext, object_id: ObjectId) {
         //let asset_disk_state = self.assets_disk_state.get_mut(object_id).unwrap();
         let old_asset_disk_state = self.assets_disk_state.remove(&object_id);

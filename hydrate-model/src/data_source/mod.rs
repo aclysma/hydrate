@@ -53,6 +53,11 @@ pub trait DataSource {
         object_id: ObjectId
     ) -> bool;
 
+    // fn object_symbol_name(
+    //     &self,
+    //     object_id: ObjectId
+    // ) -> Option<String>;
+
     fn persist_generated_asset(&mut self, edit_context: &mut EditContext, object_id: ObjectId);
     // fn revert_all_modified(
     //     &mut self,

@@ -1,9 +1,12 @@
 use std::collections::VecDeque;
+use std::fs::metadata;
 use crate::{BuildInfo, BuilderId, DataSet, DataSource, EditorModel, HashMap, HashMapKeys, ObjectId, ObjectLocation, ObjectName, ObjectSourceId, Schema, SchemaFingerprint, SchemaLinker, SchemaNamedType, SchemaRecord, SchemaSet, SingleObject, Value};
 use std::hash::{Hash, Hasher};
 use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
-use hydrate_base::{BuiltObjectMetadata, AssetUuid, ArtifactId};
+use std::str::FromStr;
+use uuid::Uuid;
+use hydrate_base::{BuiltObjectMetadata, AssetUuid, ArtifactId, ManifestFileJson, ManifestFileEntryJson};
 use hydrate_base::handle::DummySerdeContextHandle;
 
 use super::ImportJobs;
@@ -87,12 +90,14 @@ impl BuildJobs {
     pub fn update(
         &mut self,
         builder_registry: &BuilderRegistry,
-        editor_model: &EditorModel,
+        editor_model: &mut EditorModel,
         import_jobs: &ImportJobs,
         object_hashes: &HashMap<ObjectId, u64>,
         import_data_metadata_hashes: &HashMap<ObjectId, u64>,
         combined_build_hash: u64,
     ) {
+        editor_model.refresh_tree_node_cache();
+
         let data_set = editor_model.root_edit_context().data_set();
         let schema_set = editor_model.schema_set();
 
@@ -102,6 +107,9 @@ impl BuildJobs {
         //
         let mut requested_build_ops = VecDeque::default();
         for (&object_id, _) in object_hashes {
+
+            assert!(!editor_model.is_path_node_or_root(data_set.object_schema(object_id).unwrap().fingerprint()));
+
             //TODO: Skip objects that aren't explicitly requested, if any were requested
             //      For now just build everything
             requested_build_ops.push_back(BuildRequest { object_id });
@@ -114,6 +122,7 @@ impl BuildJobs {
         let mut started_build_ops = HashMap::<ObjectId, BuildOp>::default();
         let mut build_hashes = HashMap::default();
         let mut artifact_asset_lookup = HashMap::default();
+        let mut built_artifact_metadata = HashMap::default();
         loop {
             //
             // If the job is finished, exit the loop
@@ -200,8 +209,11 @@ impl BuildJobs {
                     .or_insert_with(|| BuildJob::new(built_artifact.asset_id));
                 job.asset_exists = true;
                 job.build_data_exists.insert((built_artifact.artifact_id, build_hash));
+
+                built_artifact_metadata.insert(built_artifact.artifact_id, built_artifact.metadata);
             }
         }
+
 
 
         /*
@@ -255,13 +267,53 @@ impl BuildJobs {
         manifest_path.push("manifests");
         std::fs::create_dir_all(&manifest_path).unwrap();
         manifest_path.push(format!("{:0>16x}.manifest", combined_build_hash));
-        let file = std::fs::File::create(manifest_path).unwrap();
-        let mut file = std::io::BufWriter::new(file);
+        //let file = std::fs::File::create(manifest_path).unwrap();
+        //let mut file = std::io::BufWriter::new(file);
+
+        println!("built artifacts {:#?}", artifact_asset_lookup);
+
+        let mut manifest_json = ManifestFileJson::default();
+
         for (artifact_id, build_hash) in build_hashes {
-            write!(file, "{:0>16x},{:0>16x}\n", artifact_id.as_u128(), build_hash).unwrap();
+            println!("find asset for artifact {:?}", artifact_id);
+            let asset_id = *artifact_asset_lookup.get(&artifact_id).unwrap();
+
+            let artifact_metadata = built_artifact_metadata.get(&artifact_id).unwrap();
+
+            let is_default_artifact = artifact_id.as_u128() == asset_id.0;
+            let symbol_name = if is_default_artifact {
+                if asset_id.as_uuid() == Uuid::from_str("d7f2f3c696d946e2adb819eb4f7adadd").unwrap() {
+                    println!("this one");
+                }
+
+                // editor_model.path_node_id_to_path(asset_id.get)
+                // //let location = edit_context.object_location(object_id).unwrap();
+                //TODO: Assert the cached asset path tree is not stale?
+                let path = editor_model
+                    .object_display_name_long(asset_id);
+                path
+
+                //editor_model.object_symbol_name(ObjectId::from_uuid(artifact_id.as_uuid()))
+            } else {
+                String::default()
+
+                //asset_id.as_uuid().to_string()
+            };
+
+            manifest_json.artifacts.push(ManifestFileEntryJson {
+                artifact_id,
+                build_hash,
+                symbol_name,
+                artifact_type: artifact_metadata.asset_type,
+                //dependencies: artifact_metadata.dependencies.clone(),
+            });
+
+            //write!(file, "{:0>16x},{:0>16x},{},{},{:?}\n", artifact_id.as_u128(), build_hash, path, artifact_metadata.asset_type, artifact_metadata.dependencies).unwrap();
             //file.write(&object_id.0.to_le_bytes()).unwrap();
             //file.write(&build_hash.to_le_bytes()).unwrap();
         }
+
+        std::fs::write(manifest_path, serde_json::to_string_pretty(&manifest_json).unwrap()).unwrap();
 
         //
         // Write a new TOC with summary of this build

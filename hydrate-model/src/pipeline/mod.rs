@@ -154,7 +154,10 @@ impl AssetEngine {
                 .data_set()
                 .hash_properties(*object_id)
                 .unwrap();
-            object_hashes.insert(*object_id, hash);
+
+            if !editor_model.is_path_node_or_root(object.schema().fingerprint()) {
+                object_hashes.insert(*object_id, hash);
+            }
 
             let mut inner_hasher = siphasher::sip::SipHasher::default();
             object_id.hash(&mut inner_hasher);

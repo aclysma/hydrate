@@ -1,4 +1,4 @@
-use hydrate_base::{ArtifactId, AssetTypeId};
+use hydrate_base::{ArtifactId, AssetTypeId, AssetUuid, ManifestFileEntryJson, ManifestFileJson};
 use hydrate_base::LoadHandle;
 use crate::loader::ObjectData;
 use crate::loader::{
@@ -13,6 +13,7 @@ use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 use std::thread::JoinHandle;
+use crate::storage::IndirectIdentifier;
 
 struct DiskAssetIORequestMetadata {
     object_id: ArtifactId,
@@ -78,7 +79,6 @@ impl DiskAssetIOWorkerThread {
 
                                 let metadata = ObjectMetadata {
                                     dependencies: metadata.dependencies,
-                                    subresource_count: metadata.subresource_count,
                                     asset_type: AssetTypeId(*metadata.asset_type.as_bytes()), //AssetTypeId(*uuid::Uuid::parse_str("1a4dde10-5e60-483d-88fa-4f59752e4524").unwrap().as_bytes()),
                                     hash: msg.hash,
                                 };
@@ -154,8 +154,6 @@ impl DiskAssetIOWorkerThread {
 struct DiskAssetIOThreadPool {
     worker_threads: Vec<DiskAssetIOWorkerThread>,
     request_tx: Sender<DiskAssetIORequest>,
-    // result_tx: Sender<DiskAssetIOResult>,
-    // result_rx: Receiver<DiskAssetIOResult>,
     active_request_count: Arc<AtomicUsize>,
 }
 
@@ -166,7 +164,6 @@ impl DiskAssetIOThreadPool {
         result_tx: Sender<LoaderEvent>,
     ) -> Self {
         let (request_tx, request_rx) = crossbeam_channel::unbounded::<DiskAssetIORequest>();
-        //let (result_tx, result_rx) = crossbeam_channel::unbounded();
         let active_request_count = Arc::new(AtomicUsize::new(0));
 
         let mut worker_threads = Vec::with_capacity(max_requests_in_flight);
@@ -182,8 +179,6 @@ impl DiskAssetIOThreadPool {
 
         DiskAssetIOThreadPool {
             request_tx,
-            // result_tx,
-            // result_rx,
             worker_threads,
             active_request_count,
         }
@@ -196,14 +191,6 @@ impl DiskAssetIOThreadPool {
         self.active_request_count.fetch_add(1, Ordering::Release);
         self.request_tx.send(request).unwrap();
     }
-
-    // fn add_result(&self, result: DiskAssetIOResult) {
-    //     self.result_tx.send(result).unwrap();
-    // }
-    //
-    // fn results_rx(&self) -> &Receiver<DiskAssetIOResult> {
-    //     &self.result_rx
-    // }
 
     fn finish(mut self) {
         for worker_thread in &self.worker_threads {
@@ -220,23 +207,9 @@ impl DiskAssetIOThreadPool {
     }
 }
 
-// struct DiskAssetIORequest {
-//     object_id: ObjectId,
-//     load_handle: LoadHandle,
-//     hash: u64,
-//     subresource: Option<u32>,
-// }
-
-// pub struct DiskAssetIOResult {
-//     pub object_id: ObjectId,
-//     pub load_handle: LoadHandle,
-//     pub hash: u64,
-//     pub subresource: Option<u32>,
-//     pub result: std::io::Result<Vec<u8>>
-// }
-
 pub struct BuildManifest {
-    pub asset_build_hashes: HashMap<ArtifactId, u64>,
+    pub artifact_lookup: HashMap<ArtifactId, ManifestFileEntryJson>,
+    pub symbol_lookup: HashMap<String, ArtifactId>,
 }
 
 impl BuildManifest {
@@ -244,29 +217,51 @@ impl BuildManifest {
         manifest_dir_path: &Path,
         build_hash: CombinedBuildHash,
     ) -> BuildManifest {
-        let mut asset_build_hashes = HashMap::default();
-
         let file_name = format!("{:0>16x}.manifest", build_hash.0);
         let file_path = manifest_dir_path.join(file_name);
-        let file = std::fs::File::open(file_path).unwrap();
-        let buf_reader = std::io::BufReader::new(file);
-        for line in buf_reader.lines() {
-            let line_str = line.unwrap().to_string();
-            if line_str.is_empty() {
-                continue;
+        let json_str = std::fs::read_to_string(file_path).unwrap();
+        let manifest_file: ManifestFileJson = serde_json::from_str(&json_str).unwrap();
+
+        let mut artifact_lookup = HashMap::default();
+        let mut symbol_lookup = HashMap::default();
+        for artifact in manifest_file.artifacts {
+            if !artifact.symbol_name.is_empty() {
+                let old = symbol_lookup.insert(artifact.symbol_name.clone(), artifact.artifact_id);
+                assert!(old.is_none());
             }
-
-            let separator = line_str.find(",").unwrap();
-            let left = &line_str[..separator];
-            let right = &line_str[(separator + 1)..];
-
-            let asset_id = u128::from_str_radix(left, 16).unwrap();
-            let build_hash = u64::from_str_radix(right, 16).unwrap();
-
-            asset_build_hashes.insert(ArtifactId(asset_id), build_hash);
+            let old = artifact_lookup.insert(artifact.artifact_id, artifact);
+            assert!(old.is_none());
         }
 
-        BuildManifest { asset_build_hashes }
+        BuildManifest {
+            artifact_lookup,
+            symbol_lookup
+        }
+
+        // let mut asset_build_hashes = HashMap::default();
+        //
+        // let file_name = format!("{:0>16x}.manifest", build_hash.0);
+        // let file_path = manifest_dir_path.join(file_name);
+        // let file = std::fs::File::open(file_path).unwrap();
+        // let buf_reader = std::io::BufReader::new(file);
+        // for line in buf_reader.lines() {
+        //     let line_str = line.unwrap().to_string();
+        //     if line_str.is_empty() {
+        //         continue;
+        //     }
+        //
+        //     let separator = line_str.find(",").unwrap();
+        //     let left = &line_str[..separator];
+        //     let right = &line_str[(separator + 1)..];
+        //
+        //     let asset_id = u128::from_str_radix(left, 16).unwrap();
+        //     let build_hash = u64::from_str_radix(right, 16).unwrap();
+        //
+        //
+        //     asset_build_hashes.insert(ArtifactId(asset_id), build_hash);
+        // }
+        //
+        // BuildManifest { asset_build_hashes }
     }
 }
 
@@ -358,8 +353,8 @@ impl DiskAssetIO {
         hash: u64,
     ) {
         log::debug!("Request {:?} {:?}", object_id, subresource);
-        let hash = self.manifest.asset_build_hashes.get(&object_id);
-        if let Some(&hash) = hash {
+        let hash = self.manifest.artifact_lookup.get(&object_id).map(|x| x.build_hash);
+        if let Some(hash) = hash {
             self.thread_pool
                 .as_ref()
                 .unwrap()
@@ -399,6 +394,25 @@ impl LoaderIO for DiskAssetIO {
         self.build_hash
     }
 
+    fn resolve_indirect(&self, indirect_identifier: &IndirectIdentifier) -> Option<(ArtifactId, u64)> {
+        match indirect_identifier {
+            IndirectIdentifier::PathWithType(asset_path, asset_type) => {
+                let artifact_id = self.manifest.symbol_lookup.get(asset_path)?;
+                let metadata = self.manifest.artifact_lookup.get(&artifact_id)?;
+                if *metadata.artifact_type.as_bytes() == asset_type.0 {
+                    Some((metadata.artifact_id, metadata.build_hash))
+                    // Some(ObjectMetadata {
+                    //     asset_type: AssetTypeId(*metadata.artifact_type.as_bytes()),
+                    //     hash: metadata.build_hash,
+                    //     dependencies: metadata.dependencies.clone(),
+                    // })
+                } else {
+                    None
+                }
+            }
+        }
+    }
+
     fn request_metadata(
         &self,
         build_hash: CombinedBuildHash,
@@ -408,8 +422,8 @@ impl LoaderIO for DiskAssetIO {
     ) {
         log::debug!("request_metadata {:?}", load_handle);
 
-        let hash = self.manifest.asset_build_hashes.get(&object_id);
-        if let Some(&hash) = hash {
+        let hash = self.manifest.artifact_lookup.get(&object_id).map(|x| x.build_hash);
+        if let Some(hash) = hash {
             self.thread_pool
                 .as_ref()
                 .unwrap()

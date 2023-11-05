@@ -2,12 +2,12 @@ use crossbeam_channel::{Receiver, Sender};
 use dashmap::DashMap;
 use hydrate_base::{ArtifactId, ObjectId};
 use std::fmt::Debug;
-use std::sync::atomic::{AtomicI32, AtomicU32, AtomicU64, Ordering};
+use std::sync::atomic::{AtomicI32, AtomicU32, AtomicU64, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 //use crate::disk_io::DiskAssetIOResult;
 use hydrate_base::{AssetRef, AssetTypeId, AssetUuid};
-use hydrate_base::handle::LoaderInfoProvider;
-use crate::storage::{AssetStorage, AssetLoadOp, HandleOp};
+use hydrate_base::handle::{LoaderInfoProvider, LoadStatusProvider};
+use crate::storage::{AssetStorage, AssetLoadOp, HandleOp, IndirectionTable, IndirectIdentifier};
 use hydrate_base::LoadHandle;
 
 // Sequence of operations:
@@ -69,7 +69,6 @@ use hydrate_base::LoadHandle;
 #[derive(Debug)]
 pub struct ObjectMetadata {
     pub dependencies: Vec<ArtifactId>,
-    pub subresource_count: u32,
     pub asset_type: AssetTypeId,
     pub hash: u64,
     // size?
@@ -145,6 +144,9 @@ pub trait LoaderIO: Sync + Send {
     // Returns the latest known build hash that we are currently able to read from
     fn latest_build_hash(&self) -> CombinedBuildHash;
 
+    fn resolve_indirect(&self, indirect_identifier: &IndirectIdentifier) -> Option<(ArtifactId, u64)>;
+
+    // This results in a RequestMetadataResult being sent to the loader
     fn request_metadata(
         &self,
         build_hash: CombinedBuildHash,
@@ -152,7 +154,8 @@ pub trait LoaderIO: Sync + Send {
         object_id: ArtifactId,
         version: u32,
     );
-    //fn request_metadata_results(&self, object_id: ObjectId) -> &Receiver<RequestMetadataResult>;
+
+    // This results in a RequestDataResult being sent to the loader
     fn request_data(
         &self,
         build_hash: CombinedBuildHash,
@@ -162,7 +165,6 @@ pub trait LoaderIO: Sync + Send {
         subresource: Option<u32>,
         version: u32,
     );
-    //fn request_data_results(&self) -> &Receiver<RequestDataResult>;
 }
 
 // #[derive(Copy, Clone, PartialEq, Eq, Debug, Hash)]
@@ -241,6 +243,25 @@ pub enum LoadState {
 // - We might choose to not unload anything from old version and just unload it when we make the change.. keeping it
 //   loaded is not harmful.
 
+
+// /// Describes the state of an indirect Handle
+// #[derive(Copy, Clone, PartialEq, Debug)]
+// enum IndirectHandleState {
+//     //None,
+//     //WaitingForMetadata,
+//     //RequestingMetadata,
+//     Resolved,
+// }
+
+#[derive(Debug)]
+struct IndirectLoad {
+    id: IndirectIdentifier,
+    //state: IndirectHandleState,
+    resolved_uuid: ArtifactId,
+    engine_ref_count: AtomicUsize,
+    //pending_reresolve: bool,
+}
+
 struct LoadHandleVersionInfo {
     // load_state
     // asset_type
@@ -295,6 +316,7 @@ struct LoaderUpdateState {
 
 pub struct Loader {
     next_handle_index: AtomicU64,
+    //indirect_to_load: DashMap<IndirectIdentifier, LoadHandle>,
     load_handle_infos: DashMap<LoadHandle, LoadHandleInfo>,
     object_id_to_handle: DashMap<ArtifactId, LoadHandle>,
     //current_build_hash: AtomicU64,
@@ -310,6 +332,16 @@ pub struct Loader {
     // Queue of assets that need to be visited on next update to check for state change
     //object_needs_update_tx: Sender<LoadHandle>,
     //object_needs_update_rx: Receiver<LoadHandle>,
+
+    indirect_states: DashMap<LoadHandle, IndirectLoad>,
+    indirect_to_load: DashMap<IndirectIdentifier, LoadHandle>,
+    indirect_table: IndirectionTable,
+}
+
+impl LoadStatusProvider for Loader {
+    fn get_load_status(&self, load_handle: LoadHandle) -> hydrate_base::handle::LoadStatus {
+        todo!()
+    }
 }
 
 impl LoaderInfoProvider for Loader {
@@ -358,6 +390,10 @@ impl Loader {
             //object_needs_update_rx,
             events_tx,
             events_rx,
+            indirect_states: DashMap::new(),
+            indirect_to_load: DashMap::new(),
+            indirect_table: IndirectionTable(Arc::new(DashMap::new())),
+            //indirect_table: IndirectionTable(Arc::new(DashMap::new())),
         }
     }
 
@@ -792,6 +828,41 @@ impl Loader {
         }
     }
 
+    fn allocate_load_handle(&self, is_indirect: bool) -> LoadHandle {
+        let load_handle_index = self.next_handle_index.fetch_add(1, Ordering::Relaxed);
+        LoadHandle::new(load_handle_index, is_indirect)
+    }
+
+    fn get_or_insert_indirect(
+        &self,
+        indirect_id: &IndirectIdentifier,
+    ) -> LoadHandle {
+        *self
+            .indirect_to_load
+            .entry(indirect_id.clone())
+            .or_insert_with(|| {
+                let load_handle = self.allocate_load_handle(true);
+                let (artifact_id, build_hash) = self.loader_io.resolve_indirect(indirect_id).unwrap();
+
+                log::debug!(
+                    "Allocate indirect load handle {:?} for indirect id {:?} -> {:?}",
+                    load_handle,
+                    &indirect_id,
+                    artifact_id
+                );
+
+                self.indirect_states.insert(
+                    load_handle,
+                    IndirectLoad {
+                        id: indirect_id.clone(),
+                        resolved_uuid: artifact_id,
+                        engine_ref_count: AtomicUsize::new(0),
+                    },
+                );
+                load_handle
+            })
+    }
+
     fn get_or_insert(
         &self,
         object_id: ArtifactId,
@@ -800,9 +871,7 @@ impl Loader {
             .object_id_to_handle
             .entry(object_id)
             .or_insert_with(|| {
-                let load_handle_index = self.next_handle_index.fetch_add(1, Ordering::Relaxed);
-                let load_handle = LoadHandle(load_handle_index);
-
+                let load_handle = self.allocate_load_handle(false);
                 let asset_id = AssetUuid(*uuid::Uuid::from_u128(object_id.0).as_bytes());
 
                 log::debug!(
@@ -835,67 +904,80 @@ impl Loader {
             })
     }
 
+    // from add_refs
     pub fn add_engine_ref(
         &self,
         object_id: ArtifactId,
     ) -> LoadHandle {
         let load_handle = self.get_or_insert(object_id);
-
-        let guard = self.load_handle_infos.get(&load_handle);
-        let load_handle_info = guard.as_ref().unwrap();
-        load_handle_info
-            .engine_ref_count
-            .fetch_add(1, Ordering::Relaxed);
-        // Engine always adjusts the latest version count
-        self.do_add_internal_ref(
-            load_handle,
-            load_handle_info,
-            load_handle_info.versions.len() as u32 - 1,
-        );
-
+        self.add_engine_ref_by_handle(load_handle);
         load_handle
     }
 
+    pub fn add_engine_ref_indirect(&self, id: IndirectIdentifier) -> LoadHandle {
+        let indirect_load_handle = self.get_or_insert_indirect(&id);
+        self.add_engine_ref_by_handle(indirect_load_handle);
+        indirect_load_handle
+    }
+
+    // from add_ref_handle
     pub fn add_engine_ref_by_handle(
         &self,
         load_handle: LoadHandle,
     ) {
-        let guard = self.load_handle_infos.get(&load_handle);
-        let load_handle_info = guard.as_ref().unwrap();
-        load_handle_info
-            .engine_ref_count
-            .fetch_add(1, Ordering::Relaxed);
-        // Engine always adjusts the latest version count
-        self.do_add_internal_ref(
-            load_handle,
-            load_handle_info,
-            load_handle_info.versions.len() as u32 - 1,
-        );
+        if load_handle.is_indirect() {
+            let state = self.indirect_states.get(&load_handle).unwrap();
+            state.engine_ref_count.fetch_add(1, Ordering::Relaxed);
+            let resolved_uuid = state.resolved_uuid;
+            drop(state);
+            let direct_load_handle = self.add_engine_ref(resolved_uuid);
+
+            // In distill this was done later when we resolved the UUID. For now we are not doing this async
+            // anymore so we can immediately make the association.
+            self.indirect_table.0.insert(load_handle, direct_load_handle);
+        } else {
+            let guard = self.load_handle_infos.get(&load_handle);
+            let load_handle_info = guard.as_ref().unwrap();
+            load_handle_info
+                .engine_ref_count
+                .fetch_add(1, Ordering::Relaxed);
+            // Engine always adjusts the latest version count
+            //TODO: Don't understand this, probably break when there are multiple versions
+            self.do_add_internal_ref(
+                load_handle,
+                load_handle_info,
+                load_handle_info.versions.len() as u32 - 1,
+            );
+        }
     }
 
+    // from remove_refs
     pub fn remove_engine_ref(
         &self,
         load_handle: LoadHandle,
     ) {
-        let guard = self.load_handle_infos.get(&load_handle);
-        let load_handle_info = guard.as_ref().unwrap();
-        load_handle_info
-            .engine_ref_count
-            .fetch_sub(1, Ordering::Relaxed);
-        // Engine always adjusts the latest version count
-        self.do_remove_internal_ref(
-            load_handle,
-            load_handle_info,
-            load_handle_info.versions.len() as u32 - 1,
-        );
+        if load_handle.is_indirect() {
+            let state = self.indirect_states.get(&load_handle).unwrap();
+            state.engine_ref_count.fetch_sub(1, Ordering::Relaxed);
+            let resolved_uuid = state.resolved_uuid;
+            drop(state);
+            let load_handle = *self.object_id_to_handle.get(&resolved_uuid).unwrap();
+            self.remove_engine_ref(load_handle);
+        } else {
+            let guard = self.load_handle_infos.get(&load_handle);
+            let load_handle_info = guard.as_ref().unwrap();
+            load_handle_info
+                .engine_ref_count
+                .fetch_sub(1, Ordering::Relaxed);
+            // Engine always adjusts the latest version count
+            //TODO: Don't understand this, probably break when there are multiple versions
+            self.do_remove_internal_ref(
+                load_handle,
+                load_handle_info,
+                load_handle_info.versions.len() as u32 - 1,
+            );
+        }
     }
-
-    // fn add_internal_ref(&self, load_handle: LoadHandle) {
-    //     let load_handle = self.get_or_insert(object_id);
-    //
-    //     let load_handle_info = self.load_handle_infos.get(&load_handle).as_ref().unwrap();
-    //
-    // }
 
     fn do_add_internal_ref(
         &self,
@@ -903,6 +985,7 @@ impl Loader {
         load_handle_info: &LoadHandleInfo,
         version: u32,
     ) {
+        assert!(!load_handle.is_indirect());
         let previous_ref_count = load_handle_info
             .versions
             .last()
@@ -924,6 +1007,7 @@ impl Loader {
         load_handle_info: &LoadHandleInfo,
         version: u32,
     ) {
+        assert!(!load_handle.is_indirect());
         let previous_ref_count = load_handle_info
             .versions
             .last()
@@ -938,4 +1022,53 @@ impl Loader {
                 .unwrap();
         }
     }
+
+    /// Returns a reference to the loader's [`IndirectionTable`].
+    ///
+    /// When a user fetches an asset by LoadHandle, implementors of [`AssetStorage`]
+    /// should resolve LoadHandles where [`LoadHandle::is_indirect`] returns true by using [`IndirectionTable::resolve`].
+    /// IndirectionTable is Send + Sync + Clone so that it can be retrieved once at startup,
+    /// then stored in implementors of [`AssetStorage`].
+    pub fn indirection_table(&self) -> IndirectionTable {
+        self.indirect_table.clone()
+    }
+
+
+    /// Returns handles to all active asset loads.
+    pub fn get_active_loads(&self) -> Vec<LoadHandle> {
+        let mut loading_handles = Vec::default();
+        for iter in &self.load_handle_infos {
+            loading_handles.push(iter.key().clone());
+        }
+
+        loading_handles
+    }
+
+    pub fn get_load_info(&self, load: LoadHandle) -> Option<LoadInfo> {
+        let load_info = self.load_handle_infos.get(&load)?;
+        Some(LoadInfo {
+            asset_id: load_info.asset_id,
+            refs: load_info.engine_ref_count.load(Ordering::Relaxed),
+            //path: load_info.versions.last().unwrap().
+        })
+    }
 }
+
+/// Information about an asset load operation.
+///
+/// **Note:** The information is true at the time the `LoadInfo` is retrieved. The actual number of
+/// references may change.
+#[derive(Debug)]
+pub struct LoadInfo {
+    /// UUID of the asset.
+    pub asset_id: AssetUuid,
+    /// Number of references to the asset.
+    pub refs: u32,
+    // Path to asset's source file. Not guaranteed to always be available.
+    //pub path: Option<String>,
+    // Name of asset's source file. Not guaranteed to always be available.
+    //pub file_name: Option<String>,
+    // Asset name. Not guaranteed to always be available.
+    //pub asset_name: Option<String>,
+}
+

@@ -11,7 +11,7 @@ use downcast_rs::Downcast;
 use std::marker::PhantomData;
 use type_uuid::TypeUuid;
 use hydrate_base::handle::LoaderInfoProvider;
-use crate::storage::{AssetLoadOp, AssetStorage};
+use crate::storage::{AssetLoadOp, AssetStorage, IndirectionTable};
 
 // Used to dynamic dispatch into a storage, supports checked downcasting
 pub trait DynAssetStorage: Downcast + Send {
@@ -44,6 +44,7 @@ pub struct AssetStorageSetInner {
     data_to_asset_type_uuid: HashMap<AssetTypeId, AssetTypeId>,
     asset_to_data_type_uuid: HashMap<AssetTypeId, AssetTypeId>,
     refop_sender: Sender<RefOp>,
+    indirection_table: IndirectionTable
 }
 
 // Contains a storage per asset type
@@ -52,12 +53,13 @@ pub struct AssetStorageSet {
 }
 
 impl AssetStorageSet {
-    pub fn new(refop_sender: Sender<RefOp>) -> Self {
+    pub fn new(refop_sender: Sender<RefOp>, indirection_table: IndirectionTable) -> Self {
         let inner = AssetStorageSetInner {
             storage: Default::default(),
             data_to_asset_type_uuid: Default::default(),
             asset_to_data_type_uuid: Default::default(),
             refop_sender,
+            indirection_table
         };
 
         Self {
@@ -70,6 +72,7 @@ impl AssetStorageSet {
         T: TypeUuid + for<'a> serde::Deserialize<'a> + 'static + Send,
     {
         let mut inner = self.inner.lock().unwrap();
+        let indirection_table = inner.indirection_table.clone();
         let refop_sender = inner.refop_sender.clone();
         let old = inner
             .data_to_asset_type_uuid
@@ -84,6 +87,7 @@ impl AssetStorageSet {
             Box::new(Storage::<T>::new(
                 refop_sender,
                 Box::new(DefaultAssetLoader::default()),
+                indirection_table
             )),
         );
     }
@@ -97,6 +101,7 @@ impl AssetStorageSet {
         LoaderT: DynAssetLoader<AssetT> + 'static,
     {
         let mut inner = self.inner.lock().unwrap();
+        let indirection_table = inner.indirection_table.clone();
         let refop_sender = inner.refop_sender.clone();
         let old = inner
             .data_to_asset_type_uuid
@@ -108,7 +113,7 @@ impl AssetStorageSet {
         assert!(old.is_none());
         inner.storage.insert(
             AssetTypeId(AssetT::UUID),
-            Box::new(Storage::<AssetT>::new(refop_sender, loader)),
+            Box::new(Storage::<AssetT>::new(refop_sender, loader, indirection_table)),
         );
     }
 
@@ -374,38 +379,56 @@ pub struct Storage<AssetT: TypeUuid + Send> {
     assets: HashMap<LoadHandle, AssetState<AssetT>>,
     uncommitted: HashMap<LoadHandle, UncommittedAssetState<AssetT>>,
     loader: Box<dyn DynAssetLoader<AssetT>>,
+    indirection_table: IndirectionTable,
 }
 
 impl<AssetT: TypeUuid + Send> Storage<AssetT> {
     fn new(
         sender: Sender<RefOp>,
         loader: Box<dyn DynAssetLoader<AssetT>>,
+        indirection_table: IndirectionTable,
     ) -> Self {
         Self {
             refop_sender: sender,
             assets: HashMap::new(),
             uncommitted: HashMap::new(),
             loader,
+            indirection_table,
         }
     }
     fn get<T: AssetHandle>(
         &self,
         handle: &T,
     ) -> Option<&AssetT> {
-        self.assets.get(&handle.load_handle()).map(|a| &a.asset)
+        let handle = if handle.load_handle().is_indirect() {
+            self.indirection_table.resolve(handle.load_handle())?
+        } else {
+            handle.load_handle()
+        };
+        self.assets.get(&handle).map(|a| &a.asset)
     }
     fn get_version<T: AssetHandle>(
         &self,
         handle: &T,
     ) -> Option<u32> {
-        self.assets.get(&handle.load_handle()).map(|a| a.version)
+        let handle = if handle.load_handle().is_indirect() {
+            self.indirection_table.resolve(handle.load_handle())?
+        } else {
+            handle.load_handle()
+        };
+        self.assets.get(&handle).map(|a| a.version)
     }
     fn get_asset_with_version<T: AssetHandle>(
         &self,
         handle: &T,
     ) -> Option<(&AssetT, u32)> {
+        let handle = if handle.load_handle().is_indirect() {
+            self.indirection_table.resolve(handle.load_handle())?
+        } else {
+            handle.load_handle()
+        };
         self.assets
-            .get(&handle.load_handle())
+            .get(&handle)
             .map(|a| (&a.asset, a.version))
     }
 }

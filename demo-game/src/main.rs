@@ -85,11 +85,14 @@ fn main() {
     loader.add_storage::<MeshAdvMaterialAssetData>();
     loader.add_storage::<MeshAdvMaterialData>();
 
-    let load_handle_transform_ref: Handle<TransformRef> = loader.load_asset(ArtifactId(
-        uuid::Uuid::parse_str("798bd93be6d14f459d31d7e689c28c03")
-            .unwrap()
-            .as_u128(),
-    ));
+
+    let load_handle_transform_ref: Handle<TransformRef> = loader.load_asset_path("db:/path_file_system/test");
+
+    // let load_handle_transform_ref: Handle<TransformRef> = loader.load_asset(ArtifactId(
+    //     uuid::Uuid::parse_str("798bd93be6d14f459d31d7e689c28c03")
+    //         .unwrap()
+    //         .as_u128(),
+    // ));
 
 
     let load_handle_mesh: Handle<MeshAdvMeshAssetData> = loader.load_asset(ArtifactId(
@@ -112,18 +115,18 @@ fn main() {
         let data = load_handle_transform_ref.asset(loader.storage());
         if let Some(data) = data {
             let data_inner = data.transform.asset(loader.storage());
-            println!("transform loaded {:?}", data);
-            println!("transform loaded {:?}", data_inner);
+            println!("load_handle_transform_ref loaded {:?}", data);
+            println!("load_handle_transform_ref inner loaded {:?}", data_inner);
 
         } else {
-            println!("material not loaded");
+            println!("load_handle_transform_ref not loaded");
         }
 
         let data = load_handle_mesh.asset(loader.storage());
         if let Some(data) = data {
             let data_full_vb = data.vertex_position_buffer.as_ref().map(|x| x.asset(loader.storage()).unwrap());
             let data_position_vb = data.vertex_position_buffer.as_ref().map(|x| x.asset(loader.storage()).unwrap());
-            println!("mesh loaded {:?}", data.mesh_parts);
+            println!("load_handle_mesh loaded {:?}", data.mesh_parts);
             if let Some(data_full_vb) = data_full_vb {
                 println!("full vb {:?}", data_full_vb.data.len());
             }
@@ -133,14 +136,14 @@ fn main() {
             }
 
         } else {
-            println!("material not loaded");
+            println!("load_handle_mesh not loaded");
         }
 
         let data = load_handle_image.asset(loader.storage());
         if let Some(data) = data {
-            println!("image loaded {:?}", data.image_bytes.len());
+            println!("load_handle_image loaded {:?}", data.image_bytes.len());
         } else {
-            println!("image not loaded");
+            println!("load_handle_image not loaded");
         }
     }
 }

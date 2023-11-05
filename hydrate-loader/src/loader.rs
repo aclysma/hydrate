@@ -6,7 +6,7 @@ use std::sync::atomic::{AtomicI32, AtomicU32, AtomicU64, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 //use crate::disk_io::DiskAssetIOResult;
 use hydrate_base::{AssetRef, AssetTypeId, AssetUuid};
-use hydrate_base::handle::{LoaderInfoProvider, LoadStatusProvider};
+use hydrate_base::handle::{LoadState, LoaderInfoProvider, LoadStateProvider};
 use crate::storage::{AssetStorage, AssetLoadOp, HandleOp, IndirectionTable, IndirectIdentifier};
 use hydrate_base::LoadHandle;
 
@@ -170,27 +170,6 @@ pub trait LoaderIO: Sync + Send {
 // #[derive(Copy, Clone, PartialEq, Eq, Debug, Hash)]
 // struct LoadHandle(u64);
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
-pub enum LoadState {
-    // Not loaded, and we haven't started trying to load it. Ref count > 0 implies we want to start
-    // loading.
-    Unloaded,
-    // Metadata request is in flight
-    WaitingForMetadata,
-    // We've incremented ref counts for dependencies, but they aren't loaded yet
-    WaitingForDependencies,
-    // Dependencies are loaded, and we have requested the data required to load this asset
-    WaitingForData,
-    // Data has been passed off to end-user's loader
-    Loading,
-    // The engine finished loading the asset but it is not available to the game yet
-    // When hot reloading, we delay commit until we have loaded new versions of all changed assets,
-    // so engine never sees a partial reload
-    Loaded,
-    // The asset has been committed and is visible to the game
-    Committed,
-}
-
 // we have a manifest hash to identify what build we are on
 // we can resolve a hash for the asset with object ID + manifest hash
 // - this tells us if it has changed
@@ -335,12 +314,17 @@ pub struct Loader {
 
     indirect_states: DashMap<LoadHandle, IndirectLoad>,
     indirect_to_load: DashMap<IndirectIdentifier, LoadHandle>,
-    indirect_table: IndirectionTable,
+    indirection_table: IndirectionTable,
 }
 
-impl LoadStatusProvider for Loader {
-    fn get_load_status(&self, load_handle: LoadHandle) -> hydrate_base::handle::LoadStatus {
-        todo!()
+impl LoadStateProvider for Loader {
+    fn get_load_state(&self, load_handle: LoadHandle) -> LoadState {
+        let handle = if load_handle.is_indirect() {
+            self.indirection_table.resolve(load_handle).unwrap()
+        } else {
+            load_handle
+        };
+        self.load_handle_infos.get(&handle).unwrap().versions.last().unwrap().load_state
     }
 }
 
@@ -392,8 +376,8 @@ impl Loader {
             events_rx,
             indirect_states: DashMap::new(),
             indirect_to_load: DashMap::new(),
-            indirect_table: IndirectionTable(Arc::new(DashMap::new())),
-            //indirect_table: IndirectionTable(Arc::new(DashMap::new())),
+            indirection_table: IndirectionTable(Arc::new(DashMap::new())),
+            //indirection_table: IndirectionTable(Arc::new(DashMap::new())),
         }
     }
 
@@ -934,7 +918,7 @@ impl Loader {
 
             // In distill this was done later when we resolved the UUID. For now we are not doing this async
             // anymore so we can immediately make the association.
-            self.indirect_table.0.insert(load_handle, direct_load_handle);
+            self.indirection_table.0.insert(load_handle, direct_load_handle);
         } else {
             let guard = self.load_handle_infos.get(&load_handle);
             let load_handle_info = guard.as_ref().unwrap();
@@ -1030,7 +1014,7 @@ impl Loader {
     /// IndirectionTable is Send + Sync + Clone so that it can be retrieved once at startup,
     /// then stored in implementors of [`AssetStorage`].
     pub fn indirection_table(&self) -> IndirectionTable {
-        self.indirect_table.clone()
+        self.indirection_table.clone()
     }
 
 

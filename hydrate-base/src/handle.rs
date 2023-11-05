@@ -771,13 +771,29 @@ pub trait TypedAssetStorage<A> {
     ) -> Option<(&A, u32)>;
 }
 
-pub enum LoadStatus {
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+pub enum LoadState {
+    // Not loaded, and we haven't started trying to load it. Ref count > 0 implies we want to start
+    // loading.
     Unloaded,
-    Loaded
+    // Metadata request is in flight
+    WaitingForMetadata,
+    // We've incremented ref counts for dependencies, but they aren't loaded yet
+    WaitingForDependencies,
+    // Dependencies are loaded, and we have requested the data required to load this asset
+    WaitingForData,
+    // Data has been passed off to end-user's loader
+    Loading,
+    // The engine finished loading the asset but it is not available to the game yet
+    // When hot reloading, we delay commit until we have loaded new versions of all changed assets,
+    // so engine never sees a partial reload
+    Loaded,
+    // The asset has been committed and is visible to the game
+    Committed,
 }
 
-pub trait LoadStatusProvider {
-    fn get_load_status(&self, load_handle: LoadHandle) -> LoadStatus;
+pub trait LoadStateProvider {
+    fn get_load_state(&self, load_handle: LoadHandle) -> LoadState;
 }
 
 /// The contract of an asset handle.
@@ -796,8 +812,8 @@ pub trait AssetHandle {
     /// # Type Parameters
     ///
     /// * `L`: Asset loader type.
-    fn load_status<T: LoadStatusProvider>(&self, loader: &T) -> LoadStatus {
-        loader.get_load_status(self.load_handle())
+    fn load_state<T: LoadStateProvider>(&self, loader: &T) -> LoadState {
+        loader.get_load_state(self.load_handle())
     }
 
     /// Returns an immutable reference to the asset if it is committed.

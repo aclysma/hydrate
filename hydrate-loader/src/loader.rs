@@ -318,7 +318,7 @@ pub struct Loader {
 }
 
 impl LoadStateProvider for Loader {
-    fn get_load_state(&self, load_handle: LoadHandle) -> LoadState {
+    fn load_state(&self, load_handle: LoadHandle) -> LoadState {
         let handle = if load_handle.is_indirect() {
             self.indirection_table.resolve(load_handle).unwrap()
         } else {
@@ -326,10 +326,19 @@ impl LoadStateProvider for Loader {
         };
         self.load_handle_infos.get(&handle).unwrap().versions.last().unwrap().load_state
     }
+
+    fn artifact_id(&self, load_handle: LoadHandle) -> ArtifactId {
+        let handle = if load_handle.is_indirect() {
+            self.indirection_table.resolve(load_handle).unwrap()
+        } else {
+            load_handle
+        };
+        self.load_handle_infos.get(&handle).unwrap().object_id
+    }
 }
 
 impl LoaderInfoProvider for Loader {
-    fn get_load_handle(
+    fn load_handle(
         &self,
         id: &AssetRef,
     ) -> Option<LoadHandle> {
@@ -337,7 +346,7 @@ impl LoaderInfoProvider for Loader {
         self.object_id_to_handle.get(&object_id).map(|l| *l)
     }
 
-    fn get_asset_id(
+    fn asset_id(
         &self,
         load: LoadHandle,
     ) -> Option<AssetUuid> {
@@ -387,10 +396,10 @@ impl Loader {
         load_handle: LoadHandle,
         version: usize,
     ) {
-        log::debug!("handle_try_load {:?}", load_handle);
-
         // Should always exist, we don't delete load handles
         let mut load_state_info = self.load_handle_infos.get_mut(&load_handle).unwrap();
+
+        log::debug!("handle_try_load {:?} {:?}", load_state_info.asset_id, load_state_info.asset_id);
 
         // We expect any try_load requests to be for the latest version. If this ends up not being a
         // valid assertion, perhaps we should just load the most recent version.
@@ -420,10 +429,10 @@ impl Loader {
         version: usize,
         asset_storage: &mut dyn AssetStorage,
     ) {
-        log::debug!("handle_try_unload {:?}", load_handle);
-
         // Should always exist, we don't delete load handles
         let mut load_state_info = self.load_handle_infos.get_mut(&load_handle).unwrap();
+
+        log::debug!("handle_try_unload {:?} {:?}", load_state_info.asset_id, load_state_info.asset_id);
 
         let mut dependencies = vec![];
 
@@ -456,6 +465,8 @@ impl Loader {
             // We are already unloaded and don't need to do anything
         }
 
+        drop(load_state_info);
+
         // Remove dependency refs, we do this after we finish mutating the load info so that we don't
         // take multiple locks, which risks deadlock
         for (depenency_load_handle, version) in dependencies {
@@ -476,9 +487,8 @@ impl Loader {
         build_hash: CombinedBuildHash,
         result: RequestMetadataResult,
     ) {
-        log::debug!("handle_request_metadata_result {:?}", result.load_handle);
-
         if let Some(mut load_state_info) = self.load_handle_infos.get(&result.load_handle) {
+            log::debug!("handle_request_metadata_result {:?} {:?}", load_state_info.asset_id, load_state_info.asset_id);
             let load_state = load_state_info.versions[result.version as usize].load_state;
             // Bail if the asset is unloaded
             if load_state == LoadState::Unloaded {
@@ -574,11 +584,9 @@ impl Loader {
         load_handle: LoadHandle,
         version: usize,
     ) {
-        log::debug!("handle_dependencies_loaded {:?}", load_handle);
-
         //are we still in the correct state?
-
         let mut load_state_info = self.load_handle_infos.get_mut(&load_handle).unwrap();
+        log::debug!("handle_dependencies_loaded {:?} {:?}", load_state_info.asset_id, load_state_info.asset_id);
         if load_state_info.versions[version].load_state == LoadState::Unloaded {
             return;
         }
@@ -604,11 +612,10 @@ impl Loader {
         result: RequestDataResult,
         asset_storage: &mut dyn AssetStorage,
     ) {
-        log::debug!("handle_request_data_result {:?}", result.load_handle);
-
         // Should always exist, we don't delete load handles
         let (load_op, asset_type, data) = {
             let mut load_state_info = self.load_handle_infos.get_mut(&result.load_handle).unwrap();
+            log::debug!("handle_request_data_result {:?} {:?}", load_state_info.asset_id, load_state_info.asset_id);
             let version = &mut load_state_info.versions[result.version as usize];
             // Bail if the asset is unloaded
             if version.load_state == LoadState::Unloaded {
@@ -654,13 +661,13 @@ impl Loader {
         // Handle the operation
         match load_result {
             HandleOp::Error(load_handle, version, error) => {
-                log::debug!("handle_load_result error {:?}", load_handle);
+                let asset_id = self.load_handle_infos.get(&load_handle).unwrap().asset_id;
+                log::debug!("handle_load_result error {:?} {:?}", load_handle, asset_id);
                 //TODO: How to handle error?
                 log::error!("load error {}", error);
                 panic!("load error {}", error);
             }
             HandleOp::Complete(load_handle, version) => {
-                log::debug!("handle_load_result complete {:?}", load_handle);
                 // Advance state... maybe we can commit now, otherwise we have to wait until other
                 // dependencies are ready
 
@@ -669,15 +676,17 @@ impl Loader {
                 let asset_type = {
                     let mut load_handle_info =
                         self.load_handle_infos.get_mut(&load_handle).unwrap();
+                    log::debug!("handle_load_result complete {:?} {:?}", load_handle, load_handle_info.asset_id);
                     std::mem::swap(
                         &mut blocked_loads,
                         &mut load_handle_info.versions[version as usize].blocked_loads,
                     );
+                    load_handle_info.versions[version as usize].load_state = LoadState::Loaded;
                     load_handle_info.versions[version as usize].asset_type
                 };
 
                 for (blocked_load_handle, blocked_load_version) in blocked_loads {
-                    println!("blocked load {:?}", blocked_load_handle);
+                    log::trace!("blocked load {:?}", blocked_load_handle);
                     let mut blocked_load = self
                         .load_handle_infos
                         .get_mut(&blocked_load_handle)
@@ -692,7 +701,9 @@ impl Loader {
                     }
                 }
 
+                //TODO: Delay commit until everything is ready?
                 asset_storage.commit_asset_version(&asset_type, load_handle, version);
+                self.load_handle_infos.get_mut(&load_handle).unwrap().versions[version as usize].load_state = LoadState::Committed;
             }
             HandleOp::Drop(load_handle, version) => {
                 log::debug!("handle_load_result drop {:?}", load_handle);
@@ -826,8 +837,12 @@ impl Loader {
             .entry(indirect_id.clone())
             .or_insert_with(|| {
                 let load_handle = self.allocate_load_handle(true);
-                let (artifact_id, build_hash) = self.loader_io.resolve_indirect(indirect_id).unwrap();
+                let resolved = self.loader_io.resolve_indirect(indirect_id);
+                if resolved.is_none() {
+                    panic!("Couldn't find asset {:?}", indirect_id);
+                }
 
+                let (artifact_id, build_hash) = resolved.unwrap();
                 log::debug!(
                     "Allocate indirect load handle {:?} for indirect id {:?} -> {:?}",
                     load_handle,
@@ -1028,8 +1043,14 @@ impl Loader {
         loading_handles
     }
 
-    pub fn get_load_info(&self, load: LoadHandle) -> Option<LoadInfo> {
-        let load_info = self.load_handle_infos.get(&load)?;
+    pub fn get_load_info(&self, handle: LoadHandle) -> Option<LoadInfo> {
+        let handle = if handle.is_indirect() {
+            self.indirection_table.resolve(handle)?
+        } else {
+            handle
+        };
+
+        let load_info = self.load_handle_infos.get(&handle)?;
         Some(LoadInfo {
             asset_id: load_info.asset_id,
             refs: load_info.engine_ref_count.load(Ordering::Relaxed),

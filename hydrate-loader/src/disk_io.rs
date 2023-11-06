@@ -1,4 +1,4 @@
-use hydrate_base::{ArtifactId, AssetTypeId, AssetUuid, ManifestFileEntryJson, ManifestFileJson};
+use hydrate_base::{ArtifactId, AssetTypeId, AssetUuid, ManifestFileEntry, ManifestFileEntryJson, ManifestFileJson};
 use hydrate_base::LoadHandle;
 use crate::loader::ObjectData;
 use crate::loader::{
@@ -83,7 +83,7 @@ impl DiskAssetIOWorkerThread {
                                     hash: msg.hash,
                                 };
 
-                                println!("read metadata {:?}", metadata);
+                                log::trace!("read metadata {:?}", metadata);
 
                                 result_tx.send(LoaderEvent::MetadataRequestComplete( RequestMetadataResult {
                                     object_id: msg.object_id,
@@ -208,7 +208,7 @@ impl DiskAssetIOThreadPool {
 }
 
 pub struct BuildManifest {
-    pub artifact_lookup: HashMap<ArtifactId, ManifestFileEntryJson>,
+    pub artifact_lookup: HashMap<ArtifactId, ManifestFileEntry>,
     pub symbol_lookup: HashMap<String, ArtifactId>,
 }
 
@@ -229,7 +229,12 @@ impl BuildManifest {
                 let old = symbol_lookup.insert(artifact.symbol_name.clone(), artifact.artifact_id);
                 assert!(old.is_none());
             }
-            let old = artifact_lookup.insert(artifact.artifact_id, artifact);
+            let old = artifact_lookup.insert(artifact.artifact_id, ManifestFileEntry {
+                artifact_id: artifact.artifact_id,
+                build_hash: u64::from_str_radix(&artifact.build_hash, 16).unwrap(),
+                symbol_name: artifact.symbol_name,
+                artifact_type: artifact.artifact_type,
+            });
             assert!(old.is_none());
         }
 
@@ -407,6 +412,7 @@ impl LoaderIO for DiskAssetIO {
                     //     dependencies: metadata.dependencies.clone(),
                     // })
                 } else {
+                    panic!("Tried to resolve artifact {:?} but it was an unexpected type {:?}", indirect_identifier, metadata.artifact_type);
                     None
                 }
             }

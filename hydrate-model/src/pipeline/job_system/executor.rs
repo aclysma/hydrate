@@ -260,8 +260,14 @@ impl JobExecutor {
         while let Ok(built_artifact) = self.built_artifact_queue_rx.try_recv() {
             let old = artifact_asset_lookup.insert(built_artifact.artifact_id, built_artifact.asset_id);
             if old.is_some() {
-                assert_eq!(old, Some(built_artifact.asset_id));
+                println!("{:?} {:?} {:?}", built_artifact.artifact_id, built_artifact.asset_id, built_artifact.metadata.asset_type);
+                panic!("produced same asset multiple times?");
             }
+            // We produced the same asset multiple times?
+            assert!(old.is_none());
+            // if old.is_some() {
+            //     assert_eq!(old, Some(built_artifact.asset_id));
+            // }
 
             built_artifacts.push(built_artifact);
         }

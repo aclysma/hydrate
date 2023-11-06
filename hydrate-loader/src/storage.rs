@@ -49,6 +49,7 @@ impl AssetLoadOp {
 
     /// Signals that this load operation has completed succesfully.
     pub fn complete(mut self) {
+        log::debug!("LoadOp for {:?} complete", self.handle);
         let _ = self
             .sender
             .as_ref()
@@ -65,6 +66,7 @@ impl AssetLoadOp {
         mut self,
         error: E,
     ) {
+        println!("LoadOp for {:?} error {:?}", self.handle, error);
         let _ = self
             .sender
             .as_ref()

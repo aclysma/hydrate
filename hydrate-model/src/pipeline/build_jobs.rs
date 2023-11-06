@@ -282,7 +282,7 @@ impl BuildJobs {
 
             let is_default_artifact = artifact_id.as_u128() == asset_id.0;
             let symbol_name = if is_default_artifact {
-                if asset_id.as_uuid() == Uuid::from_str("d7f2f3c696d946e2adb819eb4f7adadd").unwrap() {
+                if asset_id.as_uuid() == Uuid::from_str("07ab9227-432d-49c8-8899-146acd803235").unwrap() {
                     println!("this one");
                 }
 
@@ -302,7 +302,7 @@ impl BuildJobs {
 
             manifest_json.artifacts.push(ManifestFileEntryJson {
                 artifact_id,
-                build_hash,
+                build_hash: format!("{:0>16x}", build_hash),
                 symbol_name,
                 artifact_type: artifact_metadata.asset_type,
                 //dependencies: artifact_metadata.dependencies.clone(),

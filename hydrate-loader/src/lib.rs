@@ -339,7 +339,6 @@ impl AssetManager {
         };
 
         loader.update();
-        println!("returing loader");
 
         Ok(loader)
     }

@@ -20,7 +20,7 @@ use serde::{
 // use super::{
 //     storage::{LoadStatus, LoaderInfoProvider},
 // };
-use crate::{AssetRef, AssetUuid};
+use crate::{ArtifactId, AssetRef, AssetUuid, ObjectId};
 
 /// Loading ID allocated by [`Loader`](crate::loader::Loader) to track loading of a particular asset
 /// or an indirect reference to an asset.
@@ -59,7 +59,7 @@ pub trait LoaderInfoProvider: Send + Sync {
     /// # Parameters
     ///
     /// * `id`: UUID of the asset.
-    fn get_load_handle(
+    fn load_handle(
         &self,
         asset_ref: &AssetRef,
     ) -> Option<LoadHandle>;
@@ -69,7 +69,7 @@ pub trait LoaderInfoProvider: Send + Sync {
     /// # Parameters
     ///
     /// * `load_handle`: ID allocated by [`Loader`](crate::loader::Loader) to track loading of the asset.
-    fn get_asset_id(
+    fn asset_id(
         &self,
         load: LoadHandle,
     ) -> Option<AssetUuid>;
@@ -447,7 +447,7 @@ impl DummySerdeContext {
 }
 
 impl LoaderInfoProvider for DummySerdeContext {
-    fn get_load_handle(
+    fn load_handle(
         &self,
         asset_ref: &AssetRef,
     ) -> Option<LoadHandle> {
@@ -467,7 +467,7 @@ impl LoaderInfoProvider for DummySerdeContext {
         Some(*handle)
     }
 
-    fn get_asset_id(
+    fn asset_id(
         &self,
         load: LoadHandle,
     ) -> Option<AssetUuid> {
@@ -567,7 +567,7 @@ where
 {
     SerdeContext::with_active(|loader, _| {
         use ser::SerializeSeq;
-        let uuid: AssetUuid = loader.get_asset_id(load).unwrap_or_default();
+        let uuid: AssetUuid = loader.asset_id(load).unwrap_or_default();
         let mut seq = serializer.serialize_seq(Some(uuid.0.len()))?;
         for element in &uuid.0 {
             seq.serialize_element(element)?;
@@ -604,7 +604,7 @@ fn get_handle_ref(asset_ref: AssetRef) -> (LoadHandle, Sender<RefOp>) {
             LoadHandle(0)
         } else {
             loader
-                .get_load_handle(&asset_ref)
+                .load_handle(&asset_ref)
                 .unwrap_or_else(|| panic!("Handle for AssetUuid {:?} was not present when deserializing a Handle. This indicates missing dependency metadata, and can be caused by dependency cycles.", asset_ref))
         };
         (handle, sender.clone())
@@ -793,7 +793,8 @@ pub enum LoadState {
 }
 
 pub trait LoadStateProvider {
-    fn get_load_state(&self, load_handle: LoadHandle) -> LoadState;
+    fn load_state(&self, load_handle: LoadHandle) -> LoadState;
+    fn artifact_id(&self, load_handle: LoadHandle) -> ArtifactId;
 }
 
 /// The contract of an asset handle.
@@ -813,7 +814,11 @@ pub trait AssetHandle {
     ///
     /// * `L`: Asset loader type.
     fn load_state<T: LoadStateProvider>(&self, loader: &T) -> LoadState {
-        loader.get_load_state(self.load_handle())
+        loader.load_state(self.load_handle())
+    }
+
+    fn artifact_id<T: LoadStateProvider>(&self, loader: &T) -> ArtifactId {
+        loader.artifact_id(self.load_handle())
     }
 
     /// Returns an immutable reference to the asset if it is committed.
@@ -877,7 +882,7 @@ pub trait AssetHandle {
 pub fn make_handle<T>(uuid: AssetUuid) -> Handle<T> {
     SerdeContext::with_active(|loader_info_provider, ref_op_sender| {
         let load_handle = loader_info_provider
-            .get_load_handle(&AssetRef(uuid))
+            .load_handle(&AssetRef(uuid))
             .unwrap();
         Handle::<T>::new(ref_op_sender.clone(), load_handle)
     })

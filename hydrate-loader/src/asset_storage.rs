@@ -141,10 +141,8 @@ impl AssetStorage for AssetStorageSet {
         load_op: AssetLoadOp,
         version: u32,
     ) -> Result<(), Box<dyn Error + Send + 'static>> {
-        println!("call AssetStorageSet::update_asset");
         let mut inner = self.inner.lock().unwrap();
 
-        println!("asset type {}", asset_data_type_id);
         let asset_type_id = *inner
             .data_to_asset_type_uuid
             .get(asset_data_type_id)
@@ -155,8 +153,6 @@ impl AssetStorage for AssetStorageSet {
             .get_mut(&asset_type_id)
             .expect("unknown asset type")
             .update_asset(loader_info, &data, load_handle, load_op, version);
-
-        println!("returning from AssetStorageSet::update_asset");
         x
     }
 
@@ -446,7 +442,7 @@ impl<AssetT: TypeUuid + 'static + Send> DynAssetStorage for Storage<AssetT> {
             "update_asset {} {:?} {:?} {}",
             core::any::type_name::<AssetT>(),
             load_handle,
-            loader_info.get_asset_id(load_handle).unwrap(),
+            loader_info.asset_id(load_handle).unwrap(),
             version
         );
 
@@ -458,7 +454,7 @@ impl<AssetT: TypeUuid + 'static + Send> DynAssetStorage for Storage<AssetT> {
             load_op,
             version,
         )?;
-        let asset_uuid = loader_info.get_asset_id(load_handle).unwrap();
+        let asset_uuid = loader_info.asset_id(load_handle).unwrap();
 
         // Add to list of uncommitted assets
         self.uncommitted.insert(

@@ -6,11 +6,21 @@ use crate::{ArtifactId, ObjectId};
 #[derive(Serialize, Deserialize)]
 pub struct ManifestFileEntryJson {
     pub artifact_id: ArtifactId,
+    pub build_hash: String,
+    pub symbol_name: String,
+    pub artifact_type: Uuid,
+    //pub dependencies: Vec<ArtifactId>,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct ManifestFileEntry {
+    pub artifact_id: ArtifactId,
     pub build_hash: u64,
     pub symbol_name: String,
     pub artifact_type: Uuid,
     //pub dependencies: Vec<ArtifactId>,
 }
+
 
 #[derive(Serialize, Deserialize, Default)]
 pub struct ManifestFileJson {

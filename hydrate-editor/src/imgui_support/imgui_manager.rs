@@ -41,7 +41,7 @@ impl Drop for Inner {
         }
 
         // Drop the font atlas
-        unsafe { Box::from_raw(self.font_atlas_texture) };
+        drop(unsafe { Box::from_raw(self.font_atlas_texture) });
     }
 }
 

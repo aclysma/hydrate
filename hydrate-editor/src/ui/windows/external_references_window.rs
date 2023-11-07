@@ -1,27 +1,10 @@
-use crate::app_state::{ActionQueueSender, AppState};
-use crate::db_state::DbState;
-use crate::imgui_support::ImguiManager;
-use crate::ui::asset_browser_grid_drag_drop::{
-    asset_browser_grid_objects_drag_target_printf, AssetBrowserGridPayload,
-};
-use crate::ui_state::{ActiveToolRegion, UiState};
-use crate::QueuedActions;
-use hydrate_model::{HashSet, LocationTreeNode, ObjectId, ObjectLocation, ObjectPath};
-use imgui::sys::{
-    igDragFloat, igDragScalar, igInputDouble, ImGuiDataType__ImGuiDataType_Double,
-    ImGuiInputTextFlags__ImGuiInputTextFlags_None, ImGuiTableFlags__ImGuiTableFlags_NoPadOuterX,
-    ImGuiTreeNodeFlags__ImGuiTreeNodeFlags_Selected, ImVec2,
-};
-use imgui::{im_str, ImStr, ImString, TreeNodeFlags};
-use imgui::{sys as is, StyleColor};
-use rafx::api::objc::runtime::Object;
-use std::convert::TryInto;
-use std::ffi::CString;
-use std::path::PathBuf;
-use uuid::Uuid;
+use crate::app_state::AppState;
+use imgui::sys::ImVec2;
+use imgui::ImString;
+use imgui::sys as is;
 
-pub fn draw_external_references_dockspace(
-    ui: &imgui::Ui,
+pub fn _draw_external_references_dockspace(
+    _ui: &imgui::Ui,
     app_state: &mut AppState,
 ) {
     unsafe {
@@ -64,11 +47,11 @@ pub fn draw_external_references_dockspace(
 
             // Assign windows to dock nodes
             is::igDockBuilderDockWindow(
-                ImString::new(crate::ui::WINDOW_NAME_EXTERNAL_REFERENCES_LEFT).as_ptr(),
+                ImString::new(crate::ui::_WINDOW_NAME_EXTERNAL_REFERENCES_LEFT).as_ptr(),
                 assets_left,
             );
             is::igDockBuilderDockWindow(
-                ImString::new(crate::ui::WINDOW_NAME_EXTERNAL_REFERENCES_RIGHT).as_ptr(),
+                ImString::new(crate::ui::_WINDOW_NAME_EXTERNAL_REFERENCES_RIGHT).as_ptr(),
                 assets_main,
             );
 
@@ -87,7 +70,7 @@ pub fn draw_external_references_dockspace(
     }
 }
 
-pub fn draw_external_references_dockspace_and_window(
+pub fn _draw_external_references_dockspace_and_window(
     ui: &imgui::Ui,
     app_state: &mut AppState,
 ) {
@@ -109,10 +92,10 @@ pub fn draw_external_references_dockspace_and_window(
     }
 
     if let Some(window_token) = window_token {
-        draw_external_references_dockspace(ui, app_state);
+        _draw_external_references_dockspace(ui, app_state);
 
         let inner_window_token = imgui::Window::new(&ImString::new(
-            crate::ui::WINDOW_NAME_EXTERNAL_REFERENCES_LEFT,
+            crate::ui::_WINDOW_NAME_EXTERNAL_REFERENCES_LEFT,
         ))
         .begin(ui);
 
@@ -122,7 +105,7 @@ pub fn draw_external_references_dockspace_and_window(
         }
 
         let inner_window_token = imgui::Window::new(&ImString::new(
-            crate::ui::WINDOW_NAME_EXTERNAL_REFERENCES_RIGHT,
+            crate::ui::_WINDOW_NAME_EXTERNAL_REFERENCES_RIGHT,
         ))
         .begin(ui);
 
@@ -135,10 +118,10 @@ pub fn draw_external_references_dockspace_and_window(
     } else {
         //TODO: keepalive the assets dockspace
         println!("KEEPALIVE EXTERNAL ASSETS");
-        unsafe {
+        //unsafe {
             //let id = imgui::Id::from(crate::ui::WINDOW_NAME_EXTERNAL_REFERENCES);
             //let id = is::igGetIDStr(imgui::im_str!("{}", crate::ui::WINDOW_NAME_EXTERNAL_REFERENCES).as_ptr());
             //is::igDockSpace(id, ImVec2::new(100.0, 100.0), is::ImGuiDockNodeFlags__ImGuiDockNodeFlags_KeepAliveOnly as _, std::ptr::null_mut());
-        }
+        //}
     }
 }

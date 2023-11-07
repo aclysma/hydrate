@@ -1,6 +1,6 @@
 use crate::app_state::AppState;
 use imgui::sys as is;
-use imgui::{im_str, ImString};
+use imgui::ImString;
 
 fn draw_root_dockspace(
     _ui: &imgui::Ui,

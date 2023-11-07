@@ -1,6 +1,5 @@
 mod renderer;
 
-use imgui::Image;
 use renderer::Renderer;
 
 mod db_state;
@@ -11,33 +10,14 @@ mod ui;
 
 mod app_state;
 use app_state::AppState;
-use hydrate_model::SchemaLinker;
 
 mod ui_state;
 use crate::app_state::QueuedActions;
 pub use crate::db_state::DbState;
 use hydrate_model::pipeline::{
-    AssetEngine, BuildJobs, BuilderRegistry, ImportJobs, ImporterRegistry,
+    AssetEngine
 };
-// use demo_plugins::{
-//     BlenderMaterialAssetPlugin, GlslAssetPlugin, ImageAssetPlugin, SimpleDataAssetPlugin,
-// };
 use ui::draw_ui;
-
-// pub fn run() {
-//     let mut linker = SchemaLinker::default();
-//
-//     let mut asset_engine_builder = AssetEngineBuilder::new()
-//         .register_plugin::<ImageAssetPlugin>(&mut linker)
-//         .register_plugin::<BlenderMaterialAssetPlugin>(&mut linker)
-//         .register_plugin::<GlslAssetPlugin>(&mut linker)
-//         .register_plugin::<SimpleDataAssetPlugin>(&mut linker);
-//
-//     let db_state = DbState::load_or_init_empty(linker);
-//     let asset_engine = asset_engine_builder.build(&db_state.editor_model, DbState::import_data_source_path(), DbState::build_data_source_path());
-//
-//     ui_loop(db_state, asset_engine);
-// }
 
 // Creates a window and runs the event loop.
 pub fn run(

@@ -286,19 +286,16 @@ impl SchemaDefRecord {
 pub struct SchemaDefEnumSymbol {
     pub(super) symbol_name: String,
     pub(super) aliases: Vec<String>,
-    //pub(super) value: i32,
 }
 
 impl SchemaDefEnumSymbol {
     pub fn new(
         symbol_name: String,
         aliases: Vec<String>,
-        value: i32,
     ) -> SchemaDefValidationResult<Self> {
         Ok(SchemaDefEnumSymbol {
             symbol_name,
             aliases,
-            //value,
         })
     }
 
@@ -307,14 +304,12 @@ impl SchemaDefEnumSymbol {
         hasher: &mut T,
     ) {
         self.symbol_name.hash(hasher);
-        //self.value.hash(hasher);
     }
 
     fn to_schema(self) -> SchemaEnumSymbol {
         SchemaEnumSymbol::new(
             self.symbol_name,
             self.aliases.into_boxed_slice(),
-            //self.value,
         )
     }
 }

@@ -1,10 +1,9 @@
 use std::path::PathBuf;
-use std::sync::mpsc::Sender;
 use std::sync::Arc;
 use uuid::Uuid;
 use hydrate_data::SingleObject;
 
-use crate::editor::undo::{CompletedUndoContextMessage, UndoContext, UndoStack};
+use crate::editor::undo::{UndoContext, UndoStack};
 use crate::{BuildInfo, DataObjectInfo, DataSet, DataSetDiff, DataSetResult, EditContextKey, EndContextBehavior, HashMap, HashMapKeys, HashSet, HashSetIter, ImportInfo, NullOverride, ObjectId, ObjectLocation, ObjectName, OverrideBehavior, SchemaFingerprint, SchemaNamedType, SchemaRecord, SchemaSet, Value};
 
 //TODO: Delete unused property data when path ancestor is null or in replace mode
@@ -35,11 +34,9 @@ use crate::{BuildInfo, DataObjectInfo, DataSet, DataSetDiff, DataSetResult, Edit
 // - These undo contexts can be pushed onto a single global queue or a per-document queue
 
 pub struct EditContext {
-    edit_context_key: EditContextKey,
     schema_set: Arc<SchemaSet>,
     pub(super) data_set: DataSet,
     undo_context: UndoContext,
-    completed_undo_context_tx: Sender<CompletedUndoContextMessage>,
 
     // We track locations separately because if an object is deleted, we don't know what location it
     // was stored at
@@ -163,11 +160,9 @@ impl EditContext {
         undo_stack: &UndoStack,
     ) -> Self {
         EditContext {
-            edit_context_key,
             schema_set,
             data_set: Default::default(),
             undo_context: UndoContext::new(undo_stack, edit_context_key),
-            completed_undo_context_tx: undo_stack.completed_undo_context_tx().clone(),
             modified_objects: Default::default(),
             modified_locations: Default::default(),
         }
@@ -179,11 +174,9 @@ impl EditContext {
         undo_stack: &UndoStack,
     ) -> Self {
         EditContext {
-            edit_context_key,
             schema_set,
             data_set: Default::default(),
             undo_context: UndoContext::new(undo_stack, edit_context_key),
-            completed_undo_context_tx: undo_stack.completed_undo_context_tx().clone(),
             modified_objects: Default::default(),
             modified_locations: Default::default(),
         }
@@ -360,13 +353,11 @@ impl EditContext {
 
     pub fn copy_from_single_object(
         &mut self,
-        schema_set: &SchemaSet,
         object_id: ObjectId,
         single_object: &SingleObject
     ) -> DataSetResult<()> {
         self.track_existing_object(object_id);
         self.data_set.copy_from_single_object(
-            schema_set,
             object_id,
             single_object
         )

@@ -1,10 +1,9 @@
 mod file_system_id_based;
 
-use std::path::Path;
 pub use file_system_id_based::*;
 
 use crate::edit_context::EditContext;
-use crate::{AssetEngine, EditorModel, ObjectId};
+use crate::ObjectId;
 
 mod file_system_path_based;
 pub use file_system_path_based::*;

@@ -1,13 +1,11 @@
 use std::{
     error::Error,
-    path::PathBuf,
     sync::{
-        atomic::{AtomicU64, Ordering},
         Arc,
     },
 };
 
-use hydrate_base::{AssetRef, AssetTypeId, AssetUuid, LoadHandle};
+use hydrate_base::{AssetTypeId, LoadHandle};
 use crate::loader::LoaderEvent;
 use crossbeam_channel::Sender;
 use dashmap::DashMap;

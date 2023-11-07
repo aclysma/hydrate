@@ -1,4 +1,4 @@
-use crate::{HashMap, Schema, SchemaFingerprint, SchemaLinker, SchemaLinkerResult, SchemaNamedType, Value};
+use crate::{HashMap, SchemaFingerprint, SchemaLinker, SchemaLinkerResult, SchemaNamedType, Value};
 use crate::value::ValueEnum;
 
 #[derive(Default, Clone)]
@@ -44,13 +44,17 @@ impl SchemaSet {
 
         for (k, v) in linked.schemas {
             if let Some(enum_schema) = v.as_enum() {
-                let old = self.default_enum_values.insert(k, Value::Enum(ValueEnum::new(enum_schema.default_value().name().to_string())));
-                //TODO: Assert values are the same
-                //assert!(old.is_none());
+                let default_value = Value::Enum(ValueEnum::new(enum_schema.default_value().name().to_string()));
+                let old = self.default_enum_values.insert(k, default_value.clone());
+                if let Some(old) = old {
+                    assert_eq!(old.as_enum().unwrap(), default_value.as_enum().unwrap());
+                }
             }
+            let v_fingerprint = v.fingerprint();
             let old = self.schemas.insert(k, v);
-            //assert!(old.is_none());
-            //TODO: Assert schemas are the same
+            if let Some(old) = old {
+                assert_eq!(old.fingerprint(), v_fingerprint);
+            }
         }
 
         for (k, v) in linked.schemas_by_name {

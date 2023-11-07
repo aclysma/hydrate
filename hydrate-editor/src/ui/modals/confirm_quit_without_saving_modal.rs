@@ -2,9 +2,8 @@ use crate::app_state::{ActionQueueSender, ModalAction, ModalActionControlFlow};
 use crate::db_state::DbState;
 use crate::ui_state::UiState;
 use crate::QueuedActions;
-use hydrate_model::edit_context::EditContext;
-use hydrate_model::{EditorModel, HashSet, ObjectId, ObjectLocation};
-use hydrate_model::pipeline::{AssetEngine, ImportJobs, ImporterRegistry};
+use hydrate_model::{HashSet, ObjectId};
+use hydrate_model::pipeline::{AssetEngine};
 use imgui::{im_str, PopupModal};
 
 pub struct ConfirmQuitWithoutSavingModal {
@@ -25,10 +24,10 @@ impl ModalAction for ConfirmQuitWithoutSavingModal {
     fn draw_imgui(
         &mut self,
         ui: &mut imgui::Ui,
-        imnodes_context: &mut imnodes::Context,
+        _imnodes_context: &mut imnodes::Context,
         db_state: &mut DbState,
-        ui_state: &mut UiState,
-        asset_engine: &mut AssetEngine,
+        _ui_state: &mut UiState,
+        _asset_engine: &mut AssetEngine,
         action_queue: ActionQueueSender,
     ) -> ModalActionControlFlow {
         if !self.finished_first_draw {

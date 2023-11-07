@@ -1,14 +1,13 @@
-use hydrate_base::{ArtifactId, AssetTypeId, AssetUuid, ManifestFileEntry, ManifestFileEntryJson, ManifestFileJson};
+use hydrate_base::{ArtifactId, AssetTypeId, ManifestFileEntry, ManifestFileJson};
 use hydrate_base::LoadHandle;
 use crate::loader::ObjectData;
 use crate::loader::{
-    CombinedBuildHash, Loader, LoaderEvent, LoaderIO, ObjectMetadata, RequestDataResult,
+    CombinedBuildHash, LoaderEvent, LoaderIO, ObjectMetadata, RequestDataResult,
     RequestMetadataResult,
 };
 use crossbeam_channel::{Receiver, Sender};
 use hydrate_base::hashing::HashMap;
-use hydrate_base::ObjectId;
-use std::io::{BufRead, Read, SeekFrom};
+use std::io::{SeekFrom};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
@@ -98,7 +97,7 @@ impl DiskAssetIOWorkerThread {
                             DiskAssetIORequest::Data(msg) => {
                                 let path = hydrate_base::uuid_path::uuid_and_hash_to_path(&*root_path, msg.object_id.as_uuid(), msg.hash, "bf");
                                 let mut reader = std::fs::File::open(&path).unwrap();
-                                let metadata = hydrate_base::BuiltObjectMetadata::read_header(&mut reader).unwrap();
+                                let _metadata = hydrate_base::BuiltObjectMetadata::read_header(&mut reader).unwrap();
 
                                 let mut bytes = Vec::new();
                                 use std::io::Read;
@@ -112,9 +111,9 @@ impl DiskAssetIOWorkerThread {
                                 let mut length_bytes = [0u8; 8];
                                 reader.read(&mut length_bytes).unwrap();
                                 use std::io::Seek;
-                                reader.seek(SeekFrom::Current(u64::from_le_bytes(length_bytes) as i64));
+                                reader.seek(SeekFrom::Current(u64::from_le_bytes(length_bytes) as i64)).unwrap();
                                 let mut data = Vec::default();
-                                reader.read_to_end(&mut data);
+                                reader.read_to_end(&mut data).unwrap();
 
                                 // This needs to skip the header?
 
@@ -136,7 +135,7 @@ impl DiskAssetIOWorkerThread {
                             }
                         }
                     },
-                    recv(finish_rx) -> msg => {
+                    recv(finish_rx) -> _msg => {
                         return;
                     }
                 }
@@ -192,7 +191,7 @@ impl DiskAssetIOThreadPool {
         self.request_tx.send(request).unwrap();
     }
 
-    fn finish(mut self) {
+    fn finish(self) {
         for worker_thread in &self.worker_threads {
             worker_thread.finish_tx.send(()).unwrap();
         }
@@ -200,10 +199,6 @@ impl DiskAssetIOThreadPool {
         for worker_thread in self.worker_threads {
             worker_thread.join_handle.join().unwrap();
         }
-    }
-
-    fn active_request_count(&self) -> usize {
-        self.active_request_count.load(Ordering::Acquire)
     }
 }
 
@@ -344,54 +339,6 @@ impl DiskAssetIO {
             tx,
         })
     }
-
-    pub fn manifest(&self) -> &BuildManifest {
-        &self.manifest
-    }
-
-    pub fn request_data(
-        &self,
-        load_handle: LoadHandle,
-        object_id: ArtifactId,
-        subresource: Option<u32>,
-        version: u32,
-        hash: u64,
-    ) {
-        log::debug!("Request {:?} {:?}", object_id, subresource);
-        let hash = self.manifest.artifact_lookup.get(&object_id).map(|x| x.build_hash);
-        if let Some(hash) = hash {
-            self.thread_pool
-                .as_ref()
-                .unwrap()
-                .add_request(DiskAssetIORequest::Data(DiskAssetIORequestData {
-                    object_id,
-                    load_handle,
-                    //hash,
-                    version,
-                    subresource,
-                    hash,
-                }));
-        } else {
-            self.tx
-                .send(LoaderEvent::DataRequestComplete(RequestDataResult {
-                    object_id,
-                    load_handle,
-                    version,
-                    subresource,
-                    //hash: 0,
-                    result: Err(std::io::ErrorKind::NotFound.into()),
-                }))
-                .unwrap();
-        }
-    }
-
-    // pub fn results(&self) -> &Receiver<DiskAssetIOResult> {
-    //     self.thread_pool.as_ref().map(|x| &x.result_rx).unwrap()
-    // }
-
-    pub fn active_request_count(&self) -> usize {
-        self.thread_pool.as_ref().unwrap().active_request_count()
-    }
 }
 
 impl LoaderIO for DiskAssetIO {
@@ -406,14 +353,9 @@ impl LoaderIO for DiskAssetIO {
                 let metadata = self.manifest.artifact_lookup.get(&artifact_id)?;
                 if *metadata.artifact_type.as_bytes() == asset_type.0 {
                     Some((metadata.artifact_id, metadata.build_hash))
-                    // Some(ObjectMetadata {
-                    //     asset_type: AssetTypeId(*metadata.artifact_type.as_bytes()),
-                    //     hash: metadata.build_hash,
-                    //     dependencies: metadata.dependencies.clone(),
-                    // })
                 } else {
                     panic!("Tried to resolve artifact {:?} but it was an unexpected type {:?}", indirect_identifier, metadata.artifact_type);
-                    None
+                    //None
                 }
             }
         }
@@ -427,20 +369,19 @@ impl LoaderIO for DiskAssetIO {
         version: u32,
     ) {
         log::debug!("request_metadata {:?}", load_handle);
+        assert_eq!(self.build_hash, build_hash);
 
         let hash = self.manifest.artifact_lookup.get(&object_id).map(|x| x.build_hash);
         if let Some(hash) = hash {
             self.thread_pool
                 .as_ref()
                 .unwrap()
-                .request_tx
-                .send(DiskAssetIORequest::Metadata(DiskAssetIORequestMetadata {
+                .add_request(DiskAssetIORequest::Metadata(DiskAssetIORequestMetadata {
                     load_handle,
                     object_id,
                     version,
                     hash,
-                }))
-                .unwrap();
+                }));
         } else {
             self.tx
                 .send(LoaderEvent::MetadataRequestComplete(
@@ -477,19 +418,19 @@ impl LoaderIO for DiskAssetIO {
         version: u32,
     ) {
         log::debug!("request_data {:?}", load_handle);
+        assert_eq!(self.build_hash, build_hash);
 
         self.thread_pool
             .as_ref()
             .unwrap()
-            .request_tx
-            .send(DiskAssetIORequest::Data(DiskAssetIORequestData {
+            .add_request(
+            DiskAssetIORequest::Data(DiskAssetIORequestData {
                 object_id,
                 load_handle,
                 hash,
                 version,
                 subresource,
-            }))
-            .unwrap();
+            }));
 
         // self.tx.send(LoaderEvent::DataRequestComplete(RequestDataResult {
         //     load_handle,

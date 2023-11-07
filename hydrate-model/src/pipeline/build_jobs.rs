@@ -1,17 +1,15 @@
 use std::collections::VecDeque;
-use std::fs::metadata;
-use crate::{BuildInfo, BuilderId, DataSet, DataSource, EditorModel, HashMap, HashMapKeys, ObjectId, ObjectLocation, ObjectName, ObjectSourceId, Schema, SchemaFingerprint, SchemaLinker, SchemaNamedType, SchemaRecord, SchemaSet, SingleObject, Value};
+use crate::{EditorModel, HashMap, ObjectId};
 use std::hash::{Hash, Hasher};
-use std::io::{Read, Write};
-use std::path::{Path, PathBuf};
+use std::io::Write;
+use std::path::PathBuf;
 use std::str::FromStr;
 use uuid::Uuid;
-use hydrate_base::{BuiltObjectMetadata, AssetUuid, ArtifactId, ManifestFileJson, ManifestFileEntryJson};
-use hydrate_base::handle::DummySerdeContextHandle;
+use hydrate_base::{ArtifactId, ManifestFileJson, ManifestFileEntryJson};
 
 use super::ImportJobs;
 
-use hydrate_base::uuid_path::{path_to_uuid, path_to_uuid_and_hash, uuid_and_hash_to_path, uuid_to_path};
+use hydrate_base::uuid_path::uuid_and_hash_to_path;
 
 use super::*;
 
@@ -19,25 +17,16 @@ struct BuildRequest {
     object_id: ObjectId,
 }
 
-// An in-flight build operation we want to perform
-struct BuildOp {
-    object_id: ObjectId,
-    //builder_id: BuilderId,
-    //path: PathBuf,
-}
-
 // A known build job, each existing asset will have an associated build job.
 // It could be in a completed state, or there could be a problem with it and we need to re-run it.
 struct BuildJob {
-    object_id: ObjectId,
     build_data_exists: HashSet<(ArtifactId, u64)>,
     asset_exists: bool,
 }
 
 impl BuildJob {
-    pub fn new(object_id: ObjectId) -> Self {
+    pub fn new() -> Self {
         BuildJob {
-            object_id,
             build_data_exists: Default::default(),
             asset_exists: false,
         }
@@ -56,14 +45,12 @@ pub struct BuildJobs {
 
 impl BuildJobs {
     pub fn new(
-        builder_registry: &BuilderRegistry,
         job_processor_registry: &JobProcessorRegistry,
-        editor_model: &EditorModel,
         job_data_root_path: PathBuf,
         build_data_root_path: PathBuf,
     ) -> Self {
+        //TODO: May need to scan disk to see what is cached?
         let job_executor = JobExecutor::new(job_data_root_path, job_processor_registry);
-        //let build_jobs = BuildJobs::find_all_jobs(builder_registry, editor_model, &build_data_root_path);
         let build_jobs = Default::default();
 
         BuildJobs {
@@ -76,7 +63,7 @@ impl BuildJobs {
 
     pub fn queue_build_operation(
         &mut self,
-        object_id: ObjectId,
+        _object_id: ObjectId,
     ) {
         // self.build_operations.push(BuildOp {
         //     object_id,
@@ -93,7 +80,7 @@ impl BuildJobs {
         editor_model: &mut EditorModel,
         import_jobs: &ImportJobs,
         object_hashes: &HashMap<ObjectId, u64>,
-        import_data_metadata_hashes: &HashMap<ObjectId, u64>,
+        _import_data_metadata_hashes: &HashMap<ObjectId, u64>,
         combined_build_hash: u64,
     ) {
         editor_model.refresh_tree_node_cache();
@@ -119,7 +106,7 @@ impl BuildJobs {
         // Main loop driving processing of jobs in dependency order. We may queue up additional
         // assets during this loop.
         //
-        let mut started_build_ops = HashMap::<ObjectId, BuildOp>::default();
+        let mut started_build_ops = HashSet::<ObjectId>::default();
         let mut build_hashes = HashMap::default();
         let mut artifact_asset_lookup = HashMap::default();
         let mut built_artifact_metadata = HashMap::default();
@@ -136,11 +123,13 @@ impl BuildJobs {
             // kick off the jobs needed to produce the asset for it
             //
             while let Some(request) = requested_build_ops.pop_front() {
-                if started_build_ops.contains_key(&request.object_id) {
+                if started_build_ops.contains(&request.object_id) {
                     continue;
                 }
 
                 let object_id = request.object_id;
+                started_build_ops.insert(object_id);
+
                 println!("find {:?}", object_id);
                 let object_type = editor_model
                     .root_edit_context()
@@ -206,7 +195,7 @@ impl BuildJobs {
 
                 let job = self.build_jobs
                     .entry(built_artifact.asset_id)
-                    .or_insert_with(|| BuildJob::new(built_artifact.asset_id));
+                    .or_insert_with(|| BuildJob::new());
                 job.asset_exists = true;
                 job.build_data_exists.insert((built_artifact.artifact_id, build_hash));
 

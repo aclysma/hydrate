@@ -1,5 +1,5 @@
 use crate::ui_state::AssetBrowserGridState;
-use hydrate_model::{HashSet, ObjectId};
+use hydrate_model::ObjectId;
 use imgui::im_str;
 
 #[derive(Copy, Clone, Debug)]

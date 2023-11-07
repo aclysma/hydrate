@@ -1,14 +1,13 @@
 use std::hash::Hash;
-use crossbeam_channel::{Receiver, Sender};
 use serde::{Deserialize, Serialize};
 use siphasher::sip128::Hasher128;
-use type_uuid::{Bytes, TypeUuid, TypeUuidDynamic};
+use type_uuid::{TypeUuid, TypeUuidDynamic};
 use uuid::Uuid;
 use hydrate_base::hashing::HashMap;
 use hydrate_base::{ArtifactId, AssetUuid, BuiltObjectMetadata, Handle, ObjectId};
 use hydrate_base::handle::{DummySerdeContextHandle};
 use hydrate_data::{DataSet, SchemaSet, SingleObject};
-use crate::{AssetArtifactIdPair, BuiltArtifact, BuiltAsset, ImportData, ImportJobs};
+use crate::{AssetArtifactIdPair, BuiltArtifact, ImportData, ImportJobs};
 use super::{JobId, JobTypeId};
 
 pub trait ImportDataProvider {

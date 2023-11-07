@@ -2,10 +2,9 @@ use crate::app_state::{ActionQueueSender, ModalAction, ModalActionControlFlow};
 use crate::db_state::DbState;
 use crate::ui_state::UiState;
 use hydrate_model::{HashSet, ObjectLocation, ObjectName, SchemaFingerprint};
-use hydrate_model::pipeline::{AssetEngine, ImportJobs, ImporterRegistry};
+use hydrate_model::pipeline::AssetEngine;
 use imgui::sys::ImVec2;
 use imgui::{im_str, ImString, PopupModal};
-use std::path::PathBuf;
 
 pub struct NewObjectModal {
     finished_first_draw: bool,
@@ -29,11 +28,11 @@ impl ModalAction for NewObjectModal {
     fn draw_imgui(
         &mut self,
         ui: &mut imgui::Ui,
-        imnodes_context: &mut imnodes::Context,
+        _imnodes_context: &mut imnodes::Context,
         db_state: &mut DbState,
         ui_state: &mut UiState,
-        asset_engine: &mut AssetEngine,
-        action_queue: ActionQueueSender,
+        _asset_engine: &mut AssetEngine,
+        _action_queue: ActionQueueSender,
     ) -> ModalActionControlFlow {
         if !self.finished_first_draw {
             ui.open_popup(im_str!("Create New Object"));

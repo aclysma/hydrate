@@ -7,7 +7,6 @@ pub type HashMapValues<'a, K, V> = std::collections::hash_map::Values<'a, K, V>;
 pub type HashSet<T> = std::collections::HashSet<T, ahash::RandomState>;
 pub type HashSetIter<'a, T> = std::collections::hash_set::Iter<'a, T>;
 
-use serde::{Deserialize, Serialize};
 use std::fmt::{Debug, Formatter};
 use uuid::Uuid;
 

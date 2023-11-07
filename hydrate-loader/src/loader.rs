@@ -2,9 +2,8 @@ use crossbeam_channel::{Receiver, Sender};
 use dashmap::DashMap;
 use hydrate_base::{ArtifactId, ObjectId};
 use std::fmt::Debug;
-use std::sync::atomic::{AtomicI32, AtomicU32, AtomicU64, AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicU32, AtomicU64, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
-//use crate::disk_io::DiskAssetIOResult;
 use hydrate_base::{AssetRef, AssetTypeId, AssetUuid};
 use hydrate_base::handle::{LoadState, LoaderInfoProvider, LoadStateProvider};
 use crate::storage::{AssetStorage, AssetLoadOp, HandleOp, IndirectionTable, IndirectIdentifier};
@@ -108,7 +107,7 @@ pub struct RequestDataResult {
     pub result: std::io::Result<ObjectData>,
 }
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub struct CombinedBuildHash(pub u64);
 
 #[derive(Debug)]
@@ -234,7 +233,7 @@ pub trait LoaderIO: Sync + Send {
 
 #[derive(Debug)]
 struct IndirectLoad {
-    id: IndirectIdentifier,
+    _id: IndirectIdentifier,
     //state: IndirectHandleState,
     resolved_uuid: ArtifactId,
     engine_ref_count: AtomicUsize,
@@ -266,7 +265,7 @@ struct LoadHandleInfo {
     asset_id: AssetUuid,
     //ref_count: AtomicU32,
     engine_ref_count: AtomicU32,
-    next_version: u32,
+    _next_version: u32,
     //load_state: LoadState,
     versions: Vec<LoadHandleVersionInfo>,
 }
@@ -283,8 +282,8 @@ struct LoadHandleInfo {
 // }
 
 struct ReloadAction {
-    build_hash: CombinedBuildHash,
-    updated_assets: Vec<ObjectId>,
+    _build_hash: CombinedBuildHash,
+    _updated_assets: Vec<ObjectId>,
 }
 
 struct LoaderUpdateState {
@@ -487,7 +486,7 @@ impl Loader {
         build_hash: CombinedBuildHash,
         result: RequestMetadataResult,
     ) {
-        if let Some(mut load_state_info) = self.load_handle_infos.get(&result.load_handle) {
+        if let Some(load_state_info) = self.load_handle_infos.get(&result.load_handle) {
             log::debug!("handle_request_metadata_result {:?} {:?}", load_state_info.asset_id, load_state_info.asset_id);
             let load_state = load_state_info.versions[result.version as usize].load_state;
             // Bail if the asset is unloaded
@@ -660,7 +659,7 @@ impl Loader {
         //while let Ok(handle_op) = self.handle_op_rx.try_recv() {
         // Handle the operation
         match load_result {
-            HandleOp::Error(load_handle, version, error) => {
+            HandleOp::Error(load_handle, _version, error) => {
                 let asset_id = self.load_handle_infos.get(&load_handle).unwrap().asset_id;
                 log::debug!("handle_load_result error {:?} {:?}", load_handle, asset_id);
                 //TODO: How to handle error?
@@ -687,7 +686,7 @@ impl Loader {
 
                 for (blocked_load_handle, blocked_load_version) in blocked_loads {
                     log::trace!("blocked load {:?}", blocked_load_handle);
-                    let mut blocked_load = self
+                    let blocked_load = self
                         .load_handle_infos
                         .get_mut(&blocked_load_handle)
                         .unwrap();
@@ -752,8 +751,8 @@ impl Loader {
                 LoaderEvent::AssetsUpdated(build_hash, updated_assets) => {
                     // We probably want to finish existing work, pause starting new work, and do the reload
                     update_state.pending_reload_actions.push(ReloadAction {
-                        build_hash,
-                        updated_assets,
+                        _build_hash: build_hash,
+                        _updated_assets: updated_assets,
                     });
                 }
             }
@@ -842,7 +841,7 @@ impl Loader {
                     panic!("Couldn't find asset {:?}", indirect_id);
                 }
 
-                let (artifact_id, build_hash) = resolved.unwrap();
+                let (artifact_id, _build_hash) = resolved.unwrap();
                 log::debug!(
                     "Allocate indirect load handle {:?} for indirect id {:?} -> {:?}",
                     load_handle,
@@ -853,7 +852,7 @@ impl Loader {
                 self.indirect_states.insert(
                     load_handle,
                     IndirectLoad {
-                        id: indirect_id.clone(),
+                        _id: indirect_id.clone(),
                         resolved_uuid: artifact_id,
                         engine_ref_count: AtomicUsize::new(0),
                     },
@@ -885,7 +884,7 @@ impl Loader {
                         object_id,
                         asset_id,
                         engine_ref_count: AtomicU32::new(0),
-                        next_version: 0,
+                        _next_version: 0,
                         //load_state: LoadState::Unloaded,
                         versions: vec![LoadHandleVersionInfo {
                             load_state: LoadState::Unloaded,

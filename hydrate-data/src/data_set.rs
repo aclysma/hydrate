@@ -94,8 +94,6 @@ pub enum OverrideBehavior {
     Replace,
 }
 
-pub struct DataObjectDelta {}
-
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct ImporterId(pub Uuid);
 
@@ -371,13 +369,11 @@ impl DataSet {
 
     pub fn copy_from_single_object(
         &mut self,
-        schema_set: &SchemaSet,
         object_id: ObjectId,
         single_object: &SingleObject
     ) -> DataSetResult<()> {
         let object = self.objects.get_mut(&object_id).unwrap();
         for (property, value) in single_object.properties() {
-            //self.set_property_override(schema_set, object_id, property, value.clone())?;
             object.properties.insert(property.clone(), value.clone());
         }
 
@@ -386,7 +382,7 @@ impl DataSet {
         }
 
         for (property, dynamic_array_entries) in single_object.dynamic_array_entries() {
-            let mut property_entry = object.dynamic_array_entries.entry(property.clone()).or_default();
+            let property_entry = object.dynamic_array_entries.entry(property.clone()).or_default();
             for element in &*dynamic_array_entries {
                 property_entry.insert(*element);
             }

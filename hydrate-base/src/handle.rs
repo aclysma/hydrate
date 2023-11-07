@@ -11,16 +11,12 @@ use std::{
 };
 
 use crossbeam_channel::Sender;
-//use futures_core::future::{BoxFuture, Future};
 use serde::{
     de::{self, Deserialize, Visitor},
     ser::{self, Serialize, Serializer},
 };
 
-// use super::{
-//     storage::{LoadStatus, LoaderInfoProvider},
-// };
-use crate::{ArtifactId, AssetRef, AssetUuid, ObjectId};
+use crate::{ArtifactId, AssetRef, AssetUuid};
 
 /// Loading ID allocated by [`Loader`](crate::loader::Loader) to track loading of a particular asset
 /// or an indirect reference to an asset.

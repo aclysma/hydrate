@@ -1,4 +1,3 @@
-use std::fs::read;
 use crate::app_state::AppState;
 use crate::ui::asset_browser_grid_drag_drop::AssetBrowserGridPayload;
 use crate::ui_state::UiState;
@@ -43,7 +42,7 @@ fn draw_inspector_simple_property<
     read_only: bool,
     f: F,
 ) {
-    let disabled_helper = ImguiDisableHelper::new(read_only);
+    let _disabled_helper = ImguiDisableHelper::new(read_only);
     let v = if property_inherited {
         if let Some(value) = edit_context.resolve_property(object_id, &property_path) {
             value
@@ -68,7 +67,7 @@ fn draw_inspector_simple_property<
             }
 
             if imgui::MenuItem::new(im_str!("Apply Override")).build(ui) {
-                edit_context.apply_property_override_to_prototype(object_id, &property_path);
+                edit_context.apply_property_override_to_prototype(object_id, &property_path).unwrap();
             }
 
             imgui::sys::igEndPopup();
@@ -76,7 +75,7 @@ fn draw_inspector_simple_property<
     }
 
     if let Some(new_value) = new_value {
-        edit_context.set_property_override(object_id, &property_path, new_value);
+        edit_context.set_property_override(object_id, &property_path, new_value).unwrap();
     }
 }
 
@@ -107,7 +106,7 @@ fn draw_inspector_simple_property_enum(
         property_inherited,
         read_only,
         |ui, value| {
-            let mut v = value.as_enum().unwrap();
+            let v = value.as_enum().unwrap();
             let property_im_str = im_str!("{}", &property_name);
 
             let items: Vec<_> = schema_enum.symbols().iter().map(|x| x.name()).collect();

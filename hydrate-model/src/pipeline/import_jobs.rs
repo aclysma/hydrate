@@ -1,17 +1,12 @@
 use crate::{
-    DataSet, DataSource, EditorModel, HashMap, HashMapKeys, ImportInfo,
-    ImporterId, ObjectId, ObjectLocation, ObjectName, ObjectSourceId, Schema, SchemaFingerprint,
-    SchemaLinker, SchemaNamedType, SchemaRecord, SchemaSet, SingleObject, Value,
+    EditorModel, HashMap,
+    ImporterId, ObjectId,
+    SchemaSet, SingleObject
 };
-use serde::{Deserialize, Serialize};
 use std::hash::{Hash, Hasher};
 use std::path::{Path, PathBuf};
-use std::sync::Arc;
-use type_uuid::{TypeUuid, TypeUuidDynamic};
-use uuid::Uuid;
 use hydrate_base::hashing::HashSet;
 
-use crate::edit_context::EditContext;
 use crate::SingleObjectJson;
 use hydrate_base::uuid_path::{path_to_uuid, uuid_to_path};
 
@@ -47,22 +42,20 @@ struct ImportOp {
 // A known import job, each existing asset that imports data will have an associated import job.
 // It could be in a completed state, or there could be a problem with it and we need to re-run it.
 struct ImportJob {
-    object_id: ObjectId,
     import_data_exists: bool,
     asset_exists: bool,
-    imported_data_stale: bool, // how to know it's stale? (we need timestamp/filesize stored along with import data, and paths to file it included) We may not know until we try to open it
-    imported_data_invalid: bool, // how to know it's valid? (does it parse? does it have errors? we may not know until we try to open it)
+    //imported_data_stale: bool, // how to know it's stale? (we need timestamp/filesize stored along with import data, and paths to file it included) We may not know until we try to open it
+    //imported_data_invalid: bool, // how to know it's valid? (does it parse? does it have errors? we may not know until we try to open it)
     imported_data_hash: Option<u64>,
 }
 
 impl ImportJob {
-    pub fn new(object_id: ObjectId) -> Self {
+    pub fn new() -> Self {
         ImportJob {
-            object_id,
             import_data_exists: false,
             asset_exists: false,
-            imported_data_stale: false,
-            imported_data_invalid: false,
+            //imported_data_stale: false,
+            //imported_data_invalid: false,
             imported_data_hash: None,
         }
     }
@@ -169,7 +162,6 @@ impl ImportJobs {
         importer_registry: &ImporterRegistry,
         editor_model: &mut EditorModel,
     ) {
-        let schema_set = editor_model.clone_schema_set();
         for import_op in &self.import_operations {
             //let importer_id = editor_model.root_edit_context().import_info()
             let importer_id = import_op.importer_id;
@@ -201,7 +193,7 @@ impl ImportJobs {
 
                     if import_op.assets_to_regenerate.contains(object_id) {
                         if let Some(default_asset) = &imported_object.default_asset {
-                            editor_model.root_edit_context_mut().copy_from_single_object(&*schema_set, *object_id, default_asset).unwrap();
+                            editor_model.root_edit_context_mut().copy_from_single_object(*object_id, default_asset).unwrap();
                         }
                     }
 
@@ -239,10 +231,10 @@ impl ImportJobs {
 
                         let metadata = path.metadata().unwrap();
                         let metadata_hash = hash_file_metadata(&metadata);
-                        let mut import_job = self
+                        let import_job = self
                             .import_jobs
                             .entry(*object_id)
-                            .or_insert_with(|| ImportJob::new(*object_id));
+                            .or_insert_with(|| ImportJob::new());
                         import_job.import_data_exists = true;
                         import_job.imported_data_hash = Some(metadata_hash);
                     }
@@ -277,7 +269,7 @@ impl ImportJobs {
                 let object_id = ObjectId(import_file_uuid.as_u128());
                 let job = import_jobs
                     .entry(object_id)
-                    .or_insert_with(|| ImportJob::new(object_id));
+                    .or_insert_with(|| ImportJob::new());
 
                 let file_metadata = file.metadata().unwrap();
                 let import_data_hash = hash_file_metadata(&file_metadata);
@@ -298,7 +290,7 @@ impl ImportJobs {
                 if importer.is_some() {
                     let job = import_jobs
                         .entry(*object_id)
-                        .or_insert_with(|| ImportJob::new(*object_id));
+                        .or_insert_with(|| ImportJob::new());
                     job.asset_exists = true;
                 }
             }

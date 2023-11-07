@@ -21,8 +21,8 @@ pub fn build_data_source_path() -> PathBuf {
 #[uuid = "3ebc8afd-09d2-427e-b9e9-50a53fcbde84"]
 struct GpuImageAsset {
     pub image_bytes: Vec<u8>,
-    pub width: u32,
-    pub height: u32,
+    pub _width: u32,
+    pub _height: u32,
 }
 
 struct GpuImageLoader;
@@ -33,8 +33,9 @@ impl DynAssetLoader<GpuImageAsset> for GpuImageLoader {
         refop_sender: &crossbeam_channel::Sender<RefOp>,
         loader_info: &dyn LoaderInfoProvider,
         data: &[u8],
-        load_handle: LoadHandle,
-        load_op: hydrate::loader::storage::AssetLoadOp, version: u32
+        _load_handle: LoadHandle,
+        load_op: hydrate::loader::storage::AssetLoadOp,
+        _version: u32
     ) -> Result<hydrate::loader::asset_storage::UpdateAssetResult<GpuImageAsset>, Box<dyn Error + Send + 'static>> {
         log::debug!("GpuImageLoader update_asset");
 
@@ -52,16 +53,16 @@ impl DynAssetLoader<GpuImageAsset> for GpuImageLoader {
         log::debug!("return");
         Ok(UpdateAssetResult::Result(GpuImageAsset {
             image_bytes: asset_data.image_bytes,
-            width: asset_data.width,
-            height: asset_data.height,
+            _width: asset_data.width,
+            _height: asset_data.height,
         }))
     }
 
-    fn commit_asset_version(&mut self, handle: LoadHandle, version: u32) {
+    fn commit_asset_version(&mut self, _handle: LoadHandle, _version: u32) {
 
     }
 
-    fn free(&mut self, handle: LoadHandle) {
+    fn free(&mut self, _handle: LoadHandle) {
 
     }
 }

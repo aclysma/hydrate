@@ -1,14 +1,10 @@
 use crate::db_state::DbState;
-use crate::imgui_support::ImguiManager;
 use crate::ui::modals::{ConfirmQuitWithoutSavingModal, ImportFilesModal};
 use crate::ui_state::UiState;
-use hydrate_model::{EndContextBehavior, HashSet, ObjectId, ObjectLocation, ObjectPath};
+use hydrate_model::{EndContextBehavior, ObjectId, ObjectLocation};
 use hydrate_model::pipeline::{
-    AssetEngine, BuildJobs, Builder, BuilderRegistry, ImportJobs, ImporterRegistry,
+    AssetEngine
 };
-use imgui::sys::{ImGuiCond, ImVec2};
-use imgui::PopupModal;
-use imnodes::editor;
 use std::fmt::Formatter;
 use std::path::PathBuf;
 use std::sync::mpsc::{Receiver, Sender};
@@ -97,12 +93,12 @@ impl ActionQueueReceiver {
     }
 
     // shorthand for a common action
-    pub fn try_set_modal_action<T: ModalAction + 'static>(
-        &self,
-        action: T,
-    ) {
-        self.queue_action(QueuedActions::TryBeginModalAction(Box::new(action)))
-    }
+    // pub fn try_set_modal_action<T: ModalAction + 'static>(
+    //     &self,
+    //     action: T,
+    // ) {
+    //     self.queue_action(QueuedActions::TryBeginModalAction(Box::new(action)))
+    // }
 }
 
 #[derive(PartialEq)]

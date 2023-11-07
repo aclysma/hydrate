@@ -1,11 +1,11 @@
 use crate::edit_context::EditContext;
 use crate::editor::undo::UndoStack;
-use crate::{AssetEngine, DataSet, DataSource, FileSystemIdBasedDataSource, FileSystemPathBasedDataSource, HashMap, HashSet, ImporterRegistry, LocationTree, ObjectId, ObjectPath, ObjectSourceId, PathNode, PathNodeRoot, SchemaNamedType, SchemaSet};
+use crate::{DataSet, DataSource, FileSystemIdBasedDataSource, FileSystemPathBasedDataSource, HashMap, HashSet, ImporterRegistry, LocationTree, ObjectId, ObjectPath, ObjectSourceId, PathNode, PathNodeRoot, SchemaNamedType, SchemaSet};
 use slotmap::DenseSlotMap;
 use std::path::PathBuf;
 use std::sync::Arc;
 use hydrate_data::{ObjectLocation, ObjectName};
-use hydrate_schema::{SchemaFingerprint, SchemaRecord};
+use hydrate_schema::SchemaFingerprint;
 use crate::import_util::ImportToQueue;
 slotmap::new_key_type! { pub struct EditContextKey; }
 
@@ -103,7 +103,7 @@ impl EditorModel {
     }
 
     pub fn any_edit_context_has_unsaved_changes(&self) -> bool {
-        for (key, context) in &self.edit_contexts {
+        for (_key, context) in &self.edit_contexts {
             if context.has_changes() {
                 return true;
             }
@@ -267,13 +267,13 @@ impl EditorModel {
         //
         // Ensure pending edits are flushed to the data set so that our modified objects list is fully up to date
         //
-        let mut root_edit_context = self
+        let root_edit_context = self
             .edit_contexts
             .get_mut(self.root_edit_context_key)
             .unwrap();
         root_edit_context.commit_pending_undo_context();
 
-        for (id, data_source) in &mut self.data_sources {
+        for (_id, data_source) in &mut self.data_sources {
             data_source.flush_to_storage(root_edit_context);
         }
 
@@ -290,7 +290,7 @@ impl EditorModel {
         //
         // Ensure pending edits are cleared
         //
-        let mut root_edit_context = self
+        let root_edit_context = self
             .edit_contexts
             .get_mut(self.root_edit_context_key)
             .unwrap();
@@ -306,7 +306,7 @@ impl EditorModel {
             modified_objects, modified_locations
         );
 
-        for (id, data_source) in &mut self.data_sources {
+        for (_id, data_source) in &mut self.data_sources {
             data_source.load_from_storage(root_edit_context, imports_to_queue);
         }
 
@@ -323,7 +323,7 @@ impl EditorModel {
 
     pub fn close_file_system_source(
         &mut self,
-        object_source_id: ObjectSourceId,
+        _object_source_id: ObjectSourceId,
     ) {
         unimplemented!();
         // kill edit contexts or fail
@@ -331,8 +331,8 @@ impl EditorModel {
         // clear root_edit_context of data from this source
 
         // drop the source
-        let old = self.data_sources.remove(&object_source_id);
-        assert!(old.is_some());
+        //let old = self.data_sources.remove(&object_source_id);
+        //assert!(old.is_some());
     }
 
     // Spawns a separate edit context with copies of the given objects. The undo stack will be shared
@@ -420,7 +420,7 @@ impl EditorModel {
             if let Some(object) = data_set.objects().get(&path_node) {
                 if let Some(name) = object.object_name().as_string() {
                     // Parent is found, named, and not a cyclical reference
-                    let mut parent = Self::do_populate_path(
+                    let parent = Self::do_populate_path(
                         data_set,
                         path_stack,
                         paths,

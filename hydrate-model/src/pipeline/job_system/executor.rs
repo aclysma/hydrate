@@ -1,18 +1,13 @@
-use std::hash::Hash;
 use std::path::PathBuf;
 use std::sync::Arc;
 use crossbeam_channel::{Receiver, Sender};
 use serde::{Deserialize, Serialize};
-use siphasher::sip128::Hasher128;
-use type_uuid::{Bytes, TypeUuid};
-use uuid::Uuid;
 use hydrate_base::hashing::HashMap;
 use hydrate_base::{ArtifactId, ObjectId};
 use hydrate_data::{DataSet, SchemaSet, SingleObject};
-use crate::{BuiltArtifact, BuiltAsset};
+use crate::BuiltArtifact;
 
 use super::*;
-use super::traits::*;
 
 struct JobWrapper<T: JobProcessor>(T);
 
@@ -36,24 +31,19 @@ impl<T: JobProcessor> JobProcessorAbstract for JobWrapper<T>
     }
 }
 
-struct JobOutput {
-    output_data: Vec<u8>,
-    downstream_jobs: Vec<JobId>,
-}
-
-struct JobHistory {
-    // version() returned from the processor, if it bumps we invalidate the job
-    job_version: u32,
-
-    // The dependencies that existed when we ran this job last time (may not need this?)
-    dependencies: JobEnumeratedDependencies,
-    // Hash of import data used to run the job. If our import data changed, the job results can't be
-    // reused
-    import_data_hashes: HashMap<ObjectId, u128>,
-    // All the jobs this job produced. Even if we can reuse the results of this job, we will have
-    // to check downstream jobs do not detect an input data change.
-    downstream_jobs: Vec<QueuedJob>,
-}
+// struct JobHistory {
+//     // version() returned from the processor, if it bumps we invalidate the job
+//     job_version: u32,
+//
+//     // The dependencies that existed when we ran this job last time (may not need this?)
+//     dependencies: JobEnumeratedDependencies,
+//     // Hash of import data used to run the job. If our import data changed, the job results can't be
+//     // reused
+//     import_data_hashes: HashMap<ObjectId, u128>,
+//     // All the jobs this job produced. Even if we can reuse the results of this job, we will have
+//     // to check downstream jobs do not detect an input data change.
+//     downstream_jobs: Vec<QueuedJob>,
+// }
 
 struct JobState {
     job_type: JobTypeId,
@@ -148,11 +138,12 @@ pub struct AssetArtifactIdPair {
 }
 
 pub struct JobExecutor {
-    root_path: PathBuf,
+    // Will be needed when we start doing job caching
+    _root_path: PathBuf,
     job_processor_registry: JobProcessorRegistry,
 
     // Represents all known previous executions of a job
-    job_history: HashMap<JobId, JobHistory>,
+    //job_history: HashMap<JobId, JobHistory>,
     // All the jobs that we have run or will run in this job batch
     current_jobs: HashMap<JobId, JobState>,
 
@@ -194,7 +185,7 @@ impl JobApi for JobExecutor {
         let job_id = JobId::from_u128(new_job.input_hash);
         let processor = self.job_processor_registry.get(new_job.job_type).unwrap();
         let dependencies = processor.enumerate_dependencies_inner(&new_job.input_data, data_set, schema_set);
-        self.enqueue_job_internal(data_set, schema_set, QueuedJob {
+        self.enqueue_job_internal(QueuedJob {
             job_id,
             job_type: new_job.job_type,
             input_data: new_job.input_data,
@@ -229,9 +220,9 @@ impl JobExecutor {
         let (built_artifact_queue_tx, built_artifact_queue_rx) = crossbeam_channel::unbounded();
 
         JobExecutor {
-            root_path,
+            _root_path: root_path,
             job_processor_registry: job_processor_registry.clone(),
-            job_history: Default::default(),
+            //job_history: Default::default(),
             current_jobs: Default::default(),
             job_create_queue_tx,
             job_create_queue_rx,
@@ -285,7 +276,7 @@ impl JobExecutor {
         built_artifacts
     }
 
-    fn enqueue_job_internal(&self, data_set: &DataSet, schema_set: &SchemaSet, job: QueuedJob) {
+    fn enqueue_job_internal(&self, job: QueuedJob) {
         self.job_create_queue_tx.send(job).unwrap();
     }
 
@@ -296,7 +287,7 @@ impl JobExecutor {
         }
     }
 
-    fn handle_create_queue(&mut self, data_set: &DataSet, schema_set: &SchemaSet) {
+    fn handle_create_queue(&mut self) {
         while let Ok(queued_job) = self.job_create_queue_rx.try_recv() {
             // If key exists, we already queued a job with these exact inputs and we can reuse the outputs
             if !self.current_jobs.contains_key(&queued_job.job_id) {
@@ -322,7 +313,7 @@ impl JobExecutor {
         //
         // Pull jobs off the create queue. Determine their dependencies and prepare them to run.
         //
-        self.handle_create_queue(data_set, schema_set);
+        self.handle_create_queue();
 
         //TODO: Don't iterate every job in existence
         for (&job_id, job_state) in &self.current_jobs {
@@ -342,7 +333,7 @@ impl JobExecutor {
                 let Some(dependency_job_state) = dependency else {
                     panic!("Job has a dependency on another job that has not been created");
                     //TODO: We would not terminate if we remove the panic
-                    break;
+                    //break;
                 };
 
                 if dependency_job_state.output_data.is_none() {
@@ -360,29 +351,29 @@ impl JobExecutor {
             // But we still need to schedule downstream jobs in case their dependencies changed and
             // they need to be reprocessed
             //
-            let mut has_run_job_before = false;
-            let mut can_reuse_result = true;
-            let job_history = self.job_history.get(&job_id);
-            if let Some(job_history) = job_history {
-                has_run_job_before = true;
-                can_reuse_result = true;
-                //TODO: Check if input data not represented in the job hash changed
-                // job_history.import_data_hashed
-                // job_history.dependencies
-
-                // can_reuse_result may be set to false here
-
-
-                if has_run_job_before && can_reuse_result {
-                    // Kick off child jobs
-                    for downstream_job in &job_history.downstream_jobs {
-                        self.enqueue_job_internal(data_set, schema_set, downstream_job.clone());
-                    }
-
-                    // Bail, we will reuse the output from the previous run
-                    break;
-                }
-            }
+            //let mut _has_run_job_before = false;
+            //let mut _can_reuse_result = true;
+            // let job_history = self.job_history.get(&job_id);
+            // if let Some(job_history) = job_history {
+            //     _has_run_job_before = true;
+            //     _can_reuse_result = true;
+            //     //TODO: Check if input data not represented in the job hash changed
+            //     // job_history.import_data_hashed
+            //     // job_history.dependencies
+            //
+            //     // can_reuse_result may be set to false here
+            //
+            //
+            //     if _has_run_job_before && _can_reuse_result {
+            //         // Kick off child jobs
+            //         for downstream_job in &job_history.downstream_jobs {
+            //             self.enqueue_job_internal(downstream_job.clone());
+            //         }
+            //
+            //         // Bail, we will reuse the output from the previous run
+            //         break;
+            //     }
+            // }
 
             //
             // At this point we have either never run the job before, or we know the job inputs have changed
@@ -444,7 +435,7 @@ impl JobExecutor {
         }
 
         //TODO: Don't iterate, keep a count
-        for (id, job) in &self.current_jobs {
+        for (_id, job) in &self.current_jobs {
             if job.output_data.is_none() {
                 return false;
             }

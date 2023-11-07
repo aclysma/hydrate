@@ -81,12 +81,10 @@ pub mod loader;
 pub use crate::asset_storage::{AssetStorageSet, DynAssetLoader};
 use crate::disk_io::DiskAssetIO;
 use hydrate_base::handle::RefOp;
-use crate::loader::{CombinedBuildHash, Loader};
+use crate::loader::Loader;
 use crossbeam_channel::{Receiver, Sender};
-use hydrate_base::hashing::HashSet;
-use hydrate_base::{ArtifactId, ObjectId};
-use std::io::BufRead;
-use std::path::{Path, PathBuf};
+use hydrate_base::{ArtifactId};
+use std::path::PathBuf;
 use type_uuid::TypeUuid;
 
 pub use hydrate_base::handle::Handle;
@@ -113,21 +111,21 @@ trait AssetProvider {
     // get_asset_with_version
 }
 
-struct IOCommandUpdateAsset {
-    asset_id: ObjectId,
-    version: u64,
-    data: Vec<u8>,
-}
-
-struct IOCommandCommitAsset {
-    asset_id: ObjectId,
-    version: u64,
-}
-
-enum IOCommand {
-    Update(IOCommandUpdateAsset),
-    Commit(IOCommandCommitAsset),
-}
+// struct IOCommandUpdateAsset {
+//     asset_id: ObjectId,
+//     version: u64,
+//     data: Vec<u8>,
+// }
+//
+// struct IOCommandCommitAsset {
+//     asset_id: ObjectId,
+//     version: u64,
+// }
+//
+// enum IOCommand {
+//     Update(IOCommandUpdateAsset),
+//     Commit(IOCommandCommitAsset),
+// }
 
 //
 // struct BuildManifest {

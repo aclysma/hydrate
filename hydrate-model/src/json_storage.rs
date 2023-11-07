@@ -5,13 +5,10 @@ use crate::{
     ObjectId, ObjectLocation, ObjectName, ObjectSourceId, Schema,
     SchemaFingerprint, SchemaNamedType, SchemaSet, SingleObject, Value,
 };
-use serde::{Deserialize, ser, Serialize};
+use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use std::str::FromStr;
-use siphasher::sip128::Hasher128;
 use uuid::Uuid;
-use hydrate_schema::SchemaEnum;
-use crate::value::ValueEnum;
 
 fn property_value_to_json(value: &Value) -> serde_json::Value {
     match value {
@@ -237,7 +234,7 @@ impl EditContextObjectImportInfoJson {
 
     pub fn to_import_info(
         &self,
-        schema_set: &SchemaSet,
+        _schema_set: &SchemaSet,
     ) -> ImportInfo {
         ImportInfo::new(
             ImporterId(self.importer_id),
@@ -269,7 +266,7 @@ impl EditContextObjectBuildInfoJson {
 
     pub fn to_build_info(
         &self,
-        schema_set: &SchemaSet,
+        _schema_set: &SchemaSet,
     ) -> BuildInfo {
         let mut file_reference_overrides = HashMap::default();
         for (k, v) in &self.file_reference_overrides {

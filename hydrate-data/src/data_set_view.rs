@@ -87,7 +87,7 @@ impl<'a> DataContainer<'a> {
     pub fn get_override_behavior(&self, path: impl AsRef<str>) -> OverrideBehavior {
         match *self {
             DataContainer::DataSet(data_set, schema_set, object_id) => data_set.get_override_behavior(schema_set, object_id, path),
-            DataContainer::SingleObject(single_object, schema_set) => OverrideBehavior::Replace,
+            DataContainer::SingleObject(_, _) => OverrideBehavior::Replace,
         }
     }
 
@@ -126,7 +126,7 @@ impl<'a> DataContainerMut<'a> {
         }
     }
 
-    pub fn get_null_override(&self, path: impl AsRef<str>, null_override: NullOverride) -> Option<NullOverride> {
+    pub fn get_null_override(&self, path: impl AsRef<str>) -> Option<NullOverride> {
         self.read().get_null_override(path)
     }
 
@@ -304,8 +304,8 @@ impl<'a> DataSetView<'a> {
 
 pub struct DataSetViewMut<'a> {
     data_container: DataContainerMut<'a>,
-    schema_set: &'a SchemaSet,
-    object_id: ObjectId,
+    //schema_set: &'a SchemaSet,
+    //object_id: ObjectId,
     property_path_stack: Vec<String>,
     //object_schema: SchemaRecord,
     //schema_record_stack: Vec<Schema>,

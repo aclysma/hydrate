@@ -217,7 +217,7 @@ impl UndoContext {
 
             // Overwrite pre-existing objects back to the previous state (before_state only contains
             // objects that were tracked and were pre-existing)
-            for (object_id, object) in self.before_state.objects() {
+            for (object_id, _object) in self.before_state.objects() {
                 after_state.copy_from(&self.before_state, *object_id);
             }
 

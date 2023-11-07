@@ -1,11 +1,11 @@
-use crate::app_state::{ActionQueueSender, AppState, ModalAction, ModalActionControlFlow};
+use crate::app_state::{ActionQueueSender, ModalAction, ModalActionControlFlow};
 use crate::db_state::DbState;
 use crate::ui_state::UiState;
-use hydrate_model::{HashMap, ImportInfo, ImporterId, LocationTreeNode, ObjectId, ObjectLocation, ObjectName, HashSet};
+use hydrate_model::{LocationTreeNode, ObjectId, ObjectLocation, HashSet};
 use hydrate_model::pipeline::Importer;
-use hydrate_model::pipeline::{AssetEngine, ImportJobs, ImporterRegistry};
+use hydrate_model::pipeline::{AssetEngine, ImporterRegistry};
 use imgui::sys::ImVec2;
-use imgui::{im_str, PopupModal, StyleColor, TreeNodeFlags};
+use imgui::{im_str, PopupModal, TreeNodeFlags};
 use std::path::{Path, PathBuf};
 use hydrate_model::import_util::ImportToQueue;
 
@@ -92,7 +92,7 @@ pub fn path_tree_node(
         *selected_import_location = tree_node.location.clone();
     }
 
-    if let Some(token) = token {
+    if let Some(_token) = token {
         // Draw nodes with children first
         for (child_name, child) in &tree_node.children {
             if !child.children.is_empty() {
@@ -296,11 +296,11 @@ impl ModalAction for ImportFilesModal {
     fn draw_imgui(
         &mut self,
         ui: &mut imgui::Ui,
-        imnodes_context: &mut imnodes::Context,
+        _imnodes_context: &mut imnodes::Context,
         db_state: &mut DbState,
         ui_state: &mut UiState,
         asset_engine: &mut AssetEngine,
-        action_queue: ActionQueueSender,
+        _action_queue: ActionQueueSender,
     ) -> ModalActionControlFlow {
         if !self.finished_first_draw {
             ui.open_popup(imgui::im_str!("Import Files"));

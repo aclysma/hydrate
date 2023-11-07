@@ -1,12 +1,9 @@
-use std::alloc::System;
 use std::ffi::OsStr;
-use std::hash::Hash;
 use std::path::{Path, PathBuf};
-use std::time::SystemTime;
 use uuid::Uuid;
-use hydrate_data::{BuildInfo, ImporterId, ImportInfo, ObjectId, ObjectLocation, ObjectName, ObjectSourceId};
+use hydrate_data::{ImporterId, ObjectId, ObjectLocation, ObjectName, ObjectSourceId};
 use hydrate_schema::{HashMap, SchemaNamedType};
-use crate::{AssetEngine, EditContextObjectImportInfoJson, HashSet, import_util, Importer, ImporterRegistry, ImporterRegistryBuilder, MetaFile, MetaFileJson, PathNode, PathNodeRoot, ScannedImportable};
+use crate::{HashSet, import_util, Importer, ImporterRegistry, MetaFile, MetaFileJson, PathNode, PathNodeRoot, ScannedImportable};
 use crate::DataSource;
 use crate::edit_context::EditContext;
 use crate::import_util::ImportToQueue;
@@ -35,29 +32,29 @@ use crate::import_util::ImportToQueue;
 // conversion to ID if needed? Means renames touch lots of assets in memory.
 
 struct FileMetadata {
-    size_in_bytes: u64,
-    last_modified_time: Option<SystemTime>,
+    // size_in_bytes: u64,
+    // last_modified_time: Option<SystemTime>,
 }
 
 impl FileMetadata {
-    pub fn new(metadata: &std::fs::Metadata) -> Self {
+    pub fn new(_metadata: &std::fs::Metadata) -> Self {
         FileMetadata {
-            size_in_bytes: metadata.len(),
-            last_modified_time: metadata.modified().ok()
+            // size_in_bytes: metadata.len(),
+            // last_modified_time: metadata.modified().ok()
         }
     }
 
-    pub fn has_changed(&self, metadata: &std::fs::Metadata) -> bool {
-        self.size_in_bytes != metadata.len() || self.last_modified_time != metadata.modified().ok()
-    }
+    // pub fn has_changed(&self, metadata: &std::fs::Metadata) -> bool {
+    //     self.size_in_bytes != metadata.len() || self.last_modified_time != metadata.modified().ok()
+    // }
 }
 
 #[derive(Clone)]
 struct ObjectOnDiskState {
     containing_path: PathBuf,
-    asset_file_path: PathBuf,
-    name: String,
-    is_directory: bool,
+    _asset_file_path: PathBuf,
+    _name: String,
+    _is_directory: bool,
 }
 
 // Key: PathBuf
@@ -65,12 +62,11 @@ struct SourceFileDiskState {
     // may be generated or persisted
     generated_assets: HashSet<ObjectId>,
     persisted_assets: HashSet<ObjectId>,
-    source_file_metadata: FileMetadata,
-    // modified time? file length?
+    //source_file_metadata: FileMetadata,
 
 
-    importer_id: ImporterId,
-    importables: HashMap<Option<String>, ObjectId>,
+    _importer_id: ImporterId,
+    _importables: HashMap<Option<String>, ObjectId>,
 }
 
 // Key: ObjectId
@@ -81,8 +77,8 @@ struct GeneratedAssetDiskState {
 
 // Key: ObjectId
 struct PersistedAssetDiskState {
-    asset_file_path: PathBuf,
-    asset_file_metadata: FileMetadata,
+    _asset_file_path: PathBuf,
+    _asset_file_metadata: FileMetadata,
     // modified time? file length?
     // hash of asset's on-disk state?
 }
@@ -111,7 +107,7 @@ impl AssetDiskState {
         }
     }
 
-    fn as_persisted_asset_disk_state(&self) -> Option<&PersistedAssetDiskState> {
+    fn _as_persisted_asset_disk_state(&self) -> Option<&PersistedAssetDiskState> {
         match self {
             AssetDiskState::Generated(_) => None,
             AssetDiskState::Persisted(x) => Some(x),
@@ -195,7 +191,7 @@ impl FileSystemPathBasedDataSource {
         let mut modified_objects = edit_context.modified_objects().clone();
         for object_id in edit_context.objects().keys() {
             if self.is_object_owned_by_this_data_source(edit_context, *object_id) {
-                let mut containing_file_path = self.containing_file_path_for_object(edit_context, *object_id);
+                let containing_file_path = self.containing_file_path_for_object(edit_context, *object_id);
                 if let Some(on_disk_state) = self.all_object_ids_on_disk_with_on_disk_state.get(object_id) {
                     if containing_file_path != on_disk_state.containing_path {
                         // It has been moved, we will need to write it to the new location
@@ -382,7 +378,7 @@ impl DataSource for FileSystemPathBasedDataSource {
         let old_asset_disk_state = self.assets_disk_state.remove(&object_id);
         let source_file_path = old_asset_disk_state.unwrap().as_generated_asset_disk_state().unwrap().source_file_path.clone();
 
-        let mut containing_file_path = self.containing_file_path_for_object(edit_context, object_id);
+        let containing_file_path = self.containing_file_path_for_object(edit_context, object_id);
         let is_directory = false;
         let object_name = Self::sanitize_object_name(object_id, edit_context.object_name(object_id));
         let file_name = Self::file_name_for_object(&object_name, is_directory);
@@ -400,15 +396,15 @@ impl DataSource for FileSystemPathBasedDataSource {
 
         let asset_file_metadata = FileMetadata::new(&std::fs::metadata(&asset_file_path).unwrap());
         self.assets_disk_state.insert(object_id, AssetDiskState::Persisted(PersistedAssetDiskState {
-            asset_file_metadata,
-            asset_file_path: asset_file_path.clone()
+            _asset_file_metadata: asset_file_metadata,
+            _asset_file_path: asset_file_path.clone()
         }));
 
         self.all_object_ids_on_disk_with_on_disk_state.insert(object_id, ObjectOnDiskState {
             containing_path: containing_file_path.clone(),
-            asset_file_path: asset_file_path.clone(),
-            is_directory,
-            name: object_name.clone()
+            _asset_file_path: asset_file_path.clone(),
+            _is_directory: is_directory,
+            _name: object_name.clone()
         });
 
         let source_file_disk_state = self.source_files_disk_state.get_mut(&source_file_path).unwrap();
@@ -486,11 +482,6 @@ impl DataSource for FileSystemPathBasedDataSource {
         // be re-imported. (Because the original source asset is presumed to exist alongside the
         // meta file and source files in a path-based data source get re-imported automatically)
         //
-        struct SourceFileImportableName {
-            source_file: PathBuf,
-            importable_name: String,
-        }
-        let mut objects_with_source_files = HashMap::<ObjectId, SourceFileImportableName>::default();
         let mut source_file_meta_files = HashMap::<PathBuf, MetaFile>::default();
         for meta_file in meta_files {
             let source_file = meta_file.with_extension("");
@@ -502,15 +493,6 @@ impl DataSource for FileSystemPathBasedDataSource {
 
             let contents = std::fs::read_to_string(meta_file.as_path()).unwrap();
             let meta_file_contents = crate::json_storage::MetaFileJson::load_from_string(&contents);
-            for (importable_name, id_assignment) in &meta_file_contents.past_id_assignments {
-                let sfin = SourceFileImportableName {
-                    source_file: source_file.clone(),
-                    importable_name: importable_name.clone()
-                };
-                let old = objects_with_source_files.insert(*id_assignment, sfin);
-                // If this trips we have two meta files claiming to export the same ID
-                assert!(old.is_none());
-            }
 
             source_file_meta_files.insert(source_file, meta_file_contents);
         }
@@ -538,12 +520,6 @@ impl DataSource for FileSystemPathBasedDataSource {
                 &contents
             );
 
-            // if objects_with_source_files.contains_key(&object_id) {
-            //     // We will force a re-import of this asset, meaning existing import data will be
-            //     // overwritten, but we will retain this asset instead of creating a new one
-            //     //TODO: Any validation?
-            // }
-
             //TODO: Track some revision number instead of modified flags?
             edit_context.clear_object_modified_flag(object_id);
             edit_context.clear_location_modified_flag(&object_location);
@@ -551,8 +527,8 @@ impl DataSource for FileSystemPathBasedDataSource {
             let asset_file_metadata = FileMetadata::new(&std::fs::metadata(&asset_file).unwrap());
 
             assets_disk_state.insert(object_id, AssetDiskState::Persisted(PersistedAssetDiskState {
-                asset_file_path: asset_file,
-                asset_file_metadata,
+                _asset_file_path: asset_file,
+                _asset_file_metadata: asset_file_metadata,
             }));
         }
 
@@ -618,7 +594,7 @@ impl DataSource for FileSystemPathBasedDataSource {
                 let mut meta_file_path = source_file.clone().into_os_string();
                 meta_file_path.push(".meta");
 
-                let source_file_metadata = FileMetadata::new(&std::fs::metadata(&source_file).unwrap());
+                //let source_file_metadata = FileMetadata::new(&std::fs::metadata(&source_file).unwrap());
 
                 let mut importables = HashMap::<Option<String>, ObjectId>::default();
                 for scanned_importable in &scanned_importables {
@@ -630,9 +606,9 @@ impl DataSource for FileSystemPathBasedDataSource {
                 source_files_disk_state.insert(source_file.clone(), SourceFileDiskState {
                     generated_assets: Default::default(),
                     persisted_assets: Default::default(),
-                    source_file_metadata,
-                    importer_id: importer.importer_id(),
-                    importables,
+                    //source_file_metadata,
+                    _importer_id: importer.importer_id(),
+                    _importables: importables,
                 });
 
                 std::fs::write(meta_file_path, MetaFileJson::store_to_string(&meta_file)).unwrap();
@@ -653,7 +629,7 @@ impl DataSource for FileSystemPathBasedDataSource {
             //println!("  import to dir {:?}", parent_dir);
             let import_location = ObjectLocation::new(*path_to_path_node_id.get(parent_dir).unwrap());
 
-            let mut source_file_disk_state = source_files_disk_state.get_mut(source_file_path).unwrap();
+            let source_file_disk_state = source_files_disk_state.get_mut(source_file_path).unwrap();
 
             let mut requested_importables = HashMap::default();
             let mut assets_to_regenerate = HashSet::default();
@@ -813,9 +789,9 @@ impl DataSource for FileSystemPathBasedDataSource {
                         }
                     }
 
-                    let mut containing_file_path = self.containing_file_path_for_object(edit_context, *object_id);
-                    let is_directory = edit_context.object_schema(*object_id).unwrap().fingerprint() == self.path_node_schema.fingerprint();
-                    let object_name = Self::sanitize_object_name(*object_id, edit_context.object_name(*object_id));
+                    let containing_file_path = self.containing_file_path_for_object(edit_context, *object_id);
+                    let is_directory = object_info.schema().fingerprint() == self.path_node_schema.fingerprint();
+                    let object_name = Self::sanitize_object_name(*object_id, object_info.object_name());
                     let file_name = Self::file_name_for_object(&object_name, is_directory);
                     let asset_file_path = containing_file_path.join(file_name);
 
@@ -836,8 +812,8 @@ impl DataSource for FileSystemPathBasedDataSource {
 
                         let asset_file_metadata = FileMetadata::new(&std::fs::metadata(&asset_file_path).unwrap());
                         self.assets_disk_state.insert(*object_id, AssetDiskState::Persisted(PersistedAssetDiskState {
-                            asset_file_metadata,
-                            asset_file_path: asset_file_path.clone()
+                            _asset_file_metadata: asset_file_metadata,
+                            _asset_file_path: asset_file_path.clone()
                         }));
 
                         // We know the asset was already persisted so we don't need to update source files state
@@ -845,9 +821,9 @@ impl DataSource for FileSystemPathBasedDataSource {
 
                     updated_all_object_ids_on_disk_with_on_disk_state.insert(*object_id, ObjectOnDiskState {
                         containing_path: containing_file_path.clone(),
-                        asset_file_path: asset_file_path.clone(),
-                        is_directory,
-                        name: object_name.clone()
+                        _asset_file_path: asset_file_path.clone(),
+                        _is_directory: is_directory,
+                        _name: object_name.clone()
                     });
                 }
             }

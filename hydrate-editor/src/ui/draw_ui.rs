@@ -1,11 +1,8 @@
 use crate::app_state::{
-    ActionQueueSender, AppState, ModalAction, ModalActionControlFlow, QueuedActions,
+    AppState, ModalActionControlFlow,
 };
-use crate::db_state::DbState;
 use crate::imgui_support::ImguiManager;
-use crate::ui_state::UiState;
-use imgui::{im_str, ImString, PopupModal, Ui};
-use imnodes::Context;
+use imgui::{im_str, ImString};
 
 pub fn draw_properties_window(
     ui: &imgui::Ui,

@@ -1,24 +1,14 @@
 use crate::app_state::{ActionQueueSender, AppState};
 use crate::db_state::DbState;
-use crate::imgui_support::ImguiManager;
 use crate::ui::asset_browser_grid_drag_drop::{
     asset_browser_grid_objects_drag_target_printf, AssetBrowserGridPayload,
 };
 use crate::ui_state::{ActiveToolRegion, UiState};
 use crate::QueuedActions;
-use hydrate_model::{HashSet, LocationTreeNode, ObjectId, ObjectLocation, ObjectPath};
-use imgui::sys::{
-    igDragFloat, igDragScalar, igInputDouble, ImGuiDataType__ImGuiDataType_Double,
-    ImGuiInputTextFlags__ImGuiInputTextFlags_None, ImGuiTableFlags__ImGuiTableFlags_NoPadOuterX,
-    ImGuiTreeNodeFlags__ImGuiTreeNodeFlags_Selected, ImVec2,
-};
+use hydrate_model::{LocationTreeNode, ObjectId, ObjectLocation};
+use imgui::sys::ImVec2;
 use imgui::{im_str, ImStr, ImString, TreeNodeFlags};
 use imgui::{sys as is, StyleColor};
-use rafx::api::objc::runtime::Object;
-use std::convert::TryInto;
-use std::ffi::CString;
-use std::path::PathBuf;
-use uuid::Uuid;
 
 fn default_flags() -> imgui::TreeNodeFlags {
     imgui::TreeNodeFlags::OPEN_ON_DOUBLE_CLICK
@@ -79,10 +69,10 @@ fn try_select_grid_item(
     ui: &imgui::Ui,
     ui_state: &mut UiState,
     items: &[(ObjectId, ObjectLocation)],
-    index: usize,
+    _index: usize,
     id: ObjectId,
 ) {
-    let mut grid_state = &mut ui_state.asset_browser_state.grid_state;
+    let grid_state = &mut ui_state.asset_browser_state.grid_state;
 
     //let is_selected = if grid_state.selected_items.contains(&id) {
     // If the item is already selected, we may be dragging. So more complex logic to determine if user
@@ -223,7 +213,7 @@ pub fn assets_tree_node(
         }
     });
 
-    if let Some(token) = token {
+    if let Some(_token) = token {
         // Draw nodes with children first
         for (child_name, child) in &tree_node.children {
             assets_tree_node(
@@ -258,7 +248,7 @@ pub fn assets_tree(
 }
 
 pub fn draw_assets_dockspace(
-    ui: &imgui::Ui,
+    _ui: &imgui::Ui,
     app_state: &mut AppState,
 ) {
     unsafe {
@@ -421,8 +411,6 @@ pub fn draw_asset(
         split.set_current(1);
 
         ui.group(|| {
-            let mut content_available_region = ImVec2::zero();
-            let content_available_region = ui.content_region_avail();
             ui.invisible_button(&name, [item_size as _, item_size as _]);
             let min = ui.item_rect_min();
             let max = ui.item_rect_max();
@@ -511,7 +499,7 @@ pub fn draw_asset(
 
 pub fn assets_window_right_header(
     ui: &imgui::Ui,
-    app_state: &mut AppState,
+    _app_state: &mut AppState,
 ) {
     ui.button(im_str!("asd1"));
     ui.same_line();
@@ -576,8 +564,8 @@ pub fn assets_window_right(
         let padding = (*is::igGetStyle()).CellPadding;
         let scroll_bar_width = (*is::igGetStyle()).ScrollbarSize;
         let item_size = 128u32;
-        let mut columns = ((content_available_region.x - scroll_bar_width) as i32
-            / (item_size as i32 + (2.0 * padding.x) as i32));
+        let mut columns = (content_available_region.x - scroll_bar_width) as i32
+            / (item_size as i32 + (2.0 * padding.x) as i32);
         columns = columns.max(1);
 
         // Set up the table
@@ -588,8 +576,6 @@ pub fn assets_window_right(
             false,
             0,
         );
-        let outer_size = ImVec2::zero();
-        let width = 0.0;
         if is::igBeginTable(
             im_str!("contents").as_ptr(),
             columns,
@@ -696,9 +682,9 @@ pub fn draw_assets_dockspace_and_window(
         //is::igDockSpace();
         //TODO: keepalive the assets dockspace
         println!("KEEPALIVE ASSETS");
-        unsafe {
+        //unsafe {
             //let id = is::igGetIDStr(imgui::im_str!("{}", crate::ui::WINDOW_NAME_ASSETS).as_ptr());
             //is::igDockSpace(id, ImVec2::new(100.0, 100.0), is::ImGuiDockNodeFlags__ImGuiDockNodeFlags_KeepAliveOnly as _, std::ptr::null_mut());
-        }
+        //}
     }
 }

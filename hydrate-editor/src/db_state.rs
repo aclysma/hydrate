@@ -1,4 +1,4 @@
-use hydrate_model::{AssetEngine, DataSet, EditorModel, ImporterRegistry, ObjectId, ObjectLocation, ObjectName, ObjectPath, PathNode, PathNodeRoot, SchemaCacheSingleFile, SchemaLinker, SchemaSet};
+use hydrate_model::{DataSet, EditorModel, ImporterRegistry, ObjectId, ObjectLocation, ObjectName, PathNode, PathNodeRoot, SchemaCacheSingleFile, SchemaLinker, SchemaSet};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use hydrate_model::import_util::ImportToQueue;
@@ -64,7 +64,7 @@ impl DbState {
         let mut edit_model = EditorModel::new(schema_set.clone());
 
         let object_source_id = edit_model.add_file_system_id_based_data_source("id_file_system", asset_id_based_data_path, imports_to_queue);
-        let object_source_path = edit_model.add_file_system_path_based_data_source("path_file_system", asset_path_based_data_path, importer_registry, imports_to_queue);
+        let _object_source_path = edit_model.add_file_system_path_based_data_source("path_file_system", asset_path_based_data_path, importer_registry, imports_to_queue);
 
         // let file_system = edit_model
         //     .file_system_treedata_source(tree_source_id)
@@ -122,13 +122,13 @@ impl DbState {
             prototype_obj,
             "position.x",
             hydrate_model::Value::F64(10.0),
-        );
+        ).unwrap();
         db.set_property_override(
             &schema_set,
             instance_obj,
             "position.x",
             hydrate_model::Value::F64(20.0),
-        );
+        ).unwrap();
 
         let _prototype_array_element_1 = db.add_dynamic_array_override(
             &schema_set,

@@ -1,7 +1,6 @@
 pub struct EnumTypeSymbolBuilder {
     pub(crate) name: String,
     pub(crate) aliases: Vec<String>,
-    pub(crate) value: i32,
 }
 
 impl EnumTypeSymbolBuilder {
@@ -30,12 +29,10 @@ impl EnumTypeBuilder {
     pub fn add_symbol(
         &mut self,
         name: impl Into<String>,
-        value: i32,
     ) -> &mut EnumTypeSymbolBuilder {
         self.symbols.push(EnumTypeSymbolBuilder {
             name: name.into(),
             aliases: Default::default(),
-            value,
         });
         self.symbols.last_mut().unwrap()
     }

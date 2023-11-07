@@ -1,6 +1,6 @@
 use crate::edit_context::EditContext;
 use hydrate_base::uuid_path::{path_to_uuid, uuid_to_path};
-use crate::{AssetEngine, DataSource, HashSet, ObjectId, ObjectSourceId, PathNode, PathNodeRoot};
+use crate::{DataSource, HashSet, ObjectId, ObjectSourceId, PathNodeRoot};
 use std::path::{Path, PathBuf};
 use uuid::Uuid;
 use hydrate_data::ObjectLocation;
@@ -52,7 +52,6 @@ pub struct FileSystemIdBasedDataSource {
     // deleted IDs need to be cleaned up
     all_object_ids_on_disk: HashSet<ObjectId>,
 
-    path_node_schema: SchemaNamedType,
     path_node_root_schema: SchemaNamedType,
 }
 
@@ -76,7 +75,6 @@ impl FileSystemIdBasedDataSource {
         edit_context: &mut EditContext,
         object_source_id: ObjectSourceId,
     ) -> Self {
-        let path_node_schema = edit_context.schema_set().find_named_type(PathNode::schema_name()).unwrap().clone();
         let path_node_root_schema = edit_context.schema_set().find_named_type(PathNodeRoot::schema_name()).unwrap().clone();
 
         let file_system_root_path = file_system_root_path.into();
@@ -89,7 +87,6 @@ impl FileSystemIdBasedDataSource {
             object_source_id,
             file_system_root_path: file_system_root_path.into(),
             all_object_ids_on_disk: Default::default(),
-            path_node_schema,
             path_node_root_schema,
         }
     }
@@ -111,7 +108,7 @@ impl FileSystemIdBasedDataSource {
 }
 
 impl DataSource for FileSystemIdBasedDataSource {
-    fn is_generated_asset(&self, object_id: ObjectId) -> bool {
+    fn is_generated_asset(&self, _object_id: ObjectId) -> bool {
         // this data source does not contain source files so can't have generated assets
         false
     }
@@ -120,14 +117,14 @@ impl DataSource for FileSystemIdBasedDataSource {
     //     None
     // }
 
-    fn persist_generated_asset(&mut self, edit_context: &mut EditContext, object_id: ObjectId) {
+    fn persist_generated_asset(&mut self, _edit_context: &mut EditContext, _object_id: ObjectId) {
         // this data source does not contain source files so can't have generated assets
     }
 
     fn load_from_storage(
         &mut self,
         edit_context: &mut EditContext,
-        imports_to_queue: &mut Vec<ImportToQueue>,
+        _imports_to_queue: &mut Vec<ImportToQueue>,
     ) {
         //
         // Delete all objects from the database owned by this data source

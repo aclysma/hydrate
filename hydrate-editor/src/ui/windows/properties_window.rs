@@ -2,7 +2,6 @@ use crate::ui_state::ActiveToolRegion;
 use crate::AppState;
 use hydrate_model::ObjectId;
 use imgui::im_str;
-use imgui::{sys as is, StyleColor};
 use crate::app_state::QueuedActions;
 
 pub fn draw_properties_window_single_select(
@@ -60,7 +59,7 @@ pub fn draw_properties_window_single_select(
 
     if let Some(prototype) = edit_context.object_prototype(object_id) {
         if ui.button(im_str!(">>")) {
-            let mut grid_state = &mut app_state.ui_state.asset_browser_state.grid_state;
+            let grid_state = &mut app_state.ui_state.asset_browser_state.grid_state;
             grid_state.first_selected = Some(prototype);
             grid_state.last_selected = Some(prototype);
             grid_state.selected_items.clear();

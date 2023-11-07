@@ -1,7 +1,7 @@
 
 use serde::{Serialize, Deserialize};
 use uuid::Uuid;
-use crate::{ArtifactId, ObjectId};
+use crate::ArtifactId;
 
 #[derive(Serialize, Deserialize)]
 pub struct ManifestFileEntryJson {

@@ -66,7 +66,6 @@ impl LocationTree {
     pub fn create_node(
         &mut self,
         data_set: &DataSet,
-        paths: &HashMap<ObjectId, ObjectPath>,
         tree_node_id: ObjectId,
     ) {
         let mut path_object_stack = vec![ObjectLocation::new(tree_node_id)];
@@ -90,9 +89,7 @@ impl LocationTree {
             while let Some(node_object) = path_object_stack.pop() {
                 // Unnamed objects can't be paths
                 //let node_location = ObjectLocation::new(node_object);
-                let location_chain = data_set.object_location_chain(node_object.path_node_id());
-                let location = location_chain.first().cloned().unwrap_or_else(ObjectLocation::null);
-                //let location_root = location_chain.last().cloned().unwrap_or_else(ObjectLocation::null);
+                //let location_chain = data_set.object_location_chain(node_object.path_node_id());
 
                 let node_name = data_set
                     .object_name(node_object.path_node_id())
@@ -132,7 +129,7 @@ impl LocationTree {
     ) -> Self {
         // Create root nodes for all the data sources
         let mut root_nodes: BTreeMap<LocationTreeNodeKey, LocationTreeNode> = Default::default();
-        for (source_id, data_source) in data_sources {
+        for (source_id, _data_source) in data_sources {
             let location = ObjectLocation::new(ObjectId::from_uuid(*source_id.uuid()));
             let name = data_set.object_name(location.path_node_id());
             root_nodes.insert(
@@ -152,9 +149,9 @@ impl LocationTree {
         let mut tree = LocationTree { root_nodes };
 
         // Iterate all known paths and ensure a node exists in the tree for each segment of each path
-        for (tree_node_id, path) in paths {
+        for (tree_node_id, _path) in paths {
             // Skip the root component since it is our root node
-            tree.create_node(data_set, paths, *tree_node_id);
+            tree.create_node(data_set, *tree_node_id);
         }
 
         tree

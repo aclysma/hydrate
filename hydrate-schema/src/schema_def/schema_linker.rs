@@ -166,7 +166,6 @@ impl SchemaLinker {
             symbols.push(SchemaDefEnumSymbol::new(
                 builder_field.name,
                 builder_field.aliases,
-                builder_field.value,
             )?);
         }
 

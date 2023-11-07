@@ -1,14 +1,5 @@
-use crate::{BuildInfo, BuilderId, DataSet, DataSource, EditorModel, HashMap, HashMapKeys, ObjectId, ObjectLocation, ObjectName, ObjectSourceId, Schema, SchemaFingerprint, SchemaLinker, SchemaNamedType, SchemaRecord, SchemaSet, SingleObject, Value, JobApi};
-use std::fs::File;
-use std::hash::{Hash, Hasher};
-use std::io::{Write};
-use std::path::{Path, PathBuf};
-use hydrate_base::{BuiltObjectMetadata, AssetUuid, ArtifactId};
-use hydrate_base::handle::DummySerdeContextHandle;
-
-use super::ImportJobs;
-
-use hydrate_base::uuid_path::{path_to_uuid, uuid_and_hash_to_path, uuid_to_path};
+use crate::{DataSet, ObjectId, SchemaSet, JobApi};
+use hydrate_base::{BuiltObjectMetadata, ArtifactId};
 
 pub struct BuiltAsset {
     pub asset_id: ObjectId,

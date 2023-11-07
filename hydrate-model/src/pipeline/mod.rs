@@ -1,5 +1,5 @@
 use std::hash::{Hash, Hasher};
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 mod import_jobs;
 pub use import_jobs::*;
@@ -26,7 +26,7 @@ use hydrate_base::hashing::HashSet;
 pub mod import_util;
 
 use crate::{
-    BuilderId, EditorModel, HashMap, ImporterId, ObjectId, SchemaFingerprint, SchemaLinker,
+    EditorModel, HashMap, ImporterId, ObjectId, SchemaFingerprint, SchemaLinker,
     SchemaSet,
 };
 
@@ -67,13 +67,13 @@ impl AssetPluginRegistrationHelper {
         self
     }
 
-    pub fn finish(mut self, schema_set: &SchemaSet) -> (ImporterRegistry, BuilderRegistry, JobProcessorRegistry) {
-        self.importer_registry
-            .finished_linking(schema_set);
-        self.builder_registry
-            .finished_linking(schema_set);
+    pub fn finish(self, schema_set: &SchemaSet) -> (ImporterRegistry, BuilderRegistry, JobProcessorRegistry) {
+        let importer_registry = self.importer_registry.build();
+        let builder_registry = self.builder_registry
+            .build(schema_set);
+        let job_processor_registry = self.job_processor_registry.build();
 
-        (self.importer_registry.build(), self.builder_registry.build(), self.job_processor_registry.build())
+        (importer_registry, builder_registry, job_processor_registry)
     }
 }
 
@@ -103,11 +103,9 @@ impl AssetEngine {
         );
 
         let build_jobs = BuildJobs::new(
-            &builder_registry,
             &job_processor_registry,
-            &editor_model,
             job_data_path,
-            build_data_path, /*DbState::build_data_source_path()*/
+            build_data_path,
         );
 
         //TODO: Consider looking at disk to determine previous combined build hash so we don't for a rebuild every time we open

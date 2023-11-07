@@ -1,4 +1,4 @@
-use hydrate_model::{HashSet, ObjectId, ObjectLocation, ObjectPath};
+use hydrate_model::{HashSet, ObjectId, ObjectLocation};
 
 #[derive(PartialEq)]
 pub enum ActiveToolRegion {

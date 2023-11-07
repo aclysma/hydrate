@@ -207,9 +207,14 @@ impl UndoContext {
     ) {
         if !self.tracked_objects.is_empty() {
             // Delete newly created objects
-            let keys_to_delete: Vec<_> = after_state.objects().keys().filter(|x| {
-                self.tracked_objects.contains(x) && !self.before_state.objects().contains_key(x)
-            }).copied().collect();
+            let keys_to_delete: Vec<_> = after_state
+                .objects()
+                .keys()
+                .filter(|x| {
+                    self.tracked_objects.contains(x) && !self.before_state.objects().contains_key(x)
+                })
+                .copied()
+                .collect();
 
             for key_to_delete in keys_to_delete {
                 after_state.delete_object(key_to_delete);

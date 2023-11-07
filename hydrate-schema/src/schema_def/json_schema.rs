@@ -369,7 +369,7 @@ pub(super) fn parse_json_schema_def(
         "record" => {
             let record = parse_json_schema_def_record(object, error_prefix)?;
             Ok(SchemaDefNamedType::Record(record))
-        },
+        }
         "enum" => {
             let enumeration = parse_json_schema_def_enum(object, error_prefix)?;
             Ok(SchemaDefNamedType::Enum(enumeration))

@@ -1,13 +1,13 @@
+use crate::storage::{AssetLoadOp, AssetStorage, HandleOp, IndirectIdentifier, IndirectionTable};
 use crossbeam_channel::{Receiver, Sender};
 use dashmap::DashMap;
+use hydrate_base::handle::{LoadState, LoadStateProvider, LoaderInfoProvider};
+use hydrate_base::LoadHandle;
 use hydrate_base::{ArtifactId, ObjectId};
+use hydrate_base::{AssetRef, AssetTypeId, AssetUuid};
 use std::fmt::Debug;
 use std::sync::atomic::{AtomicU32, AtomicU64, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
-use hydrate_base::{AssetRef, AssetTypeId, AssetUuid};
-use hydrate_base::handle::{LoadState, LoaderInfoProvider, LoadStateProvider};
-use crate::storage::{AssetStorage, AssetLoadOp, HandleOp, IndirectionTable, IndirectIdentifier};
-use hydrate_base::LoadHandle;
 
 // Sequence of operations:
 // * User creates a type-safe handle through an interface, as long as it is alive, the asset remains loaded
@@ -143,7 +143,10 @@ pub trait LoaderIO: Sync + Send {
     // Returns the latest known build hash that we are currently able to read from
     fn latest_build_hash(&self) -> CombinedBuildHash;
 
-    fn resolve_indirect(&self, indirect_identifier: &IndirectIdentifier) -> Option<(ArtifactId, u64)>;
+    fn resolve_indirect(
+        &self,
+        indirect_identifier: &IndirectIdentifier,
+    ) -> Option<(ArtifactId, u64)>;
 
     // This results in a RequestMetadataResult being sent to the loader
     fn request_metadata(
@@ -220,7 +223,6 @@ pub trait LoaderIO: Sync + Send {
 // - So anything that loads will be new version, and can't complete loading until everything is updated in one commit
 // - We might choose to not unload anything from old version and just unload it when we make the change.. keeping it
 //   loaded is not harmful.
-
 
 // /// Describes the state of an indirect Handle
 // #[derive(Copy, Clone, PartialEq, Debug)]
@@ -310,23 +312,34 @@ pub struct Loader {
     // Queue of assets that need to be visited on next update to check for state change
     //object_needs_update_tx: Sender<LoadHandle>,
     //object_needs_update_rx: Receiver<LoadHandle>,
-
     indirect_states: DashMap<LoadHandle, IndirectLoad>,
     indirect_to_load: DashMap<IndirectIdentifier, LoadHandle>,
     indirection_table: IndirectionTable,
 }
 
 impl LoadStateProvider for Loader {
-    fn load_state(&self, load_handle: LoadHandle) -> LoadState {
+    fn load_state(
+        &self,
+        load_handle: LoadHandle,
+    ) -> LoadState {
         let handle = if load_handle.is_indirect() {
             self.indirection_table.resolve(load_handle).unwrap()
         } else {
             load_handle
         };
-        self.load_handle_infos.get(&handle).unwrap().versions.last().unwrap().load_state
+        self.load_handle_infos
+            .get(&handle)
+            .unwrap()
+            .versions
+            .last()
+            .unwrap()
+            .load_state
     }
 
-    fn artifact_id(&self, load_handle: LoadHandle) -> ArtifactId {
+    fn artifact_id(
+        &self,
+        load_handle: LoadHandle,
+    ) -> ArtifactId {
         let handle = if load_handle.is_indirect() {
             self.indirection_table.resolve(load_handle).unwrap()
         } else {
@@ -341,7 +354,7 @@ impl LoaderInfoProvider for Loader {
         &self,
         id: &AssetRef,
     ) -> Option<LoadHandle> {
-        let object_id = ArtifactId(uuid::Uuid::from_bytes(id.0.0).as_u128());
+        let object_id = ArtifactId(uuid::Uuid::from_bytes(id.0 .0).as_u128());
         self.object_id_to_handle.get(&object_id).map(|l| *l)
     }
 
@@ -398,7 +411,11 @@ impl Loader {
         // Should always exist, we don't delete load handles
         let mut load_state_info = self.load_handle_infos.get_mut(&load_handle).unwrap();
 
-        log::debug!("handle_try_load {:?} {:?}", load_state_info.asset_id, load_state_info.asset_id);
+        log::debug!(
+            "handle_try_load {:?} {:?}",
+            load_state_info.asset_id,
+            load_state_info.asset_id
+        );
 
         // We expect any try_load requests to be for the latest version. If this ends up not being a
         // valid assertion, perhaps we should just load the most recent version.
@@ -431,7 +448,11 @@ impl Loader {
         // Should always exist, we don't delete load handles
         let mut load_state_info = self.load_handle_infos.get_mut(&load_handle).unwrap();
 
-        log::debug!("handle_try_unload {:?} {:?}", load_state_info.asset_id, load_state_info.asset_id);
+        log::debug!(
+            "handle_try_unload {:?} {:?}",
+            load_state_info.asset_id,
+            load_state_info.asset_id
+        );
 
         let mut dependencies = vec![];
 
@@ -487,7 +508,11 @@ impl Loader {
         result: RequestMetadataResult,
     ) {
         if let Some(load_state_info) = self.load_handle_infos.get(&result.load_handle) {
-            log::debug!("handle_request_metadata_result {:?} {:?}", load_state_info.asset_id, load_state_info.asset_id);
+            log::debug!(
+                "handle_request_metadata_result {:?} {:?}",
+                load_state_info.asset_id,
+                load_state_info.asset_id
+            );
             let load_state = load_state_info.versions[result.version as usize].load_state;
             // Bail if the asset is unloaded
             if load_state == LoadState::Unloaded {
@@ -585,7 +610,11 @@ impl Loader {
     ) {
         //are we still in the correct state?
         let mut load_state_info = self.load_handle_infos.get_mut(&load_handle).unwrap();
-        log::debug!("handle_dependencies_loaded {:?} {:?}", load_state_info.asset_id, load_state_info.asset_id);
+        log::debug!(
+            "handle_dependencies_loaded {:?} {:?}",
+            load_state_info.asset_id,
+            load_state_info.asset_id
+        );
         if load_state_info.versions[version].load_state == LoadState::Unloaded {
             return;
         }
@@ -614,7 +643,11 @@ impl Loader {
         // Should always exist, we don't delete load handles
         let (load_op, asset_type, data) = {
             let mut load_state_info = self.load_handle_infos.get_mut(&result.load_handle).unwrap();
-            log::debug!("handle_request_data_result {:?} {:?}", load_state_info.asset_id, load_state_info.asset_id);
+            log::debug!(
+                "handle_request_data_result {:?} {:?}",
+                load_state_info.asset_id,
+                load_state_info.asset_id
+            );
             let version = &mut load_state_info.versions[result.version as usize];
             // Bail if the asset is unloaded
             if version.load_state == LoadState::Unloaded {
@@ -675,7 +708,11 @@ impl Loader {
                 let asset_type = {
                     let mut load_handle_info =
                         self.load_handle_infos.get_mut(&load_handle).unwrap();
-                    log::debug!("handle_load_result complete {:?} {:?}", load_handle, load_handle_info.asset_id);
+                    log::debug!(
+                        "handle_load_result complete {:?} {:?}",
+                        load_handle,
+                        load_handle_info.asset_id
+                    );
                     std::mem::swap(
                         &mut blocked_loads,
                         &mut load_handle_info.versions[version as usize].blocked_loads,
@@ -696,13 +733,22 @@ impl Loader {
                         .fetch_sub(1, Ordering::Relaxed);
                     if previous_blocked_load_count == 1 {
                         // Kick off the blocked load
-                        self.events_tx.send(LoaderEvent::DependenciesLoaded(blocked_load_handle, blocked_load_version)).unwrap();
+                        self.events_tx
+                            .send(LoaderEvent::DependenciesLoaded(
+                                blocked_load_handle,
+                                blocked_load_version,
+                            ))
+                            .unwrap();
                     }
                 }
 
                 //TODO: Delay commit until everything is ready?
                 asset_storage.commit_asset_version(&asset_type, load_handle, version);
-                self.load_handle_infos.get_mut(&load_handle).unwrap().versions[version as usize].load_state = LoadState::Committed;
+                self.load_handle_infos
+                    .get_mut(&load_handle)
+                    .unwrap()
+                    .versions[version as usize]
+                    .load_state = LoadState::Committed;
             }
             HandleOp::Drop(load_handle, version) => {
                 log::debug!("handle_load_result drop {:?}", load_handle);
@@ -822,7 +868,10 @@ impl Loader {
         }
     }
 
-    fn allocate_load_handle(&self, is_indirect: bool) -> LoadHandle {
+    fn allocate_load_handle(
+        &self,
+        is_indirect: bool,
+    ) -> LoadHandle {
         let load_handle_index = self.next_handle_index.fetch_add(1, Ordering::Relaxed);
         LoadHandle::new(load_handle_index, is_indirect)
     }
@@ -912,7 +961,10 @@ impl Loader {
         load_handle
     }
 
-    pub fn add_engine_ref_indirect(&self, id: IndirectIdentifier) -> LoadHandle {
+    pub fn add_engine_ref_indirect(
+        &self,
+        id: IndirectIdentifier,
+    ) -> LoadHandle {
         let indirect_load_handle = self.get_or_insert_indirect(&id);
         self.add_engine_ref_by_handle(indirect_load_handle);
         indirect_load_handle
@@ -932,7 +984,9 @@ impl Loader {
 
             // In distill this was done later when we resolved the UUID. For now we are not doing this async
             // anymore so we can immediately make the association.
-            self.indirection_table.0.insert(load_handle, direct_load_handle);
+            self.indirection_table
+                .0
+                .insert(load_handle, direct_load_handle);
         } else {
             let guard = self.load_handle_infos.get(&load_handle);
             let load_handle_info = guard.as_ref().unwrap();
@@ -1031,7 +1085,6 @@ impl Loader {
         self.indirection_table.clone()
     }
 
-
     /// Returns handles to all active asset loads.
     pub fn get_active_loads(&self) -> Vec<LoadHandle> {
         let mut loading_handles = Vec::default();
@@ -1042,7 +1095,10 @@ impl Loader {
         loading_handles
     }
 
-    pub fn get_load_info(&self, handle: LoadHandle) -> Option<LoadInfo> {
+    pub fn get_load_info(
+        &self,
+        handle: LoadHandle,
+    ) -> Option<LoadInfo> {
         let handle = if handle.is_indirect() {
             self.indirection_table.resolve(handle)?
         } else {
@@ -1075,4 +1131,3 @@ pub struct LoadInfo {
     // Asset name. Not guaranteed to always be available.
     //pub asset_name: Option<String>,
 }
-

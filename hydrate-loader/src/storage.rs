@@ -1,15 +1,10 @@
-use std::{
-    error::Error,
-    sync::{
-        Arc,
-    },
-};
+use std::{error::Error, sync::Arc};
 
-use hydrate_base::{AssetTypeId, LoadHandle};
 use crate::loader::LoaderEvent;
 use crossbeam_channel::Sender;
 use dashmap::DashMap;
 use hydrate_base::handle::LoaderInfoProvider;
+use hydrate_base::{AssetTypeId, LoadHandle};
 
 #[derive(Debug)]
 pub enum HandleOp {
@@ -181,7 +176,6 @@ pub trait AssetStorage {
 // LoaderInfoProvider - Moved to hydrate_base
 // HandleAllocator - Removed
 
-
 /// An indirect identifier that can be resolved to a specific [`AssetUuid`] by an [`IndirectionResolver`] impl.
 #[derive(Clone, PartialEq, Eq, Debug, Hash)]
 pub enum IndirectIdentifier {
@@ -245,7 +239,10 @@ impl IndirectIdentifier {
 #[derive(Clone)]
 pub struct IndirectionTable(pub(crate) Arc<DashMap<LoadHandle, LoadHandle>>);
 impl IndirectionTable {
-    pub fn resolve(&self, indirect_handle: LoadHandle) -> Option<LoadHandle> {
+    pub fn resolve(
+        &self,
+        indirect_handle: LoadHandle,
+    ) -> Option<LoadHandle> {
         self.0.get(&indirect_handle).map(|l| *l)
     }
 }

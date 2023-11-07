@@ -1,7 +1,10 @@
-use hydrate_model::{DataSet, EditorModel, ImporterRegistry, ObjectId, ObjectLocation, ObjectName, PathNode, PathNodeRoot, SchemaCacheSingleFile, SchemaLinker, SchemaSet};
+use hydrate_model::import_util::ImportToQueue;
+use hydrate_model::{
+    DataSet, EditorModel, ImporterRegistry, ObjectId, ObjectLocation, ObjectName, PathNode,
+    PathNodeRoot, SchemaCacheSingleFile, SchemaLinker, SchemaSet,
+};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
-use hydrate_model::import_util::ImportToQueue;
 
 pub struct DbState {
     //pub db: hydrate_model::Database,
@@ -63,8 +66,17 @@ impl DbState {
 
         let mut edit_model = EditorModel::new(schema_set.clone());
 
-        let object_source_id = edit_model.add_file_system_id_based_data_source("id_file_system", asset_id_based_data_path, imports_to_queue);
-        let _object_source_path = edit_model.add_file_system_path_based_data_source("path_file_system", asset_path_based_data_path, importer_registry, imports_to_queue);
+        let object_source_id = edit_model.add_file_system_id_based_data_source(
+            "id_file_system",
+            asset_id_based_data_path,
+            imports_to_queue,
+        );
+        let _object_source_path = edit_model.add_file_system_path_based_data_source(
+            "path_file_system",
+            asset_path_based_data_path,
+            importer_registry,
+            imports_to_queue,
+        );
 
         // let file_system = edit_model
         //     .file_system_treedata_source(tree_source_id)
@@ -122,13 +134,15 @@ impl DbState {
             prototype_obj,
             "position.x",
             hydrate_model::Value::F64(10.0),
-        ).unwrap();
+        )
+        .unwrap();
         db.set_property_override(
             &schema_set,
             instance_obj,
             "position.x",
             hydrate_model::Value::F64(20.0),
-        ).unwrap();
+        )
+        .unwrap();
 
         let _prototype_array_element_1 = db.add_dynamic_array_override(
             &schema_set,
@@ -194,8 +208,17 @@ impl DbState {
         imports_to_queue: &mut Vec<ImportToQueue>,
     ) -> Option<EditorModel> {
         let mut editor_model = EditorModel::new(schema_set);
-        editor_model.add_file_system_id_based_data_source("id_file_system", asset_id_based_data_path, imports_to_queue);
-        editor_model.add_file_system_path_based_data_source("path_file_system", asset_path_based_data_path, importer_registry, imports_to_queue);
+        editor_model.add_file_system_id_based_data_source(
+            "id_file_system",
+            asset_id_based_data_path,
+            imports_to_queue,
+        );
+        editor_model.add_file_system_path_based_data_source(
+            "path_file_system",
+            asset_path_based_data_path,
+            importer_registry,
+            imports_to_queue,
+        );
         if editor_model.root_edit_context().all_objects().len() == 0 {
             None
         } else {
@@ -233,12 +256,22 @@ impl DbState {
         schema_cache_file_path: &Path,
         imports_to_queue: &mut Vec<ImportToQueue>,
     ) -> Self {
-
-        let editor_model = if let Some(loaded) = Self::try_load(schema_set.clone(), importer_registry, asset_id_based_data_path, asset_path_based_data_path, imports_to_queue)
-        {
+        let editor_model = if let Some(loaded) = Self::try_load(
+            schema_set.clone(),
+            importer_registry,
+            asset_id_based_data_path,
+            asset_path_based_data_path,
+            imports_to_queue,
+        ) {
             loaded
         } else {
-            Self::init_empty_model(schema_set.clone(), importer_registry, asset_id_based_data_path, asset_path_based_data_path, imports_to_queue)
+            Self::init_empty_model(
+                schema_set.clone(),
+                importer_registry,
+                asset_id_based_data_path,
+                asset_path_based_data_path,
+                imports_to_queue,
+            )
         };
 
         DbState {
@@ -249,7 +282,8 @@ impl DbState {
 
     pub fn save(&mut self) {
         log::debug!("saving schema cache to {:?}", self.schema_cache_file_path);
-        let schema_cache = SchemaCacheSingleFile::store_string(self.editor_model.schema_set().schemas());
+        let schema_cache =
+            SchemaCacheSingleFile::store_string(self.editor_model.schema_set().schemas());
         std::fs::write(&self.schema_cache_file_path, schema_cache).unwrap();
 
         self.editor_model.save_root_edit_context();

@@ -1,11 +1,11 @@
 use crate::app_state::AppState;
 use crate::ui::asset_browser_grid_drag_drop::AssetBrowserGridPayload;
+use crate::ui::ImguiDisableHelper;
 use crate::ui_state::UiState;
 use hydrate_model::edit_context::EditContext;
+use hydrate_model::value::ValueEnum;
 use hydrate_model::{EndContextBehavior, Schema, SchemaEnum, Value};
 use imgui::im_str;
-use hydrate_model::value::ValueEnum;
-use crate::ui::ImguiDisableHelper;
 
 fn draw_property_style<F: FnOnce(&imgui::Ui)>(
     ui: &imgui::Ui,
@@ -67,7 +67,9 @@ fn draw_inspector_simple_property<
             }
 
             if imgui::MenuItem::new(im_str!("Apply Override")).build(ui) {
-                edit_context.apply_property_override_to_prototype(object_id, &property_path).unwrap();
+                edit_context
+                    .apply_property_override_to_prototype(object_id, &property_path)
+                    .unwrap();
             }
 
             imgui::sys::igEndPopup();
@@ -75,7 +77,9 @@ fn draw_inspector_simple_property<
     }
 
     if let Some(new_value) = new_value {
-        edit_context.set_property_override(object_id, &property_path, new_value).unwrap();
+        edit_context
+            .set_property_override(object_id, &property_path, new_value)
+            .unwrap();
     }
 }
 
@@ -112,9 +116,16 @@ fn draw_inspector_simple_property_enum(
             let items: Vec<_> = schema_enum.symbols().iter().map(|x| x.name()).collect();
             let items_imstr: Vec<_> = items.iter().map(|x| im_str!("{}", x)).collect();
             let items_imstr_ref: Vec<_> = items_imstr.iter().map(|x| x).collect();
-            let mut selected = items.iter().position(|x| *x == v.symbol_name()).unwrap_or_default();
+            let mut selected = items
+                .iter()
+                .position(|x| *x == v.symbol_name())
+                .unwrap_or_default();
 
-            let modified = imgui::ComboBox::new(&property_im_str).build_simple_string(ui, &mut selected, items_imstr_ref.as_slice());
+            let modified = imgui::ComboBox::new(&property_im_str).build_simple_string(
+                ui,
+                &mut selected,
+                items_imstr_ref.as_slice(),
+            );
 
             if ui.is_item_active() {
                 *is_editing = true;
@@ -597,7 +608,11 @@ fn draw_inspector_unimplemented_property(
     property_name: &str,
     type_name: &str,
 ) {
-    ui.text(im_str!("Unsupported property {} {}", property_name, type_name));
+    ui.text(im_str!(
+        "Unsupported property {} {}",
+        property_name,
+        type_name
+    ));
 }
 
 fn draw_inspector_nexdb_property(
@@ -678,7 +693,7 @@ fn draw_inspector_nexdb_property(
                         &inner_property_path,
                         "value",
                         &*inner_schema,
-                        read_only
+                        read_only,
                     );
                     id_token.pop();
                     ui.unindent();
@@ -813,18 +828,10 @@ fn draw_inspector_nexdb_property(
             });
         }
         Schema::Bytes => {
-            draw_inspector_unimplemented_property(
-                ui,
-                property_name,
-                "bytes"
-            );
+            draw_inspector_unimplemented_property(ui, property_name, "bytes");
         }
         Schema::Buffer => {
-            draw_inspector_unimplemented_property(
-                ui,
-                property_name,
-                "buffer"
-            );
+            draw_inspector_unimplemented_property(ui, property_name, "buffer");
         }
         Schema::String => {
             let property_inherited = !edit_context.has_property_override(object_id, &property_path);
@@ -845,11 +852,7 @@ fn draw_inspector_nexdb_property(
             });
         }
         Schema::StaticArray(_) => {
-            draw_inspector_unimplemented_property(
-                ui,
-                property_name,
-                "static array"
-            );
+            draw_inspector_unimplemented_property(ui, property_name, "static array");
         }
         Schema::DynamicArray(array) => {
             let resolve = edit_context.resolve_dynamic_array(object_id, &property_path);
@@ -901,11 +904,7 @@ fn draw_inspector_nexdb_property(
             }
         }
         Schema::Map(_) => {
-            draw_inspector_unimplemented_property(
-                ui,
-                property_name,
-                "map"
-            );
+            draw_inspector_unimplemented_property(ui, property_name, "map");
         }
         //Schema::RecordRef(_) => {}
         Schema::ObjectRef(_named_type_fingerprint) => {
@@ -976,7 +975,8 @@ fn draw_inspector_nexdb_property(
                     //     property_name,
                     //     "enum"
                     // );
-                    let property_inherited = !edit_context.has_property_override(object_id, &property_path);
+                    let property_inherited =
+                        !edit_context.has_property_override(object_id, &property_path);
                     draw_inspector_simple_property_enum(
                         ui,
                         ui_state,
@@ -993,11 +993,7 @@ fn draw_inspector_nexdb_property(
                     );
                 }
                 SchemaNamedType::Fixed(_) => {
-                    draw_inspector_unimplemented_property(
-                        ui,
-                        property_name,
-                        "fixed"
-                    );
+                    draw_inspector_unimplemented_property(ui, property_name, "fixed");
                 }
             }
         } // Schema::Record(record) => {

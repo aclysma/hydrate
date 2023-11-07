@@ -1,7 +1,6 @@
-
-use serde::{Serialize, Deserialize};
-use uuid::Uuid;
 use crate::ArtifactId;
+use serde::{Deserialize, Serialize};
+use uuid::Uuid;
 
 #[derive(Serialize, Deserialize)]
 pub struct ManifestFileEntryJson {
@@ -21,10 +20,9 @@ pub struct ManifestFileEntry {
     //pub dependencies: Vec<ArtifactId>,
 }
 
-
 #[derive(Serialize, Deserialize, Default)]
 pub struct ManifestFileJson {
-    pub artifacts: Vec<ManifestFileEntryJson>
+    pub artifacts: Vec<ManifestFileEntryJson>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Hash)]
@@ -54,9 +52,7 @@ impl BuiltObjectMetadata {
         Ok(())
     }
 
-    pub fn read_header<T: std::io::Read>(
-        reader: &mut T,
-    ) -> std::io::Result<BuiltObjectMetadata> {
+    pub fn read_header<T: std::io::Read>(reader: &mut T) -> std::io::Result<BuiltObjectMetadata> {
         // let mut buffer = [0; 16];
         // reader.read(&mut buffer[0..4])?;
         // let count = u32::from_le_bytes(&buffer[0..4]);

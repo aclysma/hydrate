@@ -1,11 +1,11 @@
 use crate::edit_context::EditContext;
-use hydrate_base::uuid_path::{path_to_uuid, uuid_to_path};
+use crate::import_util::ImportToQueue;
 use crate::{DataSource, HashSet, ObjectId, ObjectSourceId, PathNodeRoot};
-use std::path::{Path, PathBuf};
-use uuid::Uuid;
+use hydrate_base::uuid_path::{path_to_uuid, uuid_to_path};
 use hydrate_data::ObjectLocation;
 use hydrate_schema::SchemaNamedType;
-use crate::import_util::ImportToQueue;
+use std::path::{Path, PathBuf};
+use uuid::Uuid;
 
 fn load_asset_files(
     edit_context: &mut EditContext,
@@ -56,14 +56,25 @@ pub struct FileSystemIdBasedDataSource {
 }
 
 impl FileSystemIdBasedDataSource {
-    fn is_object_owned_by_this_data_source(&self, edit_context: &EditContext, object_id: ObjectId) -> bool {
-        if edit_context.object_schema(object_id).unwrap().fingerprint() == self.path_node_root_schema.fingerprint() {
+    fn is_object_owned_by_this_data_source(
+        &self,
+        edit_context: &EditContext,
+        object_id: ObjectId,
+    ) -> bool {
+        if edit_context.object_schema(object_id).unwrap().fingerprint()
+            == self.path_node_root_schema.fingerprint()
+        {
             return false;
         }
 
         //TODO: is_null means we default to using this source
-        let root_location = edit_context.object_location_chain(object_id).last().cloned().unwrap_or_else(ObjectLocation::null);
-        root_location.path_node_id().as_uuid() == *self.object_source_id.uuid() || root_location.is_null()
+        let root_location = edit_context
+            .object_location_chain(object_id)
+            .last()
+            .cloned()
+            .unwrap_or_else(ObjectLocation::null);
+        root_location.path_node_id().as_uuid() == *self.object_source_id.uuid()
+            || root_location.is_null()
     }
 
     pub fn object_source_id(&self) -> ObjectSourceId {
@@ -75,7 +86,11 @@ impl FileSystemIdBasedDataSource {
         edit_context: &mut EditContext,
         object_source_id: ObjectSourceId,
     ) -> Self {
-        let path_node_root_schema = edit_context.schema_set().find_named_type(PathNodeRoot::schema_name()).unwrap().clone();
+        let path_node_root_schema = edit_context
+            .schema_set()
+            .find_named_type(PathNodeRoot::schema_name())
+            .unwrap()
+            .clone();
 
         let file_system_root_path = file_system_root_path.into();
         log::info!(
@@ -91,7 +106,10 @@ impl FileSystemIdBasedDataSource {
         }
     }
 
-    fn find_all_modified_objects(&self, edit_context: &EditContext) -> HashSet<ObjectId> {
+    fn find_all_modified_objects(
+        &self,
+        edit_context: &EditContext,
+    ) -> HashSet<ObjectId> {
         // We need to handle objects that were moved into this data source that weren't previous in it
         let mut modified_objects = edit_context.modified_objects().clone();
 
@@ -108,7 +126,10 @@ impl FileSystemIdBasedDataSource {
 }
 
 impl DataSource for FileSystemIdBasedDataSource {
-    fn is_generated_asset(&self, _object_id: ObjectId) -> bool {
+    fn is_generated_asset(
+        &self,
+        _object_id: ObjectId,
+    ) -> bool {
         // this data source does not contain source files so can't have generated assets
         false
     }
@@ -117,7 +138,11 @@ impl DataSource for FileSystemIdBasedDataSource {
     //     None
     // }
 
-    fn persist_generated_asset(&mut self, _edit_context: &mut EditContext, _object_id: ObjectId) {
+    fn persist_generated_asset(
+        &mut self,
+        _edit_context: &mut EditContext,
+        _object_id: ObjectId,
+    ) {
         // this data source does not contain source files so can't have generated assets
     }
 
@@ -175,7 +200,9 @@ impl DataSource for FileSystemIdBasedDataSource {
                     }
 
                     let parent_dir = object_info.object_location().path_node_id().as_uuid();
-                    let parent_dir = if parent_dir == Uuid::nil() || parent_dir == *self.object_source_id.uuid() {
+                    let parent_dir = if parent_dir == Uuid::nil()
+                        || parent_dir == *self.object_source_id.uuid()
+                    {
                         None
                     } else {
                         Some(parent_dir)

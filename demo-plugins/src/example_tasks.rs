@@ -1,20 +1,15 @@
-use std::hash::Hash;
 use crossbeam_channel::{Receiver, Sender};
-use serde::{Deserialize, Serialize};
-use siphasher::sip128::Hasher128;
-use type_uuid::{Bytes, TypeUuid};
-use uuid::Uuid;
 use hydrate_base::hashing::HashMap;
 use hydrate_base::ObjectId;
 use hydrate_data::{DataSet, SchemaSet, SingleObject};
-use hydrate_model::BuiltAsset;
 use hydrate_model::pipeline::job_system;
 use hydrate_model::pipeline::job_system::*;
-
-
-
-
-
+use hydrate_model::BuiltAsset;
+use serde::{Deserialize, Serialize};
+use siphasher::sip128::Hasher128;
+use std::hash::Hash;
+use type_uuid::{Bytes, TypeUuid};
+use uuid::Uuid;
 
 //
 // Example Job Impl - Imagine this kicking off scatter job(s), and then a gather job that produces the final output
@@ -28,7 +23,7 @@ impl JobInput for ExampleBuildJobTopLevelInput {}
 
 #[derive(Serialize, Deserialize)]
 pub struct ExampleBuildJobTopLevelOutput {
-    pub final_task: JobId
+    pub final_task: JobId,
 }
 impl JobOutput for ExampleBuildJobTopLevelOutput {}
 
@@ -59,30 +54,49 @@ impl JobProcessor for ExampleBuildJobTopLevel {
         input: &Self::InputT,
         data_set: &DataSet,
         schema_set: &SchemaSet,
-        dependency_data: &HashMap<ObjectId, SingleObject>, job_api: &dyn JobApi
+        dependency_data: &HashMap<ObjectId, SingleObject>,
+        job_api: &dyn JobApi,
     ) -> Self::OutputT {
-        let task_id1 = job_system::enqueue_job::<ExampleBuildJobScatter>(data_set, schema_set, job_api, ExampleBuildJobScatterInput {
-            asset_id: input.asset_id,
-            some_other_parameter: "Test1".to_string()
-        });
-        let task_id2 = job_system::enqueue_job::<ExampleBuildJobScatter>(data_set, schema_set, job_api, ExampleBuildJobScatterInput {
-            asset_id: input.asset_id,
-            some_other_parameter: "Test2".to_string()
-        });
-        let task_id3 = job_system::enqueue_job::<ExampleBuildJobScatter>(data_set, schema_set, job_api, ExampleBuildJobScatterInput {
-            asset_id: input.asset_id,
-            some_other_parameter: "Test3".to_string()
-        });
+        let task_id1 = job_system::enqueue_job::<ExampleBuildJobScatter>(
+            data_set,
+            schema_set,
+            job_api,
+            ExampleBuildJobScatterInput {
+                asset_id: input.asset_id,
+                some_other_parameter: "Test1".to_string(),
+            },
+        );
+        let task_id2 = job_system::enqueue_job::<ExampleBuildJobScatter>(
+            data_set,
+            schema_set,
+            job_api,
+            ExampleBuildJobScatterInput {
+                asset_id: input.asset_id,
+                some_other_parameter: "Test2".to_string(),
+            },
+        );
+        let task_id3 = job_system::enqueue_job::<ExampleBuildJobScatter>(
+            data_set,
+            schema_set,
+            job_api,
+            ExampleBuildJobScatterInput {
+                asset_id: input.asset_id,
+                some_other_parameter: "Test3".to_string(),
+            },
+        );
 
-        let final_task = job_system::enqueue_job::<ExampleBuildJobGather>(data_set, schema_set, job_api, ExampleBuildJobGatherInput {
-            asset_id: input.asset_id,
-            scatter_tasks: vec![task_id1, task_id2, task_id3]
-        });
+        let final_task = job_system::enqueue_job::<ExampleBuildJobGather>(
+            data_set,
+            schema_set,
+            job_api,
+            ExampleBuildJobGatherInput {
+                asset_id: input.asset_id,
+                scatter_tasks: vec![task_id1, task_id2, task_id3],
+            },
+        );
 
         println!("ExampleBuildJobTopLevel");
-        ExampleBuildJobTopLevelOutput {
-            final_task
-        }
+        ExampleBuildJobTopLevelOutput { final_task }
     }
 }
 
@@ -129,18 +143,15 @@ impl JobProcessor for ExampleBuildJobScatter {
         data_set: &DataSet,
         schema_set: &SchemaSet,
         dependency_data: &HashMap<ObjectId, SingleObject>,
-        job_api: &dyn JobApi
+        job_api: &dyn JobApi,
     ) -> Self::OutputT {
         //Do stuff
         // We could return the result
         // job_api.publish_intermediate_data(...);
         println!("ExampleBuildJobScatter");
-        ExampleBuildJobScatterOutput {
-
-        }
+        ExampleBuildJobScatterOutput {}
     }
 }
-
 
 //
 // Example Gather Job Impl
@@ -187,14 +198,12 @@ impl JobProcessor for ExampleBuildJobGather {
         data_set: &DataSet,
         schema_set: &SchemaSet,
         dependency_data: &HashMap<ObjectId, SingleObject>,
-        job_api: &dyn JobApi
+        job_api: &dyn JobApi,
     ) -> Self::OutputT {
         // Now use inputs from other jobs to produce an output
         //job_api.publish_built_asset(...);
 
         println!("ExampleBuildJobGather");
-        ExampleBuildJobGatherOutput {
-
-        }
+        ExampleBuildJobGatherOutput {}
     }
 }

@@ -1,11 +1,7 @@
-use crate::{
-    EditorModel, HashMap,
-    ImporterId, ObjectId,
-    SchemaSet, SingleObject
-};
+use crate::{EditorModel, HashMap, ImporterId, ObjectId, SchemaSet, SingleObject};
+use hydrate_base::hashing::HashSet;
 use std::hash::{Hash, Hasher};
 use std::path::{Path, PathBuf};
-use hydrate_base::hashing::HashSet;
 
 use crate::SingleObjectJson;
 use hydrate_base::uuid_path::{path_to_uuid, uuid_to_path};
@@ -110,9 +106,7 @@ impl ImportJobs {
         //println!("LOAD DATA HASH PATH {:?}", path);
         let metadata = path.metadata().unwrap();
         let metadata_hash = hash_file_metadata(&metadata);
-        ImportDataMetadataHash {
-            metadata_hash,
-        }
+        ImportDataMetadataHash { metadata_hash }
     }
 
     pub fn load_import_data(
@@ -171,11 +165,17 @@ impl ImportJobs {
 
             let mut importable_objects = HashMap::<Option<String>, ImportableObject>::default();
             for (name, object_id) in &import_op.object_ids {
-                let referenced_paths = editor_model.root_edit_context().resolve_all_file_references(*object_id).unwrap_or_default();
-                importable_objects.insert(name.clone(), ImportableObject {
-                    id: *object_id,
-                    referenced_paths
-                });
+                let referenced_paths = editor_model
+                    .root_edit_context()
+                    .resolve_all_file_references(*object_id)
+                    .unwrap_or_default();
+                importable_objects.insert(
+                    name.clone(),
+                    ImportableObject {
+                        id: *object_id,
+                        referenced_paths,
+                    },
+                );
             }
 
             let imported_objects = importer.import_file(
@@ -187,19 +187,26 @@ impl ImportJobs {
             //TODO: Validate that all requested importables exist?
             for (name, imported_object) in imported_objects {
                 if let Some(object_id) = import_op.object_ids.get(&name) {
-
-                    let type_name = editor_model.root_edit_context().data_set().object_schema(*object_id).unwrap().name();
+                    let type_name = editor_model
+                        .root_edit_context()
+                        .data_set()
+                        .object_schema(*object_id)
+                        .unwrap()
+                        .name();
                     println!("importing {:?} {:?} {:?}", import_op.path, name, type_name);
 
                     if import_op.assets_to_regenerate.contains(object_id) {
                         if let Some(default_asset) = &imported_object.default_asset {
-                            editor_model.root_edit_context_mut().copy_from_single_object(*object_id, default_asset).unwrap();
+                            editor_model
+                                .root_edit_context_mut()
+                                .copy_from_single_object(*object_id, default_asset)
+                                .unwrap();
                         }
                     }
 
                     if let Some(import_data) = &imported_object.import_data {
-                        let data =
-                            SingleObjectJson::save_single_object_to_string(import_data).into_bytes();
+                        let data = SingleObjectJson::save_single_object_to_string(import_data)
+                            .into_bytes();
                         let path = uuid_to_path(&self.root_path, object_id.as_uuid(), "if");
 
                         if let Some(parent) = path.parent() {

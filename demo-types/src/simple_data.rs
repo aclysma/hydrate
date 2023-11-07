@@ -1,7 +1,6 @@
+use hydrate_base::Handle;
 use serde::{Deserialize, Serialize};
 use type_uuid::TypeUuid;
-use hydrate_base::Handle;
-
 
 //
 // Engine-specific types start here
@@ -10,9 +9,8 @@ use hydrate_base::Handle;
 #[derive(Serialize, Deserialize, TypeUuid, Debug)]
 #[uuid = "7132d33e-9bbc-4fb1-b857-17962afd44b8"]
 pub struct TransformRef {
-    pub transform: Handle<Transform>
+    pub transform: Handle<Transform>,
 }
-
 
 #[derive(Serialize, Deserialize, TypeUuid, Debug)]
 #[uuid = "da334afa-7af9-4894-8b7e-29defe202e90"]

@@ -26,8 +26,7 @@ use hydrate_base::hashing::HashSet;
 pub mod import_util;
 
 use crate::{
-    EditorModel, HashMap, ImporterId, ObjectId, SchemaFingerprint, SchemaLinker,
-    SchemaSet,
+    EditorModel, HashMap, ImporterId, ObjectId, SchemaFingerprint, SchemaLinker, SchemaSet,
 };
 
 pub trait AssetPlugin {
@@ -67,10 +66,12 @@ impl AssetPluginRegistrationHelper {
         self
     }
 
-    pub fn finish(self, schema_set: &SchemaSet) -> (ImporterRegistry, BuilderRegistry, JobProcessorRegistry) {
+    pub fn finish(
+        self,
+        schema_set: &SchemaSet,
+    ) -> (ImporterRegistry, BuilderRegistry, JobProcessorRegistry) {
         let importer_registry = self.importer_registry.build();
-        let builder_registry = self.builder_registry
-            .build(schema_set);
+        let builder_registry = self.builder_registry.build(schema_set);
         let job_processor_registry = self.job_processor_registry.build();
 
         (importer_registry, builder_registry, job_processor_registry)
@@ -102,11 +103,7 @@ impl AssetEngine {
             import_data_path, /*DbState::import_data_source_path()*/
         );
 
-        let build_jobs = BuildJobs::new(
-            &job_processor_registry,
-            job_data_path,
-            build_data_path,
-        );
+        let build_jobs = BuildJobs::new(&job_processor_registry, job_data_path, build_data_path);
 
         //TODO: Consider looking at disk to determine previous combined build hash so we don't for a rebuild every time we open
 
@@ -187,7 +184,6 @@ impl AssetEngine {
         // as changing during the build.
         //
 
-
         // Check if our import state is consistent, if it is we save expected hashes and run builds
         self.build_jobs.update(
             &self.builder_registry,
@@ -233,8 +229,12 @@ impl AssetEngine {
         path: PathBuf,
         assets_to_regenerate: HashSet<ObjectId>,
     ) {
-        self.import_jobs
-            .queue_import_operation(object_ids, importer_id, path, assets_to_regenerate);
+        self.import_jobs.queue_import_operation(
+            object_ids,
+            importer_id,
+            path,
+            assets_to_regenerate,
+        );
     }
 
     pub fn queue_build_operation(

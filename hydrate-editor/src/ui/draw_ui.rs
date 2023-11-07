@@ -1,6 +1,4 @@
-use crate::app_state::{
-    AppState, ModalActionControlFlow,
-};
+use crate::app_state::{AppState, ModalActionControlFlow};
 use crate::imgui_support::ImguiManager;
 use imgui::{im_str, ImString};
 

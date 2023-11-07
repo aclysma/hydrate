@@ -1,12 +1,16 @@
 use crate::edit_context::EditContext;
 use crate::editor::undo::UndoStack;
-use crate::{DataSet, DataSource, FileSystemIdBasedDataSource, FileSystemPathBasedDataSource, HashMap, HashSet, ImporterRegistry, LocationTree, ObjectId, ObjectPath, ObjectSourceId, PathNode, PathNodeRoot, SchemaNamedType, SchemaSet};
+use crate::import_util::ImportToQueue;
+use crate::{
+    DataSet, DataSource, FileSystemIdBasedDataSource, FileSystemPathBasedDataSource, HashMap,
+    HashSet, ImporterRegistry, LocationTree, ObjectId, ObjectPath, ObjectSourceId, PathNode,
+    PathNodeRoot, SchemaNamedType, SchemaSet,
+};
+use hydrate_data::{ObjectLocation, ObjectName};
+use hydrate_schema::SchemaFingerprint;
 use slotmap::DenseSlotMap;
 use std::path::PathBuf;
 use std::sync::Arc;
-use hydrate_data::{ObjectLocation, ObjectName};
-use hydrate_schema::SchemaFingerprint;
-use crate::import_util::ImportToQueue;
 slotmap::new_key_type! { pub struct EditContextKey; }
 
 pub struct EditorModel {
@@ -56,8 +60,12 @@ impl EditorModel {
         }
     }
 
-    pub fn is_path_node_or_root(&self, fingerprint: SchemaFingerprint) -> bool {
-        self.path_node_schema.fingerprint() == fingerprint || self.path_node_root_schema.fingerprint() == fingerprint
+    pub fn is_path_node_or_root(
+        &self,
+        fingerprint: SchemaFingerprint,
+    ) -> bool {
+        self.path_node_schema.fingerprint() == fingerprint
+            || self.path_node_root_schema.fingerprint() == fingerprint
     }
 
     // pub fn object_symbol_name(&self, object_id: ObjectId) -> Option<String> {
@@ -70,7 +78,10 @@ impl EditorModel {
     //     None
     // }
 
-    pub fn is_generated_asset(&self, object_id: ObjectId) -> bool {
+    pub fn is_generated_asset(
+        &self,
+        object_id: ObjectId,
+    ) -> bool {
         for data_source in self.data_sources.values() {
             if data_source.is_generated_asset(object_id) {
                 return true;
@@ -80,9 +91,13 @@ impl EditorModel {
         false
     }
 
-    pub fn persist_generated_asset(&mut self, object_id: ObjectId) {
+    pub fn persist_generated_asset(
+        &mut self,
+        object_id: ObjectId,
+    ) {
         for (_, data_source) in &mut self.data_sources {
-            let root_edit_context = self.edit_contexts
+            let root_edit_context = self
+                .edit_contexts
                 .get_mut(self.root_edit_context_key)
                 .unwrap();
 
@@ -171,7 +186,7 @@ impl EditorModel {
 
     pub fn is_a_root_object(
         &self,
-        object_id: ObjectId
+        object_id: ObjectId,
     ) -> bool {
         for source in self.data_sources.keys() {
             if *source.uuid() == object_id.as_uuid() {
@@ -200,12 +215,14 @@ impl EditorModel {
         //
         let object_source_id = ObjectSourceId::new();
         let root_object_id = ObjectId::from_uuid(*object_source_id.uuid());
-        root_edit_context.new_object_with_id(
-            root_object_id,
-            &ObjectName::new(data_source_name),
-            &ObjectLocation::null(),
-            &path_node_root_schema,
-        ).unwrap();
+        root_edit_context
+            .new_object_with_id(
+                root_object_id,
+                &ObjectName::new(data_source_name),
+                &ObjectLocation::null(),
+                &path_node_root_schema,
+            )
+            .unwrap();
 
         // Clear change tracking so that the new root object we just added doesn't appear as a unsaved change.
         // (It should never serialize)
@@ -214,7 +231,11 @@ impl EditorModel {
         //
         // Create the data source and force full reload of it
         //
-        let mut fs = FileSystemIdBasedDataSource::new(file_system_root_path.clone(), root_edit_context, object_source_id);
+        let mut fs = FileSystemIdBasedDataSource::new(
+            file_system_root_path.clone(),
+            root_edit_context,
+            object_source_id,
+        );
         fs.load_from_storage(root_edit_context, imports_to_queue);
 
         self.data_sources.insert(object_source_id, Box::new(fs));
@@ -241,12 +262,14 @@ impl EditorModel {
         //
         let object_source_id = ObjectSourceId::new();
         let root_object_id = ObjectId::from_uuid(*object_source_id.uuid());
-        root_edit_context.new_object_with_id(
-            root_object_id,
-            &ObjectName::new(data_source_name),
-            &ObjectLocation::null(),
-            &path_node_root_schema,
-        ).unwrap();
+        root_edit_context
+            .new_object_with_id(
+                root_object_id,
+                &ObjectName::new(data_source_name),
+                &ObjectLocation::null(),
+                &path_node_root_schema,
+            )
+            .unwrap();
 
         // Clear change tracking so that the new root object we just added doesn't appear as a unsaved change.
         // (It should never serialize)
@@ -255,7 +278,12 @@ impl EditorModel {
         //
         // Create the data source and force full reload of it
         //
-        let mut fs = FileSystemPathBasedDataSource::new(file_system_root_path.clone(), root_edit_context, object_source_id, importer_registry);
+        let mut fs = FileSystemPathBasedDataSource::new(
+            file_system_root_path.clone(),
+            root_edit_context,
+            object_source_id,
+            importer_registry,
+        );
         fs.load_from_storage(root_edit_context, imports_to_queue);
 
         self.data_sources.insert(object_source_id, Box::new(fs));
@@ -457,7 +485,9 @@ impl EditorModel {
         for (object_id, info) in data_set.objects() {
             // For objects that *are* path nodes, use their ID directly. For objects that aren't
             // path nodes, use their location object ID
-            let path_node_id = if info.schema().fingerprint() == path_node_type.fingerprint() || info.schema().fingerprint() == path_node_root_type.fingerprint() {
+            let path_node_id = if info.schema().fingerprint() == path_node_type.fingerprint()
+                || info.schema().fingerprint() == path_node_root_type.fingerprint()
+            {
                 *object_id
             } else {
                 // We could process objects so that if for some reason the parent nodes don't exist, we can still
@@ -480,14 +510,20 @@ impl EditorModel {
         // Build lookup of object ID to paths. This should only include objects of type
         // PathNode or PathNodeRoot
         let root_edit_context = self.edit_contexts.get(self.root_edit_context_key).unwrap();
-        let path_node_id_to_path =
-            Self::populate_paths(&root_edit_context.data_set, &self.path_node_schema, &self.path_node_root_schema);
+        let path_node_id_to_path = Self::populate_paths(
+            &root_edit_context.data_set,
+            &self.path_node_schema,
+            &self.path_node_root_schema,
+        );
 
         self.path_node_id_to_path = path_node_id_to_path;
 
         // Build a tree structure of all paths
-        self.location_tree =
-            LocationTree::build(&self.data_sources, &root_edit_context.data_set, &self.path_node_id_to_path);
+        self.location_tree = LocationTree::build(
+            &self.data_sources,
+            &root_edit_context.data_set,
+            &self.path_node_id_to_path,
+        );
     }
 
     pub fn cached_location_tree(&self) -> &LocationTree {

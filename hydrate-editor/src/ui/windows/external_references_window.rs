@@ -1,7 +1,7 @@
 use crate::app_state::AppState;
+use imgui::sys as is;
 use imgui::sys::ImVec2;
 use imgui::ImString;
-use imgui::sys as is;
 
 pub fn _draw_external_references_dockspace(
     _ui: &imgui::Ui,
@@ -119,9 +119,9 @@ pub fn _draw_external_references_dockspace_and_window(
         //TODO: keepalive the assets dockspace
         println!("KEEPALIVE EXTERNAL ASSETS");
         //unsafe {
-            //let id = imgui::Id::from(crate::ui::WINDOW_NAME_EXTERNAL_REFERENCES);
-            //let id = is::igGetIDStr(imgui::im_str!("{}", crate::ui::WINDOW_NAME_EXTERNAL_REFERENCES).as_ptr());
-            //is::igDockSpace(id, ImVec2::new(100.0, 100.0), is::ImGuiDockNodeFlags__ImGuiDockNodeFlags_KeepAliveOnly as _, std::ptr::null_mut());
+        //let id = imgui::Id::from(crate::ui::WINDOW_NAME_EXTERNAL_REFERENCES);
+        //let id = is::igGetIDStr(imgui::im_str!("{}", crate::ui::WINDOW_NAME_EXTERNAL_REFERENCES).as_ptr());
+        //is::igDockSpace(id, ImVec2::new(100.0, 100.0), is::ImGuiDockNodeFlags__ImGuiDockNodeFlags_KeepAliveOnly as _, std::ptr::null_mut());
         //}
     }
 }

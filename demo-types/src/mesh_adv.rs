@@ -1,7 +1,10 @@
+use hydrate_base::Handle;
+use rafx_api::{
+    RafxBlendState, RafxCullMode, RafxDepthState, RafxFillMode, RafxFrontFace, RafxIndexType,
+    RafxRasterizerState, RafxResourceType, RafxSamplerDef,
+};
 use serde::{Deserialize, Serialize};
 use type_uuid::TypeUuid;
-use hydrate_base::Handle;
-use rafx_api::{RafxBlendState, RafxCullMode, RafxDepthState, RafxFillMode, RafxFrontFace, RafxIndexType, RafxRasterizerState, RafxResourceType, RafxSamplerDef};
 
 #[derive(TypeUuid, Serialize, Deserialize, Debug, Clone, Hash, PartialEq)]
 #[uuid = "7f30b29c-7fb9-4b31-a354-7cefbbade2f9"]
@@ -94,11 +97,6 @@ pub struct MaterialAssetData {
     pub passes: Vec<MaterialPassData>,
 }
 
-
-
-
-
-
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum MeshAdvShadowMethod {
     None,
@@ -161,8 +159,6 @@ impl Default for MeshAdvMaterialData {
     }
 }
 
-
-
 #[derive(TypeUuid, Serialize, Deserialize, Clone)]
 #[uuid = "41ea076f-19d7-4deb-8af1-983148af5383"]
 pub struct MeshAdvMaterialAssetData {
@@ -173,8 +169,6 @@ pub struct MeshAdvMaterialAssetData {
     //pub normal_texture: Option<Handle<ImageAsset>>,
     //pub emissive_texture: Option<Handle<ImageAsset>>,
 }
-
-
 
 #[derive(TypeUuid, Serialize, Deserialize, Clone)]
 #[uuid = "4b53d85c-98e6-4d77-af8b-0914e67e10dc"]
@@ -202,8 +196,8 @@ pub struct MeshAdvMeshAssetData {
     pub mesh_parts: Vec<MeshAdvPartAssetData>,
     pub vertex_full_buffer: Option<Handle<MeshAdvBufferAssetData>>, // Vertex type is MeshVertexFull
     pub vertex_position_buffer: Option<Handle<MeshAdvBufferAssetData>>, // Vertex type is MeshVertexPosition
-    // pub index_buffer: Handle<MeshAdvBufferAssetData>,       // u16 indices
-    //pub visible_bounds: VisibleBounds,
+                                                                        // pub index_buffer: Handle<MeshAdvBufferAssetData>,       // u16 indices
+                                                                        //pub visible_bounds: VisibleBounds,
 }
 
 #[derive(Copy, Clone, Debug, Serialize, Deserialize, Default)]
@@ -221,6 +215,3 @@ pub struct MeshVertexFull {
 pub struct MeshVertexPosition {
     pub position: [f32; 3],
 }
-
-
-

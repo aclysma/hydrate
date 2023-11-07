@@ -1,7 +1,7 @@
+use crate::push_buffer::PushBuffer;
 use demo_types::mesh_adv::{MeshVertexFull, MeshVertexPosition};
 use glam::{Vec2, Vec3};
 use rafx_api::RafxIndexType;
-use crate::push_buffer::PushBuffer;
 
 // Calculates a tangent and binormal that are orthogonal to the polygon normal and align with the
 // uv coordinate x and y axes respectively. May return zero vector if uv coordinates are the same

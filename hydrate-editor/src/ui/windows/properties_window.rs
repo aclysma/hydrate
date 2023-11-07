@@ -1,8 +1,8 @@
+use crate::app_state::QueuedActions;
 use crate::ui_state::ActiveToolRegion;
 use crate::AppState;
 use hydrate_model::ObjectId;
 use imgui::im_str;
-use crate::app_state::QueuedActions;
 
 pub fn draw_properties_window_single_select(
     ui: &imgui::Ui,
@@ -34,14 +34,19 @@ pub fn draw_properties_window_single_select(
         }
     }
 
-    let is_generated = app_state.db_state.editor_model.is_generated_asset(object_id);
+    let is_generated = app_state
+        .db_state
+        .editor_model
+        .is_generated_asset(object_id);
     if is_generated {
         ui.text(im_str!("This asset is generated from a source file and can't be modified unless it is persisted to disk. A new asset file will be created and source file changes will no longer affect it."));
     }
 
     if is_generated {
         if ui.button(im_str!("Persist Asset")) {
-            app_state.action_queue.queue_action(QueuedActions::PersistAssets(vec![object_id]));
+            app_state
+                .action_queue
+                .queue_action(QueuedActions::PersistAssets(vec![object_id]));
         }
     }
 
@@ -75,14 +80,14 @@ pub fn draw_properties_window_single_select(
         ui.text(format!("Prototype: {}", prototype_display_name));
     }
 
-
     // unsafe {
     //     is::igPushItemFlag(is::ImGuiItemFlags__ImGuiItemFlags_Disabled as _, true);
     // }
 
     let read_only = is_generated;
-    crate::ui::components::draw_ui_inspector::draw_inspector_nexdb(ui, app_state, object_id, read_only);
-
+    crate::ui::components::draw_ui_inspector::draw_inspector_nexdb(
+        ui, app_state, object_id, read_only,
+    );
 
     // if is_generated {
     //     unsafe {

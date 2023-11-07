@@ -1,4 +1,7 @@
-use crate::{HashMap, HashMapKeys, HashSet, HashSetIter, ObjectId, Schema, SchemaFingerprint, SchemaRecord, SingleObject, Value};
+use crate::{
+    HashMap, HashMapKeys, HashSet, HashSetIter, ObjectId, Schema, SchemaFingerprint, SchemaRecord,
+    SingleObject, Value,
+};
 use crate::{NullOverride, SchemaSet};
 use std::hash::{Hash, Hasher};
 use std::path::{Path, PathBuf};
@@ -12,7 +15,7 @@ pub enum DataSetError {
     PathParentIsNull,
     PathDynamicArrayEntryDoesNotExist,
     UnexpectedEnumSymbol,
-    DuplicateObjectId
+    DuplicateObjectId,
 }
 
 pub type DataSetResult<T> = Result<T, DataSetError>;
@@ -65,12 +68,8 @@ pub struct ObjectLocation {
 }
 
 impl ObjectLocation {
-    pub fn new(
-        path_node_id: ObjectId,
-    ) -> Self {
-        ObjectLocation {
-            path_node_id,
-        }
+    pub fn new(path_node_id: ObjectId) -> Self {
+        ObjectLocation { path_node_id }
     }
 
     pub fn null() -> ObjectLocation {
@@ -338,7 +337,8 @@ impl DataSet {
         schema: &SchemaRecord,
     ) -> ObjectId {
         let id = ObjectId(uuid::Uuid::new_v4().as_u128());
-        self.new_object_with_id(id, object_name, object_location, schema).unwrap();
+        self.new_object_with_id(id, object_name, object_location, schema)
+            .unwrap();
         id
     }
 
@@ -370,7 +370,7 @@ impl DataSet {
     pub fn copy_from_single_object(
         &mut self,
         object_id: ObjectId,
-        single_object: &SingleObject
+        single_object: &SingleObject,
     ) -> DataSetResult<()> {
         let object = self.objects.get_mut(&object_id).unwrap();
         for (property, value) in single_object.properties() {
@@ -378,11 +378,16 @@ impl DataSet {
         }
 
         for (property, null_override) in single_object.property_null_overrides() {
-            object.property_null_overrides.insert(property.clone(), *null_override);
+            object
+                .property_null_overrides
+                .insert(property.clone(), *null_override);
         }
 
         for (property, dynamic_array_entries) in single_object.dynamic_array_entries() {
-            let property_entry = object.dynamic_array_entries.entry(property.clone()).or_default();
+            let property_entry = object
+                .dynamic_array_entries
+                .entry(property.clone())
+                .or_default();
             for element in &*dynamic_array_entries {
                 property_entry.insert(*element);
             }
@@ -436,7 +441,7 @@ impl DataSet {
     pub fn set_object_name(
         &mut self,
         object_id: ObjectId,
-        object_name: ObjectName
+        object_name: ObjectName,
     ) {
         self.objects.get_mut(&object_id).unwrap().object_name = object_name;
     }
@@ -470,7 +475,8 @@ impl DataSet {
             }
 
             object_location_chain.push(obj_iter.clone());
-            obj_iter = if let Some(location) = self.object_location(obj_iter.path_node_id).cloned() {
+            obj_iter = if let Some(location) = self.object_location(obj_iter.path_node_id).cloned()
+            {
                 // May be null, in which case we will terminate and return this list so far not including the null
                 location
             } else {

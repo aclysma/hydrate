@@ -1,9 +1,11 @@
-use crate::{HashMap, ImportInfo, ImporterId, ObjectId, ObjectLocation, ObjectName, ScannedImportable};
-use crate::pipeline::Importer;
-use crate::pipeline::{ImporterRegistry};
-use std::path::{Path, PathBuf};
-use hydrate_base::hashing::HashSet;
 use crate::edit_context::EditContext;
+use crate::pipeline::Importer;
+use crate::pipeline::ImporterRegistry;
+use crate::{
+    HashMap, ImportInfo, ImporterId, ObjectId, ObjectLocation, ObjectName, ScannedImportable,
+};
+use hydrate_base::hashing::HashSet;
+use std::path::{Path, PathBuf};
 
 #[derive(Debug)]
 pub struct ImportToQueue {
@@ -13,7 +15,11 @@ pub struct ImportToQueue {
     pub assets_to_regenerate: HashSet<ObjectId>,
 }
 
-pub fn create_import_info(source_file_path: &Path, importer: &Box<dyn Importer>, scanned_importable: &ScannedImportable) -> ImportInfo {
+pub fn create_import_info(
+    source_file_path: &Path,
+    importer: &Box<dyn Importer>,
+    scanned_importable: &ScannedImportable,
+) -> ImportInfo {
     let mut file_references = Vec::default();
     for file_reference in &scanned_importable.file_references {
         file_references.push(file_reference.path.clone());
@@ -30,7 +36,10 @@ pub fn create_import_info(source_file_path: &Path, importer: &Box<dyn Importer>,
     )
 }
 
-pub fn create_object_name(source_file_path: &Path, scanned_importable: &ScannedImportable) -> ObjectName {
+pub fn create_object_name(
+    source_file_path: &Path,
+    scanned_importable: &ScannedImportable,
+) -> ObjectName {
     if let Some(file_name) = source_file_path.file_name() {
         let file_name = file_name.to_string_lossy();
         if let Some(importable_name) = &scanned_importable.name {
@@ -65,7 +74,11 @@ pub fn recursively_gather_import_operations_and_create_assets(
     let mut default_importable_object_id = None;
     let mut assets_to_regenerate = HashSet::default();
 
-    let scanned_importables = importer.scan_file(source_file_path, editor_context.schema_set(), importer_registry);
+    let scanned_importables = importer.scan_file(
+        source_file_path,
+        editor_context.schema_set(),
+        importer_registry,
+    );
     for scanned_importable in &scanned_importables {
         // let mut file_references = Vec::default();
         // for file_reference in &scanned_importable.file_references {
@@ -93,7 +106,8 @@ pub fn recursively_gather_import_operations_and_create_assets(
         //TODO: Check referenced source files to find existing imported assets or import referenced files
         for referenced_source_file in &scanned_importable.file_references {
             let referenced_file_absolute_path = if referenced_source_file.path.is_relative() {
-                source_file_path.parent()
+                source_file_path
+                    .parent()
                     .unwrap()
                     .join(&referenced_source_file.path)
                     .canonicalize()
@@ -105,9 +119,7 @@ pub fn recursively_gather_import_operations_and_create_assets(
             // Does it already exist?
             let mut found = None;
             for object_id in editor_context.all_objects() {
-                if let Some(import_info) = editor_context
-                    .import_info(*object_id)
-                {
+                if let Some(import_info) = editor_context.import_info(*object_id) {
                     if import_info.importable_name().is_empty()
                         && import_info.source_file_path() == referenced_file_absolute_path
                     {
@@ -146,8 +158,7 @@ pub fn recursively_gather_import_operations_and_create_assets(
             &scanned_importable.asset_type,
         );
         //TODO: Do this when we actually import to avoid potential race conditions
-        editor_context
-            .set_import_info(object_id, import_info.clone());
+        editor_context.set_import_info(object_id, import_info.clone());
 
         for (k, v) in scanned_importable
             .file_references
@@ -155,8 +166,7 @@ pub fn recursively_gather_import_operations_and_create_assets(
             .zip(referenced_source_file_object_ids)
         {
             if let Some(v) = v {
-                editor_context
-                    .set_file_reference_override(object_id, k.path.clone(), v);
+                editor_context.set_file_reference_override(object_id, k.path.clone(), v);
             }
         }
 
@@ -179,7 +189,7 @@ pub fn recursively_gather_import_operations_and_create_assets(
         source_file_path: source_file_path.to_path_buf(),
         importer_id: importer.importer_id(),
         requested_importables,
-        assets_to_regenerate
+        assets_to_regenerate,
     });
 
     default_importable_object_id

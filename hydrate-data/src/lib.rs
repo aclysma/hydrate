@@ -1,4 +1,3 @@
-
 use uuid::Uuid;
 //use serde::{Deserialize, Serialize};
 use std::fmt::{Debug, Formatter};
@@ -13,14 +12,14 @@ pub use data_set::BuildInfo;
 pub use data_set::BuilderId;
 pub use data_set::DataObjectInfo;
 pub use data_set::DataSet;
+pub use data_set::DataSetError;
+pub use data_set::DataSetResult;
 pub use data_set::ImportInfo;
 pub use data_set::ImporterId;
 pub use data_set::ObjectLocation;
 pub use data_set::ObjectName;
 pub use data_set::ObjectSourceId;
 pub use data_set::OverrideBehavior;
-pub use data_set::DataSetError;
-pub use data_set::DataSetResult;
 
 mod data_set_view;
 pub use data_set_view::DataContainer;

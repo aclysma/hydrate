@@ -1,13 +1,13 @@
 use crate::app_state::{ActionQueueSender, ModalAction, ModalActionControlFlow};
 use crate::db_state::DbState;
 use crate::ui_state::UiState;
-use hydrate_model::{LocationTreeNode, ObjectId, ObjectLocation, HashSet};
+use hydrate_model::import_util::ImportToQueue;
 use hydrate_model::pipeline::Importer;
 use hydrate_model::pipeline::{AssetEngine, ImporterRegistry};
+use hydrate_model::{HashSet, LocationTreeNode, ObjectId, ObjectLocation};
 use imgui::sys::ImVec2;
 use imgui::{im_str, PopupModal, TreeNodeFlags};
 use std::path::{Path, PathBuf};
-use hydrate_model::import_util::ImportToQueue;
 
 pub struct ImportFilesModal {
     finished_first_draw: bool,
@@ -16,7 +16,10 @@ pub struct ImportFilesModal {
 }
 
 impl ImportFilesModal {
-    pub fn new(files_to_import: Vec<PathBuf>, importer_registry: &ImporterRegistry) -> Self {
+    pub fn new(
+        files_to_import: Vec<PathBuf>,
+        importer_registry: &ImporterRegistry,
+    ) -> Self {
         println!("show ImportFilesModal {:?}", files_to_import);
 
         let mut all_files_to_import: HashSet<PathBuf> = files_to_import.iter().cloned().collect();
@@ -32,7 +35,10 @@ impl ImportFilesModal {
                 for file in walker {
                     if let Ok(file) = file {
                         if let Some(extension) = file.path().extension() {
-                            if !importer_registry.importers_for_file_extension(&*extension.to_string_lossy()).is_empty() {
+                            if !importer_registry
+                                .importers_for_file_extension(&*extension.to_string_lossy())
+                                .is_empty()
+                            {
                                 all_files_to_import.insert(file.path().to_path_buf());
                                 println!("import {:?}", file);
                             }
@@ -158,7 +164,7 @@ fn recursively_gather_import_operations_and_create_assets(
         db_state.editor_model.root_edit_context_mut(),
         asset_engine.importer_registry(),
         selected_import_location,
-        imports_to_queue
+        imports_to_queue,
     )
     // //
     // // We now build a list of things we will be importing from the file.
@@ -364,7 +370,6 @@ impl ModalAction for ImportFilesModal {
                 //     }
                 // }
 
-
                 for file in &self.files_to_import {
                     let extension = file.extension();
                     if let Some(extension) = extension {
@@ -392,7 +397,7 @@ impl ModalAction for ImportFilesModal {
                                     import_to_queue.requested_importables,
                                     import_to_queue.importer_id,
                                     import_to_queue.source_file_path,
-                                    import_to_queue.assets_to_regenerate
+                                    import_to_queue.assets_to_regenerate,
                                 );
                             }
 

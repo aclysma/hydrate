@@ -307,10 +307,7 @@ impl SchemaDefEnumSymbol {
     }
 
     fn to_schema(self) -> SchemaEnumSymbol {
-        SchemaEnumSymbol::new(
-            self.symbol_name,
-            self.aliases.into_boxed_slice(),
-        )
+        SchemaEnumSymbol::new(self.symbol_name, self.aliases.into_boxed_slice())
     }
 }
 

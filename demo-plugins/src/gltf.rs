@@ -1,13 +1,22 @@
 pub use super::*;
 use std::path::{Path, PathBuf};
 
+use super::generated::{
+    MeshAdvMaterialAssetRecord, MeshAdvMaterialImportedDataRecord, MeshAdvMeshAssetRecord,
+    MeshAdvMeshImportedDataRecord,
+};
 use hydrate_base::BuiltObjectMetadata;
-use hydrate_model::{BuilderRegistryBuilder, DataContainerMut, DataSet, EditorModel, HashMap, ImportableObject, ImporterRegistryBuilder, JobProcessorRegistryBuilder, ObjectId, ObjectLocation, ObjectName, Record, SchemaLinker, SchemaSet, SingleObject, Value};
-use hydrate_model::pipeline::{AssetPlugin, Builder, BuilderRegistry, BuiltAsset, ImporterRegistry};
-use hydrate_model::pipeline::{ImportedImportable, ScannedImportable, Importer};
+use hydrate_model::pipeline::{
+    AssetPlugin, Builder, BuilderRegistry, BuiltAsset, ImporterRegistry,
+};
+use hydrate_model::pipeline::{ImportedImportable, Importer, ScannedImportable};
+use hydrate_model::{
+    BuilderRegistryBuilder, DataContainerMut, DataSet, EditorModel, HashMap, ImportableObject,
+    ImporterRegistryBuilder, JobProcessorRegistryBuilder, ObjectId, ObjectLocation, ObjectName,
+    Record, SchemaLinker, SchemaSet, SingleObject, Value,
+};
 use serde::{Deserialize, Serialize};
 use type_uuid::{TypeUuid, TypeUuidDynamic};
-use super::generated::{MeshAdvMaterialAssetRecord, MeshAdvMaterialImportedDataRecord, MeshAdvMeshAssetRecord, MeshAdvMeshImportedDataRecord};
 
 fn name_or_index(
     prefix: &str,
@@ -98,8 +107,10 @@ impl Importer for GltfImporter {
                 // Create import data
                 //
                 let import_data = {
-                    let mut import_object = MeshAdvMeshImportedDataRecord::new_single_object(schema_set).unwrap();
-                    let mut import_data_container = DataContainerMut::new_single_object(&mut import_object, schema_set);
+                    let mut import_object =
+                        MeshAdvMeshImportedDataRecord::new_single_object(schema_set).unwrap();
+                    let mut import_data_container =
+                        DataContainerMut::new_single_object(&mut import_object, schema_set);
                     let x = MeshAdvMeshImportedDataRecord::default();
                     import_object
                 };
@@ -109,8 +120,10 @@ impl Importer for GltfImporter {
                 //
 
                 let default_asset = {
-                    let mut default_asset_object = MeshAdvMeshAssetRecord::new_single_object(schema_set).unwrap();
-                    let mut default_asset_data_container = DataContainerMut::new_single_object(&mut default_asset_object, schema_set);
+                    let mut default_asset_object =
+                        MeshAdvMeshAssetRecord::new_single_object(schema_set).unwrap();
+                    let mut default_asset_data_container =
+                        DataContainerMut::new_single_object(&mut default_asset_object, schema_set);
                     let x = MeshAdvMeshAssetRecord::default();
                     default_asset_object
                 };
@@ -123,7 +136,7 @@ impl Importer for GltfImporter {
                     ImportedImportable {
                         file_references: Default::default(),
                         import_data: Some(import_data),
-                        default_asset: Some(default_asset)
+                        default_asset: Some(default_asset),
                     },
                 );
             }
@@ -132,20 +145,46 @@ impl Importer for GltfImporter {
         for (i, material) in doc.materials().enumerate() {
             let name = Some(name_or_index("material", material.name(), i));
             if importable_objects.contains_key(&name) {
-
                 //
                 // Create the default asset
                 //
 
                 let default_asset = {
-                    let mut default_asset_object = MeshAdvMaterialAssetRecord::new_single_object(schema_set).unwrap();
-                    let mut default_asset_data_container = DataContainerMut::new_single_object(&mut default_asset_object, schema_set);
+                    let mut default_asset_object =
+                        MeshAdvMaterialAssetRecord::new_single_object(schema_set).unwrap();
+                    let mut default_asset_data_container =
+                        DataContainerMut::new_single_object(&mut default_asset_object, schema_set);
                     let x = MeshAdvMaterialAssetRecord::default();
-                    x.base_color_factor().set_vec4(&mut default_asset_data_container, material.pbr_metallic_roughness().base_color_factor()).unwrap();
-                    x.emissive_factor().set_vec3(&mut default_asset_data_container, material.emissive_factor()).unwrap();
-                    x.metallic_factor().set(&mut default_asset_data_container, material.pbr_metallic_roughness().metallic_factor()).unwrap();
-                    x.roughness_factor().set(&mut default_asset_data_container, material.pbr_metallic_roughness().roughness_factor()).unwrap();
-                    x.normal_texture_scale().set(&mut default_asset_data_container, material.normal_texture().map_or(1.0, |x| x.scale())).unwrap();
+                    x.base_color_factor()
+                        .set_vec4(
+                            &mut default_asset_data_container,
+                            material.pbr_metallic_roughness().base_color_factor(),
+                        )
+                        .unwrap();
+                    x.emissive_factor()
+                        .set_vec3(
+                            &mut default_asset_data_container,
+                            material.emissive_factor(),
+                        )
+                        .unwrap();
+                    x.metallic_factor()
+                        .set(
+                            &mut default_asset_data_container,
+                            material.pbr_metallic_roughness().metallic_factor(),
+                        )
+                        .unwrap();
+                    x.roughness_factor()
+                        .set(
+                            &mut default_asset_data_container,
+                            material.pbr_metallic_roughness().roughness_factor(),
+                        )
+                        .unwrap();
+                    x.normal_texture_scale()
+                        .set(
+                            &mut default_asset_data_container,
+                            material.normal_texture().map_or(1.0, |x| x.scale()),
+                        )
+                        .unwrap();
 
                     //TODO: This needs to be updated to handle images in the GLTF or referenced externally
 
@@ -178,13 +217,21 @@ impl Importer for GltfImporter {
                     //     }
                     // }
 
-
                     //x.shadow_method().set(&mut default_asset_data_container, shadow_method).unwrap();
                     //x.blend_method().set(&mut default_asset_data_container, blend_method).unwrap();
-                    x.alpha_threshold().set(&mut default_asset_data_container, material.alpha_cutoff().unwrap_or(0.5)).unwrap();
-                    x.backface_culling().set(&mut default_asset_data_container, false).unwrap();
+                    x.alpha_threshold()
+                        .set(
+                            &mut default_asset_data_container,
+                            material.alpha_cutoff().unwrap_or(0.5),
+                        )
+                        .unwrap();
+                    x.backface_culling()
+                        .set(&mut default_asset_data_container, false)
+                        .unwrap();
                     //TODO: Does this incorrectly write older enum string names when code is older than schema file?
-                    x.color_texture_has_alpha_channel().set(&mut default_asset_data_container, false).unwrap();
+                    x.color_texture_has_alpha_channel()
+                        .set(&mut default_asset_data_container, false)
+                        .unwrap();
                     default_asset_object
                 };
 
@@ -196,7 +243,7 @@ impl Importer for GltfImporter {
                     ImportedImportable {
                         file_references: Default::default(),
                         import_data: None,
-                        default_asset: Some(default_asset)
+                        default_asset: Some(default_asset),
                     },
                 );
             }

@@ -1,4 +1,3 @@
-
 // assumed to end with /. We don't just use / to make it clear that it's not a file path
 const ROOT_PATH_STR: &str = "db:/";
 const ROOT_PATH: ObjectPath = ObjectPath(None);

@@ -1,7 +1,4 @@
-use crate::{
-    HashMap,
-    ImporterId,
-};
+use crate::{HashMap, ImporterId};
 use std::sync::Arc;
 use type_uuid::TypeUuid;
 use uuid::Uuid;
@@ -16,7 +13,7 @@ pub struct ImporterRegistryInner {
 
 #[derive(Clone)]
 pub struct ImporterRegistry {
-    inner: Arc<ImporterRegistryInner>
+    inner: Arc<ImporterRegistryInner>,
 }
 
 impl ImporterRegistry {
@@ -25,7 +22,8 @@ impl ImporterRegistry {
         extension: &str,
     ) -> &[ImporterId] {
         const EMPTY_LIST: &'static [ImporterId] = &[];
-        self.inner.file_extension_associations
+        self.inner
+            .file_extension_associations
             .get(extension)
             .map(|x| x.as_slice())
             .unwrap_or(EMPTY_LIST)
@@ -49,15 +47,13 @@ impl ImporterRegistryBuilder {
     //
     // Called before creating the schema to add handlers
     //
-    pub fn register_handler<T: TypeUuid + Importer + Default + 'static>(
-        &mut self,
-    ) {
+    pub fn register_handler<T: TypeUuid + Importer + Default + 'static>(&mut self) {
         self.register_handler_instance(T::default())
     }
 
     pub fn register_handler_instance<T: TypeUuid + Importer + 'static>(
         &mut self,
-        importer: T
+        importer: T,
     ) {
         let handler = Box::new(importer);
         let importer_id = ImporterId(Uuid::from_bytes(T::UUID));
@@ -78,7 +74,7 @@ impl ImporterRegistryBuilder {
         };
 
         ImporterRegistry {
-            inner: Arc::new(inner)
+            inner: Arc::new(inner),
         }
     }
 }

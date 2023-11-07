@@ -1,14 +1,14 @@
-use std::hash::Hash;
-use serde::{Deserialize, Serialize};
-use siphasher::sip128::Hasher128;
-use type_uuid::{TypeUuid, TypeUuidDynamic};
-use uuid::Uuid;
+use super::{JobId, JobTypeId};
+use crate::{AssetArtifactIdPair, BuiltArtifact, ImportData, ImportJobs};
+use hydrate_base::handle::DummySerdeContextHandle;
 use hydrate_base::hashing::HashMap;
 use hydrate_base::{ArtifactId, AssetUuid, BuiltObjectMetadata, Handle, ObjectId};
-use hydrate_base::handle::{DummySerdeContextHandle};
 use hydrate_data::{DataSet, SchemaSet, SingleObject};
-use crate::{AssetArtifactIdPair, BuiltArtifact, ImportData, ImportJobs};
-use super::{JobId, JobTypeId};
+use serde::{Deserialize, Serialize};
+use siphasher::sip128::Hasher128;
+use std::hash::Hash;
+use type_uuid::{TypeUuid, TypeUuidDynamic};
+use uuid::Uuid;
 
 pub trait ImportDataProvider {
     fn clone_import_data_metadata_hashes(&self) -> HashMap<ObjectId, u64>;
@@ -25,7 +25,11 @@ impl ImportDataProvider for ImportJobs {
         self.clone_import_data_metadata_hashes()
     }
 
-    fn load_import_data(&self, schema_set: &SchemaSet, object_id: ObjectId) -> ImportData {
+    fn load_import_data(
+        &self,
+        schema_set: &SchemaSet,
+        object_id: ObjectId,
+    ) -> ImportData {
         self.load_import_data(schema_set, object_id)
     }
 }
@@ -36,7 +40,10 @@ pub struct NewJob {
     pub input_data: Vec<u8>,
 }
 
-fn create_artifact_id<T: Hash>(asset_id: ObjectId, artifact_key: Option<T>) -> ArtifactId {
+fn create_artifact_id<T: Hash>(
+    asset_id: ObjectId,
+    artifact_key: Option<T>,
+) -> ArtifactId {
     if let Some(artifact_key) = artifact_key {
         let mut hasher = siphasher::sip128::SipHasher::default();
         asset_id.hash(&mut hasher);
@@ -52,26 +59,33 @@ fn create_artifact_id<T: Hash>(asset_id: ObjectId, artifact_key: Option<T>) -> A
 // API Design
 //
 pub trait JobApi {
-    fn enqueue_job(&self, data_set: &DataSet, schema_set: &SchemaSet, job: NewJob) -> JobId;
+    fn enqueue_job(
+        &self,
+        data_set: &DataSet,
+        schema_set: &SchemaSet,
+        job: NewJob,
+    ) -> JobId;
 
     //fn produce_asset(&self, asset: BuiltAsset);
 
-    fn artifact_handle_created(&self, asset_id: ObjectId, artifact_id: ArtifactId);
+    fn artifact_handle_created(
+        &self,
+        asset_id: ObjectId,
+        artifact_id: ArtifactId,
+    );
 
-    fn produce_artifact(&self, artifact: BuiltArtifact);
+    fn produce_artifact(
+        &self,
+        artifact: BuiltArtifact,
+    );
 }
-
 
 //
 // Job Traits
 //
-pub trait JobInput: Hash + Serialize + for<'a> Deserialize<'a> {
+pub trait JobInput: Hash + Serialize + for<'a> Deserialize<'a> {}
 
-}
-
-pub trait JobOutput: Serialize + for<'a> Deserialize<'a> {
-
-}
+pub trait JobOutput: Serialize + for<'a> Deserialize<'a> {}
 
 #[derive(Default, Clone)]
 pub struct JobEnumeratedDependencies {
@@ -109,7 +123,7 @@ pub trait JobProcessorAbstract {
         data_set: &DataSet,
         schema_set: &SchemaSet,
         dependency_data: &HashMap<ObjectId, SingleObject>,
-        job_api: &dyn JobApi
+        job_api: &dyn JobApi,
     ) -> Vec<u8>;
 }
 
@@ -132,16 +146,15 @@ pub trait JobProcessor: TypeUuid {
         data_set: &DataSet,
         schema_set: &SchemaSet,
         dependency_data: &HashMap<ObjectId, SingleObject>,
-        job_api: &dyn JobApi
+        job_api: &dyn JobApi,
     ) -> Self::OutputT;
 }
-
 
 pub fn enqueue_job<T: JobProcessor>(
     data_set: &DataSet,
     schema_set: &SchemaSet,
     job_api: &dyn JobApi,
-    input: <T as JobProcessor>::InputT
+    input: <T as JobProcessor>::InputT,
 ) -> JobId {
     let mut hasher = siphasher::sip128::SipHasher::default();
     input.hash(&mut hasher);
@@ -161,7 +174,7 @@ pub fn enqueue_job<T: JobProcessor>(
 pub fn produce_asset<T: TypeUuid + Serialize>(
     job_api: &dyn JobApi,
     asset_id: ObjectId,
-    asset: T
+    asset: T,
 ) {
     //produce_asset_with_handles(job_api, asset_id, || asset);
     produce_artifact_with_handles(job_api, asset_id, None::<u32>, || asset);
@@ -170,7 +183,7 @@ pub fn produce_asset<T: TypeUuid + Serialize>(
 pub fn produce_asset_with_handles<T: TypeUuid + Serialize, F: FnOnce() -> T>(
     job_api: &dyn JobApi,
     asset_id: ObjectId,
-    asset_fn: F
+    asset_fn: F,
 ) {
     produce_artifact_with_handles(job_api, asset_id, None::<u32>, asset_fn);
     // let mut ctx = DummySerdeContextHandle::default();
@@ -199,12 +212,12 @@ pub fn produce_artifact<T: TypeUuid + Serialize, U: Hash>(
     job_api: &dyn JobApi,
     asset_id: ObjectId,
     artifact_key: Option<U>,
-    asset: T
+    asset: T,
 ) -> AssetArtifactIdPair {
     let artifact_id = produce_artifact_with_handles(job_api, asset_id, artifact_key, || asset);
     AssetArtifactIdPair {
         asset_id,
-        artifact_id
+        artifact_id,
     }
 }
 
@@ -212,7 +225,7 @@ pub fn produce_artifact_with_handles<T: TypeUuid + Serialize, U: Hash, F: FnOnce
     job_api: &dyn JobApi,
     asset_id: ObjectId,
     artifact_key: Option<U>,
-    asset_fn: F
+    asset_fn: F,
 ) -> ArtifactId {
     let artifact_id = create_artifact_id(asset_id, artifact_key);
 
@@ -232,10 +245,13 @@ pub fn produce_artifact_with_handles<T: TypeUuid + Serialize, U: Hash, F: FnOnce
         asset_id,
         artifact_id,
         metadata: BuiltObjectMetadata {
-            dependencies: referenced_assets.into_iter().map(|x| ArtifactId::from_uuid(Uuid::from_bytes(x.0.0))).collect(),
-            asset_type: uuid::Uuid::from_bytes(asset_type)
+            dependencies: referenced_assets
+                .into_iter()
+                .map(|x| ArtifactId::from_uuid(Uuid::from_bytes(x.0 .0)))
+                .collect(),
+            asset_type: uuid::Uuid::from_bytes(asset_type),
         },
-        data: built_data
+        data: built_data,
     });
 
     artifact_id
@@ -243,7 +259,7 @@ pub fn produce_artifact_with_handles<T: TypeUuid + Serialize, U: Hash, F: FnOnce
 
 pub fn make_handle_to_default_artifact<T>(
     job_api: &dyn JobApi,
-    asset_id: ObjectId
+    asset_id: ObjectId,
 ) -> Handle<T> {
     make_handle_to_artifact_key(job_api, asset_id, None::<u32>)
 }
@@ -252,8 +268,13 @@ pub fn make_handle_to_artifact<T>(
     job_api: &dyn JobApi,
     asset_artifact_id_pair: AssetArtifactIdPair,
 ) -> Handle<T> {
-    job_api.artifact_handle_created(asset_artifact_id_pair.asset_id, asset_artifact_id_pair.artifact_id);
-    hydrate_base::handle::make_handle::<T>(AssetUuid(*asset_artifact_id_pair.artifact_id.as_uuid().as_bytes()))
+    job_api.artifact_handle_created(
+        asset_artifact_id_pair.asset_id,
+        asset_artifact_id_pair.artifact_id,
+    );
+    hydrate_base::handle::make_handle::<T>(AssetUuid(
+        *asset_artifact_id_pair.artifact_id.as_uuid().as_bytes(),
+    ))
 }
 
 pub fn make_handle_to_artifact_raw<T>(

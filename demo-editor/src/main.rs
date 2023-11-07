@@ -1,6 +1,9 @@
-use demo_plugins::{BlenderMaterialAssetPlugin, BlenderMeshAssetPlugin, GlslAssetPlugin, GltfAssetPlugin, GpuBufferAssetPlugin, GpuImageAssetPlugin, MeshAdvAssetPlugin, SimpleDataAssetPlugin};
-use std::path::PathBuf;
+use demo_plugins::{
+    BlenderMaterialAssetPlugin, BlenderMeshAssetPlugin, GlslAssetPlugin, GltfAssetPlugin,
+    GpuBufferAssetPlugin, GpuImageAssetPlugin, MeshAdvAssetPlugin, SimpleDataAssetPlugin,
+};
 use hydrate::pipeline::AssetEngine;
+use std::path::PathBuf;
 
 fn schema_def_path() -> PathBuf {
     PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/data/schema"))
@@ -18,7 +21,10 @@ fn asset_id_based_data_source_path() -> PathBuf {
 }
 
 fn asset_path_based_data_source_path() -> PathBuf {
-    PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/data/assets_path_based"))
+    PathBuf::from(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/data/assets_path_based"
+    ))
 }
 
 pub fn import_data_path() -> PathBuf {
@@ -42,25 +48,27 @@ fn main() {
 
     let mut linker = hydrate::model::SchemaLinker::default();
 
-    let mut asset_plugin_registration_helper = hydrate::pipeline::AssetPluginRegistrationHelper::new()
-        .register_plugin::<GpuBufferAssetPlugin>(&mut linker)
-        .register_plugin::<GpuImageAssetPlugin>(&mut linker)
-        .register_plugin::<BlenderMaterialAssetPlugin>(&mut linker)
-        .register_plugin::<BlenderMeshAssetPlugin>(&mut linker)
-        .register_plugin::<MeshAdvAssetPlugin>(&mut linker)
-        .register_plugin::<GlslAssetPlugin>(&mut linker)
-        .register_plugin::<GltfAssetPlugin>(&mut linker)
-        .register_plugin::<SimpleDataAssetPlugin>(&mut linker);
+    let mut asset_plugin_registration_helper =
+        hydrate::pipeline::AssetPluginRegistrationHelper::new()
+            .register_plugin::<GpuBufferAssetPlugin>(&mut linker)
+            .register_plugin::<GpuImageAssetPlugin>(&mut linker)
+            .register_plugin::<BlenderMaterialAssetPlugin>(&mut linker)
+            .register_plugin::<BlenderMeshAssetPlugin>(&mut linker)
+            .register_plugin::<MeshAdvAssetPlugin>(&mut linker)
+            .register_plugin::<GlslAssetPlugin>(&mut linker)
+            .register_plugin::<GltfAssetPlugin>(&mut linker)
+            .register_plugin::<SimpleDataAssetPlugin>(&mut linker);
 
     //TODO: Take a config file
     //TODO: Support N sources using path nodes
     let schema_set = hydrate::editor::DbState::load_schema(
         linker,
         &[&schema_def_path()],
-        &schema_cache_file_path()
+        &schema_cache_file_path(),
     );
 
-    let (importer_registry, builder_registry, job_processor_registry) = asset_plugin_registration_helper.finish(&*schema_set);
+    let (importer_registry, builder_registry, job_processor_registry) =
+        asset_plugin_registration_helper.finish(&*schema_set);
 
     let mut imports_to_queue = Vec::default();
     let mut db_state = hydrate::editor::DbState::load_or_init_empty(
@@ -69,7 +77,7 @@ fn main() {
         &asset_id_based_data_source_path(),
         &asset_path_based_data_source_path(),
         &schema_cache_file_path(),
-        &mut imports_to_queue
+        &mut imports_to_queue,
     );
 
     let mut asset_engine = AssetEngine::new(
@@ -88,7 +96,7 @@ fn main() {
             import_to_queue.requested_importables,
             import_to_queue.importer_id,
             import_to_queue.source_file_path,
-            import_to_queue.assets_to_regenerate
+            import_to_queue.assets_to_regenerate,
         );
     }
 

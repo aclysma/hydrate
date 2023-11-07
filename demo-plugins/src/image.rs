@@ -1,15 +1,21 @@
 pub use super::*;
-use ::image::{GenericImageView};
-use std::path::{Path};
+use ::image::GenericImageView;
+use std::path::Path;
 
+use super::generated::{GpuImageAssetRecord, GpuImageImportedDataRecord};
 use demo_types::image::*;
 use hydrate_base::BuiltObjectMetadata;
-use hydrate_model::{BooleanField, BuilderRegistryBuilder, BytesField, DataContainer, DataContainerMut, DataSet, Field, HashMap, ImportableObject, ImporterRegistry, ImporterRegistryBuilder, job_system, JobApi, JobEnumeratedDependencies, JobId, JobInput, JobOutput, JobProcessor, JobProcessorRegistry, JobProcessorRegistryBuilder, NewJob, ObjectId, PropertyPath, Record, SchemaLinker, SchemaSet, SingleObject, U32Field};
 use hydrate_model::pipeline::{AssetPlugin, Builder, BuiltAsset};
-use hydrate_model::pipeline::{ImportedImportable, ScannedImportable, Importer};
+use hydrate_model::pipeline::{ImportedImportable, Importer, ScannedImportable};
+use hydrate_model::{
+    job_system, BooleanField, BuilderRegistryBuilder, BytesField, DataContainer, DataContainerMut,
+    DataSet, Field, HashMap, ImportableObject, ImporterRegistry, ImporterRegistryBuilder, JobApi,
+    JobEnumeratedDependencies, JobId, JobInput, JobOutput, JobProcessor, JobProcessorRegistry,
+    JobProcessorRegistryBuilder, NewJob, ObjectId, PropertyPath, Record, SchemaLinker, SchemaSet,
+    SingleObject, U32Field,
+};
 use serde::{Deserialize, Serialize};
 use type_uuid::{TypeUuid, TypeUuidDynamic};
-use super::generated::{GpuImageAssetRecord, GpuImageImportedDataRecord};
 
 #[derive(TypeUuid, Default)]
 #[uuid = "e7c83acb-f73b-4b3c-b14d-fe5cc17c0fa3"]
@@ -57,10 +63,14 @@ impl Importer for GpuImageImporter {
         // Create import data
         //
         let import_data = {
-            let mut import_object = GpuImageImportedDataRecord::new_single_object(schema_set).unwrap();
-            let mut import_data_container = DataContainerMut::new_single_object(&mut import_object, schema_set);
+            let mut import_object =
+                GpuImageImportedDataRecord::new_single_object(schema_set).unwrap();
+            let mut import_data_container =
+                DataContainerMut::new_single_object(&mut import_object, schema_set);
             let x = GpuImageImportedDataRecord::default();
-            x.image_bytes().set(&mut import_data_container, image_bytes).unwrap();
+            x.image_bytes()
+                .set(&mut import_data_container, image_bytes)
+                .unwrap();
             x.width().set(&mut import_data_container, width).unwrap();
             x.height().set(&mut import_data_container, width).unwrap();
             import_object
@@ -70,10 +80,14 @@ impl Importer for GpuImageImporter {
         // Create the default asset
         //
         let default_asset = {
-            let mut default_asset_object = GpuImageAssetRecord::new_single_object(schema_set).unwrap();
-            let mut default_asset_data_container = DataContainerMut::new_single_object(&mut default_asset_object, schema_set);
+            let mut default_asset_object =
+                GpuImageAssetRecord::new_single_object(schema_set).unwrap();
+            let mut default_asset_data_container =
+                DataContainerMut::new_single_object(&mut default_asset_object, schema_set);
             let x = GpuImageAssetRecord::default();
-            x.compress().set(&mut default_asset_data_container, false).unwrap();
+            x.compress()
+                .set(&mut default_asset_data_container, false)
+                .unwrap();
             default_asset_object
         };
 
@@ -101,9 +115,7 @@ pub struct GpuImageJobInput {
 impl JobInput for GpuImageJobInput {}
 
 #[derive(Serialize, Deserialize)]
-pub struct GpuImageJobOutput {
-
-}
+pub struct GpuImageJobOutput {}
 impl JobOutput for GpuImageJobOutput {}
 
 #[derive(Default, TypeUuid)]
@@ -127,7 +139,7 @@ impl JobProcessor for GpuImageJobProcessor {
         // No dependencies
         JobEnumeratedDependencies {
             import_data: vec![input.asset_id],
-            upstream_jobs: Vec::default()
+            upstream_jobs: Vec::default(),
         }
     }
 
@@ -137,7 +149,7 @@ impl JobProcessor for GpuImageJobProcessor {
         data_set: &DataSet,
         schema_set: &SchemaSet,
         dependency_data: &HashMap<ObjectId, SingleObject>,
-        job_api: &dyn JobApi
+        job_api: &dyn JobApi,
     ) -> GpuImageJobOutput {
         //
         // Read asset properties
@@ -198,9 +210,7 @@ impl JobProcessor for GpuImageJobProcessor {
         //
         job_system::produce_asset(job_api, input.asset_id, processed_data);
 
-        GpuImageJobOutput {
-
-        }
+        GpuImageJobOutput {}
     }
 }
 
@@ -218,17 +228,22 @@ impl Builder for GpuImageBuilder {
         asset_id: ObjectId,
         data_set: &DataSet,
         schema_set: &SchemaSet,
-        job_api: &dyn JobApi
+        job_api: &dyn JobApi,
     ) {
         let data_container = DataContainer::new_dataset(data_set, schema_set, asset_id);
         let x = GpuImageAssetRecord::default();
         let compressed = x.compress().get(&data_container).unwrap();
 
         //Future: Might produce jobs per-platform
-        job_system::enqueue_job::<GpuImageJobProcessor>(data_set, schema_set, job_api, GpuImageJobInput {
-            asset_id,
-            compressed,
-        });
+        job_system::enqueue_job::<GpuImageJobProcessor>(
+            data_set,
+            schema_set,
+            job_api,
+            GpuImageJobInput {
+                asset_id,
+                compressed,
+            },
+        );
     }
 }
 

@@ -1,7 +1,6 @@
-
-use uuid::Uuid;
-use std::fmt::{Debug, Formatter};
 use serde::{Deserialize, Serialize};
+use std::fmt::{Debug, Formatter};
+use uuid::Uuid;
 
 #[derive(Copy, Clone, PartialEq, Eq, Hash, Ord, PartialOrd, Serialize, Deserialize)]
 pub struct ObjectId(pub u128);

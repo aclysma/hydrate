@@ -1,8 +1,8 @@
-use crate::{BufferId, HashMap, Schema, SchemaFingerprint, SchemaNamedType, SchemaSet};
 use crate::ObjectId;
+use crate::{BufferId, HashMap, Schema, SchemaFingerprint, SchemaNamedType, SchemaSet};
 use std::hash::{Hash, Hasher};
 
-use hydrate_schema::{SchemaEnum};
+use hydrate_schema::SchemaEnum;
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum PropertyValue {
@@ -185,7 +185,6 @@ lazy_static::lazy_static! {
     static ref DEFAULT_VALUE_FIXED: Value = Value::Fixed(Box::new([]));
 }
 
-
 impl Value {
     pub fn default_for_schema<'a>(
         schema: &Schema,
@@ -211,7 +210,9 @@ impl Value {
                 let named_type = schema_set.schemas().get(named_type_id).unwrap();
                 match named_type {
                     SchemaNamedType::Record(_) => &DEFAULT_VALUE_RECORD,
-                    SchemaNamedType::Enum(enum_schema) => schema_set.default_value_for_enum(enum_schema.fingerprint()).unwrap(),
+                    SchemaNamedType::Enum(enum_schema) => schema_set
+                        .default_value_for_enum(enum_schema.fingerprint())
+                        .unwrap(),
                     SchemaNamedType::Fixed(_) => &DEFAULT_VALUE_FIXED,
                 }
             }

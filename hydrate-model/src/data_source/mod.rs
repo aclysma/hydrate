@@ -6,9 +6,8 @@ use crate::edit_context::EditContext;
 use crate::ObjectId;
 
 mod file_system_path_based;
-pub use file_system_path_based::*;
 use crate::import_util::ImportToQueue;
-
+pub use file_system_path_based::*;
 
 trait SourceFileHandler {
     fn supported_file_extensions(&self) -> &[&'static str];
@@ -16,7 +15,7 @@ trait SourceFileHandler {
     fn generate_default_asset(
         &self,
         importable_name: Option<String>,
-        edit_context: &EditContext
+        edit_context: &EditContext,
     ) -> Vec<ObjectId>;
 
     // importer also implements scan file
@@ -27,8 +26,6 @@ trait SourceFileHandler {
 //
 //     }
 // }
-
-
 
 pub trait DataSource {
     // Replace memory with storage state
@@ -49,7 +46,7 @@ pub trait DataSource {
 
     fn is_generated_asset(
         &self,
-        object_id: ObjectId
+        object_id: ObjectId,
     ) -> bool;
 
     // fn object_symbol_name(
@@ -57,7 +54,11 @@ pub trait DataSource {
     //     object_id: ObjectId
     // ) -> Option<String>;
 
-    fn persist_generated_asset(&mut self, edit_context: &mut EditContext, object_id: ObjectId);
+    fn persist_generated_asset(
+        &mut self,
+        edit_context: &mut EditContext,
+        object_id: ObjectId,
+    );
     // fn revert_all_modified(
     //     &mut self,
     //     edit_context: &mut EditContext,

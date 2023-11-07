@@ -1,5 +1,5 @@
-use crate::{HashMap, SchemaFingerprint, SchemaLinker, SchemaLinkerResult, SchemaNamedType, Value};
 use crate::value::ValueEnum;
+use crate::{HashMap, SchemaFingerprint, SchemaLinker, SchemaLinkerResult, SchemaNamedType, Value};
 
 #[derive(Default, Clone)]
 pub struct SchemaSet {
@@ -13,7 +13,10 @@ impl SchemaSet {
         &self.schemas
     }
 
-    pub fn default_value_for_enum(&self, fingerprint: SchemaFingerprint) -> Option<&Value> {
+    pub fn default_value_for_enum(
+        &self,
+        fingerprint: SchemaFingerprint,
+    ) -> Option<&Value> {
         self.default_enum_values.get(&fingerprint)
     }
 
@@ -44,7 +47,9 @@ impl SchemaSet {
 
         for (k, v) in linked.schemas {
             if let Some(enum_schema) = v.as_enum() {
-                let default_value = Value::Enum(ValueEnum::new(enum_schema.default_value().name().to_string()));
+                let default_value = Value::Enum(ValueEnum::new(
+                    enum_schema.default_value().name().to_string(),
+                ));
                 let old = self.default_enum_values.insert(k, default_value.clone());
                 if let Some(old) = old {
                     assert_eq!(old.as_enum().unwrap(), default_value.as_enum().unwrap());

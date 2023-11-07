@@ -4,14 +4,22 @@ use std::str::FromStr;
 
 use demo_types::mesh_adv::*;
 use hydrate_base::BuiltObjectMetadata;
-use hydrate_model::{BuilderRegistryBuilder, DataContainer, DataContainerMut, DataSet, Enum, HashMap, ImportableObject, ImporterId, ImporterRegistry, ImporterRegistryBuilder, JobProcessorRegistryBuilder, ObjectId, ObjectRefField, Record, ReferencedSourceFile, SchemaLinker, SchemaSet, SingleObject};
 use hydrate_model::pipeline::{AssetPlugin, Builder, BuiltAsset};
-use hydrate_model::pipeline::{ImportedImportable, ScannedImportable, Importer};
+use hydrate_model::pipeline::{ImportedImportable, Importer, ScannedImportable};
+use hydrate_model::{
+    BuilderRegistryBuilder, DataContainer, DataContainerMut, DataSet, Enum, HashMap,
+    ImportableObject, ImporterId, ImporterRegistry, ImporterRegistryBuilder,
+    JobProcessorRegistryBuilder, ObjectId, ObjectRefField, Record, ReferencedSourceFile,
+    SchemaLinker, SchemaSet, SingleObject,
+};
 use serde::{Deserialize, Serialize};
 use type_uuid::{TypeUuid, TypeUuidDynamic};
 use uuid::Uuid;
 
-use super::generated::{MeshAdvMaterialImportedDataRecord, MeshAdvMaterialAssetRecord, MeshAdvBlendMethodEnum, MeshAdvShadowMethodEnum};
+use super::generated::{
+    MeshAdvBlendMethodEnum, MeshAdvMaterialAssetRecord, MeshAdvMaterialImportedDataRecord,
+    MeshAdvShadowMethodEnum,
+};
 
 #[derive(Serialize, Deserialize)]
 struct MaterialJsonFileFormat {
@@ -57,7 +65,6 @@ impl Importer for BlenderMaterialImporter {
         schema_set: &SchemaSet,
         importer_registry: &ImporterRegistry,
     ) -> Vec<ScannedImportable> {
-
         let asset_type = schema_set
             .find_named_type(MeshAdvMaterialAssetRecord::schema_name())
             .unwrap()
@@ -70,7 +77,10 @@ impl Importer for BlenderMaterialImporter {
 
         let mut file_references: Vec<ReferencedSourceFile> = Default::default();
 
-        fn try_add_file_reference<T: TypeUuid>(file_references: &mut Vec<ReferencedSourceFile>, path_as_string: &Option<PathBuf>) {
+        fn try_add_file_reference<T: TypeUuid>(
+            file_references: &mut Vec<ReferencedSourceFile>,
+            path_as_string: &Option<PathBuf>,
+        ) {
             let importer_image_id = ImporterId(Uuid::from_bytes(T::UUID));
             if let Some(path_as_string) = path_as_string {
                 file_references.push(ReferencedSourceFile {
@@ -81,9 +91,15 @@ impl Importer for BlenderMaterialImporter {
         }
 
         try_add_file_reference::<GpuImageImporter>(&mut file_references, &json_data.color_texture);
-        try_add_file_reference::<GpuImageImporter>(&mut file_references, &json_data.metallic_roughness_texture);
+        try_add_file_reference::<GpuImageImporter>(
+            &mut file_references,
+            &json_data.metallic_roughness_texture,
+        );
         try_add_file_reference::<GpuImageImporter>(&mut file_references, &json_data.normal_texture);
-        try_add_file_reference::<GpuImageImporter>(&mut file_references, &json_data.emissive_texture);
+        try_add_file_reference::<GpuImageImporter>(
+            &mut file_references,
+            &json_data.emissive_texture,
+        );
 
         vec![ScannedImportable {
             name: None,
@@ -127,39 +143,106 @@ impl Importer for BlenderMaterialImporter {
         // Create the default asset
         //
         let default_asset = {
-            let mut default_asset_object = MeshAdvMaterialAssetRecord::new_single_object(schema_set).unwrap();
-            let mut default_asset_data_container = DataContainerMut::new_single_object(&mut default_asset_object, schema_set);
+            let mut default_asset_object =
+                MeshAdvMaterialAssetRecord::new_single_object(schema_set).unwrap();
+            let mut default_asset_data_container =
+                DataContainerMut::new_single_object(&mut default_asset_object, schema_set);
             let x = MeshAdvMaterialAssetRecord::default();
-            x.base_color_factor().set_vec4(&mut default_asset_data_container, json_data.base_color_factor).unwrap();
-            x.emissive_factor().set_vec3(&mut default_asset_data_container, json_data.emissive_factor).unwrap();
-            x.metallic_factor().set(&mut default_asset_data_container, json_data.metallic_factor).unwrap();
-            x.roughness_factor().set(&mut default_asset_data_container, json_data.roughness_factor).unwrap();
-            x.normal_texture_scale().set(&mut default_asset_data_container, json_data.normal_texture_scale).unwrap();
+            x.base_color_factor()
+                .set_vec4(
+                    &mut default_asset_data_container,
+                    json_data.base_color_factor,
+                )
+                .unwrap();
+            x.emissive_factor()
+                .set_vec3(&mut default_asset_data_container, json_data.emissive_factor)
+                .unwrap();
+            x.metallic_factor()
+                .set(&mut default_asset_data_container, json_data.metallic_factor)
+                .unwrap();
+            x.roughness_factor()
+                .set(
+                    &mut default_asset_data_container,
+                    json_data.roughness_factor,
+                )
+                .unwrap();
+            x.normal_texture_scale()
+                .set(
+                    &mut default_asset_data_container,
+                    json_data.normal_texture_scale,
+                )
+                .unwrap();
 
             fn try_find_file_reference(
                 importable_objects: &HashMap<Option<String>, ImportableObject>,
                 data_container: &mut DataContainerMut,
                 ref_field: ObjectRefField,
-                path_as_string: &Option<PathBuf>
+                path_as_string: &Option<PathBuf>,
             ) {
                 if let Some(path_as_string) = path_as_string {
-                    if let Some(referenced_object_id) = importable_objects.get(&None).unwrap().referenced_paths.get(path_as_string) {
-                        ref_field.set(data_container, *referenced_object_id).unwrap();
+                    if let Some(referenced_object_id) = importable_objects
+                        .get(&None)
+                        .unwrap()
+                        .referenced_paths
+                        .get(path_as_string)
+                    {
+                        ref_field
+                            .set(data_container, *referenced_object_id)
+                            .unwrap();
                     }
                 }
             }
 
-            try_find_file_reference(&importable_objects, &mut default_asset_data_container, x.color_texture(), &json_data.color_texture);
-            try_find_file_reference(&importable_objects, &mut default_asset_data_container, x.metallic_roughness_texture(), &json_data.metallic_roughness_texture);
-            try_find_file_reference(&importable_objects, &mut default_asset_data_container, x.normal_texture(), &json_data.normal_texture);
-            try_find_file_reference(&importable_objects, &mut default_asset_data_container, x.emissive_texture(), &json_data.emissive_texture);
+            try_find_file_reference(
+                &importable_objects,
+                &mut default_asset_data_container,
+                x.color_texture(),
+                &json_data.color_texture,
+            );
+            try_find_file_reference(
+                &importable_objects,
+                &mut default_asset_data_container,
+                x.metallic_roughness_texture(),
+                &json_data.metallic_roughness_texture,
+            );
+            try_find_file_reference(
+                &importable_objects,
+                &mut default_asset_data_container,
+                x.normal_texture(),
+                &json_data.normal_texture,
+            );
+            try_find_file_reference(
+                &importable_objects,
+                &mut default_asset_data_container,
+                x.emissive_texture(),
+                &json_data.emissive_texture,
+            );
 
-            x.shadow_method().set(&mut default_asset_data_container, shadow_method).unwrap();
-            x.blend_method().set(&mut default_asset_data_container, blend_method).unwrap();
-            x.alpha_threshold().set(&mut default_asset_data_container, json_data.alpha_threshold.unwrap_or(0.5)).unwrap();
-            x.backface_culling().set(&mut default_asset_data_container, json_data.backface_culling.unwrap_or(true)).unwrap();
+            x.shadow_method()
+                .set(&mut default_asset_data_container, shadow_method)
+                .unwrap();
+            x.blend_method()
+                .set(&mut default_asset_data_container, blend_method)
+                .unwrap();
+            x.alpha_threshold()
+                .set(
+                    &mut default_asset_data_container,
+                    json_data.alpha_threshold.unwrap_or(0.5),
+                )
+                .unwrap();
+            x.backface_culling()
+                .set(
+                    &mut default_asset_data_container,
+                    json_data.backface_culling.unwrap_or(true),
+                )
+                .unwrap();
             //TODO: Does this incorrectly write older enum string names when code is older than schema file?
-            x.color_texture_has_alpha_channel().set(&mut default_asset_data_container, json_data.color_texture_has_alpha_channel).unwrap();
+            x.color_texture_has_alpha_channel()
+                .set(
+                    &mut default_asset_data_container,
+                    json_data.color_texture_has_alpha_channel,
+                )
+                .unwrap();
             default_asset_object
         };
 
@@ -172,7 +255,7 @@ impl Importer for BlenderMaterialImporter {
             ImportedImportable {
                 file_references: Default::default(),
                 import_data: None,
-                default_asset: Some(default_asset)
+                default_asset: Some(default_asset),
             },
         );
         imported_objects
@@ -191,7 +274,3 @@ impl AssetPlugin for BlenderMaterialAssetPlugin {
         importer_registry.register_handler::<BlenderMaterialImporter>(schema_linker);
     }
 }
-
-
-
-

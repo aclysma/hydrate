@@ -1,17 +1,17 @@
-use crate::{DataSet, ObjectId, SchemaSet, JobApi};
-use hydrate_base::{BuiltObjectMetadata, ArtifactId};
+use crate::{DataSet, JobApi, ObjectId, SchemaSet};
+use hydrate_base::{ArtifactId, BuiltObjectMetadata};
 
 pub struct BuiltAsset {
     pub asset_id: ObjectId,
     pub metadata: BuiltObjectMetadata,
-    pub data: Vec<u8>
+    pub data: Vec<u8>,
 }
 
 pub struct BuiltArtifact {
     pub asset_id: ObjectId,
     pub artifact_id: ArtifactId,
     pub metadata: BuiltObjectMetadata,
-    pub data: Vec<u8>
+    pub data: Vec<u8>,
 }
 
 // Interface all builders must implement
@@ -24,7 +24,7 @@ pub trait Builder {
         asset_id: ObjectId,
         data_set: &DataSet,
         schema_set: &SchemaSet,
-        job_api: &dyn JobApi
+        job_api: &dyn JobApi,
     );
 
     fn is_job_based(&self) -> bool {

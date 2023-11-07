@@ -1,9 +1,7 @@
 pub mod asset_storage;
 mod disk_io;
-pub mod storage;
 pub mod loader;
-
-
+pub mod storage;
 
 //States from distill's loader
 // /// Indeterminate state - may transition into a load, or result in removal if ref count is == 0
@@ -80,15 +78,15 @@ pub mod loader;
 
 pub use crate::asset_storage::{AssetStorageSet, DynAssetLoader};
 use crate::disk_io::DiskAssetIO;
-use hydrate_base::handle::RefOp;
 use crate::loader::Loader;
 use crossbeam_channel::{Receiver, Sender};
-use hydrate_base::{ArtifactId};
+use hydrate_base::handle::RefOp;
+use hydrate_base::ArtifactId;
 use std::path::PathBuf;
 use type_uuid::TypeUuid;
 
-pub use hydrate_base::handle::Handle;
 use crate::storage::IndirectIdentifier;
+pub use hydrate_base::handle::Handle;
 
 // Based on distill's AssetStorage
 // trait AssetStorage {
@@ -326,7 +324,6 @@ impl AssetManager {
         // let t1 = std::time::Instant::now();
         // log::info!("Loaded everything in {}ms", (t1 - t0).as_secs_f32() * 1000.0);
 
-
         let mut loader = AssetManager {
             //build_root_path,
             //asset_io,
@@ -367,7 +364,6 @@ impl AssetManager {
         self.asset_storage
             .add_storage_with_loader::<AssetDataT, AssetT, LoaderT>(loader);
     }
-
 
     pub fn load_asset<T>(
         &self,

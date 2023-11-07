@@ -75,12 +75,16 @@ impl LocationTree {
         // Get the node key for the first element of the path. It should already exist because we create
         // nodes for the data sources.
         //
-        let root_location = path_object_stack.last().cloned().unwrap();//.unwrap_or(ObjectLocation::new(tree_node_id));
+        let root_location = path_object_stack.last().cloned().unwrap(); //.unwrap_or(ObjectLocation::new(tree_node_id));
         let root_location_path_node_id = root_location.path_node_id();
 
         let root_tree_node_key = LocationTreeNodeKey {
             location: root_location.clone(),
-            name: data_set.object_name(root_location_path_node_id).as_string().cloned().unwrap_or_default(),
+            name: data_set
+                .object_name(root_location_path_node_id)
+                .as_string()
+                .cloned()
+                .unwrap_or_default(),
         };
 
         path_object_stack.pop();
@@ -142,7 +146,7 @@ impl LocationTree {
                     location_root: ObjectLocation::null(),
                     children: Default::default(),
                     has_changes: false,
-                }
+                },
             );
         }
 

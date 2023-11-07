@@ -1,17 +1,24 @@
 pub use super::*;
-use std::path::{Path};
+use std::path::Path;
 
+use crate::generated::GpuBufferAssetRecord;
+use demo_types::gpu_buffer::GpuBufferBuiltData;
 use demo_types::mesh_adv::*;
 use hydrate_base::BuiltObjectMetadata;
-use hydrate_model::{BuilderRegistryBuilder, DataContainer, DataContainerMut, DataSet, Enum, HashMap, ImporterRegistryBuilder, job_system, JobApi, JobEnumeratedDependencies, JobInput, JobOutput, JobProcessor, JobProcessorRegistryBuilder, ObjectId, Record, SchemaLinker, SchemaSet, SingleObject};
 use hydrate_model::pipeline::{AssetPlugin, Builder, BuiltAsset};
-use hydrate_model::pipeline::{ImportedImportable, ScannedImportable, Importer};
+use hydrate_model::pipeline::{ImportedImportable, Importer, ScannedImportable};
+use hydrate_model::{
+    job_system, BuilderRegistryBuilder, DataContainer, DataContainerMut, DataSet, Enum, HashMap,
+    ImporterRegistryBuilder, JobApi, JobEnumeratedDependencies, JobInput, JobOutput, JobProcessor,
+    JobProcessorRegistryBuilder, ObjectId, Record, SchemaLinker, SchemaSet, SingleObject,
+};
 use serde::{Deserialize, Serialize};
 use type_uuid::{TypeUuid, TypeUuidDynamic};
-use demo_types::gpu_buffer::GpuBufferBuiltData;
-use crate::generated::GpuBufferAssetRecord;
 
-use super::generated::{MeshAdvMaterialImportedDataRecord, MeshAdvMaterialAssetRecord, MeshAdvBlendMethodEnum, MeshAdvShadowMethodEnum};
+use super::generated::{
+    MeshAdvBlendMethodEnum, MeshAdvMaterialAssetRecord, MeshAdvMaterialImportedDataRecord,
+    MeshAdvShadowMethodEnum,
+};
 
 #[derive(Hash, Serialize, Deserialize)]
 pub struct GpuBufferJobInput {
@@ -20,9 +27,7 @@ pub struct GpuBufferJobInput {
 impl JobInput for GpuBufferJobInput {}
 
 #[derive(Serialize, Deserialize)]
-pub struct GpuBufferJobOutput {
-
-}
+pub struct GpuBufferJobOutput {}
 impl JobOutput for GpuBufferJobOutput {}
 
 #[derive(Default, TypeUuid)]
@@ -46,7 +51,7 @@ impl JobProcessor for GpuBufferJobProcessor {
         // No dependencies
         JobEnumeratedDependencies {
             import_data: vec![input.asset_id],
-            upstream_jobs: Vec::default()
+            upstream_jobs: Vec::default(),
         }
     }
 
@@ -56,7 +61,7 @@ impl JobProcessor for GpuBufferJobProcessor {
         data_set: &DataSet,
         schema_set: &SchemaSet,
         dependency_data: &HashMap<ObjectId, SingleObject>,
-        job_api: &dyn JobApi
+        job_api: &dyn JobApi,
     ) -> GpuBufferJobOutput {
         //
         // Read asset data
@@ -73,7 +78,7 @@ impl JobProcessor for GpuBufferJobProcessor {
             //base_color_factor,
             resource_type: 0,
             alignment: 0,
-            data: vec![]
+            data: vec![],
         };
 
         //
@@ -81,9 +86,7 @@ impl JobProcessor for GpuBufferJobProcessor {
         //
         job_system::produce_asset(job_api, input.asset_id, processed_data);
 
-        GpuBufferJobOutput {
-
-        }
+        GpuBufferJobOutput {}
     }
 }
 
@@ -101,11 +104,14 @@ impl Builder for GpuBufferBuilder {
         asset_id: ObjectId,
         data_set: &DataSet,
         schema_set: &SchemaSet,
-        job_api: &dyn JobApi
+        job_api: &dyn JobApi,
     ) {
-        job_system::enqueue_job::<GpuBufferJobProcessor>(data_set, schema_set, job_api, GpuBufferJobInput {
-            asset_id,
-        });
+        job_system::enqueue_job::<GpuBufferJobProcessor>(
+            data_set,
+            schema_set,
+            job_api,
+            GpuBufferJobInput { asset_id },
+        );
     }
 }
 

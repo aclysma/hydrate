@@ -113,10 +113,7 @@ impl PushBuffer {
         &mut self,
         required_alignment: usize,
     ) -> usize {
-        let new_size = round_size_up_to_alignment_usize(
-            self.data.len(),
-            required_alignment,
-        );
+        let new_size = round_size_up_to_alignment_usize(self.data.len(), required_alignment);
         self.data.resize(new_size, 0);
         new_size
     }

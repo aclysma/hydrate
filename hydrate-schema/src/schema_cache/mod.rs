@@ -1,4 +1,7 @@
-use crate::{HashMap, Schema, SchemaDynamicArray, SchemaEnum, SchemaEnumSymbol, SchemaFingerprint, SchemaFixed, SchemaMap, SchemaNamedType, SchemaRecord, SchemaRecordField, SchemaStaticArray};
+use crate::{
+    HashMap, Schema, SchemaDynamicArray, SchemaEnum, SchemaEnumSymbol, SchemaFingerprint,
+    SchemaFixed, SchemaMap, SchemaNamedType, SchemaRecord, SchemaRecordField, SchemaStaticArray,
+};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -143,7 +146,10 @@ impl CachedSchemaEnumSymbol {
     }
 
     fn to_schema(self) -> SchemaEnumSymbol {
-        SchemaEnumSymbol::new(self.name, self.aliases.into_boxed_slice()/*, self.value*/)
+        SchemaEnumSymbol::new(
+            self.name,
+            self.aliases.into_boxed_slice(), /*, self.value*/
+        )
     }
 }
 
@@ -352,9 +358,7 @@ impl SchemaCacheSingleFile {
         serde_json::to_string_pretty(&cache).unwrap()
     }
 
-    pub fn load_string(
-        cache: &str,
-    ) -> Vec<SchemaNamedType> {
+    pub fn load_string(cache: &str) -> Vec<SchemaNamedType> {
         let cache: SchemaCacheSingleFile = serde_json::from_str(cache).unwrap();
         cache
             .cached_schemas

@@ -1,4 +1,6 @@
-use crate::{HashMap, ImporterId, ObjectId, SchemaRecord, SchemaSet, SingleObject, ImporterRegistry};
+use crate::{
+    HashMap, ImporterId, ImporterRegistry, ObjectId, SchemaRecord, SchemaSet, SingleObject,
+};
 use std::path::{Path, PathBuf};
 use type_uuid::{TypeUuid, TypeUuidDynamic};
 use uuid::Uuid;

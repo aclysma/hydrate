@@ -1,11 +1,11 @@
-use std::hash::{Hash, Hasher};
 use crate::edit_context::EditContext;
 use crate::{
-    BuildInfo, HashMap, HashSet, ImportInfo, ImporterId, NullOverride,
-    ObjectId, ObjectLocation, ObjectName, ObjectSourceId, Schema,
-    SchemaFingerprint, SchemaNamedType, SchemaSet, SingleObject, Value,
+    BuildInfo, HashMap, HashSet, ImportInfo, ImporterId, NullOverride, ObjectId, ObjectLocation,
+    ObjectName, ObjectSourceId, Schema, SchemaFingerprint, SchemaNamedType, SchemaSet,
+    SingleObject, Value,
 };
 use serde::{Deserialize, Serialize};
+use std::hash::{Hash, Hasher};
 use std::path::PathBuf;
 use std::str::FromStr;
 use uuid::Uuid;
@@ -60,7 +60,9 @@ fn json_to_property_value_with_schema(
             let named_type = named_types.get(x).unwrap();
             match named_type {
                 SchemaNamedType::Record(_) => unimplemented!(),
-                SchemaNamedType::Enum(e) => Value::enum_value_from_string(e, value.as_str().unwrap()).unwrap(),
+                SchemaNamedType::Enum(e) => {
+                    Value::enum_value_from_string(e, value.as_str().unwrap()).unwrap()
+                }
                 SchemaNamedType::Fixed(_) => unimplemented!(),
             }
         }
@@ -310,7 +312,12 @@ impl EditContextObjectJson {
             override_object_location
         } else {
             // If no parent is specified, default it to the root node for this data source
-            let path_node_id = ObjectId(stored_object.parent_dir.unwrap_or(*object_source_id.uuid()).as_u128());
+            let path_node_id = ObjectId(
+                stored_object
+                    .parent_dir
+                    .unwrap_or(*object_source_id.uuid())
+                    .as_u128(),
+            );
             ObjectLocation::new(path_node_id)
         };
 
@@ -506,7 +513,7 @@ impl SingleObjectJson {
         let contents_hash = stored_object.contents_hash;
         SingleObjectWithContentsHash {
             single_object: stored_object.to_single_object(schema_set),
-            contents_hash
+            contents_hash,
         }
     }
 
@@ -532,22 +539,26 @@ impl MetaFileJson {
         let meta_file: MetaFileJson = serde_json::from_str(json).unwrap();
         let mut past_id_assignments = HashMap::default();
         for past_id_assignment in meta_file.past_id_assignments {
-            past_id_assignments.insert(past_id_assignment.0, ObjectId(past_id_assignment.1.as_u128()));
+            past_id_assignments.insert(
+                past_id_assignment.0,
+                ObjectId(past_id_assignment.1.as_u128()),
+            );
         }
 
         MetaFile {
-            past_id_assignments
+            past_id_assignments,
         }
     }
 
     pub fn store_to_string(meta_file: &MetaFile) -> String {
         let mut past_id_assignments = HashMap::default();
         for past_id_assignment in &meta_file.past_id_assignments {
-            past_id_assignments.insert(past_id_assignment.0.clone(), past_id_assignment.1.as_uuid());
+            past_id_assignments
+                .insert(past_id_assignment.0.clone(), past_id_assignment.1.as_uuid());
         }
 
         let json_object = MetaFileJson {
-            past_id_assignments
+            past_id_assignments,
         };
         serde_json::to_string_pretty(&json_object).unwrap()
     }

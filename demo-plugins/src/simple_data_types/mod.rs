@@ -1,16 +1,19 @@
+use super::generated::{AllFieldsRecord, TransformRecord, TransformRefRecord};
 use demo_types::simple_data::*;
 use hydrate_base::AssetUuid;
-use hydrate_model::{BuilderRegistryBuilder, DataContainer, ImporterRegistryBuilder, job_system, JobApi, JobProcessorRegistryBuilder, SchemaLinker};
 use hydrate_model::pipeline::{AssetPlugin, Builder};
+use hydrate_model::{
+    job_system, BuilderRegistryBuilder, DataContainer, ImporterRegistryBuilder, JobApi,
+    JobProcessorRegistryBuilder, SchemaLinker,
+};
 use serde::{Deserialize, Serialize};
 use type_uuid::TypeUuid;
-use super::generated::{AllFieldsRecord, TransformRecord, TransformRefRecord};
 
 mod simple_data_trait;
 pub use simple_data_trait::SimpleData;
 
 mod bincode_data_builder;
-use bincode_data_builder::{SimpleBincodeDataJobProcessor, SimpleBincodeDataBuilder};
+use bincode_data_builder::{SimpleBincodeDataBuilder, SimpleBincodeDataJobProcessor};
 
 impl SimpleData for TransformRef {
     fn from_data_container(
@@ -23,9 +26,7 @@ impl SimpleData for TransformRef {
         //TODO: Verify type?
         let handle = job_system::make_handle_to_default_artifact(job_api, transform);
 
-        TransformRef {
-            transform: handle
-        }
+        TransformRef { transform: handle }
     }
 }
 
@@ -80,8 +81,9 @@ impl AssetPlugin for SimpleDataAssetPlugin {
                     schema_linker,
                     SimpleBincodeDataBuilder::<$data_type>::new($name),
                 );
-                job_processor_registry.register_job_processor::<SimpleBincodeDataJobProcessor::<$data_type>>()
-            }
+                job_processor_registry
+                    .register_job_processor::<SimpleBincodeDataJobProcessor<$data_type>>()
+            };
         }
 
         register!(AllFields, "AllFields");

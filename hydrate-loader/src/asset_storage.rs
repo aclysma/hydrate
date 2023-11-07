@@ -4,14 +4,14 @@ use hydrate_base::{
 };
 use std::{collections::HashMap, error::Error, sync::Mutex};
 
-use hydrate_base::{AssetTypeId, AssetUuid};
-use hydrate_base::handle::SerdeContext;
+use crate::storage::{AssetLoadOp, AssetStorage, IndirectionTable};
 use crossbeam_channel::{Receiver, Sender};
 use downcast_rs::Downcast;
+use hydrate_base::handle::LoaderInfoProvider;
+use hydrate_base::handle::SerdeContext;
+use hydrate_base::{AssetTypeId, AssetUuid};
 use std::marker::PhantomData;
 use type_uuid::TypeUuid;
-use hydrate_base::handle::LoaderInfoProvider;
-use crate::storage::{AssetLoadOp, AssetStorage, IndirectionTable};
 
 // Used to dynamic dispatch into a storage, supports checked downcasting
 pub trait DynAssetStorage: Downcast + Send {
@@ -44,7 +44,7 @@ pub struct AssetStorageSetInner {
     data_to_asset_type_uuid: HashMap<AssetTypeId, AssetTypeId>,
     asset_to_data_type_uuid: HashMap<AssetTypeId, AssetTypeId>,
     refop_sender: Sender<RefOp>,
-    indirection_table: IndirectionTable
+    indirection_table: IndirectionTable,
 }
 
 // Contains a storage per asset type
@@ -53,13 +53,16 @@ pub struct AssetStorageSet {
 }
 
 impl AssetStorageSet {
-    pub fn new(refop_sender: Sender<RefOp>, indirection_table: IndirectionTable) -> Self {
+    pub fn new(
+        refop_sender: Sender<RefOp>,
+        indirection_table: IndirectionTable,
+    ) -> Self {
         let inner = AssetStorageSetInner {
             storage: Default::default(),
             data_to_asset_type_uuid: Default::default(),
             asset_to_data_type_uuid: Default::default(),
             refop_sender,
-            indirection_table
+            indirection_table,
         };
 
         Self {
@@ -87,7 +90,7 @@ impl AssetStorageSet {
             Box::new(Storage::<T>::new(
                 refop_sender,
                 Box::new(DefaultAssetLoader::default()),
-                indirection_table
+                indirection_table,
             )),
         );
     }
@@ -113,7 +116,11 @@ impl AssetStorageSet {
         assert!(old.is_none());
         inner.storage.insert(
             AssetTypeId(AssetT::UUID),
-            Box::new(Storage::<AssetT>::new(refop_sender, loader, indirection_table)),
+            Box::new(Storage::<AssetT>::new(
+                refop_sender,
+                loader,
+                indirection_table,
+            )),
         );
     }
 
@@ -423,9 +430,7 @@ impl<AssetT: TypeUuid + Send> Storage<AssetT> {
         } else {
             handle.load_handle()
         };
-        self.assets
-            .get(&handle)
-            .map(|a| (&a.asset, a.version))
+        self.assets.get(&handle).map(|a| (&a.asset, a.version))
     }
 }
 

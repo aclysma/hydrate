@@ -1,8 +1,8 @@
-use std::fmt;
-use uuid::Uuid;
-use std::fmt::{Debug, Formatter};
-use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 use serde::de::Visitor;
+use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
+use std::fmt;
+use std::fmt::{Debug, Formatter};
+use uuid::Uuid;
 
 #[derive(Copy, Clone, PartialEq, Eq, Hash, Ord, PartialOrd)]
 pub struct ArtifactId(pub u128);
@@ -42,7 +42,6 @@ impl Debug for ArtifactId {
             .finish()
     }
 }
-
 
 impl Serialize for ArtifactId {
     fn serialize<S: Serializer>(

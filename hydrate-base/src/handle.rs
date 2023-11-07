@@ -24,9 +24,12 @@ use crate::{ArtifactId, AssetRef, AssetUuid};
 pub struct LoadHandle(pub u64);
 
 impl LoadHandle {
-    pub fn new(load_handle: u64, is_indirect: bool) -> Self {
+    pub fn new(
+        load_handle: u64,
+        is_indirect: bool,
+    ) -> Self {
         if is_indirect {
-            Self(load_handle | (1<<63))
+            Self(load_handle | (1 << 63))
         } else {
             Self(load_handle)
         }
@@ -493,13 +496,16 @@ pub struct DummySerdeContextHandle {
 impl Default for DummySerdeContextHandle {
     fn default() -> Self {
         DummySerdeContextHandle {
-            dummy: Arc::new(DummySerdeContext::new())
+            dummy: Arc::new(DummySerdeContext::new()),
         }
     }
 }
 
 impl DummySerdeContextHandle {
-    pub fn scope<'a, T, F: FnOnce() -> T>(&self, f: F) -> T {
+    pub fn scope<'a, T, F: FnOnce() -> T>(
+        &self,
+        f: F,
+    ) -> T {
         let sender = self.dummy.ref_sender.clone();
         let loader = &*self.dummy;
         SerdeContext::with(loader, sender, f)
@@ -789,8 +795,14 @@ pub enum LoadState {
 }
 
 pub trait LoadStateProvider {
-    fn load_state(&self, load_handle: LoadHandle) -> LoadState;
-    fn artifact_id(&self, load_handle: LoadHandle) -> ArtifactId;
+    fn load_state(
+        &self,
+        load_handle: LoadHandle,
+    ) -> LoadState;
+    fn artifact_id(
+        &self,
+        load_handle: LoadHandle,
+    ) -> ArtifactId;
 }
 
 /// The contract of an asset handle.
@@ -809,11 +821,17 @@ pub trait AssetHandle {
     /// # Type Parameters
     ///
     /// * `L`: Asset loader type.
-    fn load_state<T: LoadStateProvider>(&self, loader: &T) -> LoadState {
+    fn load_state<T: LoadStateProvider>(
+        &self,
+        loader: &T,
+    ) -> LoadState {
         loader.load_state(self.load_handle())
     }
 
-    fn artifact_id<T: LoadStateProvider>(&self, loader: &T) -> ArtifactId {
+    fn artifact_id<T: LoadStateProvider>(
+        &self,
+        loader: &T,
+    ) -> ArtifactId {
         loader.artifact_id(self.load_handle())
     }
 
@@ -874,12 +892,9 @@ pub trait AssetHandle {
     fn load_handle(&self) -> LoadHandle;
 }
 
-
 pub fn make_handle<T>(uuid: AssetUuid) -> Handle<T> {
     SerdeContext::with_active(|loader_info_provider, ref_op_sender| {
-        let load_handle = loader_info_provider
-            .load_handle(&AssetRef(uuid))
-            .unwrap();
+        let load_handle = loader_info_provider.load_handle(&AssetRef(uuid)).unwrap();
         Handle::<T>::new(ref_op_sender.clone(), load_handle)
     })
 }

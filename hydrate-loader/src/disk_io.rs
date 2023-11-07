@@ -1,18 +1,18 @@
-use hydrate_base::{ArtifactId, AssetTypeId, ManifestFileEntry, ManifestFileJson};
-use hydrate_base::LoadHandle;
 use crate::loader::ObjectData;
 use crate::loader::{
     CombinedBuildHash, LoaderEvent, LoaderIO, ObjectMetadata, RequestDataResult,
     RequestMetadataResult,
 };
+use crate::storage::IndirectIdentifier;
 use crossbeam_channel::{Receiver, Sender};
 use hydrate_base::hashing::HashMap;
-use std::io::{SeekFrom};
+use hydrate_base::LoadHandle;
+use hydrate_base::{ArtifactId, AssetTypeId, ManifestFileEntry, ManifestFileJson};
+use std::io::SeekFrom;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 use std::thread::JoinHandle;
-use crate::storage::IndirectIdentifier;
 
 struct DiskAssetIORequestMetadata {
     object_id: ArtifactId,
@@ -224,18 +224,21 @@ impl BuildManifest {
                 let old = symbol_lookup.insert(artifact.symbol_name.clone(), artifact.artifact_id);
                 assert!(old.is_none());
             }
-            let old = artifact_lookup.insert(artifact.artifact_id, ManifestFileEntry {
-                artifact_id: artifact.artifact_id,
-                build_hash: u64::from_str_radix(&artifact.build_hash, 16).unwrap(),
-                symbol_name: artifact.symbol_name,
-                artifact_type: artifact.artifact_type,
-            });
+            let old = artifact_lookup.insert(
+                artifact.artifact_id,
+                ManifestFileEntry {
+                    artifact_id: artifact.artifact_id,
+                    build_hash: u64::from_str_radix(&artifact.build_hash, 16).unwrap(),
+                    symbol_name: artifact.symbol_name,
+                    artifact_type: artifact.artifact_type,
+                },
+            );
             assert!(old.is_none());
         }
 
         BuildManifest {
             artifact_lookup,
-            symbol_lookup
+            symbol_lookup,
         }
 
         // let mut asset_build_hashes = HashMap::default();
@@ -346,7 +349,10 @@ impl LoaderIO for DiskAssetIO {
         self.build_hash
     }
 
-    fn resolve_indirect(&self, indirect_identifier: &IndirectIdentifier) -> Option<(ArtifactId, u64)> {
+    fn resolve_indirect(
+        &self,
+        indirect_identifier: &IndirectIdentifier,
+    ) -> Option<(ArtifactId, u64)> {
         match indirect_identifier {
             IndirectIdentifier::PathWithType(asset_path, asset_type) => {
                 let artifact_id = self.manifest.symbol_lookup.get(asset_path)?;
@@ -354,7 +360,10 @@ impl LoaderIO for DiskAssetIO {
                 if *metadata.artifact_type.as_bytes() == asset_type.0 {
                     Some((metadata.artifact_id, metadata.build_hash))
                 } else {
-                    panic!("Tried to resolve artifact {:?} but it was an unexpected type {:?}", indirect_identifier, metadata.artifact_type);
+                    panic!(
+                        "Tried to resolve artifact {:?} but it was an unexpected type {:?}",
+                        indirect_identifier, metadata.artifact_type
+                    );
                     //None
                 }
             }
@@ -371,7 +380,11 @@ impl LoaderIO for DiskAssetIO {
         log::debug!("request_metadata {:?}", load_handle);
         assert_eq!(self.build_hash, build_hash);
 
-        let hash = self.manifest.artifact_lookup.get(&object_id).map(|x| x.build_hash);
+        let hash = self
+            .manifest
+            .artifact_lookup
+            .get(&object_id)
+            .map(|x| x.build_hash);
         if let Some(hash) = hash {
             self.thread_pool
                 .as_ref()
@@ -423,8 +436,7 @@ impl LoaderIO for DiskAssetIO {
         self.thread_pool
             .as_ref()
             .unwrap()
-            .add_request(
-            DiskAssetIORequest::Data(DiskAssetIORequestData {
+            .add_request(DiskAssetIORequest::Data(DiskAssetIORequestData {
                 object_id,
                 load_handle,
                 hash,

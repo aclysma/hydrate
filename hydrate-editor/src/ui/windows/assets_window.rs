@@ -371,11 +371,12 @@ pub fn draw_asset(
     let location = &items[index].1;
 
     let is_generated = app_state.db_state.editor_model.is_generated_asset(id);
-    let is_modified = !is_generated && app_state
-        .db_state
-        .editor_model
-        .root_edit_context()
-        .is_object_modified(id);
+    let is_modified = !is_generated
+        && app_state
+            .db_state
+            .editor_model
+            .root_edit_context()
+            .is_object_modified(id);
 
     let label = if let Some(name) = app_state
         .db_state
@@ -683,8 +684,8 @@ pub fn draw_assets_dockspace_and_window(
         //TODO: keepalive the assets dockspace
         println!("KEEPALIVE ASSETS");
         //unsafe {
-            //let id = is::igGetIDStr(imgui::im_str!("{}", crate::ui::WINDOW_NAME_ASSETS).as_ptr());
-            //is::igDockSpace(id, ImVec2::new(100.0, 100.0), is::ImGuiDockNodeFlags__ImGuiDockNodeFlags_KeepAliveOnly as _, std::ptr::null_mut());
+        //let id = is::igGetIDStr(imgui::im_str!("{}", crate::ui::WINDOW_NAME_ASSETS).as_ptr());
+        //is::igDockSpace(id, ImVec2::new(100.0, 100.0), is::ImGuiDockNodeFlags__ImGuiDockNodeFlags_KeepAliveOnly as _, std::ptr::null_mut());
         //}
     }
 }

@@ -4,11 +4,10 @@ pub use traits::*;
 mod executor;
 pub use executor::*;
 
+use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
 use std::hash::Hash;
-use serde::{Deserialize, Serialize};
 use uuid::Uuid;
-
 
 macro_rules! create_uuid_newtype {
     ($data_type:ident, $name:literal) => {
@@ -58,7 +57,7 @@ macro_rules! create_uuid_newtype {
                     .finish()
             }
         }
-    }
+    };
 }
 
 create_uuid_newtype!(JobId, "JobId");

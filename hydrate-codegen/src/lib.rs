@@ -1,8 +1,8 @@
+use hydrate_model::{Schema, SchemaEnum, SchemaNamedType, SchemaRecord, SchemaSet};
 use std::error::Error;
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use structopt::StructOpt;
-use hydrate_model::{Schema, SchemaEnum, SchemaNamedType, SchemaRecord, SchemaSet};
 
 //
 // TODO: Validation code - we should have a fn on generated types to verify they are registered in the schema and match
@@ -22,25 +22,24 @@ pub struct HydrateCodegenArgs {
     pub trace: bool,
 }
 
-
 pub fn run(args: &HydrateCodegenArgs) -> Result<(), Box<dyn Error>> {
     schema_to_rs(&args.schema_path, &args.included_schema, &args.outfile)
 }
-
 
 fn schema_to_rs(
     schema_path: &Path,
     referenced_schema_paths: &[PathBuf],
     outfile: &Path,
 ) -> Result<(), Box<dyn Error>> {
-
     let mut linker = hydrate_model::SchemaLinker::default();
     linker.add_source_dir(&schema_path, "**.json").unwrap();
 
     let named_types_to_build = linker.unlinked_type_names();
 
     for referenced_schema_path in referenced_schema_paths {
-        linker.add_source_dir(referenced_schema_path, "**.json").unwrap();
+        linker
+            .add_source_dir(referenced_schema_path, "**.json")
+            .unwrap();
     }
 
     let mut schema_set = SchemaSet::default();
@@ -63,7 +62,7 @@ fn schema_to_rs(
         let scope = match named_type {
             SchemaNamedType::Record(x) => generate_record(&schema_set, x),
             SchemaNamedType::Enum(x) => generate_enum(&schema_set, x),
-            SchemaNamedType::Fixed(_) => unimplemented!(),//generate_code_for_record(schema_set, named_type.as_record().unwrap())
+            SchemaNamedType::Fixed(_) => unimplemented!(), //generate_code_for_record(schema_set, named_type.as_record().unwrap())
         };
 
         let code_fragment_as_string = scope.to_string();
@@ -83,8 +82,10 @@ fn schema_to_rs(
     Ok(())
 }
 
-
-fn generate_enum(schema_set: &SchemaSet, schema: &SchemaEnum) -> codegen::Scope {
+fn generate_enum(
+    schema_set: &SchemaSet,
+    schema: &SchemaEnum,
+) -> codegen::Scope {
     let mut scope = codegen::Scope::new();
 
     let enum_name = format!("{}Enum", schema.name());
@@ -102,17 +103,34 @@ fn generate_enum(schema_set: &SchemaSet, schema: &SchemaEnum) -> codegen::Scope 
     to_symbol_name_fn.arg_ref_self().ret("&'static str");
     to_symbol_name_fn.line("match self {");
     for symbol in schema.symbols() {
-        to_symbol_name_fn.line(format!("    {}::{} => \"{}\",", enum_name, symbol.name(), symbol.name()));
+        to_symbol_name_fn.line(format!(
+            "    {}::{} => \"{}\",",
+            enum_name,
+            symbol.name(),
+            symbol.name()
+        ));
     }
     to_symbol_name_fn.line("}");
 
     let mut from_symbol_name_fn = enum_impl.new_fn("from_symbol_name");
-    from_symbol_name_fn.arg("str", "&str").ret(format!("Option<{}>", &enum_name));
+    from_symbol_name_fn
+        .arg("str", "&str")
+        .ret(format!("Option<{}>", &enum_name));
     from_symbol_name_fn.line("match str {");
     for symbol in schema.symbols() {
-        from_symbol_name_fn.line(format!("    \"{}\" => Some({}::{}),", symbol.name(), enum_name, symbol.name()));
+        from_symbol_name_fn.line(format!(
+            "    \"{}\" => Some({}::{}),",
+            symbol.name(),
+            enum_name,
+            symbol.name()
+        ));
         for alias in symbol.aliases() {
-            from_symbol_name_fn.line(format!("    \"{}\" => Some({}::{}),", alias, enum_name, symbol.name()));
+            from_symbol_name_fn.line(format!(
+                "    \"{}\" => Some({}::{}),",
+                alias,
+                enum_name,
+                symbol.name()
+            ));
         }
     }
     from_symbol_name_fn.line("    _ => None,");
@@ -159,9 +177,15 @@ fn generate_enum(schema_set: &SchemaSet, schema: &SchemaEnum) -> codegen::Scope 
 }
  */
 
-fn field_schema_to_field_type(schema_set: &SchemaSet, field_schema: &Schema) -> Option<String> {
+fn field_schema_to_field_type(
+    schema_set: &SchemaSet,
+    field_schema: &Schema,
+) -> Option<String> {
     Some(match field_schema {
-        Schema::Nullable(x) => format!("NullableField::<{}>", field_schema_to_field_type(schema_set, &*x)?),
+        Schema::Nullable(x) => format!(
+            "NullableField::<{}>",
+            field_schema_to_field_type(schema_set, &*x)?
+        ),
         Schema::Boolean => "BooleanField".to_string(),
         Schema::I32 => "I32Field".to_string(),
         Schema::I64 => "I64Field".to_string(),
@@ -170,35 +194,46 @@ fn field_schema_to_field_type(schema_set: &SchemaSet, field_schema: &Schema) -> 
         Schema::F32 => "F32Field".to_string(),
         Schema::F64 => "F64Field".to_string(),
         Schema::Bytes => "BytesField".to_string(), //return None,//"Vec<u8>".to_string(),
-        Schema::Buffer => unimplemented!(), //return None,//"Vec<u8>".to_string(),
+        Schema::Buffer => unimplemented!(),        //return None,//"Vec<u8>".to_string(),
         Schema::String => "StringField".to_string(),
         Schema::StaticArray(x) => unimplemented!(), //return None,//format!("[{}; {}]", field_schema_to_rust_type(schema_set, x.item_type()), x.length()),
-        Schema::DynamicArray(x) => format!("DynamicArrayField::<{}>", field_schema_to_field_type(schema_set, x.item_type())?),//return None,//format!("Vec<{}>", field_schema_to_rust_type(schema_set, x.item_type())),
-        Schema::Map(x) => unimplemented!(),// return None,//format!("HashMap<{}, {}>", field_schema_to_rust_type(schema_set, x.key_type()), field_schema_to_rust_type(schema_set, x.value_type())),
+        Schema::DynamicArray(x) => format!(
+            "DynamicArrayField::<{}>",
+            field_schema_to_field_type(schema_set, x.item_type())?
+        ), //return None,//format!("Vec<{}>", field_schema_to_rust_type(schema_set, x.item_type())),
+        Schema::Map(x) => unimplemented!(), // return None,//format!("HashMap<{}, {}>", field_schema_to_rust_type(schema_set, x.key_type()), field_schema_to_rust_type(schema_set, x.value_type())),
         Schema::ObjectRef(x) => "ObjectRefField".to_string(),
         Schema::NamedType(x) => {
             let inner_type = schema_set.find_named_type_by_fingerprint(*x).unwrap();
 
             match inner_type {
                 SchemaNamedType::Record(_) => format!("{}Record", inner_type.name().to_string()),
-                SchemaNamedType::Enum(_) => format!("EnumField::<{}Enum>", inner_type.name().to_string()),
+                SchemaNamedType::Enum(_) => {
+                    format!("EnumField::<{}Enum>", inner_type.name().to_string())
+                }
                 SchemaNamedType::Fixed(_) => unimplemented!(),
             }
         }
     })
 }
 
-
-fn generate_record(schema_set: &SchemaSet, schema: &SchemaRecord) -> codegen::Scope {
+fn generate_record(
+    schema_set: &SchemaSet,
+    schema: &SchemaRecord,
+) -> codegen::Scope {
     let mut scope = codegen::Scope::new();
 
     let record_name = format!("{}Record", schema.name());
-    let s = scope.new_struct(record_name.as_str()).tuple_field("PropertyPath");
+    let s = scope
+        .new_struct(record_name.as_str())
+        .tuple_field("PropertyPath");
     s.vis("pub");
     s.derive("Default");
 
     let field_impl = scope.new_impl(record_name.as_str()).impl_trait("Field");
-    let new_fn = field_impl.new_fn("new").arg("property_path", "PropertyPath");
+    let new_fn = field_impl
+        .new_fn("new")
+        .arg("property_path", "PropertyPath");
     new_fn.ret("Self");
     new_fn.line(format!("{}(property_path)", record_name));
 
@@ -215,7 +250,11 @@ fn generate_record(schema_set: &SchemaSet, schema: &SchemaRecord) -> codegen::Sc
             field_access_fn.arg_ref_self();
             field_access_fn.ret(&field_type);
             field_access_fn.vis("pub");
-            field_access_fn.line(format!("{}::new(self.0.push(\"{}\"))", field_type, field.name()));
+            field_access_fn.line(format!(
+                "{}::new(self.0.push(\"{}\"))",
+                field_type,
+                field.name()
+            ));
         }
     }
 

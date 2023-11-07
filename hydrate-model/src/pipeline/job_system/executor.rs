@@ -1,32 +1,47 @@
-use std::path::PathBuf;
-use std::sync::Arc;
+use crate::BuiltArtifact;
 use crossbeam_channel::{Receiver, Sender};
-use serde::{Deserialize, Serialize};
 use hydrate_base::hashing::HashMap;
 use hydrate_base::{ArtifactId, ObjectId};
 use hydrate_data::{DataSet, SchemaSet, SingleObject};
-use crate::BuiltArtifact;
+use serde::{Deserialize, Serialize};
+use std::path::PathBuf;
+use std::sync::Arc;
 
 use super::*;
 
 struct JobWrapper<T: JobProcessor>(T);
 
 impl<T: JobProcessor> JobProcessorAbstract for JobWrapper<T>
-    where
-        <T as JobProcessor>::InputT: for<'a> Deserialize<'a> + 'static,
-        <T as JobProcessor>::OutputT: Serialize + 'static {
+where
+    <T as JobProcessor>::InputT: for<'a> Deserialize<'a> + 'static,
+    <T as JobProcessor>::OutputT: Serialize + 'static,
+{
     fn version_inner(&self) -> u32 {
         self.0.version()
     }
-    
-    fn enumerate_dependencies_inner(&self, input: &Vec<u8>, data_set: &DataSet, schema_set: &SchemaSet) -> JobEnumeratedDependencies {
+
+    fn enumerate_dependencies_inner(
+        &self,
+        input: &Vec<u8>,
+        data_set: &DataSet,
+        schema_set: &SchemaSet,
+    ) -> JobEnumeratedDependencies {
         let data: <T as JobProcessor>::InputT = bincode::deserialize(input.as_slice()).unwrap();
         self.0.enumerate_dependencies(&data, data_set, schema_set)
     }
 
-    fn run_inner(&self, input: &Vec<u8>, data_set: &DataSet, schema_set: &SchemaSet, dependency_data: &HashMap<ObjectId, SingleObject>, job_api: &dyn JobApi) -> Vec<u8> {
+    fn run_inner(
+        &self,
+        input: &Vec<u8>,
+        data_set: &DataSet,
+        schema_set: &SchemaSet,
+        dependency_data: &HashMap<ObjectId, SingleObject>,
+        job_api: &dyn JobApi,
+    ) -> Vec<u8> {
         let data: <T as JobProcessor>::InputT = bincode::deserialize(input.as_slice()).unwrap();
-        let output = self.0.run(&data, data_set, schema_set, dependency_data, job_api);
+        let output = self
+            .0
+            .run(&data, data_set, schema_set, dependency_data, job_api);
         bincode::serialize(&output).unwrap()
     }
 }
@@ -68,8 +83,6 @@ struct CompletedJob {
     output_data: Vec<u8>,
 }
 
-
-
 #[derive(Default)]
 pub struct JobProcessorRegistryBuilder {
     job_processors: HashMap<JobTypeId, Box<dyn JobProcessorAbstract>>,
@@ -77,37 +90,42 @@ pub struct JobProcessorRegistryBuilder {
 
 impl JobProcessorRegistryBuilder {
     pub fn register_job_processor<T: JobProcessor + Default + 'static>(&mut self)
-        where
-            <T as JobProcessor>::InputT: for<'a> Deserialize<'a>,
-            <T as JobProcessor>::OutputT: Serialize,
+    where
+        <T as JobProcessor>::InputT: for<'a> Deserialize<'a>,
+        <T as JobProcessor>::OutputT: Serialize,
     {
-        let old = self.job_processors.insert(JobTypeId::from_bytes(T::UUID), Box::new(JobWrapper(T::default())));
+        let old = self.job_processors.insert(
+            JobTypeId::from_bytes(T::UUID),
+            Box::new(JobWrapper(T::default())),
+        );
         if old.is_some() {
             panic!("Multiple job processors registered with the same UUID");
         }
     }
 
-    pub fn register_job_processor_instance<T: JobProcessor + 'static>(&mut self, job_processor: T)
-        where
-            <T as JobProcessor>::InputT: for<'a> Deserialize<'a>,
-            <T as JobProcessor>::OutputT: Serialize,
+    pub fn register_job_processor_instance<T: JobProcessor + 'static>(
+        &mut self,
+        job_processor: T,
+    ) where
+        <T as JobProcessor>::InputT: for<'a> Deserialize<'a>,
+        <T as JobProcessor>::OutputT: Serialize,
     {
-        let old = self.job_processors.insert(JobTypeId::from_bytes(T::UUID), Box::new(JobWrapper(job_processor)));
+        let old = self.job_processors.insert(
+            JobTypeId::from_bytes(T::UUID),
+            Box::new(JobWrapper(job_processor)),
+        );
         if old.is_some() {
             panic!("Multiple job processors registered with the same UUID");
         }
     }
-
-
-
 
     pub fn build(self) -> JobProcessorRegistry {
         let inner = JobProcessorRegistryInner {
-            job_processors: self.job_processors
+            job_processors: self.job_processors,
         };
 
         JobProcessorRegistry {
-            inner: Arc::new(inner)
+            inner: Arc::new(inner),
         }
     }
 }
@@ -117,11 +135,17 @@ pub struct JobProcessorRegistryInner {
 }
 
 impl JobProcessorRegistry {
-    fn get(&self, job_type_id: JobTypeId) -> Option<&dyn JobProcessorAbstract> {
+    fn get(
+        &self,
+        job_type_id: JobTypeId,
+    ) -> Option<&dyn JobProcessorAbstract> {
         self.inner.job_processors.get(&job_type_id).map(|x| &**x)
     }
 
-    fn contains_key(&self, job_type_id: JobTypeId) -> bool {
+    fn contains_key(
+        &self,
+        job_type_id: JobTypeId,
+    ) -> bool {
         self.inner.job_processors.contains_key(&job_type_id)
     }
 }
@@ -162,10 +186,8 @@ pub struct JobExecutor {
 
     // built_asset_queue_tx: Sender<BuiltAsset>,
     // built_asset_queue_rx: Receiver<BuiltAsset>,
-
     built_artifact_queue_tx: Sender<BuiltArtifact>,
     built_artifact_queue_rx: Receiver<BuiltArtifact>,
-
 }
 
 impl JobApi for JobExecutor {
@@ -173,7 +195,7 @@ impl JobApi for JobExecutor {
         &self,
         data_set: &DataSet,
         schema_set: &SchemaSet,
-        new_job: NewJob
+        new_job: NewJob,
     ) -> JobId {
         // Dependencies:
         // - Job Versioning - so if logic changes we can bump version of the processor and kick jobs to rerun
@@ -184,7 +206,8 @@ impl JobApi for JobExecutor {
         // - Build Data (we need the build hash, which takes into account the asset/import data
         let job_id = JobId::from_u128(new_job.input_hash);
         let processor = self.job_processor_registry.get(new_job.job_type).unwrap();
-        let dependencies = processor.enumerate_dependencies_inner(&new_job.input_data, data_set, schema_set);
+        let dependencies =
+            processor.enumerate_dependencies_inner(&new_job.input_data, data_set, schema_set);
         self.enqueue_job_internal(QueuedJob {
             job_id,
             job_type: new_job.job_type,
@@ -198,25 +221,38 @@ impl JobApi for JobExecutor {
     //     self.built_asset_queue_tx.send(asset).unwrap();
     // }
 
-    fn artifact_handle_created(&self, asset_id: ObjectId, artifact_id: ArtifactId) {
-        self.artifact_handle_created_tx.send(AssetArtifactIdPair {
-            asset_id,
-            artifact_id,
-        }).unwrap();
+    fn artifact_handle_created(
+        &self,
+        asset_id: ObjectId,
+        artifact_id: ArtifactId,
+    ) {
+        self.artifact_handle_created_tx
+            .send(AssetArtifactIdPair {
+                asset_id,
+                artifact_id,
+            })
+            .unwrap();
     }
 
-    fn produce_artifact(&self, artifact: BuiltArtifact) {
+    fn produce_artifact(
+        &self,
+        artifact: BuiltArtifact,
+    ) {
         self.built_artifact_queue_tx.send(artifact).unwrap();
     }
 }
 
 impl JobExecutor {
-    pub fn new(root_path: PathBuf, job_processor_registry: &JobProcessorRegistry) -> Self {
+    pub fn new(
+        root_path: PathBuf,
+        job_processor_registry: &JobProcessorRegistry,
+    ) -> Self {
         let (job_create_queue_tx, job_create_queue_rx) = crossbeam_channel::unbounded();
         let (job_completed_queue_tx, job_completed_queue_rx) = crossbeam_channel::unbounded();
         //let (built_asset_queue_tx, built_asset_queue_rx) = crossbeam_channel::unbounded();
 
-        let (artifact_handle_created_tx, artifact_handle_created_rx) = crossbeam_channel::unbounded();
+        let (artifact_handle_created_tx, artifact_handle_created_rx) =
+            crossbeam_channel::unbounded();
         let (built_artifact_queue_tx, built_artifact_queue_rx) = crossbeam_channel::unbounded();
 
         JobExecutor {
@@ -246,12 +282,21 @@ impl JobExecutor {
     //     built_assets
     // }
 
-    pub fn take_built_artifacts(&self, artifact_asset_lookup: &mut HashMap<ArtifactId, ObjectId>) -> Vec<BuiltArtifact> {
+    pub fn take_built_artifacts(
+        &self,
+        artifact_asset_lookup: &mut HashMap<ArtifactId, ObjectId>,
+    ) -> Vec<BuiltArtifact> {
         let mut built_artifacts = Vec::default();
         while let Ok(built_artifact) = self.built_artifact_queue_rx.try_recv() {
-            let old = artifact_asset_lookup.insert(built_artifact.artifact_id, built_artifact.asset_id);
+            let old =
+                artifact_asset_lookup.insert(built_artifact.artifact_id, built_artifact.asset_id);
             if old.is_some() {
-                println!("{:?} {:?} {:?}", built_artifact.artifact_id, built_artifact.asset_id, built_artifact.metadata.asset_type);
+                println!(
+                    "{:?} {:?} {:?}",
+                    built_artifact.artifact_id,
+                    built_artifact.asset_id,
+                    built_artifact.metadata.asset_type
+                );
                 panic!("produced same asset multiple times?");
             }
             // We produced the same asset multiple times?
@@ -266,8 +311,14 @@ impl JobExecutor {
         // This happens after taking built artifacts because the built artifacts might have handles
         // to artifacts and we need to know the asset ID associated with them.
         while let Ok(asset_artifact_pair) = self.artifact_handle_created_rx.try_recv() {
-            println!("pair {:?} {:?}", asset_artifact_pair.artifact_id, asset_artifact_pair.asset_id);
-            let old = artifact_asset_lookup.insert(asset_artifact_pair.artifact_id, asset_artifact_pair.asset_id);
+            println!(
+                "pair {:?} {:?}",
+                asset_artifact_pair.artifact_id, asset_artifact_pair.asset_id
+            );
+            let old = artifact_asset_lookup.insert(
+                asset_artifact_pair.artifact_id,
+                asset_artifact_pair.asset_id,
+            );
             if old.is_some() {
                 assert_eq!(old, Some(asset_artifact_pair.asset_id));
             }
@@ -276,7 +327,10 @@ impl JobExecutor {
         built_artifacts
     }
 
-    fn enqueue_job_internal(&self, job: QueuedJob) {
+    fn enqueue_job_internal(
+        &self,
+        job: QueuedJob,
+    ) {
         self.job_create_queue_tx.send(job).unwrap();
     }
 
@@ -291,25 +345,38 @@ impl JobExecutor {
         while let Ok(queued_job) = self.job_create_queue_rx.try_recv() {
             // If key exists, we already queued a job with these exact inputs and we can reuse the outputs
             if !self.current_jobs.contains_key(&queued_job.job_id) {
-                assert!(self.job_processor_registry.contains_key(queued_job.job_type));
+                assert!(self
+                    .job_processor_registry
+                    .contains_key(queued_job.job_type));
 
-                self.current_jobs.insert(queued_job.job_id, JobState {
-                    job_type: queued_job.job_type,
-                    dependencies: queued_job.dependencies,
-                    input_data: queued_job.input_data,
-                    output_data: None
-                });
+                self.current_jobs.insert(
+                    queued_job.job_id,
+                    JobState {
+                        job_type: queued_job.job_type,
+                        dependencies: queued_job.dependencies,
+                        input_data: queued_job.input_data,
+                        output_data: None,
+                    },
+                );
             }
         }
     }
 
     fn handle_completed_queue(&mut self) {
         while let Ok(completed_job) = self.job_completed_queue_rx.try_recv() {
-            self.current_jobs.get_mut(&completed_job.job_id).unwrap().output_data = Some(completed_job.output_data);
+            self.current_jobs
+                .get_mut(&completed_job.job_id)
+                .unwrap()
+                .output_data = Some(completed_job.output_data);
         }
     }
 
-    pub fn update(&mut self, data_set: &DataSet, schema_set: &SchemaSet, import_data_provider: &dyn ImportDataProvider) {
+    pub fn update(
+        &mut self,
+        data_set: &DataSet,
+        schema_set: &SchemaSet,
+        import_data_provider: &dyn ImportDataProvider,
+    ) {
         //
         // Pull jobs off the create queue. Determine their dependencies and prepare them to run.
         //
@@ -391,19 +458,26 @@ impl JobExecutor {
 
             // Load the upstream job result data
 
-
             // Execute the job
             let job_processor = self.job_processor_registry.get(job_state.job_type).unwrap();
-            let output_data = job_processor.run_inner(&job_state.input_data, data_set, schema_set, &required_import_data, self);
+            let output_data = job_processor.run_inner(
+                &job_state.input_data,
+                data_set,
+                schema_set,
+                &required_import_data,
+                self,
+            );
 
             //TODO: Write to file
             //hydrate_base::uuid_path::uuid_to_path()
 
             // Send via crossbeam, this will eventually be on a thread pool
-            self.job_completed_queue_tx.send(CompletedJob {
-                job_id,
-                output_data
-            }).unwrap();
+            self.job_completed_queue_tx
+                .send(CompletedJob {
+                    job_id,
+                    output_data,
+                })
+                .unwrap();
         }
 
         self.handle_completed_queue();

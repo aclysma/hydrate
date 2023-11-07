@@ -1,21 +1,32 @@
 pub use super::*;
+use glam::Vec3;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
-use glam::Vec3;
 
+use crate::b3f::B3FReader;
+use crate::generated::{
+    GpuBufferAssetRecord, MeshAdvIndexTypeEnum, MeshAdvMeshAssetRecord,
+    MeshAdvMeshImportedDataRecord,
+};
+use crate::push_buffer::PushBuffer;
 use demo_types::mesh_adv::*;
 use hydrate_base::BuiltObjectMetadata;
-use hydrate_model::{BuilderRegistryBuilder, DataContainer, DataContainerMut, DataSet, Enum, HashMap, ImportableObject, ImporterId, ImporterRegistry, ImporterRegistryBuilder, JobProcessorRegistryBuilder, ObjectId, ObjectRefField, Record, ReferencedSourceFile, SchemaLinker, SchemaSet, SingleObject};
 use hydrate_model::pipeline::{AssetPlugin, Builder, BuiltAsset};
-use hydrate_model::pipeline::{ImportedImportable, ScannedImportable, Importer};
+use hydrate_model::pipeline::{ImportedImportable, Importer, ScannedImportable};
+use hydrate_model::{
+    BuilderRegistryBuilder, DataContainer, DataContainerMut, DataSet, Enum, HashMap,
+    ImportableObject, ImporterId, ImporterRegistry, ImporterRegistryBuilder,
+    JobProcessorRegistryBuilder, ObjectId, ObjectRefField, Record, ReferencedSourceFile,
+    SchemaLinker, SchemaSet, SingleObject,
+};
 use serde::{Deserialize, Serialize};
 use type_uuid::{TypeUuid, TypeUuidDynamic};
 use uuid::Uuid;
-use crate::b3f::B3FReader;
-use crate::generated::{GpuBufferAssetRecord, MeshAdvIndexTypeEnum, MeshAdvMeshAssetRecord, MeshAdvMeshImportedDataRecord};
-use crate::push_buffer::PushBuffer;
 
-use super::generated::{MeshAdvMaterialImportedDataRecord, MeshAdvMaterialAssetRecord, MeshAdvBlendMethodEnum, MeshAdvShadowMethodEnum};
+use super::generated::{
+    MeshAdvBlendMethodEnum, MeshAdvMaterialAssetRecord, MeshAdvMaterialImportedDataRecord,
+    MeshAdvShadowMethodEnum,
+};
 
 #[derive(Serialize, Deserialize, Debug)]
 enum MeshPartJsonIndexType {
@@ -85,11 +96,16 @@ impl Importer for BlenderMeshImporter {
         let bytes = std::fs::read(path).unwrap();
 
         let b3f_reader = B3FReader::new(&bytes)
-            .ok_or("Blender Mesh Import error, mesh file format not recognized").unwrap();
-        let mesh_as_json: MeshJson =
-            serde_json::from_slice(b3f_reader.get_block(0)).map_err(|e| e.to_string()).unwrap();
+            .ok_or("Blender Mesh Import error, mesh file format not recognized")
+            .unwrap();
+        let mesh_as_json: MeshJson = serde_json::from_slice(b3f_reader.get_block(0))
+            .map_err(|e| e.to_string())
+            .unwrap();
 
-        fn try_add_file_reference<T: TypeUuid>(file_references: &mut Vec<ReferencedSourceFile>, path: PathBuf) {
+        fn try_add_file_reference<T: TypeUuid>(
+            file_references: &mut Vec<ReferencedSourceFile>,
+            path: PathBuf,
+        ) {
             let importer_image_id = ImporterId(Uuid::from_bytes(T::UUID));
             file_references.push(ReferencedSourceFile {
                 importer_id: importer_image_id,
@@ -99,7 +115,10 @@ impl Importer for BlenderMeshImporter {
 
         let mut mesh_file_references = Vec::default();
         for mesh_part in &mesh_as_json.mesh_parts {
-            try_add_file_reference::<BlenderMaterialImporter>(&mut mesh_file_references, mesh_part.material.clone());
+            try_add_file_reference::<BlenderMaterialImporter>(
+                &mut mesh_file_references,
+                mesh_part.material.clone(),
+            );
         }
 
         let mut scanned_importables = Vec::default();
@@ -124,12 +143,15 @@ impl Importer for BlenderMeshImporter {
         let bytes = std::fs::read(path).unwrap();
 
         let b3f_reader = B3FReader::new(&bytes)
-            .ok_or("Blender Mesh Import error, mesh file format not recognized").unwrap();
-        let mesh_as_json: MeshJson =
-            serde_json::from_slice(b3f_reader.get_block(0)).map_err(|e| e.to_string()).unwrap();
+            .ok_or("Blender Mesh Import error, mesh file format not recognized")
+            .unwrap();
+        let mesh_as_json: MeshJson = serde_json::from_slice(b3f_reader.get_block(0))
+            .map_err(|e| e.to_string())
+            .unwrap();
 
         let mut import_data = MeshAdvMeshImportedDataRecord::new_single_object(schema_set).unwrap();
-        let mut import_data_container = DataContainerMut::new_single_object(&mut import_data, schema_set);
+        let mut import_data_container =
+            DataContainerMut::new_single_object(&mut import_data, schema_set);
         let x = MeshAdvMeshImportedDataRecord::default();
 
         //
@@ -149,12 +171,17 @@ impl Importer for BlenderMeshImporter {
             //
             // Get byte slices of all input data for this mesh part
             //
-            let positions_bytes =
-                b3f_reader.get_block(mesh_part.position.ok_or("No position data").unwrap() as usize);
+            let positions_bytes = b3f_reader
+                .get_block(mesh_part.position.ok_or("No position data").unwrap() as usize);
             let normals_bytes =
                 b3f_reader.get_block(mesh_part.normal.ok_or("No normal data").unwrap() as usize);
-            let tex_coords_bytes = b3f_reader
-                .get_block(*mesh_part.uv.get(0).ok_or("No texture coordinate data").unwrap() as usize);
+            let tex_coords_bytes = b3f_reader.get_block(
+                *mesh_part
+                    .uv
+                    .get(0)
+                    .ok_or("No texture coordinate data")
+                    .unwrap() as usize,
+            );
             let part_indices_bytes = b3f_reader.get_block(mesh_part.indices as usize);
 
             //
@@ -166,7 +193,8 @@ impl Importer for BlenderMeshImporter {
             match mesh_part.index_type {
                 MeshPartJsonIndexType::U16 => {
                     let part_indices_u16_ref = try_cast_u8_slice::<u16>(part_indices_bytes)
-                        .ok_or("Could not cast due to alignment").unwrap();
+                        .ok_or("Could not cast due to alignment")
+                        .unwrap();
                     part_indices_u32.reserve(part_indices_u16_ref.len());
                     for &part_index in part_indices_u16_ref {
                         part_indices_u32.push(part_index as u32);
@@ -174,7 +202,8 @@ impl Importer for BlenderMeshImporter {
                 }
                 MeshPartJsonIndexType::U32 => {
                     let part_indices_u32_ref = try_cast_u8_slice::<u32>(part_indices_bytes)
-                        .ok_or("Could not cast due to alignment").unwrap();
+                        .ok_or("Could not cast due to alignment")
+                        .unwrap();
                     part_indices_u32.reserve(part_indices_u32_ref.len());
                     for &part_index in part_indices_u32_ref {
                         part_indices_u32.push(part_index);
@@ -188,29 +217,55 @@ impl Importer for BlenderMeshImporter {
 
             let entry_uuid = x.mesh_parts().add_entry(&mut import_data_container);
             let entry = x.mesh_parts().entry(entry_uuid);
-            entry.positions().set(&mut import_data_container, positions_bytes.to_vec()).unwrap();
-            entry.normals().set(&mut import_data_container, normals_bytes.to_vec()).unwrap();
-            entry.texture_coordinates().set(&mut import_data_container, tex_coords_bytes.to_vec()).unwrap();
-            entry.indices().set(&mut import_data_container, part_indices).unwrap();
-            entry.material_index().set(&mut import_data_container, material_index).unwrap();
+            entry
+                .positions()
+                .set(&mut import_data_container, positions_bytes.to_vec())
+                .unwrap();
+            entry
+                .normals()
+                .set(&mut import_data_container, normals_bytes.to_vec())
+                .unwrap();
+            entry
+                .texture_coordinates()
+                .set(&mut import_data_container, tex_coords_bytes.to_vec())
+                .unwrap();
+            entry
+                .indices()
+                .set(&mut import_data_container, part_indices)
+                .unwrap();
+            entry
+                .material_index()
+                .set(&mut import_data_container, material_index)
+                .unwrap();
         }
-
 
         //
         // Create the default asset
         //
         let default_asset = {
-            let mut default_asset_object = MeshAdvMeshAssetRecord::new_single_object(schema_set).unwrap();
-            let mut default_asset_data_container = DataContainerMut::new_single_object(&mut default_asset_object, schema_set);
+            let mut default_asset_object =
+                MeshAdvMeshAssetRecord::new_single_object(schema_set).unwrap();
+            let mut default_asset_data_container =
+                DataContainerMut::new_single_object(&mut default_asset_object, schema_set);
             let x = MeshAdvMeshAssetRecord::default();
 
             //
             // Set up the material slots
             //
             for material_slot in material_slots {
-                let object_id = importable_objects.get(&None).unwrap().referenced_paths.get(&material_slot).unwrap();
-                let entry = x.material_slots().add_entry(&mut default_asset_data_container);
-                x.material_slots().entry(entry).set(&mut default_asset_data_container, *object_id).unwrap();
+                let object_id = importable_objects
+                    .get(&None)
+                    .unwrap()
+                    .referenced_paths
+                    .get(&material_slot)
+                    .unwrap();
+                let entry = x
+                    .material_slots()
+                    .add_entry(&mut default_asset_data_container);
+                x.material_slots()
+                    .entry(entry)
+                    .set(&mut default_asset_data_container, *object_id)
+                    .unwrap();
             }
 
             default_asset_object
@@ -225,7 +280,7 @@ impl Importer for BlenderMeshImporter {
             ImportedImportable {
                 file_references: Default::default(),
                 import_data: Some(import_data),
-                default_asset: Some(default_asset)
+                default_asset: Some(default_asset),
             },
         );
         imported_objects
@@ -244,5 +299,3 @@ impl AssetPlugin for BlenderMeshAssetPlugin {
         importer_registry.register_handler::<BlenderMeshImporter>(schema_linker);
     }
 }
-
-

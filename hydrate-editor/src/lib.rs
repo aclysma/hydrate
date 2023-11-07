@@ -14,9 +14,7 @@ use app_state::AppState;
 mod ui_state;
 use crate::app_state::QueuedActions;
 pub use crate::db_state::DbState;
-use hydrate_model::pipeline::{
-    AssetEngine
-};
+use hydrate_model::pipeline::AssetEngine;
 use ui::draw_ui;
 
 // Creates a window and runs the event loop.

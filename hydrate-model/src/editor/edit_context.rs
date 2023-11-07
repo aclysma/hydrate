@@ -1,10 +1,15 @@
+use hydrate_data::SingleObject;
 use std::path::PathBuf;
 use std::sync::Arc;
 use uuid::Uuid;
-use hydrate_data::SingleObject;
 
 use crate::editor::undo::{UndoContext, UndoStack};
-use crate::{BuildInfo, DataObjectInfo, DataSet, DataSetDiff, DataSetResult, EditContextKey, EndContextBehavior, HashMap, HashMapKeys, HashSet, HashSetIter, ImportInfo, NullOverride, ObjectId, ObjectLocation, ObjectName, OverrideBehavior, SchemaFingerprint, SchemaNamedType, SchemaRecord, SchemaSet, Value};
+use crate::{
+    BuildInfo, DataObjectInfo, DataSet, DataSetDiff, DataSetResult, EditContextKey,
+    EndContextBehavior, HashMap, HashMapKeys, HashSet, HashSetIter, ImportInfo, NullOverride,
+    ObjectId, ObjectLocation, ObjectName, OverrideBehavior, SchemaFingerprint, SchemaNamedType,
+    SchemaRecord, SchemaSet, Value,
+};
 
 //TODO: Delete unused property data when path ancestor is null or in replace mode
 
@@ -317,8 +322,12 @@ impl EditContext {
         object_location: &ObjectLocation,
         schema: &SchemaRecord,
     ) -> DataSetResult<()> {
-        self.data_set
-            .new_object_with_id(object_id, object_name.clone(), object_location.clone(), schema)?;
+        self.data_set.new_object_with_id(
+            object_id,
+            object_name.clone(),
+            object_location.clone(),
+            schema,
+        )?;
         self.track_new_object(object_id, object_location);
         Ok(())
     }
@@ -354,13 +363,11 @@ impl EditContext {
     pub fn copy_from_single_object(
         &mut self,
         object_id: ObjectId,
-        single_object: &SingleObject
+        single_object: &SingleObject,
     ) -> DataSetResult<()> {
         self.track_existing_object(object_id);
-        self.data_set.copy_from_single_object(
-            object_id,
-            single_object
-        )
+        self.data_set
+            .copy_from_single_object(object_id, single_object)
     }
 
     pub fn restore_objects_from(

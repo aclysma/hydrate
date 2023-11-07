@@ -11,7 +11,7 @@ pub struct BuilderRegistryInner {
 
 #[derive(Clone)]
 pub struct BuilderRegistry {
-    inner: Arc<BuilderRegistryInner>
+    inner: Arc<BuilderRegistryInner>,
 }
 
 impl BuilderRegistry {
@@ -19,7 +19,8 @@ impl BuilderRegistry {
         &self,
         fingerprint: SchemaFingerprint,
     ) -> Option<&Box<dyn Builder>> {
-        self.inner.asset_type_to_builder
+        self.inner
+            .asset_type_to_builder
             .get(&fingerprint)
             .copied()
             .map(|x| &self.inner.registered_builders[x.0])
@@ -36,9 +37,7 @@ impl BuilderRegistryBuilder {
     //
     // Called before creating the schema to add handlers
     //
-    pub fn register_handler<T: Builder + Default + 'static>(
-        &mut self,
-    ) {
+    pub fn register_handler<T: Builder + Default + 'static>(&mut self) {
         let handler = Box::new(T::default());
         self.registered_builders.push(handler);
     }
@@ -83,7 +82,7 @@ impl BuilderRegistryBuilder {
         };
 
         BuilderRegistry {
-            inner: Arc::new(inner)
+            inner: Arc::new(inner),
         }
     }
 }

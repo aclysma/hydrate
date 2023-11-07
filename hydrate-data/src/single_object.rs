@@ -1,4 +1,7 @@
-use crate::{DataSetError, DataSetResult, HashMap, HashSet, HashSetIter, SchemaFingerprint, SchemaRecord, Value};
+use crate::{
+    DataSetError, DataSetResult, HashMap, HashSet, HashSetIter, SchemaFingerprint, SchemaRecord,
+    Value,
+};
 use crate::{NullOverride, SchemaSet};
 use std::hash::{Hash, Hasher};
 use std::str::FromStr;

@@ -1,11 +1,11 @@
-use std::collections::VecDeque;
 use crate::{EditorModel, HashMap, ObjectId};
+use hydrate_base::{ArtifactId, ManifestFileEntryJson, ManifestFileJson};
+use std::collections::VecDeque;
 use std::hash::{Hash, Hasher};
 use std::io::Write;
 use std::path::PathBuf;
 use std::str::FromStr;
 use uuid::Uuid;
-use hydrate_base::{ArtifactId, ManifestFileJson, ManifestFileEntryJson};
 
 use super::ImportJobs;
 
@@ -94,8 +94,8 @@ impl BuildJobs {
         //
         let mut requested_build_ops = VecDeque::default();
         for (&object_id, _) in object_hashes {
-
-            assert!(!editor_model.is_path_node_or_root(data_set.object_schema(object_id).unwrap().fingerprint()));
+            assert!(!editor_model
+                .is_path_node_or_root(data_set.object_schema(object_id).unwrap().fingerprint()));
 
             //TODO: Skip objects that aren't explicitly requested, if any were requested
             //      For now just build everything
@@ -136,7 +136,8 @@ impl BuildJobs {
                     .object_schema(object_id)
                     .unwrap();
 
-                let Some(builder) = builder_registry.builder_for_asset(object_type.fingerprint()) else {
+                let Some(builder) = builder_registry.builder_for_asset(object_type.fingerprint())
+                else {
                     continue;
                 };
 
@@ -153,7 +154,9 @@ impl BuildJobs {
             // Jobs will produce artifacts. We will save these to disk and possibly trigger
             // additional jobs for assets that they reference.
             //
-            let built_artifacts = self.job_executor.take_built_artifacts(&mut artifact_asset_lookup);
+            let built_artifacts = self
+                .job_executor
+                .take_built_artifacts(&mut artifact_asset_lookup);
             for built_artifact in built_artifacts {
                 //
                 // Trigger building any dependencies
@@ -161,8 +164,11 @@ impl BuildJobs {
                 //TODO: I'm getting back handles to artifacts but I don't know what the associated asset
                 // ID is
                 for &dependency_artifact_id in &built_artifact.metadata.dependencies {
-                    let dependency_object_id = *artifact_asset_lookup.get(&dependency_artifact_id).unwrap();
-                    requested_build_ops.push_back(BuildRequest { object_id: dependency_object_id });
+                    let dependency_object_id =
+                        *artifact_asset_lookup.get(&dependency_artifact_id).unwrap();
+                    requested_build_ops.push_back(BuildRequest {
+                        object_id: dependency_object_id,
+                    });
                 }
 
                 //
@@ -193,60 +199,59 @@ impl BuildJobs {
                 //
                 build_hashes.insert(built_artifact.artifact_id, build_hash);
 
-                let job = self.build_jobs
+                let job = self
+                    .build_jobs
                     .entry(built_artifact.asset_id)
                     .or_insert_with(|| BuildJob::new());
                 job.asset_exists = true;
-                job.build_data_exists.insert((built_artifact.artifact_id, build_hash));
+                job.build_data_exists
+                    .insert((built_artifact.artifact_id, build_hash));
 
                 built_artifact_metadata.insert(built_artifact.artifact_id, built_artifact.metadata);
             }
         }
 
-
-
         /*
 
 
-        for build_op in &build_operations {
-            //log::info!("building object type {}", object_type.name());
-            let dependencies = builder.enumerate_dependencies(object_id, data_set, schema_set);
+                for build_op in &build_operations {
+                    //log::info!("building object type {}", object_type.name());
+                    let dependencies = builder.enumerate_dependencies(object_id, data_set, schema_set);
 
-            let mut imported_data = HashMap::default();
-            let mut imported_data_hash = 0;
+                    let mut imported_data = HashMap::default();
+                    let mut imported_data_hash = 0;
 
-            //
-            // Just load in the import data hashes
-            //
-            for &dependency_object_id in &dependencies {
-                // Not all objects have import info...
-                let import_info = data_set.import_info(dependency_object_id);
-                if import_info.is_none() {
-                    continue;
+                    //
+                    // Just load in the import data hashes
+                    //
+                    for &dependency_object_id in &dependencies {
+                        // Not all objects have import info...
+                        let import_info = data_set.import_info(dependency_object_id);
+                        if import_info.is_none() {
+                            continue;
+                        }
+
+                        // Load data from disk
+                        let import_data_hash = import_jobs.load_import_data_hash(dependency_object_id);
+
+                        // Hash the dependency import data for the build
+                        let mut inner_hasher = siphasher::sip::SipHasher::default();
+                        dependency_object_id.hash(&mut inner_hasher);
+                        import_data_hash.metadata_hash.hash(&mut inner_hasher);
+                        //TODO: We could also hash the raw bytes of the file
+                        imported_data_hash = imported_data_hash ^ inner_hasher.finish();
+                    }
+
+                    let properties_hash = editor_model
+                        .root_edit_context()
+                        .data_set()
+                        .hash_properties(object_id)
+                        .unwrap();
+
+
+                    //std::fs::write(&path, built_data).unwrap()
                 }
-
-                // Load data from disk
-                let import_data_hash = import_jobs.load_import_data_hash(dependency_object_id);
-
-                // Hash the dependency import data for the build
-                let mut inner_hasher = siphasher::sip::SipHasher::default();
-                dependency_object_id.hash(&mut inner_hasher);
-                import_data_hash.metadata_hash.hash(&mut inner_hasher);
-                //TODO: We could also hash the raw bytes of the file
-                imported_data_hash = imported_data_hash ^ inner_hasher.finish();
-            }
-
-            let properties_hash = editor_model
-                .root_edit_context()
-                .data_set()
-                .hash_properties(object_id)
-                .unwrap();
-
-
-            //std::fs::write(&path, built_data).unwrap()
-        }
-*/
-
+        */
 
         //
         // Write the manifest file
@@ -271,15 +276,16 @@ impl BuildJobs {
 
             let is_default_artifact = artifact_id.as_u128() == asset_id.0;
             let symbol_name = if is_default_artifact {
-                if asset_id.as_uuid() == Uuid::from_str("07ab9227-432d-49c8-8899-146acd803235").unwrap() {
+                if asset_id.as_uuid()
+                    == Uuid::from_str("07ab9227-432d-49c8-8899-146acd803235").unwrap()
+                {
                     println!("this one");
                 }
 
                 // editor_model.path_node_id_to_path(asset_id.get)
                 // //let location = edit_context.object_location(object_id).unwrap();
                 //TODO: Assert the cached asset path tree is not stale?
-                let path = editor_model
-                    .object_display_name_long(asset_id);
+                let path = editor_model.object_display_name_long(asset_id);
                 path
 
                 //editor_model.object_symbol_name(ObjectId::from_uuid(artifact_id.as_uuid()))
@@ -302,7 +308,11 @@ impl BuildJobs {
             //file.write(&build_hash.to_le_bytes()).unwrap();
         }
 
-        std::fs::write(manifest_path, serde_json::to_string_pretty(&manifest_json).unwrap()).unwrap();
+        std::fs::write(
+            manifest_path,
+            serde_json::to_string_pretty(&manifest_json).unwrap(),
+        )
+        .unwrap();
 
         //
         // Write a new TOC with summary of this build

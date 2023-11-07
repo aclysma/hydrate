@@ -3,15 +3,26 @@ use std::collections::VecDeque;
 use std::ops::Range;
 use std::path::{Path, PathBuf};
 
+use super::generated::{
+    GlslBuildTargetAssetRecord, GlslSourceFileAssetRecord, GlslSourceFileImportedDataRecord,
+};
 use demo_types::glsl::*;
 use hydrate_base::BuiltObjectMetadata;
-use hydrate_model::{BuilderRegistryBuilder, DataContainer, DataContainerMut, DataSet, EditorModel, HashMap, HashSet, ImportableObject, ImporterRegistryBuilder, job_system, JobApi, JobEnumeratedDependencies, JobInput, JobOutput, JobProcessor, JobProcessorRegistryBuilder, ObjectId, ObjectLocation, ObjectName, Record, SchemaLinker, SchemaSet, SingleObject, Value};
-use hydrate_model::pipeline::{AssetPlugin, Builder, BuilderRegistry, BuiltAsset, ImporterRegistry};
-use hydrate_model::pipeline::{ImportedImportable, ReferencedSourceFile, ScannedImportable, Importer};
+use hydrate_model::pipeline::{
+    AssetPlugin, Builder, BuilderRegistry, BuiltAsset, ImporterRegistry,
+};
+use hydrate_model::pipeline::{
+    ImportedImportable, Importer, ReferencedSourceFile, ScannedImportable,
+};
+use hydrate_model::{
+    job_system, BuilderRegistryBuilder, DataContainer, DataContainerMut, DataSet, EditorModel,
+    HashMap, HashSet, ImportableObject, ImporterRegistryBuilder, JobApi, JobEnumeratedDependencies,
+    JobInput, JobOutput, JobProcessor, JobProcessorRegistryBuilder, ObjectId, ObjectLocation,
+    ObjectName, Record, SchemaLinker, SchemaSet, SingleObject, Value,
+};
 use serde::{Deserialize, Serialize};
 use shaderc::IncludeType;
 use type_uuid::{TypeUuid, TypeUuidDynamic};
-use super::generated::{GlslBuildTargetAssetRecord, GlslSourceFileAssetRecord, GlslSourceFileImportedDataRecord};
 
 fn range_of_line_at_position(
     code: &[char],
@@ -607,16 +618,20 @@ impl Importer for GlslSourceFileImporter {
         // Create import data
         //
         let import_data = {
-            let mut import_object = GlslSourceFileImportedDataRecord::new_single_object(schema_set).unwrap();
-            let mut import_data_container = DataContainerMut::new_single_object(&mut import_object, schema_set);
+            let mut import_object =
+                GlslSourceFileImportedDataRecord::new_single_object(schema_set).unwrap();
+            let mut import_data_container =
+                DataContainerMut::new_single_object(&mut import_object, schema_set);
             let x = GlslSourceFileImportedDataRecord::default();
             x.code().set(&mut import_data_container, code).unwrap();
             import_object
         };
 
         let default_asset = {
-            let mut default_asset_object = GlslSourceFileAssetRecord::new_single_object(schema_set).unwrap();
-            let mut _default_asset_data_container = DataContainerMut::new_single_object(&mut default_asset_object, schema_set);
+            let mut default_asset_object =
+                GlslSourceFileAssetRecord::new_single_object(schema_set).unwrap();
+            let mut _default_asset_data_container =
+                DataContainerMut::new_single_object(&mut default_asset_object, schema_set);
             let _x = GlslSourceFileAssetRecord::default();
             // Nothing to set
             default_asset_object
@@ -640,14 +655,12 @@ impl Importer for GlslSourceFileImporter {
 
 #[derive(Hash, Serialize, Deserialize)]
 pub struct GlslBuildTargetJobInput {
-    asset_id: ObjectId
+    asset_id: ObjectId,
 }
 impl JobInput for GlslBuildTargetJobInput {}
 
 #[derive(Serialize, Deserialize)]
-pub struct GlslBuildTargetJobOutput {
-
-}
+pub struct GlslBuildTargetJobOutput {}
 impl JobOutput for GlslBuildTargetJobOutput {}
 
 #[derive(Default, TypeUuid)]
@@ -703,7 +716,7 @@ impl JobProcessor for GlslBuildTargetJobProcessor {
 
         JobEnumeratedDependencies {
             import_data: queued.into_iter().collect(),
-            upstream_jobs: Vec::default()
+            upstream_jobs: Vec::default(),
         }
     }
 
@@ -713,7 +726,7 @@ impl JobProcessor for GlslBuildTargetJobProcessor {
         data_set: &DataSet,
         schema_set: &SchemaSet,
         dependency_data: &HashMap<ObjectId, SingleObject>,
-        job_api: &dyn JobApi
+        job_api: &dyn JobApi,
     ) -> GlslBuildTargetJobOutput {
         //
         // Read asset properties
@@ -764,7 +777,7 @@ impl JobProcessor for GlslBuildTargetJobProcessor {
                                             include_type: shaderc::IncludeType,
                                             requested_from: &str,
                                             include_depth: usize|
-                                            -> shaderc::IncludeCallbackResult {
+             -> shaderc::IncludeCallbackResult {
                 let requested_path: PathBuf = requested_path.into();
                 let requested_from: PathBuf = requested_from.into();
                 include_impl(
@@ -776,7 +789,7 @@ impl JobProcessor for GlslBuildTargetJobProcessor {
                     &dependency_lookup,
                     dependency_data,
                 )
-                    .map_err(|x| x.into())
+                .map_err(|x| x.into())
             };
 
             let mut compile_options = shaderc::CompileOptions::new().unwrap();
@@ -804,13 +817,9 @@ impl JobProcessor for GlslBuildTargetJobProcessor {
         //
         // Create the processed data
         //
-        let mut processed_data = GlslBuildTargetBuiltData {
-            spv: compiled_spv,
-        };
+        let mut processed_data = GlslBuildTargetBuiltData { spv: compiled_spv };
         job_system::produce_asset(job_api, input.asset_id, processed_data);
-        GlslBuildTargetJobOutput {
-
-        }
+        GlslBuildTargetJobOutput {}
     }
 }
 
@@ -828,11 +837,14 @@ impl Builder for GlslBuildTargetBuilder {
         asset_id: ObjectId,
         data_set: &DataSet,
         schema_set: &SchemaSet,
-        job_api: &dyn JobApi
+        job_api: &dyn JobApi,
     ) {
-        job_system::enqueue_job::<GlslBuildTargetJobProcessor>(data_set, schema_set, job_api, GlslBuildTargetJobInput {
-            asset_id,
-        });
+        job_system::enqueue_job::<GlslBuildTargetJobProcessor>(
+            data_set,
+            schema_set,
+            job_api,
+            GlslBuildTargetJobInput { asset_id },
+        );
     }
 }
 

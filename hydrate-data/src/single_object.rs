@@ -1,7 +1,4 @@
-use crate::{
-    DataSetError, DataSetResult, HashMap, HashSet, HashSetIter, SchemaFingerprint, SchemaRecord,
-    Value,
-};
+use crate::{DataSetError, DataSetResult, HashMap, HashSet, HashSetIter, OrderedSet, SchemaFingerprint, SchemaRecord, Value};
 use crate::{NullOverride, SchemaSet};
 use std::hash::{Hash, Hasher};
 use std::str::FromStr;
@@ -13,7 +10,7 @@ pub struct SingleObject {
     schema: SchemaRecord,
     properties: HashMap<String, Value>,
     property_null_overrides: HashMap<String, NullOverride>,
-    dynamic_array_entries: HashMap<String, HashSet<Uuid>>,
+    dynamic_array_entries: HashMap<String, OrderedSet<Uuid>>,
 }
 
 impl Hash for SingleObject {
@@ -80,7 +77,7 @@ impl SingleObject {
         schema: SchemaFingerprint,
         properties: HashMap<String, Value>,
         property_null_overrides: HashMap<String, NullOverride>,
-        dynamic_array_entries: HashMap<String, HashSet<Uuid>>,
+        dynamic_array_entries: HashMap<String, OrderedSet<Uuid>>,
     ) -> SingleObject {
         let schema = schema_set.schemas().get(&schema).unwrap();
         let schema_record = schema.as_record().cloned().unwrap();
@@ -104,7 +101,7 @@ impl SingleObject {
         &self.property_null_overrides
     }
 
-    pub fn dynamic_array_entries(&self) -> &HashMap<String, HashSet<Uuid>> {
+    pub fn dynamic_array_entries(&self) -> &HashMap<String, OrderedSet<Uuid>> {
         &self.dynamic_array_entries
     }
 
@@ -347,7 +344,7 @@ impl SingleObject {
         &self,
         schema_set: &SchemaSet,
         path: impl AsRef<str>,
-    ) -> Option<HashSetIter<Uuid>> {
+    ) -> Option<std::slice::Iter<Uuid>> {
         let property_schema = self
             .schema
             .find_property_schema(&path, schema_set.schemas())
@@ -383,8 +380,8 @@ impl SingleObject {
             .entry(path.as_ref().to_string())
             .or_insert(Default::default());
         let new_uuid = Uuid::new_v4();
-        let already_existed = !entry.insert(new_uuid);
-        if already_existed {
+        let newly_inserted = entry.try_insert_at_end(new_uuid);
+        if !newly_inserted {
             panic!("Already existed")
         }
         new_uuid

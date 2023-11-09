@@ -247,7 +247,7 @@ pub fn produce_artifact_with_handles<T: TypeUuid + Serialize, U: Hash, F: FnOnce
         metadata: BuiltObjectMetadata {
             dependencies: referenced_assets
                 .into_iter()
-                .map(|x| ArtifactId::from_uuid(Uuid::from_bytes(x.0 .0)))
+                .map(|x| ArtifactId::from_uuid(Uuid::from_bytes(x.0.0)))
                 .collect(),
             asset_type: uuid::Uuid::from_bytes(asset_type),
         },

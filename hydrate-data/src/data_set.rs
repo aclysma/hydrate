@@ -1,7 +1,4 @@
-use crate::{
-    HashMap, HashMapKeys, HashSet, HashSetIter, ObjectId, Schema, SchemaFingerprint, SchemaRecord,
-    SingleObject, Value,
-};
+use crate::{HashMap, HashMapKeys, HashSet, HashSetIter, ObjectId, OrderedSet, Schema, SchemaFingerprint, SchemaRecord, SingleObject, Value};
 use crate::{NullOverride, SchemaSet};
 use std::hash::{Hash, Hasher};
 use std::path::{Path, PathBuf};
@@ -178,7 +175,7 @@ pub struct DataObjectInfo {
     pub(super) properties: HashMap<String, Value>,
     pub(super) property_null_overrides: HashMap<String, NullOverride>,
     pub(super) properties_in_replace_mode: HashSet<String>,
-    pub(super) dynamic_array_entries: HashMap<String, HashSet<Uuid>>,
+    pub(super) dynamic_array_entries: HashMap<String, OrderedSet<Uuid>>,
 }
 
 impl DataObjectInfo {
@@ -222,7 +219,7 @@ impl DataObjectInfo {
         &self.properties_in_replace_mode
     }
 
-    pub fn dynamic_array_entries(&self) -> &HashMap<String, HashSet<Uuid>> {
+    pub fn dynamic_array_entries(&self) -> &HashMap<String, OrderedSet<Uuid>> {
         &self.dynamic_array_entries
     }
 }
@@ -287,7 +284,7 @@ impl DataSet {
         properties: HashMap<String, Value>,
         property_null_overrides: HashMap<String, NullOverride>,
         properties_in_replace_mode: HashSet<String>,
-        dynamic_array_entries: HashMap<String, HashSet<Uuid>>,
+        dynamic_array_entries: HashMap<String, OrderedSet<Uuid>>,
     ) {
         let schema = schema_set.schemas().get(&schema).unwrap();
         let schema_record = schema.as_record().cloned().unwrap();
@@ -367,12 +364,20 @@ impl DataSet {
         id
     }
 
+    // Populate an empty object with data from a SingleObject
     pub fn copy_from_single_object(
         &mut self,
         object_id: ObjectId,
         single_object: &SingleObject,
     ) -> DataSetResult<()> {
         let object = self.objects.get_mut(&object_id).unwrap();
+
+        object.prototype = None;
+        object.properties.clear();
+        object.property_null_overrides.clear();
+        object.properties_in_replace_mode.clear();
+        object.dynamic_array_entries.clear();
+
         for (property, value) in single_object.properties() {
             object.properties.insert(property.clone(), value.clone());
         }
@@ -389,7 +394,9 @@ impl DataSet {
                 .entry(property.clone())
                 .or_default();
             for element in &*dynamic_array_entries {
-                property_entry.insert(*element);
+                let is_inserted = property_entry.try_insert_at_end(*element);
+                // elements are UUIDs and they should have been  unique
+                assert!(is_inserted);
             }
         }
 
@@ -646,7 +653,7 @@ impl DataSet {
             key.hash(&mut inner_hasher);
 
             let mut uuid_set_hash = 0;
-            for id in value {
+            for id in value.iter() {
                 let mut inner_hasher2 = siphasher::sip::SipHasher::default();
                 id.hash(&mut inner_hasher2);
                 uuid_set_hash = uuid_set_hash ^ inner_hasher2.finish();
@@ -959,7 +966,7 @@ impl DataSet {
         schema_set: &SchemaSet,
         object_id: ObjectId,
         path: impl AsRef<str>,
-    ) -> Option<HashSetIter<Uuid>> {
+    ) -> Option<std::slice::Iter<Uuid>> {
         let object = self.objects.get(&object_id).unwrap();
         let property_schema = object
             .schema
@@ -999,8 +1006,8 @@ impl DataSet {
             .entry(path.as_ref().to_string())
             .or_insert(Default::default());
         let new_uuid = Uuid::new_v4();
-        let already_existed = !entry.insert(new_uuid);
-        if already_existed {
+        let newly_inserted = entry.try_insert_at_end(new_uuid);
+        if !newly_inserted {
             panic!("Already existed")
         }
         new_uuid

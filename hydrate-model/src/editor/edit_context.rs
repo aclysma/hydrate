@@ -1,4 +1,4 @@
-use hydrate_data::SingleObject;
+use hydrate_data::{OrderedSet, SingleObject};
 use std::path::PathBuf;
 use std::sync::Arc;
 use uuid::Uuid;
@@ -360,7 +360,7 @@ impl EditContext {
         object_id
     }
 
-    pub fn copy_from_single_object(
+    pub fn init_from_single_object(
         &mut self,
         object_id: ObjectId,
         single_object: &SingleObject,
@@ -403,7 +403,7 @@ impl EditContext {
         properties: HashMap<String, Value>,
         property_null_overrides: HashMap<String, NullOverride>,
         properties_in_replace_mode: HashSet<String>,
-        dynamic_array_entries: HashMap<String, HashSet<Uuid>>,
+        dynamic_array_entries: HashMap<String, OrderedSet<Uuid>>,
     ) {
         self.track_new_object(object_id, &object_location);
         self.data_set.restore_object(
@@ -630,7 +630,7 @@ impl EditContext {
         &self,
         object_id: ObjectId,
         path: impl AsRef<str>,
-    ) -> Option<HashSetIter<Uuid>> {
+    ) -> Option<std::slice::Iter<Uuid>> {
         self.data_set
             .get_dynamic_array_overrides(&self.schema_set, object_id, path)
     }

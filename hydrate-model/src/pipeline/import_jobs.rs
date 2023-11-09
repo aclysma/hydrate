@@ -199,7 +199,7 @@ impl ImportJobs {
                         if let Some(default_asset) = &imported_object.default_asset {
                             editor_model
                                 .root_edit_context_mut()
-                                .copy_from_single_object(*object_id, default_asset)
+                                .init_from_single_object(*object_id, default_asset)
                                 .unwrap();
                         }
                     }

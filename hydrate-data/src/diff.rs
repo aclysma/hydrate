@@ -102,7 +102,7 @@ impl ObjectDiff {
                 };
 
                 for k in &delta.add {
-                    existing_entries.insert(*k);
+                    existing_entries.try_insert_at_end(*k);
                 }
 
                 for k in &delta.remove {

@@ -9,6 +9,7 @@ use std::hash::{Hash, Hasher};
 use std::path::PathBuf;
 use std::str::FromStr;
 use uuid::Uuid;
+use hydrate_data::OrderedSet;
 
 fn property_value_to_json(value: &Value) -> serde_json::Value {
     match value {
@@ -113,7 +114,7 @@ fn load_json_properties(
     properties: &mut HashMap<String, Value>,
     property_null_overrides: &mut HashMap<String, NullOverride>,
     mut properties_in_replace_mode: Option<&mut HashSet<String>>,
-    dynamic_array_entries: &mut HashMap<String, HashSet<Uuid>>,
+    dynamic_array_entries: &mut HashMap<String, OrderedSet<Uuid>>,
 ) {
     let mut max_path_length = 0;
     for (k, _) in json_properties {
@@ -162,7 +163,8 @@ fn load_json_properties(
                         dynamic_array_entries.entry(path.to_string()).or_default();
                     if !existing_entries.contains(&element) {
                         log::trace!("add dynamic array element {} to {:?}", element, path);
-                        existing_entries.insert(element);
+                        let newly_inserted = existing_entries.try_insert_at_end(element);
+                        assert!(newly_inserted);
                     }
                 }
             } else {
@@ -178,7 +180,7 @@ fn store_json_properties(
     properties: &HashMap<String, Value>,
     property_null_overrides: &HashMap<String, NullOverride>,
     properties_in_replace_mode: Option<&HashSet<String>>,
-    dynamic_array_entries: &HashMap<String, HashSet<Uuid>>,
+    dynamic_array_entries: &HashMap<String, OrderedSet<Uuid>>,
 ) -> HashMap<String, serde_json::Value> {
     let mut saved_properties: HashMap<String, serde_json::Value> = Default::default();
 
@@ -196,9 +198,7 @@ fn store_json_properties(
     }
 
     for (path, elements) in dynamic_array_entries {
-        let mut sorted_elements: Vec<_> = elements.iter().copied().collect();
-        sorted_elements.sort();
-        let elements_json: Vec<_> = sorted_elements
+        let elements_json: Vec<_> = elements
             .iter()
             .map(|x| serde_json::Value::from(x.to_string()))
             .collect();
@@ -349,7 +349,7 @@ impl EditContextObjectJson {
         let mut properties: HashMap<String, Value> = Default::default();
         let mut property_null_overrides: HashMap<String, NullOverride> = Default::default();
         let mut properties_in_replace_mode: HashSet<String> = Default::default();
-        let mut dynamic_array_entries: HashMap<String, HashSet<Uuid>> = Default::default();
+        let mut dynamic_array_entries: HashMap<String, OrderedSet<Uuid>> = Default::default();
 
         load_json_properties(
             &named_type,
@@ -477,7 +477,7 @@ impl SingleObjectJson {
 
         let mut properties: HashMap<String, Value> = Default::default();
         let mut property_null_overrides: HashMap<String, NullOverride> = Default::default();
-        let mut dynamic_array_entries: HashMap<String, HashSet<Uuid>> = Default::default();
+        let mut dynamic_array_entries: HashMap<String, OrderedSet<Uuid>> = Default::default();
 
         load_json_properties(
             &named_type,

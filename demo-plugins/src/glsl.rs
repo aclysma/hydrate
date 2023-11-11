@@ -857,8 +857,8 @@ impl AssetPlugin for GlslAssetPlugin {
         builder_registry: &mut BuilderRegistryBuilder,
         job_processor_registry: &mut JobProcessorRegistryBuilder,
     ) {
-        importer_registry.register_handler::<GlslSourceFileImporter>(schema_linker);
-        builder_registry.register_handler::<GlslBuildTargetBuilder>(schema_linker);
+        importer_registry.register_handler::<GlslSourceFileImporter>();
+        builder_registry.register_handler::<GlslBuildTargetBuilder>();
         job_processor_registry.register_job_processor::<GlslBuildTargetJobProcessor>();
     }
 }

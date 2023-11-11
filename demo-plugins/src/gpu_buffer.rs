@@ -124,7 +124,7 @@ impl AssetPlugin for GpuBufferAssetPlugin {
         builder_registry: &mut BuilderRegistryBuilder,
         job_processor_registry: &mut JobProcessorRegistryBuilder,
     ) {
-        builder_registry.register_handler::<GpuBufferBuilder>(schema_linker);
+        builder_registry.register_handler::<GpuBufferBuilder>();
         job_processor_registry.register_job_processor::<GpuBufferJobProcessor>();
     }
 }

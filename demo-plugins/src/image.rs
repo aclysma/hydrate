@@ -256,8 +256,8 @@ impl AssetPlugin for GpuImageAssetPlugin {
         builder_registry: &mut BuilderRegistryBuilder,
         job_processor_registry: &mut JobProcessorRegistryBuilder,
     ) {
-        importer_registry.register_handler::<GpuImageImporter>(schema_linker);
-        builder_registry.register_handler::<GpuImageBuilder>(schema_linker);
+        importer_registry.register_handler::<GpuImageImporter>();
+        builder_registry.register_handler::<GpuImageBuilder>();
         job_processor_registry.register_job_processor::<GpuImageJobProcessor>();
     }
 }

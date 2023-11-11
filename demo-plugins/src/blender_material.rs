@@ -271,6 +271,6 @@ impl AssetPlugin for BlenderMaterialAssetPlugin {
         builder_registry: &mut BuilderRegistryBuilder,
         job_processor_registry: &mut JobProcessorRegistryBuilder,
     ) {
-        importer_registry.register_handler::<BlenderMaterialImporter>(schema_linker);
+        importer_registry.register_handler::<BlenderMaterialImporter>();
     }
 }

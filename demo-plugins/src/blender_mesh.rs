@@ -296,6 +296,6 @@ impl AssetPlugin for BlenderMeshAssetPlugin {
         builder_registry: &mut BuilderRegistryBuilder,
         job_processor_registry: &mut JobProcessorRegistryBuilder,
     ) {
-        importer_registry.register_handler::<BlenderMeshImporter>(schema_linker);
+        importer_registry.register_handler::<BlenderMeshImporter>();
     }
 }

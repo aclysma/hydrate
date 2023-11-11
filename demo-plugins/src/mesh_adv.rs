@@ -425,10 +425,10 @@ impl AssetPlugin for MeshAdvAssetPlugin {
         builder_registry: &mut BuilderRegistryBuilder,
         job_processor_registry: &mut JobProcessorRegistryBuilder,
     ) {
-        builder_registry.register_handler::<MeshAdvMaterialBuilder>(schema_linker);
+        builder_registry.register_handler::<MeshAdvMaterialBuilder>();
         job_processor_registry.register_job_processor::<MeshAdvMaterialJobProcessor>();
 
-        builder_registry.register_handler::<MeshAdvMeshBuilder>(schema_linker);
+        builder_registry.register_handler::<MeshAdvMeshBuilder>();
         job_processor_registry.register_job_processor::<MeshAdvMeshPreprocessJobProcessor>();
     }
 }

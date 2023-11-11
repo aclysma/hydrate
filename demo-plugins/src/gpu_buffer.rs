@@ -1,24 +1,15 @@
 pub use super::*;
-use std::path::Path;
 
 use crate::generated::GpuBufferAssetRecord;
 use demo_types::gpu_buffer::GpuBufferBuiltData;
-use demo_types::mesh_adv::*;
-use hydrate_base::BuiltObjectMetadata;
-use hydrate_model::pipeline::{AssetPlugin, Builder, BuiltAsset};
-use hydrate_model::pipeline::{ImportedImportable, Importer, ScannedImportable};
+use hydrate_model::pipeline::{AssetPlugin, Builder};
 use hydrate_model::{
-    job_system, BuilderRegistryBuilder, DataContainer, DataContainerMut, DataSet, Enum, HashMap,
+    job_system, BuilderRegistryBuilder, DataSet, HashMap,
     ImporterRegistryBuilder, JobApi, JobEnumeratedDependencies, JobInput, JobOutput, JobProcessor,
     JobProcessorRegistryBuilder, ObjectId, Record, SchemaLinker, SchemaSet, SingleObject,
 };
 use serde::{Deserialize, Serialize};
-use type_uuid::{TypeUuid, TypeUuidDynamic};
-
-use super::generated::{
-    MeshAdvBlendMethodEnum, MeshAdvMaterialAssetRecord, MeshAdvMaterialImportedDataRecord,
-    MeshAdvShadowMethodEnum,
-};
+use type_uuid::{TypeUuid};
 
 #[derive(Hash, Serialize, Deserialize)]
 pub struct GpuBufferJobInput {
@@ -45,8 +36,8 @@ impl JobProcessor for GpuBufferJobProcessor {
     fn enumerate_dependencies(
         &self,
         input: &GpuBufferJobInput,
-        data_set: &DataSet,
-        schema_set: &SchemaSet,
+        _data_set: &DataSet,
+        _schema_set: &SchemaSet,
     ) -> JobEnumeratedDependencies {
         // No dependencies
         JobEnumeratedDependencies {
@@ -58,16 +49,16 @@ impl JobProcessor for GpuBufferJobProcessor {
     fn run(
         &self,
         input: &GpuBufferJobInput,
-        data_set: &DataSet,
-        schema_set: &SchemaSet,
-        dependency_data: &HashMap<ObjectId, SingleObject>,
+        _data_set: &DataSet,
+        _schema_set: &SchemaSet,
+        _dependency_data: &HashMap<ObjectId, SingleObject>,
         job_api: &dyn JobApi,
     ) -> GpuBufferJobOutput {
         //
         // Read asset data
         //
-        let data_container = DataContainer::new_dataset(data_set, schema_set, input.asset_id);
-        let x = GpuBufferAssetRecord::default();
+        // let data_container = DataContainer::new_dataset(data_set, schema_set, input.asset_id);
+        // let x = GpuBufferAssetRecord::default();
 
         //let base_color_factor = x.base_color_factor().get_vec4(&data_container).unwrap();
 
@@ -119,8 +110,8 @@ pub struct GpuBufferAssetPlugin;
 
 impl AssetPlugin for GpuBufferAssetPlugin {
     fn setup(
-        schema_linker: &mut SchemaLinker,
-        importer_registry: &mut ImporterRegistryBuilder,
+        _schema_linker: &mut SchemaLinker,
+        _importer_registry: &mut ImporterRegistryBuilder,
         builder_registry: &mut BuilderRegistryBuilder,
         job_processor_registry: &mut JobProcessorRegistryBuilder,
     ) {

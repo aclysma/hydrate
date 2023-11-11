@@ -48,7 +48,7 @@ fn main() {
 
     let mut linker = hydrate::model::SchemaLinker::default();
 
-    let mut asset_plugin_registration_helper =
+    let asset_plugin_registration_helper =
         hydrate::pipeline::AssetPluginRegistrationHelper::new()
             .register_plugin::<GpuBufferAssetPlugin>(&mut linker)
             .register_plugin::<GpuImageAssetPlugin>(&mut linker)

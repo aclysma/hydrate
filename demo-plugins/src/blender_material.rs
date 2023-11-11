@@ -1,25 +1,19 @@
 pub use super::*;
 use std::path::{Path, PathBuf};
-use std::str::FromStr;
 
-use demo_types::mesh_adv::*;
-use hydrate_base::BuiltObjectMetadata;
-use hydrate_model::pipeline::{AssetPlugin, Builder, BuiltAsset};
+use hydrate_model::pipeline::AssetPlugin;
 use hydrate_model::pipeline::{ImportedImportable, Importer, ScannedImportable};
 use hydrate_model::{
-    BuilderRegistryBuilder, DataContainer, DataContainerMut, DataSet, Enum, HashMap,
+    BuilderRegistryBuilder, DataContainerMut, Enum, HashMap,
     ImportableObject, ImporterId, ImporterRegistry, ImporterRegistryBuilder,
-    JobProcessorRegistryBuilder, ObjectId, ObjectRefField, Record, ReferencedSourceFile,
-    SchemaLinker, SchemaSet, SingleObject,
+    JobProcessorRegistryBuilder, ObjectRefField, Record, ReferencedSourceFile,
+    SchemaLinker, SchemaSet,
 };
 use serde::{Deserialize, Serialize};
-use type_uuid::{TypeUuid, TypeUuidDynamic};
+use type_uuid::TypeUuid;
 use uuid::Uuid;
 
-use super::generated::{
-    MeshAdvBlendMethodEnum, MeshAdvMaterialAssetRecord, MeshAdvMaterialImportedDataRecord,
-    MeshAdvShadowMethodEnum,
-};
+use super::generated::{MeshAdvBlendMethodEnum, MeshAdvMaterialAssetRecord, MeshAdvShadowMethodEnum};
 
 #[derive(Serialize, Deserialize)]
 struct MaterialJsonFileFormat {
@@ -63,7 +57,7 @@ impl Importer for BlenderMaterialImporter {
         &self,
         path: &Path,
         schema_set: &SchemaSet,
-        importer_registry: &ImporterRegistry,
+        _importer_registry: &ImporterRegistry,
     ) -> Vec<ScannedImportable> {
         let asset_type = schema_set
             .find_named_type(MeshAdvMaterialAssetRecord::schema_name())
@@ -266,10 +260,10 @@ pub struct BlenderMaterialAssetPlugin;
 
 impl AssetPlugin for BlenderMaterialAssetPlugin {
     fn setup(
-        schema_linker: &mut SchemaLinker,
+        _schema_linker: &mut SchemaLinker,
         importer_registry: &mut ImporterRegistryBuilder,
-        builder_registry: &mut BuilderRegistryBuilder,
-        job_processor_registry: &mut JobProcessorRegistryBuilder,
+        _builder_registry: &mut BuilderRegistryBuilder,
+        _job_processor_registry: &mut JobProcessorRegistryBuilder,
     ) {
         importer_registry.register_handler::<BlenderMaterialImporter>();
     }

@@ -7,22 +7,21 @@ use super::generated::{
     GlslBuildTargetAssetRecord, GlslSourceFileAssetRecord, GlslSourceFileImportedDataRecord,
 };
 use demo_types::glsl::*;
-use hydrate_base::BuiltObjectMetadata;
 use hydrate_model::pipeline::{
-    AssetPlugin, Builder, BuilderRegistry, BuiltAsset, ImporterRegistry,
+    AssetPlugin, Builder, ImporterRegistry,
 };
 use hydrate_model::pipeline::{
     ImportedImportable, Importer, ReferencedSourceFile, ScannedImportable,
 };
 use hydrate_model::{
-    job_system, BuilderRegistryBuilder, DataContainer, DataContainerMut, DataSet, EditorModel,
+    job_system, BuilderRegistryBuilder, DataContainer, DataContainerMut, DataSet,
     HashMap, HashSet, ImportableObject, ImporterRegistryBuilder, JobApi, JobEnumeratedDependencies,
-    JobInput, JobOutput, JobProcessor, JobProcessorRegistryBuilder, ObjectId, ObjectLocation,
-    ObjectName, Record, SchemaLinker, SchemaSet, SingleObject, Value,
+    JobInput, JobOutput, JobProcessor, JobProcessorRegistryBuilder, ObjectId,
+    Record, SchemaLinker, SchemaSet, SingleObject,
 };
 use serde::{Deserialize, Serialize};
 use shaderc::IncludeType;
-use type_uuid::{TypeUuid, TypeUuidDynamic};
+use type_uuid::TypeUuid;
 
 fn range_of_line_at_position(
     code: &[char],
@@ -66,38 +65,6 @@ pub(crate) fn next_non_whitespace(
         match code[position] {
             ' ' | '\t' | '\r' | '\n' => {}
             _ => break,
-        }
-        position = i + 1;
-    }
-
-    position
-}
-
-// I'm ignoring that identifiers usually can't start with numbers
-pub(crate) fn is_identifier_char(c: char) -> bool {
-    if c >= 'a' && c <= 'z' {
-    } else if c >= 'A' && c <= 'Z' {
-    } else if is_number_char(c) {
-    } else if c == '_' {
-    } else {
-        return false;
-    }
-
-    return true;
-}
-
-// I'm ignoring that identifiers usually can't start with numbers
-pub(crate) fn is_number_char(c: char) -> bool {
-    c >= '0' && c <= '9'
-}
-
-pub(crate) fn next_non_identifer(
-    code: &[char],
-    mut position: usize,
-) -> usize {
-    for i in position..code.len() {
-        if !is_identifier_char(code[position]) {
-            break;
         }
         position = i + 1;
     }
@@ -351,21 +318,6 @@ fn next_char(
     position
 }
 
-pub(crate) fn try_consume_identifier(
-    code: &[char],
-    position: &mut usize,
-) -> Option<String> {
-    let begin = next_non_whitespace(code, *position);
-
-    if begin < code.len() && is_identifier_char(code[begin]) {
-        let end = next_non_identifer(code, begin);
-        *position = end;
-        Some(characters_to_string(&code[begin..end]))
-    } else {
-        None
-    }
-}
-
 // Return option so we can do .ok_or("error message")?
 pub(crate) fn try_consume_literal(
     code: &[char],
@@ -564,7 +516,7 @@ impl Importer for GlslSourceFileImporter {
         &self,
         path: &Path,
         schema_set: &SchemaSet,
-        importer_registry: &ImporterRegistry,
+        _importer_registry: &ImporterRegistry,
     ) -> Vec<ScannedImportable> {
         log::info!("GlslSourceFileImporter reading file {:?}", path);
         let code = std::fs::read_to_string(path).unwrap();
@@ -817,7 +769,7 @@ impl JobProcessor for GlslBuildTargetJobProcessor {
         //
         // Create the processed data
         //
-        let mut processed_data = GlslBuildTargetBuiltData { spv: compiled_spv };
+        let processed_data = GlslBuildTargetBuiltData { spv: compiled_spv };
         job_system::produce_asset(job_api, input.asset_id, processed_data);
         GlslBuildTargetJobOutput {}
     }
@@ -852,7 +804,7 @@ pub struct GlslAssetPlugin;
 
 impl AssetPlugin for GlslAssetPlugin {
     fn setup(
-        schema_linker: &mut SchemaLinker,
+        _schema_linker: &mut SchemaLinker,
         importer_registry: &mut ImporterRegistryBuilder,
         builder_registry: &mut BuilderRegistryBuilder,
         job_processor_registry: &mut JobProcessorRegistryBuilder,

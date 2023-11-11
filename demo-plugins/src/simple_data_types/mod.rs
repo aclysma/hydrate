@@ -1,13 +1,10 @@
 use super::generated::{AllFieldsRecord, TransformRecord, TransformRefRecord};
 use demo_types::simple_data::*;
-use hydrate_base::AssetUuid;
-use hydrate_model::pipeline::{AssetPlugin, Builder};
+use hydrate_model::pipeline::AssetPlugin;
 use hydrate_model::{
     job_system, BuilderRegistryBuilder, DataContainer, ImporterRegistryBuilder, JobApi,
     JobProcessorRegistryBuilder, SchemaLinker,
 };
-use serde::{Deserialize, Serialize};
-use type_uuid::TypeUuid;
 
 mod simple_data_trait;
 pub use simple_data_trait::SimpleData;
@@ -33,7 +30,7 @@ impl SimpleData for TransformRef {
 impl SimpleData for Transform {
     fn from_data_container(
         data_container: &DataContainer,
-        job_api: &dyn JobApi,
+        _job_api: &dyn JobApi,
     ) -> Self {
         let x = TransformRecord::default();
         let position = x.position().get_vec3(data_container).unwrap();
@@ -51,7 +48,7 @@ impl SimpleData for Transform {
 impl SimpleData for AllFields {
     fn from_data_container(
         data_container: &DataContainer,
-        job_api: &dyn JobApi,
+        _job_api: &dyn JobApi,
     ) -> Self {
         let x = AllFieldsRecord::default();
         let boolean = x.boolean().get(data_container).unwrap();
@@ -70,8 +67,8 @@ pub struct SimpleDataAssetPlugin;
 
 impl AssetPlugin for SimpleDataAssetPlugin {
     fn setup(
-        schema_linker: &mut SchemaLinker,
-        importer_registry: &mut ImporterRegistryBuilder,
+        _schema_linker: &mut SchemaLinker,
+        _importer_registry: &mut ImporterRegistryBuilder,
         builder_registry: &mut BuilderRegistryBuilder,
         job_processor_registry: &mut JobProcessorRegistryBuilder,
     ) {

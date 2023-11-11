@@ -1,15 +1,11 @@
-use crossbeam_channel::{Receiver, Sender};
 use hydrate_base::hashing::HashMap;
 use hydrate_base::ObjectId;
 use hydrate_data::{DataSet, SchemaSet, SingleObject};
 use hydrate_model::pipeline::job_system;
 use hydrate_model::pipeline::job_system::*;
-use hydrate_model::BuiltAsset;
 use serde::{Deserialize, Serialize};
-use siphasher::sip128::Hasher128;
 use std::hash::Hash;
-use type_uuid::{Bytes, TypeUuid};
-use uuid::Uuid;
+use type_uuid::TypeUuid;
 
 //
 // Example Job Impl - Imagine this kicking off scatter job(s), and then a gather job that produces the final output
@@ -41,9 +37,9 @@ impl JobProcessor for ExampleBuildJobTopLevel {
 
     fn enumerate_dependencies(
         &self,
-        input: &Self::InputT,
-        data_set: &DataSet,
-        schema_set: &SchemaSet,
+        _input: &Self::InputT,
+        _data_set: &DataSet,
+        _schema_set: &SchemaSet,
     ) -> JobEnumeratedDependencies {
         // No dependencies
         JobEnumeratedDependencies::default()
@@ -54,7 +50,7 @@ impl JobProcessor for ExampleBuildJobTopLevel {
         input: &Self::InputT,
         data_set: &DataSet,
         schema_set: &SchemaSet,
-        dependency_data: &HashMap<ObjectId, SingleObject>,
+        _dependency_data: &HashMap<ObjectId, SingleObject>,
         job_api: &dyn JobApi,
     ) -> Self::OutputT {
         let task_id1 = job_system::enqueue_job::<ExampleBuildJobScatter>(
@@ -129,9 +125,9 @@ impl JobProcessor for ExampleBuildJobScatter {
 
     fn enumerate_dependencies(
         &self,
-        input: &Self::InputT,
-        data_set: &DataSet,
-        schema_set: &SchemaSet,
+        _input: &Self::InputT,
+        _data_set: &DataSet,
+        _schema_set: &SchemaSet,
     ) -> JobEnumeratedDependencies {
         // No dependencies
         JobEnumeratedDependencies::default()
@@ -139,11 +135,11 @@ impl JobProcessor for ExampleBuildJobScatter {
 
     fn run(
         &self,
-        input: &Self::InputT,
-        data_set: &DataSet,
-        schema_set: &SchemaSet,
-        dependency_data: &HashMap<ObjectId, SingleObject>,
-        job_api: &dyn JobApi,
+        _input: &Self::InputT,
+        _data_set: &DataSet,
+        _schema_set: &SchemaSet,
+        _dependency_data: &HashMap<ObjectId, SingleObject>,
+        _job_api: &dyn JobApi,
     ) -> Self::OutputT {
         //Do stuff
         // We could return the result
@@ -183,8 +179,8 @@ impl JobProcessor for ExampleBuildJobGather {
     fn enumerate_dependencies(
         &self,
         input: &Self::InputT,
-        data_set: &DataSet,
-        schema_set: &SchemaSet,
+        _data_set: &DataSet,
+        _schema_set: &SchemaSet,
     ) -> JobEnumeratedDependencies {
         JobEnumeratedDependencies {
             import_data: Default::default(),
@@ -194,11 +190,11 @@ impl JobProcessor for ExampleBuildJobGather {
 
     fn run(
         &self,
-        input: &Self::InputT,
-        data_set: &DataSet,
-        schema_set: &SchemaSet,
-        dependency_data: &HashMap<ObjectId, SingleObject>,
-        job_api: &dyn JobApi,
+        _input: &Self::InputT,
+        _data_set: &DataSet,
+        _schema_set: &SchemaSet,
+        _dependency_data: &HashMap<ObjectId, SingleObject>,
+        _job_api: &dyn JobApi,
     ) -> Self::OutputT {
         // Now use inputs from other jobs to produce an output
         //job_api.publish_built_asset(...);

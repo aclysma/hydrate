@@ -6,7 +6,7 @@ use uuid::Uuid;
 use crate::editor::undo::{UndoContext, UndoStack};
 use crate::{
     BuildInfo, DataObjectInfo, DataSet, DataSetDiff, DataSetResult, EditContextKey,
-    EndContextBehavior, HashMap, HashMapKeys, HashSet, HashSetIter, ImportInfo, NullOverride,
+    EndContextBehavior, HashMap, HashMapKeys, HashSet, ImportInfo, NullOverride,
     ObjectId, ObjectLocation, ObjectName, OverrideBehavior, SchemaFingerprint, SchemaNamedType,
     SchemaRecord, SchemaSet, Value,
 };

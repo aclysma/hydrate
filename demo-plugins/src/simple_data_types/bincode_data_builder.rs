@@ -1,13 +1,10 @@
-use crate::generated::{AllFieldsRecord, TransformRecord};
-use demo_types::simple_data::*;
-use hydrate_base::{AssetUuid, BuiltObjectMetadata};
 use hydrate_model::pipeline::{
-    AssetPlugin, Builder, BuilderRegistry, BuiltAsset, ImporterRegistry,
+    Builder
 };
 use hydrate_model::{
-    job_system, BuilderRegistryBuilder, DataContainer, DataSet, DataSetView, HashMap,
-    ImporterRegistryBuilder, JobApi, JobEnumeratedDependencies, JobInput, JobOutput, JobProcessor,
-    ObjectId, SchemaLinker, SchemaSet, SingleObject,
+    job_system, DataContainer, DataSet, HashMap,
+    JobApi, JobEnumeratedDependencies, JobInput, JobOutput, JobProcessor,
+    ObjectId, SchemaSet, SingleObject,
 };
 use serde::{Deserialize, Serialize};
 use std::marker::PhantomData;
@@ -54,9 +51,9 @@ impl<T: SimpleData + Sized + Serialize + for<'a> Deserialize<'a> + TypeUuid> Job
 
     fn enumerate_dependencies(
         &self,
-        input: &SimpleBincodeDataJobInput,
-        data_set: &DataSet,
-        schema_set: &SchemaSet,
+        _input: &SimpleBincodeDataJobInput,
+        _data_set: &DataSet,
+        _schema_set: &SchemaSet,
     ) -> JobEnumeratedDependencies {
         // No dependencies
         JobEnumeratedDependencies::default()
@@ -67,7 +64,7 @@ impl<T: SimpleData + Sized + Serialize + for<'a> Deserialize<'a> + TypeUuid> Job
         input: &SimpleBincodeDataJobInput,
         data_set: &DataSet,
         schema_set: &SchemaSet,
-        dependency_data: &HashMap<ObjectId, SingleObject>,
+        _dependency_data: &HashMap<ObjectId, SingleObject>,
         job_api: &dyn JobApi,
     ) -> SimpleBincodeDataJobOutput {
         let mut data_set_view = DataContainer::new_dataset(&data_set, schema_set, input.asset_id);

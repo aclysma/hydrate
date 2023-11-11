@@ -1,4 +1,4 @@
-use crate::{HashMap, HashMapKeys, HashSet, HashSetIter, ObjectId, OrderedSet, Schema, SchemaFingerprint, SchemaRecord, SingleObject, Value};
+use crate::{HashMap, HashMapKeys, HashSet, ObjectId, OrderedSet, Schema, SchemaFingerprint, SchemaRecord, SingleObject, Value};
 use crate::{NullOverride, SchemaSet};
 use std::hash::{Hash, Hasher};
 use std::path::{Path, PathBuf};

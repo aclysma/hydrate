@@ -1,22 +1,20 @@
 pub use super::*;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 use super::generated::{
-    MeshAdvMaterialAssetRecord, MeshAdvMaterialImportedDataRecord, MeshAdvMeshAssetRecord,
+    MeshAdvMaterialAssetRecord, MeshAdvMeshAssetRecord,
     MeshAdvMeshImportedDataRecord,
 };
-use hydrate_base::BuiltObjectMetadata;
 use hydrate_model::pipeline::{
-    AssetPlugin, Builder, BuilderRegistry, BuiltAsset, ImporterRegistry,
+    AssetPlugin, ImporterRegistry,
 };
 use hydrate_model::pipeline::{ImportedImportable, Importer, ScannedImportable};
 use hydrate_model::{
-    BuilderRegistryBuilder, DataContainerMut, DataSet, EditorModel, HashMap, ImportableObject,
-    ImporterRegistryBuilder, JobProcessorRegistryBuilder, ObjectId, ObjectLocation, ObjectName,
-    Record, SchemaLinker, SchemaSet, SingleObject, Value,
+    BuilderRegistryBuilder, DataContainerMut, HashMap, ImportableObject,
+    ImporterRegistryBuilder, JobProcessorRegistryBuilder,
+    Record, SchemaLinker, SchemaSet,
 };
-use serde::{Deserialize, Serialize};
-use type_uuid::{TypeUuid, TypeUuidDynamic};
+use type_uuid::TypeUuid;
 
 fn name_or_index(
     prefix: &str,
@@ -43,7 +41,7 @@ impl Importer for GltfImporter {
         &self,
         path: &Path,
         schema_set: &SchemaSet,
-        importer_registry: &ImporterRegistry,
+        _importer_registry: &ImporterRegistry,
     ) -> Vec<ScannedImportable> {
         let mesh_asset_type = schema_set
             .find_named_type(MeshAdvMeshAssetRecord::schema_name())
@@ -59,7 +57,7 @@ impl Importer for GltfImporter {
             .unwrap()
             .clone();
 
-        let (doc, buffers, images) = ::gltf::import(path).unwrap();
+        let (doc, _buffers, _images) = ::gltf::import(path).unwrap();
 
         let mut importables = Vec::default();
 
@@ -96,7 +94,7 @@ impl Importer for GltfImporter {
         //
         // Read the file
         //
-        let (doc, buffers, images) = ::gltf::import(path).unwrap();
+        let (doc, _buffers, _images) = ::gltf::import(path).unwrap();
 
         let mut imported_objects = HashMap::default();
 
@@ -107,11 +105,11 @@ impl Importer for GltfImporter {
                 // Create import data
                 //
                 let import_data = {
-                    let mut import_object =
+                    let import_object =
                         MeshAdvMeshImportedDataRecord::new_single_object(schema_set).unwrap();
-                    let mut import_data_container =
-                        DataContainerMut::new_single_object(&mut import_object, schema_set);
-                    let x = MeshAdvMeshImportedDataRecord::default();
+                    // let mut import_data_container =
+                    //     DataContainerMut::new_single_object(&mut import_object, schema_set);
+                    // let x = MeshAdvMeshImportedDataRecord::default();
                     import_object
                 };
 
@@ -120,11 +118,11 @@ impl Importer for GltfImporter {
                 //
 
                 let default_asset = {
-                    let mut default_asset_object =
+                    let default_asset_object =
                         MeshAdvMeshAssetRecord::new_single_object(schema_set).unwrap();
-                    let mut default_asset_data_container =
-                        DataContainerMut::new_single_object(&mut default_asset_object, schema_set);
-                    let x = MeshAdvMeshAssetRecord::default();
+                    // let mut default_asset_data_container =
+                    //     DataContainerMut::new_single_object(&mut default_asset_object, schema_set);
+                    // let x = MeshAdvMeshAssetRecord::default();
                     default_asset_object
                 };
 
@@ -257,10 +255,10 @@ pub struct GltfAssetPlugin;
 
 impl AssetPlugin for GltfAssetPlugin {
     fn setup(
-        schema_linker: &mut SchemaLinker,
+        _schema_linker: &mut SchemaLinker,
         importer_registry: &mut ImporterRegistryBuilder,
-        builder_registry: &mut BuilderRegistryBuilder,
-        job_processor_registry: &mut JobProcessorRegistryBuilder,
+        _builder_registry: &mut BuilderRegistryBuilder,
+        _job_processor_registry: &mut JobProcessorRegistryBuilder,
     ) {
         importer_registry.register_handler::<GltfImporter>();
     }

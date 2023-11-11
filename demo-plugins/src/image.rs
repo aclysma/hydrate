@@ -4,18 +4,17 @@ use std::path::Path;
 
 use super::generated::{GpuImageAssetRecord, GpuImageImportedDataRecord};
 use demo_types::image::*;
-use hydrate_base::BuiltObjectMetadata;
-use hydrate_model::pipeline::{AssetPlugin, Builder, BuiltAsset};
+use hydrate_model::pipeline::{AssetPlugin, Builder};
 use hydrate_model::pipeline::{ImportedImportable, Importer, ScannedImportable};
 use hydrate_model::{
-    job_system, BooleanField, BuilderRegistryBuilder, BytesField, DataContainer, DataContainerMut,
+    job_system, BuilderRegistryBuilder, DataContainer, DataContainerMut,
     DataSet, Field, HashMap, ImportableObject, ImporterRegistry, ImporterRegistryBuilder, JobApi,
-    JobEnumeratedDependencies, JobId, JobInput, JobOutput, JobProcessor, JobProcessorRegistry,
-    JobProcessorRegistryBuilder, NewJob, ObjectId, PropertyPath, Record, SchemaLinker, SchemaSet,
-    SingleObject, U32Field,
+    JobEnumeratedDependencies, JobInput, JobOutput, JobProcessor,
+    JobProcessorRegistryBuilder, ObjectId, PropertyPath, Record, SchemaLinker, SchemaSet,
+    SingleObject,
 };
 use serde::{Deserialize, Serialize};
-use type_uuid::{TypeUuid, TypeUuidDynamic};
+use type_uuid::TypeUuid;
 
 #[derive(TypeUuid, Default)]
 #[uuid = "e7c83acb-f73b-4b3c-b14d-fe5cc17c0fa3"]
@@ -28,9 +27,9 @@ impl Importer for GpuImageImporter {
 
     fn scan_file(
         &self,
-        path: &Path,
+        _path: &Path,
         schema_set: &SchemaSet,
-        importer_registry: &ImporterRegistry,
+        _importer_registry: &ImporterRegistry,
     ) -> Vec<ScannedImportable> {
         let asset_type = schema_set
             .find_named_type(GpuImageAssetRecord::schema_name())
@@ -72,7 +71,7 @@ impl Importer for GpuImageImporter {
                 .set(&mut import_data_container, image_bytes)
                 .unwrap();
             x.width().set(&mut import_data_container, width).unwrap();
-            x.height().set(&mut import_data_container, width).unwrap();
+            x.height().set(&mut import_data_container, height).unwrap();
             import_object
         };
 
@@ -133,8 +132,8 @@ impl JobProcessor for GpuImageJobProcessor {
     fn enumerate_dependencies(
         &self,
         input: &GpuImageJobInput,
-        data_set: &DataSet,
-        schema_set: &SchemaSet,
+        _data_set: &DataSet,
+        _schema_set: &SchemaSet,
     ) -> JobEnumeratedDependencies {
         // No dependencies
         JobEnumeratedDependencies {
@@ -251,7 +250,7 @@ pub struct GpuImageAssetPlugin;
 
 impl AssetPlugin for GpuImageAssetPlugin {
     fn setup(
-        schema_linker: &mut SchemaLinker,
+        _schema_linker: &mut SchemaLinker,
         importer_registry: &mut ImporterRegistryBuilder,
         builder_registry: &mut BuilderRegistryBuilder,
         job_processor_registry: &mut JobProcessorRegistryBuilder,

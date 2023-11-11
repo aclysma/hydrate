@@ -1,27 +1,22 @@
 pub use super::*;
 use glam::Vec3;
 use rafx_api::RafxResourceType;
-use std::path::Path;
 
 use crate::generated::MeshAdvMeshAssetRecord;
 use crate::generated_wrapper::MeshAdvMeshImportedDataRecord;
 use crate::push_buffer::PushBuffer;
 use demo_types::mesh_adv::*;
-use hydrate_base::{AssetUuid, BuiltObjectMetadata};
-use hydrate_model::pipeline::{AssetPlugin, Builder, BuiltAsset};
-use hydrate_model::pipeline::{ImportedImportable, Importer, ScannedImportable};
+use hydrate_model::pipeline::{AssetPlugin, Builder};
 use hydrate_model::{
-    job_system, BuilderRegistryBuilder, DataContainer, DataContainerMut, DataSet, Enum, HashMap,
+    job_system, BuilderRegistryBuilder, DataContainer, DataSet, HashMap,
     ImporterRegistryBuilder, JobApi, JobEnumeratedDependencies, JobInput, JobOutput, JobProcessor,
     JobProcessorRegistryBuilder, ObjectId, Record, SchemaLinker, SchemaSet, SingleObject,
 };
 use serde::{Deserialize, Serialize};
-use type_uuid::{TypeUuid, TypeUuidDynamic};
-use uuid::Uuid;
+use type_uuid::TypeUuid;
 
 use super::generated::{
-    MeshAdvBlendMethodEnum, MeshAdvMaterialAssetRecord, MeshAdvMaterialImportedDataRecord,
-    MeshAdvShadowMethodEnum,
+    MeshAdvMaterialAssetRecord
 };
 
 #[derive(Hash, Serialize, Deserialize)]
@@ -48,9 +43,9 @@ impl JobProcessor for MeshAdvMaterialJobProcessor {
 
     fn enumerate_dependencies(
         &self,
-        input: &MeshAdvMaterialJobInput,
-        data_set: &DataSet,
-        schema_set: &SchemaSet,
+        _input: &MeshAdvMaterialJobInput,
+        _data_set: &DataSet,
+        _schema_set: &SchemaSet,
     ) -> JobEnumeratedDependencies {
         // No dependencies
         JobEnumeratedDependencies::default()
@@ -61,7 +56,7 @@ impl JobProcessor for MeshAdvMaterialJobProcessor {
         input: &MeshAdvMaterialJobInput,
         data_set: &DataSet,
         schema_set: &SchemaSet,
-        dependency_data: &HashMap<ObjectId, SingleObject>,
+        _dependency_data: &HashMap<ObjectId, SingleObject>,
         job_api: &dyn JobApi,
     ) -> MeshAdvMaterialJobOutput {
         //
@@ -188,8 +183,8 @@ impl JobProcessor for MeshAdvMeshPreprocessJobProcessor {
     fn enumerate_dependencies(
         &self,
         input: &MeshAdvMeshPreprocessJobInput,
-        data_set: &DataSet,
-        schema_set: &SchemaSet,
+        _data_set: &DataSet,
+        _schema_set: &SchemaSet,
     ) -> JobEnumeratedDependencies {
         // No dependencies
         JobEnumeratedDependencies {
@@ -407,7 +402,7 @@ impl Builder for MeshAdvMeshBuilder {
         // Produce buffers for various vertex types
         // Some day I might want to look at the materials to decide what vertex buffers should exist
 
-        let preprocess_job_id = job_system::enqueue_job::<MeshAdvMeshPreprocessJobProcessor>(
+        let _preprocess_job_id = job_system::enqueue_job::<MeshAdvMeshPreprocessJobProcessor>(
             data_set,
             schema_set,
             job_api,
@@ -420,8 +415,8 @@ pub struct MeshAdvAssetPlugin;
 
 impl AssetPlugin for MeshAdvAssetPlugin {
     fn setup(
-        schema_linker: &mut SchemaLinker,
-        importer_registry: &mut ImporterRegistryBuilder,
+        _schema_linker: &mut SchemaLinker,
+        _importer_registry: &mut ImporterRegistryBuilder,
         builder_registry: &mut BuilderRegistryBuilder,
         job_processor_registry: &mut JobProcessorRegistryBuilder,
     ) {

@@ -1,32 +1,23 @@
 pub use super::*;
-use glam::Vec3;
 use std::path::{Path, PathBuf};
-use std::str::FromStr;
 
 use crate::b3f::B3FReader;
 use crate::generated::{
-    GpuBufferAssetRecord, MeshAdvIndexTypeEnum, MeshAdvMeshAssetRecord,
+    MeshAdvMeshAssetRecord,
     MeshAdvMeshImportedDataRecord,
 };
 use crate::push_buffer::PushBuffer;
-use demo_types::mesh_adv::*;
-use hydrate_base::BuiltObjectMetadata;
-use hydrate_model::pipeline::{AssetPlugin, Builder, BuiltAsset};
+use hydrate_model::pipeline::AssetPlugin;
 use hydrate_model::pipeline::{ImportedImportable, Importer, ScannedImportable};
 use hydrate_model::{
-    BuilderRegistryBuilder, DataContainer, DataContainerMut, DataSet, Enum, HashMap,
+    BuilderRegistryBuilder, DataContainerMut, HashMap,
     ImportableObject, ImporterId, ImporterRegistry, ImporterRegistryBuilder,
-    JobProcessorRegistryBuilder, ObjectId, ObjectRefField, Record, ReferencedSourceFile,
-    SchemaLinker, SchemaSet, SingleObject,
+    JobProcessorRegistryBuilder, Record, ReferencedSourceFile,
+    SchemaLinker, SchemaSet,
 };
 use serde::{Deserialize, Serialize};
-use type_uuid::{TypeUuid, TypeUuidDynamic};
+use type_uuid::TypeUuid;
 use uuid::Uuid;
-
-use super::generated::{
-    MeshAdvBlendMethodEnum, MeshAdvMaterialAssetRecord, MeshAdvMaterialImportedDataRecord,
-    MeshAdvShadowMethodEnum,
-};
 
 #[derive(Serialize, Deserialize, Debug)]
 enum MeshPartJsonIndexType {
@@ -84,7 +75,7 @@ impl Importer for BlenderMeshImporter {
         &self,
         path: &Path,
         schema_set: &SchemaSet,
-        importer_registry: &ImporterRegistry,
+        _importer_registry: &ImporterRegistry,
     ) -> Vec<ScannedImportable> {
         let mesh_adv_asset_type = schema_set
             .find_named_type(MeshAdvMeshAssetRecord::schema_name())
@@ -211,7 +202,7 @@ impl Importer for BlenderMeshImporter {
                 }
             };
 
-            let mut part_indices = PushBuffer::from_vec(&part_indices_u32).into_data();
+            let part_indices = PushBuffer::from_vec(&part_indices_u32).into_data();
 
             let material_index = *material_slots_lookup.get(&mesh_part.material).unwrap();
 
@@ -291,10 +282,10 @@ pub struct BlenderMeshAssetPlugin;
 
 impl AssetPlugin for BlenderMeshAssetPlugin {
     fn setup(
-        schema_linker: &mut SchemaLinker,
+        _schema_linker: &mut SchemaLinker,
         importer_registry: &mut ImporterRegistryBuilder,
-        builder_registry: &mut BuilderRegistryBuilder,
-        job_processor_registry: &mut JobProcessorRegistryBuilder,
+        _builder_registry: &mut BuilderRegistryBuilder,
+        _job_processor_registry: &mut JobProcessorRegistryBuilder,
     ) {
         importer_registry.register_handler::<BlenderMeshImporter>();
     }

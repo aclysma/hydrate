@@ -202,7 +202,7 @@ fn field_schema_to_field_type(
             field_schema_to_field_type(schema_set, x.item_type())?
         ), //return None,//format!("Vec<{}>", field_schema_to_rust_type(schema_set, x.item_type())),
         Schema::Map(x) => unimplemented!(), // return None,//format!("HashMap<{}, {}>", field_schema_to_rust_type(schema_set, x.key_type()), field_schema_to_rust_type(schema_set, x.value_type())),
-        Schema::ObjectRef(x) => "ObjectRefField".to_string(),
+        Schema::AssetRef(x) => "AssetRefField".to_string(),
         Schema::NamedType(x) => {
             let inner_type = schema_set.find_named_type_by_fingerprint(*x).unwrap();
 

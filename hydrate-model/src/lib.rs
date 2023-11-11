@@ -8,11 +8,14 @@ pub use json_storage::*;
 mod editor;
 pub use editor::*;
 
-mod object_path;
-pub use object_path::*;
+mod asset_path;
+pub use asset_path::*;
 
 mod data_source;
 pub use data_source::*;
 
 pub mod pipeline;
 pub use pipeline::*;
+
+#[cfg(test)]
+mod tests;

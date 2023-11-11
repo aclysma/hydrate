@@ -54,7 +54,7 @@ where
 //     dependencies: JobEnumeratedDependencies,
 //     // Hash of import data used to run the job. If our import data changed, the job results can't be
 //     // reused
-//     import_data_hashes: HashMap<ObjectId, u128>,
+//     import_data_hashes: HashMap<AssetId, u128>,
 //     // All the jobs this job produced. Even if we can reuse the results of this job, we will have
 //     // to check downstream jobs do not detect an input data change.
 //     downstream_jobs: Vec<QueuedJob>,

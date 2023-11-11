@@ -1,7 +1,7 @@
 use crate::edit_context::EditContext;
 use crate::{
-    BuildInfo, HashMap, HashSet, ImportInfo, ImporterId, NullOverride, AssetId, ObjectLocation,
-    ObjectName, ObjectSourceId, Schema, SchemaFingerprint, SchemaNamedType, SchemaSet,
+    BuildInfo, HashMap, HashSet, ImportInfo, ImporterId, NullOverride, AssetId, AssetLocation,
+    AssetName, AssetSourceId, Schema, SchemaFingerprint, SchemaNamedType, SchemaSet,
     SingleObject, Value,
 };
 use serde::{Deserialize, Serialize};
@@ -27,7 +27,7 @@ fn property_value_to_json(value: &Value) -> serde_json::Value {
         Value::StaticArray(_) => unimplemented!(),
         Value::DynamicArray(_) => unimplemented!(),
         Value::Map(_) => unimplemented!(),
-        Value::ObjectRef(x) => serde_json::Value::from(x.as_uuid().to_string()),
+        Value::AssetRef(x) => serde_json::Value::from(x.as_uuid().to_string()),
         Value::Record(_) => unimplemented!(),
         Value::Enum(x) => serde_json::Value::from(x.symbol_name().to_string()),
         Value::Fixed(_) => unimplemented!(),
@@ -54,7 +54,7 @@ fn json_to_property_value_with_schema(
         Schema::StaticArray(_) => unimplemented!(),
         Schema::DynamicArray(_) => unimplemented!(),
         Schema::Map(_) => unimplemented!(),
-        Schema::ObjectRef(_) => Value::ObjectRef(AssetId::from_uuid(
+        Schema::AssetRef(_) => Value::AssetRef(AssetId::from_uuid(
             Uuid::parse_str(value.as_str().unwrap()).unwrap()
         )),
         Schema::NamedType(x) => {
@@ -134,7 +134,7 @@ fn load_json_properties(
                 .unwrap();
             if parent_schema.is_nullable() && path_end == "null_override" {
                 let null_override = string_to_null_override_value(value.as_str().unwrap()).unwrap();
-                //edit_context.set_null_override(object_id, path, null_override);
+                //edit_context.set_null_override(asset_id, path, null_override);
                 log::trace!("set null override {} to {:?}", parent_path, null_override);
                 property_null_overrides.insert(parent_path.to_string(), null_override);
                 property_handled = true;
@@ -298,11 +298,11 @@ pub struct EditContextObjectJson {
 impl EditContextObjectJson {
     pub fn load_edit_context_object_from_string(
         edit_context: &mut EditContext,
-        override_object_id: Option<Uuid>,
+        override_asset_id: Option<Uuid>,
         // If the file doesn't claim a location and we don't override it, we will default to this
-        object_source_id: ObjectSourceId,
+        object_source_id: AssetSourceId,
         // If set, we use this instead of what the file says to use
-        override_object_location: Option<ObjectLocation>,
+        override_object_location: Option<AssetLocation>,
         json: &str,
     ) -> AssetId {
         let stored_object: EditContextObjectJson = serde_json::from_str(json).unwrap();
@@ -317,18 +317,18 @@ impl EditContextObjectJson {
                     .parent_dir
                     .unwrap_or(*object_source_id.uuid()),
             );
-            ObjectLocation::new(path_node_id)
+            AssetLocation::new(path_node_id)
         };
 
         let object_name = if stored_object.name.is_empty() {
-            ObjectName::empty()
+            AssetName::empty()
         } else {
-            ObjectName::new(stored_object.name)
+            AssetName::new(stored_object.name)
         };
 
-        let object_id = if let Some(override_object_id) = override_object_id {
+        let asset_id = if let Some(override_asset_id) = override_asset_id {
             // If an ID was provided, use it
-            AssetId::from_uuid(override_object_id)
+            AssetId::from_uuid(override_asset_id)
         } else {
             // Otherwise read it from the file. If there was no ID specified, generate a new one
             AssetId::from_uuid(stored_object.id.unwrap_or_else(Uuid::new_v4))
@@ -368,7 +368,7 @@ impl EditContextObjectJson {
             .to_build_info(edit_context.schema_set());
 
         edit_context.restore_object(
-            object_id,
+            asset_id,
             object_name,
             object_location,
             import_info,
@@ -381,18 +381,18 @@ impl EditContextObjectJson {
             dynamic_array_entries,
         );
 
-        object_id
+        asset_id
     }
 
     pub fn save_edit_context_object_to_string(
         edit_context: &EditContext,
-        object_id: AssetId,
+        asset_id: AssetId,
         // We only save the ID in the file if using path-based file system storage. Otherwise the
         // id is the file path/name
-        include_object_id_in_file: bool,
+        include_asset_id_in_file: bool,
         parent_dir: Option<Uuid>,
     ) -> String {
-        let obj = edit_context.objects().get(&object_id).unwrap();
+        let obj = edit_context.objects().get(&asset_id).unwrap();
 
         let json_properties = store_json_properties(
             obj.properties(),
@@ -407,14 +407,14 @@ impl EditContextObjectJson {
             .map(|x| EditContextObjectImportInfoJson::new(&x));
         let build_info = EditContextObjectBuildInfoJson::new(obj.build_info());
 
-        let written_object_id = if include_object_id_in_file {
-            Some(object_id.as_uuid())
+        let written_asset_id = if include_asset_id_in_file {
+            Some(asset_id.as_uuid())
         } else {
             None
         };
         let stored_object = EditContextObjectJson {
-            id: written_object_id,
-            name: obj.object_name().as_string().cloned().unwrap_or_default(),
+            id: written_asset_id,
+            name: obj.asset_name().as_string().cloned().unwrap_or_default(),
             parent_dir,
             schema: obj.schema().fingerprint().as_uuid(),
             schema_name: obj.schema().name().to_string(),

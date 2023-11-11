@@ -7,20 +7,20 @@ use imgui::im_str;
 pub fn draw_properties_window_single_select(
     ui: &imgui::Ui,
     app_state: &mut AppState,
-    object_id: AssetId,
+    asset_id: AssetId,
 ) {
-    ui.text(format!("Object: {}", object_id.as_uuid()));
+    ui.text(format!("Object: {}", asset_id.as_uuid()));
 
     let edit_context = app_state.db_state.editor_model.root_edit_context();
 
-    let name = edit_context.object_name(object_id);
-    let location = edit_context.object_location(object_id).unwrap();
+    let name = edit_context.object_name(asset_id);
+    let location = edit_context.object_location(asset_id).unwrap();
 
     ui.text(im_str!(
         "Name: {}",
         name.as_string().cloned().unwrap_or_default()
     ));
-    let import_info = edit_context.import_info(object_id);
+    let import_info = edit_context.import_info(asset_id);
     if let Some(import_info) = import_info {
         ui.text(im_str!(
             "Imported From: {}",
@@ -37,7 +37,7 @@ pub fn draw_properties_window_single_select(
     let is_generated = app_state
         .db_state
         .editor_model
-        .is_generated_asset(object_id);
+        .is_generated_asset(asset_id);
     if is_generated {
         ui.text(im_str!("This asset is generated from a source file and can't be modified unless it is persisted to disk. A new asset file will be created and source file changes will no longer affect it."));
     }
@@ -46,7 +46,7 @@ pub fn draw_properties_window_single_select(
         if ui.button(im_str!("Persist Asset")) {
             app_state
                 .action_queue
-                .queue_action(QueuedActions::PersistAssets(vec![object_id]));
+                .queue_action(QueuedActions::PersistAssets(vec![asset_id]));
         }
     }
 
@@ -59,10 +59,10 @@ pub fn draw_properties_window_single_select(
     ));
 
     if ui.button(im_str!("Force Rebuild")) {
-        app_state.asset_engine.queue_build_operation(object_id);
+        app_state.asset_engine.queue_build_operation(asset_id);
     }
 
-    if let Some(prototype) = edit_context.object_prototype(object_id) {
+    if let Some(prototype) = edit_context.object_prototype(asset_id) {
         if ui.button(im_str!(">>")) {
             let grid_state = &mut app_state.ui_state.asset_browser_state.grid_state;
             grid_state.first_selected = Some(prototype);
@@ -86,7 +86,7 @@ pub fn draw_properties_window_single_select(
 
     let read_only = is_generated;
     crate::ui::components::draw_ui_inspector::draw_inspector_nexdb(
-        ui, app_state, object_id, read_only,
+        ui, app_state, asset_id, read_only,
     );
 
     // if is_generated {

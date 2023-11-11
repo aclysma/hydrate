@@ -67,7 +67,7 @@ impl<T: SimpleData + Sized + Serialize + for<'a> Deserialize<'a> + TypeUuid> Job
         _dependency_data: &HashMap<AssetId, SingleObject>,
         job_api: &dyn JobApi,
     ) -> SimpleBincodeDataJobOutput {
-        let mut data_set_view = DataContainer::new_dataset(&data_set, schema_set, input.asset_id);
+        let mut data_set_view = DataContainer::from_dataset(&data_set, schema_set, input.asset_id);
 
         //
         // Serialize and return

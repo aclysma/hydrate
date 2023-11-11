@@ -6,7 +6,7 @@ use hydrate_model::pipeline::{ImportedImportable, Importer, ScannedImportable};
 use hydrate_model::{
     BuilderRegistryBuilder, DataContainerMut, Enum, HashMap,
     ImportableObject, ImporterId, ImporterRegistry, ImporterRegistryBuilder,
-    JobProcessorRegistryBuilder, ObjectRefField, Record, ReferencedSourceFile,
+    JobProcessorRegistryBuilder, AssetRefField, Record, ReferencedSourceFile,
     SchemaLinker, SchemaSet,
 };
 use serde::{Deserialize, Serialize};
@@ -170,18 +170,18 @@ impl Importer for BlenderMaterialImporter {
             fn try_find_file_reference(
                 importable_objects: &HashMap<Option<String>, ImportableObject>,
                 data_container: &mut DataContainerMut,
-                ref_field: ObjectRefField,
+                ref_field: AssetRefField,
                 path_as_string: &Option<PathBuf>,
             ) {
                 if let Some(path_as_string) = path_as_string {
-                    if let Some(referenced_object_id) = importable_objects
+                    if let Some(referenced_asset_id) = importable_objects
                         .get(&None)
                         .unwrap()
                         .referenced_paths
                         .get(path_as_string)
                     {
                         ref_field
-                            .set(data_container, *referenced_object_id)
+                            .set(data_container, *referenced_asset_id)
                             .unwrap();
                     }
                 }

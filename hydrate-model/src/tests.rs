@@ -1,17 +1,17 @@
 use crate::edit_context::EditContext;
 use crate::{
-    NullOverride, ObjectLocation, ObjectPath, ObjectSourceId, OverrideBehavior, SchemaDefType,
+    NullOverride, AssetLocation, AssetPath, AssetSourceId, OverrideBehavior, SchemaDefType,
     SchemaLinker, SchemaLinkerResult, SchemaSet, UndoStack, Value,
 };
 use std::sync::Arc;
 use uuid::Uuid;
 
-fn object_location() -> ObjectLocation {
-    ObjectLocation::new(
-        ObjectSourceId::new_with_uuid(
+fn object_location() -> AssetLocation {
+    AssetLocation::new(
+        AssetSourceId::new_with_uuid(
             Uuid::parse_str("d9597882-c065-426a-bc8d-4e36b005e30f").unwrap(),
         ),
-        ObjectPath::new("test.nxt"),
+        AssetPath::new("test.nxt"),
     )
 }
 

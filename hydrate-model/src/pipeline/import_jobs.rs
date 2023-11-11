@@ -28,7 +28,8 @@ pub struct ImportData {
 
 // An in-flight import operation we want to perform
 struct ImportOp {
-    object_ids: HashMap<Option<String>, AssetId>,
+    // The string is a key is an importable name
+    asset_ids: HashMap<Option<String>, AssetId>,
     importer_id: ImporterId,
     path: PathBuf,
     assets_to_regenerate: HashSet<AssetId>,
@@ -84,13 +85,13 @@ impl ImportJobs {
 
     pub fn queue_import_operation(
         &mut self,
-        object_ids: HashMap<Option<String>, AssetId>,
+        asset_ids: HashMap<Option<String>, AssetId>,
         importer_id: ImporterId,
         path: PathBuf,
         assets_to_regenerate: HashSet<AssetId>,
     ) {
         self.import_operations.push(ImportOp {
-            object_ids,
+            asset_ids,
             importer_id,
             path,
             assets_to_regenerate,
@@ -100,9 +101,9 @@ impl ImportJobs {
 
     pub fn load_import_data_hash(
         &self,
-        object_id: AssetId,
+        asset_id: AssetId,
     ) -> ImportDataMetadataHash {
-        let path = uuid_to_path(&self.root_path, object_id.as_uuid(), "if");
+        let path = uuid_to_path(&self.root_path, asset_id.as_uuid(), "if");
         //println!("LOAD DATA HASH PATH {:?}", path);
         let metadata = path.metadata().unwrap();
         let metadata_hash = hash_file_metadata(&metadata);
@@ -112,9 +113,9 @@ impl ImportJobs {
     pub fn load_import_data(
         &self,
         schema_set: &SchemaSet,
-        object_id: AssetId,
+        asset_id: AssetId,
     ) -> ImportData {
-        let path = uuid_to_path(&self.root_path, object_id.as_uuid(), "if");
+        let path = uuid_to_path(&self.root_path, asset_id.as_uuid(), "if");
         println!("LOAD DATA PATH {:?}", path);
         let str = std::fs::read_to_string(&path).unwrap();
         let metadata = path.metadata().unwrap();
@@ -144,7 +145,7 @@ impl ImportJobs {
     //     for file_update in file_updates {
     //         if let Ok(relative) = file_update.strip_prefix(&self.root_path) {
     //             if let Some(uuid) = path_to_uuid(&self.root_path, file_update) {
-    //                 let object_id = ObjectId(uuid.as_u128());
+    //                 let asset_id = ObjectId(uuid.as_u128());
     //
     //             }
     //         }
@@ -164,15 +165,15 @@ impl ImportJobs {
             let importer = importer_registry.importer(importer_id).unwrap();
 
             let mut importable_objects = HashMap::<Option<String>, ImportableObject>::default();
-            for (name, object_id) in &import_op.object_ids {
+            for (name, asset_id) in &import_op.asset_ids {
                 let referenced_paths = editor_model
                     .root_edit_context()
-                    .resolve_all_file_references(*object_id)
+                    .resolve_all_file_references(*asset_id)
                     .unwrap_or_default();
                 importable_objects.insert(
                     name.clone(),
                     ImportableObject {
-                        id: *object_id,
+                        id: *asset_id,
                         referenced_paths,
                     },
                 );
@@ -186,20 +187,20 @@ impl ImportJobs {
 
             //TODO: Validate that all requested importables exist?
             for (name, imported_object) in imported_objects {
-                if let Some(object_id) = import_op.object_ids.get(&name) {
+                if let Some(asset_id) = import_op.asset_ids.get(&name) {
                     let type_name = editor_model
                         .root_edit_context()
                         .data_set()
-                        .object_schema(*object_id)
+                        .asset_schema(*asset_id)
                         .unwrap()
                         .name();
                     println!("importing {:?} {:?} {:?}", import_op.path, name, type_name);
 
-                    if import_op.assets_to_regenerate.contains(object_id) {
+                    if import_op.assets_to_regenerate.contains(asset_id) {
                         if let Some(default_asset) = &imported_object.default_asset {
                             editor_model
                                 .root_edit_context_mut()
-                                .init_from_single_object(*object_id, default_asset)
+                                .init_from_single_object(*asset_id, default_asset)
                                 .unwrap();
                         }
                     }
@@ -207,7 +208,7 @@ impl ImportJobs {
                     if let Some(import_data) = &imported_object.import_data {
                         let data = SingleObjectJson::save_single_object_to_string(import_data)
                             .into_bytes();
-                        let path = uuid_to_path(&self.root_path, object_id.as_uuid(), "if");
+                        let path = uuid_to_path(&self.root_path, asset_id.as_uuid(), "if");
 
                         if let Some(parent) = path.parent() {
                             std::fs::create_dir_all(parent).unwrap();
@@ -240,7 +241,7 @@ impl ImportJobs {
                         let metadata_hash = hash_file_metadata(&metadata);
                         let import_job = self
                             .import_jobs
-                            .entry(*object_id)
+                            .entry(*asset_id)
                             .or_insert_with(|| ImportJob::new());
                         import_job.import_data_exists = true;
                         import_job.imported_data_hash = Some(metadata_hash);
@@ -273,9 +274,9 @@ impl ImportJobs {
             if let Ok(file) = file {
                 //println!("import file {:?}", file);
                 let import_file_uuid = path_to_uuid(root_path, file.path()).unwrap();
-                let object_id = AssetId::from_uuid(import_file_uuid);
+                let asset_id = AssetId::from_uuid(import_file_uuid);
                 let job = import_jobs
-                    .entry(object_id)
+                    .entry(asset_id)
                     .or_insert_with(|| ImportJob::new());
 
                 let file_metadata = file.metadata().unwrap();
@@ -290,13 +291,13 @@ impl ImportJobs {
         // Scan assets to find any asset that has an associated importer
         //
         let data_set = editor_model.root_edit_context().data_set();
-        for object_id in data_set.all_objects() {
-            if let Some(import_info) = data_set.import_info(*object_id) {
+        for asset_id in data_set.all_assets() {
+            if let Some(import_info) = data_set.import_info(*asset_id) {
                 let importer_id = import_info.importer_id();
                 let importer = importer_registry.importer(importer_id);
                 if importer.is_some() {
                     let job = import_jobs
-                        .entry(*object_id)
+                        .entry(*asset_id)
                         .or_insert_with(|| ImportJob::new());
                     job.asset_exists = true;
                 }
@@ -305,7 +306,7 @@ impl ImportJobs {
 
         import_jobs
 
-        // for (object_id, job) in import_jobs {
+        // for (asset_id, job) in import_jobs {
         //     if job.asset_exists && !job.import_data_exists {
         //         // We need to re-import the data
         //     }

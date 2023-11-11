@@ -1,4 +1,4 @@
-use hydrate_model::{HashSet, AssetId, ObjectLocation};
+use hydrate_model::{HashSet, AssetId, AssetLocation};
 
 #[derive(PartialEq)]
 pub enum ActiveToolRegion {
@@ -8,7 +8,7 @@ pub enum ActiveToolRegion {
 
 #[derive(Default)]
 pub struct AssetBrowserTreeState {
-    pub selected_items: HashSet<ObjectLocation>,
+    pub selected_items: HashSet<AssetLocation>,
 }
 
 #[derive(Default)]

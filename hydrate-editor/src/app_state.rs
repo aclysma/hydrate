@@ -3,7 +3,7 @@ use crate::ui::modals::{ConfirmQuitWithoutSavingModal, ImportFilesModal};
 use crate::ui_state::UiState;
 use hydrate_model::import_util::ImportToQueue;
 use hydrate_model::pipeline::AssetEngine;
-use hydrate_model::{EndContextBehavior, AssetId, ObjectLocation};
+use hydrate_model::{EndContextBehavior, AssetId, AssetLocation};
 use std::fmt::Formatter;
 use std::path::PathBuf;
 use std::sync::mpsc::{Receiver, Sender};
@@ -19,7 +19,7 @@ pub enum QueuedActions {
     QuitNoConfirm,
     HandleDroppedFiles(Vec<PathBuf>),
     TryBeginModalAction(Box<dyn ModalAction>),
-    MoveObjects(Vec<AssetId>, ObjectLocation),
+    MoveAssets(Vec<AssetId>, AssetLocation),
     PersistAssets(Vec<AssetId>),
     //RevertAll,
     //ResetWindowLayout,
@@ -181,17 +181,17 @@ impl AppState {
                         .editor_model
                         .commit_all_pending_undo_contexts();
 
-                    let mut unsaved_objects = self
+                    let mut unsaved_assets = self
                         .db_state
                         .editor_model
                         .root_edit_context()
-                        .modified_objects()
+                        .modified_assets()
                         .clone();
-                    unsaved_objects.retain(|x| !self.db_state.editor_model.is_generated_asset(*x));
+                    unsaved_assets.retain(|x| !self.db_state.editor_model.is_generated_asset(*x));
 
-                    if !unsaved_objects.is_empty() {
+                    if !unsaved_assets.is_empty() {
                         self.try_set_modal_action(ConfirmQuitWithoutSavingModal::new(
-                            unsaved_objects,
+                            unsaved_assets,
                         ));
                     } else {
                         self.ready_to_quit = true;
@@ -209,23 +209,23 @@ impl AppState {
                         self.modal_action = Some(modal_action);
                     }
                 }
-                QueuedActions::MoveObjects(objects, destination) => {
+                QueuedActions::MoveAssets(assets, destination) => {
                     self.db_state
                         .editor_model
                         .root_edit_context_mut()
                         .with_undo_context("MoveObjects", |edit_context| {
-                            for object in objects {
-                                edit_context.set_object_location(object, destination.clone());
+                            for asset in assets {
+                                edit_context.set_object_location(asset, destination.clone());
                             }
 
                             EndContextBehavior::Finish
                         });
                 }
-                QueuedActions::PersistAssets(objects) => {
-                    for object_id in objects {
+                QueuedActions::PersistAssets(assets) => {
+                    for asset_id in assets {
                         self.db_state
                             .editor_model
-                            .persist_generated_asset(object_id)
+                            .persist_generated_asset(asset_id)
                     }
                 }
             }

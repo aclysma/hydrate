@@ -423,15 +423,15 @@ impl StringField {
     }
 }
 
-pub struct ObjectRefField(pub PropertyPath);
+pub struct AssetRefField(pub PropertyPath);
 
-impl Field for ObjectRefField {
+impl Field for AssetRefField {
     fn new(property_path: PropertyPath) -> Self {
-        ObjectRefField(property_path)
+        AssetRefField(property_path)
     }
 }
 
-impl ObjectRefField {
+impl AssetRefField {
     pub fn get(
         &self,
         data_container: &DataContainer,
@@ -439,7 +439,7 @@ impl ObjectRefField {
         Ok(data_container
             .resolve_property(self.0.path())
             .ok_or(DataSetError::PathParentIsNull)?
-            .as_object_ref()
+            .as_asset_ref()
             .unwrap())
     }
 
@@ -448,6 +448,6 @@ impl ObjectRefField {
         data_container: &mut DataContainerMut,
         value: AssetId,
     ) -> DataSetResult<()> {
-        data_container.set_property_override(self.0.path(), Value::ObjectRef(value))
+        data_container.set_property_override(self.0.path(), Value::AssetRef(value))
     }
 }

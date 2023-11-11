@@ -143,19 +143,19 @@ impl AssetEngine {
         //
         let mut combined_build_hash = 0;
         let mut object_hashes = HashMap::default();
-        for (object_id, object) in editor_model.root_edit_context().objects() {
+        for (asset_id, object) in editor_model.root_edit_context().objects() {
             let hash = editor_model
                 .root_edit_context()
                 .data_set()
-                .hash_properties(*object_id)
+                .hash_properties(*asset_id)
                 .unwrap();
 
             if !editor_model.is_path_node_or_root(object.schema().fingerprint()) {
-                object_hashes.insert(*object_id, hash);
+                object_hashes.insert(*asset_id, hash);
             }
 
             let mut inner_hasher = siphasher::sip::SipHasher::default();
-            object_id.hash(&mut inner_hasher);
+            asset_id.hash(&mut inner_hasher);
             hash.hash(&mut inner_hasher);
             combined_build_hash = combined_build_hash ^ inner_hasher.finish();
         }
@@ -224,13 +224,13 @@ impl AssetEngine {
 
     pub fn queue_import_operation(
         &mut self,
-        object_ids: HashMap<Option<String>, AssetId>,
+        asset_ids: HashMap<Option<String>, AssetId>,
         importer_id: ImporterId,
         path: PathBuf,
         assets_to_regenerate: HashSet<AssetId>,
     ) {
         self.import_jobs.queue_import_operation(
-            object_ids,
+            asset_ids,
             importer_id,
             path,
             assets_to_regenerate,
@@ -239,8 +239,8 @@ impl AssetEngine {
 
     pub fn queue_build_operation(
         &mut self,
-        object_id: AssetId,
+        asset_id: AssetId,
     ) {
-        self.build_jobs.queue_build_operation(object_id);
+        self.build_jobs.queue_build_operation(asset_id);
     }
 }

@@ -11,15 +11,15 @@ pub enum AssetBrowserGridPayload {
 pub fn asset_browser_grid_objects_drag_source(
     ui: &imgui::Ui,
     grid_state: &AssetBrowserGridState,
-    dragged_object: AssetId,
+    dragged_asset: AssetId,
 ) {
     let payload = if grid_state.selected_items.len() > 1
-        && grid_state.selected_items.contains(&dragged_object)
+        && grid_state.selected_items.contains(&dragged_asset)
     {
         // If it's multiple objects, have the receiver look at selected objects
         AssetBrowserGridPayload::AllSelected
     } else {
-        AssetBrowserGridPayload::Single(dragged_object)
+        AssetBrowserGridPayload::Single(dragged_asset)
     };
 
     imgui::DragDropSource::new(im_str!("ASSET_BROWSER_GRID_SELECTION")).begin_payload(ui, payload);
@@ -35,8 +35,8 @@ pub fn asset_browser_grid_objects_drag_target_printf(
             imgui::DragDropFlags::empty(),
         ) {
             match payload.unwrap().data {
-                AssetBrowserGridPayload::Single(object_id) => {
-                    println!("received payload {:?}", object_id.as_uuid());
+                AssetBrowserGridPayload::Single(asset_id) => {
+                    println!("received payload {:?}", asset_id.as_uuid());
                 }
                 AssetBrowserGridPayload::AllSelected => {
                     println!("received payload {:?}", grid_state.selected_items);

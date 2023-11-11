@@ -51,19 +51,19 @@ pub enum DataContainer<'a> {
 }
 
 impl<'a> DataContainer<'a> {
-    pub fn new_single_object(
+    pub fn from_single_object(
         single_object: &'a SingleObject,
         schema_set: &'a SchemaSet,
     ) -> Self {
         DataContainer::SingleObject(single_object, schema_set)
     }
 
-    pub fn new_dataset(
+    pub fn from_dataset(
         data_set: &'a DataSet,
         schema_set: &'a SchemaSet,
-        object_id: AssetId,
+        asset_id: AssetId,
     ) -> Self {
-        DataContainer::DataSet(data_set, schema_set, object_id)
+        DataContainer::DataSet(data_set, schema_set, asset_id)
     }
 
     pub fn schema_set(&self) -> &SchemaSet {
@@ -78,8 +78,8 @@ impl<'a> DataContainer<'a> {
         path: impl AsRef<str>,
     ) -> Option<&Value> {
         match *self {
-            DataContainer::DataSet(data_set, schema_set, object_id) => {
-                data_set.resolve_property(schema_set, object_id, path)
+            DataContainer::DataSet(data_set, schema_set, asset_id) => {
+                data_set.resolve_property(schema_set, asset_id, path)
             }
             DataContainer::SingleObject(single_object, schema_set) => {
                 single_object.resolve_property(schema_set, path)
@@ -92,8 +92,8 @@ impl<'a> DataContainer<'a> {
         path: impl AsRef<str>,
     ) -> Option<NullOverride> {
         match *self {
-            DataContainer::DataSet(data_set, schema_set, object_id) => {
-                data_set.get_null_override(schema_set, object_id, path)
+            DataContainer::DataSet(data_set, schema_set, asset_id) => {
+                data_set.get_null_override(schema_set, asset_id, path)
             }
             DataContainer::SingleObject(single_object, schema_set) => {
                 single_object.get_null_override(schema_set, path)
@@ -106,8 +106,8 @@ impl<'a> DataContainer<'a> {
         path: impl AsRef<str>,
     ) -> Option<bool> {
         match *self {
-            DataContainer::DataSet(data_set, schema_set, object_id) => {
-                data_set.resolve_is_null(schema_set, object_id, path)
+            DataContainer::DataSet(data_set, schema_set, asset_id) => {
+                data_set.resolve_is_null(schema_set, asset_id, path)
             }
             DataContainer::SingleObject(single_object, schema_set) => {
                 single_object.resolve_is_null(schema_set, path)
@@ -120,8 +120,8 @@ impl<'a> DataContainer<'a> {
         path: impl AsRef<str>,
     ) -> Box<[Uuid]> {
         match *self {
-            DataContainer::DataSet(data_set, schema_set, object_id) => {
-                data_set.resolve_dynamic_array(schema_set, object_id, path)
+            DataContainer::DataSet(data_set, schema_set, asset_id) => {
+                data_set.resolve_dynamic_array(schema_set, asset_id, path)
             }
             DataContainer::SingleObject(single_object, schema_set) => {
                 single_object.resolve_dynamic_array(schema_set, path)
@@ -134,8 +134,8 @@ impl<'a> DataContainer<'a> {
         path: impl AsRef<str>,
     ) -> OverrideBehavior {
         match *self {
-            DataContainer::DataSet(data_set, schema_set, object_id) => {
-                data_set.get_override_behavior(schema_set, object_id, path)
+            DataContainer::DataSet(data_set, schema_set, asset_id) => {
+                data_set.get_override_behavior(schema_set, asset_id, path)
             }
             DataContainer::SingleObject(_, _) => OverrideBehavior::Replace,
         }
@@ -162,9 +162,9 @@ impl<'a> DataContainerMut<'a> {
     pub fn new_dataset(
         data_set: &'a mut DataSet,
         schema_set: &'a SchemaSet,
-        object_id: AssetId,
+        asset_id: AssetId,
     ) -> Self {
-        DataContainerMut::DataSet(data_set, schema_set, object_id)
+        DataContainerMut::DataSet(data_set, schema_set, asset_id)
     }
 
     fn read(&'a self) -> DataContainer<'a> {
@@ -179,8 +179,8 @@ impl<'a> DataContainerMut<'a> {
         path: impl AsRef<str>,
     ) -> Option<&Value> {
         match self {
-            DataContainerMut::DataSet(data_set, schema_set, object_id) => {
-                data_set.resolve_property(schema_set, *object_id, path)
+            DataContainerMut::DataSet(data_set, schema_set, asset_id) => {
+                data_set.resolve_property(schema_set, *asset_id, path)
             }
             DataContainerMut::SingleObject(single_object, schema_set) => {
                 single_object.resolve_property(schema_set, path)
@@ -201,8 +201,8 @@ impl<'a> DataContainerMut<'a> {
         null_override: NullOverride,
     ) {
         match self {
-            DataContainerMut::DataSet(data_set, schema_set, object_id) => {
-                data_set.set_null_override(schema_set, *object_id, path, null_override)
+            DataContainerMut::DataSet(data_set, schema_set, asset_id) => {
+                data_set.set_null_override(schema_set, *asset_id, path, null_override)
             }
             DataContainerMut::SingleObject(single_object, schema_set) => {
                 single_object.set_null_override(schema_set, path, null_override)
@@ -215,8 +215,8 @@ impl<'a> DataContainerMut<'a> {
         path: impl AsRef<str>,
     ) {
         match self {
-            DataContainerMut::DataSet(data_set, schema_set, object_id) => {
-                data_set.remove_null_override(schema_set, *object_id, path)
+            DataContainerMut::DataSet(data_set, schema_set, asset_id) => {
+                data_set.remove_null_override(schema_set, *asset_id, path)
             }
             DataContainerMut::SingleObject(single_object, schema_set) => {
                 single_object.remove_null_override(schema_set, path)
@@ -251,8 +251,8 @@ impl<'a> DataContainerMut<'a> {
         value: Value,
     ) -> DataSetResult<()> {
         match self {
-            DataContainerMut::DataSet(data_set, schema_set, object_id) => {
-                data_set.set_property_override(schema_set, *object_id, path, value)
+            DataContainerMut::DataSet(data_set, schema_set, asset_id) => {
+                data_set.set_property_override(schema_set, *asset_id, path, value)
             }
             DataContainerMut::SingleObject(single_object, schema_set) => {
                 single_object.set_property_override(schema_set, path, value)
@@ -266,8 +266,8 @@ impl<'a> DataContainerMut<'a> {
         behavior: OverrideBehavior,
     ) {
         match self {
-            DataContainerMut::DataSet(data_set, schema_set, object_id) => {
-                data_set.set_override_behavior(schema_set, *object_id, path, behavior)
+            DataContainerMut::DataSet(data_set, schema_set, asset_id) => {
+                data_set.set_override_behavior(schema_set, *asset_id, path, behavior)
             }
             DataContainerMut::SingleObject(_, _) => {}
         }
@@ -278,8 +278,8 @@ impl<'a> DataContainerMut<'a> {
         path: impl AsRef<str>,
     ) -> Uuid {
         match self {
-            DataContainerMut::DataSet(data_set, schema_set, object_id) => {
-                data_set.add_dynamic_array_override(schema_set, *object_id, path)
+            DataContainerMut::DataSet(data_set, schema_set, asset_id) => {
+                data_set.add_dynamic_array_override(schema_set, *asset_id, path)
             }
             DataContainerMut::SingleObject(single_object, schema_set) => {
                 single_object.add_dynamic_array_override(schema_set, path)
@@ -291,7 +291,7 @@ impl<'a> DataContainerMut<'a> {
 // pub struct SingleObjectView<'a> {
 //     data_set: &'a SingleObject,
 //     schema_set: &'a SchemaSet,
-//     object_id: ObjectId,
+//     asset_id: AssetId,
 //     property_path_stack: Vec<String>,
 //     //object_schema: SchemaRecord,
 //     //schema_record_stack: Vec<Schema>,
@@ -300,15 +300,15 @@ impl<'a> DataContainerMut<'a> {
 // }
 //
 // impl<'a> SingleObjectView<'a> {
-//     pub fn new(data_set: &'a SingleObject, schema_set: &'a SchemaSet, object_id: ObjectId) -> Self {
-//         //let object_schema = data_set.object_schema(object_id).unwrap().clone();
+//     pub fn new(data_set: &'a SingleObject, schema_set: &'a SchemaSet, asset_id: AssetId) -> Self {
+//         //let object_schema = data_set.object_schema(asset_id).unwrap().clone();
 //         //object_schema.fin
 //         //let schema_record_stack = vec![Schema::NamedType()object_schema.clone()];
 //
 //         SingleObjectView {
 //             data_set,
 //             schema_set,
-//             object_id,
+//             asset_id,
 //             property_path_stack: Default::default(),
 //             //object_schema,
 //             property_path: Default::default()
@@ -359,7 +359,7 @@ pub struct DataSetView<'a> {
 
 impl<'a> DataSetView<'a> {
     pub fn new(data_container: DataContainer<'a>) -> Self {
-        //let object_schema = data_set.object_schema(object_id).unwrap().clone();
+        //let object_schema = data_set.object_schema(asset_id).unwrap().clone();
         //object_schema.fin
         //let schema_record_stack = vec![Schema::NamedType()object_schema.clone()];
 
@@ -434,7 +434,7 @@ impl<'a> DataSetView<'a> {
 pub struct DataSetViewMut<'a> {
     data_container: DataContainerMut<'a>,
     //schema_set: &'a SchemaSet,
-    //object_id: ObjectId,
+    //asset_id: AssetId,
     property_path_stack: Vec<String>,
     //object_schema: SchemaRecord,
     //schema_record_stack: Vec<Schema>,

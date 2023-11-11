@@ -4,7 +4,7 @@ use crate::ui_state::UiState;
 use hydrate_model::import_util::ImportToQueue;
 use hydrate_model::pipeline::Importer;
 use hydrate_model::pipeline::{AssetEngine, ImporterRegistry};
-use hydrate_model::{HashSet, LocationTreeNode, AssetId, ObjectLocation};
+use hydrate_model::{HashSet, LocationTreeNode, AssetId, AssetLocation};
 use imgui::sys::ImVec2;
 use imgui::{im_str, PopupModal, TreeNodeFlags};
 use std::path::{Path, PathBuf};
@@ -12,7 +12,7 @@ use std::path::{Path, PathBuf};
 pub struct ImportFilesModal {
     finished_first_draw: bool,
     files_to_import: Vec<PathBuf>,
-    selected_import_location: ObjectLocation,
+    selected_import_location: AssetLocation,
 }
 
 impl ImportFilesModal {
@@ -51,7 +51,7 @@ impl ImportFilesModal {
         ImportFilesModal {
             finished_first_draw: false,
             files_to_import: all_files_to_import.into_iter().collect(),
-            selected_import_location: ObjectLocation::null(),
+            selected_import_location: AssetLocation::null(),
         }
     }
 }
@@ -72,7 +72,7 @@ pub fn path_tree_node(
     ui_state: &mut UiState,
     child_name: &str,
     tree_node: &LocationTreeNode,
-    selected_import_location: &mut ObjectLocation,
+    selected_import_location: &mut AssetLocation,
 ) {
     let id = im_str!("{}", tree_node.location.path_node_id().as_uuid());
     let is_selected = *selected_import_location == tree_node.location;
@@ -133,7 +133,7 @@ pub fn path_tree(
     ui: &imgui::Ui,
     db_state: &mut DbState,
     ui_state: &mut UiState,
-    selected_import_location: &mut ObjectLocation,
+    selected_import_location: &mut AssetLocation,
 ) {
     db_state.editor_model.refresh_tree_node_cache();
     let tree = db_state.editor_model.cached_location_tree();
@@ -155,7 +155,7 @@ fn recursively_gather_import_operations_and_create_assets(
     importer: &Box<dyn Importer>,
     db_state: &mut DbState,
     asset_engine: &AssetEngine,
-    selected_import_location: &ObjectLocation,
+    selected_import_location: &AssetLocation,
     imports_to_queue: &mut Vec<ImportToQueue>,
 ) -> Option<AssetId> {
     hydrate_model::pipeline::import_util::recursively_gather_import_operations_and_create_assets(
@@ -172,8 +172,8 @@ fn recursively_gather_import_operations_and_create_assets(
     // // 2. Create/Find objects for all the things we want to import
     // // 3. Enqueue the import operation
     // //
-    // let mut object_ids = HashMap::default();
-    // let mut default_importable_object_id = None;
+    // let mut asset_ids = HashMap::default();
+    // let mut default_importable_asset_id = None;
     //
     // let scanned_importables = importer.scan_file(file, db_state.editor_model.schema_set());
     // for scanned_importable in &scanned_importables {
@@ -206,7 +206,7 @@ fn recursively_gather_import_operations_and_create_assets(
     //         ObjectName::empty()
     //     };
     //
-    //     let mut referenced_source_file_object_ids = Vec::default();
+    //     let mut referenced_source_file_asset_ids = Vec::default();
     //
     //     //TODO: Check referenced source files to find existing imported assets or import referenced files
     //     for referenced_source_file in &scanned_importable.file_references {
@@ -222,16 +222,16 @@ fn recursively_gather_import_operations_and_create_assets(
     //
     //         // Does it already exist?
     //         let mut found = None;
-    //         for object_id in db_state.editor_model.root_edit_context().all_objects() {
+    //         for asset_id in db_state.editor_model.root_edit_context().all_objects() {
     //             if let Some(import_info) = db_state
     //                 .editor_model
     //                 .root_edit_context()
-    //                 .import_info(*object_id)
+    //                 .import_info(*asset_id)
     //             {
     //                 if import_info.importable_name().is_empty()
     //                     && import_info.source_file_path() == referenced_file_absolute_path
     //                 {
-    //                     found = Some(*object_id);
+    //                     found = Some(*asset_id);
     //                 }
     //             }
     //         }
@@ -251,15 +251,15 @@ fn recursively_gather_import_operations_and_create_assets(
     //             );
     //         }
     //
-    //         referenced_source_file_object_ids.push(found);
+    //         referenced_source_file_asset_ids.push(found);
     //     }
     //
     //     assert_eq!(
-    //         referenced_source_file_object_ids.len(),
+    //         referenced_source_file_asset_ids.len(),
     //         scanned_importable.file_references.len()
     //     );
     //
-    //     let object_id = db_state.editor_model.root_edit_context_mut().new_object(
+    //     let asset_id = db_state.editor_model.root_edit_context_mut().new_object(
     //         &object_name,
     //         selected_import_location,
     //         &scanned_importable.asset_type,
@@ -268,34 +268,34 @@ fn recursively_gather_import_operations_and_create_assets(
     //     db_state
     //         .editor_model
     //         .root_edit_context_mut()
-    //         .set_import_info(object_id, import_info.clone());
+    //         .set_import_info(asset_id, import_info.clone());
     //
     //     for (k, v) in scanned_importable
     //         .file_references
     //         .iter()
-    //         .zip(referenced_source_file_object_ids)
+    //         .zip(referenced_source_file_asset_ids)
     //     {
     //         if let Some(v) = v {
     //             db_state
     //                 .editor_model
     //                 .root_edit_context_mut()
-    //                 .set_file_reference_override(object_id, k.path.clone(), v);
+    //                 .set_file_reference_override(asset_id, k.path.clone(), v);
     //         }
     //     }
     //
-    //     object_ids.insert(scanned_importable.name.clone(), object_id);
+    //     asset_ids.insert(scanned_importable.name.clone(), asset_id);
     //
     //     //db_state.editor_model.root_edit_context().build_info_mut().
     //
     //     if scanned_importable.name.is_none() {
-    //         default_importable_object_id = Some(object_id);
+    //         default_importable_asset_id = Some(asset_id);
     //     }
     // }
     //
-    // //asset_engine.queue_import_operation(object_ids, importer.importer_id(), file.to_path_buf());
-    // imports_to_queue.push((object_ids, importer.importer_id(), file.to_path_buf()));
+    // //asset_engine.queue_import_operation(asset_ids, importer.importer_id(), file.to_path_buf());
+    // imports_to_queue.push((asset_ids, importer.importer_id(), file.to_path_buf()));
     //
-    // default_importable_object_id
+    // default_importable_asset_id
 }
 
 impl ModalAction for ImportFilesModal {
@@ -412,7 +412,7 @@ impl ModalAction for ImportFilesModal {
                             // // 2. Create/Find objects for all the things we want to import
                             // // 3. Enqueue the import operation
                             // //
-                            // let mut object_ids = HashMap::default();
+                            // let mut asset_ids = HashMap::default();
                             //
                             // let scanned_importables = importer.scan_file(file, db_state.editor_model.schema_set());
                             // for scanned_importable in &scanned_importables {
@@ -435,15 +435,15 @@ impl ModalAction for ImportFilesModal {
                             //         referenced_source_file.path
                             //     }
                             //
-                            //     let object_id = db_state.editor_model.root_edit_context_mut().new_object(&object_name, &self.selected_import_location, &scanned_importable.asset_type);
-                            //     db_state.editor_model.root_edit_context_mut().set_import_info(object_id, import_info.clone());
-                            //     object_ids.insert(scanned_importable.name.clone(), object_id);
+                            //     let asset_id = db_state.editor_model.root_edit_context_mut().new_object(&object_name, &self.selected_import_location, &scanned_importable.asset_type);
+                            //     db_state.editor_model.root_edit_context_mut().set_import_info(asset_id, import_info.clone());
+                            //     asset_ids.insert(scanned_importable.name.clone(), asset_id);
                             // }
                             //
                             // //
                             // // Trigger transition to modal waiting for imports to complete
                             // //
-                            // asset_engine.queue_import_operation(object_ids, importer.importer_id(), file.clone());
+                            // asset_engine.queue_import_operation(asset_ids, importer.importer_id(), file.clone());
                         }
                     }
                 }

@@ -2,7 +2,7 @@ use super::{JobId, JobTypeId};
 use crate::{AssetArtifactIdPair, BuiltArtifact, ImportData, ImportJobs};
 use hydrate_base::handle::DummySerdeContextHandle;
 use hydrate_base::hashing::HashMap;
-use hydrate_base::{ArtifactId, AssetId, BuiltObjectMetadata, Handle};
+use hydrate_base::{ArtifactId, AssetId, BuiltArtifactMetadata, Handle};
 use hydrate_data::{DataSet, SchemaSet, SingleObject};
 use serde::{Deserialize, Serialize};
 use siphasher::sip128::Hasher128;
@@ -15,7 +15,7 @@ pub trait ImportDataProvider {
     fn load_import_data(
         &self,
         schema_set: &SchemaSet,
-        object_id: AssetId,
+        asset_id: AssetId,
     ) -> ImportData;
 }
 
@@ -27,9 +27,9 @@ impl ImportDataProvider for ImportJobs {
     fn load_import_data(
         &self,
         schema_set: &SchemaSet,
-        object_id: AssetId,
+        asset_id: AssetId,
     ) -> ImportData {
-        self.load_import_data(schema_set, object_id)
+        self.load_import_data(schema_set, asset_id)
     }
 }
 
@@ -102,7 +102,7 @@ pub struct JobEnumeratedDependencies {
     // Alternatively, jobs that read assets must always copy data out of the data set into a hashable
     // form and pass it as input to a job.
     pub import_data: Vec<AssetId>,
-    //pub built_data: Vec<ObjectId>,
+    //pub built_data: Vec<ArtifactId>,
     pub upstream_jobs: Vec<JobId>,
 }
 
@@ -198,8 +198,8 @@ pub fn produce_asset_with_handles<T: TypeUuid + Serialize, F: FnOnce() -> T>(
     //
     // job_api.produce_asset(BuiltAsset {
     //     asset_id,
-    //     metadata: BuiltObjectMetadata {
-    //         dependencies: referenced_assets.into_iter().map(|x| ObjectId::from_uuid(Uuid::from_bytes(x.0.0))).collect(),
+    //     metadata: BuiltArtifactMetadata {
+    //         dependencies: referenced_assets.into_iter().map(|x| ArtifactId::from_uuid(Uuid::from_bytes(x.0.0))).collect(),
     //         subresource_count: 0,
     //         asset_type: uuid::Uuid::from_bytes(asset_type)
     //     },
@@ -243,7 +243,7 @@ pub fn produce_artifact_with_handles<T: TypeUuid + Serialize, U: Hash, F: FnOnce
     job_api.produce_artifact(BuiltArtifact {
         asset_id,
         artifact_id,
-        metadata: BuiltObjectMetadata {
+        metadata: BuiltArtifactMetadata {
             dependencies: referenced_assets
                 .into_iter()
                 .map(|x| ArtifactId::from_uuid(x.0.as_uuid()))

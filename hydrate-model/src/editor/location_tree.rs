@@ -1,11 +1,11 @@
-use crate::{DataSet, DataSource, HashMap, AssetId, ObjectLocation, ObjectPath, ObjectSourceId};
+use crate::{DataSet, DataSource, HashMap, AssetId, AssetLocation, AssetPath, AssetSourceId};
 use std::cmp::Ordering;
 use std::collections::BTreeMap;
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct LocationTreeNodeKey {
     name: String,
-    location: ObjectLocation,
+    location: AssetLocation,
 }
 
 impl LocationTreeNodeKey {
@@ -13,7 +13,7 @@ impl LocationTreeNodeKey {
         &self.name
     }
 
-    pub fn location(&self) -> &ObjectLocation {
+    pub fn location(&self) -> &AssetLocation {
         &self.location
     }
 }
@@ -43,8 +43,8 @@ impl Ord for LocationTreeNodeKey {
 #[derive(Debug)]
 pub struct LocationTreeNode {
     //pub path: ObjectPath,
-    pub location: ObjectLocation,
-    pub location_root: ObjectLocation,
+    pub location: AssetLocation,
+    pub location_root: AssetLocation,
     pub children: BTreeMap<LocationTreeNodeKey, LocationTreeNode>,
     pub has_changes: bool,
 }
@@ -68,8 +68,8 @@ impl LocationTree {
         data_set: &DataSet,
         tree_node_id: AssetId,
     ) {
-        let mut path_object_stack = vec![ObjectLocation::new(tree_node_id)];
-        path_object_stack.append(&mut data_set.object_location_chain(tree_node_id));
+        let mut path_object_stack = vec![AssetLocation::new(tree_node_id)];
+        path_object_stack.append(&mut data_set.asset_location_chain(tree_node_id));
 
         //
         // Get the node key for the first element of the path. It should already exist because we create
@@ -81,7 +81,7 @@ impl LocationTree {
         let root_tree_node_key = LocationTreeNodeKey {
             location: root_location.clone(),
             name: data_set
-                .object_name(root_location_path_node_id)
+                .asset_name(root_location_path_node_id)
                 .as_string()
                 .cloned()
                 .unwrap_or_default(),
@@ -96,7 +96,7 @@ impl LocationTree {
                 //let location_chain = data_set.object_location_chain(node_object.path_node_id());
 
                 let node_name = data_set
-                    .object_name(node_object.path_node_id())
+                    .asset_name(node_object.path_node_id())
                     .as_string()
                     .cloned()
                     .unwrap(); //.unwrap_or_else(|| node_object.as_uuid().to_string());
@@ -127,15 +127,15 @@ impl LocationTree {
     }
 
     pub fn build(
-        data_sources: &HashMap<ObjectSourceId, Box<dyn DataSource>>,
+        data_sources: &HashMap<AssetSourceId, Box<dyn DataSource>>,
         data_set: &DataSet,
-        paths: &HashMap<AssetId, ObjectPath>,
+        paths: &HashMap<AssetId, AssetPath>,
     ) -> Self {
         // Create root nodes for all the data sources
         let mut root_nodes: BTreeMap<LocationTreeNodeKey, LocationTreeNode> = Default::default();
         for (source_id, _data_source) in data_sources {
-            let location = ObjectLocation::new(AssetId::from_uuid(*source_id.uuid()));
-            let name = data_set.object_name(location.path_node_id());
+            let location = AssetLocation::new(AssetId::from_uuid(*source_id.uuid()));
+            let name = data_set.asset_name(location.path_node_id());
             root_nodes.insert(
                 LocationTreeNodeKey {
                     location: location.clone(),
@@ -143,7 +143,7 @@ impl LocationTree {
                 },
                 LocationTreeNode {
                     location,
-                    location_root: ObjectLocation::null(),
+                    location_root: AssetLocation::null(),
                     children: Default::default(),
                     has_changes: false,
                 },

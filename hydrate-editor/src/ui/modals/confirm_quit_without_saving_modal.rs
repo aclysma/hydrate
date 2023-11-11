@@ -38,10 +38,10 @@ impl ModalAction for ConfirmQuitWithoutSavingModal {
             ui.text("Are you sure you want to quit? Unsaved changes will be lost.");
 
             imgui::ListBox::new(im_str!("##unsaved_objects")).build(ui, || {
-                for object_id in &self.unsaved_objects {
+                for asset_id in &self.unsaved_objects {
                     ui.text(im_str!(
                         "{}",
-                        db_state.editor_model.object_display_name_long(*object_id)
+                        db_state.editor_model.object_display_name_long(*asset_id)
                     ));
                 }
             });

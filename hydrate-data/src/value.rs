@@ -16,7 +16,7 @@ pub enum PropertyValue {
     Bytes(Vec<u8>),
     Buffer(BufferId),
     String(String),
-    ObjectRef(AssetId),
+    AssetRef(AssetId),
     Enum(ValueEnum),
     Fixed(Box<[u8]>),
 }
@@ -34,7 +34,7 @@ impl PropertyValue {
             PropertyValue::Bytes(x) => Value::Bytes(x.clone()),
             PropertyValue::Buffer(x) => Value::Buffer(*x),
             PropertyValue::String(x) => Value::String(x.clone()),
-            PropertyValue::ObjectRef(x) => Value::ObjectRef(*x),
+            PropertyValue::AssetRef(x) => Value::AssetRef(*x),
             PropertyValue::Enum(x) => Value::Enum(x.clone()),
             PropertyValue::Fixed(x) => Value::Fixed(x.clone()),
         }
@@ -129,7 +129,7 @@ pub enum Value {
     StaticArray(Vec<Value>),
     DynamicArray(Vec<Value>),
     Map(ValueMap),
-    ObjectRef(AssetId),
+    AssetRef(AssetId),
     Record(ValueRecord),
     Enum(ValueEnum),
     Fixed(Box<[u8]>),
@@ -155,7 +155,7 @@ impl Hash for Value {
             Value::StaticArray(x) => x.hash(state),
             Value::DynamicArray(x) => x.hash(state),
             Value::Map(x) => x.hash(state),
-            Value::ObjectRef(x) => x.hash(state),
+            Value::AssetRef(x) => x.hash(state),
             Value::Record(x) => x.hash(state),
             Value::Enum(x) => x.hash(state),
             Value::Fixed(x) => x.hash(state),
@@ -172,7 +172,7 @@ const DEFAULT_VALUE_U64: Value = Value::U64(0);
 const DEFAULT_VALUE_F32: Value = Value::F32(0.0);
 const DEFAULT_VALUE_F64: Value = Value::F64(0.0);
 const DEFAULT_VALUE_BUFFER: Value = Value::Buffer(BufferId::null());
-const DEFAULT_VALUE_OBJECT_REF: Value = Value::ObjectRef(AssetId::null());
+const DEFAULT_VALUE_ASSET_REF: Value = Value::AssetRef(AssetId::null());
 
 lazy_static::lazy_static! {
     static ref DEFAULT_VALUE_BYTES: Value = Value::Bytes(Default::default());
@@ -205,7 +205,7 @@ impl Value {
             Schema::StaticArray(_) => &DEFAULT_VALUE_STATIC_ARRAY,
             Schema::DynamicArray(_) => &DEFAULT_VALUE_DYNAMIC_ARRAY,
             Schema::Map(_) => &DEFAULT_VALUE_MAP,
-            Schema::ObjectRef(_) => &DEFAULT_VALUE_OBJECT_REF,
+            Schema::AssetRef(_) => &DEFAULT_VALUE_ASSET_REF,
             Schema::NamedType(named_type_id) => {
                 let named_type = schema_set.schemas().get(named_type_id).unwrap();
                 match named_type {
@@ -293,7 +293,7 @@ impl Value {
                 }
                 _ => false,
             },
-            Value::ObjectRef(_) => {
+            Value::AssetRef(_) => {
                 //TODO: Validate type
                 schema.is_object_ref()
             }
@@ -674,25 +674,25 @@ impl Value {
     //
     // ObjectRef
     //
-    pub fn is_object_ref(&self) -> bool {
+    pub fn is_asset_ref(&self) -> bool {
         match self {
-            Value::ObjectRef(_) => true,
+            Value::AssetRef(_) => true,
             _ => false,
         }
     }
 
-    pub fn as_object_ref(&self) -> Option<AssetId> {
+    pub fn as_asset_ref(&self) -> Option<AssetId> {
         match self {
-            Value::ObjectRef(x) => Some(*x),
+            Value::AssetRef(x) => Some(*x),
             _ => None,
         }
     }
 
-    pub fn set_object_ref(
+    pub fn set_asset_ref(
         &mut self,
         value: AssetId,
     ) {
-        *self = Value::ObjectRef(value);
+        *self = Value::AssetRef(value);
     }
 
     //
@@ -778,7 +778,7 @@ impl Value {
             Value::Bytes(x) => Some(PropertyValue::Bytes(x.clone())),
             Value::Buffer(x) => Some(PropertyValue::Buffer(*x)),
             Value::String(x) => Some(PropertyValue::String(x.clone())),
-            Value::ObjectRef(x) => Some(PropertyValue::ObjectRef(*x)),
+            Value::AssetRef(x) => Some(PropertyValue::AssetRef(*x)),
             Value::Enum(x) => Some(PropertyValue::Enum(x.clone())),
             Value::Fixed(x) => Some(PropertyValue::Fixed(x.clone())),
             _ => None,
@@ -800,7 +800,7 @@ impl Value {
             (Value::Bytes(lhs), Value::Bytes(rhs)) => *lhs == *rhs,
             (Value::Buffer(lhs), Value::Buffer(rhs)) => *lhs == *rhs,
             (Value::String(lhs), Value::String(rhs)) => *lhs == *rhs,
-            (Value::ObjectRef(lhs), Value::ObjectRef(rhs)) => *lhs == *rhs,
+            (Value::AssetRef(lhs), Value::AssetRef(rhs)) => *lhs == *rhs,
             (Value::Enum(lhs), Value::Enum(rhs)) => *lhs == *rhs,
             (Value::Fixed(lhs), Value::Fixed(rhs)) => *lhs == *rhs,
             _ => false,

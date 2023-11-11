@@ -34,7 +34,7 @@ fn draw_inspector_simple_property<
     ui: &imgui::Ui,
     _ui_state: &UiState,
     edit_context: &mut EditContext,
-    object_id: hydrate_model::AssetId,
+    asset_id: hydrate_model::AssetId,
     property_path: &str,
     _property_name: &str,
     schema: &hydrate_model::Schema,
@@ -44,14 +44,14 @@ fn draw_inspector_simple_property<
 ) {
     let _disabled_helper = ImguiDisableHelper::new(read_only);
     let v = if property_inherited {
-        if let Some(value) = edit_context.resolve_property(object_id, &property_path) {
+        if let Some(value) = edit_context.resolve_property(asset_id, &property_path) {
             value
         } else {
             Value::default_for_schema(schema, edit_context.schema_set())
         }
     } else {
         edit_context
-            .get_property_override(object_id, &property_path)
+            .get_property_override(asset_id, &property_path)
             .unwrap()
     };
 
@@ -63,12 +63,12 @@ fn draw_inspector_simple_property<
             imgui::sys::ImGuiPopupFlags_MouseButtonRight as _,
         ) {
             if imgui::MenuItem::new(im_str!("Clear Override")).build(ui) {
-                edit_context.remove_property_override(object_id, &property_path);
+                edit_context.remove_property_override(asset_id, &property_path);
             }
 
             if imgui::MenuItem::new(im_str!("Apply Override")).build(ui) {
                 edit_context
-                    .apply_property_override_to_prototype(object_id, &property_path)
+                    .apply_property_override_to_prototype(asset_id, &property_path)
                     .unwrap();
             }
 
@@ -78,7 +78,7 @@ fn draw_inspector_simple_property<
 
     if let Some(new_value) = new_value {
         edit_context
-            .set_property_override(object_id, &property_path, new_value)
+            .set_property_override(asset_id, &property_path, new_value)
             .unwrap();
     }
 }
@@ -89,7 +89,7 @@ fn draw_inspector_simple_property_enum(
     edit_context: &mut EditContext,
     is_editing: &mut bool,
     is_editing_complete: &mut bool,
-    object_id: hydrate_model::AssetId,
+    asset_id: hydrate_model::AssetId,
     property_path: &str,
     property_name: &str,
     schema: &hydrate_model::Schema,
@@ -103,7 +103,7 @@ fn draw_inspector_simple_property_enum(
         ui,
         ui_state,
         edit_context,
-        object_id,
+        asset_id,
         property_path,
         property_name,
         schema,
@@ -150,7 +150,7 @@ fn draw_inspector_simple_property_bool(
     edit_context: &mut EditContext,
     is_editing: &mut bool,
     is_editing_complete: &mut bool,
-    object_id: hydrate_model::AssetId,
+    asset_id: hydrate_model::AssetId,
     property_path: &str,
     property_name: &str,
     schema: &hydrate_model::Schema,
@@ -163,7 +163,7 @@ fn draw_inspector_simple_property_bool(
         ui,
         ui_state,
         edit_context,
-        object_id,
+        asset_id,
         property_path,
         property_name,
         schema,
@@ -197,7 +197,7 @@ fn draw_inspector_simple_property_i32(
     edit_context: &mut EditContext,
     is_editing: &mut bool,
     is_editing_complete: &mut bool,
-    object_id: hydrate_model::AssetId,
+    asset_id: hydrate_model::AssetId,
     property_path: &str,
     property_name: &str,
     schema: &hydrate_model::Schema,
@@ -210,7 +210,7 @@ fn draw_inspector_simple_property_i32(
         ui,
         ui_state,
         edit_context,
-        object_id,
+        asset_id,
         property_path,
         property_name,
         schema,
@@ -245,7 +245,7 @@ fn draw_inspector_simple_property_u32(
     edit_context: &mut EditContext,
     is_editing: &mut bool,
     is_editing_complete: &mut bool,
-    object_id: hydrate_model::AssetId,
+    asset_id: hydrate_model::AssetId,
     property_path: &str,
     property_name: &str,
     schema: &hydrate_model::Schema,
@@ -258,7 +258,7 @@ fn draw_inspector_simple_property_u32(
         ui,
         ui_state,
         edit_context,
-        object_id,
+        asset_id,
         property_path,
         property_name,
         schema,
@@ -292,7 +292,7 @@ fn draw_inspector_simple_property_i64(
     edit_context: &mut EditContext,
     is_editing: &mut bool,
     is_editing_complete: &mut bool,
-    object_id: hydrate_model::AssetId,
+    asset_id: hydrate_model::AssetId,
     property_path: &str,
     property_name: &str,
     schema: &hydrate_model::Schema,
@@ -305,7 +305,7 @@ fn draw_inspector_simple_property_i64(
         ui,
         ui_state,
         edit_context,
-        object_id,
+        asset_id,
         property_path,
         property_name,
         schema,
@@ -339,7 +339,7 @@ fn draw_inspector_simple_property_u64(
     edit_context: &mut EditContext,
     is_editing: &mut bool,
     is_editing_complete: &mut bool,
-    object_id: hydrate_model::AssetId,
+    asset_id: hydrate_model::AssetId,
     property_path: &str,
     property_name: &str,
     schema: &hydrate_model::Schema,
@@ -352,7 +352,7 @@ fn draw_inspector_simple_property_u64(
         ui,
         ui_state,
         edit_context,
-        object_id,
+        asset_id,
         property_path,
         property_name,
         schema,
@@ -386,7 +386,7 @@ fn draw_inspector_simple_property_f32(
     edit_context: &mut EditContext,
     is_editing: &mut bool,
     is_editing_complete: &mut bool,
-    object_id: hydrate_model::AssetId,
+    asset_id: hydrate_model::AssetId,
     property_path: &str,
     property_name: &str,
     schema: &hydrate_model::Schema,
@@ -399,7 +399,7 @@ fn draw_inspector_simple_property_f32(
         ui,
         ui_state,
         edit_context,
-        object_id,
+        asset_id,
         property_path,
         property_name,
         schema,
@@ -433,7 +433,7 @@ fn draw_inspector_simple_property_f64(
     edit_context: &mut EditContext,
     is_editing: &mut bool,
     is_editing_complete: &mut bool,
-    object_id: hydrate_model::AssetId,
+    asset_id: hydrate_model::AssetId,
     property_path: &str,
     property_name: &str,
     schema: &hydrate_model::Schema,
@@ -446,7 +446,7 @@ fn draw_inspector_simple_property_f64(
         ui,
         ui_state,
         edit_context,
-        object_id,
+        asset_id,
         property_path,
         property_name,
         schema,
@@ -480,7 +480,7 @@ fn draw_inspector_simple_property_string(
     edit_context: &mut EditContext,
     is_editing: &mut bool,
     is_editing_complete: &mut bool,
-    object_id: hydrate_model::AssetId,
+    asset_id: hydrate_model::AssetId,
     property_path: &str,
     property_name: &str,
     schema: &hydrate_model::Schema,
@@ -493,7 +493,7 @@ fn draw_inspector_simple_property_string(
         ui,
         ui_state,
         edit_context,
-        object_id,
+        asset_id,
         property_path,
         property_name,
         schema,
@@ -530,7 +530,7 @@ fn draw_inspector_object_ref(
     edit_context: &mut EditContext,
     _is_editing: &mut bool,
     is_editing_complete: &mut bool,
-    object_id: hydrate_model::AssetId,
+    asset_id: hydrate_model::AssetId,
     property_path: &str,
     property_name: &str,
     schema: &hydrate_model::Schema,
@@ -543,14 +543,14 @@ fn draw_inspector_object_ref(
         ui,
         ui_state,
         edit_context,
-        object_id,
+        asset_id,
         property_path,
         property_name,
         schema,
         property_inherited,
         read_only,
         |ui, value| {
-            let v = value.as_object_ref().unwrap();
+            let v = value.as_asset_ref().unwrap();
             let property_im_str = im_str!("{}", &property_name);
             let mut value = im_str!("{}", v.as_uuid());
             imgui::InputText::new(ui, &property_im_str, &mut value)
@@ -564,9 +564,9 @@ fn draw_inspector_object_ref(
                 )
             {
                 match payload {
-                    AssetBrowserGridPayload::Single(object_id) => {
+                    AssetBrowserGridPayload::Single(asset_id) => {
                         *is_editing_complete = true;
-                        Some(Value::ObjectRef(object_id))
+                        Some(Value::AssetRef(asset_id))
                     }
                     AssetBrowserGridPayload::AllSelected => None,
                 }
@@ -585,7 +585,7 @@ fn draw_inspector_object_ref(
     // draw_inspector_simple_property(
     //     ui,
     //     edit_context,
-    //     object_id,
+    //     asset_id,
     //     property_path,
     //     property_name,
     //     schema,
@@ -621,7 +621,7 @@ fn draw_inspector_nexdb_property(
     edit_context: &mut EditContext,
     is_editing: &mut bool,
     is_editing_complete: &mut bool,
-    object_id: hydrate_model::AssetId,
+    asset_id: hydrate_model::AssetId,
     property_path: &str,
     property_name: &str,
     schema: &hydrate_model::Schema,
@@ -632,10 +632,10 @@ fn draw_inspector_nexdb_property(
     match schema {
         Schema::Nullable(inner_schema) => {
             let property_inherited = !edit_context
-                .get_null_override(object_id, &property_path)
+                .get_null_override(asset_id, &property_path)
                 .is_some();
             let mut is_nulled = edit_context
-                .resolve_is_null(object_id, &property_path)
+                .resolve_is_null(asset_id, &property_path)
                 .unwrap_or(true);
 
             if imgui::CollapsingHeader::new(&im_str!("{}", property_name)).build(ui) {
@@ -650,7 +650,7 @@ fn draw_inspector_nexdb_property(
                 if is_nulled {
                     if ui.button(im_str!("Set Non-Null")) {
                         edit_context.set_null_override(
-                            object_id,
+                            asset_id,
                             property_path,
                             NullOverride::SetNonNull,
                         );
@@ -659,7 +659,7 @@ fn draw_inspector_nexdb_property(
                 } else {
                     if ui.button(im_str!("Set Null")) {
                         edit_context.set_null_override(
-                            object_id,
+                            asset_id,
                             property_path,
                             NullOverride::SetNull,
                         );
@@ -669,7 +669,7 @@ fn draw_inspector_nexdb_property(
 
                 ui.same_line();
                 if ui.button(im_str!("Inherit Null Status")) {
-                    edit_context.remove_null_override(object_id, property_path);
+                    edit_context.remove_null_override(asset_id, property_path);
                 }
 
                 drop(disable_helper);
@@ -689,7 +689,7 @@ fn draw_inspector_nexdb_property(
                         edit_context,
                         is_editing,
                         is_editing_complete,
-                        object_id,
+                        asset_id,
                         &inner_property_path,
                         "value",
                         &*inner_schema,
@@ -702,7 +702,7 @@ fn draw_inspector_nexdb_property(
             }
         }
         Schema::Boolean => {
-            let property_inherited = !edit_context.has_property_override(object_id, &property_path);
+            let property_inherited = !edit_context.has_property_override(asset_id, &property_path);
             draw_property_style(ui, property_inherited, false, |ui| {
                 draw_inspector_simple_property_bool(
                     ui,
@@ -710,7 +710,7 @@ fn draw_inspector_nexdb_property(
                     edit_context,
                     is_editing,
                     is_editing_complete,
-                    object_id,
+                    asset_id,
                     property_path,
                     property_name,
                     schema,
@@ -720,7 +720,7 @@ fn draw_inspector_nexdb_property(
             });
         }
         Schema::I32 => {
-            let property_inherited = !edit_context.has_property_override(object_id, &property_path);
+            let property_inherited = !edit_context.has_property_override(asset_id, &property_path);
             draw_property_style(ui, property_inherited, false, |ui| {
                 draw_inspector_simple_property_i32(
                     ui,
@@ -728,7 +728,7 @@ fn draw_inspector_nexdb_property(
                     edit_context,
                     is_editing,
                     is_editing_complete,
-                    object_id,
+                    asset_id,
                     property_path,
                     property_name,
                     schema,
@@ -738,7 +738,7 @@ fn draw_inspector_nexdb_property(
             });
         }
         Schema::I64 => {
-            let property_inherited = !edit_context.has_property_override(object_id, &property_path);
+            let property_inherited = !edit_context.has_property_override(asset_id, &property_path);
             draw_property_style(ui, property_inherited, false, |ui| {
                 draw_inspector_simple_property_i64(
                     ui,
@@ -746,7 +746,7 @@ fn draw_inspector_nexdb_property(
                     edit_context,
                     is_editing,
                     is_editing_complete,
-                    object_id,
+                    asset_id,
                     property_path,
                     property_name,
                     schema,
@@ -756,7 +756,7 @@ fn draw_inspector_nexdb_property(
             });
         }
         Schema::U32 => {
-            let property_inherited = !edit_context.has_property_override(object_id, &property_path);
+            let property_inherited = !edit_context.has_property_override(asset_id, &property_path);
             draw_property_style(ui, property_inherited, false, |ui| {
                 draw_inspector_simple_property_u32(
                     ui,
@@ -764,7 +764,7 @@ fn draw_inspector_nexdb_property(
                     edit_context,
                     is_editing,
                     is_editing_complete,
-                    object_id,
+                    asset_id,
                     property_path,
                     property_name,
                     schema,
@@ -774,7 +774,7 @@ fn draw_inspector_nexdb_property(
             });
         }
         Schema::U64 => {
-            let property_inherited = !edit_context.has_property_override(object_id, &property_path);
+            let property_inherited = !edit_context.has_property_override(asset_id, &property_path);
             draw_property_style(ui, property_inherited, false, |ui| {
                 draw_inspector_simple_property_u64(
                     ui,
@@ -782,7 +782,7 @@ fn draw_inspector_nexdb_property(
                     edit_context,
                     is_editing,
                     is_editing_complete,
-                    object_id,
+                    asset_id,
                     property_path,
                     property_name,
                     schema,
@@ -792,7 +792,7 @@ fn draw_inspector_nexdb_property(
             });
         }
         Schema::F32 => {
-            let property_inherited = !edit_context.has_property_override(object_id, &property_path);
+            let property_inherited = !edit_context.has_property_override(asset_id, &property_path);
             draw_property_style(ui, property_inherited, false, |ui| {
                 draw_inspector_simple_property_f32(
                     ui,
@@ -800,7 +800,7 @@ fn draw_inspector_nexdb_property(
                     edit_context,
                     is_editing,
                     is_editing_complete,
-                    object_id,
+                    asset_id,
                     property_path,
                     property_name,
                     schema,
@@ -810,7 +810,7 @@ fn draw_inspector_nexdb_property(
             });
         }
         Schema::F64 => {
-            let property_inherited = !edit_context.has_property_override(object_id, &property_path);
+            let property_inherited = !edit_context.has_property_override(asset_id, &property_path);
             draw_property_style(ui, property_inherited, false, |ui| {
                 draw_inspector_simple_property_f64(
                     ui,
@@ -818,7 +818,7 @@ fn draw_inspector_nexdb_property(
                     edit_context,
                     is_editing,
                     is_editing_complete,
-                    object_id,
+                    asset_id,
                     property_path,
                     property_name,
                     schema,
@@ -834,7 +834,7 @@ fn draw_inspector_nexdb_property(
             draw_inspector_unimplemented_property(ui, property_name, "buffer");
         }
         Schema::String => {
-            let property_inherited = !edit_context.has_property_override(object_id, &property_path);
+            let property_inherited = !edit_context.has_property_override(asset_id, &property_path);
             draw_property_style(ui, property_inherited, false, |ui| {
                 draw_inspector_simple_property_string(
                     ui,
@@ -842,7 +842,7 @@ fn draw_inspector_nexdb_property(
                     edit_context,
                     is_editing,
                     is_editing_complete,
-                    object_id,
+                    asset_id,
                     property_path,
                     property_name,
                     schema,
@@ -855,9 +855,9 @@ fn draw_inspector_nexdb_property(
             draw_inspector_unimplemented_property(ui, property_name, "static array");
         }
         Schema::DynamicArray(array) => {
-            let resolve = edit_context.resolve_dynamic_array(object_id, &property_path);
+            let resolve = edit_context.resolve_dynamic_array(asset_id, &property_path);
             let overrides: Vec<_> = edit_context
-                .get_dynamic_array_overrides(object_id, &property_path)
+                .get_dynamic_array_overrides(asset_id, &property_path)
                 .map(|x| x.cloned().collect())
                 .unwrap_or_default();
 
@@ -874,7 +874,7 @@ fn draw_inspector_nexdb_property(
                         edit_context,
                         is_editing,
                         is_editing_complete,
-                        object_id,
+                        asset_id,
                         &field_path,
                         &id.to_string(),
                         array.item_type(),
@@ -892,7 +892,7 @@ fn draw_inspector_nexdb_property(
                         edit_context,
                         is_editing,
                         is_editing_complete,
-                        object_id,
+                        asset_id,
                         &field_path,
                         &id.to_string(),
                         array.item_type(),
@@ -907,8 +907,8 @@ fn draw_inspector_nexdb_property(
             draw_inspector_unimplemented_property(ui, property_name, "map");
         }
         //Schema::RecordRef(_) => {}
-        Schema::ObjectRef(_named_type_fingerprint) => {
-            let property_inherited = !edit_context.has_property_override(object_id, &property_path);
+        Schema::AssetRef(_named_type_fingerprint) => {
+            let property_inherited = !edit_context.has_property_override(asset_id, &property_path);
             draw_property_style(ui, property_inherited, false, |ui| {
                 draw_inspector_object_ref(
                     ui,
@@ -916,7 +916,7 @@ fn draw_inspector_nexdb_property(
                     edit_context,
                     is_editing,
                     is_editing_complete,
-                    object_id,
+                    asset_id,
                     property_path,
                     property_name,
                     schema,
@@ -954,7 +954,7 @@ fn draw_inspector_nexdb_property(
                                 edit_context,
                                 is_editing,
                                 is_editing_complete,
-                                object_id,
+                                asset_id,
                                 &field_path,
                                 field.name(),
                                 field.field_schema(),
@@ -976,14 +976,14 @@ fn draw_inspector_nexdb_property(
                     //     "enum"
                     // );
                     let property_inherited =
-                        !edit_context.has_property_override(object_id, &property_path);
+                        !edit_context.has_property_override(asset_id, &property_path);
                     draw_inspector_simple_property_enum(
                         ui,
                         ui_state,
                         edit_context,
                         is_editing,
                         is_editing_complete,
-                        object_id,
+                        asset_id,
                         property_path,
                         property_name,
                         schema,
@@ -1007,7 +1007,7 @@ fn draw_inspector_nexdb_property(
           //             };
           //
           //             let id_token = ui.push_id(field.name());
-          //             draw_inspector_nexdb_property(ui, edit_context, object_id, &field_path, field.name(), field.field_schema());
+          //             draw_inspector_nexdb_property(ui, edit_context, asset_id, &field_path, field.name(), field.field_schema());
           //             id_token.pop();
           //         }
           //         ui.unindent();
@@ -1025,7 +1025,7 @@ fn draw_inspector_nexdb_property(
 pub fn draw_inspector_nexdb(
     ui: &imgui::Ui,
     app_state: &mut AppState,
-    object_id: hydrate_model::AssetId,
+    asset_id: hydrate_model::AssetId,
     read_only: bool,
 ) {
     let ui_state = &mut app_state.ui_state;
@@ -1034,7 +1034,7 @@ pub fn draw_inspector_nexdb(
         .editor_model
         .root_edit_context_mut()
         .with_undo_context("PropertyInspector", |edit_context| {
-            let schema = edit_context.object_schema(object_id).clone();
+            let schema = edit_context.object_schema(asset_id).clone();
             let mut is_editing = false;
             let mut is_editing_complete = false;
 
@@ -1045,7 +1045,7 @@ pub fn draw_inspector_nexdb(
                     edit_context,
                     &mut is_editing,
                     &mut is_editing_complete,
-                    object_id,
+                    asset_id,
                     "",
                     "",
                     &Schema::NamedType(schema.fingerprint()),

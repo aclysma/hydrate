@@ -89,7 +89,7 @@ impl std::fmt::Debug for ObjectData {
 
 #[derive(Debug)]
 pub struct RequestMetadataResult {
-    pub object_id: ArtifactId,
+    pub artifact_id: ArtifactId,
     pub load_handle: LoadHandle,
     //pub hash: u64,
     pub version: u32,
@@ -98,7 +98,7 @@ pub struct RequestMetadataResult {
 
 #[derive(Debug)]
 pub struct RequestDataResult {
-    pub object_id: ArtifactId,
+    pub artifact_id: ArtifactId,
     pub load_handle: LoadHandle,
     //pub hash: u64,
     pub version: u32,
@@ -152,7 +152,7 @@ pub trait LoaderIO: Sync + Send {
         &self,
         build_hash: CombinedBuildHash,
         load_handle: LoadHandle,
-        object_id: ArtifactId,
+        artifact_id: ArtifactId,
         version: u32,
     );
 
@@ -161,7 +161,7 @@ pub trait LoaderIO: Sync + Send {
         &self,
         build_hash: CombinedBuildHash,
         load_handle: LoadHandle,
-        object_id: ArtifactId,
+        artifact_id: ArtifactId,
         hash: u64,
         subresource: Option<u32>,
         version: u32,
@@ -245,7 +245,7 @@ struct LoadHandleVersionInfo {
     // load_state
     // asset_type
     // dependencies
-    //object_id: ObjectId,
+    //artifact_id: ArtifactId,
     load_state: LoadState,
     asset_type: AssetTypeId,
     hash: u64,
@@ -262,7 +262,7 @@ struct LoadHandleVersionInfo {
 
 struct LoadHandleInfo {
     //strong_ref_count: AtomicU32,
-    object_id: ArtifactId,
+    artifact_id: ArtifactId,
     asset_id: AssetId,
     //ref_count: AtomicU32,
     engine_ref_count: AtomicU32,
@@ -270,17 +270,6 @@ struct LoadHandleInfo {
     //load_state: LoadState,
     versions: Vec<LoadHandleVersionInfo>,
 }
-
-// impl LoadHandleInfo {
-//     pub fn new(object_id: ObjectId) -> Self {
-//         LoadHandleInfo {
-//             object_id,
-//             ref_count: Default::default(),
-//             version_counter: 0,
-//             load_state: LoadState::Unloaded,
-//         }
-//     }
-// }
 
 struct ReloadAction {
     _build_hash: CombinedBuildHash,
@@ -297,7 +286,7 @@ pub struct Loader {
     next_handle_index: AtomicU64,
     //indirect_to_load: DashMap<IndirectIdentifier, LoadHandle>,
     load_handle_infos: DashMap<LoadHandle, LoadHandleInfo>,
-    object_id_to_handle: DashMap<ArtifactId, LoadHandle>,
+    artifact_id_to_handle: DashMap<ArtifactId, LoadHandle>,
     //current_build_hash: AtomicU64,
     loader_io: Box<dyn LoaderIO>,
     update_state: Mutex<LoaderUpdateState>,
@@ -344,7 +333,7 @@ impl LoadStateProvider for Loader {
         } else {
             load_handle
         };
-        self.load_handle_infos.get(&handle).unwrap().object_id
+        self.load_handle_infos.get(&handle).unwrap().artifact_id
     }
 }
 
@@ -353,8 +342,8 @@ impl LoaderInfoProvider for Loader {
         &self,
         id: &AssetRef,
     ) -> Option<LoadHandle> {
-        let object_id = ArtifactId::from_uuid(id.0.as_uuid());
-        self.object_id_to_handle.get(&object_id).map(|l| *l)
+        let artifact_id = ArtifactId::from_uuid(id.0.as_uuid());
+        self.artifact_id_to_handle.get(&artifact_id).map(|l| *l)
     }
 
     fn asset_id(
@@ -379,7 +368,7 @@ impl Loader {
 
         Loader {
             next_handle_index: AtomicU64::new(1),
-            object_id_to_handle: Default::default(),
+            artifact_id_to_handle: Default::default(),
             load_handle_infos: Default::default(),
             //current_build_hash: build_hash,
             update_state: Mutex::new(LoaderUpdateState {
@@ -419,14 +408,14 @@ impl Loader {
         // We expect any try_load requests to be for the latest version. If this ends up not being a
         // valid assertion, perhaps we should just load the most recent version.
         assert_eq!(version, load_state_info.versions.len() - 1);
-        let object_id = load_state_info.object_id;
+        let artifact_id = load_state_info.artifact_id;
         let current_version = &mut load_state_info.versions[version];
         if current_version.load_state == LoadState::Unloaded {
             // We have not started to load this asset, so we can potentially start it now
             if current_version.dependency_ref_count.load(Ordering::Relaxed) > 0 {
                 // The engine is still referencing it, so we should start loading it now
                 self.loader_io
-                    .request_metadata(build_hash, load_handle, object_id, version as u32);
+                    .request_metadata(build_hash, load_handle, artifact_id, version as u32);
                 current_version.load_state = LoadState::WaitingForMetadata;
             } else {
                 // it's not referenced anymore, don't bother loading it. If it becomes
@@ -566,7 +555,7 @@ impl Loader {
         }
 
         if let Some(mut load_state_info) = self.load_handle_infos.get_mut(&result.load_handle) {
-            let object_id = load_state_info.object_id;
+            let artifact_id = load_state_info.artifact_id;
             let version = &mut load_state_info.versions[result.version as usize];
             version.asset_type = metadata.asset_type;
             version.hash = metadata.hash;
@@ -577,7 +566,7 @@ impl Loader {
                 self.loader_io.request_data(
                     build_hash,
                     result.load_handle,
-                    object_id,
+                    artifact_id,
                     metadata.hash,
                     None,
                     result.version,
@@ -626,7 +615,7 @@ impl Loader {
         self.loader_io.request_data(
             build_hash,
             load_handle,
-            load_state_info.object_id,
+            load_state_info.artifact_id,
             load_state_info.versions[version].hash,
             None,
             version as u32,
@@ -820,7 +809,7 @@ impl Loader {
         //                 if load_state_info.ref_count.load(Ordering::Acquire) > 0 {
         //                     // make the request
         //                     // TODO: Support subresources
-        //                     self.loader_io.request_data(load_state_info.object_id, None);
+        //                     self.loader_io.request_data(load_state_info.artifact_id, None);
         //                     load_state_info.load_state = LoadState::WaitingForMetadata;
         //                 } else {
         //                     // No refs remain, don't proceed
@@ -911,14 +900,14 @@ impl Loader {
 
     fn get_or_insert(
         &self,
-        object_id: ArtifactId,
+        artifact_id: ArtifactId,
     ) -> LoadHandle {
         *self
-            .object_id_to_handle
-            .entry(object_id)
+            .artifact_id_to_handle
+            .entry(artifact_id)
             .or_insert_with(|| {
                 let load_handle = self.allocate_load_handle(false);
-                let asset_id = AssetId::from_uuid(object_id.as_uuid());
+                let asset_id = AssetId::from_uuid(artifact_id.as_uuid());
 
                 log::debug!(
                     "Allocate load handle {:?} for object id {:?}",
@@ -929,7 +918,7 @@ impl Loader {
                 self.load_handle_infos.insert(
                     load_handle,
                     LoadHandleInfo {
-                        object_id,
+                        artifact_id,
                         asset_id,
                         engine_ref_count: AtomicU32::new(0),
                         _next_version: 0,
@@ -953,9 +942,9 @@ impl Loader {
     // from add_refs
     pub fn add_engine_ref(
         &self,
-        object_id: ArtifactId,
+        artifact_id: ArtifactId,
     ) -> LoadHandle {
-        let load_handle = self.get_or_insert(object_id);
+        let load_handle = self.get_or_insert(artifact_id);
         self.add_engine_ref_by_handle(load_handle);
         load_handle
     }
@@ -1012,7 +1001,7 @@ impl Loader {
             state.engine_ref_count.fetch_sub(1, Ordering::Relaxed);
             let resolved_uuid = state.resolved_uuid;
             drop(state);
-            let load_handle = *self.object_id_to_handle.get(&resolved_uuid).unwrap();
+            let load_handle = *self.artifact_id_to_handle.get(&resolved_uuid).unwrap();
             self.remove_engine_ref(load_handle);
         } else {
             let guard = self.load_handle_infos.get(&load_handle);

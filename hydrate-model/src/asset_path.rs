@@ -1,11 +1,11 @@
 // assumed to end with /. We don't just use / to make it clear that it's not a file path
 const ROOT_PATH_STR: &str = "db:/";
-const ROOT_PATH: ObjectPath = ObjectPath(None);
+const ROOT_PATH: AssetPath = AssetPath(None);
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct ObjectPath(Option<String>);
+pub struct AssetPath(Option<String>);
 
-impl ObjectPath {
+impl AssetPath {
     pub fn new(s: &str) -> Self {
         // We assume all paths are absolute
         if !s.starts_with(ROOT_PATH_STR) {
@@ -13,9 +13,9 @@ impl ObjectPath {
         }
 
         if s.len() == ROOT_PATH_STR.len() {
-            ObjectPath(None)
+            AssetPath(None)
         } else {
-            ObjectPath(Some(s.to_string()))
+            AssetPath(Some(s.to_string()))
         }
     }
 
@@ -24,13 +24,13 @@ impl ObjectPath {
     }
 
     pub fn root() -> Self {
-        ObjectPath(None)
+        AssetPath(None)
     }
 
     pub fn join(
         &self,
         rhs: &str,
-    ) -> ObjectPath {
+    ) -> AssetPath {
         if rhs.is_empty() {
             return self.clone();
         }
@@ -42,12 +42,12 @@ impl ObjectPath {
         match &self.0 {
             Some(x) => {
                 if x.ends_with("/") {
-                    ObjectPath(Some(format!("{}{}", x, rhs)))
+                    AssetPath(Some(format!("{}{}", x, rhs)))
                 } else {
-                    ObjectPath(Some(format!("{}/{}", x, rhs)))
+                    AssetPath(Some(format!("{}/{}", x, rhs)))
                 }
             }
-            None => ObjectPath(Some(format!("{}{}", ROOT_PATH_STR, rhs))),
+            None => AssetPath(Some(format!("{}{}", ROOT_PATH_STR, rhs))),
         }
     }
 
@@ -94,12 +94,12 @@ impl ObjectPath {
                 if let Some(index) = path.rfind("/") {
                     if index >= ROOT_PATH_STR.len() {
                         // We have a parent path that isn't root
-                        let parent = ObjectPath(Some(path[0..index].to_string()));
+                        let parent = AssetPath(Some(path[0..index].to_string()));
                         let name = path[index + 1..].to_string();
                         Some((parent, name))
                     } else {
                         // Parent path is root
-                        let parent = ObjectPath(None);
+                        let parent = AssetPath(None);
                         let name = path[ROOT_PATH_STR.len()..].to_string();
                         Some((parent, name))
                     }
@@ -128,20 +128,20 @@ impl ObjectPath {
 
     pub fn starts_with(
         &self,
-        other: &ObjectPath,
+        other: &AssetPath,
     ) -> bool {
         self.as_str().starts_with(other.as_str())
     }
 }
 
-impl From<&str> for ObjectPath {
+impl From<&str> for AssetPath {
     fn from(s: &str) -> Self {
-        ObjectPath::new(s)
+        AssetPath::new(s)
     }
 }
 
-impl From<String> for ObjectPath {
+impl From<String> for AssetPath {
     fn from(s: String) -> Self {
-        ObjectPath::new(&s)
+        AssetPath::new(&s)
     }
 }

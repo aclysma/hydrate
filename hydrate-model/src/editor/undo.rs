@@ -3,7 +3,7 @@ use std::sync::mpsc;
 use std::sync::mpsc::{Receiver, Sender};
 
 use crate::edit_context::EditContext;
-use crate::{DataSet, DataSetDiffSet, EditContextKey, HashSet, AssetId, ObjectLocation};
+use crate::{DataSet, DataSetDiffSet, EditContextKey, HashSet, AssetId, AssetLocation};
 
 //TODO: Delete unused property data when path ancestor is null or in replace mode
 
@@ -80,7 +80,7 @@ impl UndoStack {
                 edit_context.cancel_pending_undo_context();
                 edit_context.apply_diff(
                     &current_step.diff_set.revert_diff,
-                    &current_step.diff_set.modified_objects,
+                    &current_step.diff_set.modified_assets,
                     &current_step.diff_set.modified_locations,
                 );
                 self.current_undo_index -= 1;
@@ -106,7 +106,7 @@ impl UndoStack {
             edit_context.cancel_pending_undo_context();
             edit_context.apply_diff(
                 &current_step.diff_set.apply_diff,
-                &current_step.diff_set.modified_objects,
+                &current_step.diff_set.modified_assets,
                 &current_step.diff_set.modified_locations,
             );
             self.current_undo_index += 1;
@@ -141,10 +141,10 @@ impl UndoContext {
     // Call after adding a new object
     pub(crate) fn track_new_object(
         &mut self,
-        object_id: AssetId,
+        asset_id: AssetId,
     ) {
         if self.context_name.is_some() {
-            self.tracked_objects.insert(object_id);
+            self.tracked_objects.insert(asset_id);
         }
     }
 
@@ -152,14 +152,14 @@ impl UndoContext {
     pub(crate) fn track_existing_object(
         &mut self,
         after_state: &DataSet,
-        object_id: AssetId,
+        asset_id: AssetId,
     ) {
         if self.context_name.is_some() {
             //TODO: Preserve sub-objects?
-            if !self.tracked_objects.contains(&object_id) {
+            if !self.tracked_objects.contains(&asset_id) {
                 println!("track object");
-                self.tracked_objects.insert(object_id);
-                self.before_state.copy_from(&after_state, object_id);
+                self.tracked_objects.insert(asset_id);
+                self.before_state.copy_from(&after_state, asset_id);
             }
         }
     }
@@ -172,8 +172,8 @@ impl UndoContext {
         &mut self,
         after_state: &DataSet,
         name: &'static str,
-        modified_objects: &mut HashSet<AssetId>,
-        modified_locations: &mut HashSet<ObjectLocation>,
+        modified_assets: &mut HashSet<AssetId>,
+        modified_locations: &mut HashSet<AssetLocation>,
     ) {
         if self.context_name == Some(name) {
             // don't need to do anything, we can append to the current context
@@ -181,7 +181,7 @@ impl UndoContext {
             // commit the context that's in flight, if one exists
             if self.context_name.is_some() {
                 // This won't do anything if there's nothing to send
-                self.commit_context(after_state, modified_objects, modified_locations);
+                self.commit_context(after_state, modified_assets, modified_locations);
             }
 
             self.context_name = Some(name);
@@ -192,12 +192,12 @@ impl UndoContext {
         &mut self,
         after_state: &DataSet,
         end_context_behavior: EndContextBehavior,
-        modified_objects: &mut HashSet<AssetId>,
-        modified_locations: &mut HashSet<ObjectLocation>,
+        modified_assets: &mut HashSet<AssetId>,
+        modified_locations: &mut HashSet<AssetLocation>,
     ) {
         if end_context_behavior != EndContextBehavior::AllowResume {
             // This won't do anything if there's nothing to send
-            self.commit_context(after_state, modified_objects, modified_locations);
+            self.commit_context(after_state, modified_assets, modified_locations);
         }
     }
 
@@ -208,22 +208,22 @@ impl UndoContext {
         if !self.tracked_objects.is_empty() {
             // Delete newly created objects
             let keys_to_delete: Vec<_> = after_state
-                .objects()
+                .assets()
                 .keys()
                 .filter(|x| {
-                    self.tracked_objects.contains(x) && !self.before_state.objects().contains_key(x)
+                    self.tracked_objects.contains(x) && !self.before_state.assets().contains_key(x)
                 })
                 .copied()
                 .collect();
 
             for key_to_delete in keys_to_delete {
-                after_state.delete_object(key_to_delete);
+                after_state.delete_asset(key_to_delete);
             }
 
             // Overwrite pre-existing objects back to the previous state (before_state only contains
             // objects that were tracked and were pre-existing)
-            for (object_id, _object) in self.before_state.objects() {
-                after_state.copy_from(&self.before_state, *object_id);
+            for (asset_id, _object) in self.before_state.assets() {
+                after_state.copy_from(&self.before_state, *asset_id);
             }
 
             // before state will be cleared
@@ -237,8 +237,8 @@ impl UndoContext {
     pub(crate) fn commit_context(
         &mut self,
         after_state: &DataSet,
-        modified_objects: &mut HashSet<AssetId>,
-        modified_locations: &mut HashSet<ObjectLocation>,
+        modified_assets: &mut HashSet<AssetId>,
+        modified_locations: &mut HashSet<AssetLocation>,
     ) {
         if !self.tracked_objects.is_empty() {
             // Make a diff and send it if it has changes
@@ -253,7 +253,7 @@ impl UndoContext {
                 //
                 // Use diff to append to the modified object/location sets
                 //
-                modified_objects.extend(diff_set.modified_objects.iter());
+                modified_assets.extend(diff_set.modified_assets.iter());
 
                 // Can't use extend because we need to clone
                 for modified_location in &diff_set.modified_locations {

@@ -579,7 +579,7 @@ impl SchemaDefType {
             SchemaDefType::StaticArray(x) => Schema::StaticArray(x.to_schema(named_types)),
             SchemaDefType::DynamicArray(x) => Schema::DynamicArray(x.to_schema(named_types)),
             SchemaDefType::Map(x) => Schema::Map(x.to_schema(named_types)),
-            SchemaDefType::ObjectRef(x) => Schema::ObjectRef(*named_types.get(&x).unwrap()),
+            SchemaDefType::ObjectRef(x) => Schema::AssetRef(*named_types.get(&x).unwrap()),
             SchemaDefType::NamedType(x) => Schema::NamedType(*named_types.get(&x).unwrap()),
         }
     }

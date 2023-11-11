@@ -46,18 +46,18 @@ pub trait DataSource {
 
     fn is_generated_asset(
         &self,
-        object_id: AssetId,
+        asset_id: AssetId,
     ) -> bool;
 
     // fn object_symbol_name(
     //     &self,
-    //     object_id: ObjectId
+    //     asset_id: ObjectId
     // ) -> Option<String>;
 
     fn persist_generated_asset(
         &mut self,
         edit_context: &mut EditContext,
-        object_id: AssetId,
+        asset_id: AssetId,
     );
     // fn revert_all_modified(
     //     &mut self,

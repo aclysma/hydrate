@@ -5,7 +5,7 @@ use crate::ui::asset_browser_grid_drag_drop::{
 };
 use crate::ui_state::{ActiveToolRegion, UiState};
 use crate::QueuedActions;
-use hydrate_model::{LocationTreeNode, AssetId, ObjectLocation};
+use hydrate_model::{LocationTreeNode, AssetId, AssetLocation};
 use imgui::sys::ImVec2;
 use imgui::{im_str, ImStr, ImString, TreeNodeFlags};
 use imgui::{sys as is, StyleColor};
@@ -44,7 +44,7 @@ fn context_menu<F: FnOnce(&imgui::Ui)>(
 fn try_select_tree_node(
     ui: &imgui::Ui,
     ui_state: &mut UiState,
-    location: &ObjectLocation,
+    location: &AssetLocation,
 ) {
     if ui.is_item_clicked() && !ui.is_item_toggled_open() {
         ui_state.active_tool_region = Some(ActiveToolRegion::AssetBrowserTree);
@@ -68,7 +68,7 @@ fn try_select_tree_node(
 fn try_select_grid_item(
     ui: &imgui::Ui,
     ui_state: &mut UiState,
-    items: &[(AssetId, ObjectLocation)],
+    items: &[(AssetId, AssetLocation)],
     _index: usize,
     id: AssetId,
 ) {
@@ -185,7 +185,7 @@ pub fn assets_tree_node(
         match payload {
             AssetBrowserGridPayload::Single(single) => {
                 //db_state.editor_model.root_edit_context().set_object_location(single, tree_node.location.clone())
-                action_sender.queue_action(QueuedActions::MoveObjects(
+                action_sender.queue_action(QueuedActions::MoveAssets(
                     vec![single],
                     tree_node.location.clone(),
                 ));
@@ -198,7 +198,7 @@ pub fn assets_tree_node(
                     .iter()
                     .copied()
                     .collect();
-                action_sender.queue_action(QueuedActions::MoveObjects(
+                action_sender.queue_action(QueuedActions::MoveAssets(
                     selected,
                     tree_node.location.clone(),
                 ));
@@ -362,7 +362,7 @@ pub fn assets_window_left(
 pub fn draw_asset(
     ui: &imgui::Ui,
     app_state: &mut AppState,
-    items: &[(AssetId, ObjectLocation)],
+    items: &[(AssetId, AssetLocation)],
     //name: &ImStr,
     index: usize,
     item_size: u32,
@@ -615,7 +615,7 @@ pub fn assets_window_right(
                 .objects()
             {
                 if !app_state.db_state.editor_model.is_a_root_object(*k) {
-                    filtered_objects.push((*k, v.object_location().clone()));
+                    filtered_objects.push((*k, v.asset_location().clone()));
                 }
             }
 

@@ -244,7 +244,7 @@ impl Importer for BlenderMeshImporter {
             // Set up the material slots
             //
             for material_slot in material_slots {
-                let object_id = importable_objects
+                let asset_id = importable_objects
                     .get(&None)
                     .unwrap()
                     .referenced_paths
@@ -255,7 +255,7 @@ impl Importer for BlenderMeshImporter {
                     .add_entry(&mut default_asset_data_container);
                 x.material_slots()
                     .entry(entry)
-                    .set(&mut default_asset_data_container, *object_id)
+                    .set(&mut default_asset_data_container, *asset_id)
                     .unwrap();
             }
 

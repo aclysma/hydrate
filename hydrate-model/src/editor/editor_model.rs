@@ -3,10 +3,10 @@ use crate::editor::undo::UndoStack;
 use crate::import_util::ImportToQueue;
 use crate::{
     DataSet, DataSource, FileSystemIdBasedDataSource, FileSystemPathBasedDataSource, HashMap,
-    HashSet, ImporterRegistry, LocationTree, AssetId, ObjectPath, ObjectSourceId, PathNode,
+    HashSet, ImporterRegistry, LocationTree, AssetId, AssetPath, AssetSourceId, PathNode,
     PathNodeRoot, SchemaNamedType, SchemaSet,
 };
-use hydrate_data::{ObjectLocation, ObjectName};
+use hydrate_data::{AssetLocation, AssetName};
 use hydrate_schema::SchemaFingerprint;
 use slotmap::DenseSlotMap;
 use std::path::PathBuf;
@@ -19,10 +19,9 @@ pub struct EditorModel {
     root_edit_context_key: EditContextKey,
     edit_contexts: DenseSlotMap<EditContextKey, EditContext>,
     //TODO: slot_map?
-    data_sources: HashMap<ObjectSourceId, Box<dyn DataSource>>,
+    data_sources: HashMap<AssetSourceId, Box<dyn DataSource>>,
 
-    path_node_id_to_path: HashMap<AssetId, ObjectPath>,
-    //path_to_object_id: HashMap<ObjectPath, ObjectId>,
+    path_node_id_to_path: HashMap<AssetId, AssetPath>,
     location_tree: LocationTree,
 
     path_node_schema: SchemaNamedType,
@@ -68,22 +67,12 @@ impl EditorModel {
             || self.path_node_root_schema.fingerprint() == fingerprint
     }
 
-    // pub fn object_symbol_name(&self, object_id: ObjectId) -> Option<String> {
-    //     for data_source in self.data_sources.values() {
-    //         if let Some(symbol_name) = data_source.object_symbol_name(object_id) {
-    //             Some(symbol_name)
-    //         }
-    //     }
-    //
-    //     None
-    // }
-
     pub fn is_generated_asset(
         &self,
-        object_id: AssetId,
+        asset_id: AssetId,
     ) -> bool {
         for data_source in self.data_sources.values() {
-            if data_source.is_generated_asset(object_id) {
+            if data_source.is_generated_asset(asset_id) {
                 return true;
             }
         }
@@ -93,7 +82,7 @@ impl EditorModel {
 
     pub fn persist_generated_asset(
         &mut self,
-        object_id: AssetId,
+        asset_id: AssetId,
     ) {
         for (_, data_source) in &mut self.data_sources {
             let root_edit_context = self
@@ -101,7 +90,7 @@ impl EditorModel {
                 .get_mut(self.root_edit_context_key)
                 .unwrap();
 
-            data_source.persist_generated_asset(root_edit_context, object_id);
+            data_source.persist_generated_asset(root_edit_context, asset_id);
         }
     }
 
@@ -147,17 +136,17 @@ impl EditorModel {
 
     pub fn path_node_id_to_path(
         &self,
-        object_id: AssetId,
-    ) -> Option<&ObjectPath> {
-        self.path_node_id_to_path.get(&object_id)
+        asset_id: AssetId,
+    ) -> Option<&AssetPath> {
+        self.path_node_id_to_path.get(&asset_id)
     }
 
     pub fn object_display_name_long(
         &self,
-        object_id: AssetId,
+        asset_id: AssetId,
     ) -> String {
         let root_data_set = &self.root_edit_context().data_set;
-        let location = root_data_set.object_location(object_id);
+        let location = root_data_set.asset_location(asset_id);
 
         // Look up the location, if we don't find it just assume the object is at the root. This
         // allows some degree of robustness even when data is in a bad state (like cyclical references)
@@ -165,13 +154,13 @@ impl EditorModel {
             .map(|x| self.path_node_id_to_path(x.path_node_id()))
             .flatten()
             .cloned()
-            .unwrap_or_else(ObjectPath::root);
+            .unwrap_or_else(AssetPath::root);
 
-        let name = root_data_set.object_name(object_id);
+        let name = root_data_set.asset_name(asset_id);
         if let Some(name) = name.as_string() {
             path.join(name).as_str().to_string()
         } else {
-            path.join(&format!("{}", object_id.as_uuid()))
+            path.join(&format!("{}", asset_id.as_uuid()))
                 .as_str()
                 .to_string()
         }
@@ -179,17 +168,17 @@ impl EditorModel {
 
     pub fn data_source(
         &mut self,
-        object_source_id: ObjectSourceId,
+        object_source_id: AssetSourceId,
     ) -> Option<&dyn DataSource> {
         self.data_sources.get(&object_source_id).map(|x| &**x)
     }
 
     pub fn is_a_root_object(
         &self,
-        object_id: AssetId,
+        asset_id: AssetId,
     ) -> bool {
         for source in self.data_sources.keys() {
-            if *source.uuid() == object_id.as_uuid() {
+            if *source.uuid() == asset_id.as_uuid() {
                 return true;
             }
         }
@@ -197,12 +186,12 @@ impl EditorModel {
         false
     }
 
-    pub fn add_file_system_id_based_data_source<RootPathT: Into<PathBuf>>(
+    pub fn add_file_system_id_based_asset_source<RootPathT: Into<PathBuf>>(
         &mut self,
         data_source_name: &str,
         file_system_root_path: RootPathT,
         imports_to_queue: &mut Vec<ImportToQueue>,
-    ) -> ObjectSourceId {
+    ) -> AssetSourceId {
         let path_node_root_schema = self.path_node_root_schema.as_record().unwrap().clone();
         let root_edit_context = self.root_edit_context_mut();
         let file_system_root_path = file_system_root_path.into();
@@ -213,13 +202,13 @@ impl EditorModel {
         //
         // Create the PathNodeRoot object that acts as the root location for all objects in this DS
         //
-        let object_source_id = ObjectSourceId::new();
-        let root_object_id = AssetId::from_uuid(*object_source_id.uuid());
+        let object_source_id = AssetSourceId::new();
+        let root_asset_id = AssetId::from_uuid(*object_source_id.uuid());
         root_edit_context
             .new_object_with_id(
-                root_object_id,
-                &ObjectName::new(data_source_name),
-                &ObjectLocation::null(),
+                root_asset_id,
+                &AssetName::new(data_source_name),
+                &AssetLocation::null(),
                 &path_node_root_schema,
             )
             .unwrap();
@@ -249,7 +238,7 @@ impl EditorModel {
         file_system_root_path: RootPathT,
         importer_registry: &ImporterRegistry,
         imports_to_queue: &mut Vec<ImportToQueue>,
-    ) -> ObjectSourceId {
+    ) -> AssetSourceId {
         let path_node_root_schema = self.path_node_root_schema.as_record().unwrap().clone();
         let root_edit_context = self.root_edit_context_mut();
         let file_system_root_path = file_system_root_path.into();
@@ -260,13 +249,13 @@ impl EditorModel {
         //
         // Create the PathNodeRoot object that acts as the root location for all objects in this DS
         //
-        let object_source_id = ObjectSourceId::new();
-        let root_object_id = AssetId::from_uuid(*object_source_id.uuid());
+        let object_source_id = AssetSourceId::new();
+        let root_asset_id = AssetId::from_uuid(*object_source_id.uuid());
         root_edit_context
             .new_object_with_id(
-                root_object_id,
-                &ObjectName::new(data_source_name),
-                &ObjectLocation::null(),
+                root_asset_id,
+                &AssetName::new(data_source_name),
+                &AssetLocation::null(),
                 &path_node_root_schema,
             )
             .unwrap();
@@ -327,11 +316,11 @@ impl EditorModel {
         //
         // Take the contents of the modified object list, leaving the edit context with a cleared list
         //
-        let (modified_objects, modified_locations) =
-            root_edit_context.take_modified_objects_and_locations();
+        let (modified_assets, modified_locations) =
+            root_edit_context.take_modified_assets_and_locations();
         println!(
             "Revert:\nObjects: {:?}\nLocations: {:?}",
-            modified_objects, modified_locations
+            modified_assets, modified_locations
         );
 
         for (_id, data_source) in &mut self.data_sources {
@@ -351,7 +340,7 @@ impl EditorModel {
 
     pub fn close_file_system_source(
         &mut self,
-        _object_source_id: ObjectSourceId,
+        _object_source_id: AssetSourceId,
     ) {
         unimplemented!();
         // kill edit contexts or fail
@@ -380,10 +369,10 @@ impl EditorModel {
             .get_disjoint_mut([self.root_edit_context_key, new_edit_context_key])
             .unwrap();
 
-        for &object_id in objects {
+        for &asset_id in objects {
             new_edit_context
                 .data_set
-                .copy_from(root_edit_context.data_set(), object_id);
+                .copy_from(root_edit_context.data_set(), asset_id);
         }
 
         new_edit_context_key
@@ -399,10 +388,10 @@ impl EditorModel {
             .get_disjoint_mut([self.root_edit_context_key, edit_context])
             .unwrap();
 
-        for &object_id in context_to_flush.modified_objects() {
+        for &asset_id in context_to_flush.modified_assets() {
             root_context
                 .data_set
-                .copy_from(&context_to_flush.data_set, object_id);
+                .copy_from(&context_to_flush.data_set, asset_id);
         }
 
         context_to_flush.clear_change_tracking();
@@ -427,11 +416,11 @@ impl EditorModel {
     fn do_populate_path(
         data_set: &DataSet,
         path_stack: &mut HashSet<AssetId>,
-        paths: &mut HashMap<AssetId, ObjectPath>,
+        paths: &mut HashMap<AssetId, AssetPath>,
         path_node: AssetId,
-    ) -> ObjectPath {
+    ) -> AssetPath {
         if path_node.is_null() {
-            return ObjectPath::root();
+            return AssetPath::root();
         }
 
         // If we already know the path for the tree node, just return it
@@ -443,26 +432,26 @@ impl EditorModel {
         let is_cyclical_reference = !path_stack.insert(path_node);
         let source_id_and_path = if is_cyclical_reference {
             // If we detect a cycle, bail and return root path
-            ObjectPath::root()
+            AssetPath::root()
         } else {
-            if let Some(object) = data_set.objects().get(&path_node) {
-                if let Some(name) = object.object_name().as_string() {
+            if let Some(object) = data_set.assets().get(&path_node) {
+                if let Some(name) = object.asset_name().as_string() {
                     // Parent is found, named, and not a cyclical reference
                     let parent = Self::do_populate_path(
                         data_set,
                         path_stack,
                         paths,
-                        object.object_location().path_node_id(),
+                        object.asset_location().path_node_id(),
                     );
                     let path = parent.join(name);
                     path
                 } else {
                     // Parent is unnamed, just treat as being at root path
-                    ObjectPath::root()
+                    AssetPath::root()
                 }
             } else {
                 // Can't find parent, just treat as being at root path
-                ObjectPath::root()
+                AssetPath::root()
             }
         };
 
@@ -479,16 +468,16 @@ impl EditorModel {
         data_set: &DataSet,
         path_node_type: &SchemaNamedType,
         path_node_root_type: &SchemaNamedType,
-    ) -> HashMap<AssetId, ObjectPath> {
+    ) -> HashMap<AssetId, AssetPath> {
         let mut path_stack = HashSet::default();
-        let mut paths = HashMap::<AssetId, ObjectPath>::default();
-        for (object_id, info) in data_set.objects() {
+        let mut paths = HashMap::<AssetId, AssetPath>::default();
+        for (asset_id, info) in data_set.assets() {
             // For objects that *are* path nodes, use their ID directly. For objects that aren't
             // path nodes, use their location object ID
             let path_node_id = if info.schema().fingerprint() == path_node_type.fingerprint()
                 || info.schema().fingerprint() == path_node_root_type.fingerprint()
             {
-                *object_id
+                *asset_id
             } else {
                 // We could process objects so that if for some reason the parent nodes don't exist, we can still
                 // generate path lookups for them. Instead we will consider a parent not being found as

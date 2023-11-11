@@ -2,19 +2,19 @@ use crate::app_state::{ActionQueueSender, ModalAction, ModalActionControlFlow};
 use crate::db_state::DbState;
 use crate::ui_state::UiState;
 use hydrate_model::pipeline::AssetEngine;
-use hydrate_model::{HashSet, ObjectLocation, ObjectName, SchemaFingerprint};
+use hydrate_model::{HashSet, AssetLocation, AssetName, SchemaFingerprint};
 use imgui::sys::ImVec2;
 use imgui::{im_str, ImString, PopupModal};
 
 pub struct NewObjectModal {
     finished_first_draw: bool,
-    create_location: ObjectLocation,
+    create_location: AssetLocation,
     object_name: ImString,
     selected_type: Option<SchemaFingerprint>,
 }
 
 impl NewObjectModal {
-    pub fn new(create_location: ObjectLocation) -> Self {
+    pub fn new(create_location: AssetLocation) -> Self {
         NewObjectModal {
             finished_first_draw: false,
             create_location,
@@ -84,7 +84,7 @@ impl ModalAction for NewObjectModal {
 
             ui.same_line();
             if ui.button(im_str!("Create")) {
-                let object_name = ObjectName::new(self.object_name.to_string());
+                let object_name = AssetName::new(self.object_name.to_string());
                 let schema = db_state
                     .editor_model
                     .schema_set()
@@ -93,13 +93,13 @@ impl ModalAction for NewObjectModal {
                     .as_record()
                     .unwrap()
                     .clone();
-                let new_object_id = db_state.editor_model.root_edit_context_mut().new_object(
+                let new_asset_id = db_state.editor_model.root_edit_context_mut().new_object(
                     &object_name,
                     &self.create_location,
                     &schema,
                 );
                 let mut selected_items = HashSet::default();
-                selected_items.insert(new_object_id);
+                selected_items.insert(new_asset_id);
                 ui_state.asset_browser_state.grid_state.selected_items = selected_items;
 
                 ui.close_current_popup();

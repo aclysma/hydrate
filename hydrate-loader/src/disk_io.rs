@@ -15,14 +15,14 @@ use std::sync::Arc;
 use std::thread::JoinHandle;
 
 struct DiskAssetIORequestMetadata {
-    object_id: ArtifactId,
+    artifact_id: ArtifactId,
     load_handle: LoadHandle,
     version: u32,
     hash: u64,
 }
 
 struct DiskAssetIORequestData {
-    object_id: ArtifactId,
+    artifact_id: ArtifactId,
     load_handle: LoadHandle,
     hash: u64,
     version: u32,
@@ -57,22 +57,22 @@ impl DiskAssetIOWorkerThread {
 
                                 // Read the data?
 
-                                let path = hydrate_base::uuid_path::uuid_and_hash_to_path(&*root_path, msg.object_id.as_uuid(), msg.hash, "bf");
+                                let path = hydrate_base::uuid_path::uuid_and_hash_to_path(&*root_path, msg.artifact_id.as_uuid(), msg.hash, "bf");
                                 let mut reader = std::fs::File::open(path).unwrap();
-                                let metadata = hydrate_base::BuiltObjectMetadata::read_header(&mut reader).unwrap();
+                                let metadata = hydrate_base::BuiltArtifactMetadata::read_header(&mut reader).unwrap();
 
 
-                                //let path = hydrate_model::uuid_path::uuid_and_hash_to_path(&*root_path, msg.object_id.as_uuid(), msg.hash, "bf");
-                                log::trace!("Start metadata read {:?}", msg.object_id);
+                                //let path = hydrate_model::uuid_path::uuid_and_hash_to_path(&*root_path, msg.artifact_id.as_uuid(), msg.hash, "bf");
+                                log::trace!("Start metadata read {:?}", msg.artifact_id);
                                 //let t0 = std::time::Instant::now();
                                 // let result = std::fs::read(&path);
                                 // //let t1 = std::time::Instant::now();
                                 // match &result {
                                 //     Ok(data) => {
-                                //         //log::debug!("Read {:?} {:?} {} bytes in {}ms", object_id, subresource, data.len(), (t1 - t0).as_secs_f32() * 1000.0);
+                                //         //log::debug!("Read {:?} {:?} {} bytes in {}ms", artifact_id, subresource, data.len(), (t1 - t0).as_secs_f32() * 1000.0);
                                 //     },
                                 //     Err(e) => {
-                                //         log::warn!("Failed to read metadata {:?} at path {:?}", msg.object_id, path);
+                                //         log::warn!("Failed to read metadata {:?} at path {:?}", msg.artifact_id, path);
                                 //     }
                                 // }
 
@@ -85,7 +85,7 @@ impl DiskAssetIOWorkerThread {
                                 log::trace!("read metadata {:?}", metadata);
 
                                 result_tx.send(LoaderEvent::MetadataRequestComplete( RequestMetadataResult {
-                                    object_id: msg.object_id,
+                                    artifact_id: msg.artifact_id,
                                     load_handle: msg.load_handle,
                                     //subresource: msg.subresource,
                                     //hash: msg.hash,
@@ -95,15 +95,15 @@ impl DiskAssetIOWorkerThread {
                                 active_request_count.fetch_sub(1, Ordering::Release);
                             },
                             DiskAssetIORequest::Data(msg) => {
-                                let path = hydrate_base::uuid_path::uuid_and_hash_to_path(&*root_path, msg.object_id.as_uuid(), msg.hash, "bf");
+                                let path = hydrate_base::uuid_path::uuid_and_hash_to_path(&*root_path, msg.artifact_id.as_uuid(), msg.hash, "bf");
                                 let mut reader = std::fs::File::open(&path).unwrap();
-                                let _metadata = hydrate_base::BuiltObjectMetadata::read_header(&mut reader).unwrap();
+                                let _metadata = hydrate_base::BuiltArtifactMetadata::read_header(&mut reader).unwrap();
 
                                 let mut bytes = Vec::new();
                                 use std::io::Read;
                                 reader.read_to_end(&mut bytes).unwrap();
 
-                                log::trace!("Start read {:?} {:?}", msg.object_id, msg.subresource);
+                                log::trace!("Start read {:?} {:?}", msg.artifact_id, msg.subresource);
                                 //let t0 = std::time::Instant::now();
                                 //let result = std::fs::read(&path);
 
@@ -118,10 +118,10 @@ impl DiskAssetIOWorkerThread {
                                 // This needs to skip the header?
 
                                 //let t1 = std::time::Instant::now();
-                                //log::debug!("Read {:?} {:?} {} bytes in {}ms", object_id, subresource, data.len(), (t1 - t0).as_secs_f32() * 1000.0);
+                                //log::debug!("Read {:?} {:?} {} bytes in {}ms", artifact_id, subresource, data.len(), (t1 - t0).as_secs_f32() * 1000.0);
 
                                 result_tx.send(LoaderEvent::DataRequestComplete(RequestDataResult {
-                                    object_id: msg.object_id,
+                                    artifact_id: msg.artifact_id,
                                     load_handle: msg.load_handle,
                                     subresource: msg.subresource,
                                     version: msg.version,
@@ -374,7 +374,7 @@ impl LoaderIO for DiskAssetIO {
         &self,
         build_hash: CombinedBuildHash,
         load_handle: LoadHandle,
-        object_id: ArtifactId,
+        artifact_id: ArtifactId,
         version: u32,
     ) {
         log::debug!("request_metadata {:?}", load_handle);
@@ -383,7 +383,7 @@ impl LoaderIO for DiskAssetIO {
         let hash = self
             .manifest
             .artifact_lookup
-            .get(&object_id)
+            .get(&artifact_id)
             .map(|x| x.build_hash);
         if let Some(hash) = hash {
             self.thread_pool
@@ -391,7 +391,7 @@ impl LoaderIO for DiskAssetIO {
                 .unwrap()
                 .add_request(DiskAssetIORequest::Metadata(DiskAssetIORequestMetadata {
                     load_handle,
-                    object_id,
+                    artifact_id,
                     version,
                     hash,
                 }));
@@ -399,7 +399,7 @@ impl LoaderIO for DiskAssetIO {
             self.tx
                 .send(LoaderEvent::MetadataRequestComplete(
                     RequestMetadataResult {
-                        object_id,
+                        artifact_id,
                         load_handle,
                         version,
                         //hash: 0,
@@ -411,7 +411,7 @@ impl LoaderIO for DiskAssetIO {
 
         // self.tx.send(LoaderEvent::MetadataRequestComplete(RequestMetadataResult {
         //     load_handle,
-        //     object_id,
+        //     artifact_id,
         //     version,
         //     result: Ok(ObjectMetadata {
         //         dependencies: vec![],
@@ -425,7 +425,7 @@ impl LoaderIO for DiskAssetIO {
         &self,
         build_hash: CombinedBuildHash,
         load_handle: LoadHandle,
-        object_id: ArtifactId,
+        artifact_id: ArtifactId,
         hash: u64,
         subresource: Option<u32>,
         version: u32,
@@ -437,7 +437,7 @@ impl LoaderIO for DiskAssetIO {
             .as_ref()
             .unwrap()
             .add_request(DiskAssetIORequest::Data(DiskAssetIORequestData {
-                object_id,
+                artifact_id,
                 load_handle,
                 hash,
                 version,
@@ -446,7 +446,7 @@ impl LoaderIO for DiskAssetIO {
 
         // self.tx.send(LoaderEvent::DataRequestComplete(RequestDataResult {
         //     load_handle,
-        //     object_id,
+        //     artifact_id,
         //     subresource,
         //     version,
         //     result: Ok(ObjectData {

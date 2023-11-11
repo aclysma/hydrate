@@ -26,12 +26,12 @@ pub struct ManifestFileJson {
 }
 
 #[derive(Debug, Serialize, Deserialize, Hash)]
-pub struct BuiltObjectMetadata {
+pub struct BuiltArtifactMetadata {
     pub dependencies: Vec<ArtifactId>,
     pub asset_type: Uuid, // size?
 }
 
-impl BuiltObjectMetadata {
+impl BuiltArtifactMetadata {
     pub fn write_header<T: std::io::Write>(
         &self,
         writer: &mut T,
@@ -52,13 +52,13 @@ impl BuiltObjectMetadata {
         Ok(())
     }
 
-    pub fn read_header<T: std::io::Read>(reader: &mut T) -> std::io::Result<BuiltObjectMetadata> {
+    pub fn read_header<T: std::io::Read>(reader: &mut T) -> std::io::Result<BuiltArtifactMetadata> {
         // let mut buffer = [0; 16];
         // reader.read(&mut buffer[0..4])?;
         // let count = u32::from_le_bytes(&buffer[0..4]);
         // let mut dependencies = Vec::with_capacity(count as usize);
         // for _ in 0..count {
-        //     dependencies.push(ObjectId(reader.read_u128()?));
+        //     dependencies.push(ArtifactId(reader.read_u128()?));
         // }
         //
         // let subresource_count = reader.read_u32()?;
@@ -71,7 +71,7 @@ impl BuiltObjectMetadata {
         let metadata = bincode::deserialize_from(reader).unwrap();
         Ok(metadata)
 
-        // Ok(BuiltObjectMetadata {
+        // Ok(BuiltArtifactMetadata {
         //     dependencies,
         //     subresource_count,
         //     asset_type

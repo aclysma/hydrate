@@ -476,8 +476,8 @@ pub(crate) fn include_impl(
 
     let referenced_object =
         dependency_lookup.get(&(requested_from.to_path_buf(), requested_path.to_path_buf()));
-    if let Some(referenced_object_id) = referenced_object {
-        if let Some(dependency_data) = dependency_data.get(referenced_object_id) {
+    if let Some(referenced_asset_id) = referenced_object {
+        if let Some(dependency_data) = dependency_data.get(referenced_asset_id) {
             println!("Resolved the content");
             let content = dependency_data
                 .resolve_property(schema_set, "code")
@@ -492,7 +492,7 @@ pub(crate) fn include_impl(
         } else {
             Err(format!(
                 "Path {:?} resolved to {:?}, but the import data could not be found",
-                resolved_path, referenced_object_id
+                resolved_path, referenced_asset_id
             ))
         }
     } else {
@@ -633,7 +633,7 @@ impl JobProcessor for GlslBuildTargetJobProcessor {
         data_set: &DataSet,
         schema_set: &SchemaSet,
     ) -> JobEnumeratedDependencies {
-        let data_container = DataContainer::new_dataset(data_set, schema_set, input.asset_id);
+        let data_container = DataContainer::from_dataset(data_set, schema_set, input.asset_id);
         let x = GlslBuildTargetAssetRecord::default();
 
         // The source file is the "top level" file where the GLSL entry point is defined
@@ -683,7 +683,7 @@ impl JobProcessor for GlslBuildTargetJobProcessor {
         //
         // Read asset properties
         //
-        let data_container = DataContainer::new_dataset(data_set, schema_set, input.asset_id);
+        let data_container = DataContainer::from_dataset(data_set, schema_set, input.asset_id);
         let x = GlslBuildTargetAssetRecord::default();
 
         let source_file = x.source_file().get(&data_container).unwrap();
@@ -693,12 +693,12 @@ impl JobProcessor for GlslBuildTargetJobProcessor {
         // Build a lookup of source file ObjectID to PathBuf that it was imported from
         //
         let mut dependency_lookup = HashMap::default();
-        for (&dependency_object_id, _) in dependency_data {
+        for (&dependency_asset_id, _) in dependency_data {
             let all_references = data_set
-                .resolve_all_file_references(dependency_object_id)
+                .resolve_all_file_references(dependency_asset_id)
                 .unwrap();
             let this_path = data_set
-                .import_info(dependency_object_id)
+                .import_info(dependency_asset_id)
                 .unwrap()
                 .source_file_path();
 

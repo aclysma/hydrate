@@ -2,8 +2,8 @@ pub mod hashing;
 
 pub mod uuid_path;
 
-pub mod built_object_metadata;
-pub use built_object_metadata::*;
+pub mod built_artifact_metadata;
+pub use built_artifact_metadata::*;
 
 mod asset_id;
 pub use asset_id::AssetId;

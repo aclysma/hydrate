@@ -10,15 +10,15 @@ pub use value::Value;
 mod data_set;
 pub use data_set::BuildInfo;
 pub use data_set::BuilderId;
-pub use data_set::DataObjectInfo;
+pub use data_set::DataAssetInfo;
 pub use data_set::DataSet;
 pub use data_set::DataSetError;
 pub use data_set::DataSetResult;
 pub use data_set::ImportInfo;
 pub use data_set::ImporterId;
-pub use data_set::ObjectLocation;
-pub use data_set::ObjectName;
-pub use data_set::ObjectSourceId;
+pub use data_set::AssetLocation;
+pub use data_set::AssetName;
+pub use data_set::AssetSourceId;
 pub use data_set::OverrideBehavior;
 
 mod data_set_view;
@@ -45,9 +45,6 @@ pub use schema_set::*;
 
 mod ordered_set;
 pub use ordered_set::*;
-
-#[cfg(test)]
-mod tests;
 
 //TODO: Delete unused property data when path ancestor is null or in replace mode
 

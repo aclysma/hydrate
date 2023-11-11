@@ -192,26 +192,26 @@ impl Importer for GltfImporter {
                     // x.emissive_texture().set(&mut default_asset_data_container, material.emissive_texture().unwrap_or_default()).unwrap();
 
                     // if let Some(color_texture) = material.pbr_metallic_roughness().base_color_texture() {
-                    //     if let Some(referenced_object_id) = importable_objects.get(&None).unwrap().referenced_paths.get(&PathBuf::from_str(&color_texture.).unwrap()) {
-                    //         x.color_texture().set(&mut default_asset_data_container, *referenced_object_id).unwrap();
+                    //     if let Some(referenced_asset_id) = importable_objects.get(&None).unwrap().referenced_paths.get(&PathBuf::from_str(&color_texture.).unwrap()) {
+                    //         x.color_texture().set(&mut default_asset_data_container, *referenced_asset_id).unwrap();
                     //     }
                     // }
                     //
                     // if let Some(metallic_roughness_texture) = json_data.metallic_roughness_texture {
-                    //     if let Some(referenced_object_id) = importable_objects.get(&None).unwrap().referenced_paths.get(&PathBuf::from_str(&metallic_roughness_texture).unwrap()) {
-                    //         x.color_texture().set(&mut default_asset_data_container, *referenced_object_id).unwrap();
+                    //     if let Some(referenced_asset_id) = importable_objects.get(&None).unwrap().referenced_paths.get(&PathBuf::from_str(&metallic_roughness_texture).unwrap()) {
+                    //         x.color_texture().set(&mut default_asset_data_container, *referenced_asset_id).unwrap();
                     //     }
                     // }
                     //
                     // if let Some(normal_texture) = json_data.normal_texture {
-                    //     if let Some(referenced_object_id) = importable_objects.get(&None).unwrap().referenced_paths.get(&PathBuf::from_str(&normal_texture).unwrap()) {
-                    //         x.color_texture().set(&mut default_asset_data_container, *referenced_object_id).unwrap();
+                    //     if let Some(referenced_asset_id) = importable_objects.get(&None).unwrap().referenced_paths.get(&PathBuf::from_str(&normal_texture).unwrap()) {
+                    //         x.color_texture().set(&mut default_asset_data_container, *referenced_asset_id).unwrap();
                     //     }
                     // }
                     //
                     // if let Some(emissive_texture) = json_data.emissive_texture {
-                    //     if let Some(referenced_object_id) = importable_objects.get(&None).unwrap().referenced_paths.get(&PathBuf::from_str(&emissive_texture).unwrap()) {
-                    //         x.color_texture().set(&mut default_asset_data_container, *referenced_object_id).unwrap();
+                    //     if let Some(referenced_asset_id) = importable_objects.get(&None).unwrap().referenced_paths.get(&PathBuf::from_str(&emissive_texture).unwrap()) {
+                    //         x.color_texture().set(&mut default_asset_data_container, *referenced_asset_id).unwrap();
                     //     }
                     // }
 

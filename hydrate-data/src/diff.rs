@@ -1,6 +1,6 @@
 use crate::value::PropertyValue;
 use crate::{
-    DataObjectInfo, DataSet, HashSet, NullOverride, AssetId, ObjectLocation, ObjectName,
+    DataAssetInfo, DataSet, HashSet, NullOverride, AssetId, AssetLocation, AssetName,
     SchemaSet, Value,
 };
 use std::path::PathBuf;
@@ -14,9 +14,9 @@ pub struct DynamicArrayEntryDelta {
 }
 
 #[derive(Default, Debug)]
-pub struct ObjectDiff {
-    set_name: Option<ObjectName>,
-    set_location: Option<ObjectLocation>,
+pub struct AssetDiff {
+    set_name: Option<AssetName>,
+    set_location: Option<AssetLocation>,
     set_prototype: Option<Option<AssetId>>,
     set_properties: Vec<(String, PropertyValue)>,
     remove_properties: Vec<String>,
@@ -29,7 +29,7 @@ pub struct ObjectDiff {
     remove_file_references: Vec<PathBuf>,
 }
 
-impl ObjectDiff {
+impl AssetDiff {
     pub fn has_changes(&self) -> bool {
         self.set_name.is_some()
             || self.set_location.is_some()
@@ -47,42 +47,42 @@ impl ObjectDiff {
 
     pub fn apply(
         &self,
-        object: &mut DataObjectInfo,
+        asset: &mut DataAssetInfo,
     ) {
         if let Some(set_name) = &self.set_name {
-            object.object_name = set_name.clone();
+            asset.asset_name = set_name.clone();
         }
 
         if let Some(set_location) = &self.set_location {
-            object.object_location = set_location.clone();
+            asset.asset_location = set_location.clone();
         }
 
         if let Some(set_prototype) = self.set_prototype {
-            object.prototype = set_prototype;
+            asset.prototype = set_prototype;
         }
 
         for (k, v) in &self.set_properties {
-            object.properties.insert(k.clone(), v.as_value());
+            asset.properties.insert(k.clone(), v.as_value());
         }
 
         for k in &self.remove_properties {
-            object.properties.remove(k);
+            asset.properties.remove(k);
         }
 
         for (k, v) in &self.set_null_overrides {
-            object.property_null_overrides.insert(k.clone(), *v);
+            asset.property_null_overrides.insert(k.clone(), *v);
         }
 
         for k in &self.remove_properties {
-            object.property_null_overrides.remove(k);
+            asset.property_null_overrides.remove(k);
         }
 
         for k in &self.add_properties_in_replace_mode {
-            object.properties_in_replace_mode.insert(k.clone());
+            asset.properties_in_replace_mode.insert(k.clone());
         }
 
         for k in &self.remove_properties_in_replace_mode {
-            object.properties_in_replace_mode.remove(k);
+            asset.properties_in_replace_mode.remove(k);
         }
 
         for delta in &self.dynamic_array_entry_deltas {
@@ -91,11 +91,11 @@ impl ObjectDiff {
                 // Path where we add keys: We may need to create the entry in the map. Won't need to remove it
                 //
                 let existing_entries = if let Some(existing_entries) =
-                    object.dynamic_array_entries.get_mut(&delta.key)
+                    asset.dynamic_array_entries.get_mut(&delta.key)
                 {
                     existing_entries
                 } else {
-                    object
+                    asset
                         .dynamic_array_entries
                         .entry(delta.key.clone())
                         .or_default()
@@ -112,37 +112,37 @@ impl ObjectDiff {
                 //
                 // Path where we don't add keys but we remove keys: We may need to delete the entry in the map. Won't need to add it
                 //
-                if let Some(existing_entries) = object.dynamic_array_entries.get_mut(&delta.key) {
+                if let Some(existing_entries) = asset.dynamic_array_entries.get_mut(&delta.key) {
                     for k in &delta.remove {
                         existing_entries.remove(k);
                     }
 
                     if existing_entries.is_empty() {
-                        object.dynamic_array_entries.remove(&delta.key);
+                        asset.dynamic_array_entries.remove(&delta.key);
                     }
                 }
             }
         }
 
         for (k, v) in &self.set_file_references {
-            object
+            asset
                 .build_info
                 .file_reference_overrides
                 .insert(k.clone(), *v);
         }
 
         for k in &self.remove_file_references {
-            object.build_info.file_reference_overrides.remove(k);
+            asset.build_info.file_reference_overrides.remove(k);
         }
     }
 }
 
-pub struct ObjectDiffSet {
-    pub apply_diff: ObjectDiff,
-    pub revert_diff: ObjectDiff,
+pub struct AssetDiffSet {
+    pub apply_diff: AssetDiff,
+    pub revert_diff: AssetDiff,
 }
 
-impl ObjectDiffSet {
+impl AssetDiffSet {
     pub fn has_changes(&self) -> bool {
         // assume if apply has no changes, neither does revert
         self.apply_diff.has_changes()
@@ -150,30 +150,30 @@ impl ObjectDiffSet {
 
     pub fn diff_objects(
         before_data_set: &DataSet,
-        before_object_id: AssetId,
+        before_asset_id: AssetId,
         after_data_set: &DataSet,
-        after_object_id: AssetId,
-        modified_locations: &mut HashSet<ObjectLocation>,
+        after_asset_id: AssetId,
+        modified_locations: &mut HashSet<AssetLocation>,
     ) -> Self {
-        let before_obj = before_data_set.objects().get(&before_object_id).unwrap();
-        let after_obj = after_data_set.objects().get(&after_object_id).unwrap();
+        let before_obj = before_data_set.assets().get(&before_asset_id).unwrap();
+        let after_obj = after_data_set.assets().get(&after_asset_id).unwrap();
 
         assert_eq!(
             before_obj.schema().fingerprint(),
             after_obj.schema().fingerprint()
         );
 
-        let mut apply_diff = ObjectDiff::default();
-        let mut revert_diff = ObjectDiff::default();
+        let mut apply_diff = AssetDiff::default();
+        let mut revert_diff = AssetDiff::default();
 
-        if before_obj.object_name != after_obj.object_name {
-            apply_diff.set_name = Some(after_obj.object_name.clone());
-            revert_diff.set_name = Some(before_obj.object_name.clone());
+        if before_obj.asset_name != after_obj.asset_name {
+            apply_diff.set_name = Some(after_obj.asset_name.clone());
+            revert_diff.set_name = Some(before_obj.asset_name.clone());
         }
 
-        if before_obj.object_location != after_obj.object_location {
-            apply_diff.set_location = Some(after_obj.object_location.clone());
-            revert_diff.set_location = Some(before_obj.object_location.clone());
+        if before_obj.asset_location != after_obj.asset_location {
+            apply_diff.set_location = Some(after_obj.asset_location.clone());
+            revert_diff.set_location = Some(before_obj.asset_location.clone());
         }
 
         //
@@ -409,19 +409,19 @@ impl ObjectDiffSet {
         // we only flag the location as modified if we make an edit
         // (if apply_diff doesn't have changes, before_diff doesn't either)
         if apply_diff.has_changes() {
-            if !modified_locations.contains(&after_obj.object_location) {
-                modified_locations.insert(after_obj.object_location.clone());
+            if !modified_locations.contains(&after_obj.asset_location) {
+                modified_locations.insert(after_obj.asset_location.clone());
             }
 
             // Also save the old location so that in moves, the "from" location is marked as changed too
-            if before_obj.object_location != after_obj.object_location {
-                if !modified_locations.contains(&before_obj.object_location) {
-                    modified_locations.insert(before_obj.object_location.clone());
+            if before_obj.asset_location != after_obj.asset_location {
+                if !modified_locations.contains(&before_obj.asset_location) {
+                    modified_locations.insert(before_obj.asset_location.clone());
                 }
             }
         }
 
-        ObjectDiffSet {
+        AssetDiffSet {
             apply_diff,
             revert_diff,
         }
@@ -430,9 +430,9 @@ impl ObjectDiffSet {
 
 #[derive(Default, Debug)]
 pub struct DataSetDiff {
-    creates: Vec<(AssetId, DataObjectInfo)>,
+    creates: Vec<(AssetId, DataAssetInfo)>,
     deletes: Vec<AssetId>,
-    changes: Vec<(AssetId, ObjectDiff)>,
+    changes: Vec<(AssetId, AssetDiff)>,
 }
 
 impl DataSetDiff {
@@ -446,14 +446,14 @@ impl DataSetDiff {
         schema_set: &SchemaSet,
     ) {
         for delete in &self.deletes {
-            data_set.delete_object(*delete);
+            data_set.delete_asset(*delete);
         }
 
         for (id, create) in &self.creates {
-            data_set.restore_object(
+            data_set.restore_asset(
                 *id,
-                create.object_name.clone(),
-                create.object_location.clone(),
+                create.asset_name.clone(),
+                create.asset_location.clone(),
                 create.import_info.clone(),
                 create.build_info.clone(),
                 schema_set,
@@ -466,27 +466,27 @@ impl DataSetDiff {
             );
         }
 
-        for (object_id, v) in &self.changes {
-            if let Some(object) = data_set.objects_mut().get_mut(object_id) {
+        for (asset_id, v) in &self.changes {
+            if let Some(object) = data_set.assets_mut().get_mut(asset_id) {
                 v.apply(object);
             }
         }
     }
 
-    pub fn get_modified_objects(
+    pub fn get_modified_assets(
         &self,
-        modified_objects: &mut HashSet<AssetId>,
+        modified_assets: &mut HashSet<AssetId>,
     ) {
         for (id, _) in &self.creates {
-            modified_objects.insert(*id);
+            modified_assets.insert(*id);
         }
 
         for id in &self.deletes {
-            modified_objects.insert(*id);
+            modified_assets.insert(*id);
         }
 
         for (id, _) in &self.changes {
-            modified_objects.insert(*id);
+            modified_assets.insert(*id);
         }
     }
 }
@@ -495,8 +495,8 @@ impl DataSetDiff {
 pub struct DataSetDiffSet {
     pub apply_diff: DataSetDiff,
     pub revert_diff: DataSetDiff,
-    pub modified_objects: HashSet<AssetId>,
-    pub modified_locations: HashSet<ObjectLocation>,
+    pub modified_assets: HashSet<AssetId>,
+    pub modified_locations: HashSet<AssetLocation>,
 }
 
 impl DataSetDiffSet {
@@ -512,54 +512,54 @@ impl DataSetDiffSet {
     ) -> Self {
         let mut apply_diff = DataSetDiff::default();
         let mut revert_diff = DataSetDiff::default();
-        let mut modified_objects: HashSet<AssetId> = Default::default();
-        let mut modified_locations: HashSet<ObjectLocation> = Default::default();
+        let mut modified_assets: HashSet<AssetId> = Default::default();
+        let mut modified_locations: HashSet<AssetLocation> = Default::default();
 
         // Check for created objects
-        for &object_id in tracked_objects {
-            let existed_before = before.objects().contains_key(&object_id);
-            let existed_after = after.objects().contains_key(&object_id);
+        for &asset_id in tracked_objects {
+            let existed_before = before.assets().contains_key(&asset_id);
+            let existed_after = after.assets().contains_key(&asset_id);
             if existed_before {
                 if existed_after {
                     // Object was modified
-                    let diff = ObjectDiffSet::diff_objects(
+                    let diff = AssetDiffSet::diff_objects(
                         before,
-                        object_id,
+                        asset_id,
                         &after,
-                        object_id,
+                        asset_id,
                         &mut modified_locations,
                     );
                     if diff.has_changes() {
-                        modified_objects.insert(object_id);
-                        apply_diff.changes.push((object_id, diff.apply_diff));
-                        revert_diff.changes.push((object_id, diff.revert_diff));
+                        modified_assets.insert(asset_id);
+                        apply_diff.changes.push((asset_id, diff.apply_diff));
+                        revert_diff.changes.push((asset_id, diff.revert_diff));
                     }
                 } else {
                     // Object was deleted
-                    let before_object_info = before.objects().get(&object_id).unwrap().clone();
-                    modified_objects.insert(object_id);
-                    if !modified_locations.contains(&before_object_info.object_location) {
-                        modified_locations.insert(before_object_info.object_location.clone());
+                    let before_object_info = before.assets().get(&asset_id).unwrap().clone();
+                    modified_assets.insert(asset_id);
+                    if !modified_locations.contains(&before_object_info.asset_location) {
+                        modified_locations.insert(before_object_info.asset_location.clone());
                     }
 
                     // deleted
-                    apply_diff.deletes.push(object_id);
+                    apply_diff.deletes.push(asset_id);
                     revert_diff
                         .creates
-                        .push((object_id, before_object_info.clone()));
+                        .push((asset_id, before_object_info.clone()));
                 }
             } else if existed_after {
                 // Object was created
-                let after_object_info = after.objects().get(&object_id).unwrap();
-                if !modified_locations.contains(&after_object_info.object_location) {
-                    modified_locations.insert(after_object_info.object_location.clone());
+                let after_object_info = after.assets().get(&asset_id).unwrap();
+                if !modified_locations.contains(&after_object_info.asset_location) {
+                    modified_locations.insert(after_object_info.asset_location.clone());
                 }
 
                 // created
                 apply_diff
                     .creates
-                    .push((object_id, after_object_info.clone()));
-                revert_diff.deletes.push(object_id);
+                    .push((asset_id, after_object_info.clone()));
+                revert_diff.deletes.push(asset_id);
             }
         }
 
@@ -567,7 +567,7 @@ impl DataSetDiffSet {
             apply_diff,
             revert_diff,
             modified_locations,
-            modified_objects,
+            modified_assets,
         }
     }
 }

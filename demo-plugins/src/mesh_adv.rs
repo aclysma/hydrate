@@ -62,7 +62,7 @@ impl JobProcessor for MeshAdvMaterialJobProcessor {
         //
         // Read asset data
         //
-        let data_container = DataContainer::new_dataset(data_set, schema_set, input.asset_id);
+        let data_container = DataContainer::from_dataset(data_set, schema_set, input.asset_id);
         let x = MeshAdvMaterialAssetRecord::default();
 
         let base_color_factor = x.base_color_factor().get_vec4(&data_container).unwrap();
@@ -204,7 +204,7 @@ impl JobProcessor for MeshAdvMeshPreprocessJobProcessor {
         //
         // Read asset data
         //
-        let data_container = DataContainer::new_dataset(data_set, schema_set, input.asset_id);
+        let data_container = DataContainer::from_dataset(data_set, schema_set, input.asset_id);
         let x = MeshAdvMeshAssetRecord::default();
         let mut materials = Vec::default();
         for entry in x
@@ -224,7 +224,7 @@ impl JobProcessor for MeshAdvMeshPreprocessJobProcessor {
         // Read import data
         //
         let imported_data = &dependency_data[&input.asset_id];
-        let data_container = DataContainer::new_single_object(imported_data, schema_set);
+        let data_container = DataContainer::from_single_object(imported_data, schema_set);
         let x = MeshAdvMeshImportedDataRecord::default();
 
         let mut all_positions = Vec::<glam::Vec3>::with_capacity(1024);
@@ -347,9 +347,9 @@ impl JobProcessor for MeshAdvMeshPreprocessJobProcessor {
                 let entry = x.mesh_parts().entry(*entry);
 
                 let material_slot_index = entry.material_index().get(&data_container).unwrap();
-                let material_object_id = materials[material_slot_index as usize];
+                let material_asset_id = materials[material_slot_index as usize];
                 let material_handle =
-                    job_system::make_handle_to_default_artifact(job_api, material_object_id);
+                    job_system::make_handle_to_default_artifact(job_api, material_asset_id);
 
                 mesh_parts.push(MeshAdvPartAssetData {
                     vertex_full_buffer_offset_in_bytes: part_data

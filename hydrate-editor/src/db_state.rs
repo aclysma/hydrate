@@ -1,6 +1,6 @@
 use hydrate_model::import_util::ImportToQueue;
 use hydrate_model::{
-    DataSet, EditorModel, ImporterRegistry, AssetId, ObjectLocation, ObjectName, PathNode,
+    DataSet, EditorModel, ImporterRegistry, AssetId, AssetLocation, AssetName, PathNode,
     PathNodeRoot, SchemaCacheSingleFile, SchemaLinker, SchemaSet,
 };
 use std::path::{Path, PathBuf};
@@ -66,12 +66,12 @@ impl DbState {
 
         let mut edit_model = EditorModel::new(schema_set.clone());
 
-        let object_source_id = edit_model.add_file_system_id_based_data_source(
+        let asset_source_id = edit_model.add_file_system_id_based_asset_source(
             "id_file_system",
             asset_id_based_data_path,
             imports_to_queue,
         );
-        let _object_source_path = edit_model.add_file_system_path_based_data_source(
+        let _asset_source_path = edit_model.add_file_system_path_based_data_source(
             "path_file_system",
             asset_path_based_data_path,
             importer_registry,
@@ -82,49 +82,49 @@ impl DbState {
         //     .file_system_treedata_source(tree_source_id)
         //     .unwrap();
 
-        let path_node_schema_object = schema_set
+        let path_node_schema_record = schema_set
             .find_named_type(PathNode::schema_name())
             .unwrap()
             .as_record()
             .unwrap()
             .clone();
 
-        let transform_schema_object = schema_set
+        let transform_schema_record = schema_set
             .find_named_type("Transform")
             .unwrap()
             .as_record()
             .unwrap()
             .clone();
 
-        let root_object_id = AssetId::from_uuid(*object_source_id.uuid());
+        let root_asset_id = AssetId::from_uuid(*asset_source_id.uuid());
         // db.new_object_with_id(
-        //     root_object_id,
-        //     ObjectName::new("root_object"),
-        //     ObjectLocation::null(),
+        //     root_asset_id,
+        //     AssetName::new("root_object"),
+        //     AssetLocation::null(),
         //     &path_node_schema_object,
         // ).unwrap();
 
-        let subdir_obj = db.new_object(
-            ObjectName::new("subdir"),
-            ObjectLocation::new(root_object_id),
-            &path_node_schema_object,
+        let subdir_obj = db.new_asset(
+            AssetName::new("subdir"),
+            AssetLocation::new(root_asset_id),
+            &path_node_schema_record,
         );
 
-        let subdir2_obj = db.new_object(
-            ObjectName::new("subdir2"),
-            ObjectLocation::new(subdir_obj),
-            &path_node_schema_object,
+        let subdir2_obj = db.new_asset(
+            AssetName::new("subdir2"),
+            AssetLocation::new(subdir_obj),
+            &path_node_schema_record,
         );
 
-        let object_location = ObjectLocation::new(subdir2_obj);
+        let object_location = AssetLocation::new(subdir2_obj);
 
-        let prototype_obj = db.new_object(
-            ObjectName::new("object_a"),
+        let prototype_obj = db.new_asset(
+            AssetName::new("object_a"),
             object_location.clone(),
-            &transform_schema_object,
+            &transform_schema_record,
         );
-        let instance_obj = db.new_object_from_prototype(
-            ObjectName::new("object_b"),
+        let instance_obj = db.new_asset_from_prototype(
+            AssetName::new("object_b"),
             object_location,
             prototype_obj,
         );
@@ -208,7 +208,7 @@ impl DbState {
         imports_to_queue: &mut Vec<ImportToQueue>,
     ) -> Option<EditorModel> {
         let mut editor_model = EditorModel::new(schema_set);
-        editor_model.add_file_system_id_based_data_source(
+        editor_model.add_file_system_id_based_asset_source(
             "id_file_system",
             asset_id_based_data_path,
             imports_to_queue,

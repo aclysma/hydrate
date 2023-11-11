@@ -51,8 +51,8 @@ impl AllFieldsRecord {
         NullableField::<Vec3Record>::new(self.0.push("nullable_vec3"))
     }
 
-    pub fn reference(&self) -> ObjectRefField {
-        ObjectRefField::new(self.0.push("reference"))
+    pub fn reference(&self) -> AssetRefField {
+        AssetRefField::new(self.0.push("reference"))
     }
 
     pub fn string(&self) -> StringField {
@@ -87,8 +87,8 @@ impl GlslBuildTargetAssetRecord {
         StringField::new(self.0.push("entry_point"))
     }
 
-    pub fn source_file(&self) -> ObjectRefField {
-        ObjectRefField::new(self.0.push("source_file"))
+    pub fn source_file(&self) -> AssetRefField {
+        AssetRefField::new(self.0.push("source_file"))
     }
 }
 #[derive(Default)]
@@ -316,8 +316,8 @@ impl MeshAdvMaterialAssetRecord {
         EnumField::<MeshAdvBlendMethodEnum>::new(self.0.push("blend_method"))
     }
 
-    pub fn color_texture(&self) -> ObjectRefField {
-        ObjectRefField::new(self.0.push("color_texture"))
+    pub fn color_texture(&self) -> AssetRefField {
+        AssetRefField::new(self.0.push("color_texture"))
     }
 
     pub fn color_texture_has_alpha_channel(&self) -> BooleanField {
@@ -328,20 +328,20 @@ impl MeshAdvMaterialAssetRecord {
         Vec3Record::new(self.0.push("emissive_factor"))
     }
 
-    pub fn emissive_texture(&self) -> ObjectRefField {
-        ObjectRefField::new(self.0.push("emissive_texture"))
+    pub fn emissive_texture(&self) -> AssetRefField {
+        AssetRefField::new(self.0.push("emissive_texture"))
     }
 
     pub fn metallic_factor(&self) -> F32Field {
         F32Field::new(self.0.push("metallic_factor"))
     }
 
-    pub fn metallic_roughness_texture(&self) -> ObjectRefField {
-        ObjectRefField::new(self.0.push("metallic_roughness_texture"))
+    pub fn metallic_roughness_texture(&self) -> AssetRefField {
+        AssetRefField::new(self.0.push("metallic_roughness_texture"))
     }
 
-    pub fn normal_texture(&self) -> ObjectRefField {
-        ObjectRefField::new(self.0.push("normal_texture"))
+    pub fn normal_texture(&self) -> AssetRefField {
+        AssetRefField::new(self.0.push("normal_texture"))
     }
 
     pub fn normal_texture_scale(&self) -> F32Field {
@@ -389,8 +389,8 @@ impl Record for MeshAdvMeshAssetRecord {
 }
 
 impl MeshAdvMeshAssetRecord {
-    pub fn material_slots(&self) -> DynamicArrayField::<ObjectRefField> {
-        DynamicArrayField::<ObjectRefField>::new(self.0.push("material_slots"))
+    pub fn material_slots(&self) -> DynamicArrayField::<AssetRefField> {
+        DynamicArrayField::<AssetRefField>::new(self.0.push("material_slots"))
     }
 }
 #[derive(Default)]
@@ -527,8 +527,8 @@ impl Record for TransformRefRecord {
 }
 
 impl TransformRefRecord {
-    pub fn transform(&self) -> ObjectRefField {
-        ObjectRefField::new(self.0.push("transform"))
+    pub fn transform(&self) -> AssetRefField {
+        AssetRefField::new(self.0.push("transform"))
     }
 }
 #[derive(Default)]

@@ -12,21 +12,21 @@ pub enum DataSetError {
     PathParentIsNull,
     PathDynamicArrayEntryDoesNotExist,
     UnexpectedEnumSymbol,
-    DuplicateObjectId,
+    DuplicateAssetId,
 }
 
 pub type DataSetResult<T> = Result<T, DataSetError>;
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Ord, PartialOrd)]
-pub struct ObjectSourceId(Uuid);
+pub struct AssetSourceId(Uuid);
 
-impl ObjectSourceId {
+impl AssetSourceId {
     pub fn new() -> Self {
-        ObjectSourceId(Uuid::new_v4())
+        AssetSourceId(Uuid::new_v4())
     }
 
     pub fn null() -> Self {
-        ObjectSourceId(Uuid::nil())
+        AssetSourceId(Uuid::nil())
     }
 
     pub fn uuid(&self) -> &Uuid {
@@ -35,15 +35,15 @@ impl ObjectSourceId {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct ObjectName(String);
+pub struct AssetName(String);
 
-impl ObjectName {
+impl AssetName {
     pub fn new<T: Into<String>>(name: T) -> Self {
-        ObjectName(name.into())
+        AssetName(name.into())
     }
 
     pub fn empty() -> Self {
-        ObjectName(String::default())
+        AssetName(String::default())
     }
 
     pub fn is_empty(&self) -> bool {
@@ -60,17 +60,17 @@ impl ObjectName {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Ord, PartialOrd)]
-pub struct ObjectLocation {
+pub struct AssetLocation {
     path_node_id: AssetId,
 }
 
-impl ObjectLocation {
+impl AssetLocation {
     pub fn new(path_node_id: AssetId) -> Self {
-        ObjectLocation { path_node_id }
+        AssetLocation { path_node_id }
     }
 
-    pub fn null() -> ObjectLocation {
-        ObjectLocation {
+    pub fn null() -> AssetLocation {
+        AssetLocation {
             path_node_id: AssetId::null(),
         }
     }
@@ -107,7 +107,7 @@ pub struct ImportInfo {
 
     // Set on initial import, or re-import. Used to monitor to detect stale imported data and
     // automaticlaly re-import, and as a heuristic when importing other files that reference this
-    // file to link to this object rather than importing another copy.
+    // file to link to this asset rather than importing another copy.
     source_file_path: PathBuf,
 
     // If the asset comes from a file with more than one importable thing, we require a string key
@@ -159,13 +159,13 @@ pub struct BuildInfo {
 }
 
 #[derive(Clone, Debug)]
-pub struct DataObjectInfo {
+pub struct DataAssetInfo {
     schema: SchemaRecord,
     //name: Option<String>,
-    //path: ObjectPath,
+    //path: AssetPath,
     //
-    pub(super) object_name: ObjectName,
-    pub(super) object_location: ObjectLocation,
+    pub(super) asset_name: AssetName,
+    pub(super) asset_location: AssetLocation,
 
     // Stores the configuration/choices that were made when the asset was last imported
     pub(super) import_info: Option<ImportInfo>,
@@ -178,24 +178,24 @@ pub struct DataObjectInfo {
     pub(super) dynamic_array_entries: HashMap<String, OrderedSet<Uuid>>,
 }
 
-impl DataObjectInfo {
+impl DataAssetInfo {
     pub fn schema(&self) -> &SchemaRecord {
         &self.schema
     }
 
-    pub fn object_name(&self) -> &ObjectName {
-        &self.object_name
+    pub fn asset_name(&self) -> &AssetName {
+        &self.asset_name
     }
 
-    pub fn object_location(&self) -> &ObjectLocation {
-        &self.object_location
+    pub fn asset_location(&self) -> &AssetLocation {
+        &self.asset_location
     }
 
     pub fn import_info(&self) -> &Option<ImportInfo> {
         &self.import_info
     }
 
-    // pub fn path(&self) -> &ObjectPath {
+    // pub fn path(&self) -> &AssetPath {
     //     &self.path
     // }
 
@@ -226,56 +226,56 @@ impl DataObjectInfo {
 
 #[derive(Default)]
 pub struct DataSet {
-    objects: HashMap<AssetId, DataObjectInfo>,
+    assets: HashMap<AssetId, DataAssetInfo>,
 }
 
 impl DataSet {
-    pub fn all_objects<'a>(&'a self) -> HashMapKeys<'a, AssetId, DataObjectInfo> {
-        self.objects.keys()
+    pub fn all_assets<'a>(&'a self) -> HashMapKeys<'a, AssetId, DataAssetInfo> {
+        self.assets.keys()
     }
 
-    pub fn objects(&self) -> &HashMap<AssetId, DataObjectInfo> {
-        &self.objects
+    pub fn assets(&self) -> &HashMap<AssetId, DataAssetInfo> {
+        &self.assets
     }
 
-    pub fn take_objects(self) -> HashMap<AssetId, DataObjectInfo> {
-        self.objects
+    pub fn take_assets(self) -> HashMap<AssetId, DataAssetInfo> {
+        self.assets
     }
 
-    pub(super) fn objects_mut(&mut self) -> &mut HashMap<AssetId, DataObjectInfo> {
-        &mut self.objects
+    pub(super) fn assets_mut(&mut self) -> &mut HashMap<AssetId, DataAssetInfo> {
+        &mut self.assets
     }
 
-    // fn insert_object(
+    // fn insert_asset(
     //     &mut self,
-    //     obj_info: DataObjectInfo,
-    // ) -> ObjectId {
-    //     let id = ObjectId(uuid::Uuid::new_v4().as_u128());
-    //     self.insert_object_with_id(id, obj_info).unwrap();
+    //     obj_info: DataAssetInfo,
+    // ) -> AssetId {
+    //     let id = AssetId(uuid::Uuid::new_v4().as_u128());
+    //     self.insert_asset_with_id(id, obj_info).unwrap();
     //
     //     id
     // }
 
-    fn insert_object(
+    fn insert_asset(
         &mut self,
         id: AssetId,
-        obj_info: DataObjectInfo,
+        obj_info: DataAssetInfo,
     ) -> DataSetResult<()> {
-        if self.objects.contains_key(&id) {
-            return Err(DataSetError::DuplicateObjectId);
+        if self.assets.contains_key(&id) {
+            return Err(DataSetError::DuplicateAssetId);
         }
 
-        let old = self.objects.insert(id, obj_info);
+        let old = self.assets.insert(id, obj_info);
         assert!(old.is_none());
 
         Ok(())
     }
 
-    pub fn restore_object(
+    pub fn restore_asset(
         &mut self,
-        object_id: AssetId,
-        object_name: ObjectName,
-        object_location: ObjectLocation,
+        asset_id: AssetId,
+        asset_name: AssetName,
+        asset_location: AssetLocation,
         import_info: Option<ImportInfo>,
         build_info: BuildInfo,
         schema_set: &SchemaSet,
@@ -288,10 +288,10 @@ impl DataSet {
     ) {
         let schema = schema_set.schemas().get(&schema).unwrap();
         let schema_record = schema.as_record().cloned().unwrap();
-        let obj = DataObjectInfo {
+        let obj = DataAssetInfo {
             schema: schema_record,
-            object_name,
-            object_location,
+            asset_name,
+            asset_location,
             import_info,
             build_info,
             prototype,
@@ -301,20 +301,20 @@ impl DataSet {
             dynamic_array_entries,
         };
 
-        self.objects.insert(object_id, obj);
+        self.assets.insert(asset_id, obj);
     }
 
-    pub fn new_object_with_id(
+    pub fn new_asset_with_id(
         &mut self,
-        object_id: AssetId,
-        object_name: ObjectName,
-        object_location: ObjectLocation,
+        asset_id: AssetId,
+        asset_name: AssetName,
+        asset_location: AssetLocation,
         schema: &SchemaRecord,
     ) -> DataSetResult<()> {
-        let obj = DataObjectInfo {
+        let obj = DataAssetInfo {
             schema: schema.clone(),
-            object_name,
-            object_location,
+            asset_name: asset_name,
+            asset_location: asset_location,
             import_info: None,
             build_info: Default::default(),
             prototype: None,
@@ -324,33 +324,33 @@ impl DataSet {
             dynamic_array_entries: Default::default(),
         };
 
-        self.insert_object(object_id, obj)
+        self.insert_asset(asset_id, obj)
     }
 
-    pub fn new_object(
+    pub fn new_asset(
         &mut self,
-        object_name: ObjectName,
-        object_location: ObjectLocation,
+        asset_name: AssetName,
+        asset_location: AssetLocation,
         schema: &SchemaRecord,
     ) -> AssetId {
         let id = AssetId::from_uuid(Uuid::new_v4());
-        self.new_object_with_id(id, object_name, object_location, schema)
+        self.new_asset_with_id(id, asset_name, asset_location, schema)
             .unwrap();
         id
     }
 
-    pub fn new_object_from_prototype(
+    pub fn new_asset_from_prototype(
         &mut self,
-        object_name: ObjectName,
-        object_location: ObjectLocation,
+        asset_name: AssetName,
+        asset_location: AssetLocation,
         prototype: AssetId,
     ) -> AssetId {
         let id = AssetId::from_uuid(Uuid::new_v4());
-        let prototype_info = self.objects.get(&prototype).unwrap();
-        let obj = DataObjectInfo {
+        let prototype_info = self.assets.get(&prototype).unwrap();
+        let obj = DataAssetInfo {
             schema: prototype_info.schema.clone(),
-            object_name,
-            object_location,
+            asset_name: asset_name,
+            asset_location: asset_location,
             import_info: None,
             build_info: Default::default(),
             prototype: Some(prototype),
@@ -360,17 +360,17 @@ impl DataSet {
             dynamic_array_entries: Default::default(),
         };
 
-        self.insert_object(id, obj).unwrap();
+        self.insert_asset(id, obj).unwrap();
         id
     }
 
     // Populate an empty object with data from a SingleObject
     pub fn copy_from_single_object(
         &mut self,
-        object_id: AssetId,
+        asset_id: AssetId,
         single_object: &SingleObject,
     ) -> DataSetResult<()> {
-        let object = self.objects.get_mut(&object_id).unwrap();
+        let object = self.assets.get_mut(&asset_id).unwrap();
 
         object.prototype = None;
         object.properties.clear();
@@ -403,86 +403,86 @@ impl DataSet {
         Ok(())
     }
 
-    pub fn delete_object(
+    pub fn delete_asset(
         &mut self,
-        object_id: AssetId,
+        asset_id: AssetId,
     ) {
         //TODO: Kill subobjects too
         //TODO: Write tombstone?
-        self.objects.remove(&object_id);
+        self.assets.remove(&asset_id);
     }
 
-    pub fn set_object_location(
+    pub fn set_asset_location(
         &mut self,
-        object_id: AssetId,
-        new_location: ObjectLocation,
+        asset_id: AssetId,
+        new_location: AssetLocation,
     ) {
-        self.objects.get_mut(&object_id).unwrap().object_location = new_location;
+        self.assets.get_mut(&asset_id).unwrap().asset_location = new_location;
     }
 
     pub fn set_import_info(
         &mut self,
-        object_id: AssetId,
+        asset_id: AssetId,
         import_info: ImportInfo,
     ) {
-        self.objects.get_mut(&object_id).unwrap().import_info = Some(import_info);
+        self.assets.get_mut(&asset_id).unwrap().import_info = Some(import_info);
     }
 
     pub fn copy_from(
         &mut self,
         other: &DataSet,
-        object_id: AssetId,
+        asset_id: AssetId,
     ) {
-        let object = other.objects.get(&object_id).cloned().unwrap();
-        self.objects.insert(object_id, object);
+        let object = other.assets.get(&asset_id).cloned().unwrap();
+        self.assets.insert(asset_id, object);
     }
 
-    pub fn object_name(
+    pub fn asset_name(
         &self,
-        object_id: AssetId,
-    ) -> &ObjectName {
-        let object = self.objects.get(&object_id).unwrap();
-        &object.object_name
+        asset_id: AssetId,
+    ) -> &AssetName {
+        let object = self.assets.get(&asset_id).unwrap();
+        &object.asset_name
     }
 
-    pub fn set_object_name(
+    pub fn set_asset_name(
         &mut self,
-        object_id: AssetId,
-        object_name: ObjectName,
+        asset_id: AssetId,
+        asset_name: AssetName,
     ) {
-        self.objects.get_mut(&object_id).unwrap().object_name = object_name;
+        self.assets.get_mut(&asset_id).unwrap().asset_name = asset_name;
     }
 
     // Returns the object's parent
-    pub fn object_location(
+    pub fn asset_location(
         &self,
-        object_id: AssetId,
-    ) -> Option<&ObjectLocation> {
-        self.objects.get(&object_id).map(|x| &x.object_location)
+        asset_id: AssetId,
+    ) -> Option<&AssetLocation> {
+        self.assets.get(&asset_id).map(|x| &x.asset_location)
     }
 
     // Returns the object locations from the parent all the way up to the root parent. If a cycle is
     // detected or any elements in the chain are not found, an empty list is returned.
-    pub fn object_location_chain(
+    pub fn asset_location_chain(
         &self,
-        object_id: AssetId,
-    ) -> Vec<ObjectLocation> {
-        let mut object_location_chain = Vec::default();
+        asset_id: AssetId,
+    ) -> Vec<AssetLocation> {
+        let mut asset_location_chain = Vec::default();
 
         // If this object's location is none, return an empty list
-        let Some(mut obj_iter) = self.object_location(object_id).cloned() else {
-            return object_location_chain;
+        let Some(mut obj_iter) = self.asset_location(asset_id).cloned() else {
+            return asset_location_chain;
         };
 
         // Iterate up the chain
         while !obj_iter.path_node_id.is_null() {
-            if object_location_chain.contains(&obj_iter) {
+            if asset_location_chain.contains(&obj_iter) {
                 // Detected a cycle, return an empty list
                 return Vec::default();
             }
 
-            object_location_chain.push(obj_iter.clone());
-            obj_iter = if let Some(location) = self.object_location(obj_iter.path_node_id).cloned()
+            asset_location_chain.push(obj_iter.clone());
+            obj_iter = if let Some(location) = self.asset_location(obj_iter.path_node_id).cloned()
             {
                 // May be null, in which case we will terminate and return this list so far not including the null
                 location
@@ -492,40 +492,40 @@ impl DataSet {
             };
         }
 
-        object_location_chain
+        asset_location_chain
     }
 
     pub fn import_info(
         &self,
-        object_id: AssetId,
+        asset_id: AssetId,
     ) -> Option<&ImportInfo> {
-        self.objects
-            .get(&object_id)
+        self.assets
+            .get(&asset_id)
             .map(|x| x.import_info.as_ref())
             .flatten()
     }
 
     // pub fn import_info(
     //     &self,
-    //     object_id: ObjectId
+    //     asset_id: AssetId
     // ) -> Option<&ImportInfo> {
-    //     self.objects.get(&object_id).map(|x| x.import_info.as_ref()).flatten()
+    //     self.assets.get(&asset_id).map(|x| x.import_info.as_ref()).flatten()
     // }
 
     fn do_resolve_all_file_references(
         &self,
-        object_id: AssetId,
+        asset_id: AssetId,
         all_references: &mut HashMap<PathBuf, AssetId>,
     ) -> bool {
-        let object = self.objects.get(&object_id);
-        if let Some(object) = object {
-            if let Some(prototype) = object.prototype {
+        let asset = self.assets.get(&asset_id);
+        if let Some(asset) = asset {
+            if let Some(prototype) = asset.prototype {
                 if !self.do_resolve_all_file_references(prototype, all_references) {
                     return false;
                 }
             }
 
-            for (k, v) in &object.build_info.file_reference_overrides {
+            for (k, v) in &asset.build_info.file_reference_overrides {
                 all_references.insert(k.clone(), *v);
             }
         } else {
@@ -537,10 +537,10 @@ impl DataSet {
 
     pub fn resolve_all_file_references(
         &self,
-        object_id: AssetId,
+        asset_id: AssetId,
     ) -> Option<HashMap<PathBuf, AssetId>> {
         let mut all_references = HashMap::default();
-        if self.do_resolve_all_file_references(object_id, &mut all_references) {
+        if self.do_resolve_all_file_references(asset_id, &mut all_references) {
             Some(all_references)
         } else {
             None
@@ -549,76 +549,76 @@ impl DataSet {
 
     pub fn get_all_file_reference_overrides(
         &mut self,
-        object_id: AssetId,
+        asset_id: AssetId,
     ) -> Option<&HashMap<PathBuf, AssetId>> {
-        self.objects
-            .get(&object_id)
+        self.assets
+            .get(&asset_id)
             .map(|x| &x.build_info.file_reference_overrides)
     }
 
     pub fn set_file_reference_override(
         &mut self,
-        object_id: AssetId,
+        asset_id: AssetId,
         path: PathBuf,
-        referenced_object_id: AssetId,
+        referenced_asset_id: AssetId,
     ) {
-        self.objects.get_mut(&object_id).map(|x| {
+        self.assets.get_mut(&asset_id).map(|x| {
             x.build_info
                 .file_reference_overrides
-                .insert(path, referenced_object_id)
+                .insert(path, referenced_asset_id)
         });
     }
 
     // pub fn build_info(
     //     &self,
-    //     object_id: ObjectId
+    //     asset_id: AssetId
     // ) -> Option<&BuildInfo> {
-    //     self.objects.get(&object_id).map(|x| x.build_info.as_ref()).flatten()
+    //     self.assets.get(&asset_id).map(|x| x.build_info.as_ref()).flatten()
     // }
     //
     // pub fn build_info_mut(
     //     &mut self,
-    //     object_id: ObjectId
+    //     asset_id: AssetId
     // ) -> Option<&mut BuildInfo> {
-    //     self.objects.get_mut(&object_id).map(|x| x.build_info.as_mut()).flatten()
+    //     self.assets.get_mut(&asset_id).map(|x| x.build_info.as_mut()).flatten()
     // }
 
-    pub fn object_prototype(
+    pub fn asset_prototype(
         &self,
-        object_id: AssetId,
+        asset_id: AssetId,
     ) -> Option<AssetId> {
-        let object = self.objects.get(&object_id).unwrap();
-        object.prototype
+        let asset = self.assets.get(&asset_id).unwrap();
+        asset.prototype
     }
 
-    pub fn object_schema(
+    pub fn asset_schema(
         &self,
-        object_id: AssetId,
+        asset_id: AssetId,
     ) -> Option<&SchemaRecord> {
-        self.objects.get(&object_id).map(|x| &x.schema)
+        self.assets.get(&asset_id).map(|x| &x.schema)
     }
 
     pub fn hash_properties(
         &self,
-        object_id: AssetId,
+        asset_id: AssetId,
     ) -> Option<u64> {
-        let object = self.objects.get(&object_id)?;
-        let schema = &object.schema;
+        let asset = self.assets.get(&asset_id)?;
+        let schema = &asset.schema;
 
         let mut hasher = siphasher::sip::SipHasher::default();
 
         schema.fingerprint().hash(&mut hasher);
-        //object_name
-        //object_location
+        //asset_name
+        //asset_location
         //import_info
         //build_info
-        if let Some(prototype) = object.prototype {
+        if let Some(prototype) = asset.prototype {
             self.hash_properties(prototype).hash(&mut hasher);
         }
 
         // properties
         let mut properties_hash = 0;
-        for (key, value) in &object.properties {
+        for (key, value) in &asset.properties {
             let mut inner_hasher = siphasher::sip::SipHasher::default();
             key.hash(&mut inner_hasher);
             value.hash(&mut inner_hasher);
@@ -628,7 +628,7 @@ impl DataSet {
 
         // property_null_overrides
         let mut property_null_overrides_hash = 0;
-        for (key, value) in &object.property_null_overrides {
+        for (key, value) in &asset.property_null_overrides {
             let mut inner_hasher = siphasher::sip::SipHasher::default();
             key.hash(&mut inner_hasher);
             value.hash(&mut inner_hasher);
@@ -638,7 +638,7 @@ impl DataSet {
 
         // properties_in_replace_mode
         let mut properties_in_replace_mode_hash = 0;
-        for value in &object.properties_in_replace_mode {
+        for value in &asset.properties_in_replace_mode {
             let mut inner_hasher = siphasher::sip::SipHasher::default();
             value.hash(&mut inner_hasher);
             properties_in_replace_mode_hash =
@@ -648,7 +648,7 @@ impl DataSet {
 
         // dynamic_array_entries
         let mut dynamic_array_entries_hash = 0;
-        for (key, value) in &object.dynamic_array_entries {
+        for (key, value) in &asset.dynamic_array_entries {
             let mut inner_hasher = siphasher::sip::SipHasher::default();
             key.hash(&mut inner_hasher);
 
@@ -671,17 +671,17 @@ impl DataSet {
     pub fn get_null_override(
         &self,
         schema_set: &SchemaSet,
-        object_id: AssetId,
+        asset_id: AssetId,
         path: impl AsRef<str>,
     ) -> Option<NullOverride> {
-        let object = self.objects.get(&object_id).unwrap();
-        let property_schema = object
+        let asset = self.assets.get(&asset_id).unwrap();
+        let property_schema = asset
             .schema
             .find_property_schema(&path, schema_set.schemas())
             .unwrap();
 
         if property_schema.is_nullable() {
-            object.property_null_overrides.get(path.as_ref()).copied()
+            asset.property_null_overrides.get(path.as_ref()).copied()
         } else {
             None
         }
@@ -690,18 +690,18 @@ impl DataSet {
     pub fn set_null_override(
         &mut self,
         schema_set: &SchemaSet,
-        object_id: AssetId,
+        asset_id: AssetId,
         path: impl AsRef<str>,
         null_override: NullOverride,
     ) {
-        let object = self.objects.get_mut(&object_id).unwrap();
-        let property_schema = object
+        let asset = self.assets.get_mut(&asset_id).unwrap();
+        let property_schema = asset
             .schema
             .find_property_schema(&path, schema_set.schemas())
             .unwrap();
 
         if property_schema.is_nullable() {
-            object
+            asset
                 .property_null_overrides
                 .insert(path.as_ref().to_string(), null_override);
         }
@@ -710,17 +710,17 @@ impl DataSet {
     pub fn remove_null_override(
         &mut self,
         schema_set: &SchemaSet,
-        object_id: AssetId,
+        asset_id: AssetId,
         path: impl AsRef<str>,
     ) {
-        let object = self.objects.get_mut(&object_id).unwrap();
-        let property_schema = object
+        let asset = self.assets.get_mut(&asset_id).unwrap();
+        let property_schema = asset
             .schema
             .find_property_schema(&path, schema_set.schemas())
             .unwrap();
 
         if property_schema.is_nullable() {
-            object.property_null_overrides.remove(path.as_ref());
+            asset.property_null_overrides.remove(path.as_ref());
         }
     }
 
@@ -729,10 +729,10 @@ impl DataSet {
     pub fn resolve_is_null(
         &self,
         schema_set: &SchemaSet,
-        object_id: AssetId,
+        asset_id: AssetId,
         path: impl AsRef<str>,
     ) -> Option<bool> {
-        let object_schema = self.object_schema(object_id).unwrap();
+        let asset_schema = self.asset_schema(asset_id).unwrap();
 
         // Contains the path segments that we need to check for being null
         let mut nullable_ancestors = vec![];
@@ -746,7 +746,7 @@ impl DataSet {
         //TODO: Only allow getting values that exist, in particular, dynamic array overrides
 
         let property_schema = super::property_schema_and_path_ancestors_to_check(
-            object_schema,
+            asset_schema,
             &path,
             schema_set.schemas(),
             &mut nullable_ancestors,
@@ -761,22 +761,22 @@ impl DataSet {
         }
 
         for checked_property in &nullable_ancestors {
-            if self.resolve_is_null(schema_set, object_id, checked_property) != Some(false) {
+            if self.resolve_is_null(schema_set, asset_id, checked_property) != Some(false) {
                 return None;
             }
         }
 
         for (path, key) in &accessed_dynamic_array_keys {
-            let dynamic_array_entries = self.resolve_dynamic_array(schema_set, object_id, path);
+            let dynamic_array_entries = self.resolve_dynamic_array(schema_set, asset_id, path);
             if !dynamic_array_entries.contains(&Uuid::from_str(key).unwrap()) {
                 return None;
             }
         }
 
         // Recursively look for a null override
-        let mut prototype_id = Some(object_id);
+        let mut prototype_id = Some(asset_id);
         while let Some(prototype_id_iter) = prototype_id {
-            let obj = self.objects.get(&prototype_id_iter).unwrap();
+            let obj = self.assets.get(&prototype_id_iter).unwrap();
 
             if let Some(value) = obj.property_null_overrides.get(path.as_ref()) {
                 return Some(*value == NullOverride::SetNull);
@@ -791,33 +791,33 @@ impl DataSet {
 
     pub fn has_property_override(
         &self,
-        object_id: AssetId,
+        asset_id: AssetId,
         path: impl AsRef<str>,
     ) -> bool {
-        self.get_property_override(object_id, path).is_some()
+        self.get_property_override(asset_id, path).is_some()
     }
 
-    // Just gets if this object has a property without checking prototype chain for fallback or returning a default
+    // Just gets if this asset has a property without checking prototype chain for fallback or returning a default
     // Returning none means it is not overridden
     pub fn get_property_override(
         &self,
-        object_id: AssetId,
+        asset_id: AssetId,
         path: impl AsRef<str>,
     ) -> Option<&Value> {
-        let object = self.objects.get(&object_id).unwrap();
-        object.properties.get(path.as_ref())
+        let asset = self.assets.get(&asset_id).unwrap();
+        asset.properties.get(path.as_ref())
     }
 
-    // Just sets a property on this object, making it overridden, or replacing the existing override
+    // Just sets a property on this asset, making it overridden, or replacing the existing override
     pub fn set_property_override(
         &mut self,
         schema_set: &SchemaSet,
-        object_id: AssetId,
+        asset_id: AssetId,
         path: impl AsRef<str>,
         value: Value,
     ) -> DataSetResult<()> {
-        let object_schema = self.object_schema(object_id).unwrap();
-        let property_schema = object_schema
+        let asset_schema = self.asset_schema(asset_id).unwrap();
+        let property_schema = asset_schema
             .find_property_schema(&path, schema_set.schemas())
             .unwrap();
 
@@ -842,7 +842,7 @@ impl DataSet {
         let mut accessed_dynamic_array_keys = vec![];
 
         let _property_schema = super::property_schema_and_path_ancestors_to_check(
-            object_schema,
+            asset_schema,
             &path,
             schema_set.schemas(),
             &mut nullable_ancestors,
@@ -853,43 +853,43 @@ impl DataSet {
         .unwrap();
 
         for checked_property in &nullable_ancestors {
-            if self.resolve_is_null(schema_set, object_id, checked_property) != Some(false) {
+            if self.resolve_is_null(schema_set, asset_id, checked_property) != Some(false) {
                 return Err(DataSetError::PathParentIsNull);
             }
         }
 
         for (path, key) in &accessed_dynamic_array_keys {
-            let dynamic_array_entries = self.resolve_dynamic_array(schema_set, object_id, path);
+            let dynamic_array_entries = self.resolve_dynamic_array(schema_set, asset_id, path);
             if !dynamic_array_entries.contains(&Uuid::from_str(key).unwrap()) {
                 return Err(DataSetError::PathDynamicArrayEntryDoesNotExist);
             }
         }
 
-        let obj = self.objects.get_mut(&object_id).unwrap();
+        let obj = self.assets.get_mut(&asset_id).unwrap();
         obj.properties.insert(path.as_ref().to_string(), value);
         Ok(())
     }
 
     pub fn remove_property_override(
         &mut self,
-        object_id: AssetId,
+        asset_id: AssetId,
         path: impl AsRef<str>,
     ) -> Option<Value> {
-        let object = self.objects.get_mut(&object_id).unwrap();
-        object.properties.remove(path.as_ref())
+        let asset = self.assets.get_mut(&asset_id).unwrap();
+        asset.properties.remove(path.as_ref())
     }
 
     pub fn apply_property_override_to_prototype(
         &mut self,
         schema_set: &SchemaSet,
-        object_id: AssetId,
+        asset_id: AssetId,
         path: impl AsRef<str>,
     ) -> DataSetResult<()> {
-        let object = self.objects.get(&object_id).unwrap();
-        let prototype_id = object.prototype;
+        let asset = self.assets.get(&asset_id).unwrap();
+        let prototype_id = asset.prototype;
 
         if let Some(prototype_id) = prototype_id {
-            let v = self.remove_property_override(object_id, path.as_ref());
+            let v = self.remove_property_override(asset_id, path.as_ref());
             if let Some(v) = v {
                 // The property existed on the child, set it on the prototype
                 self.set_property_override(schema_set, prototype_id, path, v)
@@ -906,10 +906,10 @@ impl DataSet {
     pub fn resolve_property<'a>(
         &'a self,
         schema_set: &'a SchemaSet,
-        object_id: AssetId,
+        asset_id: AssetId,
         path: impl AsRef<str>,
     ) -> Option<&'a Value> {
-        let object_schema = self.object_schema(object_id).unwrap();
+        let asset_schema = self.asset_schema(asset_id).unwrap();
 
         // Contains the path segments that we need to check for being null
         let mut nullable_ancestors = vec![];
@@ -923,7 +923,7 @@ impl DataSet {
         //TODO: Only allow getting values that exist, in particular, dynamic array overrides
 
         let property_schema = super::property_schema_and_path_ancestors_to_check(
-            object_schema,
+            asset_schema,
             &path,
             schema_set.schemas(),
             &mut nullable_ancestors,
@@ -934,21 +934,21 @@ impl DataSet {
         .unwrap();
 
         for checked_property in &nullable_ancestors {
-            if self.resolve_is_null(schema_set, object_id, checked_property) != Some(false) {
+            if self.resolve_is_null(schema_set, asset_id, checked_property) != Some(false) {
                 return None;
             }
         }
 
         for (path, key) in &accessed_dynamic_array_keys {
-            let dynamic_array_entries = self.resolve_dynamic_array(schema_set, object_id, path);
+            let dynamic_array_entries = self.resolve_dynamic_array(schema_set, asset_id, path);
             if !dynamic_array_entries.contains(&Uuid::from_str(key).unwrap()) {
                 return None;
             }
         }
 
-        let mut prototype_id = Some(object_id);
+        let mut prototype_id = Some(asset_id);
         while let Some(prototype_id_iter) = prototype_id {
-            let obj = self.objects.get(&prototype_id_iter).unwrap();
+            let obj = self.assets.get(&prototype_id_iter).unwrap();
 
             if let Some(value) = obj.properties.get(path.as_ref()) {
                 return Some(value);
@@ -964,11 +964,11 @@ impl DataSet {
     pub fn get_dynamic_array_overrides(
         &self,
         schema_set: &SchemaSet,
-        object_id: AssetId,
+        asset_id: AssetId,
         path: impl AsRef<str>,
     ) -> Option<std::slice::Iter<Uuid>> {
-        let object = self.objects.get(&object_id).unwrap();
-        let property_schema = object
+        let asset = self.assets.get(&asset_id).unwrap();
+        let property_schema = asset
             .schema
             .find_property_schema(&path, schema_set.schemas())
             .unwrap();
@@ -977,8 +977,8 @@ impl DataSet {
             panic!("get_dynamic_array_overrides only allowed on dynamic arrays");
         }
 
-        let object = self.objects.get(&object_id).unwrap();
-        if let Some(overrides) = object.dynamic_array_entries.get(path.as_ref()) {
+        let asset = self.assets.get(&asset_id).unwrap();
+        if let Some(overrides) = asset.dynamic_array_entries.get(path.as_ref()) {
             Some(overrides.iter())
         } else {
             None
@@ -988,11 +988,11 @@ impl DataSet {
     pub fn add_dynamic_array_override(
         &mut self,
         schema_set: &SchemaSet,
-        object_id: AssetId,
+        asset_id: AssetId,
         path: impl AsRef<str>,
     ) -> Uuid {
-        let object = self.objects.get_mut(&object_id).unwrap();
-        let property_schema = object
+        let asset = self.assets.get_mut(&asset_id).unwrap();
+        let property_schema = asset
             .schema
             .find_property_schema(&path, schema_set.schemas())
             .unwrap();
@@ -1001,7 +1001,7 @@ impl DataSet {
             panic!("add_dynamic_array_override only allowed on dynamic arrays");
         }
 
-        let entry = object
+        let entry = asset
             .dynamic_array_entries
             .entry(path.as_ref().to_string())
             .or_insert(Default::default());
@@ -1016,12 +1016,12 @@ impl DataSet {
     pub fn remove_dynamic_array_override(
         &mut self,
         schema_set: &SchemaSet,
-        object_id: AssetId,
+        asset_id: AssetId,
         path: impl AsRef<str>,
         element_id: Uuid,
     ) {
-        let object = self.objects.get_mut(&object_id).unwrap();
-        let property_schema = object
+        let asset = self.assets.get_mut(&asset_id).unwrap();
+        let property_schema = asset
             .schema
             .find_property_schema(&path, schema_set.schemas())
             .unwrap();
@@ -1030,7 +1030,7 @@ impl DataSet {
             panic!("remove_dynamic_array_override only allowed on dynamic arrays");
         }
 
-        if let Some(override_list) = object.dynamic_array_entries.get_mut(path.as_ref()) {
+        if let Some(override_list) = asset.dynamic_array_entries.get_mut(path.as_ref()) {
             if !override_list.remove(&element_id) {
                 panic!("Could not find override")
             }
@@ -1039,7 +1039,7 @@ impl DataSet {
 
     pub fn do_resolve_dynamic_array(
         &self,
-        object_id: AssetId,
+        asset_id: AssetId,
         path: &str,
         nullable_ancestors: &Vec<String>,
         dynamic_array_ancestors: &Vec<String>,
@@ -1047,7 +1047,7 @@ impl DataSet {
         accessed_dynamic_array_keys: &Vec<(String, String)>,
         resolved_entries: &mut Vec<Uuid>,
     ) {
-        let obj = self.objects.get(&object_id).unwrap();
+        let obj = self.assets.get(&asset_id).unwrap();
 
         // See if any properties in the path ancestry are replacing parent data
         let mut check_parents = true;
@@ -1094,10 +1094,10 @@ impl DataSet {
     pub fn resolve_dynamic_array(
         &self,
         schema_set: &SchemaSet,
-        object_id: AssetId,
+        asset_id: AssetId,
         path: impl AsRef<str>,
     ) -> Box<[Uuid]> {
-        let object_schema = self.object_schema(object_id).unwrap();
+        let asset_schema = self.asset_schema(asset_id).unwrap();
 
         // Contains the path segments that we need to check for being null
         let mut nullable_ancestors = vec![];
@@ -1109,7 +1109,7 @@ impl DataSet {
         let mut accessed_dynamic_array_keys = vec![];
 
         let property_schema = super::property_schema_and_path_ancestors_to_check(
-            object_schema,
+            asset_schema,
             &path,
             schema_set.schemas(),
             &mut nullable_ancestors,
@@ -1122,13 +1122,13 @@ impl DataSet {
         }
 
         for checked_property in &nullable_ancestors {
-            if self.resolve_is_null(schema_set, object_id, checked_property) != Some(false) {
+            if self.resolve_is_null(schema_set, asset_id, checked_property) != Some(false) {
                 return vec![].into_boxed_slice();
             }
         }
 
         for (path, key) in &accessed_dynamic_array_keys {
-            let dynamic_array_entries = self.resolve_dynamic_array(schema_set, object_id, path);
+            let dynamic_array_entries = self.resolve_dynamic_array(schema_set, asset_id, path);
             if !dynamic_array_entries.contains(&Uuid::from_str(key).unwrap()) {
                 return vec![].into_boxed_slice();
             }
@@ -1136,7 +1136,7 @@ impl DataSet {
 
         let mut resolved_entries = vec![];
         self.do_resolve_dynamic_array(
-            object_id,
+            asset_id,
             path.as_ref(),
             &nullable_ancestors,
             &dynamic_array_ancestors,
@@ -1150,18 +1150,18 @@ impl DataSet {
     pub fn get_override_behavior(
         &self,
         schema_set: &SchemaSet,
-        object_id: AssetId,
+        asset_id: AssetId,
         path: impl AsRef<str>,
     ) -> OverrideBehavior {
-        let object = self.objects.get(&object_id).unwrap();
-        let property_schema = object
+        let asset = self.assets.get(&asset_id).unwrap();
+        let property_schema = asset
             .schema
             .find_property_schema(&path, schema_set.schemas())
             .unwrap();
 
         match property_schema {
             Schema::DynamicArray(_) | Schema::Map(_) => {
-                if object.properties_in_replace_mode.contains(path.as_ref()) {
+                if asset.properties_in_replace_mode.contains(path.as_ref()) {
                     OverrideBehavior::Replace
                 } else {
                     OverrideBehavior::Append
@@ -1174,12 +1174,12 @@ impl DataSet {
     pub fn set_override_behavior(
         &mut self,
         schema_set: &SchemaSet,
-        object_id: AssetId,
+        asset_id: AssetId,
         path: impl AsRef<str>,
         behavior: OverrideBehavior,
     ) {
-        let object = self.objects.get_mut(&object_id).unwrap();
-        let property_schema = object
+        let asset = self.assets.get_mut(&asset_id).unwrap();
+        let property_schema = asset
             .schema
             .find_property_schema(&path, schema_set.schemas())
             .unwrap();
@@ -1188,9 +1188,9 @@ impl DataSet {
             Schema::DynamicArray(_) | Schema::Map(_) => {
                 let _ = match behavior {
                     OverrideBehavior::Append => {
-                        object.properties_in_replace_mode.remove(path.as_ref())
+                        asset.properties_in_replace_mode.remove(path.as_ref())
                     }
-                    OverrideBehavior::Replace => object
+                    OverrideBehavior::Replace => asset
                         .properties_in_replace_mode
                         .insert(path.as_ref().to_string()),
                 };

@@ -153,7 +153,7 @@ impl JobProcessor for GpuImageJobProcessor {
         //
         // Read asset properties
         //
-        let data_container = DataContainer::new_dataset(data_set, schema_set, input.asset_id);
+        let data_container = DataContainer::from_dataset(data_set, schema_set, input.asset_id);
         let x = GpuImageAssetRecord::default();
         let compressed = x.compress().get(&data_container).unwrap();
 
@@ -161,7 +161,7 @@ impl JobProcessor for GpuImageJobProcessor {
         // Read imported data
         //
         let imported_data = &dependency_data[&input.asset_id];
-        let data_container = DataContainer::new_single_object(&imported_data, schema_set);
+        let data_container = DataContainer::from_single_object(&imported_data, schema_set);
         let x = GpuImageImportedDataRecord::new(PropertyPath::default());
 
         let image_bytes = x.image_bytes().get(&data_container).unwrap().clone();
@@ -229,7 +229,7 @@ impl Builder for GpuImageBuilder {
         schema_set: &SchemaSet,
         job_api: &dyn JobApi,
     ) {
-        let data_container = DataContainer::new_dataset(data_set, schema_set, asset_id);
+        let data_container = DataContainer::from_dataset(data_set, schema_set, asset_id);
         let x = GpuImageAssetRecord::default();
         let compressed = x.compress().get(&data_container).unwrap();
 

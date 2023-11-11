@@ -166,7 +166,7 @@ pub enum Schema {
     DynamicArray(SchemaDynamicArray),
     Map(SchemaMap),
     //RecordRef(SchemaRefConstraint),
-    ObjectRef(SchemaFingerprint),
+    AssetRef(SchemaFingerprint),
     /// Named type, it could be an enum, record, etc.
     NamedType(SchemaFingerprint),
 }
@@ -265,7 +265,7 @@ impl Schema {
 
     pub fn is_object_ref(&self) -> bool {
         match self {
-            Schema::ObjectRef(_) => true,
+            Schema::AssetRef(_) => true,
             _ => false,
         }
     }

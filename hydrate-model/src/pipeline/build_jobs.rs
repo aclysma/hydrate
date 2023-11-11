@@ -12,7 +12,7 @@ use hydrate_base::uuid_path::uuid_and_hash_to_path;
 use super::*;
 
 struct BuildRequest {
-    object_id: AssetId,
+    asset_id: AssetId,
 }
 
 // A known build job, each existing asset will have an associated build job.
@@ -61,10 +61,10 @@ impl BuildJobs {
 
     pub fn queue_build_operation(
         &mut self,
-        _object_id: AssetId,
+        _asset_id: AssetId,
     ) {
         // self.build_operations.push(BuildOp {
-        //     object_id,
+        //     asset_id,
         //     //force_rebuild_operations
         // })
 
@@ -91,13 +91,13 @@ impl BuildJobs {
         // a small set of assets (like a level, or all assets marked as "always export")
         //
         let mut requested_build_ops = VecDeque::default();
-        for (&object_id, _) in object_hashes {
+        for (&asset_id, _) in object_hashes {
             assert!(!editor_model
-                .is_path_node_or_root(data_set.object_schema(object_id).unwrap().fingerprint()));
+                .is_path_node_or_root(data_set.asset_schema(asset_id).unwrap().fingerprint()));
 
             //TODO: Skip objects that aren't explicitly requested, if any were requested
             //      For now just build everything
-            requested_build_ops.push_back(BuildRequest { object_id });
+            requested_build_ops.push_back(BuildRequest { asset_id });
         }
 
         //
@@ -121,17 +121,17 @@ impl BuildJobs {
             // kick off the jobs needed to produce the asset for it
             //
             while let Some(request) = requested_build_ops.pop_front() {
-                if started_build_ops.contains(&request.object_id) {
+                if started_build_ops.contains(&request.asset_id) {
                     continue;
                 }
 
-                let object_id = request.object_id;
-                started_build_ops.insert(object_id);
+                let asset_id = request.asset_id;
+                started_build_ops.insert(asset_id);
 
-                println!("find {:?}", object_id);
+                println!("find {:?}", asset_id);
                 let object_type = editor_model
                     .root_edit_context()
-                    .object_schema(object_id)
+                    .object_schema(asset_id)
                     .unwrap();
 
                 let Some(builder) = builder_registry.builder_for_asset(object_type.fingerprint())
@@ -139,8 +139,8 @@ impl BuildJobs {
                     continue;
                 };
 
-                println!("building {:?} {}", object_id, object_type.name());
-                builder.start_jobs(object_id, data_set, schema_set, &self.job_executor);
+                println!("building {:?} {}", asset_id, object_type.name());
+                builder.start_jobs(asset_id, data_set, schema_set, &self.job_executor);
             }
 
             //
@@ -162,10 +162,10 @@ impl BuildJobs {
                 //TODO: I'm getting back handles to artifacts but I don't know what the associated asset
                 // ID is
                 for &dependency_artifact_id in &built_artifact.metadata.dependencies {
-                    let dependency_object_id =
+                    let dependency_asset_id =
                         *artifact_asset_lookup.get(&dependency_artifact_id).unwrap();
                     requested_build_ops.push_back(BuildRequest {
-                        object_id: dependency_object_id,
+                        asset_id: dependency_asset_id,
                     });
                 }
 
@@ -214,7 +214,7 @@ impl BuildJobs {
 
                 for build_op in &build_operations {
                     //log::info!("building object type {}", object_type.name());
-                    let dependencies = builder.enumerate_dependencies(object_id, data_set, schema_set);
+                    let dependencies = builder.enumerate_dependencies(asset_id, data_set, schema_set);
 
                     let mut imported_data = HashMap::default();
                     let mut imported_data_hash = 0;
@@ -222,19 +222,19 @@ impl BuildJobs {
                     //
                     // Just load in the import data hashes
                     //
-                    for &dependency_object_id in &dependencies {
+                    for &dependency_asset_id in &dependencies {
                         // Not all objects have import info...
-                        let import_info = data_set.import_info(dependency_object_id);
+                        let import_info = data_set.import_info(dependency_asset_id);
                         if import_info.is_none() {
                             continue;
                         }
 
                         // Load data from disk
-                        let import_data_hash = import_jobs.load_import_data_hash(dependency_object_id);
+                        let import_data_hash = import_jobs.load_import_data_hash(dependency_asset_id);
 
                         // Hash the dependency import data for the build
                         let mut inner_hasher = siphasher::sip::SipHasher::default();
-                        dependency_object_id.hash(&mut inner_hasher);
+                        dependency_asset_id.hash(&mut inner_hasher);
                         import_data_hash.metadata_hash.hash(&mut inner_hasher);
                         //TODO: We could also hash the raw bytes of the file
                         imported_data_hash = imported_data_hash ^ inner_hasher.finish();
@@ -243,7 +243,7 @@ impl BuildJobs {
                     let properties_hash = editor_model
                         .root_edit_context()
                         .data_set()
-                        .hash_properties(object_id)
+                        .hash_properties(asset_id)
                         .unwrap();
 
 
@@ -275,7 +275,7 @@ impl BuildJobs {
             let is_default_artifact = artifact_id.as_uuid() == asset_id.as_uuid();
             let symbol_name = if is_default_artifact {
                 // editor_model.path_node_id_to_path(asset_id.get)
-                // //let location = edit_context.object_location(object_id).unwrap();
+                // //let location = edit_context.object_location(asset_id).unwrap();
                 //TODO: Assert the cached asset path tree is not stale?
                 let path = editor_model.object_display_name_long(asset_id);
                 path
@@ -296,7 +296,7 @@ impl BuildJobs {
             });
 
             //write!(file, "{:0>16x},{:0>16x},{},{},{:?}\n", artifact_id.as_u128(), build_hash, path, artifact_metadata.asset_type, artifact_metadata.dependencies).unwrap();
-            //file.write(&object_id.0.to_le_bytes()).unwrap();
+            //file.write(&asset_id.0.to_le_bytes()).unwrap();
             //file.write(&build_hash.to_le_bytes()).unwrap();
         }
 
@@ -344,10 +344,10 @@ impl BuildJobs {
             if let Ok(file) = file {
                 //println!("built file {:?}", file);
                 let (built_file_uuid, built_file_hash) = path_to_uuid_and_hash(root_path, file.path()).unwrap();
-                let object_id = ObjectId(built_file_uuid.as_u128());
+                let asset_id = ObjectId(built_file_uuid.as_u128());
                 let job = build_jobs
-                    .entry(object_id)
-                    .or_insert_with(|| BuildJob::new(object_id));
+                    .entry(asset_id)
+                    .or_insert_with(|| BuildJob::new(asset_id));
                 job.build_data_exists.insert(built_file_hash);
             }
         }
@@ -356,30 +356,30 @@ impl BuildJobs {
         // Scan assets to find any asset that has an associated builder
         //
         let data_set = editor_model.root_edit_context().data_set();
-        for object_id in data_set.all_objects() {
-            // if let Some(build_info) = data_set.build_info(*object_id) {
+        for asset_id in data_set.all_objects() {
+            // if let Some(build_info) = data_set.build_info(*asset_id) {
             //     let builder_id = build_info.builder_id();
             //     let builder = builder_registry.builder(builder_id);
             //     if builder.is_some() {
-            //         let job = build_jobs.entry(*object_id).or_insert_with(|| BuildJob::new(*object_id));
+            //         let job = build_jobs.entry(*asset_id).or_insert_with(|| BuildJob::new(*asset_id));
             //         job.asset_exists = true;
             //     }
             // }
 
-            let schema_fingerprint = data_set.object_schema(*object_id).unwrap().fingerprint();
+            let schema_fingerprint = data_set.object_schema(*asset_id).unwrap().fingerprint();
             let builder = builder_registry.builder_for_asset(schema_fingerprint);
 
             if builder.is_some() {
                 let job = build_jobs
-                    .entry(*object_id)
-                    .or_insert_with(|| BuildJob::new(*object_id));
+                    .entry(*asset_id)
+                    .or_insert_with(|| BuildJob::new(*asset_id));
                 job.asset_exists = true;
             }
         }
 
         build_jobs
 
-        // for (object_id, job) in build_jobs {
+        // for (asset_id, job) in build_jobs {
         //     if job.asset_exists && !job.build_data_exists {
         //         // We need to re-build the data
         //     }

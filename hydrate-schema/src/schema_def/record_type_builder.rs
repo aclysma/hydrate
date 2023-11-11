@@ -144,7 +144,7 @@ impl RecordTypeBuilder {
         type_name: impl Into<String>,
     ) -> &mut RecordTypeFieldBuilder {
         self.fields.push(RecordTypeFieldBuilder {
-            field_type: SchemaDefType::ObjectRef(type_name.into()),
+            field_type: SchemaDefType::AssetRef(type_name.into()),
             aliases: Default::default(),
             name: name.into(),
         });

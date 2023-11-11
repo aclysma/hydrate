@@ -169,7 +169,7 @@ fn recursively_gather_import_operations_and_create_assets(
     // //
     // // We now build a list of things we will be importing from the file.
     // // 1. Scan the file to see what's available
-    // // 2. Create/Find objects for all the things we want to import
+    // // 2. Create/Find assets for all the things we want to import
     // // 3. Enqueue the import operation
     // //
     // let mut asset_ids = HashMap::default();
@@ -195,15 +195,15 @@ fn recursively_gather_import_operations_and_create_assets(
     //     //
     //     // Pick name for the asset for this file
     //     //
-    //     let object_name = if let Some(file_name) = file.file_name() {
+    //     let asset_name = if let Some(file_name) = file.file_name() {
     //         let file_name = file_name.to_string_lossy();
     //         if let Some(importable_name) = &scanned_importable.name {
-    //             ObjectName::new(format!("{}.{}", file_name, importable_name))
+    //             AssetName::new(format!("{}.{}", file_name, importable_name))
     //         } else {
-    //             ObjectName::new(file_name.to_string())
+    //             AssetName::new(file_name.to_string())
     //         }
     //     } else {
-    //         ObjectName::empty()
+    //         AssetName::empty()
     //     };
     //
     //     let mut referenced_source_file_asset_ids = Vec::default();
@@ -222,7 +222,7 @@ fn recursively_gather_import_operations_and_create_assets(
     //
     //         // Does it already exist?
     //         let mut found = None;
-    //         for asset_id in db_state.editor_model.root_edit_context().all_objects() {
+    //         for asset_id in db_state.editor_model.root_edit_context().all_assets() {
     //             if let Some(import_info) = db_state
     //                 .editor_model
     //                 .root_edit_context()
@@ -259,8 +259,8 @@ fn recursively_gather_import_operations_and_create_assets(
     //         scanned_importable.file_references.len()
     //     );
     //
-    //     let asset_id = db_state.editor_model.root_edit_context_mut().new_object(
-    //         &object_name,
+    //     let asset_id = db_state.editor_model.root_edit_context_mut().new_asset(
+    //         &asset_name,
     //         selected_import_location,
     //         &scanned_importable.asset_type,
     //     );
@@ -409,7 +409,7 @@ impl ModalAction for ImportFilesModal {
                             // //
                             // // We now build a list of things we will be importing from the file.
                             // // 1. Scan the file to see what's available
-                            // // 2. Create/Find objects for all the things we want to import
+                            // // 2. Create/Find assets for all the things we want to import
                             // // 3. Enqueue the import operation
                             // //
                             // let mut asset_ids = HashMap::default();
@@ -419,15 +419,15 @@ impl ModalAction for ImportFilesModal {
                             //     //
                             //     // Pick name for the asset for this file
                             //     //
-                            //     let object_name = if let Some(file_name) = file.file_name() {
+                            //     let asset_name = if let Some(file_name) = file.file_name() {
                             //         let file_name =  file_name.to_string_lossy();
                             //         if let Some(importable_name) = &scanned_importable.name {
-                            //             ObjectName::new(format!("{}.{}", file_name, importable_name))
+                            //             AssetName::new(format!("{}.{}", file_name, importable_name))
                             //         } else {
-                            //             ObjectName::new(file_name.to_string())
+                            //             AssetName::new(file_name.to_string())
                             //         }
                             //     } else {
-                            //         ObjectName::empty()
+                            //         AssetName::empty()
                             //     };
                             //
                             //     //TODO: Check referenced source files to find existing imported assets or import referenced files
@@ -435,7 +435,7 @@ impl ModalAction for ImportFilesModal {
                             //         referenced_source_file.path
                             //     }
                             //
-                            //     let asset_id = db_state.editor_model.root_edit_context_mut().new_object(&object_name, &self.selected_import_location, &scanned_importable.asset_type);
+                            //     let asset_id = db_state.editor_model.root_edit_context_mut().new_asset(&asset_name, &self.selected_import_location, &scanned_importable.asset_type);
                             //     db_state.editor_model.root_edit_context_mut().set_import_info(asset_id, import_info.clone());
                             //     asset_ids.insert(scanned_importable.name.clone(), asset_id);
                             // }

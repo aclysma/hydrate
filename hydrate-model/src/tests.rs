@@ -6,7 +6,7 @@ use crate::{
 use std::sync::Arc;
 use uuid::Uuid;
 
-fn object_location() -> AssetLocation {
+fn asset_location() -> AssetLocation {
     AssetLocation::new(
         AssetSourceId::new_with_uuid(
             Uuid::parse_str("d9597882-c065-426a-bc8d-4e36b005e30f").unwrap(),
@@ -43,7 +43,7 @@ fn set_struct_values() {
         .unwrap()
         .clone();
 
-    let obj = db.new_object(object_location(), &vec3_type);
+    let obj = db.new_asset(asset_location(), &vec3_type);
     assert_eq!(
         db.resolve_property(obj, "x").map(|x| x.as_f32()),
         Some(Some(0.0))
@@ -92,7 +92,7 @@ fn set_struct_values_in_struct() {
         .unwrap()
         .clone();
 
-    let obj = db.new_object(object_location(), &outer_struct_type);
+    let obj = db.new_asset(asset_location(), &outer_struct_type);
     assert_eq!(
         db.resolve_property(obj, "a.x").map(|x| x.as_f32()),
         Some(Some(0.0))
@@ -136,8 +136,8 @@ fn set_simple_property_override() {
         .unwrap()
         .clone();
 
-    let obj1 = db.new_object(object_location(), &vec3_type);
-    let obj2 = db.new_object_from_prototype(object_location(), obj1);
+    let obj1 = db.new_asset(asset_location(), &vec3_type);
+    let obj2 = db.new_asset_from_prototype(asset_location(), obj1);
     assert_eq!(
         db.resolve_property(obj1, "x").map(|x| x.as_f32().unwrap()),
         Some(0.0)
@@ -269,7 +269,7 @@ fn property_in_nullable() {
         .unwrap()
         .clone();
 
-    let obj = db.new_object(object_location(), &outer_struct_type);
+    let obj = db.new_asset(asset_location(), &outer_struct_type);
 
     assert_eq!(db.resolve_is_null(obj, "nullable").unwrap(), true);
     assert_eq!(
@@ -343,7 +343,7 @@ fn nullable_property_in_nullable() {
         .unwrap()
         .clone();
 
-    let obj = db.new_object(object_location(), &outer_struct_type);
+    let obj = db.new_asset(asset_location(), &outer_struct_type);
 
     assert_eq!(db.resolve_is_null(obj, "nullable").unwrap(), true);
     // This returns none because parent property is null, so this property should act like it doesn't exist
@@ -427,7 +427,7 @@ fn struct_in_dynamic_array() {
         .unwrap()
         .clone();
 
-    let obj = db.new_object(object_location(), &outer_struct_type);
+    let obj = db.new_asset(asset_location(), &outer_struct_type);
 
     assert!(db.resolve_dynamic_array(obj, "array").is_empty());
     let uuid1 = db.add_dynamic_array_override(obj, "array");
@@ -519,8 +519,8 @@ fn dynamic_array_override_behavior() {
         .unwrap()
         .clone();
 
-    let obj1 = db.new_object(object_location(), &outer_struct_type);
-    let obj2 = db.new_object_from_prototype(object_location(), obj1);
+    let obj1 = db.new_asset(asset_location(), &outer_struct_type);
+    let obj2 = db.new_asset_from_prototype(asset_location(), obj1);
 
     let item1 = db.add_dynamic_array_override(obj1, "array");
     let item2 = db.add_dynamic_array_override(obj2, "array");

@@ -9,7 +9,7 @@ impl AssetPath {
     pub fn new(s: &str) -> Self {
         // We assume all paths are absolute
         if !s.starts_with(ROOT_PATH_STR) {
-            panic!("Invalid object path str");
+            panic!("Invalid asset path str");
         }
 
         if s.len() == ROOT_PATH_STR.len() {
@@ -53,8 +53,8 @@ impl AssetPath {
 
     // pub fn strip_prefix(
     //     &self,
-    //     prefix: &ObjectPath,
-    // ) -> Option<ObjectPath> {
+    //     prefix: &AssetPath,
+    // ) -> Option<AssetPath> {
     //     match self.0 {
     //         Some(x) => {
     //             x.strip_prefix(&prefix.0).ma
@@ -64,7 +64,7 @@ impl AssetPath {
     //
     //     self.0.as_ref().unwrap_or(ROOT_PATH_STR)
     //         .strip_prefix(&prefix.0)
-    //         .map(|x| ObjectPath(x.to_string()))
+    //         .map(|x| AssetPath(x.to_string()))
     // }
 
     // pub fn parent_path(&self) -> Option<Self> {
@@ -74,10 +74,10 @@ impl AssetPath {
     //             if let Some(index) = path.rfind("/") {
     //                 if index >= ROOT_PATH_STR.len() {
     //                     // We have a parent path that isn't root
-    //                     Some(ObjectPath(Some(path[0..index].to_string())))
+    //                     Some(AssetPath(Some(path[0..index].to_string())))
     //                 } else {
     //                     // Parent path is root
-    //                     Some(ObjectPath(None))
+    //                     Some(AssetPath(None))
     //                 }
     //             } else {
     //                 // Path with no slash should not exist

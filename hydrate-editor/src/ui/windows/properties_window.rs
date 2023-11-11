@@ -9,12 +9,12 @@ pub fn draw_properties_window_single_select(
     app_state: &mut AppState,
     asset_id: AssetId,
 ) {
-    ui.text(format!("Object: {}", asset_id.as_uuid()));
+    ui.text(format!("Asset: {}", asset_id.as_uuid()));
 
     let edit_context = app_state.db_state.editor_model.root_edit_context();
 
-    let name = edit_context.object_name(asset_id);
-    let location = edit_context.object_location(asset_id).unwrap();
+    let name = edit_context.asset_name(asset_id);
+    let location = edit_context.asset_location(asset_id).unwrap();
 
     ui.text(im_str!(
         "Name: {}",
@@ -55,14 +55,14 @@ pub fn draw_properties_window_single_select(
         app_state
             .db_state
             .editor_model
-            .object_display_name_long(location.path_node_id())
+            .asset_display_name_long(location.path_node_id())
     ));
 
     if ui.button(im_str!("Force Rebuild")) {
         app_state.asset_engine.queue_build_operation(asset_id);
     }
 
-    if let Some(prototype) = edit_context.object_prototype(asset_id) {
+    if let Some(prototype) = edit_context.asset_prototype(asset_id) {
         if ui.button(im_str!(">>")) {
             let grid_state = &mut app_state.ui_state.asset_browser_state.grid_state;
             grid_state.first_selected = Some(prototype);
@@ -75,7 +75,7 @@ pub fn draw_properties_window_single_select(
         let prototype_display_name = app_state
             .db_state
             .editor_model
-            .object_display_name_long(prototype);
+            .asset_display_name_long(prototype);
 
         ui.text(format!("Prototype: {}", prototype_display_name));
     }
@@ -117,7 +117,7 @@ pub fn draw_properties_window(
                 .db_state
                 .editor_model
                 .root_edit_context()
-                .has_object(*item)
+                .has_asset(*item)
             {
                 draw_properties_window_single_select(ui, app_state, *item);
             }

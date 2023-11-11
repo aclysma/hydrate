@@ -15,7 +15,7 @@ use hydrate_model::pipeline::{
 };
 use hydrate_model::{
     job_system, BuilderRegistryBuilder, DataContainer, DataContainerMut, DataSet,
-    HashMap, HashSet, ImportableObject, ImporterRegistryBuilder, JobApi, JobEnumeratedDependencies,
+    HashMap, HashSet, ImportableAsset, ImporterRegistryBuilder, JobApi, JobEnumeratedDependencies,
     JobInput, JobOutput, JobProcessor, JobProcessorRegistryBuilder, AssetId,
     Record, SchemaLinker, SchemaSet, SingleObject,
 };
@@ -445,7 +445,7 @@ pub(crate) fn include_impl(
         dependency_data
     );
 
-    // what object are we calling from?
+    // what asset are we calling from?
     // what are the path redirects on it?
     // find the one that matches
 
@@ -474,9 +474,9 @@ pub(crate) fn include_impl(
         requested_from
     );
 
-    let referenced_object =
+    let referenced_asset =
         dependency_lookup.get(&(requested_from.to_path_buf(), requested_path.to_path_buf()));
-    if let Some(referenced_asset_id) = referenced_object {
+    if let Some(referenced_asset_id) = referenced_asset {
         if let Some(dependency_data) = dependency_data.get(referenced_asset_id) {
             println!("Resolved the content");
             let content = dependency_data
@@ -547,7 +547,7 @@ impl Importer for GlslSourceFileImporter {
     fn import_file(
         &self,
         path: &Path,
-        importable_objects: &HashMap<Option<String>, ImportableObject>,
+        importable_assets: &HashMap<Option<String>, ImportableAsset>,
         schema_set: &SchemaSet,
         //import_info: &ImportInfo,
     ) -> HashMap<Option<String>, ImportedImportable> {
@@ -590,10 +590,10 @@ impl Importer for GlslSourceFileImporter {
         };
 
         //
-        // Return the created objects
+        // Return the created assets
         //
-        let mut imported_objects = HashMap::default();
-        imported_objects.insert(
+        let mut imported_assets = HashMap::default();
+        imported_assets.insert(
             None,
             ImportedImportable {
                 file_references: referenced_source_files,
@@ -601,7 +601,7 @@ impl Importer for GlslSourceFileImporter {
                 default_asset: Some(default_asset),
             },
         );
-        imported_objects
+        imported_assets
     }
 }
 
@@ -690,7 +690,7 @@ impl JobProcessor for GlslBuildTargetJobProcessor {
         let entry_point = x.entry_point().get(&data_container).unwrap();
 
         //
-        // Build a lookup of source file ObjectID to PathBuf that it was imported from
+        // Build a lookup of source file AssetID to PathBuf that it was imported from
         //
         let mut dependency_lookup = HashMap::default();
         for (&dependency_asset_id, _) in dependency_data {

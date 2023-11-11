@@ -450,7 +450,7 @@ pub enum SchemaDefType {
     StaticArray(SchemaDefStaticArray),
     DynamicArray(SchemaDefDynamicArray),
     Map(SchemaDefMap),
-    ObjectRef(String), // name of the type
+    AssetRef(String), // name of the type
     NamedType(String), // name of the type
 }
 
@@ -474,7 +474,7 @@ impl SchemaDefType {
             SchemaDefType::StaticArray(x) => x.apply_type_aliases(aliases),
             SchemaDefType::DynamicArray(x) => x.apply_type_aliases(aliases),
             SchemaDefType::Map(x) => x.apply_type_aliases(aliases),
-            SchemaDefType::ObjectRef(x) => {
+            SchemaDefType::AssetRef(x) => {
                 let alias = aliases.get(x);
                 if let Some(alias) = alias {
                     *x = alias.clone();
@@ -508,7 +508,7 @@ impl SchemaDefType {
             SchemaDefType::StaticArray(x) => x.collect_all_related_types(types),
             SchemaDefType::DynamicArray(x) => x.collect_all_related_types(types),
             SchemaDefType::Map(x) => x.collect_all_related_types(types),
-            SchemaDefType::ObjectRef(x) => {
+            SchemaDefType::AssetRef(x) => {
                 types.insert(x.clone());
             }
             SchemaDefType::NamedType(x) => {
@@ -549,8 +549,8 @@ impl SchemaDefType {
                 "Map".hash(hasher);
                 x.partial_hash(hasher);
             }
-            SchemaDefType::ObjectRef(x) => {
-                "ObjectRef".hash(hasher);
+            SchemaDefType::AssetRef(x) => {
+                "AssetRef".hash(hasher);
                 x.hash(hasher);
             }
             SchemaDefType::NamedType(x) => {
@@ -579,7 +579,7 @@ impl SchemaDefType {
             SchemaDefType::StaticArray(x) => Schema::StaticArray(x.to_schema(named_types)),
             SchemaDefType::DynamicArray(x) => Schema::DynamicArray(x.to_schema(named_types)),
             SchemaDefType::Map(x) => Schema::Map(x.to_schema(named_types)),
-            SchemaDefType::ObjectRef(x) => Schema::AssetRef(*named_types.get(&x).unwrap()),
+            SchemaDefType::AssetRef(x) => Schema::AssetRef(*named_types.get(&x).unwrap()),
             SchemaDefType::NamedType(x) => Schema::NamedType(*named_types.get(&x).unwrap()),
         }
     }

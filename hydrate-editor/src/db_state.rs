@@ -18,7 +18,7 @@ impl DbState {
     //     PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/data/schema"))
     // }
     //
-    // fn object_data_source_path() -> PathBuf {
+    // fn asset_data_source_path() -> PathBuf {
     //     PathBuf::from(concat!(
     //         env!("CARGO_MANIFEST_DIR"),
     //         "/data/assets"
@@ -97,11 +97,11 @@ impl DbState {
             .clone();
 
         let root_asset_id = AssetId::from_uuid(*asset_source_id.uuid());
-        // db.new_object_with_id(
+        // db.new_asset_with_id(
         //     root_asset_id,
-        //     AssetName::new("root_object"),
+        //     AssetName::new("root_asset"),
         //     AssetLocation::null(),
-        //     &path_node_schema_object,
+        //     &path_node_schema_asset,
         // ).unwrap();
 
         let subdir_obj = db.new_asset(
@@ -116,16 +116,16 @@ impl DbState {
             &path_node_schema_record,
         );
 
-        let object_location = AssetLocation::new(subdir2_obj);
+        let asset_location = AssetLocation::new(subdir2_obj);
 
         let prototype_obj = db.new_asset(
-            AssetName::new("object_a"),
-            object_location.clone(),
+            AssetName::new("asset_a"),
+            asset_location.clone(),
             &transform_schema_record,
         );
         let instance_obj = db.new_asset_from_prototype(
-            AssetName::new("object_b"),
-            object_location,
+            AssetName::new("asset_b"),
+            asset_location,
             prototype_obj,
         );
 
@@ -196,7 +196,7 @@ impl DbState {
             "all_fields.dynamic_array_vec3",
         );
 
-        edit_model.root_edit_context_mut().restore_objects_from(db);
+        edit_model.root_edit_context_mut().restore_assets_from(db);
         edit_model
     }
 
@@ -219,7 +219,7 @@ impl DbState {
             importer_registry,
             imports_to_queue,
         );
-        if editor_model.root_edit_context().all_objects().len() == 0 {
+        if editor_model.root_edit_context().all_assets().len() == 0 {
             None
         } else {
             Some(editor_model)

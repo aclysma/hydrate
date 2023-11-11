@@ -271,7 +271,7 @@ enum CachedSchema {
     U64,
     F32,
     F64,
-    /// Variable amount of bytes stored within the object, intended to be relatively small
+    /// Variable amount of bytes stored within the asset, intended to be relatively small
     Bytes,
     /// A variable amount of bytes stored on a reference-counted heap and shared. Can be large (MBs)
     Buffer,
@@ -282,7 +282,7 @@ enum CachedSchema {
     DynamicArray(CachedSchemaDynamicArray),
     Map(CachedSchemaMap),
     //RecordRef(CachedSchemaRefConstraint),
-    ObjectRef(Uuid),
+    AssetRef(Uuid),
     /// Named type, it could be an enum, record, etc.
     NamedType(Uuid),
 }
@@ -311,7 +311,7 @@ impl CachedSchema {
             }
             Schema::Map(x) => CachedSchema::Map(CachedSchemaMap::new_from_schema(x)),
             //Schema::RecordRef(x) => CachedSchemaStaticArray::new_from_schema(x),
-            Schema::AssetRef(x) => CachedSchema::ObjectRef(x.as_uuid()),
+            Schema::AssetRef(x) => CachedSchema::AssetRef(x.as_uuid()),
             Schema::NamedType(x) => CachedSchema::NamedType(x.as_uuid()),
         }
     }
@@ -332,7 +332,7 @@ impl CachedSchema {
             CachedSchema::StaticArray(x) => Schema::StaticArray(x.to_schema()),
             CachedSchema::DynamicArray(x) => Schema::DynamicArray(x.to_schema()),
             CachedSchema::Map(x) => Schema::Map(x.to_schema()),
-            CachedSchema::ObjectRef(x) => Schema::AssetRef(SchemaFingerprint(x.as_u128())),
+            CachedSchema::AssetRef(x) => Schema::AssetRef(SchemaFingerprint(x.as_u128())),
             CachedSchema::NamedType(x) => Schema::NamedType(SchemaFingerprint(x.as_u128())),
         }
     }

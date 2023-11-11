@@ -42,7 +42,7 @@ impl Ord for LocationTreeNodeKey {
 
 #[derive(Debug)]
 pub struct LocationTreeNode {
-    //pub path: ObjectPath,
+    //pub path: AssetPath,
     pub location: AssetLocation,
     pub location_root: AssetLocation,
     pub children: BTreeMap<LocationTreeNodeKey, LocationTreeNode>,
@@ -68,14 +68,14 @@ impl LocationTree {
         data_set: &DataSet,
         tree_node_id: AssetId,
     ) {
-        let mut path_object_stack = vec![AssetLocation::new(tree_node_id)];
-        path_object_stack.append(&mut data_set.asset_location_chain(tree_node_id));
+        let mut path_asset_stack = vec![AssetLocation::new(tree_node_id)];
+        path_asset_stack.append(&mut data_set.asset_location_chain(tree_node_id));
 
         //
         // Get the node key for the first element of the path. It should already exist because we create
         // nodes for the data sources.
         //
-        let root_location = path_object_stack.last().cloned().unwrap(); //.unwrap_or(ObjectLocation::new(tree_node_id));
+        let root_location = path_asset_stack.last().cloned().unwrap(); //.unwrap_or(AssetLocation::new(tree_node_id));
         let root_location_path_node_id = root_location.path_node_id();
 
         let root_tree_node_key = LocationTreeNodeKey {
@@ -87,19 +87,19 @@ impl LocationTree {
                 .unwrap_or_default(),
         };
 
-        path_object_stack.pop();
+        path_asset_stack.pop();
 
         if let Some(mut tree_node) = self.root_nodes.get_mut(&root_tree_node_key) {
-            while let Some(node_object) = path_object_stack.pop() {
-                // Unnamed objects can't be paths
-                //let node_location = ObjectLocation::new(node_object);
-                //let location_chain = data_set.object_location_chain(node_object.path_node_id());
+            while let Some(node_object) = path_asset_stack.pop() {
+                // Unnamed assets can't be paths
+                //let node_location = AssetLocation::new(node_asset);
+                //let location_chain = data_set.asset_location_chain(node_asset.path_node_id());
 
                 let node_name = data_set
                     .asset_name(node_object.path_node_id())
                     .as_string()
                     .cloned()
-                    .unwrap(); //.unwrap_or_else(|| node_object.as_uuid().to_string());
+                    .unwrap(); //.unwrap_or_else(|| node_asset.as_uuid().to_string());
 
                 let node_key = LocationTreeNodeKey {
                     name: node_name,
@@ -107,9 +107,9 @@ impl LocationTree {
                 };
 
                 tree_node = tree_node.children.entry(node_key).or_insert_with(|| {
-                    //let path = paths.get(&node_object).unwrap().clone();
-                    //let node_location = ObjectLocation::new(source, location.parent_tree_node());
-                    //let location = ObjectLocation::new(nod)
+                    //let path = paths.get(&node_asset).unwrap().clone();
+                    //let node_location = AssetLocation::new(source, location.parent_tree_node());
+                    //let location = AssetLocation::new(nod)
                     let has_changes = false; //unsaved_paths.contains(&node_location);
                     LocationTreeNode {
                         //path,

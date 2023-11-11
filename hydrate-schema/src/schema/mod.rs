@@ -155,7 +155,7 @@ pub enum Schema {
     U64,
     F32,
     F64,
-    /// Variable amount of bytes stored within the object, intended to be relatively small
+    /// Variable amount of bytes stored within the asset, intended to be relatively small
     Bytes,
     /// A variable amount of bytes stored on a reference-counted heap and shared. Can be large (MBs)
     Buffer,
@@ -263,7 +263,7 @@ impl Schema {
         }
     }
 
-    pub fn is_object_ref(&self) -> bool {
+    pub fn is_asset_ref(&self) -> bool {
         match self {
             Schema::AssetRef(_) => true,
             _ => false,
@@ -346,8 +346,8 @@ impl Schema {
                 }
             }
             Schema::DynamicArray(x) => {
-                // We are not picky about the index being a number as the Object DB/property
-                // handling uses UUIDs to ID each object, we just don't show the IDs to users
+                // We are not picky about the index being a number as the asset DB/property
+                // handling uses UUIDs to ID each asset, we just don't show the IDs to users
                 Some(x.item_type())
             }
             Schema::Map(x) => Some(x.value_type()),

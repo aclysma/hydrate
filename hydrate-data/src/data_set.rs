@@ -122,7 +122,8 @@ pub struct ImportInfo {
 
 impl ImportInfo {
     pub fn new(
-        importer_id: ImporterId, /*, import_options: SingleObject*/
+        importer_id: ImporterId,
+        //import_options: SingleObject
         source_file_path: PathBuf,
         importable_name: String,
         file_references: Vec<PathBuf>,
@@ -364,32 +365,32 @@ impl DataSet {
         id
     }
 
-    // Populate an empty object with data from a SingleObject
+    // Populate an empty asset with data from a SingleObject
     pub fn copy_from_single_object(
         &mut self,
         asset_id: AssetId,
         single_object: &SingleObject,
     ) -> DataSetResult<()> {
-        let object = self.assets.get_mut(&asset_id).unwrap();
+        let asset = self.assets.get_mut(&asset_id).unwrap();
 
-        object.prototype = None;
-        object.properties.clear();
-        object.property_null_overrides.clear();
-        object.properties_in_replace_mode.clear();
-        object.dynamic_array_entries.clear();
+        asset.prototype = None;
+        asset.properties.clear();
+        asset.property_null_overrides.clear();
+        asset.properties_in_replace_mode.clear();
+        asset.dynamic_array_entries.clear();
 
         for (property, value) in single_object.properties() {
-            object.properties.insert(property.clone(), value.clone());
+            asset.properties.insert(property.clone(), value.clone());
         }
 
         for (property, null_override) in single_object.property_null_overrides() {
-            object
+            asset
                 .property_null_overrides
                 .insert(property.clone(), *null_override);
         }
 
         for (property, dynamic_array_entries) in single_object.dynamic_array_entries() {
-            let property_entry = object
+            let property_entry = asset
                 .dynamic_array_entries
                 .entry(property.clone())
                 .or_default();
@@ -407,7 +408,7 @@ impl DataSet {
         &mut self,
         asset_id: AssetId,
     ) {
-        //TODO: Kill subobjects too
+        //TODO: Kill subassets too
         //TODO: Write tombstone?
         self.assets.remove(&asset_id);
     }
@@ -433,16 +434,16 @@ impl DataSet {
         other: &DataSet,
         asset_id: AssetId,
     ) {
-        let object = other.assets.get(&asset_id).cloned().unwrap();
-        self.assets.insert(asset_id, object);
+        let asset = other.assets.get(&asset_id).cloned().unwrap();
+        self.assets.insert(asset_id, asset);
     }
 
     pub fn asset_name(
         &self,
         asset_id: AssetId,
     ) -> &AssetName {
-        let object = self.assets.get(&asset_id).unwrap();
-        &object.asset_name
+        let asset = self.assets.get(&asset_id).unwrap();
+        &asset.asset_name
     }
 
     pub fn set_asset_name(
@@ -453,7 +454,7 @@ impl DataSet {
         self.assets.get_mut(&asset_id).unwrap().asset_name = asset_name;
     }
 
-    // Returns the object's parent
+    // Returns the asset's parent
     pub fn asset_location(
         &self,
         asset_id: AssetId,
@@ -461,7 +462,7 @@ impl DataSet {
         self.assets.get(&asset_id).map(|x| &x.asset_location)
     }
 
-    // Returns the object locations from the parent all the way up to the root parent. If a cycle is
+    // Returns the asset locations from the parent all the way up to the root parent. If a cycle is
     // detected or any elements in the chain are not found, an empty list is returned.
     pub fn asset_location_chain(
         &self,
@@ -469,7 +470,7 @@ impl DataSet {
     ) -> Vec<AssetLocation> {
         let mut asset_location_chain = Vec::default();
 
-        // If this object's location is none, return an empty list
+        // If this asset's location is none, return an empty list
         let Some(mut obj_iter) = self.asset_location(asset_id).cloned() else {
             return asset_location_chain;
         };
@@ -664,8 +665,8 @@ impl DataSet {
         }
         dynamic_array_entries_hash.hash(&mut hasher);
 
-        let object_hash = hasher.finish();
-        Some(object_hash)
+        let asset_hash = hasher.finish();
+        Some(asset_hash)
     }
 
     pub fn get_null_override(

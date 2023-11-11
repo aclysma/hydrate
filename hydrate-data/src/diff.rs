@@ -148,7 +148,7 @@ impl AssetDiffSet {
         self.apply_diff.has_changes()
     }
 
-    pub fn diff_objects(
+    pub fn diff_assets(
         before_data_set: &DataSet,
         before_asset_id: AssetId,
         after_data_set: &DataSet,
@@ -467,8 +467,8 @@ impl DataSetDiff {
         }
 
         for (asset_id, v) in &self.changes {
-            if let Some(object) = data_set.assets_mut().get_mut(asset_id) {
-                v.apply(object);
+            if let Some(asset) = data_set.assets_mut().get_mut(asset_id) {
+                v.apply(asset);
             }
         }
     }
@@ -508,21 +508,21 @@ impl DataSetDiffSet {
     pub fn diff_data_set(
         before: &DataSet,
         after: &DataSet,
-        tracked_objects: &HashSet<AssetId>,
+        tracked_assets: &HashSet<AssetId>,
     ) -> Self {
         let mut apply_diff = DataSetDiff::default();
         let mut revert_diff = DataSetDiff::default();
         let mut modified_assets: HashSet<AssetId> = Default::default();
         let mut modified_locations: HashSet<AssetLocation> = Default::default();
 
-        // Check for created objects
-        for &asset_id in tracked_objects {
+        // Check for created assets
+        for &asset_id in tracked_assets {
             let existed_before = before.assets().contains_key(&asset_id);
             let existed_after = after.assets().contains_key(&asset_id);
             if existed_before {
                 if existed_after {
-                    // Object was modified
-                    let diff = AssetDiffSet::diff_objects(
+                    // Asset was modified
+                    let diff = AssetDiffSet::diff_assets(
                         before,
                         asset_id,
                         &after,
@@ -535,30 +535,30 @@ impl DataSetDiffSet {
                         revert_diff.changes.push((asset_id, diff.revert_diff));
                     }
                 } else {
-                    // Object was deleted
-                    let before_object_info = before.assets().get(&asset_id).unwrap().clone();
+                    // Asset was deleted
+                    let before_asset_info = before.assets().get(&asset_id).unwrap().clone();
                     modified_assets.insert(asset_id);
-                    if !modified_locations.contains(&before_object_info.asset_location) {
-                        modified_locations.insert(before_object_info.asset_location.clone());
+                    if !modified_locations.contains(&before_asset_info.asset_location) {
+                        modified_locations.insert(before_asset_info.asset_location.clone());
                     }
 
                     // deleted
                     apply_diff.deletes.push(asset_id);
                     revert_diff
                         .creates
-                        .push((asset_id, before_object_info.clone()));
+                        .push((asset_id, before_asset_info.clone()));
                 }
             } else if existed_after {
-                // Object was created
-                let after_object_info = after.assets().get(&asset_id).unwrap();
-                if !modified_locations.contains(&after_object_info.asset_location) {
-                    modified_locations.insert(after_object_info.asset_location.clone());
+                // Asset was created
+                let after_asset_info = after.assets().get(&asset_id).unwrap();
+                if !modified_locations.contains(&after_asset_info.asset_location) {
+                    modified_locations.insert(after_asset_info.asset_location.clone());
                 }
 
                 // created
                 apply_diff
                     .creates
-                    .push((asset_id, after_object_info.clone()));
+                    .push((asset_id, after_asset_info.clone()));
                 revert_diff.deletes.push(asset_id);
             }
         }

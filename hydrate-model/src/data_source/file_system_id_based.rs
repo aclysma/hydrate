@@ -10,7 +10,7 @@ use uuid::Uuid;
 fn load_asset_files(
     edit_context: &mut EditContext,
     root_path: &Path,
-    object_source_id: AssetSourceId,
+    asset_source_id: AssetSourceId,
     all_asset_ids_on_disk: &mut HashSet<AssetId>,
 ) {
     let walker = globwalk::GlobWalkerBuilder::from_patterns(root_path, &["**.af"])
@@ -23,32 +23,32 @@ fn load_asset_files(
             //println!("asset file {:?}", file);
             let file_uuid = path_to_uuid(root_path, file.path()).unwrap();
             let contents = std::fs::read_to_string(file.path()).unwrap();
-            crate::json_storage::EditContextObjectJson::load_edit_context_object_from_string(
+            crate::json_storage::EditContextAssetJson::load_edit_context_asset_from_string(
                 edit_context,
                 Some(file_uuid),
-                object_source_id,
+                asset_source_id,
                 None,
                 &contents,
             );
             let asset_id = AssetId::from_uuid(file_uuid);
-            let object_location = edit_context
-                .objects()
+            let asset_location = edit_context
+                .assets()
                 .get(&asset_id)
                 .unwrap()
                 .asset_location()
                 .clone();
-            edit_context.clear_object_modified_flag(asset_id);
-            edit_context.clear_location_modified_flag(&object_location);
+            edit_context.clear_asset_modified_flag(asset_id);
+            edit_context.clear_location_modified_flag(&asset_location);
             all_asset_ids_on_disk.insert(asset_id);
         }
     }
 }
 
 pub struct FileSystemIdBasedDataSource {
-    object_source_id: AssetSourceId,
+    asset_source_id: AssetSourceId,
     file_system_root_path: PathBuf,
 
-    // Any object ID we know to exist on disk is in this list to help us quickly determine which
+    // Any asset ID we know to exist on disk is in this list to help us quickly determine which
     // deleted IDs need to be cleaned up
     all_asset_ids_on_disk: HashSet<AssetId>,
 
@@ -56,12 +56,12 @@ pub struct FileSystemIdBasedDataSource {
 }
 
 impl FileSystemIdBasedDataSource {
-    fn is_object_owned_by_this_data_source(
+    fn is_asset_owned_by_this_data_source(
         &self,
         edit_context: &EditContext,
         asset_id: AssetId,
     ) -> bool {
-        if edit_context.object_schema(asset_id).unwrap().fingerprint()
+        if edit_context.asset_schema(asset_id).unwrap().fingerprint()
             == self.path_node_root_schema.fingerprint()
         {
             return false;
@@ -69,22 +69,22 @@ impl FileSystemIdBasedDataSource {
 
         //TODO: is_null means we default to using this source
         let root_location = edit_context
-            .object_location_chain(asset_id)
+            .asset_location_chain(asset_id)
             .last()
             .cloned()
             .unwrap_or_else(AssetLocation::null);
-        root_location.path_node_id().as_uuid() == *self.object_source_id.uuid()
+        root_location.path_node_id().as_uuid() == *self.asset_source_id.uuid()
             || root_location.is_null()
     }
 
-    pub fn object_source_id(&self) -> AssetSourceId {
-        self.object_source_id
+    pub fn asset_source_id(&self) -> AssetSourceId {
+        self.asset_source_id
     }
 
     pub fn new<RootPathT: Into<PathBuf>>(
         file_system_root_path: RootPathT,
         edit_context: &mut EditContext,
-        object_source_id: AssetSourceId,
+        asset_source_id: AssetSourceId,
     ) -> Self {
         let path_node_root_schema = edit_context
             .schema_set()
@@ -94,12 +94,12 @@ impl FileSystemIdBasedDataSource {
 
         let file_system_root_path = file_system_root_path.into();
         log::info!(
-            "Creating file system object data source {:?}",
+            "Creating file system asset data source {:?}",
             file_system_root_path,
         );
 
         FileSystemIdBasedDataSource {
-            object_source_id,
+            asset_source_id,
             file_system_root_path: file_system_root_path.into(),
             all_asset_ids_on_disk: Default::default(),
             path_node_root_schema,
@@ -110,11 +110,11 @@ impl FileSystemIdBasedDataSource {
         &self,
         edit_context: &EditContext,
     ) -> HashSet<AssetId> {
-        // We need to handle objects that were moved into this data source that weren't previous in it
+        // We need to handle assets that were moved into this data source that weren't previous in it
         let mut modified_assets = edit_context.modified_assets().clone();
 
-        for asset_id in edit_context.objects().keys() {
-            if self.is_object_owned_by_this_data_source(edit_context, *asset_id) {
+        for asset_id in edit_context.assets().keys() {
+            if self.is_asset_owned_by_this_data_source(edit_context, *asset_id) {
                 if !self.all_asset_ids_on_disk.contains(asset_id) {
                     modified_assets.insert(*asset_id);
                 }
@@ -134,7 +134,7 @@ impl DataSource for FileSystemIdBasedDataSource {
         false
     }
 
-    // fn object_symbol_name(&self, asset_id: ObjectId) -> Option<String> {
+    // fn asset_symbol_name(&self, asset_id: AssetId) -> Option<String> {
     //     None
     // }
 
@@ -152,17 +152,17 @@ impl DataSource for FileSystemIdBasedDataSource {
         _imports_to_queue: &mut Vec<ImportToQueue>,
     ) {
         //
-        // Delete all objects from the database owned by this data source
+        // Delete all assets from the database owned by this data source
         //
-        let mut objects_to_delete = Vec::default();
-        for (asset_id, _) in edit_context.objects() {
-            if self.is_object_owned_by_this_data_source(edit_context, *asset_id) {
-                objects_to_delete.push(*asset_id);
+        let mut assets_to_delete = Vec::default();
+        for (asset_id, _) in edit_context.assets() {
+            if self.is_asset_owned_by_this_data_source(edit_context, *asset_id) {
+                assets_to_delete.push(*asset_id);
             }
         }
 
-        for object_to_delete in objects_to_delete {
-            edit_context.delete_object(object_to_delete);
+        for asset_to_delete in assets_to_delete {
+            edit_context.delete_asset(asset_to_delete);
         }
 
         //
@@ -171,7 +171,7 @@ impl DataSource for FileSystemIdBasedDataSource {
         load_asset_files(
             edit_context,
             &self.file_system_root_path,
-            self.object_source_id,
+            self.asset_source_id,
             &mut self.all_asset_ids_on_disk,
         );
     }
@@ -180,35 +180,35 @@ impl DataSource for FileSystemIdBasedDataSource {
         &mut self,
         edit_context: &mut EditContext,
     ) {
-        // Delete files for objects that were deleted
+        // Delete files for assets that were deleted
         let modified_assets = self.find_all_modified_assets(edit_context);
         for asset_id in &modified_assets {
             if self.all_asset_ids_on_disk.contains(&asset_id)
-                && !edit_context.has_object(*asset_id)
+                && !edit_context.has_asset(*asset_id)
             {
-                //TODO: delete the object file
+                //TODO: delete the asset file
                 self.all_asset_ids_on_disk.remove(&asset_id);
             }
         }
 
         for asset_id in &modified_assets {
-            if let Some(object_info) = edit_context.objects().get(asset_id) {
-                if self.is_object_owned_by_this_data_source(edit_context, *asset_id) {
-                    if asset_id.as_uuid() == *self.object_source_id.uuid() {
-                        // never save the root object
+            if let Some(asset_info) = edit_context.assets().get(asset_id) {
+                if self.is_asset_owned_by_this_data_source(edit_context, *asset_id) {
+                    if asset_id.as_uuid() == *self.asset_source_id.uuid() {
+                        // never save the root asset
                         continue;
                     }
 
-                    let parent_dir = object_info.asset_location().path_node_id().as_uuid();
+                    let parent_dir = asset_info.asset_location().path_node_id().as_uuid();
                     let parent_dir = if parent_dir == Uuid::nil()
-                        || parent_dir == *self.object_source_id.uuid()
+                        || parent_dir == *self.asset_source_id.uuid()
                     {
                         None
                     } else {
                         Some(parent_dir)
                     };
 
-                    let data = crate::json_storage::EditContextObjectJson::save_edit_context_object_to_string(
+                    let data = crate::json_storage::EditContextAssetJson::save_edit_context_asset_to_string(
                         edit_context,
                         *asset_id,
                         false, //don't include ID because we assume it by file name
@@ -229,6 +229,6 @@ impl DataSource for FileSystemIdBasedDataSource {
     }
 
     //TODO: revert_some(asset_id_list)
-    // - Delete any object in the list
-    // - Load from file any object in the list
+    // - Delete any asset in the list
+    // - Load from file any asset in the list
 }

@@ -97,7 +97,7 @@ fn main() {
     loader.add_storage::<MeshAdvMaterialData>();
 
     let load_handle_transform_ref: Handle<TransformRef> =
-        loader.load_asset_path("db:/path_file_system/test");
+        loader.load_asset_path("db:/path_file_system/test_transform_ref");
 
     // let load_handle_transform_ref: Handle<TransformRef> = loader.load_asset(ArtifactId(
     //     uuid::Uuid::parse_str("798bd93be6d14f459d31d7e689c28c03")

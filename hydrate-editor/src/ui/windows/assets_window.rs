@@ -1,7 +1,7 @@
 use crate::app_state::{ActionQueueSender, AppState};
 use crate::db_state::DbState;
 use crate::ui::asset_browser_grid_drag_drop::{
-    asset_browser_grid_objects_drag_target_printf, AssetBrowserGridPayload,
+    asset_browser_grid_assets_drag_target_printf, AssetBrowserGridPayload,
 };
 use crate::ui_state::{ActiveToolRegion, UiState};
 use crate::QueuedActions;
@@ -180,11 +180,11 @@ pub fn assets_tree_node(
     try_select_tree_node(ui, ui_state, &tree_node.location);
 
     if let Some(payload) =
-        asset_browser_grid_objects_drag_target_printf(ui, &ui_state.asset_browser_state.grid_state)
+        asset_browser_grid_assets_drag_target_printf(ui, &ui_state.asset_browser_state.grid_state)
     {
         match payload {
             AssetBrowserGridPayload::Single(single) => {
-                //db_state.editor_model.root_edit_context().set_object_location(single, tree_node.location.clone())
+                //db_state.editor_model.root_edit_context().set_asset_location(single, tree_node.location.clone())
                 action_sender.queue_action(QueuedActions::MoveAssets(
                     vec![single],
                     tree_node.location.clone(),
@@ -207,9 +207,9 @@ pub fn assets_tree_node(
     }
 
     context_menu(ui, Some(&id), |ui| {
-        if imgui::MenuItem::new(im_str!("New Object")).build(ui) {
+        if imgui::MenuItem::new(im_str!("New Asset")).build(ui) {
             let location = tree_node.location.clone();
-            action_sender.try_set_modal_action(crate::ui::modals::NewObjectModal::new(location))
+            action_sender.try_set_modal_action(crate::ui::modals::NewAssetModal::new(location))
         }
     });
 
@@ -376,13 +376,13 @@ pub fn draw_asset(
             .db_state
             .editor_model
             .root_edit_context()
-            .is_object_modified(id);
+            .is_asset_modified(id);
 
     let label = if let Some(name) = app_state
         .db_state
         .editor_model
         .root_edit_context()
-        .object_name(id)
+        .asset_name(id)
         .as_string()
     {
         format!("{}", name)
@@ -418,7 +418,7 @@ pub fn draw_asset(
             draw_list
                 .add_rect(min, max, imgui::ImColor32::from_rgb_f32s(0.2, 0.2, 0.2))
                 .build();
-            crate::ui::asset_browser_grid_drag_drop::asset_browser_grid_objects_drag_source(
+            crate::ui::asset_browser_grid_drag_drop::asset_browser_grid_assets_drag_source(
                 ui,
                 &app_state.ui_state.asset_browser_state.grid_state,
                 id,
@@ -493,7 +493,7 @@ pub fn draw_asset(
                 .db_state
                 .editor_model
                 .root_edit_context_mut()
-                .delete_object(id);
+                .delete_asset(id);
         }
     });
 }
@@ -593,17 +593,17 @@ pub fn assets_window_right(
                 );
             }
 
-            let mut filtered_objects = Vec::default();
+            let mut filtered_assets = Vec::default();
 
             // mock placeholder
             // for i in 0..200 {
-            //     filtered_objects.push((ObjectId(i), PathBuf::from("testpath")));
+            //     filtered_assets.push((AssetId(i), PathBuf::from("testpath")));
             // }
 
             // for file_system_package in &app_state.db_statefile_system_packages {
             //     if let Some(data_source) = file_system_package.data_source() {
-            //         for kvp in data_source.object_locations() {
-            //             filtered_objects.push((*kvp.0, kvp.1.to_path_buf()));
+            //         for kvp in data_source.asset_locations() {
+            //             filtered_assets.push((*kvp.0, kvp.1.to_path_buf()));
             //         }
             //     }
             // }
@@ -612,23 +612,23 @@ pub fn assets_window_right(
                 .db_state
                 .editor_model
                 .root_edit_context()
-                .objects()
+                .assets()
             {
-                if !app_state.db_state.editor_model.is_a_root_object(*k) {
-                    filtered_objects.push((*k, v.asset_location().clone()));
+                if !app_state.db_state.editor_model.is_a_root_asset(*k) {
+                    filtered_assets.push((*k, v.asset_location().clone()));
                 }
             }
 
-            for i in 0..filtered_objects.len() {
+            for i in 0..filtered_assets.len() {
                 is::igTableNextColumn();
 
-                // let label = if let Some(name) = filtered_objects[i].1.as_string() {
+                // let label = if let Some(name) = filtered_assets[i].1.as_string() {
                 //     im_str!("{}", name)
                 // } else {
-                //     im_str!("{}", filtered_objects[i].0.as_uuid())
+                //     im_str!("{}", filtered_assets[i].0.as_uuid())
                 // };
 
-                draw_asset(ui, app_state, &filtered_objects, i, item_size);
+                draw_asset(ui, app_state, &filtered_assets, i, item_size);
             }
 
             is::igEndTable();

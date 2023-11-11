@@ -145,7 +145,7 @@ impl ImportJobs {
     //     for file_update in file_updates {
     //         if let Ok(relative) = file_update.strip_prefix(&self.root_path) {
     //             if let Some(uuid) = path_to_uuid(&self.root_path, file_update) {
-    //                 let asset_id = ObjectId(uuid.as_u128());
+    //                 let asset_id = AssetId(uuid.as_u128());
     //
     //             }
     //         }
@@ -160,33 +160,33 @@ impl ImportJobs {
         for import_op in &self.import_operations {
             //let importer_id = editor_model.root_edit_context().import_info()
             let importer_id = import_op.importer_id;
-            //let fingerprint = editor_model.root_edit_context().object_schema(import_op.import_info).unwrap().fingerprint();
+            //let fingerprint = editor_model.root_edit_context().asset_schema(import_op.import_info).unwrap().fingerprint();
             //let importer_id = importer_registry.asset_to_importer.get(&fingerprint).unwrap();
             let importer = importer_registry.importer(importer_id).unwrap();
 
-            let mut importable_objects = HashMap::<Option<String>, ImportableObject>::default();
+            let mut importable_assets = HashMap::<Option<String>, ImportableAsset>::default();
             for (name, asset_id) in &import_op.asset_ids {
                 let referenced_paths = editor_model
                     .root_edit_context()
                     .resolve_all_file_references(*asset_id)
                     .unwrap_or_default();
-                importable_objects.insert(
+                importable_assets.insert(
                     name.clone(),
-                    ImportableObject {
+                    ImportableAsset {
                         id: *asset_id,
                         referenced_paths,
                     },
                 );
             }
 
-            let imported_objects = importer.import_file(
+            let imported_assets = importer.import_file(
                 &import_op.path,
-                &importable_objects,
+                &importable_assets,
                 editor_model.schema_set(),
             );
 
             //TODO: Validate that all requested importables exist?
-            for (name, imported_object) in imported_objects {
+            for (name, imported_asset) in imported_assets {
                 if let Some(asset_id) = import_op.asset_ids.get(&name) {
                     let type_name = editor_model
                         .root_edit_context()
@@ -197,7 +197,7 @@ impl ImportJobs {
                     println!("importing {:?} {:?} {:?}", import_op.path, name, type_name);
 
                     if import_op.assets_to_regenerate.contains(asset_id) {
-                        if let Some(default_asset) = &imported_object.default_asset {
+                        if let Some(default_asset) = &imported_asset.default_asset {
                             editor_model
                                 .root_edit_context_mut()
                                 .init_from_single_object(*asset_id, default_asset)
@@ -205,7 +205,7 @@ impl ImportJobs {
                         }
                     }
 
-                    if let Some(import_data) = &imported_object.import_data {
+                    if let Some(import_data) = &imported_asset.import_data {
                         let data = SingleObjectJson::save_single_object_to_string(import_data)
                             .into_bytes();
                         let path = uuid_to_path(&self.root_path, asset_id.as_uuid(), "if");

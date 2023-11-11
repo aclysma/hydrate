@@ -4,7 +4,7 @@ use std::sync::Arc;
 use std::sync::Mutex;
 
 // Inner state for ImguiManager, which will be protected by a Mutex. Mutex protection required since
-// this object is Send but not Sync
+// this asset is Send but not Sync
 struct Inner {
     context: imgui::Context,
     imnodes_context: imnodes::Context,
@@ -191,7 +191,7 @@ impl ImguiManager {
         }
     }
 
-    // Get reference to the underlying font atlas. The ref will be valid as long as this object
+    // Get reference to the underlying font atlas. The ref will be valid as long as this asset
     // is not destroyed
     #[allow(dead_code)]
     pub fn font_atlas_texture(&self) -> &imgui::FontAtlasTexture {

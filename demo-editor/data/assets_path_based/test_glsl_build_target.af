@@ -1,0 +1,16 @@
+{
+  "id": "32f60431-da0f-4e03-bc02-9380608bd73b",
+  "name": "test_glsl_build_target",
+  "parent_dir": null,
+  "schema": "15ebc354-8baf-221e-7fef-bfc5887db5be",
+  "schema_name": "GlslBuildTargetAsset",
+  "import_info": null,
+  "build_info": {
+    "file_reference_overrides": {}
+  },
+  "prototype": null,
+  "properties": {
+    "entry_point": "main",
+    "source_file": "634a96ef-caa5-4177-881c-705dd4a5c219"
+  }
+}

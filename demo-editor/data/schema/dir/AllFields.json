@@ -6,7 +6,7 @@
       {
         "name": "reference",
         "type": {
-          "name": "object_ref",
+          "name": "asset_ref",
           "inner_type": "Vec3"
         }
       },

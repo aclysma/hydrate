@@ -26,7 +26,7 @@
       },
       {
         "name": "source_file",
-        "type": { "name": "object_ref", "inner_type": "GlslSourceFileAsset" }
+        "type": { "name": "asset_ref", "inner_type": "GlslSourceFileAsset" }
       }
     ]
   }

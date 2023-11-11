@@ -77,7 +77,7 @@ impl BuildJobs {
         builder_registry: &BuilderRegistry,
         editor_model: &mut EditorModel,
         import_jobs: &ImportJobs,
-        object_hashes: &HashMap<AssetId, u64>,
+        asset_hashes: &HashMap<AssetId, u64>,
         _import_data_metadata_hashes: &HashMap<AssetId, u64>,
         combined_build_hash: u64,
     ) {
@@ -91,11 +91,11 @@ impl BuildJobs {
         // a small set of assets (like a level, or all assets marked as "always export")
         //
         let mut requested_build_ops = VecDeque::default();
-        for (&asset_id, _) in object_hashes {
+        for (&asset_id, _) in asset_hashes {
             assert!(!editor_model
                 .is_path_node_or_root(data_set.asset_schema(asset_id).unwrap().fingerprint()));
 
-            //TODO: Skip objects that aren't explicitly requested, if any were requested
+            //TODO: Skip assets that aren't explicitly requested, if any were requested
             //      For now just build everything
             requested_build_ops.push_back(BuildRequest { asset_id });
         }
@@ -129,17 +129,17 @@ impl BuildJobs {
                 started_build_ops.insert(asset_id);
 
                 println!("find {:?}", asset_id);
-                let object_type = editor_model
+                let asset_type = editor_model
                     .root_edit_context()
-                    .object_schema(asset_id)
+                    .asset_schema(asset_id)
                     .unwrap();
 
-                let Some(builder) = builder_registry.builder_for_asset(object_type.fingerprint())
+                let Some(builder) = builder_registry.builder_for_asset(asset_type.fingerprint())
                 else {
                     continue;
                 };
 
-                println!("building {:?} {}", asset_id, object_type.name());
+                println!("building {:?} {}", asset_id, asset_type.name());
                 builder.start_jobs(asset_id, data_set, schema_set, &self.job_executor);
             }
 
@@ -213,7 +213,7 @@ impl BuildJobs {
 
 
                 for build_op in &build_operations {
-                    //log::info!("building object type {}", object_type.name());
+                    //log::info!("building asset type {}", asset_type.name());
                     let dependencies = builder.enumerate_dependencies(asset_id, data_set, schema_set);
 
                     let mut imported_data = HashMap::default();
@@ -223,7 +223,7 @@ impl BuildJobs {
                     // Just load in the import data hashes
                     //
                     for &dependency_asset_id in &dependencies {
-                        // Not all objects have import info...
+                        // Not all assets have import info...
                         let import_info = data_set.import_info(dependency_asset_id);
                         if import_info.is_none() {
                             continue;
@@ -275,12 +275,12 @@ impl BuildJobs {
             let is_default_artifact = artifact_id.as_uuid() == asset_id.as_uuid();
             let symbol_name = if is_default_artifact {
                 // editor_model.path_node_id_to_path(asset_id.get)
-                // //let location = edit_context.object_location(asset_id).unwrap();
+                // //let location = edit_context.asset_location(asset_id).unwrap();
                 //TODO: Assert the cached asset path tree is not stale?
-                let path = editor_model.object_display_name_long(asset_id);
+                let path = editor_model.asset_display_name_long(asset_id);
                 path
 
-                //editor_model.object_symbol_name(ObjectId::from_uuid(artifact_id.as_uuid()))
+                //editor_model.asset_symbol_name(AssetId::from_uuid(artifact_id.as_uuid()))
             } else {
                 String::default()
 
@@ -329,8 +329,8 @@ impl BuildJobs {
         builder_registry: &BuilderRegistry,
         editor_model: &EditorModel,
         root_path: &Path,
-    ) -> HashMap<ObjectId, BuildJob> {
-        let mut build_jobs = HashMap::<ObjectId, BuildJob>::default();
+    ) -> HashMap<AssetId, BuildJob> {
+        let mut build_jobs = HashMap::<AssetId, BuildJob>::default();
 
         //
         // Scan build dir for known build data
@@ -344,7 +344,7 @@ impl BuildJobs {
             if let Ok(file) = file {
                 //println!("built file {:?}", file);
                 let (built_file_uuid, built_file_hash) = path_to_uuid_and_hash(root_path, file.path()).unwrap();
-                let asset_id = ObjectId(built_file_uuid.as_u128());
+                let asset_id = AssetId(built_file_uuid.as_u128());
                 let job = build_jobs
                     .entry(asset_id)
                     .or_insert_with(|| BuildJob::new(asset_id));
@@ -356,7 +356,7 @@ impl BuildJobs {
         // Scan assets to find any asset that has an associated builder
         //
         let data_set = editor_model.root_edit_context().data_set();
-        for asset_id in data_set.all_objects() {
+        for asset_id in data_set.all_assets() {
             // if let Some(build_info) = data_set.build_info(*asset_id) {
             //     let builder_id = build_info.builder_id();
             //     let builder = builder_registry.builder(builder_id);
@@ -366,7 +366,7 @@ impl BuildJobs {
             //     }
             // }
 
-            let schema_fingerprint = data_set.object_schema(*asset_id).unwrap().fingerprint();
+            let schema_fingerprint = data_set.asset_schema(*asset_id).unwrap().fingerprint();
             let builder = builder_registry.builder_for_asset(schema_fingerprint);
 
             if builder.is_some() {

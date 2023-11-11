@@ -1,0 +1,32 @@
+{
+  "id": "0bca6de9-c442-4e0f-bb35-3bcbd1f601b8",
+  "name": "test_transform",
+  "parent_dir": null,
+  "schema": "09ada43f-eccf-6857-018f-ccb7453883ca",
+  "schema_name": "Transform",
+  "import_info": null,
+  "build_info": {
+    "file_reference_overrides": {}
+  },
+  "prototype": null,
+  "properties": {
+    "all_fields.boolean": true,
+    "all_fields.f32": 54.0,
+    "all_fields.f64": 19.0,
+    "all_fields.nullable_bool.null_override": "SetNonNull",
+    "all_fields.nullable_bool.value": true,
+    "all_fields.string": "dgf",
+    "all_fields.u32": 27,
+    "all_fields.u64": 41,
+    "position.x": 63.0,
+    "position.y": 40.0,
+    "position.z": 27.0,
+    "rotation.w": 10.0,
+    "rotation.x": 10.0,
+    "rotation.y": 44.0,
+    "rotation.z": 17.0,
+    "scale.x": 3.0,
+    "scale.y": 110.0,
+    "scale.z": 5.0
+  }
+}

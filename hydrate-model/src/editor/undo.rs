@@ -119,7 +119,7 @@ impl UndoStack {
 pub struct UndoContext {
     edit_context_key: EditContextKey,
     before_state: DataSet,
-    tracked_objects: HashSet<AssetId>,
+    tracked_assets: HashSet<AssetId>,
     context_name: Option<&'static str>,
     completed_undo_context_tx: Sender<CompletedUndoContextMessage>,
 }
@@ -132,33 +132,32 @@ impl UndoContext {
         UndoContext {
             edit_context_key,
             before_state: Default::default(),
-            tracked_objects: Default::default(),
+            tracked_assets: Default::default(),
             context_name: Default::default(),
             completed_undo_context_tx: undo_stack.completed_undo_context_tx.clone(),
         }
     }
 
-    // Call after adding a new object
-    pub(crate) fn track_new_object(
+    // Call after adding a new asset
+    pub(crate) fn track_new_asset(
         &mut self,
         asset_id: AssetId,
     ) {
         if self.context_name.is_some() {
-            self.tracked_objects.insert(asset_id);
+            self.tracked_assets.insert(asset_id);
         }
     }
 
-    // Call before editing or deleting an object
-    pub(crate) fn track_existing_object(
+    // Call before editing or deleting an asset
+    pub(crate) fn track_existing_asset(
         &mut self,
         after_state: &DataSet,
         asset_id: AssetId,
     ) {
         if self.context_name.is_some() {
-            //TODO: Preserve sub-objects?
-            if !self.tracked_objects.contains(&asset_id) {
-                println!("track object");
-                self.tracked_objects.insert(asset_id);
+            //TODO: Preserve sub-assets?
+            if !self.tracked_assets.contains(&asset_id) {
+                self.tracked_assets.insert(asset_id);
                 self.before_state.copy_from(&after_state, asset_id);
             }
         }
@@ -205,13 +204,13 @@ impl UndoContext {
         &mut self,
         after_state: &mut DataSet,
     ) {
-        if !self.tracked_objects.is_empty() {
-            // Delete newly created objects
+        if !self.tracked_assets.is_empty() {
+            // Delete newly created assets
             let keys_to_delete: Vec<_> = after_state
                 .assets()
                 .keys()
                 .filter(|x| {
-                    self.tracked_objects.contains(x) && !self.before_state.assets().contains_key(x)
+                    self.tracked_assets.contains(x) && !self.before_state.assets().contains_key(x)
                 })
                 .copied()
                 .collect();
@@ -220,14 +219,14 @@ impl UndoContext {
                 after_state.delete_asset(key_to_delete);
             }
 
-            // Overwrite pre-existing objects back to the previous state (before_state only contains
-            // objects that were tracked and were pre-existing)
-            for (asset_id, _object) in self.before_state.assets() {
+            // Overwrite pre-existing assets back to the previous state (before_state only contains
+            // assets that were tracked and were pre-existing)
+            for (asset_id, _asset) in self.before_state.assets() {
                 after_state.copy_from(&self.before_state, *asset_id);
             }
 
             // before state will be cleared
-            self.tracked_objects.clear();
+            self.tracked_assets.clear();
         }
 
         self.before_state = Default::default();
@@ -240,18 +239,18 @@ impl UndoContext {
         modified_assets: &mut HashSet<AssetId>,
         modified_locations: &mut HashSet<AssetLocation>,
     ) {
-        if !self.tracked_objects.is_empty() {
+        if !self.tracked_assets.is_empty() {
             // Make a diff and send it if it has changes
             let diff_set = DataSetDiffSet::diff_data_set(
                 &self.before_state,
                 &after_state,
-                &self.tracked_objects,
+                &self.tracked_assets,
             );
             if diff_set.has_changes() {
                 //println!("Sending change {:#?}", diff_set);
 
                 //
-                // Use diff to append to the modified object/location sets
+                // Use diff to append to the modified asset/location sets
                 //
                 modified_assets.extend(diff_set.modified_assets.iter());
 
@@ -273,7 +272,7 @@ impl UndoContext {
                     .unwrap();
             }
 
-            self.tracked_objects.clear();
+            self.tracked_assets.clear();
         }
 
         self.before_state = Default::default();

@@ -49,9 +49,9 @@ pub trait DataSource {
         asset_id: AssetId,
     ) -> bool;
 
-    // fn object_symbol_name(
+    // fn asset_symbol_name(
     //     &self,
-    //     asset_id: ObjectId
+    //     asset_id: AssetId
     // ) -> Option<String>;
 
     fn persist_generated_asset(
@@ -69,5 +69,5 @@ pub trait DataSource {
     //
     //
     //
-    // fn save_objects(objects: &[ObjectId]);
+    // fn save_assets(objects: &[ObjectId]);
 }

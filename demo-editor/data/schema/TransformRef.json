@@ -5,7 +5,7 @@
     "fields": [
       {
         "name": "transform",
-        "type": { "name": "object_ref", "inner_type": "Transform" }
+        "type": { "name": "asset_ref", "inner_type": "Transform" }
       }
     ]
   }

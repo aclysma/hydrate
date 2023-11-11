@@ -1,6 +1,6 @@
-use crate::loader::ObjectData;
+use crate::loader::ArtifactData;
 use crate::loader::{
-    CombinedBuildHash, LoaderEvent, LoaderIO, ObjectMetadata, RequestDataResult,
+    CombinedBuildHash, LoaderEvent, LoaderIO, ArtifactMetadata, RequestDataResult,
     RequestMetadataResult,
 };
 use crate::storage::IndirectIdentifier;
@@ -76,7 +76,7 @@ impl DiskAssetIOWorkerThread {
                                 //     }
                                 // }
 
-                                let metadata = ObjectMetadata {
+                                let metadata = ArtifactMetadata {
                                     dependencies: metadata.dependencies,
                                     asset_type: AssetTypeId(*metadata.asset_type.as_bytes()), //AssetTypeId(*uuid::Uuid::parse_str("1a4dde10-5e60-483d-88fa-4f59752e4524").unwrap().as_bytes()),
                                     hash: msg.hash,
@@ -126,7 +126,7 @@ impl DiskAssetIOWorkerThread {
                                     subresource: msg.subresource,
                                     version: msg.version,
                                     //hash: msg.hash,
-                                    result: Ok(ObjectData {
+                                    result: Ok(ArtifactData {
                                         data
                                     })
                                 })).unwrap();
@@ -449,7 +449,7 @@ impl LoaderIO for DiskAssetIO {
         //     artifact_id,
         //     subresource,
         //     version,
-        //     result: Ok(ObjectData {
+        //     result: Ok(ArtifactData {
         //         data: vec![]
         //     })
         // })).unwrap();

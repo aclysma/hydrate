@@ -5,7 +5,7 @@ use hydrate_model::pipeline::AssetPlugin;
 use hydrate_model::pipeline::{ImportedImportable, Importer, ScannedImportable};
 use hydrate_model::{
     BuilderRegistryBuilder, DataContainerMut, Enum, HashMap,
-    ImportableObject, ImporterId, ImporterRegistry, ImporterRegistryBuilder,
+    ImportableAsset, ImporterId, ImporterRegistry, ImporterRegistryBuilder,
     JobProcessorRegistryBuilder, AssetRefField, Record, ReferencedSourceFile,
     SchemaLinker, SchemaSet,
 };
@@ -105,7 +105,7 @@ impl Importer for BlenderMaterialImporter {
     fn import_file(
         &self,
         path: &Path,
-        importable_objects: &HashMap<Option<String>, ImportableObject>,
+        importable_assets: &HashMap<Option<String>, ImportableAsset>,
         schema_set: &SchemaSet,
     ) -> HashMap<Option<String>, ImportedImportable> {
         //
@@ -168,13 +168,13 @@ impl Importer for BlenderMaterialImporter {
                 .unwrap();
 
             fn try_find_file_reference(
-                importable_objects: &HashMap<Option<String>, ImportableObject>,
+                importable_assets: &HashMap<Option<String>, ImportableAsset>,
                 data_container: &mut DataContainerMut,
                 ref_field: AssetRefField,
                 path_as_string: &Option<PathBuf>,
             ) {
                 if let Some(path_as_string) = path_as_string {
-                    if let Some(referenced_asset_id) = importable_objects
+                    if let Some(referenced_asset_id) = importable_assets
                         .get(&None)
                         .unwrap()
                         .referenced_paths
@@ -188,25 +188,25 @@ impl Importer for BlenderMaterialImporter {
             }
 
             try_find_file_reference(
-                &importable_objects,
+                &importable_assets,
                 &mut default_asset_data_container,
                 x.color_texture(),
                 &json_data.color_texture,
             );
             try_find_file_reference(
-                &importable_objects,
+                &importable_assets,
                 &mut default_asset_data_container,
                 x.metallic_roughness_texture(),
                 &json_data.metallic_roughness_texture,
             );
             try_find_file_reference(
-                &importable_objects,
+                &importable_assets,
                 &mut default_asset_data_container,
                 x.normal_texture(),
                 &json_data.normal_texture,
             );
             try_find_file_reference(
-                &importable_objects,
+                &importable_assets,
                 &mut default_asset_data_container,
                 x.emissive_texture(),
                 &json_data.emissive_texture,
@@ -241,10 +241,10 @@ impl Importer for BlenderMaterialImporter {
         };
 
         //
-        // Return the created objects
+        // Return the created assets
         //
-        let mut imported_objects = HashMap::default();
-        imported_objects.insert(
+        let mut imported_assets = HashMap::default();
+        imported_assets.insert(
             None,
             ImportedImportable {
                 file_references: Default::default(),
@@ -252,7 +252,7 @@ impl Importer for BlenderMaterialImporter {
                 default_asset: Some(default_asset),
             },
         );
-        imported_objects
+        imported_assets
     }
 }
 

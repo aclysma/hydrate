@@ -22,7 +22,7 @@ impl<T: std::fmt::Debug + Eq + PartialEq + Hash + Clone> std::fmt::Debug for Ord
         &self,
         f: &mut std::fmt::Formatter<'_>,
     ) -> std::fmt::Result {
-        f.debug_struct("ObjectData")
+        f.debug_struct("OrderedSet")
             .field("vec", &self.vec)
             // Don't include the set because it's redundant
             .finish()

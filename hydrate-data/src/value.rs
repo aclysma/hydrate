@@ -295,7 +295,7 @@ impl Value {
             },
             Value::AssetRef(_) => {
                 //TODO: Validate type
-                schema.is_object_ref()
+                schema.is_asset_ref()
             }
             Value::Record(inner_value) => {
                 // All value properties must exist and match in the schema. However we allow the
@@ -672,7 +672,7 @@ impl Value {
     //
 
     //
-    // ObjectRef
+    // AssetRef
     //
     pub fn is_asset_ref(&self) -> bool {
         match self {

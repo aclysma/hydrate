@@ -213,20 +213,20 @@ fn store_json_properties(
     saved_properties
 }
 
-// Import Info, part of EditContextObjectJson
+// Import Info, part of EditContextAssetJson
 #[derive(Debug, Serialize, Deserialize)]
-pub struct EditContextObjectImportInfoJson {
+pub struct EditContextAssetImportInfoJson {
     importer_id: Uuid,
     source_file_path: String,
     importable_name: String,
     file_references: Vec<PathBuf>,
 }
 
-impl EditContextObjectImportInfoJson {
+impl EditContextAssetImportInfoJson {
     pub fn new(import_info: &ImportInfo) -> Self {
         let source_file_path = import_info.source_file_path().to_string_lossy().to_string();
 
-        EditContextObjectImportInfoJson {
+        EditContextAssetImportInfoJson {
             importer_id: import_info.importer_id().0,
             source_file_path,
             importable_name: import_info.importable_name().to_string(),
@@ -247,21 +247,21 @@ impl EditContextObjectImportInfoJson {
     }
 }
 
-// Build Info, part of EditContextObjectJson
+// Build Info, part of EditContextAssetJson
 #[derive(Debug, Serialize, Deserialize)]
-pub struct EditContextObjectBuildInfoJson {
+pub struct EditContextAssetBuildInfoJson {
     #[serde(serialize_with = "ordered_map_uuid")]
     file_reference_overrides: HashMap<String, Uuid>,
 }
 
-impl EditContextObjectBuildInfoJson {
+impl EditContextAssetBuildInfoJson {
     pub fn new(import_info: &BuildInfo) -> Self {
         let mut file_reference_overrides = HashMap::default();
         for (k, v) in &import_info.file_reference_overrides {
             file_reference_overrides.insert(k.to_string_lossy().to_string(), v.as_uuid());
         }
 
-        EditContextObjectBuildInfoJson {
+        EditContextAssetBuildInfoJson {
             file_reference_overrides,
         }
     }
@@ -282,48 +282,48 @@ impl EditContextObjectBuildInfoJson {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct EditContextObjectJson {
+pub struct EditContextAssetJson {
     id: Option<Uuid>,
     name: String,
     parent_dir: Option<Uuid>,
     schema: Uuid,
     schema_name: String,
-    import_info: Option<EditContextObjectImportInfoJson>,
-    build_info: EditContextObjectBuildInfoJson,
+    import_info: Option<EditContextAssetImportInfoJson>,
+    build_info: EditContextAssetBuildInfoJson,
     prototype: Option<Uuid>,
     #[serde(serialize_with = "ordered_map_json_value")]
     properties: HashMap<String, serde_json::Value>,
 }
 
-impl EditContextObjectJson {
-    pub fn load_edit_context_object_from_string(
+impl EditContextAssetJson {
+    pub fn load_edit_context_asset_from_string(
         edit_context: &mut EditContext,
         override_asset_id: Option<Uuid>,
         // If the file doesn't claim a location and we don't override it, we will default to this
-        object_source_id: AssetSourceId,
+        asset_source_id: AssetSourceId,
         // If set, we use this instead of what the file says to use
-        override_object_location: Option<AssetLocation>,
+        override_asset_location: Option<AssetLocation>,
         json: &str,
     ) -> AssetId {
-        let stored_object: EditContextObjectJson = serde_json::from_str(json).unwrap();
+        let stored_asset: EditContextAssetJson = serde_json::from_str(json).unwrap();
 
-        // Use the provided override, or what's in the file, or worst case default to object_source_id
-        let object_location = if let Some(override_object_location) = override_object_location {
-            override_object_location
+        // Use the provided override, or what's in the file, or worst case default to asset_source_id
+        let asset_location = if let Some(override_asset_location) = override_asset_location {
+            override_asset_location
         } else {
             // If no parent is specified, default it to the root node for this data source
             let path_node_id = AssetId::from_uuid(
-                stored_object
+                stored_asset
                     .parent_dir
-                    .unwrap_or(*object_source_id.uuid()),
+                    .unwrap_or(*asset_source_id.uuid()),
             );
             AssetLocation::new(path_node_id)
         };
 
-        let object_name = if stored_object.name.is_empty() {
+        let asset_name = if stored_asset.name.is_empty() {
             AssetName::empty()
         } else {
-            AssetName::new(stored_object.name)
+            AssetName::new(stored_asset.name)
         };
 
         let asset_id = if let Some(override_asset_id) = override_asset_id {
@@ -331,18 +331,19 @@ impl EditContextObjectJson {
             AssetId::from_uuid(override_asset_id)
         } else {
             // Otherwise read it from the file. If there was no ID specified, generate a new one
-            AssetId::from_uuid(stored_object.id.unwrap_or_else(Uuid::new_v4))
+            AssetId::from_uuid(stored_asset.id.unwrap_or_else(Uuid::new_v4))
         };
 
-        let schema_fingerprint = SchemaFingerprint::from_uuid(stored_object.schema);
-        let prototype = stored_object.prototype.map(|x| AssetId::from_uuid(x));
+        let schema_fingerprint = SchemaFingerprint::from_uuid(stored_asset.schema);
+        let prototype = stored_asset.prototype.map(|x| AssetId::from_uuid(x));
 
         let named_type = edit_context.find_named_type_by_fingerprint(schema_fingerprint);
 
         let named_type = if let Some(named_type) = named_type {
             named_type.clone()
         } else {
-            panic!("Can't load type {}", stored_object.schema_name);
+            //Fingerprint doesn't match, this may need to be a data migration in the future
+            panic!("Can't load type {}", stored_asset.schema_name);
         };
 
         let mut properties: HashMap<String, Value> = Default::default();
@@ -353,24 +354,24 @@ impl EditContextObjectJson {
         load_json_properties(
             &named_type,
             edit_context.schemas(),
-            &stored_object.properties,
+            &stored_asset.properties,
             &mut properties,
             &mut property_null_overrides,
             Some(&mut properties_in_replace_mode),
             &mut dynamic_array_entries,
         );
 
-        let import_info = stored_object
+        let import_info = stored_asset
             .import_info
             .map(|x| x.to_import_info(edit_context.schema_set()));
-        let build_info = stored_object
+        let build_info = stored_asset
             .build_info
             .to_build_info(edit_context.schema_set());
 
-        edit_context.restore_object(
+        edit_context.restore_asset(
             asset_id,
-            object_name,
-            object_location,
+            asset_name,
+            asset_location,
             import_info,
             build_info,
             prototype,
@@ -384,7 +385,7 @@ impl EditContextObjectJson {
         asset_id
     }
 
-    pub fn save_edit_context_object_to_string(
+    pub fn save_edit_context_asset_to_string(
         edit_context: &EditContext,
         asset_id: AssetId,
         // We only save the ID in the file if using path-based file system storage. Otherwise the
@@ -392,7 +393,7 @@ impl EditContextObjectJson {
         include_asset_id_in_file: bool,
         parent_dir: Option<Uuid>,
     ) -> String {
-        let obj = edit_context.objects().get(&asset_id).unwrap();
+        let obj = edit_context.assets().get(&asset_id).unwrap();
 
         let json_properties = store_json_properties(
             obj.properties(),
@@ -404,15 +405,15 @@ impl EditContextObjectJson {
         let import_info = obj
             .import_info()
             .as_ref()
-            .map(|x| EditContextObjectImportInfoJson::new(&x));
-        let build_info = EditContextObjectBuildInfoJson::new(obj.build_info());
+            .map(|x| EditContextAssetImportInfoJson::new(&x));
+        let build_info = EditContextAssetBuildInfoJson::new(obj.build_info());
 
         let written_asset_id = if include_asset_id_in_file {
             Some(asset_id.as_uuid())
         } else {
             None
         };
-        let stored_object = EditContextObjectJson {
+        let stored_asset = EditContextAssetJson {
             id: written_asset_id,
             name: obj.asset_name().as_string().cloned().unwrap_or_default(),
             parent_dir,
@@ -424,7 +425,7 @@ impl EditContextObjectJson {
             properties: json_properties,
         };
 
-        serde_json::to_string_pretty(&stored_object).unwrap()
+        serde_json::to_string_pretty(&stored_asset).unwrap()
     }
 }
 
@@ -452,7 +453,7 @@ impl SingleObjectJson {
         );
 
         let mut hasher = siphasher::sip::SipHasher::default();
-        // This includes schema, all other contents of the object
+        // This includes schema, all other contents of the asset
         object.hash(&mut hasher);
 
         SingleObjectJson {
@@ -501,7 +502,7 @@ impl SingleObjectJson {
     //     json: &str,
     // ) -> Option<u64> {
     //     let value: serde_json::Value = serde_json::from_str(json).unwrap();
-    //     value.as_object()?.get("contents_hash")?.as_u64()
+    //     value.as_asset()?.get("contents_hash")?.as_u64()
     // }
 
     pub fn load_single_object_from_string(

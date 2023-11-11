@@ -70,19 +70,19 @@ fn parse_json_schema_type_ref(
         "map" => {
             unimplemented!()
         }
-        "object_ref" => {
+        "asset_ref" => {
             let inner_type = json_value.get("inner_type").ok_or_else(|| {
                 SchemaDefParserError::String(format!(
-                    "{}All object_ref types must has an inner_type",
+                    "{}All asset_ref types must has an inner_type",
                     error_prefix
                 ))
             })?;
             let inner_type = parse_json_schema_type_ref(inner_type, error_prefix)?;
             match inner_type {
-                SchemaDefType::NamedType(x) => SchemaDefType::ObjectRef(x),
+                SchemaDefType::NamedType(x) => SchemaDefType::AssetRef(x),
                 _ => {
                     Err(SchemaDefParserError::String(format!(
-                        "{}All object_ref types must has an inner_type that is not a built-in type",
+                        "{}All asset_ref types must has an inner_type that is not a built-in type",
                         error_prefix
                     )))?;
 
@@ -152,14 +152,14 @@ fn parse_json_schema_def_record_field(
             )
         }
     }
-    // let aliases = if let Some(json_aliases) = object.get("aliases") {
+    // let aliases = if let Some(json_aliases) = asset.get("aliases") {
     //     Self::parse_alias_list(json_aliases, error_prefix)?
     // } else {
     //     vec![]
     // };
     let error_prefix = format!("{}[Field {}]", error_prefix, field_name);
-    //let field_schema = object.get("type").map(|x| x.as_str()).flatten().ok_or_else(|| SchemaDefParserError::Str("Schema file record schema fields must be a name that is a string"))?.to_string();
-    //let field_schema = object.get("type").ok_or_else(|| SchemaDefParserError::Str("Schema file record fields must have a type of string or json object"))?;
+    //let field_schema = asset.get("type").map(|x| x.as_str()).flatten().ok_or_else(|| SchemaDefParserError::Str("Schema file record schema fields must be a name that is a string"))?.to_string();
+    //let field_schema = asset.get("type").ok_or_else(|| SchemaDefParserError::Str("Schema file record fields must have a type of string or json object"))?;
     let field_type_json_value = object.get("type").ok_or_else(|| {
         SchemaDefParserError::String(format!(
             "{}Record fields must have a type of string or json object",
@@ -271,7 +271,7 @@ fn parse_json_schema_def_enum_symbol(
             )
         }
     }
-    // let aliases = if let Some(json_aliases) = object.get("aliases") {
+    // let aliases = if let Some(json_aliases) = asset.get("aliases") {
     //     Self::parse_alias_list(json_aliases, error_prefix)?
     // } else {
     //     vec![]

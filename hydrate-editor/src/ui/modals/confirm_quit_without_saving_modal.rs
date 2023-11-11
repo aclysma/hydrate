@@ -8,14 +8,14 @@ use imgui::{im_str, PopupModal};
 
 pub struct ConfirmQuitWithoutSavingModal {
     finished_first_draw: bool,
-    unsaved_objects: HashSet<AssetId>,
+    unsaved_assets: HashSet<AssetId>,
 }
 
 impl ConfirmQuitWithoutSavingModal {
-    pub fn new(unsaved_objects: HashSet<AssetId>) -> Self {
+    pub fn new(unsaved_assets: HashSet<AssetId>) -> Self {
         ConfirmQuitWithoutSavingModal {
             finished_first_draw: false,
-            unsaved_objects,
+            unsaved_assets,
         }
     }
 }
@@ -37,11 +37,11 @@ impl ModalAction for ConfirmQuitWithoutSavingModal {
         let result = PopupModal::new(imgui::im_str!("ConfirmSaveQuit")).build(ui, || {
             ui.text("Are you sure you want to quit? Unsaved changes will be lost.");
 
-            imgui::ListBox::new(im_str!("##unsaved_objects")).build(ui, || {
-                for asset_id in &self.unsaved_objects {
+            imgui::ListBox::new(im_str!("##unsaved_assets")).build(ui, || {
+                for asset_id in &self.unsaved_assets {
                     ui.text(im_str!(
                         "{}",
-                        db_state.editor_model.object_display_name_long(*asset_id)
+                        db_state.editor_model.asset_display_name_long(*asset_id)
                     ));
                 }
             });

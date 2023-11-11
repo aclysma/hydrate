@@ -36,9 +36,9 @@ use std::sync::{Arc, Mutex};
 //   - Maybe we swap the asset storage too
 //   - But then we need to reload *everything* even things that haven't changed
 //   - We could allow implementing a migrate?
-//   - If our references between objects are pointers/references, and we try to reuse the same memory
-//     with loaded object, we can have trouble with new/old version of data pointing at each other
-//     (i.e. we have to patch/duplicate objects that didn't change)
+//   - If our references between assets are pointers/references, and we try to reuse the same memory
+//     with loaded asset, we can have trouble with new/old version of data pointing at each other
+//     (i.e. we have to patch/duplicate assets that didn't change)
 // * Should weak/strong handles be in the type system or dynamic?
 // * I think we lean into the future being NVMe, dependencies are stored with asset, and we at least
 //   bound number of times we go to disk
@@ -65,23 +65,23 @@ use std::sync::{Arc, Mutex};
 // -
 
 #[derive(Debug)]
-pub struct ObjectMetadata {
+pub struct ArtifactMetadata {
     pub dependencies: Vec<ArtifactId>,
     pub asset_type: AssetTypeId,
     pub hash: u64,
     // size?
 }
 
-pub struct ObjectData {
+pub struct ArtifactData {
     pub data: Vec<u8>,
 }
 
-impl std::fmt::Debug for ObjectData {
+impl std::fmt::Debug for ArtifactData {
     fn fmt(
         &self,
         f: &mut std::fmt::Formatter<'_>,
     ) -> std::fmt::Result {
-        f.debug_struct("ObjectData")
+        f.debug_struct("ArtifactData")
             .field("data_length", &self.data.len())
             .finish()
     }
@@ -93,7 +93,7 @@ pub struct RequestMetadataResult {
     pub load_handle: LoadHandle,
     //pub hash: u64,
     pub version: u32,
-    pub result: std::io::Result<ObjectMetadata>,
+    pub result: std::io::Result<ArtifactMetadata>,
 }
 
 #[derive(Debug)]
@@ -103,7 +103,7 @@ pub struct RequestDataResult {
     //pub hash: u64,
     pub version: u32,
     pub subresource: Option<u32>,
-    pub result: std::io::Result<ObjectData>,
+    pub result: std::io::Result<ArtifactData>,
 }
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
@@ -172,9 +172,9 @@ pub trait LoaderIO: Sync + Send {
 // struct LoadHandle(u64);
 
 // we have a manifest hash to identify what build we are on
-// we can resolve a hash for the asset with object ID + manifest hash
+// we can resolve a hash for the asset with asset ID + manifest hash
 // - this tells us if it has changed
-// object ID still resolves to same load handle after changes are made
+// asset ID still resolves to same load handle after changes are made
 // we can assign a sequential version that is bumped when things change - this is what the engine sees
 // load handle + hash can be used internally to resolve to the load, assuming we always unload previous version after a change
 // we could also just use the hash?
@@ -186,11 +186,11 @@ pub trait LoaderIO: Sync + Send {
 // - we either kill in-flight loads or wait for them all to complete
 // we request hashes for all assets we have loaded
 // also need to find any assets that have build dependencies on the modified assets (maybe? example: changing a shader, which requires different descriptor set layout, needs to trigger pipeline rebuild)
-// do we need to hash the objects plus build dependency hashes?
+// do we need to hash the assets plus build dependency hashes?
 //
 //
 // How to handle ref counts with multiple versions
-// - We have an "engine ref count" to indicate explicit requests. Just one per object.
+// - We have an "engine ref count" to indicate explicit requests. Just one per asset.
 // - We have an "internal ref count" to indicate implicit requests due to other things that are explicitly requested. One per *version*
 // - We have a RW lock on LoadHandleInfo, which contains both counts
 // - We require READ when engine changes ref count
@@ -212,7 +212,7 @@ pub trait LoaderIO: Sync + Send {
 // during updates.
 // Do we have any hazards taking multiple read locks on dashmap while holding a write lock?
 // We stop loading new things while reloading because we only want to handle loading from one manifest at a time
-// Dependencies found while loading new objects will kick off additional loads and we don't want to have to look up
+// Dependencies found while loading new assets will kick off additional loads and we don't want to have to look up
 // what version of the manifest matches the manifest we are using.
 // We could pack engine/internal references together in same U64 using compare and swaps
 //
@@ -298,8 +298,8 @@ pub struct Loader {
     //handle_op_rx: Receiver<HandleOp>,
 
     // Queue of assets that need to be visited on next update to check for state change
-    //object_needs_update_tx: Sender<LoadHandle>,
-    //object_needs_update_rx: Receiver<LoadHandle>,
+    //asset_needs_update_tx: Sender<LoadHandle>,
+    //asset_needs_update_rx: Receiver<LoadHandle>,
     indirect_states: DashMap<LoadHandle, IndirectLoad>,
     indirect_to_load: DashMap<IndirectIdentifier, LoadHandle>,
     indirection_table: IndirectionTable,
@@ -361,7 +361,7 @@ impl Loader {
         events_rx: Receiver<LoaderEvent>,
     ) -> Self {
         //let (handle_op_tx, handle_op_rx) = crossbeam_channel::unbounded();
-        //let (object_needs_update_tx, object_needs_update_rx) = crossbeam_channel::unbounded();
+        //let (asset_needs_update_tx, asset_needs_update_rx) = crossbeam_channel::unbounded();
         //let (events_tx, events_rx)  = crossbeam_channel::unbounded();
 
         let build_hash = loader_io.latest_build_hash();
@@ -379,8 +379,8 @@ impl Loader {
             loader_io,
             //handle_op_tx,
             //handle_op_rx,
-            //object_needs_update_tx,
-            //object_needs_update_rx,
+            //asset_needs_update_tx,
+            //asset_needs_update_rx,
             events_tx,
             events_rx,
             indirect_states: DashMap::new(),
@@ -801,7 +801,7 @@ impl Loader {
         // loaded successfully or that it failed
         //self.process_handle_ops();
 
-        // while let Ok(load_handle) = self.object_needs_update_rx.try_recv() {
+        // while let Ok(load_handle) = self.asset_needs_update_rx.try_recv() {
         //     if let Some(mut load_state_info) = self.load_handle_infos.get_mut(&load_handle) {
         //         match load_state_info.load_state {
         //             LoadState::Unloaded => {
@@ -910,7 +910,7 @@ impl Loader {
                 let asset_id = AssetId::from_uuid(artifact_id.as_uuid());
 
                 log::debug!(
-                    "Allocate load handle {:?} for object id {:?}",
+                    "Allocate load handle {:?} for asset id {:?}",
                     load_handle,
                     asset_id
                 );

@@ -36,13 +36,13 @@ pub trait ImporterStatic: TypeUuid {
 
 // #[derive(PartialEq, Eq, Hash, Debug, Clone)]
 // pub struct FileReferenceKey {
-//     // The object ID that is referencing something by path
+//     // The asset ID that is referencing something by path
 //     pub importable_name: String,
-//     // The path used to reference some other object
+//     // The path used to reference some other asset
 //     pub referenced_path: PathBuf,
 // }
 
-pub struct ImportableObject {
+pub struct ImportableAsset {
     pub id: AssetId,
     pub referenced_paths: HashMap<PathBuf, AssetId>,
 }
@@ -69,7 +69,7 @@ pub trait Importer: TypeUuidDynamic {
     fn import_file(
         &self,
         path: &Path,
-        importable_objects: &HashMap<Option<String>, ImportableObject>,
+        importable_assets: &HashMap<Option<String>, ImportableAsset>,
         schema: &SchemaSet,
         //import_info: &ImportInfo,
         //referenced_source_file_paths: &mut Vec<PathBuf>,

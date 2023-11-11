@@ -1,7 +1,7 @@
 use crate::SchemaLinker;
 
 pub struct PathNode {
-    // Name and parent are part of object info, so we don't have explicit fields
+    // Name and parent are part of asset info, so we don't have explicit fields
 }
 
 impl PathNode {
@@ -17,7 +17,7 @@ impl PathNode {
 }
 
 pub struct PathNodeRoot {
-    // Name and parent are part of object info, so we don't have explicit fields
+    // Name and parent are part of asset info, so we don't have explicit fields
 }
 
 impl PathNodeRoot {

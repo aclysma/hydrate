@@ -36,7 +36,7 @@ pub fn create_import_info(
     )
 }
 
-pub fn create_object_name(
+pub fn create_asset_name(
     source_file_path: &Path,
     scanned_importable: &ScannedImportable,
 ) -> AssetName {
@@ -60,14 +60,14 @@ pub fn recursively_gather_import_operations_and_create_assets(
     //asset_engine: &AssetEngine,
     selected_import_location: &AssetLocation,
 
-    // In addition to being the imports that need to be queued, this is also the objects that were
-    // created. Pre-existing but referenced objects won't be in this list
+    // In addition to being the imports that need to be queued, this is also the assets that were
+    // created. Pre-existing but referenced assets won't be in this list
     imports_to_queue: &mut Vec<ImportToQueue>,
 ) -> Option<AssetId> {
     //
     // We now build a list of things we will be importing from the file.
     // 1. Scan the file to see what's available
-    // 2. Create/Find objects for all the things we want to import
+    // 2. Create/Find assets for all the things we want to import
     // 3. Enqueue the import operation
     //
     let mut requested_importables = HashMap::default();
@@ -99,7 +99,7 @@ pub fn recursively_gather_import_operations_and_create_assets(
         //
         // Pick name for the asset for this file
         //
-        let object_name = create_object_name(source_file_path, scanned_importable);
+        let object_name = create_asset_name(source_file_path, scanned_importable);
 
         let mut referenced_source_file_asset_ids = Vec::default();
 
@@ -118,7 +118,7 @@ pub fn recursively_gather_import_operations_and_create_assets(
 
             // Does it already exist?
             let mut found = None;
-            for asset_id in editor_context.all_objects() {
+            for asset_id in editor_context.all_assets() {
                 if let Some(import_info) = editor_context.import_info(*asset_id) {
                     if import_info.importable_name().is_empty()
                         && import_info.source_file_path() == referenced_file_absolute_path
@@ -152,7 +152,7 @@ pub fn recursively_gather_import_operations_and_create_assets(
             scanned_importable.file_references.len()
         );
 
-        let asset_id = editor_context.new_object(
+        let asset_id = editor_context.new_asset(
             &object_name,
             selected_import_location,
             &scanned_importable.asset_type,
@@ -172,7 +172,7 @@ pub fn recursively_gather_import_operations_and_create_assets(
 
         requested_importables.insert(scanned_importable.name.clone(), asset_id);
 
-        // These are all newly created objects so we should populate their properties based on source file contents
+        // These are all newly created assets so we should populate their properties based on source file contents
         // A re-import of data from the source file might not want to do this
         assets_to_regenerate.insert(asset_id);
 

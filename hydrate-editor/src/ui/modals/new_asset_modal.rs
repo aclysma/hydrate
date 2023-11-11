@@ -6,25 +6,25 @@ use hydrate_model::{HashSet, AssetLocation, AssetName, SchemaFingerprint};
 use imgui::sys::ImVec2;
 use imgui::{im_str, ImString, PopupModal};
 
-pub struct NewObjectModal {
+pub struct NewAssetModal {
     finished_first_draw: bool,
     create_location: AssetLocation,
-    object_name: ImString,
+    asset_name: ImString,
     selected_type: Option<SchemaFingerprint>,
 }
 
-impl NewObjectModal {
+impl NewAssetModal {
     pub fn new(create_location: AssetLocation) -> Self {
-        NewObjectModal {
+        NewAssetModal {
             finished_first_draw: false,
             create_location,
-            object_name: Default::default(),
+            asset_name: Default::default(),
             selected_type: None,
         }
     }
 }
 
-impl ModalAction for NewObjectModal {
+impl ModalAction for NewAssetModal {
     fn draw_imgui(
         &mut self,
         ui: &mut imgui::Ui,
@@ -35,7 +35,7 @@ impl ModalAction for NewObjectModal {
         _action_queue: ActionQueueSender,
     ) -> ModalActionControlFlow {
         if !self.finished_first_draw {
-            ui.open_popup(im_str!("Create New Object"));
+            ui.open_popup(im_str!("Create New Asset"));
         }
 
         unsafe {
@@ -45,17 +45,17 @@ impl ModalAction for NewObjectModal {
             );
         }
 
-        let result = PopupModal::new(im_str!("Create New Object")).build(ui, || {
-            ui.text(format!("Creating object at: {:?}", self.create_location));
+        let result = PopupModal::new(im_str!("Create New Asset")).build(ui, || {
+            ui.text(format!("Creating asset at: {:?}", self.create_location));
 
             println!("selected: {:?}", self.selected_type);
 
-            imgui::InputText::new(ui, im_str!("Object Name"), &mut self.object_name)
+            imgui::InputText::new(ui, im_str!("Asset Name"), &mut self.asset_name)
                 .chars_noblank(true)
                 .resize_buffer(true)
                 .build();
 
-            ui.text("Type of object to create");
+            ui.text("Type of asset to create");
             imgui::ListBox::new(im_str!("type_selection"))
                 .size([0.0, 100.0])
                 .build(ui, || {
@@ -84,7 +84,7 @@ impl ModalAction for NewObjectModal {
 
             ui.same_line();
             if ui.button(im_str!("Create")) {
-                let object_name = AssetName::new(self.object_name.to_string());
+                let asset_name = AssetName::new(self.asset_name.to_string());
                 let schema = db_state
                     .editor_model
                     .schema_set()
@@ -93,8 +93,8 @@ impl ModalAction for NewObjectModal {
                     .as_record()
                     .unwrap()
                     .clone();
-                let new_asset_id = db_state.editor_model.root_edit_context_mut().new_object(
-                    &object_name,
+                let new_asset_id = db_state.editor_model.root_edit_context_mut().new_asset(
+                    &asset_name,
                     &self.create_location,
                     &schema,
                 );

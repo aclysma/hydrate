@@ -524,7 +524,7 @@ fn draw_inspector_simple_property_string(
     )
 }
 
-fn draw_inspector_object_ref(
+fn draw_inspector_asset_ref(
     ui: &imgui::Ui,
     ui_state: &mut UiState,
     edit_context: &mut EditContext,
@@ -558,7 +558,7 @@ fn draw_inspector_object_ref(
                 .build();
 
             if let Some(payload) =
-                crate::ui::asset_browser_grid_drag_drop::asset_browser_grid_objects_drag_target_printf(
+                crate::ui::asset_browser_grid_drag_drop::asset_browser_grid_assets_drag_target_printf(
                     ui,
                     &ui_state.asset_browser_state.grid_state,
                 )
@@ -910,7 +910,7 @@ fn draw_inspector_nexdb_property(
         Schema::AssetRef(_named_type_fingerprint) => {
             let property_inherited = !edit_context.has_property_override(asset_id, &property_path);
             draw_property_style(ui, property_inherited, false, |ui| {
-                draw_inspector_object_ref(
+                draw_inspector_asset_ref(
                     ui,
                     ui_state,
                     edit_context,
@@ -1034,7 +1034,7 @@ pub fn draw_inspector_nexdb(
         .editor_model
         .root_edit_context_mut()
         .with_undo_context("PropertyInspector", |edit_context| {
-            let schema = edit_context.object_schema(asset_id).clone();
+            let schema = edit_context.asset_schema(asset_id).clone();
             let mut is_editing = false;
             let mut is_editing_complete = false;
 

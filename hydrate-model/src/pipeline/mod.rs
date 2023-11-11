@@ -143,7 +143,7 @@ impl AssetEngine {
         //
         let mut combined_build_hash = 0;
         let mut object_hashes = HashMap::default();
-        for (asset_id, object) in editor_model.root_edit_context().objects() {
+        for (asset_id, object) in editor_model.root_edit_context().assets() {
             let hash = editor_model
                 .root_edit_context()
                 .data_set()

@@ -34,16 +34,16 @@ pub trait Builder {
     // Returns the assets that this build job needs to be available to complete
     // fn enumerate_dependencies(
     //     &self,
-    //     asset_id: ObjectId,
+    //     asset_id: AssetId,
     //     data_set: &DataSet,
     //     schema_set: &SchemaSet,
-    // ) -> Vec<ObjectId>;
+    // ) -> Vec<AssetId>;
 
     // fn build_asset(
     //     &self,
-    //     asset_id: ObjectId,
+    //     asset_id: AssetId,
     //     data_set: &DataSet,
     //     schema_set: &SchemaSet,
-    //     dependency_data: &HashMap<ObjectId, SingleObject>,
+    //     dependency_data: &HashMap<AssetId, SingleObject>,
     // ) -> BuiltAsset;
 }

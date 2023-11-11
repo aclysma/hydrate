@@ -1,0 +1,15 @@
+{
+  "id": "fd1f681b-f5e2-4f0b-94b8-43d75e198ca6",
+  "name": "test_transform_ref",
+  "parent_dir": null,
+  "schema": "3227c72e-5c29-38eb-827e-a75c8934f1ee",
+  "schema_name": "TransformRef",
+  "import_info": null,
+  "build_info": {
+    "file_reference_overrides": {}
+  },
+  "prototype": null,
+  "properties": {
+    "transform": "0bca6de9-c442-4e0f-bb35-3bcbd1f601b8"
+  }
+}

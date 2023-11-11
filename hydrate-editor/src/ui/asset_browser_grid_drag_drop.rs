@@ -8,7 +8,7 @@ pub enum AssetBrowserGridPayload {
     AllSelected,
 }
 
-pub fn asset_browser_grid_objects_drag_source(
+pub fn asset_browser_grid_assets_drag_source(
     ui: &imgui::Ui,
     grid_state: &AssetBrowserGridState,
     dragged_asset: AssetId,
@@ -16,7 +16,7 @@ pub fn asset_browser_grid_objects_drag_source(
     let payload = if grid_state.selected_items.len() > 1
         && grid_state.selected_items.contains(&dragged_asset)
     {
-        // If it's multiple objects, have the receiver look at selected objects
+        // If it's multiple assets, have the receiver look at selected objects
         AssetBrowserGridPayload::AllSelected
     } else {
         AssetBrowserGridPayload::Single(dragged_asset)
@@ -25,7 +25,7 @@ pub fn asset_browser_grid_objects_drag_source(
     imgui::DragDropSource::new(im_str!("ASSET_BROWSER_GRID_SELECTION")).begin_payload(ui, payload);
 }
 
-pub fn asset_browser_grid_objects_drag_target_printf(
+pub fn asset_browser_grid_assets_drag_target_printf(
     ui: &imgui::Ui,
     grid_state: &AssetBrowserGridState,
 ) -> Option<AssetBrowserGridPayload> {

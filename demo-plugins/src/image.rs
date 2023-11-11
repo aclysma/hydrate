@@ -8,7 +8,7 @@ use hydrate_model::pipeline::{AssetPlugin, Builder};
 use hydrate_model::pipeline::{ImportedImportable, Importer, ScannedImportable};
 use hydrate_model::{
     job_system, BuilderRegistryBuilder, DataContainer, DataContainerMut,
-    DataSet, Field, HashMap, ImportableObject, ImporterRegistry, ImporterRegistryBuilder, JobApi,
+    DataSet, Field, HashMap, ImportableAsset, ImporterRegistry, ImporterRegistryBuilder, JobApi,
     JobEnumeratedDependencies, JobInput, JobOutput, JobProcessor,
     JobProcessorRegistryBuilder, AssetId, PropertyPath, Record, SchemaLinker, SchemaSet,
     SingleObject,
@@ -47,7 +47,7 @@ impl Importer for GpuImageImporter {
     fn import_file(
         &self,
         path: &Path,
-        importable_objects: &HashMap<Option<String>, ImportableObject>,
+        importable_assets: &HashMap<Option<String>, ImportableAsset>,
         schema_set: &SchemaSet,
     ) -> HashMap<Option<String>, ImportedImportable> {
         //
@@ -91,10 +91,10 @@ impl Importer for GpuImageImporter {
         };
 
         //
-        // Return the created objects
+        // Return the created assets
         //
-        let mut imported_objects = HashMap::default();
-        imported_objects.insert(
+        let mut imported_assets = HashMap::default();
+        imported_assets.insert(
             None,
             ImportedImportable {
                 file_references: Default::default(),
@@ -102,7 +102,7 @@ impl Importer for GpuImageImporter {
                 default_asset: Some(default_asset),
             },
         );
-        imported_objects
+        imported_assets
     }
 }
 

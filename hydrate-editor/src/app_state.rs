@@ -23,7 +23,7 @@ pub enum QueuedActions {
     PersistAssets(Vec<AssetId>),
     //RevertAll,
     //ResetWindowLayout,
-    //SelectObjectsInAssetBrowser(Vec<ObjectId>)
+    //SelectObjectsInAssetBrowser(Vec<AssetId>)
 }
 
 pub struct ActionQueueSenderInner {
@@ -213,9 +213,9 @@ impl AppState {
                     self.db_state
                         .editor_model
                         .root_edit_context_mut()
-                        .with_undo_context("MoveObjects", |edit_context| {
+                        .with_undo_context("MoveAssets", |edit_context| {
                             for asset in assets {
-                                edit_context.set_object_location(asset, destination.clone());
+                                edit_context.set_asset_location(asset, destination.clone());
                             }
 
                             EndContextBehavior::Finish

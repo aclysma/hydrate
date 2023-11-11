@@ -142,7 +142,7 @@ impl<'a> DataContainer<'a> {
     }
 
     // pub fn schema(&self, field_name: &str) {
-    //     self.object_schema.find_property_schema()
+    //     self.asset_schema.find_property_schema()
     // }
 }
 
@@ -293,7 +293,7 @@ impl<'a> DataContainerMut<'a> {
 //     schema_set: &'a SchemaSet,
 //     asset_id: AssetId,
 //     property_path_stack: Vec<String>,
-//     //object_schema: SchemaRecord,
+//     //asset_schema: SchemaRecord,
 //     //schema_record_stack: Vec<Schema>,
 //     property_path: String,
 //     //property_path: String,
@@ -301,16 +301,16 @@ impl<'a> DataContainerMut<'a> {
 //
 // impl<'a> SingleObjectView<'a> {
 //     pub fn new(data_set: &'a SingleObject, schema_set: &'a SchemaSet, asset_id: AssetId) -> Self {
-//         //let object_schema = data_set.object_schema(asset_id).unwrap().clone();
-//         //object_schema.fin
-//         //let schema_record_stack = vec![Schema::NamedType()object_schema.clone()];
+//         //let asset_schema = data_set.asset_schema(asset_id).unwrap().clone();
+//         //asset_schema.fin
+//         //let schema_record_stack = vec![Schema::NamedType()asset_schema.clone()];
 //
 //         SingleObjectView {
 //             data_set,
 //             schema_set,
 //             asset_id,
 //             property_path_stack: Default::default(),
-//             //object_schema,
+//             //asset_schema,
 //             property_path: Default::default()
 //         }
 //     }
@@ -344,14 +344,14 @@ impl<'a> DataContainerMut<'a> {
 //     }
 //
 //     // pub fn schema(&self, field_name: &str) {
-//     //     self.object_schema.find_property_schema()
+//     //     self.asset_schema.find_property_schema()
 //     // }
 // }
 
 pub struct DataSetView<'a> {
     data_container: DataContainer<'a>,
     property_path_stack: Vec<String>,
-    //object_schema: SchemaRecord,
+    //asset_schema: SchemaRecord,
     //schema_record_stack: Vec<Schema>,
     property_path: String,
     //property_path: String,
@@ -359,14 +359,14 @@ pub struct DataSetView<'a> {
 
 impl<'a> DataSetView<'a> {
     pub fn new(data_container: DataContainer<'a>) -> Self {
-        //let object_schema = data_set.object_schema(asset_id).unwrap().clone();
-        //object_schema.fin
-        //let schema_record_stack = vec![Schema::NamedType()object_schema.clone()];
+        //let asset_schema = data_set.asset_schema(asset_id).unwrap().clone();
+        //asset_schema.fin
+        //let schema_record_stack = vec![Schema::NamedType()asset_schema.clone()];
 
         DataSetView {
             data_container,
             property_path_stack: Default::default(),
-            //object_schema,
+            //asset_schema,
             property_path: Default::default(),
         }
     }
@@ -427,7 +427,7 @@ impl<'a> DataSetView<'a> {
     }
 
     // pub fn schema(&self, field_name: &str) {
-    //     self.object_schema.find_property_schema()
+    //     self.asset_schema.find_property_schema()
     // }
 }
 
@@ -436,7 +436,7 @@ pub struct DataSetViewMut<'a> {
     //schema_set: &'a SchemaSet,
     //asset_id: AssetId,
     property_path_stack: Vec<String>,
-    //object_schema: SchemaRecord,
+    //asset_schema: SchemaRecord,
     //schema_record_stack: Vec<Schema>,
     property_path: String,
     //property_path: String,

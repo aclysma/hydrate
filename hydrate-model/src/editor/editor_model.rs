@@ -141,14 +141,14 @@ impl EditorModel {
         self.path_node_id_to_path.get(&asset_id)
     }
 
-    pub fn object_display_name_long(
+    pub fn asset_display_name_long(
         &self,
         asset_id: AssetId,
     ) -> String {
         let root_data_set = &self.root_edit_context().data_set;
         let location = root_data_set.asset_location(asset_id);
 
-        // Look up the location, if we don't find it just assume the object is at the root. This
+        // Look up the location, if we don't find it just assume the asset is at the root. This
         // allows some degree of robustness even when data is in a bad state (like cyclical references)
         let path = location
             .map(|x| self.path_node_id_to_path(x.path_node_id()))
@@ -168,12 +168,12 @@ impl EditorModel {
 
     pub fn data_source(
         &mut self,
-        object_source_id: AssetSourceId,
+        asset_source_id: AssetSourceId,
     ) -> Option<&dyn DataSource> {
-        self.data_sources.get(&object_source_id).map(|x| &**x)
+        self.data_sources.get(&asset_source_id).map(|x| &**x)
     }
 
-    pub fn is_a_root_object(
+    pub fn is_a_root_asset(
         &self,
         asset_id: AssetId,
     ) -> bool {
@@ -200,12 +200,12 @@ impl EditorModel {
         root_edit_context.commit_pending_undo_context();
 
         //
-        // Create the PathNodeRoot object that acts as the root location for all objects in this DS
+        // Create the PathNodeRoot asset that acts as the root location for all assets in this DS
         //
-        let object_source_id = AssetSourceId::new();
-        let root_asset_id = AssetId::from_uuid(*object_source_id.uuid());
+        let asset_source_id = AssetSourceId::new();
+        let root_asset_id = AssetId::from_uuid(*asset_source_id.uuid());
         root_edit_context
-            .new_object_with_id(
+            .new_asset_with_id(
                 root_asset_id,
                 &AssetName::new(data_source_name),
                 &AssetLocation::null(),
@@ -213,7 +213,7 @@ impl EditorModel {
             )
             .unwrap();
 
-        // Clear change tracking so that the new root object we just added doesn't appear as a unsaved change.
+        // Clear change tracking so that the new root asset we just added doesn't appear as a unsaved change.
         // (It should never serialize)
         root_edit_context.clear_change_tracking();
 
@@ -223,13 +223,13 @@ impl EditorModel {
         let mut fs = FileSystemIdBasedDataSource::new(
             file_system_root_path.clone(),
             root_edit_context,
-            object_source_id,
+            asset_source_id,
         );
         fs.load_from_storage(root_edit_context, imports_to_queue);
 
-        self.data_sources.insert(object_source_id, Box::new(fs));
+        self.data_sources.insert(asset_source_id, Box::new(fs));
 
-        object_source_id
+        asset_source_id
     }
 
     pub fn add_file_system_path_based_data_source<RootPathT: Into<PathBuf>>(
@@ -247,12 +247,12 @@ impl EditorModel {
         root_edit_context.commit_pending_undo_context();
 
         //
-        // Create the PathNodeRoot object that acts as the root location for all objects in this DS
+        // Create the PathNodeRoot asset that acts as the root location for all assets in this DS
         //
-        let object_source_id = AssetSourceId::new();
-        let root_asset_id = AssetId::from_uuid(*object_source_id.uuid());
+        let asset_source_id = AssetSourceId::new();
+        let root_asset_id = AssetId::from_uuid(*asset_source_id.uuid());
         root_edit_context
-            .new_object_with_id(
+            .new_asset_with_id(
                 root_asset_id,
                 &AssetName::new(data_source_name),
                 &AssetLocation::null(),
@@ -260,7 +260,7 @@ impl EditorModel {
             )
             .unwrap();
 
-        // Clear change tracking so that the new root object we just added doesn't appear as a unsaved change.
+        // Clear change tracking so that the new root asset we just added doesn't appear as a unsaved change.
         // (It should never serialize)
         root_edit_context.clear_change_tracking();
 
@@ -270,19 +270,19 @@ impl EditorModel {
         let mut fs = FileSystemPathBasedDataSource::new(
             file_system_root_path.clone(),
             root_edit_context,
-            object_source_id,
+            asset_source_id,
             importer_registry,
         );
         fs.load_from_storage(root_edit_context, imports_to_queue);
 
-        self.data_sources.insert(object_source_id, Box::new(fs));
+        self.data_sources.insert(asset_source_id, Box::new(fs));
 
-        object_source_id
+        asset_source_id
     }
 
     pub fn save_root_edit_context(&mut self) {
         //
-        // Ensure pending edits are flushed to the data set so that our modified objects list is fully up to date
+        // Ensure pending edits are flushed to the data set so that our modified assets list is fully up to date
         //
         let root_edit_context = self
             .edit_contexts
@@ -295,7 +295,7 @@ impl EditorModel {
         }
 
         //
-        // Clear modified objects list since we saved everything to disk
+        // Clear modified assets list since we saved everything to disk
         //
         root_edit_context.clear_change_tracking();
     }
@@ -314,12 +314,12 @@ impl EditorModel {
         root_edit_context.cancel_pending_undo_context();
 
         //
-        // Take the contents of the modified object list, leaving the edit context with a cleared list
+        // Take the contents of the modified asset list, leaving the edit context with a cleared list
         //
         let (modified_assets, modified_locations) =
             root_edit_context.take_modified_assets_and_locations();
         println!(
-            "Revert:\nObjects: {:?}\nLocations: {:?}",
+            "Revert:\nAssets: {:?}\nLocations: {:?}",
             modified_assets, modified_locations
         );
 
@@ -328,19 +328,19 @@ impl EditorModel {
         }
 
         //
-        // Clear modified objects list since we reloaded everything from disk.
+        // Clear modified assets list since we reloaded everything from disk.
         //
         root_edit_context.clear_change_tracking();
         //root_edit_context.cancel_pending_undo_context();
 
         println!("stuff");
-        //self.refresh_object_path_lookups();
+        //self.refresh_asset_path_lookups();
         //self.refresh_location_tree();
     }
 
     pub fn close_file_system_source(
         &mut self,
-        _object_source_id: AssetSourceId,
+        _asset_source_id: AssetSourceId,
     ) {
         unimplemented!();
         // kill edit contexts or fail
@@ -348,17 +348,17 @@ impl EditorModel {
         // clear root_edit_context of data from this source
 
         // drop the source
-        //let old = self.data_sources.remove(&object_source_id);
+        //let old = self.data_sources.remove(&asset_source_id);
         //assert!(old.is_some());
     }
 
-    // Spawns a separate edit context with copies of the given objects. The undo stack will be shared
+    // Spawns a separate edit context with copies of the given assets. The undo stack will be shared
     // globally, but changes will not be visible on the root context. The edit context will be flushed
-    // to the root context in a single operation. Generally, we don't expect objects opened in a
+    // to the root context in a single operation. Generally, we don't expect assets opened in a
     // separate edit context to change in the root context, but there is nothing that prevents it.
     pub fn open_edit_context(
         &mut self,
-        objects: &[AssetId],
+        assets: &[AssetId],
     ) -> EditContextKey {
         let new_edit_context_key = self.edit_contexts.insert_with_key(|key| {
             EditContext::new_with_data(key, self.schema_set.clone(), &self.undo_stack)
@@ -369,7 +369,7 @@ impl EditorModel {
             .get_disjoint_mut([self.root_edit_context_key, new_edit_context_key])
             .unwrap();
 
-        for &asset_id in objects {
+        for &asset_id in assets {
             new_edit_context
                 .data_set
                 .copy_from(root_edit_context.data_set(), asset_id);
@@ -428,20 +428,20 @@ impl EditorModel {
             return parent_path.clone();
         }
 
-        // To detect cyclical references, we accumulate visited objects into a set
+        // To detect cyclical references, we accumulate visited assets into a set
         let is_cyclical_reference = !path_stack.insert(path_node);
         let source_id_and_path = if is_cyclical_reference {
             // If we detect a cycle, bail and return root path
             AssetPath::root()
         } else {
-            if let Some(object) = data_set.assets().get(&path_node) {
-                if let Some(name) = object.asset_name().as_string() {
+            if let Some(asset) = data_set.assets().get(&path_node) {
+                if let Some(name) = asset.asset_name().as_string() {
                     // Parent is found, named, and not a cyclical reference
                     let parent = Self::do_populate_path(
                         data_set,
                         path_stack,
                         paths,
-                        object.asset_location().path_node_id(),
+                        asset.asset_location().path_node_id(),
                     );
                     let path = parent.join(name);
                     path
@@ -472,17 +472,17 @@ impl EditorModel {
         let mut path_stack = HashSet::default();
         let mut paths = HashMap::<AssetId, AssetPath>::default();
         for (asset_id, info) in data_set.assets() {
-            // For objects that *are* path nodes, use their ID directly. For objects that aren't
-            // path nodes, use their location object ID
+            // For assets that *are* path nodes, use their ID directly. For assets that aren't
+            // path nodes, use their location asset ID
             let path_node_id = if info.schema().fingerprint() == path_node_type.fingerprint()
                 || info.schema().fingerprint() == path_node_root_type.fingerprint()
             {
                 *asset_id
             } else {
-                // We could process objects so that if for some reason the parent nodes don't exist, we can still
+                // We could process assets so that if for some reason the parent nodes don't exist, we can still
                 // generate path lookups for them. Instead we will consider a parent not being found as
-                // the object being at the root level. We could also have a "lost and found" UI.
-                //info.object_location().path_node_id()
+                // the asset being at the root level. We could also have a "lost and found" UI.
+                //info.asset_location().path_node_id()
                 continue;
             };
 
@@ -496,7 +496,7 @@ impl EditorModel {
     }
 
     pub fn refresh_tree_node_cache(&mut self) {
-        // Build lookup of object ID to paths. This should only include objects of type
+        // Build lookup of asset ID to paths. This should only include assets of type
         // PathNode or PathNodeRoot
         let root_edit_context = self.edit_contexts.get(self.root_edit_context_key).unwrap();
         let path_node_id_to_path = Self::populate_paths(

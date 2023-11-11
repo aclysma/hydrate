@@ -89,8 +89,8 @@ pub trait JobOutput: Serialize + for<'a> Deserialize<'a> {}
 #[derive(Default, Clone)]
 pub struct JobEnumeratedDependencies {
     // The contents of assets can affect the output so we need to include a hash of the contents of
-    // the asset. But assets can ref other assets, task needs to list all objects that are touched
-    // (including prototypes of those objects).
+    // the asset. But assets can ref other assets, task needs to list all assets that are touched
+    // (including prototypes of those assets).
     //
     // We could do it at asset type granularity? (i.e. if you change an asset of type X all jobs that
     // read an asset of type X have to rerun.

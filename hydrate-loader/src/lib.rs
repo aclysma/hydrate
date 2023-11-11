@@ -99,7 +99,7 @@ pub use hydrate_base::handle::Handle;
 // - injects the differences to the main version handling state machine
 // - how to handle handles being allocated while streaming in updates?
 // - how to handle an update arriving faster than the original asset version?
-// - treat different versions as different objects?
+// - treat different versions as different assets?
 
 // Create an Asset handle
 // Ref-count tracking causes us to call subscribe/unsubscribe for the asset
@@ -210,7 +210,7 @@ impl AssetManager {
 
         Handle::new(self.ref_op_tx.clone(), load_handle)
 
-        // Figure out what objects need to be loaded (i.e. dependerncies)
+        // Figure out what assets need to be loaded (i.e. dependerncies)
         // Issue disk IO requests
         // Wait until they are completed
         // Possibly some extra on-load-complete stuff

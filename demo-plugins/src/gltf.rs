@@ -10,7 +10,7 @@ use hydrate_model::pipeline::{
 };
 use hydrate_model::pipeline::{ImportedImportable, Importer, ScannedImportable};
 use hydrate_model::{
-    BuilderRegistryBuilder, DataContainerMut, HashMap, ImportableObject,
+    BuilderRegistryBuilder, DataContainerMut, HashMap, ImportableAsset,
     ImporterRegistryBuilder, JobProcessorRegistryBuilder,
     Record, SchemaLinker, SchemaSet,
 };
@@ -87,7 +87,7 @@ impl Importer for GltfImporter {
     fn import_file(
         &self,
         path: &Path,
-        importable_objects: &HashMap<Option<String>, ImportableObject>,
+        importable_assets: &HashMap<Option<String>, ImportableAsset>,
         schema_set: &SchemaSet,
         //import_info: &ImportInfo,
     ) -> HashMap<Option<String>, ImportedImportable> {
@@ -96,11 +96,11 @@ impl Importer for GltfImporter {
         //
         let (doc, _buffers, _images) = ::gltf::import(path).unwrap();
 
-        let mut imported_objects = HashMap::default();
+        let mut imported_assets = HashMap::default();
 
         for (i, mesh) in doc.meshes().enumerate() {
             let name = Some(name_or_index("mesh", mesh.name(), i));
-            if importable_objects.contains_key(&name) {
+            if importable_assets.contains_key(&name) {
                 //
                 // Create import data
                 //
@@ -127,9 +127,9 @@ impl Importer for GltfImporter {
                 };
 
                 //
-                // Return the created objects
+                // Return the created assets
                 //
-                imported_objects.insert(
+                imported_assets.insert(
                     name,
                     ImportedImportable {
                         file_references: Default::default(),
@@ -142,7 +142,7 @@ impl Importer for GltfImporter {
 
         for (i, material) in doc.materials().enumerate() {
             let name = Some(name_or_index("material", material.name(), i));
-            if importable_objects.contains_key(&name) {
+            if importable_assets.contains_key(&name) {
                 //
                 // Create the default asset
                 //
@@ -192,25 +192,25 @@ impl Importer for GltfImporter {
                     // x.emissive_texture().set(&mut default_asset_data_container, material.emissive_texture().unwrap_or_default()).unwrap();
 
                     // if let Some(color_texture) = material.pbr_metallic_roughness().base_color_texture() {
-                    //     if let Some(referenced_asset_id) = importable_objects.get(&None).unwrap().referenced_paths.get(&PathBuf::from_str(&color_texture.).unwrap()) {
+                    //     if let Some(referenced_asset_id) = importable_assets.get(&None).unwrap().referenced_paths.get(&PathBuf::from_str(&color_texture.).unwrap()) {
                     //         x.color_texture().set(&mut default_asset_data_container, *referenced_asset_id).unwrap();
                     //     }
                     // }
                     //
                     // if let Some(metallic_roughness_texture) = json_data.metallic_roughness_texture {
-                    //     if let Some(referenced_asset_id) = importable_objects.get(&None).unwrap().referenced_paths.get(&PathBuf::from_str(&metallic_roughness_texture).unwrap()) {
+                    //     if let Some(referenced_asset_id) = importable_assets.get(&None).unwrap().referenced_paths.get(&PathBuf::from_str(&metallic_roughness_texture).unwrap()) {
                     //         x.color_texture().set(&mut default_asset_data_container, *referenced_asset_id).unwrap();
                     //     }
                     // }
                     //
                     // if let Some(normal_texture) = json_data.normal_texture {
-                    //     if let Some(referenced_asset_id) = importable_objects.get(&None).unwrap().referenced_paths.get(&PathBuf::from_str(&normal_texture).unwrap()) {
+                    //     if let Some(referenced_asset_id) = importable_assets.get(&None).unwrap().referenced_paths.get(&PathBuf::from_str(&normal_texture).unwrap()) {
                     //         x.color_texture().set(&mut default_asset_data_container, *referenced_asset_id).unwrap();
                     //     }
                     // }
                     //
                     // if let Some(emissive_texture) = json_data.emissive_texture {
-                    //     if let Some(referenced_asset_id) = importable_objects.get(&None).unwrap().referenced_paths.get(&PathBuf::from_str(&emissive_texture).unwrap()) {
+                    //     if let Some(referenced_asset_id) = importable_assets.get(&None).unwrap().referenced_paths.get(&PathBuf::from_str(&emissive_texture).unwrap()) {
                     //         x.color_texture().set(&mut default_asset_data_container, *referenced_asset_id).unwrap();
                     //     }
                     // }
@@ -234,9 +234,9 @@ impl Importer for GltfImporter {
                 };
 
                 //
-                // Return the created objects
+                // Return the created assets
                 //
-                imported_objects.insert(
+                imported_assets.insert(
                     name,
                     ImportedImportable {
                         file_references: Default::default(),
@@ -247,7 +247,7 @@ impl Importer for GltfImporter {
             }
         }
 
-        imported_objects
+        imported_assets
     }
 }
 

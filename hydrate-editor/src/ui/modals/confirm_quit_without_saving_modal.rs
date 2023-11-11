@@ -3,16 +3,16 @@ use crate::db_state::DbState;
 use crate::ui_state::UiState;
 use crate::QueuedActions;
 use hydrate_model::pipeline::AssetEngine;
-use hydrate_model::{HashSet, ObjectId};
+use hydrate_model::{HashSet, AssetId};
 use imgui::{im_str, PopupModal};
 
 pub struct ConfirmQuitWithoutSavingModal {
     finished_first_draw: bool,
-    unsaved_objects: HashSet<ObjectId>,
+    unsaved_objects: HashSet<AssetId>,
 }
 
 impl ConfirmQuitWithoutSavingModal {
-    pub fn new(unsaved_objects: HashSet<ObjectId>) -> Self {
+    pub fn new(unsaved_objects: HashSet<AssetId>) -> Self {
         ConfirmQuitWithoutSavingModal {
             finished_first_draw: false,
             unsaved_objects,

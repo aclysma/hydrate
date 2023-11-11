@@ -166,7 +166,7 @@ pub trait AssetStorage {
 // #[derive(Debug)]
 // pub struct LoadInfo {
 //     /// UUID of the asset.
-//     pub asset_id: AssetUuid,
+//     pub asset_id: AssetId,
 //     /// Number of references to the asset.
 //     pub refs: u32,
 //     /// Asset name. Not guaranteed to always be available.
@@ -176,7 +176,7 @@ pub trait AssetStorage {
 // LoaderInfoProvider - Moved to hydrate_base
 // HandleAllocator - Removed
 
-/// An indirect identifier that can be resolved to a specific [`AssetUuid`] by an [`IndirectionResolver`] impl.
+/// An indirect identifier that can be resolved to a specific [`AssetId`] by an [`IndirectionResolver`] impl.
 #[derive(Clone, PartialEq, Eq, Debug, Hash)]
 pub enum IndirectIdentifier {
     //PathWithTagAndType(String, String, AssetTypeId),
@@ -209,7 +209,7 @@ impl IndirectIdentifier {
 //         &self,
 //         id: &IndirectIdentifier,
 //         candidates: Vec<(PathBuf, Vec<AssetMetadata>)>,
-//     ) -> Option<AssetUuid>;
+//     ) -> Option<AssetId>;
 // }
 //
 // /// Default implementation of [`IndirectionResolver`] which resolves to the first asset in the list of candidates
@@ -220,7 +220,7 @@ impl IndirectIdentifier {
 //         &self,
 //         id: &IndirectIdentifier,
 //         candidates: Vec<(PathBuf, Vec<AssetMetadata>)>,
-//     ) -> Option<AssetUuid> {
+//     ) -> Option<AssetId> {
 //         let id_type = id.type_id();
 //         for candidate in candidates {
 //             for asset in candidate.1 {

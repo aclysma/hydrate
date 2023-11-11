@@ -10,7 +10,7 @@ use hydrate_model::pipeline::{AssetPlugin, Builder};
 use hydrate_model::{
     job_system, BuilderRegistryBuilder, DataContainer, DataSet, HashMap,
     ImporterRegistryBuilder, JobApi, JobEnumeratedDependencies, JobInput, JobOutput, JobProcessor,
-    JobProcessorRegistryBuilder, ObjectId, Record, SchemaLinker, SchemaSet, SingleObject,
+    JobProcessorRegistryBuilder, AssetId, Record, SchemaLinker, SchemaSet, SingleObject,
 };
 use serde::{Deserialize, Serialize};
 use type_uuid::TypeUuid;
@@ -21,7 +21,7 @@ use super::generated::{
 
 #[derive(Hash, Serialize, Deserialize)]
 pub struct MeshAdvMaterialJobInput {
-    pub asset_id: ObjectId,
+    pub asset_id: AssetId,
 }
 impl JobInput for MeshAdvMaterialJobInput {}
 
@@ -56,7 +56,7 @@ impl JobProcessor for MeshAdvMaterialJobProcessor {
         input: &MeshAdvMaterialJobInput,
         data_set: &DataSet,
         schema_set: &SchemaSet,
-        _dependency_data: &HashMap<ObjectId, SingleObject>,
+        _dependency_data: &HashMap<AssetId, SingleObject>,
         job_api: &dyn JobApi,
     ) -> MeshAdvMaterialJobOutput {
         //
@@ -127,7 +127,7 @@ impl Builder for MeshAdvMaterialBuilder {
 
     fn start_jobs(
         &self,
-        asset_id: ObjectId,
+        asset_id: AssetId,
         data_set: &DataSet,
         schema_set: &SchemaSet,
         job_api: &dyn JobApi,
@@ -160,7 +160,7 @@ fn try_cast_u8_slice<T: Copy + 'static>(data: &[u8]) -> Option<&[T]> {
 
 #[derive(Hash, Serialize, Deserialize)]
 pub struct MeshAdvMeshPreprocessJobInput {
-    pub asset_id: ObjectId,
+    pub asset_id: AssetId,
 }
 impl JobInput for MeshAdvMeshPreprocessJobInput {}
 
@@ -198,7 +198,7 @@ impl JobProcessor for MeshAdvMeshPreprocessJobProcessor {
         input: &MeshAdvMeshPreprocessJobInput,
         data_set: &DataSet,
         schema_set: &SchemaSet,
-        dependency_data: &HashMap<ObjectId, SingleObject>,
+        dependency_data: &HashMap<AssetId, SingleObject>,
         job_api: &dyn JobApi,
     ) -> MeshAdvMeshPreprocessJobOutput {
         //
@@ -393,7 +393,7 @@ impl Builder for MeshAdvMeshBuilder {
 
     fn start_jobs(
         &self,
-        asset_id: ObjectId,
+        asset_id: AssetId,
         data_set: &DataSet,
         schema_set: &SchemaSet,
         job_api: &dyn JobApi,

@@ -7,7 +7,7 @@ use crate::editor::undo::{UndoContext, UndoStack};
 use crate::{
     BuildInfo, DataObjectInfo, DataSet, DataSetDiff, DataSetResult, EditContextKey,
     EndContextBehavior, HashMap, HashMapKeys, HashSet, ImportInfo, NullOverride,
-    ObjectId, ObjectLocation, ObjectName, OverrideBehavior, SchemaFingerprint, SchemaNamedType,
+    AssetId, ObjectLocation, ObjectName, OverrideBehavior, SchemaFingerprint, SchemaNamedType,
     SchemaRecord, SchemaSet, Value,
 };
 
@@ -45,7 +45,7 @@ pub struct EditContext {
 
     // We track locations separately because if an object is deleted, we don't know what location it
     // was stored at
-    modified_objects: HashSet<ObjectId>,
+    modified_objects: HashSet<AssetId>,
     modified_locations: HashSet<ObjectLocation>,
 }
 
@@ -53,7 +53,7 @@ impl EditContext {
     // Call after adding a new object
     fn track_new_object(
         &mut self,
-        object_id: ObjectId,
+        object_id: AssetId,
         object_location: &ObjectLocation,
     ) {
         if self.undo_context.has_open_context() {
@@ -71,7 +71,7 @@ impl EditContext {
     // Call before editing or deleting an object
     fn track_existing_object(
         &mut self,
-        object_id: ObjectId,
+        object_id: AssetId,
     ) {
         if self.undo_context.has_open_context() {
             // If an undo is open, we use the diff for change tracking
@@ -103,12 +103,12 @@ impl EditContext {
 
     pub fn is_object_modified(
         &self,
-        object_id: ObjectId,
+        object_id: AssetId,
     ) -> bool {
         self.modified_objects.contains(&object_id)
     }
 
-    pub fn modified_objects(&self) -> &HashSet<ObjectId> {
+    pub fn modified_objects(&self) -> &HashSet<AssetId> {
         &self.modified_objects
     }
 
@@ -118,7 +118,7 @@ impl EditContext {
 
     pub fn clear_object_modified_flag(
         &mut self,
-        object_id: ObjectId,
+        object_id: AssetId,
     ) {
         self.modified_objects.remove(&object_id);
     }
@@ -132,7 +132,7 @@ impl EditContext {
 
     pub fn take_modified_objects_and_locations(
         &mut self
-    ) -> (HashSet<ObjectId>, HashSet<ObjectLocation>) {
+    ) -> (HashSet<AssetId>, HashSet<ObjectLocation>) {
         let mut modified_objects = HashSet::default();
         std::mem::swap(&mut modified_objects, &mut self.modified_objects);
 
@@ -145,7 +145,7 @@ impl EditContext {
     pub fn apply_diff(
         &mut self,
         diff: &DataSetDiff,
-        modified_objects: &HashSet<ObjectId>,
+        modified_objects: &HashSet<AssetId>,
         modified_locations: &HashSet<ObjectLocation>,
     ) {
         diff.apply(&mut self.data_set, &self.schema_set);
@@ -291,17 +291,17 @@ impl EditContext {
     //     })
     // }
     //
-    pub fn all_objects<'a>(&'a self) -> HashMapKeys<'a, ObjectId, DataObjectInfo> {
+    pub fn all_objects<'a>(&'a self) -> HashMapKeys<'a, AssetId, DataObjectInfo> {
         self.data_set.all_objects()
     }
 
-    pub fn objects(&self) -> &HashMap<ObjectId, DataObjectInfo> {
+    pub fn objects(&self) -> &HashMap<AssetId, DataObjectInfo> {
         self.data_set.objects()
     }
 
     pub fn has_object(
         &self,
-        object_id: ObjectId,
+        object_id: AssetId,
     ) -> bool {
         self.objects().contains_key(&object_id)
     }
@@ -317,7 +317,7 @@ impl EditContext {
 
     pub fn new_object_with_id(
         &mut self,
-        object_id: ObjectId,
+        object_id: AssetId,
         object_name: &ObjectName,
         object_location: &ObjectLocation,
         schema: &SchemaRecord,
@@ -337,7 +337,7 @@ impl EditContext {
         object_name: &ObjectName,
         object_location: &ObjectLocation,
         schema: &SchemaRecord,
-    ) -> ObjectId {
+    ) -> AssetId {
         let object_id =
             self.data_set
                 .new_object(object_name.clone(), object_location.clone(), schema);
@@ -349,8 +349,8 @@ impl EditContext {
         &mut self,
         object_name: &ObjectName,
         object_location: &ObjectLocation,
-        prototype: ObjectId,
-    ) -> ObjectId {
+        prototype: AssetId,
+    ) -> AssetId {
         let object_id = self.data_set.new_object_from_prototype(
             object_name.clone(),
             object_location.clone(),
@@ -362,7 +362,7 @@ impl EditContext {
 
     pub fn init_from_single_object(
         &mut self,
-        object_id: ObjectId,
+        object_id: AssetId,
         single_object: &SingleObject,
     ) -> DataSetResult<()> {
         self.track_existing_object(object_id);
@@ -393,12 +393,12 @@ impl EditContext {
 
     pub(crate) fn restore_object(
         &mut self,
-        object_id: ObjectId,
+        object_id: AssetId,
         object_name: ObjectName,
         object_location: ObjectLocation,
         import_info: Option<ImportInfo>,
         build_info: BuildInfo,
-        prototype: Option<ObjectId>,
+        prototype: Option<AssetId>,
         schema: SchemaFingerprint,
         properties: HashMap<String, Value>,
         property_null_overrides: HashMap<String, NullOverride>,
@@ -424,7 +424,7 @@ impl EditContext {
 
     pub fn delete_object(
         &mut self,
-        object_id: ObjectId,
+        object_id: AssetId,
     ) {
         self.track_existing_object(object_id);
         self.data_set.delete_object(object_id);
@@ -432,7 +432,7 @@ impl EditContext {
 
     pub fn set_object_location(
         &mut self,
-        object_id: ObjectId,
+        object_id: AssetId,
         new_location: ObjectLocation,
     ) {
         self.track_existing_object(object_id);
@@ -443,7 +443,7 @@ impl EditContext {
 
     pub fn set_import_info(
         &mut self,
-        object_id: ObjectId,
+        object_id: AssetId,
         import_info: ImportInfo,
     ) {
         self.data_set.set_import_info(object_id, import_info);
@@ -451,14 +451,14 @@ impl EditContext {
 
     pub fn object_name(
         &self,
-        object_id: ObjectId,
+        object_id: AssetId,
     ) -> &ObjectName {
         self.data_set.object_name(object_id)
     }
 
     pub fn set_object_name(
         &mut self,
-        object_id: ObjectId,
+        object_id: AssetId,
         object_name: ObjectName,
     ) {
         self.track_existing_object(object_id);
@@ -467,44 +467,44 @@ impl EditContext {
 
     pub fn object_location(
         &self,
-        object_id: ObjectId,
+        object_id: AssetId,
     ) -> Option<&ObjectLocation> {
         self.data_set.object_location(object_id)
     }
 
     pub fn object_location_chain(
         &self,
-        object_id: ObjectId,
+        object_id: AssetId,
     ) -> Vec<ObjectLocation> {
         self.data_set.object_location_chain(object_id)
     }
 
     pub fn import_info(
         &self,
-        object_id: ObjectId,
+        object_id: AssetId,
     ) -> Option<&ImportInfo> {
         self.data_set.import_info(object_id)
     }
 
     pub fn resolve_all_file_references(
         &self,
-        object_id: ObjectId,
-    ) -> Option<HashMap<PathBuf, ObjectId>> {
+        object_id: AssetId,
+    ) -> Option<HashMap<PathBuf, AssetId>> {
         self.data_set.resolve_all_file_references(object_id)
     }
 
     pub fn get_all_file_reference_overrides(
         &mut self,
-        object_id: ObjectId,
-    ) -> Option<&HashMap<PathBuf, ObjectId>> {
+        object_id: AssetId,
+    ) -> Option<&HashMap<PathBuf, AssetId>> {
         self.data_set.get_all_file_reference_overrides(object_id)
     }
 
     pub fn set_file_reference_override(
         &mut self,
-        object_id: ObjectId,
+        object_id: AssetId,
         path: PathBuf,
-        referenced_object_id: ObjectId,
+        referenced_object_id: AssetId,
     ) {
         self.track_existing_object(object_id);
         self.data_set
@@ -513,21 +513,21 @@ impl EditContext {
 
     pub fn object_prototype(
         &self,
-        object_id: ObjectId,
-    ) -> Option<ObjectId> {
+        object_id: AssetId,
+    ) -> Option<AssetId> {
         self.data_set.object_prototype(object_id)
     }
 
     pub fn object_schema(
         &self,
-        object_id: ObjectId,
+        object_id: AssetId,
     ) -> Option<&SchemaRecord> {
         self.data_set.object_schema(object_id)
     }
 
     pub fn get_null_override(
         &self,
-        object_id: ObjectId,
+        object_id: AssetId,
         path: impl AsRef<str>,
     ) -> Option<NullOverride> {
         self.data_set
@@ -536,7 +536,7 @@ impl EditContext {
 
     pub fn set_null_override(
         &mut self,
-        object_id: ObjectId,
+        object_id: AssetId,
         path: impl AsRef<str>,
         null_override: NullOverride,
     ) {
@@ -547,7 +547,7 @@ impl EditContext {
 
     pub fn remove_null_override(
         &mut self,
-        object_id: ObjectId,
+        object_id: AssetId,
         path: impl AsRef<str>,
     ) {
         self.track_existing_object(object_id);
@@ -557,7 +557,7 @@ impl EditContext {
 
     pub fn resolve_is_null(
         &self,
-        object_id: ObjectId,
+        object_id: AssetId,
         path: impl AsRef<str>,
     ) -> Option<bool> {
         self.data_set
@@ -566,7 +566,7 @@ impl EditContext {
 
     pub fn has_property_override(
         &self,
-        object_id: ObjectId,
+        object_id: AssetId,
         path: impl AsRef<str>,
     ) -> bool {
         self.data_set.has_property_override(object_id, path)
@@ -576,7 +576,7 @@ impl EditContext {
     // Returning none means it is not overridden
     pub fn get_property_override(
         &self,
-        object_id: ObjectId,
+        object_id: AssetId,
         path: impl AsRef<str>,
     ) -> Option<&Value> {
         self.data_set.get_property_override(object_id, path)
@@ -585,7 +585,7 @@ impl EditContext {
     // Just sets a property on this object, making it overridden, or replacing the existing override
     pub fn set_property_override(
         &mut self,
-        object_id: ObjectId,
+        object_id: AssetId,
         path: impl AsRef<str>,
         value: Value,
     ) -> DataSetResult<()> {
@@ -596,7 +596,7 @@ impl EditContext {
 
     pub fn remove_property_override(
         &mut self,
-        object_id: ObjectId,
+        object_id: AssetId,
         path: impl AsRef<str>,
     ) -> Option<Value> {
         self.track_existing_object(object_id);
@@ -605,7 +605,7 @@ impl EditContext {
 
     pub fn apply_property_override_to_prototype(
         &mut self,
-        object_id: ObjectId,
+        object_id: AssetId,
         path: impl AsRef<str>,
     ) -> DataSetResult<()> {
         self.track_existing_object(object_id);
@@ -619,7 +619,7 @@ impl EditContext {
 
     pub fn resolve_property(
         &self,
-        object_id: ObjectId,
+        object_id: AssetId,
         path: impl AsRef<str>,
     ) -> Option<&Value> {
         self.data_set
@@ -628,7 +628,7 @@ impl EditContext {
 
     pub fn get_dynamic_array_overrides(
         &self,
-        object_id: ObjectId,
+        object_id: AssetId,
         path: impl AsRef<str>,
     ) -> Option<std::slice::Iter<Uuid>> {
         self.data_set
@@ -637,7 +637,7 @@ impl EditContext {
 
     pub fn add_dynamic_array_override(
         &mut self,
-        object_id: ObjectId,
+        object_id: AssetId,
         path: impl AsRef<str>,
     ) -> Uuid {
         self.track_existing_object(object_id);
@@ -647,7 +647,7 @@ impl EditContext {
 
     pub fn remove_dynamic_array_override(
         &mut self,
-        object_id: ObjectId,
+        object_id: AssetId,
         path: impl AsRef<str>,
         element_id: Uuid,
     ) {
@@ -658,7 +658,7 @@ impl EditContext {
 
     pub fn resolve_dynamic_array(
         &self,
-        object_id: ObjectId,
+        object_id: AssetId,
         path: impl AsRef<str>,
     ) -> Box<[Uuid]> {
         self.data_set
@@ -667,7 +667,7 @@ impl EditContext {
 
     pub fn get_override_behavior(
         &self,
-        object_id: ObjectId,
+        object_id: AssetId,
         path: impl AsRef<str>,
     ) -> OverrideBehavior {
         self.data_set
@@ -676,7 +676,7 @@ impl EditContext {
 
     pub fn set_override_behavior(
         &mut self,
-        object_id: ObjectId,
+        object_id: AssetId,
         path: impl AsRef<str>,
         behavior: OverrideBehavior,
     ) {

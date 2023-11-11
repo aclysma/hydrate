@@ -1,6 +1,6 @@
 use hydrate_model::import_util::ImportToQueue;
 use hydrate_model::{
-    DataSet, EditorModel, ImporterRegistry, ObjectId, ObjectLocation, ObjectName, PathNode,
+    DataSet, EditorModel, ImporterRegistry, AssetId, ObjectLocation, ObjectName, PathNode,
     PathNodeRoot, SchemaCacheSingleFile, SchemaLinker, SchemaSet,
 };
 use std::path::{Path, PathBuf};
@@ -96,7 +96,7 @@ impl DbState {
             .unwrap()
             .clone();
 
-        let root_object_id = ObjectId::from_uuid(*object_source_id.uuid());
+        let root_object_id = AssetId::from_uuid(*object_source_id.uuid());
         // db.new_object_with_id(
         //     root_object_id,
         //     ObjectName::new("root_object"),

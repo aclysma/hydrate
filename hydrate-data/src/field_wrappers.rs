@@ -1,7 +1,7 @@
 use crate::value::ValueEnum;
 use crate::{
     DataContainer, DataContainerMut, DataSetError, DataSetResult, DataSetViewMut, NullOverride,
-    ObjectId, SchemaSet, SingleObject, Value,
+    AssetId, SchemaSet, SingleObject, Value,
 };
 use std::marker::PhantomData;
 use uuid::Uuid;
@@ -435,7 +435,7 @@ impl ObjectRefField {
     pub fn get(
         &self,
         data_container: &DataContainer,
-    ) -> DataSetResult<ObjectId> {
+    ) -> DataSetResult<AssetId> {
         Ok(data_container
             .resolve_property(self.0.path())
             .ok_or(DataSetError::PathParentIsNull)?
@@ -446,7 +446,7 @@ impl ObjectRefField {
     pub fn set(
         &self,
         data_container: &mut DataContainerMut,
-        value: ObjectId,
+        value: AssetId,
     ) -> DataSetResult<()> {
         data_container.set_property_override(self.0.path(), Value::ObjectRef(value))
     }

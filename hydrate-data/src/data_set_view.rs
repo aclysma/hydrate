@@ -1,5 +1,5 @@
 use crate::data_set::DataSetResult;
-use crate::{DataSet, NullOverride, ObjectId, OverrideBehavior, SchemaSet, SingleObject, Value};
+use crate::{DataSet, NullOverride, AssetId, OverrideBehavior, SchemaSet, SingleObject, Value};
 use uuid::Uuid;
 
 pub fn do_push_property_path(
@@ -46,7 +46,7 @@ fn join_path_and_field(
 //TODO: Make these impl Read and Write?
 
 pub enum DataContainer<'a> {
-    DataSet(&'a DataSet, &'a SchemaSet, ObjectId),
+    DataSet(&'a DataSet, &'a SchemaSet, AssetId),
     SingleObject(&'a SingleObject, &'a SchemaSet),
 }
 
@@ -61,7 +61,7 @@ impl<'a> DataContainer<'a> {
     pub fn new_dataset(
         data_set: &'a DataSet,
         schema_set: &'a SchemaSet,
-        object_id: ObjectId,
+        object_id: AssetId,
     ) -> Self {
         DataContainer::DataSet(data_set, schema_set, object_id)
     }
@@ -147,7 +147,7 @@ impl<'a> DataContainer<'a> {
 }
 
 pub enum DataContainerMut<'a> {
-    DataSet(&'a mut DataSet, &'a SchemaSet, ObjectId),
+    DataSet(&'a mut DataSet, &'a SchemaSet, AssetId),
     SingleObject(&'a mut SingleObject, &'a SchemaSet),
 }
 
@@ -162,7 +162,7 @@ impl<'a> DataContainerMut<'a> {
     pub fn new_dataset(
         data_set: &'a mut DataSet,
         schema_set: &'a SchemaSet,
-        object_id: ObjectId,
+        object_id: AssetId,
     ) -> Self {
         DataContainerMut::DataSet(data_set, schema_set, object_id)
     }

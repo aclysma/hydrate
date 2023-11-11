@@ -1,17 +1,17 @@
 use crate::ui_state::AssetBrowserGridState;
-use hydrate_model::ObjectId;
+use hydrate_model::AssetId;
 use imgui::im_str;
 
 #[derive(Copy, Clone, Debug)]
 pub enum AssetBrowserGridPayload {
-    Single(ObjectId),
+    Single(AssetId),
     AllSelected,
 }
 
 pub fn asset_browser_grid_objects_drag_source(
     ui: &imgui::Ui,
     grid_state: &AssetBrowserGridState,
-    dragged_object: ObjectId,
+    dragged_object: AssetId,
 ) {
     let payload = if grid_state.selected_items.len() > 1
         && grid_state.selected_items.contains(&dragged_object)

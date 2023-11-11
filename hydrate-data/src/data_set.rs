@@ -1,4 +1,4 @@
-use crate::{HashMap, HashMapKeys, HashSet, ObjectId, OrderedSet, Schema, SchemaFingerprint, SchemaRecord, SingleObject, Value};
+use crate::{HashMap, HashMapKeys, HashSet, AssetId, OrderedSet, Schema, SchemaFingerprint, SchemaRecord, SingleObject, Value};
 use crate::{NullOverride, SchemaSet};
 use std::hash::{Hash, Hasher};
 use std::path::{Path, PathBuf};
@@ -61,21 +61,21 @@ impl ObjectName {
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Ord, PartialOrd)]
 pub struct ObjectLocation {
-    path_node_id: ObjectId,
+    path_node_id: AssetId,
 }
 
 impl ObjectLocation {
-    pub fn new(path_node_id: ObjectId) -> Self {
+    pub fn new(path_node_id: AssetId) -> Self {
         ObjectLocation { path_node_id }
     }
 
     pub fn null() -> ObjectLocation {
         ObjectLocation {
-            path_node_id: ObjectId::null(),
+            path_node_id: AssetId::null(),
         }
     }
 
-    pub fn path_node_id(&self) -> ObjectId {
+    pub fn path_node_id(&self) -> AssetId {
         self.path_node_id
     }
 
@@ -155,7 +155,7 @@ impl ImportInfo {
 
 #[derive(Clone, Debug, Default)]
 pub struct BuildInfo {
-    pub file_reference_overrides: HashMap<PathBuf, ObjectId>,
+    pub file_reference_overrides: HashMap<PathBuf, AssetId>,
 }
 
 #[derive(Clone, Debug)]
@@ -171,7 +171,7 @@ pub struct DataObjectInfo {
     pub(super) import_info: Option<ImportInfo>,
     pub(super) build_info: BuildInfo,
 
-    pub(super) prototype: Option<ObjectId>,
+    pub(super) prototype: Option<AssetId>,
     pub(super) properties: HashMap<String, Value>,
     pub(super) property_null_overrides: HashMap<String, NullOverride>,
     pub(super) properties_in_replace_mode: HashSet<String>,
@@ -203,7 +203,7 @@ impl DataObjectInfo {
         &self.build_info
     }
 
-    pub fn prototype(&self) -> Option<ObjectId> {
+    pub fn prototype(&self) -> Option<AssetId> {
         self.prototype
     }
 
@@ -226,23 +226,23 @@ impl DataObjectInfo {
 
 #[derive(Default)]
 pub struct DataSet {
-    objects: HashMap<ObjectId, DataObjectInfo>,
+    objects: HashMap<AssetId, DataObjectInfo>,
 }
 
 impl DataSet {
-    pub fn all_objects<'a>(&'a self) -> HashMapKeys<'a, ObjectId, DataObjectInfo> {
+    pub fn all_objects<'a>(&'a self) -> HashMapKeys<'a, AssetId, DataObjectInfo> {
         self.objects.keys()
     }
 
-    pub fn objects(&self) -> &HashMap<ObjectId, DataObjectInfo> {
+    pub fn objects(&self) -> &HashMap<AssetId, DataObjectInfo> {
         &self.objects
     }
 
-    pub fn take_objects(self) -> HashMap<ObjectId, DataObjectInfo> {
+    pub fn take_objects(self) -> HashMap<AssetId, DataObjectInfo> {
         self.objects
     }
 
-    pub(super) fn objects_mut(&mut self) -> &mut HashMap<ObjectId, DataObjectInfo> {
+    pub(super) fn objects_mut(&mut self) -> &mut HashMap<AssetId, DataObjectInfo> {
         &mut self.objects
     }
 
@@ -258,7 +258,7 @@ impl DataSet {
 
     fn insert_object(
         &mut self,
-        id: ObjectId,
+        id: AssetId,
         obj_info: DataObjectInfo,
     ) -> DataSetResult<()> {
         if self.objects.contains_key(&id) {
@@ -273,13 +273,13 @@ impl DataSet {
 
     pub fn restore_object(
         &mut self,
-        object_id: ObjectId,
+        object_id: AssetId,
         object_name: ObjectName,
         object_location: ObjectLocation,
         import_info: Option<ImportInfo>,
         build_info: BuildInfo,
         schema_set: &SchemaSet,
-        prototype: Option<ObjectId>,
+        prototype: Option<AssetId>,
         schema: SchemaFingerprint,
         properties: HashMap<String, Value>,
         property_null_overrides: HashMap<String, NullOverride>,
@@ -306,7 +306,7 @@ impl DataSet {
 
     pub fn new_object_with_id(
         &mut self,
-        object_id: ObjectId,
+        object_id: AssetId,
         object_name: ObjectName,
         object_location: ObjectLocation,
         schema: &SchemaRecord,
@@ -332,8 +332,8 @@ impl DataSet {
         object_name: ObjectName,
         object_location: ObjectLocation,
         schema: &SchemaRecord,
-    ) -> ObjectId {
-        let id = ObjectId(uuid::Uuid::new_v4().as_u128());
+    ) -> AssetId {
+        let id = AssetId::from_uuid(Uuid::new_v4());
         self.new_object_with_id(id, object_name, object_location, schema)
             .unwrap();
         id
@@ -343,9 +343,9 @@ impl DataSet {
         &mut self,
         object_name: ObjectName,
         object_location: ObjectLocation,
-        prototype: ObjectId,
-    ) -> ObjectId {
-        let id = ObjectId(uuid::Uuid::new_v4().as_u128());
+        prototype: AssetId,
+    ) -> AssetId {
+        let id = AssetId::from_uuid(Uuid::new_v4());
         let prototype_info = self.objects.get(&prototype).unwrap();
         let obj = DataObjectInfo {
             schema: prototype_info.schema.clone(),
@@ -367,7 +367,7 @@ impl DataSet {
     // Populate an empty object with data from a SingleObject
     pub fn copy_from_single_object(
         &mut self,
-        object_id: ObjectId,
+        object_id: AssetId,
         single_object: &SingleObject,
     ) -> DataSetResult<()> {
         let object = self.objects.get_mut(&object_id).unwrap();
@@ -405,7 +405,7 @@ impl DataSet {
 
     pub fn delete_object(
         &mut self,
-        object_id: ObjectId,
+        object_id: AssetId,
     ) {
         //TODO: Kill subobjects too
         //TODO: Write tombstone?
@@ -414,7 +414,7 @@ impl DataSet {
 
     pub fn set_object_location(
         &mut self,
-        object_id: ObjectId,
+        object_id: AssetId,
         new_location: ObjectLocation,
     ) {
         self.objects.get_mut(&object_id).unwrap().object_location = new_location;
@@ -422,7 +422,7 @@ impl DataSet {
 
     pub fn set_import_info(
         &mut self,
-        object_id: ObjectId,
+        object_id: AssetId,
         import_info: ImportInfo,
     ) {
         self.objects.get_mut(&object_id).unwrap().import_info = Some(import_info);
@@ -431,7 +431,7 @@ impl DataSet {
     pub fn copy_from(
         &mut self,
         other: &DataSet,
-        object_id: ObjectId,
+        object_id: AssetId,
     ) {
         let object = other.objects.get(&object_id).cloned().unwrap();
         self.objects.insert(object_id, object);
@@ -439,7 +439,7 @@ impl DataSet {
 
     pub fn object_name(
         &self,
-        object_id: ObjectId,
+        object_id: AssetId,
     ) -> &ObjectName {
         let object = self.objects.get(&object_id).unwrap();
         &object.object_name
@@ -447,7 +447,7 @@ impl DataSet {
 
     pub fn set_object_name(
         &mut self,
-        object_id: ObjectId,
+        object_id: AssetId,
         object_name: ObjectName,
     ) {
         self.objects.get_mut(&object_id).unwrap().object_name = object_name;
@@ -456,7 +456,7 @@ impl DataSet {
     // Returns the object's parent
     pub fn object_location(
         &self,
-        object_id: ObjectId,
+        object_id: AssetId,
     ) -> Option<&ObjectLocation> {
         self.objects.get(&object_id).map(|x| &x.object_location)
     }
@@ -465,7 +465,7 @@ impl DataSet {
     // detected or any elements in the chain are not found, an empty list is returned.
     pub fn object_location_chain(
         &self,
-        object_id: ObjectId,
+        object_id: AssetId,
     ) -> Vec<ObjectLocation> {
         let mut object_location_chain = Vec::default();
 
@@ -497,7 +497,7 @@ impl DataSet {
 
     pub fn import_info(
         &self,
-        object_id: ObjectId,
+        object_id: AssetId,
     ) -> Option<&ImportInfo> {
         self.objects
             .get(&object_id)
@@ -514,8 +514,8 @@ impl DataSet {
 
     fn do_resolve_all_file_references(
         &self,
-        object_id: ObjectId,
-        all_references: &mut HashMap<PathBuf, ObjectId>,
+        object_id: AssetId,
+        all_references: &mut HashMap<PathBuf, AssetId>,
     ) -> bool {
         let object = self.objects.get(&object_id);
         if let Some(object) = object {
@@ -537,8 +537,8 @@ impl DataSet {
 
     pub fn resolve_all_file_references(
         &self,
-        object_id: ObjectId,
-    ) -> Option<HashMap<PathBuf, ObjectId>> {
+        object_id: AssetId,
+    ) -> Option<HashMap<PathBuf, AssetId>> {
         let mut all_references = HashMap::default();
         if self.do_resolve_all_file_references(object_id, &mut all_references) {
             Some(all_references)
@@ -549,8 +549,8 @@ impl DataSet {
 
     pub fn get_all_file_reference_overrides(
         &mut self,
-        object_id: ObjectId,
-    ) -> Option<&HashMap<PathBuf, ObjectId>> {
+        object_id: AssetId,
+    ) -> Option<&HashMap<PathBuf, AssetId>> {
         self.objects
             .get(&object_id)
             .map(|x| &x.build_info.file_reference_overrides)
@@ -558,9 +558,9 @@ impl DataSet {
 
     pub fn set_file_reference_override(
         &mut self,
-        object_id: ObjectId,
+        object_id: AssetId,
         path: PathBuf,
-        referenced_object_id: ObjectId,
+        referenced_object_id: AssetId,
     ) {
         self.objects.get_mut(&object_id).map(|x| {
             x.build_info
@@ -585,22 +585,22 @@ impl DataSet {
 
     pub fn object_prototype(
         &self,
-        object_id: ObjectId,
-    ) -> Option<ObjectId> {
+        object_id: AssetId,
+    ) -> Option<AssetId> {
         let object = self.objects.get(&object_id).unwrap();
         object.prototype
     }
 
     pub fn object_schema(
         &self,
-        object_id: ObjectId,
+        object_id: AssetId,
     ) -> Option<&SchemaRecord> {
         self.objects.get(&object_id).map(|x| &x.schema)
     }
 
     pub fn hash_properties(
         &self,
-        object_id: ObjectId,
+        object_id: AssetId,
     ) -> Option<u64> {
         let object = self.objects.get(&object_id)?;
         let schema = &object.schema;
@@ -671,7 +671,7 @@ impl DataSet {
     pub fn get_null_override(
         &self,
         schema_set: &SchemaSet,
-        object_id: ObjectId,
+        object_id: AssetId,
         path: impl AsRef<str>,
     ) -> Option<NullOverride> {
         let object = self.objects.get(&object_id).unwrap();
@@ -690,7 +690,7 @@ impl DataSet {
     pub fn set_null_override(
         &mut self,
         schema_set: &SchemaSet,
-        object_id: ObjectId,
+        object_id: AssetId,
         path: impl AsRef<str>,
         null_override: NullOverride,
     ) {
@@ -710,7 +710,7 @@ impl DataSet {
     pub fn remove_null_override(
         &mut self,
         schema_set: &SchemaSet,
-        object_id: ObjectId,
+        object_id: AssetId,
         path: impl AsRef<str>,
     ) {
         let object = self.objects.get_mut(&object_id).unwrap();
@@ -729,7 +729,7 @@ impl DataSet {
     pub fn resolve_is_null(
         &self,
         schema_set: &SchemaSet,
-        object_id: ObjectId,
+        object_id: AssetId,
         path: impl AsRef<str>,
     ) -> Option<bool> {
         let object_schema = self.object_schema(object_id).unwrap();
@@ -791,7 +791,7 @@ impl DataSet {
 
     pub fn has_property_override(
         &self,
-        object_id: ObjectId,
+        object_id: AssetId,
         path: impl AsRef<str>,
     ) -> bool {
         self.get_property_override(object_id, path).is_some()
@@ -801,7 +801,7 @@ impl DataSet {
     // Returning none means it is not overridden
     pub fn get_property_override(
         &self,
-        object_id: ObjectId,
+        object_id: AssetId,
         path: impl AsRef<str>,
     ) -> Option<&Value> {
         let object = self.objects.get(&object_id).unwrap();
@@ -812,7 +812,7 @@ impl DataSet {
     pub fn set_property_override(
         &mut self,
         schema_set: &SchemaSet,
-        object_id: ObjectId,
+        object_id: AssetId,
         path: impl AsRef<str>,
         value: Value,
     ) -> DataSetResult<()> {
@@ -872,7 +872,7 @@ impl DataSet {
 
     pub fn remove_property_override(
         &mut self,
-        object_id: ObjectId,
+        object_id: AssetId,
         path: impl AsRef<str>,
     ) -> Option<Value> {
         let object = self.objects.get_mut(&object_id).unwrap();
@@ -882,7 +882,7 @@ impl DataSet {
     pub fn apply_property_override_to_prototype(
         &mut self,
         schema_set: &SchemaSet,
-        object_id: ObjectId,
+        object_id: AssetId,
         path: impl AsRef<str>,
     ) -> DataSetResult<()> {
         let object = self.objects.get(&object_id).unwrap();
@@ -906,7 +906,7 @@ impl DataSet {
     pub fn resolve_property<'a>(
         &'a self,
         schema_set: &'a SchemaSet,
-        object_id: ObjectId,
+        object_id: AssetId,
         path: impl AsRef<str>,
     ) -> Option<&'a Value> {
         let object_schema = self.object_schema(object_id).unwrap();
@@ -964,7 +964,7 @@ impl DataSet {
     pub fn get_dynamic_array_overrides(
         &self,
         schema_set: &SchemaSet,
-        object_id: ObjectId,
+        object_id: AssetId,
         path: impl AsRef<str>,
     ) -> Option<std::slice::Iter<Uuid>> {
         let object = self.objects.get(&object_id).unwrap();
@@ -988,7 +988,7 @@ impl DataSet {
     pub fn add_dynamic_array_override(
         &mut self,
         schema_set: &SchemaSet,
-        object_id: ObjectId,
+        object_id: AssetId,
         path: impl AsRef<str>,
     ) -> Uuid {
         let object = self.objects.get_mut(&object_id).unwrap();
@@ -1016,7 +1016,7 @@ impl DataSet {
     pub fn remove_dynamic_array_override(
         &mut self,
         schema_set: &SchemaSet,
-        object_id: ObjectId,
+        object_id: AssetId,
         path: impl AsRef<str>,
         element_id: Uuid,
     ) {
@@ -1039,7 +1039,7 @@ impl DataSet {
 
     pub fn do_resolve_dynamic_array(
         &self,
-        object_id: ObjectId,
+        object_id: AssetId,
         path: &str,
         nullable_ancestors: &Vec<String>,
         dynamic_array_ancestors: &Vec<String>,
@@ -1094,7 +1094,7 @@ impl DataSet {
     pub fn resolve_dynamic_array(
         &self,
         schema_set: &SchemaSet,
-        object_id: ObjectId,
+        object_id: AssetId,
         path: impl AsRef<str>,
     ) -> Box<[Uuid]> {
         let object_schema = self.object_schema(object_id).unwrap();
@@ -1150,7 +1150,7 @@ impl DataSet {
     pub fn get_override_behavior(
         &self,
         schema_set: &SchemaSet,
-        object_id: ObjectId,
+        object_id: AssetId,
         path: impl AsRef<str>,
     ) -> OverrideBehavior {
         let object = self.objects.get(&object_id).unwrap();
@@ -1174,7 +1174,7 @@ impl DataSet {
     pub fn set_override_behavior(
         &mut self,
         schema_set: &SchemaSet,
-        object_id: ObjectId,
+        object_id: AssetId,
         path: impl AsRef<str>,
         behavior: OverrideBehavior,
     ) {

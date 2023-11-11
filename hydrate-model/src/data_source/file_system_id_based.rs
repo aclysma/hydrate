@@ -1,6 +1,6 @@
 use crate::edit_context::EditContext;
 use crate::import_util::ImportToQueue;
-use crate::{DataSource, HashSet, ObjectId, ObjectSourceId, PathNodeRoot};
+use crate::{DataSource, HashSet, AssetId, ObjectSourceId, PathNodeRoot};
 use hydrate_base::uuid_path::{path_to_uuid, uuid_to_path};
 use hydrate_data::ObjectLocation;
 use hydrate_schema::SchemaNamedType;
@@ -11,7 +11,7 @@ fn load_asset_files(
     edit_context: &mut EditContext,
     root_path: &Path,
     object_source_id: ObjectSourceId,
-    all_object_ids_on_disk: &mut HashSet<ObjectId>,
+    all_object_ids_on_disk: &mut HashSet<AssetId>,
 ) {
     let walker = globwalk::GlobWalkerBuilder::from_patterns(root_path, &["**.af"])
         .file_type(globwalk::FileType::FILE)
@@ -30,7 +30,7 @@ fn load_asset_files(
                 None,
                 &contents,
             );
-            let object_id = ObjectId(file_uuid.as_u128());
+            let object_id = AssetId::from_uuid(file_uuid);
             let object_location = edit_context
                 .objects()
                 .get(&object_id)
@@ -50,7 +50,7 @@ pub struct FileSystemIdBasedDataSource {
 
     // Any object ID we know to exist on disk is in this list to help us quickly determine which
     // deleted IDs need to be cleaned up
-    all_object_ids_on_disk: HashSet<ObjectId>,
+    all_object_ids_on_disk: HashSet<AssetId>,
 
     path_node_root_schema: SchemaNamedType,
 }
@@ -59,7 +59,7 @@ impl FileSystemIdBasedDataSource {
     fn is_object_owned_by_this_data_source(
         &self,
         edit_context: &EditContext,
-        object_id: ObjectId,
+        object_id: AssetId,
     ) -> bool {
         if edit_context.object_schema(object_id).unwrap().fingerprint()
             == self.path_node_root_schema.fingerprint()
@@ -109,7 +109,7 @@ impl FileSystemIdBasedDataSource {
     fn find_all_modified_objects(
         &self,
         edit_context: &EditContext,
-    ) -> HashSet<ObjectId> {
+    ) -> HashSet<AssetId> {
         // We need to handle objects that were moved into this data source that weren't previous in it
         let mut modified_objects = edit_context.modified_objects().clone();
 
@@ -128,7 +128,7 @@ impl FileSystemIdBasedDataSource {
 impl DataSource for FileSystemIdBasedDataSource {
     fn is_generated_asset(
         &self,
-        _object_id: ObjectId,
+        _object_id: AssetId,
     ) -> bool {
         // this data source does not contain source files so can't have generated assets
         false
@@ -141,7 +141,7 @@ impl DataSource for FileSystemIdBasedDataSource {
     fn persist_generated_asset(
         &mut self,
         _edit_context: &mut EditContext,
-        _object_id: ObjectId,
+        _object_id: AssetId,
     ) {
         // this data source does not contain source files so can't have generated assets
     }

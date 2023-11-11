@@ -5,7 +5,7 @@ use crate::ui::asset_browser_grid_drag_drop::{
 };
 use crate::ui_state::{ActiveToolRegion, UiState};
 use crate::QueuedActions;
-use hydrate_model::{LocationTreeNode, ObjectId, ObjectLocation};
+use hydrate_model::{LocationTreeNode, AssetId, ObjectLocation};
 use imgui::sys::ImVec2;
 use imgui::{im_str, ImStr, ImString, TreeNodeFlags};
 use imgui::{sys as is, StyleColor};
@@ -68,9 +68,9 @@ fn try_select_tree_node(
 fn try_select_grid_item(
     ui: &imgui::Ui,
     ui_state: &mut UiState,
-    items: &[(ObjectId, ObjectLocation)],
+    items: &[(AssetId, ObjectLocation)],
     _index: usize,
-    id: ObjectId,
+    id: AssetId,
 ) {
     let grid_state = &mut ui_state.asset_browser_state.grid_state;
 
@@ -362,7 +362,7 @@ pub fn assets_window_left(
 pub fn draw_asset(
     ui: &imgui::Ui,
     app_state: &mut AppState,
-    items: &[(ObjectId, ObjectLocation)],
+    items: &[(AssetId, ObjectLocation)],
     //name: &ImStr,
     index: usize,
     item_size: u32,

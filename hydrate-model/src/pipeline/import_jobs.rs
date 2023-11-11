@@ -1,4 +1,4 @@
-use crate::{EditorModel, HashMap, ImporterId, ObjectId, SchemaSet, SingleObject};
+use crate::{EditorModel, HashMap, ImporterId, AssetId, SchemaSet, SingleObject};
 use hydrate_base::hashing::HashSet;
 use std::hash::{Hash, Hasher};
 use std::path::{Path, PathBuf};
@@ -28,10 +28,10 @@ pub struct ImportData {
 
 // An in-flight import operation we want to perform
 struct ImportOp {
-    object_ids: HashMap<Option<String>, ObjectId>,
+    object_ids: HashMap<Option<String>, AssetId>,
     importer_id: ImporterId,
     path: PathBuf,
-    assets_to_regenerate: HashSet<ObjectId>,
+    assets_to_regenerate: HashSet<AssetId>,
     //pub(crate) import_info: ImportInfo,
 }
 
@@ -63,7 +63,7 @@ impl ImportJob {
 pub struct ImportJobs {
     //import_editor_model: EditorModel
     root_path: PathBuf,
-    import_jobs: HashMap<ObjectId, ImportJob>,
+    import_jobs: HashMap<AssetId, ImportJob>,
     import_operations: Vec<ImportOp>,
 }
 
@@ -84,10 +84,10 @@ impl ImportJobs {
 
     pub fn queue_import_operation(
         &mut self,
-        object_ids: HashMap<Option<String>, ObjectId>,
+        object_ids: HashMap<Option<String>, AssetId>,
         importer_id: ImporterId,
         path: PathBuf,
-        assets_to_regenerate: HashSet<ObjectId>,
+        assets_to_regenerate: HashSet<AssetId>,
     ) {
         self.import_operations.push(ImportOp {
             object_ids,
@@ -100,7 +100,7 @@ impl ImportJobs {
 
     pub fn load_import_data_hash(
         &self,
-        object_id: ObjectId,
+        object_id: AssetId,
     ) -> ImportDataMetadataHash {
         let path = uuid_to_path(&self.root_path, object_id.as_uuid(), "if");
         //println!("LOAD DATA HASH PATH {:?}", path);
@@ -112,7 +112,7 @@ impl ImportJobs {
     pub fn load_import_data(
         &self,
         schema_set: &SchemaSet,
-        object_id: ObjectId,
+        object_id: AssetId,
     ) -> ImportData {
         let path = uuid_to_path(&self.root_path, object_id.as_uuid(), "if");
         println!("LOAD DATA PATH {:?}", path);
@@ -129,7 +129,7 @@ impl ImportJobs {
 
     // We do a clone because we want to allow background processing of this data and detecting if
     // import data changed at end of the build - which would invalidate it
-    pub fn clone_import_data_metadata_hashes(&self) -> HashMap<ObjectId, u64> {
+    pub fn clone_import_data_metadata_hashes(&self) -> HashMap<AssetId, u64> {
         let mut metadata_hashes = HashMap::default();
         for (k, v) in &self.import_jobs {
             if let Some(imported_data_hash) = v.imported_data_hash {
@@ -258,8 +258,8 @@ impl ImportJobs {
         importer_registry: &ImporterRegistry,
         editor_model: &EditorModel,
         root_path: &Path,
-    ) -> HashMap<ObjectId, ImportJob> {
-        let mut import_jobs = HashMap::<ObjectId, ImportJob>::default();
+    ) -> HashMap<AssetId, ImportJob> {
+        let mut import_jobs = HashMap::<AssetId, ImportJob>::default();
 
         //
         // Scan import dir for known import data
@@ -273,7 +273,7 @@ impl ImportJobs {
             if let Ok(file) = file {
                 //println!("import file {:?}", file);
                 let import_file_uuid = path_to_uuid(root_path, file.path()).unwrap();
-                let object_id = ObjectId(import_file_uuid.as_u128());
+                let object_id = AssetId::from_uuid(import_file_uuid);
                 let job = import_jobs
                     .entry(object_id)
                     .or_insert_with(|| ImportJob::new());

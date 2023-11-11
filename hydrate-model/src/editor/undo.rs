@@ -3,7 +3,7 @@ use std::sync::mpsc;
 use std::sync::mpsc::{Receiver, Sender};
 
 use crate::edit_context::EditContext;
-use crate::{DataSet, DataSetDiffSet, EditContextKey, HashSet, ObjectId, ObjectLocation};
+use crate::{DataSet, DataSetDiffSet, EditContextKey, HashSet, AssetId, ObjectLocation};
 
 //TODO: Delete unused property data when path ancestor is null or in replace mode
 
@@ -119,7 +119,7 @@ impl UndoStack {
 pub struct UndoContext {
     edit_context_key: EditContextKey,
     before_state: DataSet,
-    tracked_objects: HashSet<ObjectId>,
+    tracked_objects: HashSet<AssetId>,
     context_name: Option<&'static str>,
     completed_undo_context_tx: Sender<CompletedUndoContextMessage>,
 }
@@ -141,7 +141,7 @@ impl UndoContext {
     // Call after adding a new object
     pub(crate) fn track_new_object(
         &mut self,
-        object_id: ObjectId,
+        object_id: AssetId,
     ) {
         if self.context_name.is_some() {
             self.tracked_objects.insert(object_id);
@@ -152,7 +152,7 @@ impl UndoContext {
     pub(crate) fn track_existing_object(
         &mut self,
         after_state: &DataSet,
-        object_id: ObjectId,
+        object_id: AssetId,
     ) {
         if self.context_name.is_some() {
             //TODO: Preserve sub-objects?
@@ -172,7 +172,7 @@ impl UndoContext {
         &mut self,
         after_state: &DataSet,
         name: &'static str,
-        modified_objects: &mut HashSet<ObjectId>,
+        modified_objects: &mut HashSet<AssetId>,
         modified_locations: &mut HashSet<ObjectLocation>,
     ) {
         if self.context_name == Some(name) {
@@ -192,7 +192,7 @@ impl UndoContext {
         &mut self,
         after_state: &DataSet,
         end_context_behavior: EndContextBehavior,
-        modified_objects: &mut HashSet<ObjectId>,
+        modified_objects: &mut HashSet<AssetId>,
         modified_locations: &mut HashSet<ObjectLocation>,
     ) {
         if end_context_behavior != EndContextBehavior::AllowResume {
@@ -237,7 +237,7 @@ impl UndoContext {
     pub(crate) fn commit_context(
         &mut self,
         after_state: &DataSet,
-        modified_objects: &mut HashSet<ObjectId>,
+        modified_objects: &mut HashSet<AssetId>,
         modified_locations: &mut HashSet<ObjectLocation>,
     ) {
         if !self.tracked_objects.is_empty() {

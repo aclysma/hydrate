@@ -26,7 +26,7 @@ use hydrate_base::hashing::HashSet;
 pub mod import_util;
 
 use crate::{
-    EditorModel, HashMap, ImporterId, ObjectId, SchemaFingerprint, SchemaLinker, SchemaSet,
+    EditorModel, HashMap, ImporterId, AssetId, SchemaFingerprint, SchemaLinker, SchemaSet,
 };
 
 pub trait AssetPlugin {
@@ -224,10 +224,10 @@ impl AssetEngine {
 
     pub fn queue_import_operation(
         &mut self,
-        object_ids: HashMap<Option<String>, ObjectId>,
+        object_ids: HashMap<Option<String>, AssetId>,
         importer_id: ImporterId,
         path: PathBuf,
-        assets_to_regenerate: HashSet<ObjectId>,
+        assets_to_regenerate: HashSet<AssetId>,
     ) {
         self.import_jobs.queue_import_operation(
             object_ids,
@@ -239,7 +239,7 @@ impl AssetEngine {
 
     pub fn queue_build_operation(
         &mut self,
-        object_id: ObjectId,
+        object_id: AssetId,
     ) {
         self.build_jobs.queue_build_operation(object_id);
     }

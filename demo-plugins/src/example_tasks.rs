@@ -1,5 +1,5 @@
 use hydrate_base::hashing::HashMap;
-use hydrate_base::ObjectId;
+use hydrate_base::AssetId;
 use hydrate_data::{DataSet, SchemaSet, SingleObject};
 use hydrate_model::pipeline::job_system;
 use hydrate_model::pipeline::job_system::*;
@@ -13,7 +13,7 @@ use type_uuid::TypeUuid;
 #[derive(Hash, Serialize, Deserialize, TypeUuid)]
 #[uuid = "512f3024-95a8-4b2e-8b4a-cb1111bac30b"]
 pub struct ExampleBuildJobTopLevelInput {
-    pub asset_id: ObjectId,
+    pub asset_id: AssetId,
 }
 impl JobInput for ExampleBuildJobTopLevelInput {}
 
@@ -50,7 +50,7 @@ impl JobProcessor for ExampleBuildJobTopLevel {
         input: &Self::InputT,
         data_set: &DataSet,
         schema_set: &SchemaSet,
-        _dependency_data: &HashMap<ObjectId, SingleObject>,
+        _dependency_data: &HashMap<AssetId, SingleObject>,
         job_api: &dyn JobApi,
     ) -> Self::OutputT {
         let task_id1 = job_system::enqueue_job::<ExampleBuildJobScatter>(
@@ -102,7 +102,7 @@ impl JobProcessor for ExampleBuildJobTopLevel {
 #[derive(Hash, Serialize, Deserialize, TypeUuid)]
 #[uuid = "122248a9-9350-4ad7-8ef9-ac3795c08511"]
 pub struct ExampleBuildJobScatterInput {
-    pub asset_id: ObjectId,
+    pub asset_id: AssetId,
     pub some_other_parameter: String,
 }
 impl JobInput for ExampleBuildJobScatterInput {}
@@ -138,7 +138,7 @@ impl JobProcessor for ExampleBuildJobScatter {
         _input: &Self::InputT,
         _data_set: &DataSet,
         _schema_set: &SchemaSet,
-        _dependency_data: &HashMap<ObjectId, SingleObject>,
+        _dependency_data: &HashMap<AssetId, SingleObject>,
         _job_api: &dyn JobApi,
     ) -> Self::OutputT {
         //Do stuff
@@ -155,7 +155,7 @@ impl JobProcessor for ExampleBuildJobScatter {
 #[derive(Hash, Serialize, Deserialize, TypeUuid)]
 #[uuid = "f9b45d02-93ba-44df-8252-555f8e01d0b7"]
 pub struct ExampleBuildJobGatherInput {
-    pub asset_id: ObjectId,
+    pub asset_id: AssetId,
     pub scatter_tasks: Vec<JobId>,
 }
 impl JobInput for ExampleBuildJobGatherInput {}
@@ -193,7 +193,7 @@ impl JobProcessor for ExampleBuildJobGather {
         _input: &Self::InputT,
         _data_set: &DataSet,
         _schema_set: &SchemaSet,
-        _dependency_data: &HashMap<ObjectId, SingleObject>,
+        _dependency_data: &HashMap<AssetId, SingleObject>,
         _job_api: &dyn JobApi,
     ) -> Self::OutputT {
         // Now use inputs from other jobs to produce an output

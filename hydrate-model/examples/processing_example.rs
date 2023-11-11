@@ -1,6 +1,6 @@
 use hydrate_model::edit_context::EditContext;
 use hydrate_model::{
-    BufferId, DataObjectInfo, DataSet, EditorModel, HashMap, ObjectId, ObjectLocation, ObjectPath,
+    AssetId, BufferId, DataObjectInfo, DataSet, EditorModel, HashMap, ObjectLocation, ObjectPath,
     SchemaLinker, SchemaSet, Value,
 };
 use std::path::{Path, PathBuf};
@@ -187,7 +187,7 @@ impl ImageAsset {
     pub fn read_from_dataset(
         &mut self,
         edit_context: &EditContext,
-        object_id: ObjectId,
+        object_id: AssetId,
     ) {
         self.path = edit_context
             .resolve_property(object_id, "path")
@@ -205,7 +205,7 @@ impl ImageAsset {
     pub fn write_to_dataset(
         &self,
         edit_context: &mut EditContext,
-        object_id: ObjectId,
+        object_id: AssetId,
     ) {
         edit_context.set_property_override(object_id, "path", Value::String(self.path.clone()));
         edit_context.set_property_override(object_id, "compress", Value::Boolean(self.compress));

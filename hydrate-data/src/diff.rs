@@ -1,6 +1,6 @@
 use crate::value::PropertyValue;
 use crate::{
-    DataObjectInfo, DataSet, HashSet, NullOverride, ObjectId, ObjectLocation, ObjectName,
+    DataObjectInfo, DataSet, HashSet, NullOverride, AssetId, ObjectLocation, ObjectName,
     SchemaSet, Value,
 };
 use std::path::PathBuf;
@@ -17,7 +17,7 @@ pub struct DynamicArrayEntryDelta {
 pub struct ObjectDiff {
     set_name: Option<ObjectName>,
     set_location: Option<ObjectLocation>,
-    set_prototype: Option<Option<ObjectId>>,
+    set_prototype: Option<Option<AssetId>>,
     set_properties: Vec<(String, PropertyValue)>,
     remove_properties: Vec<String>,
     set_null_overrides: Vec<(String, NullOverride)>,
@@ -25,7 +25,7 @@ pub struct ObjectDiff {
     add_properties_in_replace_mode: Vec<String>,
     remove_properties_in_replace_mode: Vec<String>,
     dynamic_array_entry_deltas: Vec<DynamicArrayEntryDelta>,
-    set_file_references: Vec<(PathBuf, ObjectId)>,
+    set_file_references: Vec<(PathBuf, AssetId)>,
     remove_file_references: Vec<PathBuf>,
 }
 
@@ -150,9 +150,9 @@ impl ObjectDiffSet {
 
     pub fn diff_objects(
         before_data_set: &DataSet,
-        before_object_id: ObjectId,
+        before_object_id: AssetId,
         after_data_set: &DataSet,
-        after_object_id: ObjectId,
+        after_object_id: AssetId,
         modified_locations: &mut HashSet<ObjectLocation>,
     ) -> Self {
         let before_obj = before_data_set.objects().get(&before_object_id).unwrap();
@@ -430,9 +430,9 @@ impl ObjectDiffSet {
 
 #[derive(Default, Debug)]
 pub struct DataSetDiff {
-    creates: Vec<(ObjectId, DataObjectInfo)>,
-    deletes: Vec<ObjectId>,
-    changes: Vec<(ObjectId, ObjectDiff)>,
+    creates: Vec<(AssetId, DataObjectInfo)>,
+    deletes: Vec<AssetId>,
+    changes: Vec<(AssetId, ObjectDiff)>,
 }
 
 impl DataSetDiff {
@@ -475,7 +475,7 @@ impl DataSetDiff {
 
     pub fn get_modified_objects(
         &self,
-        modified_objects: &mut HashSet<ObjectId>,
+        modified_objects: &mut HashSet<AssetId>,
     ) {
         for (id, _) in &self.creates {
             modified_objects.insert(*id);
@@ -495,7 +495,7 @@ impl DataSetDiff {
 pub struct DataSetDiffSet {
     pub apply_diff: DataSetDiff,
     pub revert_diff: DataSetDiff,
-    pub modified_objects: HashSet<ObjectId>,
+    pub modified_objects: HashSet<AssetId>,
     pub modified_locations: HashSet<ObjectLocation>,
 }
 
@@ -508,11 +508,11 @@ impl DataSetDiffSet {
     pub fn diff_data_set(
         before: &DataSet,
         after: &DataSet,
-        tracked_objects: &HashSet<ObjectId>,
+        tracked_objects: &HashSet<AssetId>,
     ) -> Self {
         let mut apply_diff = DataSetDiff::default();
         let mut revert_diff = DataSetDiff::default();
-        let mut modified_objects: HashSet<ObjectId> = Default::default();
+        let mut modified_objects: HashSet<AssetId> = Default::default();
         let mut modified_locations: HashSet<ObjectLocation> = Default::default();
 
         // Check for created objects

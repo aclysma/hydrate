@@ -4,7 +4,7 @@ use hydrate_model::pipeline::{
 use hydrate_model::{
     job_system, DataContainer, DataSet, HashMap,
     JobApi, JobEnumeratedDependencies, JobInput, JobOutput, JobProcessor,
-    ObjectId, SchemaSet, SingleObject,
+    AssetId, SchemaSet, SingleObject,
 };
 use serde::{Deserialize, Serialize};
 use std::marker::PhantomData;
@@ -14,7 +14,7 @@ use super::SimpleData;
 
 #[derive(Hash, Serialize, Deserialize)]
 pub struct SimpleBincodeDataJobInput {
-    pub asset_id: ObjectId,
+    pub asset_id: AssetId,
 }
 impl JobInput for SimpleBincodeDataJobInput {}
 
@@ -64,7 +64,7 @@ impl<T: SimpleData + Sized + Serialize + for<'a> Deserialize<'a> + TypeUuid> Job
         input: &SimpleBincodeDataJobInput,
         data_set: &DataSet,
         schema_set: &SchemaSet,
-        _dependency_data: &HashMap<ObjectId, SingleObject>,
+        _dependency_data: &HashMap<AssetId, SingleObject>,
         job_api: &dyn JobApi,
     ) -> SimpleBincodeDataJobOutput {
         let mut data_set_view = DataContainer::new_dataset(&data_set, schema_set, input.asset_id);
@@ -109,7 +109,7 @@ impl<T: SimpleData + Sized + Serialize + for<'a> Deserialize<'a> + TypeUuid> Bui
 
     fn start_jobs(
         &self,
-        asset_id: ObjectId,
+        asset_id: AssetId,
         data_set: &DataSet,
         schema_set: &SchemaSet,
         job_api: &dyn JobApi,

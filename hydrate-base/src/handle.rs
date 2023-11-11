@@ -15,8 +15,9 @@ use serde::{
     de::{self, Deserialize, Visitor},
     ser::{self, Serialize, Serializer},
 };
+use uuid::Uuid;
 
-use crate::{ArtifactId, AssetRef, AssetUuid};
+use crate::{ArtifactId, AssetRef, AssetId};
 
 /// Loading ID allocated by [`Loader`](crate::loader::Loader) to track loading of a particular asset
 /// or an indirect reference to an asset.
@@ -37,10 +38,10 @@ impl LoadHandle {
 
     /// Returns true if the handle needs to be resolved through the [`IndirectionTable`] before use.
     /// An "indirect" LoadHandle represents a load operation for an identifier that is late-bound,
-    /// meaning the identifier may change which [`AssetUuid`] it resolves to.
+    /// meaning the identifier may change which [`AssetId`] it resolves to.
     /// An example of an indirect LoadHandle would be one that loads by filesystem path.
     /// The specific asset at a path may change as files change, move or are deleted, while a direct
-    /// LoadHandle (one that addresses by AssetUuid) is guaranteed to refer to an AssetUuid for its
+    /// LoadHandle (one that addresses by AssetId) is guaranteed to refer to an AssetId for its
     /// whole lifetime.
     pub fn is_indirect(&self) -> bool {
         (self.0 & (1 << 63)) == 1 << 63
@@ -48,7 +49,7 @@ impl LoadHandle {
 }
 
 // Brought to hydrate_base from hydrate_loader because handle is in hydrate_base
-/// Provides information about mappings between `AssetUuid` and `LoadHandle`.
+/// Provides information about mappings between `AssetId` and `LoadHandle`.
 /// Intended to be used for `Handle` serde.
 pub trait LoaderInfoProvider: Send + Sync {
     /// Returns the load handle for the asset with the given UUID, if present.
@@ -63,7 +64,7 @@ pub trait LoaderInfoProvider: Send + Sync {
         asset_ref: &AssetRef,
     ) -> Option<LoadHandle>;
 
-    /// Returns the AssetUUID for the given LoadHandle, if present.
+    /// Returns the AssetId for the given LoadHandle, if present.
     ///
     /// # Parameters
     ///
@@ -71,7 +72,7 @@ pub trait LoaderInfoProvider: Send + Sync {
     fn asset_id(
         &self,
         load: LoadHandle,
-    ) -> Option<AssetUuid>;
+    ) -> Option<AssetId>;
 }
 
 /// Operations on an asset reference.
@@ -79,7 +80,7 @@ pub trait LoaderInfoProvider: Send + Sync {
 pub enum RefOp {
     Decrease(LoadHandle),
     Increase(LoadHandle),
-    IncreaseUuid(AssetUuid),
+    IncreaseUuid(AssetId),
 }
 
 // Moved up to hydrate_loader because it depends on Loader
@@ -407,7 +408,7 @@ impl SerdeContext {
     }
 }
 
-/// This context can be used to maintain AssetUuid references through a serialize/deserialize cycle
+/// This context can be used to maintain AssetId references through a serialize/deserialize cycle
 /// even if the LoadHandles produced are invalid. This is useful when a loader is not
 /// present, such as when processing in the Distill Daemon.
 pub struct DummySerdeContext {
@@ -424,7 +425,7 @@ struct DummySerdeContextMaps {
 
 struct DummySerdeContextCurrent {
     current_serde_dependencies: HashSet<AssetRef>,
-    current_serde_asset: Option<AssetUuid>,
+    current_serde_asset: Option<AssetId>,
 }
 
 impl DummySerdeContext {
@@ -469,14 +470,14 @@ impl LoaderInfoProvider for DummySerdeContext {
     fn asset_id(
         &self,
         load: LoadHandle,
-    ) -> Option<AssetUuid> {
+    ) -> Option<AssetId> {
         let maps = self.maps.read().unwrap();
         let maybe_asset = maps.load_to_uuid.get(&load).cloned();
         if let Some(asset_ref) = maybe_asset.as_ref() {
             let mut current = self.current.lock().unwrap();
             if let Some(ref current_serde_id) = current.current_serde_asset {
                 if AssetRef(*current_serde_id) != *asset_ref
-                    && *asset_ref != AssetRef(AssetUuid::default())
+                    && *asset_ref != AssetRef(AssetId::null())
                 {
                     current.current_serde_dependencies.insert(asset_ref.clone());
                 }
@@ -514,7 +515,7 @@ impl DummySerdeContextHandle {
     pub fn resolve_ref(
         &mut self,
         asset_ref: &AssetRef,
-        asset: AssetUuid,
+        asset: AssetId,
     ) {
         let new_ref = AssetRef(asset);
         let mut maps = self.dummy.maps.write().unwrap();
@@ -528,7 +529,7 @@ impl DummySerdeContextHandle {
     /// Begin gathering dependencies for an asset
     pub fn begin_serialize_asset(
         &mut self,
-        asset: AssetUuid,
+        asset: AssetId,
     ) {
         let mut current = self.dummy.current.lock().unwrap();
         if current.current_serde_asset.is_some() {
@@ -540,7 +541,7 @@ impl DummySerdeContextHandle {
     /// Finish gathering dependencies for an asset
     pub fn end_serialize_asset(
         &mut self,
-        _asset: AssetUuid,
+        _asset: AssetId,
     ) -> HashSet<AssetRef> {
         let mut current = self.dummy.current.lock().unwrap();
         if current.current_serde_asset.is_none() {
@@ -569,9 +570,9 @@ where
 {
     SerdeContext::with_active(|loader, _| {
         use ser::SerializeSeq;
-        let uuid: AssetUuid = loader.asset_id(load).unwrap_or_default();
-        let mut seq = serializer.serialize_seq(Some(uuid.0.len()))?;
-        for element in &uuid.0 {
+        let uuid_bytes: uuid::Bytes = *loader.asset_id(load).unwrap_or_default().as_uuid().as_bytes();
+        let mut seq = serializer.serialize_seq(Some(uuid_bytes.len()))?;
+        for element in &uuid_bytes {
             seq.serialize_element(element)?;
         }
         seq.end()
@@ -602,12 +603,12 @@ impl Serialize for GenericHandle {
 
 fn get_handle_ref(asset_ref: AssetRef) -> (LoadHandle, Sender<RefOp>) {
     SerdeContext::with_active(|loader, sender| {
-        let handle = if asset_ref == AssetRef(AssetUuid::default()) {
+        let handle = if asset_ref == AssetRef(AssetId::default()) {
             LoadHandle(0)
         } else {
             loader
                 .load_handle(&asset_ref)
-                .unwrap_or_else(|| panic!("Handle for AssetUuid {:?} was not present when deserializing a Handle. This indicates missing dependency metadata, and can be caused by dependency cycles.", asset_ref))
+                .unwrap_or_else(|| panic!("Handle for AssetId {:?} was not present when deserializing a Handle. This indicates missing dependency metadata, and can be caused by dependency cycles.", asset_ref))
         };
         (handle, sender.clone())
     })
@@ -689,7 +690,7 @@ impl<'de> Visitor<'de> for AssetRefVisitor {
                 "too many elements when deserializing handle",
             ));
         }
-        Ok(AssetRef(AssetUuid(uuid)))
+        Ok(AssetRef(AssetId::from_uuid(Uuid::from_bytes(uuid))))
     }
 
     fn visit_str<E>(
@@ -699,8 +700,8 @@ impl<'de> Visitor<'de> for AssetRefVisitor {
     where
         E: de::Error,
     {
-        if let Ok(uuid) = uuid::Uuid::parse_str(v) {
-            Ok(AssetRef(AssetUuid(*uuid.as_bytes())))
+        if let Ok(uuid) = Uuid::parse_str(v) {
+            Ok(AssetRef(AssetId::from_uuid(uuid)))
         } else {
             Err(E::custom(format!("failed to parse Handle string")))
         }
@@ -722,7 +723,7 @@ impl<'de> Visitor<'de> for AssetRefVisitor {
         } else {
             let mut a = <[u8; 16]>::default();
             a.copy_from_slice(v);
-            Ok(AssetRef(AssetUuid(a)))
+            Ok(AssetRef(AssetId::from_uuid(Uuid::from_bytes(a))))
         }
     }
 }
@@ -892,14 +893,14 @@ pub trait AssetHandle {
     fn load_handle(&self) -> LoadHandle;
 }
 
-pub fn make_handle<T>(uuid: AssetUuid) -> Handle<T> {
+pub fn make_handle<T>(uuid: AssetId) -> Handle<T> {
     SerdeContext::with_active(|loader_info_provider, ref_op_sender| {
         let load_handle = loader_info_provider.load_handle(&AssetRef(uuid)).unwrap();
         Handle::<T>::new(ref_op_sender.clone(), load_handle)
     })
 }
 
-// pub fn make_handle_to_asset<T>(uuid: AssetUuid) -> Handle<T> {
+// pub fn make_handle_to_asset<T>(uuid: AssetId) -> Handle<T> {
 //     SerdeContext::with_active(|loader_info_provider, ref_op_sender| {
 //         let load_handle = loader_info_provider
 //             .get_load_handle(&AssetRef(uuid))
@@ -910,7 +911,7 @@ pub fn make_handle<T>(uuid: AssetUuid) -> Handle<T> {
 
 // pub fn make_handle_from_str<T>(uuid_str: &str) -> Result<Handle<T>, uuid::Error> {
 //     use std::str::FromStr;
-//     Ok(make_handle(AssetUuid(
+//     Ok(make_handle(AssetId(
 //         *uuid::Uuid::from_str(uuid_str)?.as_bytes(),
 //     )))
 // }

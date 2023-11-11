@@ -1,6 +1,6 @@
 use crate::edit_context::EditContext;
 use crate::{
-    BuildInfo, HashMap, HashSet, ImportInfo, ImporterId, NullOverride, ObjectId, ObjectLocation,
+    BuildInfo, HashMap, HashSet, ImportInfo, ImporterId, NullOverride, AssetId, ObjectLocation,
     ObjectName, ObjectSourceId, Schema, SchemaFingerprint, SchemaNamedType, SchemaSet,
     SingleObject, Value,
 };
@@ -54,8 +54,8 @@ fn json_to_property_value_with_schema(
         Schema::StaticArray(_) => unimplemented!(),
         Schema::DynamicArray(_) => unimplemented!(),
         Schema::Map(_) => unimplemented!(),
-        Schema::ObjectRef(_) => Value::ObjectRef(ObjectId(
-            Uuid::parse_str(value.as_str().unwrap()).unwrap().as_u128(),
+        Schema::ObjectRef(_) => Value::ObjectRef(AssetId::from_uuid(
+            Uuid::parse_str(value.as_str().unwrap()).unwrap()
         )),
         Schema::NamedType(x) => {
             let named_type = named_types.get(x).unwrap();
@@ -272,7 +272,7 @@ impl EditContextObjectBuildInfoJson {
     ) -> BuildInfo {
         let mut file_reference_overrides = HashMap::default();
         for (k, v) in &self.file_reference_overrides {
-            file_reference_overrides.insert(PathBuf::from_str(k).unwrap(), ObjectId(v.as_u128()));
+            file_reference_overrides.insert(PathBuf::from_str(k).unwrap(), AssetId::from_uuid(*v));
         }
 
         BuildInfo {
@@ -304,7 +304,7 @@ impl EditContextObjectJson {
         // If set, we use this instead of what the file says to use
         override_object_location: Option<ObjectLocation>,
         json: &str,
-    ) -> ObjectId {
+    ) -> AssetId {
         let stored_object: EditContextObjectJson = serde_json::from_str(json).unwrap();
 
         // Use the provided override, or what's in the file, or worst case default to object_source_id
@@ -312,11 +312,10 @@ impl EditContextObjectJson {
             override_object_location
         } else {
             // If no parent is specified, default it to the root node for this data source
-            let path_node_id = ObjectId(
+            let path_node_id = AssetId::from_uuid(
                 stored_object
                     .parent_dir
-                    .unwrap_or(*object_source_id.uuid())
-                    .as_u128(),
+                    .unwrap_or(*object_source_id.uuid()),
             );
             ObjectLocation::new(path_node_id)
         };
@@ -329,14 +328,14 @@ impl EditContextObjectJson {
 
         let object_id = if let Some(override_object_id) = override_object_id {
             // If an ID was provided, use it
-            ObjectId(override_object_id.as_u128())
+            AssetId::from_uuid(override_object_id)
         } else {
             // Otherwise read it from the file. If there was no ID specified, generate a new one
-            ObjectId(stored_object.id.unwrap_or_else(Uuid::new_v4).as_u128())
+            AssetId::from_uuid(stored_object.id.unwrap_or_else(Uuid::new_v4))
         };
 
         let schema_fingerprint = SchemaFingerprint::from_uuid(stored_object.schema);
-        let prototype = stored_object.prototype.map(|x| ObjectId(x.as_u128()));
+        let prototype = stored_object.prototype.map(|x| AssetId::from_uuid(x));
 
         let named_type = edit_context.find_named_type_by_fingerprint(schema_fingerprint);
 
@@ -387,7 +386,7 @@ impl EditContextObjectJson {
 
     pub fn save_edit_context_object_to_string(
         edit_context: &EditContext,
-        object_id: ObjectId,
+        object_id: AssetId,
         // We only save the ID in the file if using path-based file system storage. Otherwise the
         // id is the file path/name
         include_object_id_in_file: bool,
@@ -421,7 +420,7 @@ impl EditContextObjectJson {
             schema_name: obj.schema().name().to_string(),
             import_info,
             build_info,
-            prototype: obj.prototype().map(|x| Uuid::from_u128(x.0)),
+            prototype: obj.prototype().map(|x| x.as_uuid()),
             properties: json_properties,
         };
 
@@ -525,7 +524,7 @@ impl SingleObjectJson {
 
 #[derive(Default, Clone)]
 pub struct MetaFile {
-    pub past_id_assignments: HashMap<String, ObjectId>,
+    pub past_id_assignments: HashMap<String, AssetId>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -541,7 +540,7 @@ impl MetaFileJson {
         for past_id_assignment in meta_file.past_id_assignments {
             past_id_assignments.insert(
                 past_id_assignment.0,
-                ObjectId(past_id_assignment.1.as_u128()),
+                AssetId::from_uuid(past_id_assignment.1),
             );
         }
 

@@ -10,7 +10,7 @@ use hydrate_model::{
     job_system, BuilderRegistryBuilder, DataContainer, DataContainerMut,
     DataSet, Field, HashMap, ImportableObject, ImporterRegistry, ImporterRegistryBuilder, JobApi,
     JobEnumeratedDependencies, JobInput, JobOutput, JobProcessor,
-    JobProcessorRegistryBuilder, ObjectId, PropertyPath, Record, SchemaLinker, SchemaSet,
+    JobProcessorRegistryBuilder, AssetId, PropertyPath, Record, SchemaLinker, SchemaSet,
     SingleObject,
 };
 use serde::{Deserialize, Serialize};
@@ -108,7 +108,7 @@ impl Importer for GpuImageImporter {
 
 #[derive(Hash, Serialize, Deserialize)]
 pub struct GpuImageJobInput {
-    pub asset_id: ObjectId,
+    pub asset_id: AssetId,
     pub compressed: bool,
 }
 impl JobInput for GpuImageJobInput {}
@@ -147,7 +147,7 @@ impl JobProcessor for GpuImageJobProcessor {
         input: &GpuImageJobInput,
         data_set: &DataSet,
         schema_set: &SchemaSet,
-        dependency_data: &HashMap<ObjectId, SingleObject>,
+        dependency_data: &HashMap<AssetId, SingleObject>,
         job_api: &dyn JobApi,
     ) -> GpuImageJobOutput {
         //
@@ -224,7 +224,7 @@ impl Builder for GpuImageBuilder {
 
     fn start_jobs(
         &self,
-        asset_id: ObjectId,
+        asset_id: AssetId,
         data_set: &DataSet,
         schema_set: &SchemaSet,
         job_api: &dyn JobApi,

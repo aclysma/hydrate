@@ -6,14 +6,14 @@ use hydrate_model::pipeline::{AssetPlugin, Builder};
 use hydrate_model::{
     job_system, BuilderRegistryBuilder, DataSet, HashMap,
     ImporterRegistryBuilder, JobApi, JobEnumeratedDependencies, JobInput, JobOutput, JobProcessor,
-    JobProcessorRegistryBuilder, ObjectId, Record, SchemaLinker, SchemaSet, SingleObject,
+    JobProcessorRegistryBuilder, AssetId, Record, SchemaLinker, SchemaSet, SingleObject,
 };
 use serde::{Deserialize, Serialize};
 use type_uuid::{TypeUuid};
 
 #[derive(Hash, Serialize, Deserialize)]
 pub struct GpuBufferJobInput {
-    pub asset_id: ObjectId,
+    pub asset_id: AssetId,
 }
 impl JobInput for GpuBufferJobInput {}
 
@@ -51,7 +51,7 @@ impl JobProcessor for GpuBufferJobProcessor {
         input: &GpuBufferJobInput,
         _data_set: &DataSet,
         _schema_set: &SchemaSet,
-        _dependency_data: &HashMap<ObjectId, SingleObject>,
+        _dependency_data: &HashMap<AssetId, SingleObject>,
         job_api: &dyn JobApi,
     ) -> GpuBufferJobOutput {
         //
@@ -92,7 +92,7 @@ impl Builder for GpuBufferBuilder {
 
     fn start_jobs(
         &self,
-        asset_id: ObjectId,
+        asset_id: AssetId,
         data_set: &DataSet,
         schema_set: &SchemaSet,
         job_api: &dyn JobApi,

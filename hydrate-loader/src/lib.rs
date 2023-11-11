@@ -38,11 +38,11 @@ pub mod storage;
 // #[cfg_attr(feature = "serde-1", derive(Serialize, Deserialize))]
 // pub struct AssetMetadata {
 //     /// UUID for the asset to uniquely identify it
-//     pub id: AssetUuid,
+//     pub id: AssetId,
 //     /// Search tags are used by asset tooling to search for the imported asset
 //     pub search_tags: Vec<(String, Option<String>)>,
 //     /// The referenced build pipeline is invoked when a build artifact is requested for the imported asset
-//     pub build_pipeline: Option<AssetUuid>,
+//     pub build_pipeline: Option<AssetId>,
 //     /// The latest artifact produced when importing this asset
 //     pub artifact: Option<ArtifactMetadata>,
 // }
@@ -61,7 +61,7 @@ pub mod storage;
 //     /// Hash that identifies this artifact
 //     pub id: ArtifactId,
 //     /// UUID for this artifact's asset
-//     pub asset_id: AssetUuid,
+//     pub asset_id: AssetId,
 //     /// Build dependencies will be included in the Builder arguments when building an asset
 //     pub build_deps: Vec<AssetRef>,
 //     /// Load dependencies are guaranteed to load before this asset by the Loader
@@ -284,7 +284,7 @@ pub fn process_ref_ops(
                 loader.add_engine_ref_by_handle(handle);
             }
             RefOp::IncreaseUuid(uuid) => {
-                loader.add_engine_ref(ArtifactId(uuid::Uuid::from_bytes(uuid.0).as_u128()));
+                loader.add_engine_ref(ArtifactId::from_uuid(uuid.as_uuid()));
             }
         }
     }

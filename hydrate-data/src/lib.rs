@@ -63,7 +63,7 @@ pub enum NullOverride {
     SetNonNull,
 }
 
-pub use hydrate_base::ObjectId;
+pub use hydrate_base::AssetId;
 
 #[derive(Copy, Clone, PartialEq, Eq, Hash)]
 pub struct BufferId(u128);

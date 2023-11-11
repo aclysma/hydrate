@@ -1,13 +1,13 @@
 use crate::app_state::QueuedActions;
 use crate::ui_state::ActiveToolRegion;
 use crate::AppState;
-use hydrate_model::ObjectId;
+use hydrate_model::AssetId;
 use imgui::im_str;
 
 pub fn draw_properties_window_single_select(
     ui: &imgui::Ui,
     app_state: &mut AppState,
-    object_id: ObjectId,
+    object_id: AssetId,
 ) {
     ui.text(format!("Object: {}", object_id.as_uuid()));
 

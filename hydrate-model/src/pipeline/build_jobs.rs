@@ -1,11 +1,9 @@
-use crate::{EditorModel, HashMap, ObjectId};
+use crate::{EditorModel, HashMap, AssetId};
 use hydrate_base::{ArtifactId, ManifestFileEntryJson, ManifestFileJson};
 use std::collections::VecDeque;
 use std::hash::{Hash, Hasher};
 use std::io::Write;
 use std::path::PathBuf;
-use std::str::FromStr;
-use uuid::Uuid;
 
 use super::ImportJobs;
 
@@ -14,7 +12,7 @@ use hydrate_base::uuid_path::uuid_and_hash_to_path;
 use super::*;
 
 struct BuildRequest {
-    object_id: ObjectId,
+    object_id: AssetId,
 }
 
 // A known build job, each existing asset will have an associated build job.
@@ -39,7 +37,7 @@ impl BuildJob {
 pub struct BuildJobs {
     build_data_root_path: PathBuf,
     job_executor: JobExecutor,
-    build_jobs: HashMap<ObjectId, BuildJob>,
+    build_jobs: HashMap<AssetId, BuildJob>,
     //force_rebuild_operations: Vec<BuildOp>
 }
 
@@ -63,7 +61,7 @@ impl BuildJobs {
 
     pub fn queue_build_operation(
         &mut self,
-        _object_id: ObjectId,
+        _object_id: AssetId,
     ) {
         // self.build_operations.push(BuildOp {
         //     object_id,
@@ -79,8 +77,8 @@ impl BuildJobs {
         builder_registry: &BuilderRegistry,
         editor_model: &mut EditorModel,
         import_jobs: &ImportJobs,
-        object_hashes: &HashMap<ObjectId, u64>,
-        _import_data_metadata_hashes: &HashMap<ObjectId, u64>,
+        object_hashes: &HashMap<AssetId, u64>,
+        _import_data_metadata_hashes: &HashMap<AssetId, u64>,
         combined_build_hash: u64,
     ) {
         editor_model.refresh_tree_node_cache();
@@ -106,7 +104,7 @@ impl BuildJobs {
         // Main loop driving processing of jobs in dependency order. We may queue up additional
         // assets during this loop.
         //
-        let mut started_build_ops = HashSet::<ObjectId>::default();
+        let mut started_build_ops = HashSet::<AssetId>::default();
         let mut build_hashes = HashMap::default();
         let mut artifact_asset_lookup = HashMap::default();
         let mut built_artifact_metadata = HashMap::default();
@@ -274,14 +272,8 @@ impl BuildJobs {
 
             let artifact_metadata = built_artifact_metadata.get(&artifact_id).unwrap();
 
-            let is_default_artifact = artifact_id.as_u128() == asset_id.0;
+            let is_default_artifact = artifact_id.as_uuid() == asset_id.as_uuid();
             let symbol_name = if is_default_artifact {
-                if asset_id.as_uuid()
-                    == Uuid::from_str("07ab9227-432d-49c8-8899-146acd803235").unwrap()
-                {
-                    println!("this one");
-                }
-
                 // editor_model.path_node_id_to_path(asset_id.get)
                 // //let location = edit_context.object_location(object_id).unwrap();
                 //TODO: Assert the cached asset path tree is not stale?

@@ -1,7 +1,7 @@
 use crate::BuiltArtifact;
 use crossbeam_channel::{Receiver, Sender};
 use hydrate_base::hashing::HashMap;
-use hydrate_base::{ArtifactId, ObjectId};
+use hydrate_base::{ArtifactId, AssetId};
 use hydrate_data::{DataSet, SchemaSet, SingleObject};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
@@ -35,7 +35,7 @@ where
         input: &Vec<u8>,
         data_set: &DataSet,
         schema_set: &SchemaSet,
-        dependency_data: &HashMap<ObjectId, SingleObject>,
+        dependency_data: &HashMap<AssetId, SingleObject>,
         job_api: &dyn JobApi,
     ) -> Vec<u8> {
         let data: <T as JobProcessor>::InputT = bincode::deserialize(input.as_slice()).unwrap();
@@ -157,7 +157,7 @@ pub struct JobProcessorRegistry {
 
 #[derive(Clone, Debug)]
 pub struct AssetArtifactIdPair {
-    pub asset_id: ObjectId,
+    pub asset_id: AssetId,
     pub artifact_id: ArtifactId,
 }
 
@@ -223,7 +223,7 @@ impl JobApi for JobExecutor {
 
     fn artifact_handle_created(
         &self,
-        asset_id: ObjectId,
+        asset_id: AssetId,
         artifact_id: ArtifactId,
     ) {
         self.artifact_handle_created_tx
@@ -284,7 +284,7 @@ impl JobExecutor {
 
     pub fn take_built_artifacts(
         &self,
-        artifact_asset_lookup: &mut HashMap<ArtifactId, ObjectId>,
+        artifact_asset_lookup: &mut HashMap<ArtifactId, AssetId>,
     ) -> Vec<BuiltArtifact> {
         let mut built_artifacts = Vec::default();
         while let Ok(built_artifact) = self.built_artifact_queue_rx.try_recv() {

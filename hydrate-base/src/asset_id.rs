@@ -5,14 +5,14 @@ use std::str::FromStr;
 use serde::{de, ser};
 
 #[derive(Copy, Clone, PartialEq, Eq, Hash, Ord, PartialOrd, Default)]
-pub struct ArtifactId(pub Uuid);
-impl ArtifactId {
+pub struct AssetId(pub Uuid);
+impl AssetId {
     pub const fn null() -> Self {
-        ArtifactId(Uuid::nil())
+        AssetId(Uuid::nil())
     }
 
     pub fn parse_str(input: &str) -> Result<Self, uuid::Error> {
-        Ok(ArtifactId(Uuid::parse_str(input)?))
+        Ok(AssetId(Uuid::parse_str(input)?))
     }
 
     pub fn is_null(&self) -> bool {
@@ -20,7 +20,7 @@ impl ArtifactId {
     }
 
     pub fn from_uuid(uuid: Uuid) -> Self {
-        ArtifactId(uuid)
+        AssetId(uuid)
     }
 
     pub fn as_uuid(&self) -> Uuid {
@@ -36,18 +36,18 @@ impl ArtifactId {
     }
 }
 
-impl fmt::Debug for ArtifactId {
+impl fmt::Debug for AssetId {
     fn fmt(
         &self,
         f: &mut fmt::Formatter<'_>,
     ) -> fmt::Result {
-        f.debug_tuple("ArtifactId")
+        f.debug_tuple("AssetId")
             .field(&self.0)
             .finish()
     }
 }
 
-impl fmt::Display for ArtifactId {
+impl fmt::Display for AssetId {
     fn fmt(
         &self,
         f: &mut fmt::Formatter<'_>,
@@ -56,7 +56,7 @@ impl fmt::Display for ArtifactId {
     }
 }
 
-impl Serialize for ArtifactId {
+impl Serialize for AssetId {
     fn serialize<S: ser::Serializer>(
         &self,
         serializer: S,
@@ -69,10 +69,10 @@ impl Serialize for ArtifactId {
     }
 }
 
-struct ArtifactIdVisitor;
+struct AssetIdVisitor;
 
-impl<'a> de::Visitor<'a> for ArtifactIdVisitor {
-    type Value = ArtifactId;
+impl<'a> de::Visitor<'a> for AssetIdVisitor {
+    type Value = AssetId;
 
     fn expecting(
         &self,
@@ -86,17 +86,17 @@ impl<'a> de::Visitor<'a> for ArtifactIdVisitor {
         s: &str,
     ) -> Result<Self::Value, E> {
         Uuid::from_str(s)
-            .map(|id| ArtifactId(id))
+            .map(|id| AssetId(id))
             .map_err(|_| de::Error::invalid_value(de::Unexpected::Str(s), &self))
     }
 }
 
-impl<'de> Deserialize<'de> for ArtifactId {
+impl<'de> Deserialize<'de> for AssetId {
     fn deserialize<D: de::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
         if deserializer.is_human_readable() {
-            deserializer.deserialize_string(ArtifactIdVisitor)
+            deserializer.deserialize_string(AssetIdVisitor)
         } else {
-            Ok(ArtifactId(Uuid::deserialize(deserializer)?))
+            Ok(AssetId(Uuid::deserialize(deserializer)?))
         }
     }
 }

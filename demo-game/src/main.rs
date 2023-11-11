@@ -107,14 +107,12 @@ fn main() {
 
     let load_handle_mesh: Handle<MeshAdvMeshAssetData> = loader.load_asset(ArtifactId(
         uuid::Uuid::parse_str("522aaf98-5dc3-4578-a4cc-411ca6c0a826")
-            .unwrap()
-            .as_u128(),
+            .unwrap(),
     ));
 
     let load_handle_image: Handle<GpuImageAsset> = loader.load_asset(ArtifactId(
         uuid::Uuid::parse_str("fe9a9f83-a7c1-4a00-b61d-17a1dca43717")
-            .unwrap()
-            .as_u128(),
+            .unwrap(),
     ));
 
     loop {

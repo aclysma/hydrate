@@ -2,7 +2,7 @@ use crate::edit_context::EditContext;
 use crate::pipeline::Importer;
 use crate::pipeline::ImporterRegistry;
 use crate::{
-    HashMap, ImportInfo, ImporterId, ObjectId, ObjectLocation, ObjectName, ScannedImportable,
+    HashMap, ImportInfo, ImporterId, AssetId, ObjectLocation, ObjectName, ScannedImportable,
 };
 use hydrate_base::hashing::HashSet;
 use std::path::{Path, PathBuf};
@@ -11,8 +11,8 @@ use std::path::{Path, PathBuf};
 pub struct ImportToQueue {
     pub source_file_path: PathBuf,
     pub importer_id: ImporterId,
-    pub requested_importables: HashMap<Option<String>, ObjectId>,
-    pub assets_to_regenerate: HashSet<ObjectId>,
+    pub requested_importables: HashMap<Option<String>, AssetId>,
+    pub assets_to_regenerate: HashSet<AssetId>,
 }
 
 pub fn create_import_info(
@@ -63,7 +63,7 @@ pub fn recursively_gather_import_operations_and_create_assets(
     // In addition to being the imports that need to be queued, this is also the objects that were
     // created. Pre-existing but referenced objects won't be in this list
     imports_to_queue: &mut Vec<ImportToQueue>,
-) -> Option<ObjectId> {
+) -> Option<AssetId> {
     //
     // We now build a list of things we will be importing from the file.
     // 1. Scan the file to see what's available

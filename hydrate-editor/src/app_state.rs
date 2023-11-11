@@ -3,7 +3,7 @@ use crate::ui::modals::{ConfirmQuitWithoutSavingModal, ImportFilesModal};
 use crate::ui_state::UiState;
 use hydrate_model::import_util::ImportToQueue;
 use hydrate_model::pipeline::AssetEngine;
-use hydrate_model::{EndContextBehavior, ObjectId, ObjectLocation};
+use hydrate_model::{EndContextBehavior, AssetId, ObjectLocation};
 use std::fmt::Formatter;
 use std::path::PathBuf;
 use std::sync::mpsc::{Receiver, Sender};
@@ -19,8 +19,8 @@ pub enum QueuedActions {
     QuitNoConfirm,
     HandleDroppedFiles(Vec<PathBuf>),
     TryBeginModalAction(Box<dyn ModalAction>),
-    MoveObjects(Vec<ObjectId>, ObjectLocation),
-    PersistAssets(Vec<ObjectId>),
+    MoveObjects(Vec<AssetId>, ObjectLocation),
+    PersistAssets(Vec<AssetId>),
     //RevertAll,
     //ResetWindowLayout,
     //SelectObjectsInAssetBrowser(Vec<ObjectId>)

@@ -1,4 +1,4 @@
-use crate::{DataSet, DataSource, HashMap, ObjectId, ObjectLocation, ObjectPath, ObjectSourceId};
+use crate::{DataSet, DataSource, HashMap, AssetId, ObjectLocation, ObjectPath, ObjectSourceId};
 use std::cmp::Ordering;
 use std::collections::BTreeMap;
 
@@ -66,7 +66,7 @@ impl LocationTree {
     pub fn create_node(
         &mut self,
         data_set: &DataSet,
-        tree_node_id: ObjectId,
+        tree_node_id: AssetId,
     ) {
         let mut path_object_stack = vec![ObjectLocation::new(tree_node_id)];
         path_object_stack.append(&mut data_set.object_location_chain(tree_node_id));
@@ -129,12 +129,12 @@ impl LocationTree {
     pub fn build(
         data_sources: &HashMap<ObjectSourceId, Box<dyn DataSource>>,
         data_set: &DataSet,
-        paths: &HashMap<ObjectId, ObjectPath>,
+        paths: &HashMap<AssetId, ObjectPath>,
     ) -> Self {
         // Create root nodes for all the data sources
         let mut root_nodes: BTreeMap<LocationTreeNodeKey, LocationTreeNode> = Default::default();
         for (source_id, _data_source) in data_sources {
-            let location = ObjectLocation::new(ObjectId::from_uuid(*source_id.uuid()));
+            let location = ObjectLocation::new(AssetId::from_uuid(*source_id.uuid()));
             let name = data_set.object_name(location.path_node_id());
             root_nodes.insert(
                 LocationTreeNodeKey {

@@ -4,7 +4,7 @@ use crate::ui_state::UiState;
 use hydrate_model::import_util::ImportToQueue;
 use hydrate_model::pipeline::Importer;
 use hydrate_model::pipeline::{AssetEngine, ImporterRegistry};
-use hydrate_model::{HashSet, LocationTreeNode, ObjectId, ObjectLocation};
+use hydrate_model::{HashSet, LocationTreeNode, AssetId, ObjectLocation};
 use imgui::sys::ImVec2;
 use imgui::{im_str, PopupModal, TreeNodeFlags};
 use std::path::{Path, PathBuf};
@@ -157,7 +157,7 @@ fn recursively_gather_import_operations_and_create_assets(
     asset_engine: &AssetEngine,
     selected_import_location: &ObjectLocation,
     imports_to_queue: &mut Vec<ImportToQueue>,
-) -> Option<ObjectId> {
+) -> Option<AssetId> {
     hydrate_model::pipeline::import_util::recursively_gather_import_operations_and_create_assets(
         file,
         importer,

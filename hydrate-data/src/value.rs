@@ -1,4 +1,4 @@
-use crate::ObjectId;
+use crate::AssetId;
 use crate::{BufferId, HashMap, Schema, SchemaFingerprint, SchemaNamedType, SchemaSet};
 use std::hash::{Hash, Hasher};
 
@@ -16,7 +16,7 @@ pub enum PropertyValue {
     Bytes(Vec<u8>),
     Buffer(BufferId),
     String(String),
-    ObjectRef(ObjectId),
+    ObjectRef(AssetId),
     Enum(ValueEnum),
     Fixed(Box<[u8]>),
 }
@@ -129,7 +129,7 @@ pub enum Value {
     StaticArray(Vec<Value>),
     DynamicArray(Vec<Value>),
     Map(ValueMap),
-    ObjectRef(ObjectId),
+    ObjectRef(AssetId),
     Record(ValueRecord),
     Enum(ValueEnum),
     Fixed(Box<[u8]>),
@@ -172,7 +172,7 @@ const DEFAULT_VALUE_U64: Value = Value::U64(0);
 const DEFAULT_VALUE_F32: Value = Value::F32(0.0);
 const DEFAULT_VALUE_F64: Value = Value::F64(0.0);
 const DEFAULT_VALUE_BUFFER: Value = Value::Buffer(BufferId::null());
-const DEFAULT_VALUE_OBJECT_REF: Value = Value::ObjectRef(ObjectId::null());
+const DEFAULT_VALUE_OBJECT_REF: Value = Value::ObjectRef(AssetId::null());
 
 lazy_static::lazy_static! {
     static ref DEFAULT_VALUE_BYTES: Value = Value::Bytes(Default::default());
@@ -681,7 +681,7 @@ impl Value {
         }
     }
 
-    pub fn as_object_ref(&self) -> Option<ObjectId> {
+    pub fn as_object_ref(&self) -> Option<AssetId> {
         match self {
             Value::ObjectRef(x) => Some(*x),
             _ => None,
@@ -690,7 +690,7 @@ impl Value {
 
     pub fn set_object_ref(
         &mut self,
-        value: ObjectId,
+        value: AssetId,
     ) {
         *self = Value::ObjectRef(value);
     }

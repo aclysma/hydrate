@@ -3,8 +3,7 @@ use crossbeam_channel::{Receiver, Sender};
 use dashmap::DashMap;
 use hydrate_base::handle::{LoadState, LoadStateProvider, LoaderInfoProvider};
 use hydrate_base::LoadHandle;
-use hydrate_base::{ArtifactId, ObjectId};
-use hydrate_base::{AssetRef, AssetTypeId, AssetUuid};
+use hydrate_base::{AssetRef, AssetTypeId, AssetId, ArtifactId};
 use std::fmt::Debug;
 use std::sync::atomic::{AtomicU32, AtomicU64, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
@@ -125,7 +124,7 @@ pub enum LoaderEvent {
     // Sent by engine code to indicate success or failure at loading an asset
     LoadResult(HandleOp),
     // Sent by LoaderIO when there are new versions available of the given assets.
-    AssetsUpdated(CombinedBuildHash, Vec<ObjectId>),
+    AssetsUpdated(CombinedBuildHash, Vec<AssetId>),
 }
 
 // do we create a new loader IO for every manifest or same IO?
@@ -264,7 +263,7 @@ struct LoadHandleVersionInfo {
 struct LoadHandleInfo {
     //strong_ref_count: AtomicU32,
     object_id: ArtifactId,
-    asset_id: AssetUuid,
+    asset_id: AssetId,
     //ref_count: AtomicU32,
     engine_ref_count: AtomicU32,
     _next_version: u32,
@@ -285,7 +284,7 @@ struct LoadHandleInfo {
 
 struct ReloadAction {
     _build_hash: CombinedBuildHash,
-    _updated_assets: Vec<ObjectId>,
+    _updated_assets: Vec<AssetId>,
 }
 
 struct LoaderUpdateState {
@@ -354,14 +353,14 @@ impl LoaderInfoProvider for Loader {
         &self,
         id: &AssetRef,
     ) -> Option<LoadHandle> {
-        let object_id = ArtifactId(uuid::Uuid::from_bytes(id.0 .0).as_u128());
+        let object_id = ArtifactId::from_uuid(id.0.as_uuid());
         self.object_id_to_handle.get(&object_id).map(|l| *l)
     }
 
     fn asset_id(
         &self,
         load: LoadHandle,
-    ) -> Option<AssetUuid> {
+    ) -> Option<AssetId> {
         self.load_handle_infos.get(&load).map(|l| l.asset_id)
     }
 }
@@ -919,7 +918,7 @@ impl Loader {
             .entry(object_id)
             .or_insert_with(|| {
                 let load_handle = self.allocate_load_handle(false);
-                let asset_id = AssetUuid(*uuid::Uuid::from_u128(object_id.0).as_bytes());
+                let asset_id = AssetId::from_uuid(object_id.as_uuid());
 
                 log::debug!(
                     "Allocate load handle {:?} for object id {:?}",
@@ -1121,7 +1120,7 @@ impl Loader {
 #[derive(Debug)]
 pub struct LoadInfo {
     /// UUID of the asset.
-    pub asset_id: AssetUuid,
+    pub asset_id: AssetId,
     /// Number of references to the asset.
     pub refs: u32,
     // Path to asset's source file. Not guaranteed to always be available.

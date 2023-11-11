@@ -5,12 +5,8 @@ pub mod uuid_path;
 pub mod built_object_metadata;
 pub use built_object_metadata::*;
 
-//TODO: ObjectId/AssetId should be merged
-mod asset_uuid;
-pub use asset_uuid::AssetUuid;
-
-mod object_id;
-pub use object_id::ObjectId;
+mod asset_id;
+pub use asset_id::AssetId;
 
 mod artifact_id;
 pub use artifact_id::ArtifactId;

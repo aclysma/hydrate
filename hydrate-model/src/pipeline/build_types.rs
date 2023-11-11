@@ -1,14 +1,14 @@
-use crate::{DataSet, JobApi, ObjectId, SchemaSet};
+use crate::{DataSet, JobApi, AssetId, SchemaSet};
 use hydrate_base::{ArtifactId, BuiltObjectMetadata};
 
 pub struct BuiltAsset {
-    pub asset_id: ObjectId,
+    pub asset_id: AssetId,
     pub metadata: BuiltObjectMetadata,
     pub data: Vec<u8>,
 }
 
 pub struct BuiltArtifact {
-    pub asset_id: ObjectId,
+    pub asset_id: AssetId,
     pub artifact_id: ArtifactId,
     pub metadata: BuiltObjectMetadata,
     pub data: Vec<u8>,
@@ -21,7 +21,7 @@ pub trait Builder {
 
     fn start_jobs(
         &self,
-        asset_id: ObjectId,
+        asset_id: AssetId,
         data_set: &DataSet,
         schema_set: &SchemaSet,
         job_api: &dyn JobApi,

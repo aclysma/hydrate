@@ -9,7 +9,7 @@ use crossbeam_channel::{Receiver, Sender};
 use downcast_rs::Downcast;
 use hydrate_base::handle::LoaderInfoProvider;
 use hydrate_base::handle::SerdeContext;
-use hydrate_base::{AssetTypeId, AssetUuid};
+use hydrate_base::{AssetTypeId, AssetId};
 use std::marker::PhantomData;
 use type_uuid::TypeUuid;
 
@@ -366,13 +366,13 @@ where
 
 struct UncommittedAssetState<A: Send> {
     version: u32,
-    asset_uuid: AssetUuid,
+    asset_uuid: AssetId,
     result: UpdateAssetResult<A>,
 }
 
 struct AssetState<A> {
     version: u32,
-    asset_uuid: AssetUuid,
+    asset_uuid: AssetId,
     asset: A,
 }
 

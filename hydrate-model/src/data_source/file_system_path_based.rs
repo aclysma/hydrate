@@ -5,7 +5,7 @@ use crate::{
     import_util, HashSet, Importer, ImporterRegistry, MetaFile, MetaFileJson, PathNode,
     PathNodeRoot, ScannedImportable,
 };
-use hydrate_data::{ImporterId, ObjectId, ObjectLocation, ObjectName, ObjectSourceId};
+use hydrate_data::{ImporterId, AssetId, ObjectLocation, ObjectName, ObjectSourceId};
 use hydrate_schema::{HashMap, SchemaNamedType};
 use std::ffi::OsStr;
 use std::path::{Path, PathBuf};
@@ -63,11 +63,11 @@ struct ObjectOnDiskState {
 // Key: PathBuf
 struct SourceFileDiskState {
     // may be generated or persisted
-    generated_assets: HashSet<ObjectId>,
-    persisted_assets: HashSet<ObjectId>,
+    generated_assets: HashSet<AssetId>,
+    persisted_assets: HashSet<AssetId>,
     //source_file_metadata: FileMetadata,
     _importer_id: ImporterId,
-    _importables: HashMap<Option<String>, ObjectId>,
+    _importables: HashMap<Option<String>, AssetId>,
 }
 
 // Key: ObjectId
@@ -123,10 +123,10 @@ pub struct FileSystemPathBasedDataSource {
 
     // Any object ID we know to exist on disk is in this list to help us quickly determine which
     // deleted IDs need to be cleaned up
-    all_object_ids_on_disk_with_on_disk_state: HashMap<ObjectId, ObjectOnDiskState>,
+    all_object_ids_on_disk_with_on_disk_state: HashMap<AssetId, ObjectOnDiskState>,
     //all_assigned_path_ids: HashMap<PathBuf, ObjectId>,
     source_files_disk_state: HashMap<PathBuf, SourceFileDiskState>,
-    assets_disk_state: HashMap<ObjectId, AssetDiskState>,
+    assets_disk_state: HashMap<AssetId, AssetDiskState>,
 
     path_node_schema: SchemaNamedType,
     path_node_root_schema: SchemaNamedType,
@@ -177,7 +177,7 @@ impl FileSystemPathBasedDataSource {
     fn is_object_owned_by_this_data_source(
         &self,
         edit_context: &EditContext,
-        object_id: ObjectId,
+        object_id: AssetId,
     ) -> bool {
         if edit_context.object_schema(object_id).unwrap().fingerprint()
             == self.path_node_root_schema.fingerprint()
@@ -203,7 +203,7 @@ impl FileSystemPathBasedDataSource {
     fn find_all_modified_objects(
         &self,
         edit_context: &EditContext,
-    ) -> HashSet<ObjectId> {
+    ) -> HashSet<AssetId> {
         // We need to handle objects that had their paths changed. For ID-based data sources we can
         // simply rely on objects being marked modified if their own parent changed, but for a file
         // system a move can cause many files need to be removed/added to the file system.
@@ -234,7 +234,7 @@ impl FileSystemPathBasedDataSource {
     fn containing_file_path_for_object(
         &self,
         edit_context: &EditContext,
-        object_id: ObjectId,
+        object_id: AssetId,
     ) -> PathBuf {
         let mut location_chain = edit_context.object_location_chain(object_id);
 
@@ -246,7 +246,7 @@ impl FileSystemPathBasedDataSource {
         // If the PathNodeRoot doesn't match this data source's object source ID, we're in an unexpected state.
         // Default to having the object show as being in the root of the datasource
         if path_node_root_id
-            != Some(ObjectLocation::new(ObjectId::from_uuid(
+            != Some(ObjectLocation::new(AssetId::from_uuid(
                 *self.object_source_id.uuid(),
             )))
         {
@@ -289,7 +289,7 @@ impl FileSystemPathBasedDataSource {
     }
 
     fn sanitize_object_name(
-        object_id: ObjectId,
+        object_id: AssetId,
         object_name: &ObjectName,
     ) -> String {
         object_name
@@ -301,8 +301,8 @@ impl FileSystemPathBasedDataSource {
     fn canonicalize_all_path_nodes(
         &self,
         edit_context: &mut EditContext,
-    ) -> HashMap<PathBuf, ObjectId> {
-        let mut all_paths: HashMap<PathBuf, ObjectId> = Default::default();
+    ) -> HashMap<PathBuf, AssetId> {
+        let mut all_paths: HashMap<PathBuf, AssetId> = Default::default();
 
         // Go through all the objects and come up with a 1:1 mapping of path node ID to path
         // - Duplicate path nodes: delete all but one, update all references
@@ -345,7 +345,7 @@ impl FileSystemPathBasedDataSource {
 
         all_paths.insert(
             self.file_system_root_path.clone(),
-            ObjectId::from_uuid(*self.object_source_id.uuid()),
+            AssetId::from_uuid(*self.object_source_id.uuid()),
         );
 
         all_paths
@@ -354,7 +354,7 @@ impl FileSystemPathBasedDataSource {
     fn ensure_object_location_exists(
         &self,
         ancestor_path: &Path,
-        path_to_path_node_id: &mut HashMap<PathBuf, ObjectId>,
+        path_to_path_node_id: &mut HashMap<PathBuf, AssetId>,
         edit_context: &mut EditContext,
     ) -> ObjectLocation {
         //
@@ -381,7 +381,7 @@ impl FileSystemPathBasedDataSource {
 
         // If we create a missing path node, we will have to parent it to the previous path node. So
         // keep track of the previous object's ID
-        let mut previous_object_id = ObjectId::from_uuid(*self.object_source_id.uuid());
+        let mut previous_object_id = AssetId::from_uuid(*self.object_source_id.uuid());
 
         // Now traverse the list of ancestors in REVERSE (root -> file)
         for ancestor_path in ancestor_paths.iter().rev() {
@@ -411,7 +411,7 @@ impl FileSystemPathBasedDataSource {
 impl DataSource for FileSystemPathBasedDataSource {
     fn is_generated_asset(
         &self,
-        object_id: ObjectId,
+        object_id: AssetId,
     ) -> bool {
         if let Some(asset_disk_state) = self.assets_disk_state.get(&object_id) {
             asset_disk_state.is_generated()
@@ -428,7 +428,7 @@ impl DataSource for FileSystemPathBasedDataSource {
     fn persist_generated_asset(
         &mut self,
         edit_context: &mut EditContext,
-        object_id: ObjectId,
+        object_id: AssetId,
     ) {
         //let asset_disk_state = self.assets_disk_state.get_mut(object_id).unwrap();
         let old_asset_disk_state = self.assets_disk_state.remove(&object_id);
@@ -578,7 +578,7 @@ impl DataSource for FileSystemPathBasedDataSource {
         }
 
         let mut source_files_disk_state = HashMap::<PathBuf, SourceFileDiskState>::default();
-        let mut assets_disk_state = HashMap::<ObjectId, AssetDiskState>::default();
+        let mut assets_disk_state = HashMap::<AssetId, AssetDiskState>::default();
 
         //
         // Load any asset files.
@@ -684,7 +684,7 @@ impl DataSource for FileSystemPathBasedDataSource {
                                 .cloned()
                                 .unwrap_or_default(),
                         )
-                        .or_insert_with(|| ObjectId::from_uuid(Uuid::new_v4()));
+                        .or_insert_with(|| AssetId::from_uuid(Uuid::new_v4()));
                 }
 
                 let mut meta_file_path = source_file.clone().into_os_string();
@@ -692,7 +692,7 @@ impl DataSource for FileSystemPathBasedDataSource {
 
                 //let source_file_metadata = FileMetadata::new(&std::fs::metadata(&source_file).unwrap());
 
-                let mut importables = HashMap::<Option<String>, ObjectId>::default();
+                let mut importables = HashMap::<Option<String>, AssetId>::default();
                 for scanned_importable in &scanned_importables {
                     let empty_string = String::default();
                     let imporable_object_id = meta_file.past_id_assignments.get(

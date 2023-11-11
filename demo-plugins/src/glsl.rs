@@ -16,7 +16,7 @@ use hydrate_model::pipeline::{
 use hydrate_model::{
     job_system, BuilderRegistryBuilder, DataContainer, DataContainerMut, DataSet,
     HashMap, HashSet, ImportableObject, ImporterRegistryBuilder, JobApi, JobEnumeratedDependencies,
-    JobInput, JobOutput, JobProcessor, JobProcessorRegistryBuilder, ObjectId,
+    JobInput, JobOutput, JobProcessor, JobProcessorRegistryBuilder, AssetId,
     Record, SchemaLinker, SchemaSet, SingleObject,
 };
 use serde::{Deserialize, Serialize};
@@ -433,8 +433,8 @@ pub(crate) fn include_impl(
     requested_from: &Path,
     include_depth: usize,
     schema_set: &SchemaSet,
-    dependency_lookup: &HashMap<(PathBuf, PathBuf), ObjectId>,
-    dependency_data: &HashMap<ObjectId, SingleObject>,
+    dependency_lookup: &HashMap<(PathBuf, PathBuf), AssetId>,
+    dependency_data: &HashMap<AssetId, SingleObject>,
 ) -> Result<shaderc::ResolvedInclude, String> {
     log::trace!(
         "include file {:?} {:?} {:?} {:?} {:#?}",
@@ -607,7 +607,7 @@ impl Importer for GlslSourceFileImporter {
 
 #[derive(Hash, Serialize, Deserialize)]
 pub struct GlslBuildTargetJobInput {
-    asset_id: ObjectId,
+    asset_id: AssetId,
 }
 impl JobInput for GlslBuildTargetJobInput {}
 
@@ -677,7 +677,7 @@ impl JobProcessor for GlslBuildTargetJobProcessor {
         input: &GlslBuildTargetJobInput,
         data_set: &DataSet,
         schema_set: &SchemaSet,
-        dependency_data: &HashMap<ObjectId, SingleObject>,
+        dependency_data: &HashMap<AssetId, SingleObject>,
         job_api: &dyn JobApi,
     ) -> GlslBuildTargetJobOutput {
         //
@@ -786,7 +786,7 @@ impl Builder for GlslBuildTargetBuilder {
 
     fn start_jobs(
         &self,
-        asset_id: ObjectId,
+        asset_id: AssetId,
         data_set: &DataSet,
         schema_set: &SchemaSet,
         job_api: &dyn JobApi,

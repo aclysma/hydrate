@@ -3,7 +3,7 @@ use crate::editor::undo::UndoStack;
 use crate::import_util::ImportToQueue;
 use crate::{
     DataSet, DataSource, FileSystemIdBasedDataSource, FileSystemPathBasedDataSource, HashMap,
-    HashSet, ImporterRegistry, LocationTree, ObjectId, ObjectPath, ObjectSourceId, PathNode,
+    HashSet, ImporterRegistry, LocationTree, AssetId, ObjectPath, ObjectSourceId, PathNode,
     PathNodeRoot, SchemaNamedType, SchemaSet,
 };
 use hydrate_data::{ObjectLocation, ObjectName};
@@ -21,7 +21,7 @@ pub struct EditorModel {
     //TODO: slot_map?
     data_sources: HashMap<ObjectSourceId, Box<dyn DataSource>>,
 
-    path_node_id_to_path: HashMap<ObjectId, ObjectPath>,
+    path_node_id_to_path: HashMap<AssetId, ObjectPath>,
     //path_to_object_id: HashMap<ObjectPath, ObjectId>,
     location_tree: LocationTree,
 
@@ -80,7 +80,7 @@ impl EditorModel {
 
     pub fn is_generated_asset(
         &self,
-        object_id: ObjectId,
+        object_id: AssetId,
     ) -> bool {
         for data_source in self.data_sources.values() {
             if data_source.is_generated_asset(object_id) {
@@ -93,7 +93,7 @@ impl EditorModel {
 
     pub fn persist_generated_asset(
         &mut self,
-        object_id: ObjectId,
+        object_id: AssetId,
     ) {
         for (_, data_source) in &mut self.data_sources {
             let root_edit_context = self
@@ -147,14 +147,14 @@ impl EditorModel {
 
     pub fn path_node_id_to_path(
         &self,
-        object_id: ObjectId,
+        object_id: AssetId,
     ) -> Option<&ObjectPath> {
         self.path_node_id_to_path.get(&object_id)
     }
 
     pub fn object_display_name_long(
         &self,
-        object_id: ObjectId,
+        object_id: AssetId,
     ) -> String {
         let root_data_set = &self.root_edit_context().data_set;
         let location = root_data_set.object_location(object_id);
@@ -186,7 +186,7 @@ impl EditorModel {
 
     pub fn is_a_root_object(
         &self,
-        object_id: ObjectId,
+        object_id: AssetId,
     ) -> bool {
         for source in self.data_sources.keys() {
             if *source.uuid() == object_id.as_uuid() {
@@ -214,7 +214,7 @@ impl EditorModel {
         // Create the PathNodeRoot object that acts as the root location for all objects in this DS
         //
         let object_source_id = ObjectSourceId::new();
-        let root_object_id = ObjectId::from_uuid(*object_source_id.uuid());
+        let root_object_id = AssetId::from_uuid(*object_source_id.uuid());
         root_edit_context
             .new_object_with_id(
                 root_object_id,
@@ -261,7 +261,7 @@ impl EditorModel {
         // Create the PathNodeRoot object that acts as the root location for all objects in this DS
         //
         let object_source_id = ObjectSourceId::new();
-        let root_object_id = ObjectId::from_uuid(*object_source_id.uuid());
+        let root_object_id = AssetId::from_uuid(*object_source_id.uuid());
         root_edit_context
             .new_object_with_id(
                 root_object_id,
@@ -369,7 +369,7 @@ impl EditorModel {
     // separate edit context to change in the root context, but there is nothing that prevents it.
     pub fn open_edit_context(
         &mut self,
-        objects: &[ObjectId],
+        objects: &[AssetId],
     ) -> EditContextKey {
         let new_edit_context_key = self.edit_contexts.insert_with_key(|key| {
             EditContext::new_with_data(key, self.schema_set.clone(), &self.undo_stack)
@@ -426,9 +426,9 @@ impl EditorModel {
 
     fn do_populate_path(
         data_set: &DataSet,
-        path_stack: &mut HashSet<ObjectId>,
-        paths: &mut HashMap<ObjectId, ObjectPath>,
-        path_node: ObjectId,
+        path_stack: &mut HashSet<AssetId>,
+        paths: &mut HashMap<AssetId, ObjectPath>,
+        path_node: AssetId,
     ) -> ObjectPath {
         if path_node.is_null() {
             return ObjectPath::root();
@@ -479,9 +479,9 @@ impl EditorModel {
         data_set: &DataSet,
         path_node_type: &SchemaNamedType,
         path_node_root_type: &SchemaNamedType,
-    ) -> HashMap<ObjectId, ObjectPath> {
+    ) -> HashMap<AssetId, ObjectPath> {
         let mut path_stack = HashSet::default();
-        let mut paths = HashMap::<ObjectId, ObjectPath>::default();
+        let mut paths = HashMap::<AssetId, ObjectPath>::default();
         for (object_id, info) in data_set.objects() {
             // For objects that *are* path nodes, use their ID directly. For objects that aren't
             // path nodes, use their location object ID

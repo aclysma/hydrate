@@ -3,7 +3,7 @@ mod file_system_id_based;
 pub use file_system_id_based::*;
 
 use crate::edit_context::EditContext;
-use crate::ObjectId;
+use crate::AssetId;
 
 mod file_system_path_based;
 use crate::import_util::ImportToQueue;
@@ -16,7 +16,7 @@ trait SourceFileHandler {
         &self,
         importable_name: Option<String>,
         edit_context: &EditContext,
-    ) -> Vec<ObjectId>;
+    ) -> Vec<AssetId>;
 
     // importer also implements scan file
 }
@@ -46,7 +46,7 @@ pub trait DataSource {
 
     fn is_generated_asset(
         &self,
-        object_id: ObjectId,
+        object_id: AssetId,
     ) -> bool;
 
     // fn object_symbol_name(
@@ -57,7 +57,7 @@ pub trait DataSource {
     fn persist_generated_asset(
         &mut self,
         edit_context: &mut EditContext,
-        object_id: ObjectId,
+        object_id: AssetId,
     );
     // fn revert_all_modified(
     //     &mut self,

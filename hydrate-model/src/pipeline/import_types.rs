@@ -1,5 +1,5 @@
 use crate::{
-    HashMap, ImporterId, ImporterRegistry, ObjectId, SchemaRecord, SchemaSet, SingleObject,
+    HashMap, ImporterId, ImporterRegistry, AssetId, SchemaRecord, SchemaSet, SingleObject,
 };
 use std::path::{Path, PathBuf};
 use type_uuid::{TypeUuid, TypeUuidDynamic};
@@ -43,8 +43,8 @@ pub trait ImporterStatic: TypeUuid {
 // }
 
 pub struct ImportableObject {
-    pub id: ObjectId,
-    pub referenced_paths: HashMap<PathBuf, ObjectId>,
+    pub id: AssetId,
+    pub referenced_paths: HashMap<PathBuf, AssetId>,
 }
 
 // Interface all importers must implement

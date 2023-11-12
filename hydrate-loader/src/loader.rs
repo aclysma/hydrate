@@ -400,9 +400,10 @@ impl Loader {
         let mut load_state_info = self.load_handle_infos.get_mut(&load_handle).unwrap();
 
         log::debug!(
-            "handle_try_load {:?} {:?}",
+            "handle_try_load {:?} {:?} {:?}",
+            load_handle,
             load_state_info.asset_id,
-            load_state_info.asset_id
+            load_state_info.artifact_id
         );
 
         // We expect any try_load requests to be for the latest version. If this ends up not being a
@@ -437,9 +438,10 @@ impl Loader {
         let mut load_state_info = self.load_handle_infos.get_mut(&load_handle).unwrap();
 
         log::debug!(
-            "handle_try_unload {:?} {:?}",
+            "handle_try_unload {:?} {:?} {:?}",
+            load_handle,
             load_state_info.asset_id,
-            load_state_info.asset_id
+            load_state_info.artifact_id
         );
 
         let mut dependencies = vec![];
@@ -460,13 +462,13 @@ impl Loader {
                 // If it's been loaded, tell asset storage to drop it
                 if current_version.load_state == LoadState::Loading
                     || current_version.load_state == LoadState::Loaded
+                    || current_version.load_state == LoadState::Committed
                 {
                     asset_storage.free(&current_version.asset_type, load_handle, version as u32);
                 }
 
                 std::mem::swap(&mut dependencies, &mut current_version.dependencies);
 
-                //TODO: Remove ref counts from dependencies?
                 current_version.load_state = LoadState::Unloaded;
             }
         } else {
@@ -497,9 +499,10 @@ impl Loader {
     ) {
         if let Some(load_state_info) = self.load_handle_infos.get(&result.load_handle) {
             log::debug!(
-                "handle_request_metadata_result {:?} {:?}",
+                "handle_request_metadata_result {:?} {:?} {:?}",
+                result.load_handle,
                 load_state_info.asset_id,
-                load_state_info.asset_id
+                load_state_info.artifact_id
             );
             let load_state = load_state_info.versions[result.version as usize].load_state;
             // Bail if the asset is unloaded
@@ -599,9 +602,10 @@ impl Loader {
         //are we still in the correct state?
         let mut load_state_info = self.load_handle_infos.get_mut(&load_handle).unwrap();
         log::debug!(
-            "handle_dependencies_loaded {:?} {:?}",
+            "handle_dependencies_loaded {:?} {:?} {:?}",
+            load_handle,
             load_state_info.asset_id,
-            load_state_info.asset_id
+            load_state_info.artifact_id
         );
         if load_state_info.versions[version].load_state == LoadState::Unloaded {
             return;
@@ -632,7 +636,8 @@ impl Loader {
         let (load_op, asset_type, data) = {
             let mut load_state_info = self.load_handle_infos.get_mut(&result.load_handle).unwrap();
             log::debug!(
-                "handle_request_data_result {:?} {:?}",
+                "handle_request_data_result {:?} {:?} {:?}",
+                result.load_handle,
                 load_state_info.asset_id,
                 load_state_info.asset_id
             );
@@ -681,8 +686,8 @@ impl Loader {
         // Handle the operation
         match load_result {
             HandleOp::Error(load_handle, _version, error) => {
-                let asset_id = self.load_handle_infos.get(&load_handle).unwrap().asset_id;
-                log::debug!("handle_load_result error {:?} {:?}", load_handle, asset_id);
+                let asset_info = self.load_handle_infos.get(&load_handle).unwrap();
+                log::debug!("handle_load_result error {:?} {:?} {:?}", load_handle, asset_info.asset_id, asset_info.artifact_id);
                 //TODO: How to handle error?
                 log::error!("load error {}", error);
                 panic!("load error {}", error);
@@ -697,9 +702,10 @@ impl Loader {
                     let mut load_handle_info =
                         self.load_handle_infos.get_mut(&load_handle).unwrap();
                     log::debug!(
-                        "handle_load_result complete {:?} {:?}",
+                        "handle_load_result complete {:?} {:?} {:?}",
                         load_handle,
-                        load_handle_info.asset_id
+                        load_handle_info.asset_id,
+                        load_handle_info.artifact_id,
                     );
                     std::mem::swap(
                         &mut blocked_loads,

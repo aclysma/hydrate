@@ -12,6 +12,7 @@ pub struct BuiltArtifact {
     pub artifact_id: ArtifactId,
     pub metadata: BuiltArtifactMetadata,
     pub data: Vec<u8>,
+    pub artifact_key_debug_name: Option<String>,
 }
 
 // Interface all builders must implement

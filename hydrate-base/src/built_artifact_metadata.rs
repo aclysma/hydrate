@@ -1,28 +1,32 @@
-use crate::ArtifactId;
+use crate::{ArtifactId, StringHash};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
+// TODO: We can split up the debug/non-debug data. The debug format could be something like json
+// that's debug-friendly and contains all the data. The runtime-only could be a mean-and-lean bincode
+// or other binary format
 #[derive(Serialize, Deserialize)]
-pub struct ManifestFileEntryJson {
+pub struct DebugManifestFileEntryJson {
     pub artifact_id: ArtifactId,
     pub build_hash: String,
     pub symbol_name: String,
     pub artifact_type: Uuid,
-    //pub dependencies: Vec<ArtifactId>,
-}
-
-#[derive(Serialize, Deserialize)]
-pub struct ManifestFileEntry {
-    pub artifact_id: ArtifactId,
-    pub build_hash: u64,
-    pub symbol_name: String,
-    pub artifact_type: Uuid,
+    pub debug_name: String,
     //pub dependencies: Vec<ArtifactId>,
 }
 
 #[derive(Serialize, Deserialize, Default)]
-pub struct ManifestFileJson {
-    pub artifacts: Vec<ManifestFileEntryJson>,
+pub struct DebugManifestFileJson {
+    pub artifacts: Vec<DebugManifestFileEntryJson>,
+}
+
+pub struct ManifestFileEntry {
+    pub artifact_id: ArtifactId,
+    pub build_hash: u64,
+    pub symbol_hash: StringHash,
+    pub artifact_type: Uuid,
+    pub debug_name: String,
+    //pub dependencies: Vec<ArtifactId>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Hash)]

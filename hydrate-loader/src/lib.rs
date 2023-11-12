@@ -8,7 +8,7 @@ use crate::disk_io::DiskAssetIO;
 use crate::loader::Loader;
 use crossbeam_channel::{Receiver, Sender};
 use hydrate_base::handle::RefOp;
-use hydrate_base::ArtifactId;
+use hydrate_base::{ArtifactId, StringHash};
 use std::path::PathBuf;
 use type_uuid::TypeUuid;
 
@@ -214,6 +214,31 @@ impl AssetManager {
         // Issue disk IO requests
         // Wait until they are completed
         // Possibly some extra on-load-complete stuff
+    }
+
+    pub fn load_asset_symbol_name<T: TypeUuid + 'static + Send>(
+        &self,
+        symbol_name: &'static str
+    ) -> Handle<T> {
+        self.load_asset_symbol_string_hash(StringHash::from_static_str(symbol_name))
+    }
+
+    pub fn load_asset_symbol_string_hash<T: TypeUuid + 'static + Send>(
+        &self,
+        symbol: StringHash
+    ) -> Handle<T> {
+        let data_type_uuid = self
+            .storage()
+            .asset_to_data_type_uuid::<T>()
+            .expect("Called load_asset_path with unregistered asset type");
+
+        let load_handle = self
+            .loader
+            .add_engine_ref_indirect(IndirectIdentifier::SymbolWithType(
+                symbol,
+                data_type_uuid,
+            ));
+        Handle::<T>::new(self.ref_op_tx.clone(), load_handle)
     }
 
     pub fn load_asset_path<T: TypeUuid + 'static + Send, U: Into<String>>(

@@ -6,13 +6,14 @@ use crate::loader::{
 use crate::storage::IndirectIdentifier;
 use crossbeam_channel::{Receiver, Sender};
 use hydrate_base::hashing::HashMap;
-use hydrate_base::LoadHandle;
-use hydrate_base::{ArtifactId, AssetTypeId, ManifestFileEntry, ManifestFileJson};
-use std::io::SeekFrom;
+use hydrate_base::{LoadHandle, StringHash};
+use hydrate_base::{ArtifactId, AssetTypeId, ManifestFileEntry, DebugManifestFileJson};
+use std::io::{BufRead, SeekFrom};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 use std::thread::JoinHandle;
+use uuid::Uuid;
 
 struct DiskAssetIORequestMetadata {
     artifact_id: ArtifactId,
@@ -204,7 +205,7 @@ impl DiskAssetIOThreadPool {
 
 pub struct BuildManifest {
     pub artifact_lookup: HashMap<ArtifactId, ManifestFileEntry>,
-    pub symbol_lookup: HashMap<String, ArtifactId>,
+    pub symbol_lookup: HashMap<u128, ArtifactId>,
 }
 
 impl BuildManifest {
@@ -212,59 +213,92 @@ impl BuildManifest {
         manifest_dir_path: &Path,
         build_hash: CombinedBuildHash,
     ) -> BuildManifest {
-        let file_name = format!("{:0>16x}.manifest", build_hash.0);
-        let file_path = manifest_dir_path.join(file_name);
-        let json_str = std::fs::read_to_string(file_path).unwrap();
-        let manifest_file: ManifestFileJson = serde_json::from_str(&json_str).unwrap();
+        //
+        // Load release manifest data, this must exist and load correctly
+        //
+        let mut build_manifest = {
+            let mut asset_build_hashes = HashMap::default();
 
-        let mut artifact_lookup = HashMap::default();
-        let mut symbol_lookup = HashMap::default();
-        for artifact in manifest_file.artifacts {
-            if !artifact.symbol_name.is_empty() {
-                let old = symbol_lookup.insert(artifact.symbol_name.clone(), artifact.artifact_id);
+            let file_name = format!("{:0>16x}.manifest_release", build_hash.0);
+            let file_path = manifest_dir_path.join(file_name);
+            let file = std::fs::File::open(file_path).unwrap();
+            let buf_reader = std::io::BufReader::new(file);
+
+            let mut artifact_lookup = HashMap::default();
+            let mut symbol_lookup = HashMap::default();
+
+            for line in buf_reader.lines() {
+                let line_str = line.unwrap().to_string();
+                if line_str.is_empty() {
+                    continue;
+                }
+
+                let fragments: Vec<_> = line_str.split(",").into_iter().collect();
+
+
+                let artifact_id = ArtifactId::from_u128(u128::from_str_radix(fragments[0], 16).unwrap());
+                let build_hash = u64::from_str_radix(fragments[1], 16).unwrap();
+                let artifact_type = Uuid::from_u128(u128::from_str_radix(fragments[2], 16).unwrap());
+                let symbol_hash = u128::from_str_radix(fragments[3], 16).unwrap();
+
+                if symbol_hash != 0 {
+                    let old = symbol_lookup.insert(symbol_hash, artifact_id);
+                    assert!(old.is_none());
+                }
+                let old = artifact_lookup.insert(
+                    artifact_id,
+                    ManifestFileEntry {
+                        artifact_id,
+                        build_hash,
+                        symbol_hash: StringHash::from_hash(symbol_hash),
+                        artifact_type,
+                        debug_name: Default::default(),
+                    },
+                );
                 assert!(old.is_none());
+
+                asset_build_hashes.insert(artifact_id, build_hash);
             }
-            let old = artifact_lookup.insert(
-                artifact.artifact_id,
-                ManifestFileEntry {
-                    artifact_id: artifact.artifact_id,
-                    build_hash: u64::from_str_radix(&artifact.build_hash, 16).unwrap(),
-                    symbol_name: artifact.symbol_name,
-                    artifact_type: artifact.artifact_type,
-                },
-            );
-            assert!(old.is_none());
+
+            BuildManifest {
+                artifact_lookup,
+                symbol_lookup,
+            }
+        };
+
+        //
+        // Load manifest debug data, it's ok if these files don't exist. This is just additive to
+        // the critical data provided by the release manifest
+        //
+        {
+            let file_name = format!("{:0>16x}.manifest_debug", build_hash.0);
+            let file_path = manifest_dir_path.join(file_name);
+            if file_path.exists() {
+                log::info!("Manifest debug data found");
+                let json_str = std::fs::read_to_string(file_path).unwrap();
+                let manifest_file: DebugManifestFileJson = serde_json::from_str(&json_str).unwrap();
+
+                for debug_manifest_entry in manifest_file.artifacts {
+                    let manifest_entry = build_manifest.artifact_lookup.get_mut(&debug_manifest_entry.artifact_id).unwrap();
+
+                    assert_eq!(manifest_entry.artifact_id, debug_manifest_entry.artifact_id);
+                    assert_eq!(manifest_entry.artifact_type, debug_manifest_entry.artifact_type);
+                    let debug_manifest_build_hash = u64::from_str_radix(&debug_manifest_entry.build_hash, 16).unwrap();
+                    assert_eq!(manifest_entry.build_hash, debug_manifest_build_hash);
+
+                    let debug_manifest_symbol_hash = StringHash::from_runtime_str(&debug_manifest_entry.symbol_name.clone());
+                    assert_eq!(manifest_entry.symbol_hash.hash(), debug_manifest_symbol_hash.hash());
+                    manifest_entry.symbol_hash = debug_manifest_symbol_hash;
+
+                    manifest_entry.debug_name = debug_manifest_entry.debug_name.clone();
+                }
+            } else {
+                log::info!("No manifest debug data found, less debug info will be available at runtime")
+            }
+
         }
 
-        BuildManifest {
-            artifact_lookup,
-            symbol_lookup,
-        }
-
-        // let mut asset_build_hashes = HashMap::default();
-        //
-        // let file_name = format!("{:0>16x}.manifest", build_hash.0);
-        // let file_path = manifest_dir_path.join(file_name);
-        // let file = std::fs::File::open(file_path).unwrap();
-        // let buf_reader = std::io::BufReader::new(file);
-        // for line in buf_reader.lines() {
-        //     let line_str = line.unwrap().to_string();
-        //     if line_str.is_empty() {
-        //         continue;
-        //     }
-        //
-        //     let separator = line_str.find(",").unwrap();
-        //     let left = &line_str[..separator];
-        //     let right = &line_str[(separator + 1)..];
-        //
-        //     let asset_id = u128::from_str_radix(left, 16).unwrap();
-        //     let build_hash = u64::from_str_radix(right, 16).unwrap();
-        //
-        //
-        //     asset_build_hashes.insert(ArtifactId(asset_id), build_hash);
-        // }
-        //
-        // BuildManifest { asset_build_hashes }
+        build_manifest
     }
 }
 
@@ -353,20 +387,27 @@ impl LoaderIO for DiskAssetIO {
         &self,
         indirect_identifier: &IndirectIdentifier,
     ) -> Option<(ArtifactId, u64)> {
-        match indirect_identifier {
+        let (artifact_id, asset_type) = match indirect_identifier {
             IndirectIdentifier::PathWithType(asset_path, asset_type) => {
-                let artifact_id = self.manifest.symbol_lookup.get(asset_path)?;
-                let metadata = self.manifest.artifact_lookup.get(&artifact_id)?;
-                if *metadata.artifact_type.as_bytes() == asset_type.0 {
-                    Some((metadata.artifact_id, metadata.build_hash))
-                } else {
-                    panic!(
-                        "Tried to resolve artifact {:?} but it was an unexpected type {:?}",
-                        indirect_identifier, metadata.artifact_type
-                    );
-                    //None
-                }
+                let artifact_id = self.manifest.symbol_lookup.get(&StringHash::from_runtime_str(asset_path).hash())?;
+                (*artifact_id, *asset_type)
             }
+
+            IndirectIdentifier::SymbolWithType(asset_path, asset_type) => {
+                let artifact_id = self.manifest.symbol_lookup.get(&asset_path.hash())?;
+                (*artifact_id, *asset_type)
+            }
+        };
+
+        let metadata = self.manifest.artifact_lookup.get(&artifact_id)?;
+        if *metadata.artifact_type.as_bytes() == asset_type.0 {
+            Some((metadata.artifact_id, metadata.build_hash))
+        } else {
+            panic!(
+                "Tried to resolve artifact {:?} but it was an unexpected type {:?}",
+                indirect_identifier, metadata.artifact_type
+            );
+            //None
         }
     }
 

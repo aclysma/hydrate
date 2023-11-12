@@ -4,7 +4,7 @@ use crate::loader::LoaderEvent;
 use crossbeam_channel::Sender;
 use dashmap::DashMap;
 use hydrate_base::handle::LoaderInfoProvider;
-use hydrate_base::{AssetTypeId, LoadHandle};
+use hydrate_base::{AssetTypeId, LoadHandle, StringHash};
 
 #[derive(Debug)]
 pub enum HandleOp {
@@ -181,24 +181,8 @@ pub trait AssetStorage {
 pub enum IndirectIdentifier {
     //PathWithTagAndType(String, String, AssetTypeId),
     PathWithType(String, AssetTypeId),
+    SymbolWithType(StringHash, AssetTypeId),
     //Path(String),
-}
-impl IndirectIdentifier {
-    pub fn path(&self) -> &str {
-        match self {
-            //IndirectIdentifier::PathWithTagAndType(path, _, _) => path.as_str(),
-            IndirectIdentifier::PathWithType(path, _) => path.as_str(),
-            //IndirectIdentifier::Path(path) => path.as_str(),
-        }
-    }
-
-    pub fn type_id(&self) -> Option<&AssetTypeId> {
-        match self {
-            //IndirectIdentifier::PathWithTagAndType(_, _, ty) => Some(ty),
-            IndirectIdentifier::PathWithType(_, ty) => Some(ty),
-            //IndirectIdentifier::Path(_) => None,
-        }
-    }
 }
 
 // Should not need a resolver, paths are unambiguous

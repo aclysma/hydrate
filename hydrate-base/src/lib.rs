@@ -18,5 +18,9 @@ mod asset_ref;
 pub use asset_ref::AssetRef;
 
 pub mod handle;
+
 pub use handle::Handle;
 pub use handle::LoadHandle;
+
+mod string_hash;
+pub use string_hash::StringHash;

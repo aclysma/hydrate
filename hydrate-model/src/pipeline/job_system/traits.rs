@@ -65,8 +65,6 @@ pub trait JobApi {
         job: NewJob,
     ) -> JobId;
 
-    //fn produce_asset(&self, asset: BuiltAsset);
-
     fn artifact_handle_created(
         &self,
         asset_id: AssetId,
@@ -207,7 +205,7 @@ pub fn produce_asset_with_handles<T: TypeUuid + Serialize, F: FnOnce() -> T>(
     // });
 }
 
-pub fn produce_artifact<T: TypeUuid + Serialize, U: Hash>(
+pub fn produce_artifact<T: TypeUuid + Serialize, U: Hash + std::fmt::Display>(
     job_api: &dyn JobApi,
     asset_id: AssetId,
     artifact_key: Option<U>,
@@ -220,12 +218,13 @@ pub fn produce_artifact<T: TypeUuid + Serialize, U: Hash>(
     }
 }
 
-pub fn produce_artifact_with_handles<T: TypeUuid + Serialize, U: Hash, F: FnOnce() -> T>(
+pub fn produce_artifact_with_handles<T: TypeUuid + Serialize, U: Hash + std::fmt::Display, F: FnOnce() -> T>(
     job_api: &dyn JobApi,
     asset_id: AssetId,
     artifact_key: Option<U>,
     asset_fn: F,
 ) -> ArtifactId {
+    let artifact_key_debug_name = artifact_key.as_ref().map(|x| format!("{}", x));
     let artifact_id = create_artifact_id(asset_id, artifact_key);
 
     let mut ctx = DummySerdeContextHandle::default();
@@ -239,7 +238,7 @@ pub fn produce_artifact_with_handles<T: TypeUuid + Serialize, U: Hash, F: FnOnce
 
     let referenced_assets = ctx.end_serialize_asset(asset_id);
 
-    println!("produce_artifact {:?} {:?}", asset_id, artifact_id);
+    println!("produce_artifact {:?} {:?} {:?}", asset_id, artifact_id, artifact_key_debug_name);
     job_api.produce_artifact(BuiltArtifact {
         asset_id,
         artifact_id,
@@ -251,6 +250,7 @@ pub fn produce_artifact_with_handles<T: TypeUuid + Serialize, U: Hash, F: FnOnce
             asset_type: uuid::Uuid::from_bytes(asset_type),
         },
         data: built_data,
+        artifact_key_debug_name
     });
 
     artifact_id

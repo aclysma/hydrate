@@ -5,7 +5,7 @@ use demo_types::mesh_adv::{
 };
 use demo_types::simple_data::{Transform, TransformRef};
 use hydrate::base::handle::{LoaderInfoProvider, RefOp, SerdeContext};
-use hydrate::base::{ArtifactId, LoadHandle};
+use hydrate::base::{ArtifactId, LoadHandle, StringHash};
 use hydrate::loader::asset_storage::UpdateAssetResult;
 use hydrate::loader::{DynAssetLoader, Handle};
 use std::error::Error;
@@ -96,8 +96,8 @@ fn main() {
     loader.add_storage::<MeshAdvMaterialAssetData>();
     loader.add_storage::<MeshAdvMaterialData>();
 
-    let load_handle_transform_ref: Handle<TransformRef> =
-        loader.load_asset_path("db:/path_file_system/test_transform_ref");
+    let mut load_handle_transform_ref: Option<Handle<TransformRef>> =
+        Some(loader.load_asset_symbol_name("db:/path_file_system/test_transform_ref"));
 
     // let load_handle_transform_ref: Handle<TransformRef> = loader.load_asset(ArtifactId(
     //     uuid::Uuid::parse_str("798bd93be6d14f459d31d7e689c28c03")
@@ -115,17 +115,28 @@ fn main() {
             .unwrap(),
     ));
 
+    let mut loop_count = 0;
     loop {
+        loop_count += 1;
+        if loop_count > 50 {
+            println!("UNLOAD THE TRANSFORM REF");
+            load_handle_transform_ref = None;
+        }
+
         std::thread::sleep(std::time::Duration::from_millis(15));
         loader.update();
 
-        let data = load_handle_transform_ref.asset(loader.storage());
-        if let Some(data) = data {
-            let data_inner = data.transform.asset(loader.storage());
-            println!("load_handle_transform_ref loaded {:?}", data);
-            println!("load_handle_transform_ref inner loaded {:?}", data_inner);
+        if let Some(load_handle_transform_ref) = &load_handle_transform_ref {
+            let data = load_handle_transform_ref.asset(loader.storage());
+            if let Some(data) = data {
+                let data_inner = data.transform.asset(loader.storage());
+                println!("load_handle_transform_ref loaded {:?}", data);
+                println!("load_handle_transform_ref inner loaded {:?}", data_inner);
+            } else {
+                println!("load_handle_transform_ref not loaded");
+            }
         } else {
-            println!("load_handle_transform_ref not loaded");
+            println!("load_handle_transform_ref unloaded");
         }
 
         let data = load_handle_mesh.asset(loader.storage());

@@ -303,6 +303,13 @@ impl BuildJobs {
                 None
             };
 
+            let symbol_name_hash = StringHash::from_runtime_str(&symbol_name.clone().unwrap_or_default()).hash();
+            if symbol_name_hash != 0 {
+                let newly_inserted = all_hashes.insert(symbol_name_hash);
+                // We have a hash collision if this assert fires
+                assert!(newly_inserted);
+            }
+
             let debug_name = if let Some(artifact_key_debug_name) = &built_artifact_info.artifact_key_debug_name {
                 format!("{}#{}", editor_model.asset_display_name_long(asset_id), artifact_key_debug_name)
             } else {
@@ -312,19 +319,12 @@ impl BuildJobs {
             manifest_json.artifacts.push(DebugManifestFileEntryJson {
                 artifact_id,
                 build_hash: format!("{:0>16x}", build_hash),
-                symbol_name: symbol_name.clone().unwrap_or_default(),
+                symbol_hash: format!("{:0>32x}", symbol_name_hash),
+                symbol_name: symbol_name.unwrap_or_default(),
                 artifact_type: built_artifact_info.metadata.asset_type,
                 debug_name,
                 //dependencies: artifact_metadata.dependencies.clone(),
             });
-
-            //TODO: Symbol name could be a hash
-            let symbol_name_hash = StringHash::from_runtime_str(&symbol_name.unwrap_or_default()).hash();
-            if symbol_name_hash != 0 {
-                let newly_inserted = all_hashes.insert(symbol_name_hash);
-                // We have a hash collision if this assert fires
-                assert!(newly_inserted);
-            }
 
             // Write the artifact ID, build hash, asset type, and hash of symbol name in CSV (this could be very compact binary one day
             write!(manifest_release_file_writer, "{:0>32x},{:0>16x},{:0>32x},{:0>32x}\n", artifact_id.as_u128(), build_hash, built_artifact_info.metadata.asset_type.as_u128(), symbol_name_hash).unwrap();

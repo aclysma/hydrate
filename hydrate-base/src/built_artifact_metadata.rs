@@ -8,11 +8,14 @@ use uuid::Uuid;
 #[derive(Serialize, Deserialize)]
 pub struct DebugManifestFileEntryJson {
     pub artifact_id: ArtifactId,
+    // stored as a string so we can encoded as hex
     pub build_hash: String,
     pub symbol_name: String,
+    // stored as a string so we can encoded as hex. The hash isn't really needed but it's nice
+    // to have in the file for looking up a hash while debugging
+    pub symbol_hash: String,
     pub artifact_type: Uuid,
     pub debug_name: String,
-    //pub dependencies: Vec<ArtifactId>,
 }
 
 #[derive(Serialize, Deserialize, Default)]
@@ -26,7 +29,6 @@ pub struct ManifestFileEntry {
     pub symbol_hash: StringHash,
     pub artifact_type: Uuid,
     pub debug_name: String,
-    //pub dependencies: Vec<ArtifactId>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Hash)]

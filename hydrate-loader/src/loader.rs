@@ -2,8 +2,8 @@ use crate::storage::{AssetLoadOp, AssetStorage, HandleOp, IndirectIdentifier, In
 use crossbeam_channel::{Receiver, Sender};
 use dashmap::DashMap;
 use hydrate_base::handle::{LoadState, LoadStateProvider, LoaderInfoProvider};
-use hydrate_base::LoadHandle;
-use hydrate_base::{AssetRef, AssetTypeId, AssetId, ArtifactId};
+use hydrate_base::{LoadHandle, ManifestFileEntry, StringHash};
+use hydrate_base::{ArtifactRef, AssetTypeId, AssetId, ArtifactId};
 use std::fmt::Debug;
 use std::sync::atomic::{AtomicU32, AtomicU64, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
@@ -142,10 +142,15 @@ pub trait LoaderIO: Sync + Send {
     // Returns the latest known build hash that we are currently able to read from
     fn latest_build_hash(&self) -> CombinedBuildHash;
 
+    fn manifest_entry(
+        &self,
+        artifact_id: ArtifactId,
+    ) -> Option<&ManifestFileEntry>;
+
     fn resolve_indirect(
         &self,
         indirect_identifier: &IndirectIdentifier,
-    ) -> Option<(ArtifactId, u64)>;
+    ) -> Option<&ManifestFileEntry>;
 
     // This results in a RequestMetadataResult being sent to the loader
     fn request_metadata(
@@ -263,12 +268,16 @@ struct LoadHandleVersionInfo {
 struct LoadHandleInfo {
     //strong_ref_count: AtomicU32,
     artifact_id: ArtifactId,
-    asset_id: AssetId,
+    //asset_id: AssetId,
     //ref_count: AtomicU32,
     engine_ref_count: AtomicU32,
     _next_version: u32,
     //load_state: LoadState,
     versions: Vec<LoadHandleVersionInfo>,
+    // for debugging/convenience, not actually required
+    symbol: Option<StringHash>,
+    // for debugging/convenience, not actually required
+    debug_name: Option<Arc<String>>,
 }
 
 struct ReloadAction {
@@ -340,21 +349,35 @@ impl LoadStateProvider for Loader {
 impl LoaderInfoProvider for Loader {
     fn load_handle(
         &self,
-        id: &AssetRef,
+        id: &ArtifactRef,
     ) -> Option<LoadHandle> {
         let artifact_id = ArtifactId::from_uuid(id.0.as_uuid());
         self.artifact_id_to_handle.get(&artifact_id).map(|l| *l)
     }
 
-    fn asset_id(
+    fn artifact_id(
         &self,
         load: LoadHandle,
-    ) -> Option<AssetId> {
-        self.load_handle_infos.get(&load).map(|l| l.asset_id)
+    ) -> Option<ArtifactId> {
+        self.load_handle_infos.get(&load).map(|l| l.artifact_id)
     }
 }
 
 impl Loader {
+    pub fn symbol(
+        &self,
+        load: LoadHandle,
+    ) -> Option<StringHash> {
+        self.load_handle_infos.get(&load).map(|l| l.symbol.clone()).flatten()
+    }
+
+    pub fn debug_name(
+        &self,
+        load: LoadHandle,
+    ) -> Option<Arc<String>> {
+        self.load_handle_infos.get(&load).map(|l| l.debug_name.clone()).flatten()
+    }
+
     pub fn new(
         loader_io: Box<dyn LoaderIO>,
         events_tx: Sender<LoaderEvent>,
@@ -402,7 +425,7 @@ impl Loader {
         log::debug!(
             "handle_try_load {:?} {:?} {:?}",
             load_handle,
-            load_state_info.asset_id,
+            load_state_info.debug_name,
             load_state_info.artifact_id
         );
 
@@ -440,7 +463,7 @@ impl Loader {
         log::debug!(
             "handle_try_unload {:?} {:?} {:?}",
             load_handle,
-            load_state_info.asset_id,
+            load_state_info.debug_name,
             load_state_info.artifact_id
         );
 
@@ -501,7 +524,7 @@ impl Loader {
             log::debug!(
                 "handle_request_metadata_result {:?} {:?} {:?}",
                 result.load_handle,
-                load_state_info.asset_id,
+                load_state_info.debug_name,
                 load_state_info.artifact_id
             );
             let load_state = load_state_info.versions[result.version as usize].load_state;
@@ -604,7 +627,7 @@ impl Loader {
         log::debug!(
             "handle_dependencies_loaded {:?} {:?} {:?}",
             load_handle,
-            load_state_info.asset_id,
+            load_state_info.debug_name,
             load_state_info.artifact_id
         );
         if load_state_info.versions[version].load_state == LoadState::Unloaded {
@@ -638,8 +661,8 @@ impl Loader {
             log::debug!(
                 "handle_request_data_result {:?} {:?} {:?}",
                 result.load_handle,
-                load_state_info.asset_id,
-                load_state_info.asset_id
+                load_state_info.debug_name,
+                load_state_info.artifact_id
             );
             let version = &mut load_state_info.versions[result.version as usize];
             // Bail if the asset is unloaded
@@ -687,7 +710,7 @@ impl Loader {
         match load_result {
             HandleOp::Error(load_handle, _version, error) => {
                 let asset_info = self.load_handle_infos.get(&load_handle).unwrap();
-                log::debug!("handle_load_result error {:?} {:?} {:?}", load_handle, asset_info.asset_id, asset_info.artifact_id);
+                log::debug!("handle_load_result error {:?} {:?} {:?}", load_handle, asset_info.debug_name, asset_info.artifact_id);
                 //TODO: How to handle error?
                 log::error!("load error {}", error);
                 panic!("load error {}", error);
@@ -704,7 +727,7 @@ impl Loader {
                     log::debug!(
                         "handle_load_result complete {:?} {:?} {:?}",
                         load_handle,
-                        load_handle_info.asset_id,
+                        load_handle_info.debug_name,
                         load_handle_info.artifact_id,
                     );
                     std::mem::swap(
@@ -884,19 +907,19 @@ impl Loader {
                     panic!("Couldn't find asset {:?}", indirect_id);
                 }
 
-                let (artifact_id, _build_hash) = resolved.unwrap();
+                let manifest_entry = resolved.unwrap();
                 log::debug!(
                     "Allocate indirect load handle {:?} for indirect id {:?} -> {:?}",
                     load_handle,
                     &indirect_id,
-                    artifact_id
+                    manifest_entry.artifact_id
                 );
 
                 self.indirect_states.insert(
                     load_handle,
                     IndirectLoad {
                         _id: indirect_id.clone(),
-                        resolved_uuid: artifact_id,
+                        resolved_uuid: manifest_entry.artifact_id,
                         engine_ref_count: AtomicUsize::new(0),
                     },
                 );
@@ -913,19 +936,19 @@ impl Loader {
             .entry(artifact_id)
             .or_insert_with(|| {
                 let load_handle = self.allocate_load_handle(false);
-                let asset_id = AssetId::from_uuid(artifact_id.as_uuid());
+                let manifest_entry = self.loader_io.manifest_entry(artifact_id).unwrap();
 
                 log::debug!(
-                    "Allocate load handle {:?} for asset id {:?}",
+                    "Allocate load handle {:?} for artifact id {:?}",
                     load_handle,
-                    asset_id
+                    artifact_id,
                 );
 
                 self.load_handle_infos.insert(
                     load_handle,
                     LoadHandleInfo {
                         artifact_id,
-                        asset_id,
+                        //asset_id: manifest_entry.,
                         engine_ref_count: AtomicU32::new(0),
                         _next_version: 0,
                         //load_state: LoadState::Unloaded,
@@ -938,6 +961,8 @@ impl Loader {
                             blocked_loads: vec![],
                             dependencies: vec![],
                         }],
+                        symbol: manifest_entry.symbol_hash.clone(),
+                        debug_name: manifest_entry.debug_name.clone(),
                     },
                 );
 
@@ -1101,8 +1126,10 @@ impl Loader {
 
         let load_info = self.load_handle_infos.get(&handle)?;
         Some(LoadInfo {
-            asset_id: load_info.asset_id,
+            artifact_id: load_info.artifact_id,
             refs: load_info.engine_ref_count.load(Ordering::Relaxed),
+            symbol: load_info.symbol.clone(),
+            debug_name: load_info.debug_name.clone(),
             //path: load_info.versions.last().unwrap().
         })
     }
@@ -1114,10 +1141,12 @@ impl Loader {
 /// references may change.
 #[derive(Debug)]
 pub struct LoadInfo {
-    /// UUID of the asset.
-    pub asset_id: AssetId,
+    /// UUID of the artifact.
+    pub artifact_id: ArtifactId,
     /// Number of references to the asset.
     pub refs: u32,
+    pub symbol: Option<StringHash>,
+    pub debug_name: Option<Arc<String>>,
     // Path to asset's source file. Not guaranteed to always be available.
     //pub path: Option<String>,
     // Name of asset's source file. Not guaranteed to always be available.

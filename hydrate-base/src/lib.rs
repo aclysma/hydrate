@@ -15,7 +15,7 @@ mod asset_type_id;
 pub use asset_type_id::AssetTypeId;
 
 mod asset_ref;
-pub use asset_ref::AssetRef;
+pub use asset_ref::ArtifactRef;
 
 pub mod handle;
 

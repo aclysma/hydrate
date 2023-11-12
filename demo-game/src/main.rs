@@ -127,9 +127,9 @@ fn main() {
         loader.update();
 
         if let Some(load_handle_transform_ref) = &load_handle_transform_ref {
-            let data = load_handle_transform_ref.asset(loader.storage());
+            let data = load_handle_transform_ref.artifact(loader.storage());
             if let Some(data) = data {
-                let data_inner = data.transform.asset(loader.storage());
+                let data_inner = data.transform.artifact(loader.storage());
                 println!("load_handle_transform_ref loaded {:?}", data);
                 println!("load_handle_transform_ref inner loaded {:?}", data_inner);
             } else {
@@ -139,16 +139,16 @@ fn main() {
             println!("load_handle_transform_ref unloaded");
         }
 
-        let data = load_handle_mesh.asset(loader.storage());
+        let data = load_handle_mesh.artifact(loader.storage());
         if let Some(data) = data {
             let data_full_vb = data
                 .vertex_position_buffer
                 .as_ref()
-                .map(|x| x.asset(loader.storage()).unwrap());
+                .map(|x| x.artifact(loader.storage()).unwrap());
             let data_position_vb = data
                 .vertex_position_buffer
                 .as_ref()
-                .map(|x| x.asset(loader.storage()).unwrap());
+                .map(|x| x.artifact(loader.storage()).unwrap());
             println!("load_handle_mesh loaded {:?}", data.mesh_parts);
             if let Some(data_full_vb) = data_full_vb {
                 println!("full vb {:?}", data_full_vb.data.len());
@@ -161,7 +161,7 @@ fn main() {
             println!("load_handle_mesh not loaded");
         }
 
-        let data = load_handle_image.asset(loader.storage());
+        let data = load_handle_image.artifact(loader.storage());
         if let Some(data) = data {
             println!("load_handle_image loaded {:?}", data.image_bytes.len());
         } else {

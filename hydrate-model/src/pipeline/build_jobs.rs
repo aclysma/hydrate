@@ -164,10 +164,8 @@ impl BuildJobs {
                 .take_built_artifacts(&mut artifact_asset_lookup);
             for built_artifact in built_artifacts {
                 //
-                // Trigger building any dependencies
+                // Trigger building any dependencies.
                 //
-                //TODO: I'm getting back handles to artifacts but I don't know what the associated asset
-                // ID is
                 for &dependency_artifact_id in &built_artifact.metadata.dependencies {
                     let dependency_asset_id =
                         *artifact_asset_lookup.get(&dependency_artifact_id).unwrap();
@@ -278,16 +276,10 @@ impl BuildJobs {
         // This is a json file that supplements the release manifest
         let manifest_path_debug = manifest_path.join(format!("{:0>16x}.manifest_debug", combined_build_hash));
 
-
-        println!("built artifacts {:#?}", artifact_asset_lookup);
-
         let mut manifest_json = DebugManifestFileJson::default();
 
         let mut all_hashes = HashSet::default();
         for (artifact_id, build_hash) in build_hashes {
-            println!("find asset for artifact {:?}", artifact_id);
-            //let asset_id = *artifact_asset_lookup.get(&artifact_id).unwrap();
-
             let built_artifact_info = built_artifact_info.get(&artifact_id).unwrap();
             let asset_id = built_artifact_info.asset_id;
 

@@ -17,10 +17,10 @@ use serde::{
 };
 use uuid::Uuid;
 
-use crate::{ArtifactId, AssetRef, AssetId};
+use crate::{ArtifactId, ArtifactRef};
 
-/// Loading ID allocated by [`Loader`](crate::loader::Loader) to track loading of a particular asset
-/// or an indirect reference to an asset.
+/// Loading ID allocated by [`Loader`](crate::loader::Loader) to track loading of a particular artifact
+/// or an indirect reference to an artifact.
 #[derive(Copy, Clone, PartialEq, Eq, Debug, Hash)]
 pub struct LoadHandle(pub u64);
 
@@ -38,10 +38,10 @@ impl LoadHandle {
 
     /// Returns true if the handle needs to be resolved through the [`IndirectionTable`] before use.
     /// An "indirect" LoadHandle represents a load operation for an identifier that is late-bound,
-    /// meaning the identifier may change which [`AssetId`] it resolves to.
+    /// meaning the identifier may change which [`ArtifactId`] it resolves to.
     /// An example of an indirect LoadHandle would be one that loads by filesystem path.
-    /// The specific asset at a path may change as files change, move or are deleted, while a direct
-    /// LoadHandle (one that addresses by AssetId) is guaranteed to refer to an AssetId for its
+    /// The specific artifact at a path may change as files change, move or are deleted, while a direct
+    /// LoadHandle (one that addresses by ArtifactId) is guaranteed to refer to an ArtifactId for its
     /// whole lifetime.
     pub fn is_indirect(&self) -> bool {
         (self.0 & (1 << 63)) == 1 << 63
@@ -49,38 +49,38 @@ impl LoadHandle {
 }
 
 // Brought to hydrate_base from hydrate_loader because handle is in hydrate_base
-/// Provides information about mappings between `AssetId` and `LoadHandle`.
+/// Provides information about mappings between `ArtifactId` and `LoadHandle`.
 /// Intended to be used for `Handle` serde.
 pub trait LoaderInfoProvider: Send + Sync {
-    /// Returns the load handle for the asset with the given UUID, if present.
+    /// Returns the load handle for the artifact with the given UUID, if present.
     ///
     /// This will only return `Some(..)` if there has been a previous call to [`crate::loader::Loader::add_ref`].
     ///
     /// # Parameters
     ///
-    /// * `id`: UUID of the asset.
+    /// * `id`: UUID of the artifact.
     fn load_handle(
         &self,
-        asset_ref: &AssetRef,
+        artifact_ref: &ArtifactRef,
     ) -> Option<LoadHandle>;
 
-    /// Returns the AssetId for the given LoadHandle, if present.
+    /// Returns the ArtifactId for the given LoadHandle, if present.
     ///
     /// # Parameters
     ///
-    /// * `load_handle`: ID allocated by [`Loader`](crate::loader::Loader) to track loading of the asset.
-    fn asset_id(
+    /// * `load_handle`: ID allocated by [`Loader`](crate::loader::Loader) to track loading of the artifact.
+    fn artifact_id(
         &self,
         load: LoadHandle,
-    ) -> Option<AssetId>;
+    ) -> Option<ArtifactId>;
 }
 
-/// Operations on an asset reference.
+/// Operations on an artifact reference.
 #[derive(Debug)]
 pub enum RefOp {
     Decrease(LoadHandle),
     Increase(LoadHandle),
-    IncreaseUuid(AssetId),
+    IncreaseUuid(ArtifactId),
 }
 
 // Moved up to hydrate_loader because it depends on Loader
@@ -94,7 +94,7 @@ pub enum HandleRefType {
     /// Weak references do nothing on drop.
     Weak(Sender<RefOp>),
     /// Internal references do nothing on drop, but turn into Strong references on clone.
-    /// Should only be used for references stored in loaded assets to avoid self-referencing
+    /// Should only be used for references stored in loaded artifacts to avoid self-referencing
     Internal(Sender<RefOp>),
     /// Implementation detail, used when changing state in this enum
     None,
@@ -160,13 +160,13 @@ impl Clone for HandleRef {
     }
 }
 
-impl AssetHandle for HandleRef {
+impl ArtifactHandle for HandleRef {
     fn load_handle(&self) -> LoadHandle {
         self.id
     }
 }
 
-/// Handle to an asset.
+/// Handle to an artifact.
 #[derive(Eq)]
 pub struct Handle<T: ?Sized> {
     handle_ref: HandleRef,
@@ -249,23 +249,23 @@ impl<T> Handle<T> {
         }
     }
 
-    pub fn asset<'a>(
+    pub fn artifact<'a>(
         &self,
-        storage: &'a impl TypedAssetStorage<T>,
+        storage: &'a impl TypedArtifactStorage<T>,
     ) -> Option<&'a T> {
-        AssetHandle::asset(self, storage)
+        ArtifactHandle::artifact(self, storage)
     }
 }
 
-impl<T> AssetHandle for Handle<T> {
+impl<T> ArtifactHandle for Handle<T> {
     fn load_handle(&self) -> LoadHandle {
         self.handle_ref.load_handle()
     }
 }
 
-/// Handle to an asset whose type is unknown during loading.
+/// Handle to an artifact whose type is unknown during loading.
 ///
-/// This is returned by `Loader::load_asset_generic` for assets loaded by UUID.
+/// This is returned by `Loader::load_artifact_generic` for artifacts loaded by UUID.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct GenericHandle {
     handle_ref: HandleRef,
@@ -299,7 +299,7 @@ impl GenericHandle {
     }
 }
 
-impl AssetHandle for GenericHandle {
+impl ArtifactHandle for GenericHandle {
     fn load_handle(&self) -> LoadHandle {
         self.handle_ref.load_handle()
     }
@@ -313,14 +313,14 @@ impl<T: ?Sized> From<Handle<T>> for GenericHandle {
     }
 }
 
-/// Handle to an asset that does not prevent the asset from being unloaded.
+/// Handle to an artifact that does not prevent the artifact from being unloaded.
 ///
 /// Weak handles are primarily used when you want to use something that is already loaded.
 ///
-/// For example, a strong handle to an asset may be guaranteed to exist elsewhere in the program,
-/// and so you can simply get and use a weak handle to that asset in other parts of your code. This
+/// For example, a strong handle to an artifact may be guaranteed to exist elsewhere in the program,
+/// and so you can simply get and use a weak handle to that artifact in other parts of your code. This
 /// removes reference counting overhead, but also ensures that the system which uses the weak handle
-/// is not in control of when to unload the asset.
+/// is not in control of when to unload the artifact.
 #[derive(Clone, Eq, Hash, PartialEq, Debug)]
 pub struct WeakHandle {
     id: LoadHandle,
@@ -332,7 +332,7 @@ impl WeakHandle {
     }
 }
 
-impl AssetHandle for WeakHandle {
+impl ArtifactHandle for WeakHandle {
     fn load_handle(&self) -> LoadHandle {
         self.id
     }
@@ -408,7 +408,7 @@ impl SerdeContext {
     }
 }
 
-/// This context can be used to maintain AssetId references through a serialize/deserialize cycle
+/// This context can be used to maintain ArtifactId references through a serialize/deserialize cycle
 /// even if the LoadHandles produced are invalid. This is useful when a loader is not
 /// present, such as when processing in the Distill Daemon.
 pub struct DummySerdeContext {
@@ -419,13 +419,13 @@ pub struct DummySerdeContext {
 }
 
 struct DummySerdeContextMaps {
-    uuid_to_load: HashMap<AssetRef, LoadHandle>,
-    load_to_uuid: HashMap<LoadHandle, AssetRef>,
+    uuid_to_load: HashMap<ArtifactRef, LoadHandle>,
+    load_to_uuid: HashMap<LoadHandle, ArtifactRef>,
 }
 
 struct DummySerdeContextCurrent {
-    current_serde_dependencies: HashSet<AssetRef>,
-    current_serde_asset: Option<AssetId>,
+    current_serde_dependencies: HashSet<ArtifactRef>,
+    current_serde_artifact: Option<ArtifactId>,
 }
 
 impl DummySerdeContext {
@@ -438,7 +438,7 @@ impl DummySerdeContext {
             }),
             current: Mutex::new(DummySerdeContextCurrent {
                 current_serde_dependencies: HashSet::new(),
-                current_serde_asset: None,
+                current_serde_artifact: None,
             }),
             ref_sender: tx,
             handle_gen: AtomicU64::new(1),
@@ -449,41 +449,41 @@ impl DummySerdeContext {
 impl LoaderInfoProvider for DummySerdeContext {
     fn load_handle(
         &self,
-        asset_ref: &AssetRef,
+        artifact_ref: &ArtifactRef,
     ) -> Option<LoadHandle> {
         let mut maps = self.maps.write().unwrap();
         let maps = &mut *maps;
         let uuid_to_load = &mut maps.uuid_to_load;
         let load_to_uuid = &mut maps.load_to_uuid;
 
-        let entry = uuid_to_load.entry(asset_ref.clone());
+        let entry = uuid_to_load.entry(artifact_ref.clone());
         let handle = entry.or_insert_with(|| {
             let new_id = self.handle_gen.fetch_add(1, Ordering::Relaxed);
             let handle = LoadHandle(new_id);
-            load_to_uuid.insert(handle, asset_ref.clone());
+            load_to_uuid.insert(handle, artifact_ref.clone());
             handle
         });
 
         Some(*handle)
     }
 
-    fn asset_id(
+    fn artifact_id(
         &self,
         load: LoadHandle,
-    ) -> Option<AssetId> {
+    ) -> Option<ArtifactId> {
         let maps = self.maps.read().unwrap();
-        let maybe_asset = maps.load_to_uuid.get(&load).cloned();
-        if let Some(asset_ref) = maybe_asset.as_ref() {
+        let maybe_artifact = maps.load_to_uuid.get(&load).cloned();
+        if let Some(artifact_ref) = maybe_artifact.as_ref() {
             let mut current = self.current.lock().unwrap();
-            if let Some(ref current_serde_id) = current.current_serde_asset {
-                if AssetRef(*current_serde_id) != *asset_ref
-                    && *asset_ref != AssetRef(AssetId::null())
+            if let Some(ref current_serde_id) = current.current_serde_artifact {
+                if ArtifactRef(*current_serde_id) != *artifact_ref
+                    && *artifact_ref != ArtifactRef(ArtifactId::null())
                 {
-                    current.current_serde_dependencies.insert(asset_ref.clone());
+                    current.current_serde_dependencies.insert(artifact_ref.clone());
                 }
             }
         }
-        if let Some(AssetRef(uuid)) = maybe_asset {
+        if let Some(ArtifactRef(uuid)) = maybe_artifact {
             Some(uuid)
         } else {
             None
@@ -514,45 +514,45 @@ impl DummySerdeContextHandle {
 
     pub fn resolve_ref(
         &mut self,
-        asset_ref: &AssetRef,
-        asset: AssetId,
+        artifact_ref: &ArtifactRef,
+        artifact: ArtifactId,
     ) {
-        let new_ref = AssetRef(asset);
+        let new_ref = ArtifactRef(artifact);
         let mut maps = self.dummy.maps.write().unwrap();
-        if let Some(handle) = maps.uuid_to_load.get(asset_ref) {
+        if let Some(handle) = maps.uuid_to_load.get(artifact_ref) {
             let handle = *handle;
             maps.load_to_uuid.insert(handle, new_ref.clone());
             maps.uuid_to_load.insert(new_ref, handle);
         }
     }
 
-    /// Begin gathering dependencies for an asset
-    pub fn begin_serialize_asset(
+    /// Begin gathering dependencies for an artifact
+    pub fn begin_serialize_artifact(
         &mut self,
-        asset: AssetId,
+        artifact: ArtifactId,
     ) {
         let mut current = self.dummy.current.lock().unwrap();
-        if current.current_serde_asset.is_some() {
-            panic!("begin_serialize_asset when current_serde_asset is already set");
+        if current.current_serde_artifact.is_some() {
+            panic!("begin_serialize_artifact when current_serde_artifact is already set");
         }
-        current.current_serde_asset = Some(asset);
+        current.current_serde_artifact = Some(artifact);
     }
 
-    /// Finish gathering dependencies for an asset
-    pub fn end_serialize_asset(
+    /// Finish gathering dependencies for an artifact
+    pub fn end_serialize_artifact(
         &mut self,
-        _asset: AssetId,
-    ) -> HashSet<AssetRef> {
+        _artifact: ArtifactId,
+    ) -> HashSet<ArtifactRef> {
         let mut current = self.dummy.current.lock().unwrap();
-        if current.current_serde_asset.is_none() {
-            panic!("end_serialize_asset when current_serde_asset is not set");
+        if current.current_serde_artifact.is_none() {
+            panic!("end_serialize_artifact when current_serde_artifact is not set");
         }
-        current.current_serde_asset = None;
+        current.current_serde_artifact = None;
         std::mem::take(&mut current.current_serde_dependencies)
     }
 }
 
-/// Register this context with AssetDaemon to add serde support for Handle.
+/// Register this context with ArtifactDaemon to add serde support for Handle.
 // pub struct HandleSerdeContextProvider;
 // impl crate::importer_context::ImporterContext for HandleSerdeContextProvider {
 //     fn handle(&self) -> Box<dyn crate::importer_context::ImporterContextHandle> {
@@ -570,7 +570,7 @@ where
 {
     SerdeContext::with_active(|loader, _| {
         use ser::SerializeSeq;
-        let uuid_bytes: uuid::Bytes = *loader.asset_id(load).unwrap_or_default().as_uuid().as_bytes();
+        let uuid_bytes: uuid::Bytes = *loader.artifact_id(load).unwrap_or_default().as_uuid().as_bytes();
         let mut seq = serializer.serialize_seq(Some(uuid_bytes.len()))?;
         for element in &uuid_bytes {
             seq.serialize_element(element)?;
@@ -601,14 +601,14 @@ impl Serialize for GenericHandle {
     }
 }
 
-fn get_handle_ref(asset_ref: AssetRef) -> (LoadHandle, Sender<RefOp>) {
+fn get_handle_ref(artifact_ref: ArtifactRef) -> (LoadHandle, Sender<RefOp>) {
     SerdeContext::with_active(|loader, sender| {
-        let handle = if asset_ref == AssetRef(AssetId::default()) {
+        let handle = if artifact_ref == ArtifactRef(ArtifactId::default()) {
             LoadHandle(0)
         } else {
             loader
-                .load_handle(&asset_ref)
-                .unwrap_or_else(|| panic!("Handle for AssetId {:?} was not present when deserializing a Handle. This indicates missing dependency metadata, and can be caused by dependency cycles.", asset_ref))
+                .load_handle(&artifact_ref)
+                .unwrap_or_else(|| panic!("Handle for ArtifactId {:?} was not present when deserializing a Handle. This indicates missing dependency metadata, and can be caused by dependency cycles.", artifact_ref))
         };
         (handle, sender.clone())
     })
@@ -619,12 +619,12 @@ impl<'de, T> Deserialize<'de> for Handle<T> {
     where
         D: de::Deserializer<'de>,
     {
-        let asset_ref = if deserializer.is_human_readable() {
-            deserializer.deserialize_any(AssetRefVisitor)?
+        let artifact_ref = if deserializer.is_human_readable() {
+            deserializer.deserialize_any(ArtifactRefVisitor)?
         } else {
-            deserializer.deserialize_seq(AssetRefVisitor)?
+            deserializer.deserialize_seq(ArtifactRefVisitor)?
         };
-        let (handle, sender) = get_handle_ref(asset_ref);
+        let (handle, sender) = get_handle_ref(artifact_ref);
         Ok(Handle::new_internal(sender, handle))
     }
 }
@@ -634,20 +634,20 @@ impl<'de> Deserialize<'de> for GenericHandle {
     where
         D: de::Deserializer<'de>,
     {
-        let asset_ref = if deserializer.is_human_readable() {
-            deserializer.deserialize_any(AssetRefVisitor)?
+        let artifact_ref = if deserializer.is_human_readable() {
+            deserializer.deserialize_any(ArtifactRefVisitor)?
         } else {
-            deserializer.deserialize_seq(AssetRefVisitor)?
+            deserializer.deserialize_seq(ArtifactRefVisitor)?
         };
-        let (handle, sender) = get_handle_ref(asset_ref);
+        let (handle, sender) = get_handle_ref(artifact_ref);
         Ok(GenericHandle::new_internal(sender, handle))
     }
 }
 
-struct AssetRefVisitor;
+struct ArtifactRefVisitor;
 
-impl<'de> Visitor<'de> for AssetRefVisitor {
-    type Value = AssetRef;
+impl<'de> Visitor<'de> for ArtifactRefVisitor {
+    type Value = ArtifactRef;
 
     fn expecting(
         &self,
@@ -690,7 +690,7 @@ impl<'de> Visitor<'de> for AssetRefVisitor {
                 "too many elements when deserializing handle",
             ));
         }
-        Ok(AssetRef(AssetId::from_uuid(Uuid::from_bytes(uuid))))
+        Ok(ArtifactRef(ArtifactId::from_uuid(Uuid::from_bytes(uuid))))
     }
 
     fn visit_str<E>(
@@ -701,7 +701,7 @@ impl<'de> Visitor<'de> for AssetRefVisitor {
         E: de::Error,
     {
         if let Ok(uuid) = Uuid::parse_str(v) {
-            Ok(AssetRef(AssetId::from_uuid(uuid)))
+            Ok(ArtifactRef(ArtifactId::from_uuid(uuid)))
         } else {
             Err(E::custom(format!("failed to parse Handle string")))
         }
@@ -723,52 +723,52 @@ impl<'de> Visitor<'de> for AssetRefVisitor {
         } else {
             let mut a = <[u8; 16]>::default();
             a.copy_from_slice(v);
-            Ok(AssetRef(AssetId::from_uuid(Uuid::from_bytes(a))))
+            Ok(ArtifactRef(ArtifactId::from_uuid(Uuid::from_bytes(a))))
         }
     }
 }
 
-/// Implementors of [`crate::storage::AssetStorage`] can implement this trait to enable convenience
-/// functions on the common [`AssetHandle`] trait, which is implemented by all handle types.
-pub trait TypedAssetStorage<A> {
-    /// Returns the asset for the given handle, or `None` if has not completed loading.
+/// Implementors of [`crate::storage::ArtifactStorage`] can implement this trait to enable convenience
+/// functions on the common [`ArtifactHandle`] trait, which is implemented by all handle types.
+pub trait TypedArtifactStorage<A> {
+    /// Returns the artifact for the given handle, or `None` if has not completed loading.
     ///
     /// # Parameters
     ///
-    /// * `handle`: Handle of the asset.
+    /// * `handle`: Handle of the artifact.
     ///
     /// # Type Parameters
     ///
-    /// * `T`: Asset handle type.
-    fn get<T: AssetHandle>(
+    /// * `T`: Artifact handle type.
+    fn get<T: ArtifactHandle>(
         &self,
         handle: &T,
     ) -> Option<&A>;
 
-    /// Returns the version of a loaded asset, or `None` if has not completed loading.
+    /// Returns the version of a loaded artifact, or `None` if has not completed loading.
     ///
     /// # Parameters
     ///
-    /// * `handle`: Handle of the asset.
+    /// * `handle`: Handle of the artifact.
     ///
     /// # Type Parameters
     ///
-    /// * `T`: Asset handle type.
-    fn get_version<T: AssetHandle>(
+    /// * `T`: Artifact handle type.
+    fn get_version<T: ArtifactHandle>(
         &self,
         handle: &T,
     ) -> Option<u32>;
 
-    /// Returns the loaded asset and its version, or `None` if has not completed loading.
+    /// Returns the loaded artifact and its version, or `None` if has not completed loading.
     ///
     /// # Parameters
     ///
-    /// * `handle`: Handle of the asset.
+    /// * `handle`: Handle of the artifact.
     ///
     /// # Type Parameters
     ///
-    /// * `T`: Asset handle type.
-    fn get_asset_with_version<T: AssetHandle>(
+    /// * `T`: Artifact handle type.
+    fn get_artifact_with_version<T: ArtifactHandle>(
         &self,
         handle: &T,
     ) -> Option<(&A, u32)>;
@@ -783,15 +783,15 @@ pub enum LoadState {
     WaitingForMetadata,
     // We've incremented ref counts for dependencies, but they aren't loaded yet
     WaitingForDependencies,
-    // Dependencies are loaded, and we have requested the data required to load this asset
+    // Dependencies are loaded, and we have requested the data required to load this artifact
     WaitingForData,
     // Data has been passed off to end-user's loader
     Loading,
-    // The engine finished loading the asset but it is not available to the game yet
-    // When hot reloading, we delay commit until we have loaded new versions of all changed assets,
+    // The engine finished loading the artifact but it is not available to the game yet
+    // When hot reloading, we delay commit until we have loaded new versions of all changed artifacts,
     // so engine never sees a partial reload
     Loaded,
-    // The asset has been committed and is visible to the game
+    // The artifact has been committed and is visible to the game
     Committed,
 }
 
@@ -806,22 +806,22 @@ pub trait LoadStateProvider {
     ) -> ArtifactId;
 }
 
-/// The contract of an asset handle.
+/// The contract of an artifact handle.
 ///
-/// There are two types of asset handles:
+/// There are two types of artifact handles:
 ///
-/// * **Typed -- `Handle<T>`:** When the asset's type is known when loading.
-/// * **Generic -- `GenericHandle`:** When only the asset's UUID is known when loading.
-pub trait AssetHandle {
-    /// Returns the load status of the asset.
+/// * **Typed -- `Handle<T>`:** When the artifact's type is known when loading.
+/// * **Generic -- `GenericHandle`:** When only the artifact's UUID is known when loading.
+pub trait ArtifactHandle {
+    /// Returns the load status of the artifact.
     ///
     /// # Parameters
     ///
-    /// * `loader`: Loader that is loading the asset.
+    /// * `loader`: Loader that is loading the artifact.
     ///
     /// # Type Parameters
     ///
-    /// * `L`: Asset loader type.
+    /// * `L`: Artifact loader type.
     fn load_state<T: LoadStateProvider>(
         &self,
         loader: &T,
@@ -836,12 +836,12 @@ pub trait AssetHandle {
         loader.artifact_id(self.load_handle())
     }
 
-    /// Returns an immutable reference to the asset if it is committed.
+    /// Returns an immutable reference to the artifact if it is committed.
     ///
     /// # Parameters
     ///
-    /// * `storage`: Asset storage.
-    fn asset<'a, T, S: TypedAssetStorage<T>>(
+    /// * `storage`: Artifact storage.
+    fn artifact<'a, T, S: TypedArtifactStorage<T>>(
         &self,
         storage: &'a S,
     ) -> Option<&'a T>
@@ -851,12 +851,12 @@ pub trait AssetHandle {
         storage.get(self)
     }
 
-    /// Returns the version of the asset if it is committed.
+    /// Returns the version of the artifact if it is committed.
     ///
     /// # Parameters
     ///
-    /// * `storage`: Asset storage.
-    fn asset_version<T, S: TypedAssetStorage<T>>(
+    /// * `storage`: Artifact storage.
+    fn artifact_version<T, S: TypedArtifactStorage<T>>(
         &self,
         storage: &S,
     ) -> Option<u32>
@@ -866,44 +866,44 @@ pub trait AssetHandle {
         storage.get_version(self)
     }
 
-    /// Returns the asset with the given version if it is committed.
+    /// Returns the artifact with the given version if it is committed.
     ///
     /// # Parameters
     ///
-    /// * `storage`: Asset storage.
-    fn asset_with_version<'a, T, S: TypedAssetStorage<T>>(
+    /// * `storage`: Artifact storage.
+    fn artifact_with_version<'a, T, S: TypedArtifactStorage<T>>(
         &self,
         storage: &'a S,
     ) -> Option<(&'a T, u32)>
     where
         Self: Sized,
     {
-        storage.get_asset_with_version(self)
+        storage.get_artifact_with_version(self)
     }
 
     /// Downgrades this handle into a `WeakHandle`.
     ///
-    /// Be aware that if there are no longer any strong handles to the asset, then the underlying
-    /// asset may be freed at any time.
+    /// Be aware that if there are no longer any strong handles to the artifact, then the underlying
+    /// artifact may be freed at any time.
     fn downgrade(&self) -> WeakHandle {
         WeakHandle::new(self.load_handle())
     }
 
-    /// Returns the `LoadHandle` of this asset handle.
+    /// Returns the `LoadHandle` of this artifact handle.
     fn load_handle(&self) -> LoadHandle;
 }
 
-pub fn make_handle<T>(uuid: AssetId) -> Handle<T> {
+pub fn make_handle<T>(uuid: ArtifactId) -> Handle<T> {
     SerdeContext::with_active(|loader_info_provider, ref_op_sender| {
-        let load_handle = loader_info_provider.load_handle(&AssetRef(uuid)).unwrap();
+        let load_handle = loader_info_provider.load_handle(&ArtifactRef(uuid)).unwrap();
         Handle::<T>::new(ref_op_sender.clone(), load_handle)
     })
 }
 
-// pub fn make_handle_to_asset<T>(uuid: AssetId) -> Handle<T> {
+// pub fn make_handle_to_artifact<T>(uuid: ArtifactId) -> Handle<T> {
 //     SerdeContext::with_active(|loader_info_provider, ref_op_sender| {
 //         let load_handle = loader_info_provider
-//             .get_load_handle(&AssetRef(uuid))
+//             .get_load_handle(&ArtifactRef(uuid))
 //             .unwrap();
 //         Handle::<T>::new(ref_op_sender.clone(), load_handle)
 //     })
@@ -911,7 +911,7 @@ pub fn make_handle<T>(uuid: AssetId) -> Handle<T> {
 
 // pub fn make_handle_from_str<T>(uuid_str: &str) -> Result<Handle<T>, uuid::Error> {
 //     use std::str::FromStr;
-//     Ok(make_handle(AssetId(
+//     Ok(make_handle(ArtifactId(
 //         *uuid::Uuid::from_str(uuid_str)?.as_bytes(),
 //     )))
 // }

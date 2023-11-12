@@ -12,6 +12,7 @@ pub enum StringHashContents {
 #[derive(Clone)]
 pub struct StringHash {
     hash: u128,
+    // The contents are a debugging aid that may be stripped
     #[cfg(not(feature = "strip-stringhash-strings"))]
     contents: StringHashContents,
 }

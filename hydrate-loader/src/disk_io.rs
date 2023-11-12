@@ -235,22 +235,25 @@ impl BuildManifest {
 
                 let fragments: Vec<_> = line_str.split(",").into_iter().collect();
 
-
                 let artifact_id = ArtifactId::from_u128(u128::from_str_radix(fragments[0], 16).unwrap());
                 let build_hash = u64::from_str_radix(fragments[1], 16).unwrap();
                 let artifact_type = Uuid::from_u128(u128::from_str_radix(fragments[2], 16).unwrap());
-                let symbol_hash = u128::from_str_radix(fragments[3], 16).unwrap();
+                let symbol_hash_u128 = u128::from_str_radix(fragments[3], 16).unwrap();
 
-                if symbol_hash != 0 {
-                    let old = symbol_lookup.insert(symbol_hash, artifact_id);
+                let symbol_hash = if symbol_hash_u128 != 0 {
+                    let old = symbol_lookup.insert(symbol_hash_u128, artifact_id);
                     assert!(old.is_none());
-                }
+                    Some(StringHash::from_hash(symbol_hash_u128))
+                } else {
+                    None
+                };
+
                 let old = artifact_lookup.insert(
                     artifact_id,
                     ManifestFileEntry {
                         artifact_id,
                         build_hash,
-                        symbol_hash: StringHash::from_hash(symbol_hash),
+                        symbol_hash,
                         artifact_type,
                         debug_name: Default::default(),
                     },
@@ -286,11 +289,15 @@ impl BuildManifest {
                     let debug_manifest_build_hash = u64::from_str_radix(&debug_manifest_entry.build_hash, 16).unwrap();
                     assert_eq!(manifest_entry.build_hash, debug_manifest_build_hash);
 
-                    let debug_manifest_symbol_hash = StringHash::from_runtime_str(&debug_manifest_entry.symbol_name.clone());
-                    assert_eq!(manifest_entry.symbol_hash.hash(), debug_manifest_symbol_hash.hash());
-                    manifest_entry.symbol_hash = debug_manifest_symbol_hash;
+                    if debug_manifest_entry.symbol_name.is_empty() {
+                        assert_eq!(manifest_entry.symbol_hash, None);
+                    } else {
+                        let debug_manifest_symbol_hash = StringHash::from_runtime_str(&debug_manifest_entry.symbol_name);
+                        assert_eq!(manifest_entry.symbol_hash.as_ref().unwrap().hash(), debug_manifest_symbol_hash.hash());
+                        manifest_entry.symbol_hash = Some(debug_manifest_symbol_hash);
+                    }
 
-                    manifest_entry.debug_name = debug_manifest_entry.debug_name.clone();
+                    manifest_entry.debug_name = Some(Arc::new(debug_manifest_entry.debug_name));
                 }
             } else {
                 log::info!("No manifest debug data found, less debug info will be available at runtime")
@@ -383,10 +390,17 @@ impl LoaderIO for DiskAssetIO {
         self.build_hash
     }
 
+    fn manifest_entry(
+        &self,
+        artifact_id: ArtifactId,
+    ) -> Option<&ManifestFileEntry> {
+        self.manifest.artifact_lookup.get(&artifact_id)
+    }
+
     fn resolve_indirect(
         &self,
         indirect_identifier: &IndirectIdentifier,
-    ) -> Option<(ArtifactId, u64)> {
+    ) -> Option<&ManifestFileEntry> {
         let (artifact_id, asset_type) = match indirect_identifier {
             IndirectIdentifier::PathWithType(asset_path, asset_type) => {
                 let artifact_id = self.manifest.symbol_lookup.get(&StringHash::from_runtime_str(asset_path).hash())?;
@@ -401,7 +415,7 @@ impl LoaderIO for DiskAssetIO {
 
         let metadata = self.manifest.artifact_lookup.get(&artifact_id)?;
         if *metadata.artifact_type.as_bytes() == asset_type.0 {
-            Some((metadata.artifact_id, metadata.build_hash))
+            Some(metadata)
         } else {
             panic!(
                 "Tried to resolve artifact {:?} but it was an unexpected type {:?}",
@@ -449,17 +463,6 @@ impl LoaderIO for DiskAssetIO {
                 ))
                 .unwrap();
         }
-
-        // self.tx.send(LoaderEvent::MetadataRequestComplete(RequestMetadataResult {
-        //     load_handle,
-        //     artifact_id,
-        //     version,
-        //     result: Ok(ObjectMetadata {
-        //         dependencies: vec![],
-        //         subresource_count: 0,
-        //         asset_type: AssetTypeId(*uuid::Uuid::parse_str("1a4dde10-5e60-483d-88fa-4f59752e4524").unwrap().as_bytes())
-        //     })
-        // })).unwrap();
     }
 
     fn request_data(

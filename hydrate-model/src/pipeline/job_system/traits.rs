@@ -228,7 +228,7 @@ pub fn produce_artifact_with_handles<T: TypeUuid + Serialize, U: Hash + std::fmt
     let artifact_id = create_artifact_id(asset_id, artifact_key);
 
     let mut ctx = DummySerdeContextHandle::default();
-    ctx.begin_serialize_asset(asset_id);
+    ctx.begin_serialize_artifact(artifact_id);
 
     let (built_data, asset_type) = ctx.scope(|| {
         let asset = (asset_fn)();
@@ -236,7 +236,7 @@ pub fn produce_artifact_with_handles<T: TypeUuid + Serialize, U: Hash + std::fmt
         (built_data, asset.uuid())
     });
 
-    let referenced_assets = ctx.end_serialize_asset(asset_id);
+    let referenced_assets = ctx.end_serialize_artifact(artifact_id);
 
     println!("produce_artifact {:?} {:?} {:?}", asset_id, artifact_id, artifact_key_debug_name);
     job_api.produce_artifact(BuiltArtifact {
@@ -271,7 +271,7 @@ pub fn make_handle_to_artifact<T>(
         asset_artifact_id_pair.asset_id,
         asset_artifact_id_pair.artifact_id,
     );
-    hydrate_base::handle::make_handle::<T>(AssetId::from_uuid(asset_artifact_id_pair.artifact_id.as_uuid()))
+    hydrate_base::handle::make_handle::<T>(asset_artifact_id_pair.artifact_id)
 }
 
 pub fn make_handle_to_artifact_raw<T>(
@@ -280,7 +280,7 @@ pub fn make_handle_to_artifact_raw<T>(
     artifact_id: ArtifactId,
 ) -> Handle<T> {
     job_api.artifact_handle_created(asset_id, artifact_id);
-    hydrate_base::handle::make_handle::<T>(AssetId::from_uuid(artifact_id.as_uuid()))
+    hydrate_base::handle::make_handle::<T>(artifact_id)
 }
 
 pub fn make_handle_to_artifact_key<T, K: Hash>(
@@ -290,5 +290,5 @@ pub fn make_handle_to_artifact_key<T, K: Hash>(
 ) -> Handle<T> {
     let artifact_id = create_artifact_id(asset_id, artifact_key);
     job_api.artifact_handle_created(asset_id, artifact_id);
-    hydrate_base::handle::make_handle::<T>(AssetId::from_uuid(asset_id.as_uuid()))
+    hydrate_base::handle::make_handle::<T>(artifact_id)
 }

@@ -1,3 +1,4 @@
+use std::sync::Arc;
 use crate::{ArtifactId, StringHash};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
@@ -26,9 +27,13 @@ pub struct DebugManifestFileJson {
 pub struct ManifestFileEntry {
     pub artifact_id: ArtifactId,
     pub build_hash: u64,
-    pub symbol_hash: StringHash,
+    // If the artifact cannot be addressed by symbol, this will be None
+    // Even if the symbol is Some, the string in the string hash might not be present. It's only
+    // a debugging aid
+    pub symbol_hash: Option<StringHash>,
     pub artifact_type: Uuid,
-    pub debug_name: String,
+    // The debug name might not be available
+    pub debug_name: Option<Arc<String>>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Hash)]

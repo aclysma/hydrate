@@ -140,39 +140,6 @@ pub trait AssetStorage {
     );
 }
 
-// Sort of replaced with LoadState
-
-// /// Asset loading status.
-// #[derive(Debug)]
-// pub enum LoadStatus {
-//     /// There is no request for the asset to be loaded.
-//     NotRequested,
-//     /// The asset is being loaded.
-//     Loading,
-//     /// The asset is loaded.
-//     Loaded,
-//     /// The asset is being unloaded.
-//     Unloading,
-//     /// The asset does not exist.
-//     DoesNotExist,
-//     /// There was an error during loading / unloading of the asset.
-//     Error(Box<dyn Error>),
-// }
-
-// /// Information about an asset load operation.
-// ///
-// /// **Note:** The information is true at the time the `LoadInfo` is retrieved. The actual number of
-// /// references may change.
-// #[derive(Debug)]
-// pub struct LoadInfo {
-//     /// UUID of the asset.
-//     pub asset_id: AssetId,
-//     /// Number of references to the asset.
-//     pub refs: u32,
-//     /// Asset name. Not guaranteed to always be available.
-//     pub asset_name: Option<String>,
-// }
-
 // LoaderInfoProvider - Moved to hydrate_base
 // HandleAllocator - Removed
 
@@ -184,40 +151,6 @@ pub enum IndirectIdentifier {
     SymbolWithType(StringHash, AssetTypeId),
     //Path(String),
 }
-
-// Should not need a resolver, paths are unambiguous
-
-// /// Resolves ambiguous [`IndirectIdentifier`]s to a single asset ID given a set of candidates.
-// pub trait IndirectionResolver {
-//     fn resolve(
-//         &self,
-//         id: &IndirectIdentifier,
-//         candidates: Vec<(PathBuf, Vec<AssetMetadata>)>,
-//     ) -> Option<AssetId>;
-// }
-//
-// /// Default implementation of [`IndirectionResolver`] which resolves to the first asset in the list of candidates
-// /// of the appropriate type.
-// pub struct DefaultIndirectionResolver;
-// impl IndirectionResolver for DefaultIndirectionResolver {
-//     fn resolve(
-//         &self,
-//         id: &IndirectIdentifier,
-//         candidates: Vec<(PathBuf, Vec<AssetMetadata>)>,
-//     ) -> Option<AssetId> {
-//         let id_type = id.type_id();
-//         for candidate in candidates {
-//             for asset in candidate.1 {
-//                 if let Some(artifact) = asset.artifact {
-//                     if id_type.is_none() || *id_type.unwrap() == artifact.type_id {
-//                         return Some(asset.id);
-//                     }
-//                 }
-//             }
-//         }
-//         None
-//     }
-// }
 
 /// Resolves indirect [`LoadHandle`]s. See [`LoadHandle::is_indirect`] for details.
 #[derive(Clone)]

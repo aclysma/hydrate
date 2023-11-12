@@ -1,7 +1,4 @@
-use hydrate_base::{
-    handle::{AssetHandle, RefOp, TypedAssetStorage},
-    LoadHandle,
-};
+use hydrate_base::{ArtifactId, handle::{ArtifactHandle, RefOp, TypedArtifactStorage}, LoadHandle};
 use std::{collections::HashMap, error::Error, sync::Mutex};
 
 use crate::storage::{AssetLoadOp, AssetStorage, IndirectionTable};
@@ -9,13 +6,13 @@ use crossbeam_channel::{Receiver, Sender};
 use downcast_rs::Downcast;
 use hydrate_base::handle::LoaderInfoProvider;
 use hydrate_base::handle::SerdeContext;
-use hydrate_base::{AssetTypeId, AssetId};
+use hydrate_base::AssetTypeId;
 use std::marker::PhantomData;
 use type_uuid::TypeUuid;
 
 // Used to dynamic dispatch into a storage, supports checked downcasting
 pub trait DynAssetStorage: Downcast + Send {
-    fn update_asset(
+    fn update_artifact(
         &mut self,
         loader_info: &dyn LoaderInfoProvider,
         data: &[u8],
@@ -23,7 +20,7 @@ pub trait DynAssetStorage: Downcast + Send {
         load_op: AssetLoadOp,
         version: u32,
     ) -> Result<(), Box<dyn Error + Send + 'static>>;
-    fn commit_asset_version(
+    fn commit_artifact_version(
         &mut self,
         handle: LoadHandle,
         version: u32,
@@ -159,7 +156,7 @@ impl AssetStorage for AssetStorageSet {
             .storage
             .get_mut(&asset_type_id)
             .expect("unknown asset type")
-            .update_asset(loader_info, &data, load_handle, load_op, version);
+            .update_artifact(loader_info, &data, load_handle, load_op, version);
         x
     }
 
@@ -180,7 +177,7 @@ impl AssetStorage for AssetStorageSet {
             .storage
             .get_mut(&asset_type_id)
             .expect("unknown asset type")
-            .commit_asset_version(load_handle, version)
+            .commit_artifact_version(load_handle, version)
     }
 
     fn free(
@@ -206,8 +203,8 @@ impl AssetStorage for AssetStorageSet {
 
 // Implement distill's TypedAssetStorage - a typed trait that finds the asset_type's storage and
 // forwards the call
-impl<A: TypeUuid + 'static + Send> TypedAssetStorage<A> for AssetStorageSet {
-    fn get<T: AssetHandle>(
+impl<A: TypeUuid + 'static + Send> TypedArtifactStorage<A> for AssetStorageSet {
+    fn get<T: ArtifactHandle>(
         &self,
         handle: &T,
     ) -> Option<&A> {
@@ -227,7 +224,7 @@ impl<A: TypeUuid + 'static + Send> TypedAssetStorage<A> for AssetStorageSet {
             )
         }
     }
-    fn get_version<T: AssetHandle>(
+    fn get_version<T: ArtifactHandle>(
         &self,
         handle: &T,
     ) -> Option<u32> {
@@ -242,7 +239,7 @@ impl<A: TypeUuid + 'static + Send> TypedAssetStorage<A> for AssetStorageSet {
             .expect("failed to downcast")
             .get_version(handle)
     }
-    fn get_asset_with_version<T: AssetHandle>(
+    fn get_artifact_with_version<T: ArtifactHandle>(
         &self,
         handle: &T,
     ) -> Option<(&A, u32)> {
@@ -364,23 +361,23 @@ where
     }
 }
 
-struct UncommittedAssetState<A: Send> {
+struct UncommittedArtifactState<A: Send> {
     version: u32,
-    asset_uuid: AssetId,
+    artifact_id: ArtifactId,
     result: UpdateAssetResult<A>,
 }
 
-struct AssetState<A> {
+struct ArtifactState<A> {
     version: u32,
-    asset_uuid: AssetId,
+    artifact_id: ArtifactId,
     asset: A,
 }
 
 // A strongly typed storage for a single asset type
 pub struct Storage<AssetT: TypeUuid + Send> {
     refop_sender: Sender<RefOp>,
-    assets: HashMap<LoadHandle, AssetState<AssetT>>,
-    uncommitted: HashMap<LoadHandle, UncommittedAssetState<AssetT>>,
+    artifacts: HashMap<LoadHandle, ArtifactState<AssetT>>,
+    uncommitted: HashMap<LoadHandle, UncommittedArtifactState<AssetT>>,
     loader: Box<dyn DynAssetLoader<AssetT>>,
     indirection_table: IndirectionTable,
 }
@@ -393,13 +390,13 @@ impl<AssetT: TypeUuid + Send> Storage<AssetT> {
     ) -> Self {
         Self {
             refop_sender: sender,
-            assets: HashMap::new(),
+            artifacts: HashMap::new(),
             uncommitted: HashMap::new(),
             loader,
             indirection_table,
         }
     }
-    fn get<T: AssetHandle>(
+    fn get<T: ArtifactHandle>(
         &self,
         handle: &T,
     ) -> Option<&AssetT> {
@@ -408,9 +405,9 @@ impl<AssetT: TypeUuid + Send> Storage<AssetT> {
         } else {
             handle.load_handle()
         };
-        self.assets.get(&handle).map(|a| &a.asset)
+        self.artifacts.get(&handle).map(|a| &a.asset)
     }
-    fn get_version<T: AssetHandle>(
+    fn get_version<T: ArtifactHandle>(
         &self,
         handle: &T,
     ) -> Option<u32> {
@@ -419,9 +416,9 @@ impl<AssetT: TypeUuid + Send> Storage<AssetT> {
         } else {
             handle.load_handle()
         };
-        self.assets.get(&handle).map(|a| a.version)
+        self.artifacts.get(&handle).map(|a| a.version)
     }
-    fn get_asset_with_version<T: AssetHandle>(
+    fn get_asset_with_version<T: ArtifactHandle>(
         &self,
         handle: &T,
     ) -> Option<(&AssetT, u32)> {
@@ -430,12 +427,12 @@ impl<AssetT: TypeUuid + Send> Storage<AssetT> {
         } else {
             handle.load_handle()
         };
-        self.assets.get(&handle).map(|a| (&a.asset, a.version))
+        self.artifacts.get(&handle).map(|a| (&a.asset, a.version))
     }
 }
 
 impl<AssetT: TypeUuid + 'static + Send> DynAssetStorage for Storage<AssetT> {
-    fn update_asset(
+    fn update_artifact(
         &mut self,
         loader_info: &dyn LoaderInfoProvider,
         data: &[u8],
@@ -447,7 +444,7 @@ impl<AssetT: TypeUuid + 'static + Send> DynAssetStorage for Storage<AssetT> {
             "update_asset {} {:?} {:?} {}",
             core::any::type_name::<AssetT>(),
             load_handle,
-            loader_info.asset_id(load_handle).unwrap(),
+            loader_info.artifact_id(load_handle).unwrap(),
             version
         );
 
@@ -459,13 +456,13 @@ impl<AssetT: TypeUuid + 'static + Send> DynAssetStorage for Storage<AssetT> {
             load_op,
             version,
         )?;
-        let asset_uuid = loader_info.asset_id(load_handle).unwrap();
+        let asset_uuid = loader_info.artifact_id(load_handle).unwrap();
 
         // Add to list of uncommitted assets
         self.uncommitted.insert(
             load_handle,
-            UncommittedAssetState {
-                asset_uuid,
+            UncommittedArtifactState {
+                artifact_id: asset_uuid,
                 result,
                 version,
             },
@@ -474,7 +471,7 @@ impl<AssetT: TypeUuid + 'static + Send> DynAssetStorage for Storage<AssetT> {
         Ok(())
     }
 
-    fn commit_asset_version(
+    fn commit_artifact_version(
         &mut self,
         load_handle: LoadHandle,
         version: u32,
@@ -489,11 +486,11 @@ impl<AssetT: TypeUuid + 'static + Send> DynAssetStorage for Storage<AssetT> {
             "commit_asset_version {} {:?} {:?} {}",
             core::any::type_name::<AssetT>(),
             load_handle,
-            uncommitted_asset_state.asset_uuid,
+            uncommitted_asset_state.artifact_id,
             version
         );
 
-        let asset_uuid = uncommitted_asset_state.asset_uuid;
+        let asset_uuid = uncommitted_asset_state.artifact_id;
         let version = uncommitted_asset_state.version;
         let asset = match uncommitted_asset_state.result {
             UpdateAssetResult::Result(asset) => asset,
@@ -505,14 +502,14 @@ impl<AssetT: TypeUuid + 'static + Send> DynAssetStorage for Storage<AssetT> {
         // If a load handler exists, trigger the commit_asset_version callback
         self.loader.commit_asset_version(load_handle, version);
 
-        let asset_state = AssetState {
+        let asset_state = ArtifactState {
             asset,
-            asset_uuid,
+            artifact_id: asset_uuid,
             version,
         };
 
         // Commit the result
-        self.assets.insert(load_handle, asset_state);
+        self.artifacts.insert(load_handle, asset_state);
     }
 
     fn free(
@@ -520,16 +517,16 @@ impl<AssetT: TypeUuid + 'static + Send> DynAssetStorage for Storage<AssetT> {
         load_handle: LoadHandle,
         version: u32,
     ) {
-        if let Some(asset_state) = self.assets.get(&load_handle) {
+        if let Some(asset_state) = self.artifacts.get(&load_handle) {
             if asset_state.version == version {
                 // Remove it from the list of assets
-                let asset_state = self.assets.remove(&load_handle).unwrap();
+                let asset_state = self.artifacts.remove(&load_handle).unwrap();
 
                 log::debug!(
                     "free {} {:?} {:?}",
                     core::any::type_name::<AssetT>(),
                     load_handle,
-                    asset_state.asset_uuid
+                    asset_state.artifact_id
                 );
                 // Trigger the free callback on the load handler, if one exists
                 self.loader.free(load_handle);

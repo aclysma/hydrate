@@ -25,8 +25,6 @@ pub use mesh_adv::*;
 pub mod generated_wrapper;
 pub use generated_wrapper as generated;
 
-mod b3f;
-
 mod push_buffer;
 
 mod mesh_util;

@@ -1,6 +1,8 @@
+use std::fs::File;
 use crate::{EditorModel, HashMap, ImporterId, AssetId, SchemaSet, SingleObject};
 use hydrate_base::hashing::HashSet;
 use std::hash::{Hash, Hasher};
+use std::io::BufWriter;
 use std::path::{Path, PathBuf};
 
 use crate::SingleObjectJson;
@@ -118,10 +120,18 @@ impl ImportJobs {
         profiling::scope!(&format!("Load asset import data {:?}", asset_id));
         let path = uuid_to_path(&self.root_path, asset_id.as_uuid(), "if");
         log::debug!("LOAD DATA PATH {:?}", path);
-        let str = std::fs::read_to_string(&path).unwrap();
+
+        // json format
+        //let str = std::fs::read_to_string(&path).unwrap();
+        //let import_data = SingleObjectJson::load_single_object_from_string(schema_set, &str);
+
+        // b3f format
+        let bytes = std::fs::read(&path).unwrap();
+        let import_data = SingleObjectJson::load_single_object_from_b3f(schema_set, &bytes);
+
         let metadata = path.metadata().unwrap();
         let metadata_hash = hash_file_metadata(&metadata);
-        let import_data = SingleObjectJson::load_single_object_from_string(schema_set, &str);
+
         ImportData {
             import_data: import_data.single_object,
             contents_hash: import_data.contents_hash,
@@ -213,8 +223,15 @@ impl ImportJobs {
                     }
 
                     if let Some(import_data) = &imported_asset.import_data {
-                        let data = SingleObjectJson::save_single_object_to_string(import_data)
-                            .into_bytes();
+                        // Json-only format
+                        // let data = SingleObjectJson::save_single_object_to_string(import_data)
+                        //     .into_bytes();
+
+                        // b3f format
+                        let mut buf_writer = BufWriter::new(Vec::default());
+                        SingleObjectJson::save_single_object_to_b3f(&mut buf_writer, import_data);
+                        let data = buf_writer.into_inner().unwrap();
+
                         let path = uuid_to_path(&self.root_path, asset_id.as_uuid(), "if");
 
                         if let Some(parent) = path.parent() {

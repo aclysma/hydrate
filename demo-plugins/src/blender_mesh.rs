@@ -1,7 +1,7 @@
 pub use super::*;
 use std::path::{Path, PathBuf};
 
-use crate::b3f::B3FReader;
+use hydrate_base::b3f::B3FReader;
 use crate::generated::{
     MeshAdvMeshAssetRecord,
     MeshAdvMeshImportedDataRecord,

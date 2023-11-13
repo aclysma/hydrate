@@ -172,6 +172,7 @@ impl JobProcessor for GpuImageJobProcessor {
         // Compress the image, or just return the raw image bytes
         //
         let image_bytes = if compressed {
+            profiling::scope!("Compressing Image");
             let mut compressor_params = basis_universal::CompressorParams::new();
             compressor_params.set_basis_format(basis_universal::BasisTextureFormat::UASTC4x4);
             compressor_params.set_generate_mipmaps(true);

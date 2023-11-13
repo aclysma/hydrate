@@ -226,6 +226,7 @@ impl DbState {
         }
     }
 
+    #[profiling::function]
     pub fn load_schema(
         mut linker: SchemaLinker,
         schema_def_paths: &[&Path],
@@ -248,6 +249,7 @@ impl DbState {
         Arc::new(schema_set)
     }
 
+    #[profiling::function]
     pub fn load_or_init_empty(
         schema_set: &Arc<SchemaSet>,
         importer_registry: &ImporterRegistry,

@@ -39,9 +39,12 @@ where
         job_api: &dyn JobApi,
     ) -> Vec<u8> {
         let data: <T as JobProcessor>::InputT = bincode::deserialize(input.as_slice()).unwrap();
-        let output = self
-            .0
-            .run(&data, data_set, schema_set, dependency_data, job_api);
+        let output = {
+            profiling::scope!(&format!("{:?}::run", std::any::type_name::<T>()));
+            self
+                .0
+                .run(&data, data_set, schema_set, dependency_data, job_api)
+        };
         bincode::serialize(&output).unwrap()
     }
 }
@@ -66,6 +69,7 @@ struct JobState {
     input_data: Vec<u8>,
     // This would eventually be stored on file system
     output_data: Option<Vec<u8>>,
+    debug_name: String,
 }
 
 //TODO: Future optimization, we clone this and it could be big, especially when we re-run jobs. We
@@ -76,6 +80,7 @@ struct QueuedJob {
     job_type: JobTypeId,
     input_data: Vec<u8>,
     dependencies: JobEnumeratedDependencies,
+    debug_name: String,
 }
 
 struct CompletedJob {
@@ -196,6 +201,7 @@ impl JobApi for JobExecutor {
         data_set: &DataSet,
         schema_set: &SchemaSet,
         new_job: NewJob,
+        debug_name: String,
     ) -> JobId {
         // Dependencies:
         // - Job Versioning - so if logic changes we can bump version of the processor and kick jobs to rerun
@@ -213,6 +219,7 @@ impl JobApi for JobExecutor {
             job_type: new_job.job_type,
             input_data: new_job.input_data,
             dependencies,
+            debug_name,
         });
         job_id
     }
@@ -355,6 +362,7 @@ impl JobExecutor {
                         job_type: queued_job.job_type,
                         dependencies: queued_job.dependencies,
                         input_data: queued_job.input_data,
+                        debug_name: queued_job.debug_name,
                         output_data: None,
                     },
                 );
@@ -371,6 +379,7 @@ impl JobExecutor {
         }
     }
 
+    #[profiling::function]
     pub fn update(
         &mut self,
         data_set: &DataSet,
@@ -449,24 +458,32 @@ impl JobExecutor {
 
             //TODO: Read from files
 
+            profiling::scope!(&format!("Handle Job {}", job_state.debug_name));
+
             // Load the import data
             let mut required_import_data = HashMap::default();
-            for &import_data_id in &job_state.dependencies.import_data {
-                let import_data = import_data_provider.load_import_data(schema_set, import_data_id);
-                required_import_data.insert(import_data_id, import_data.import_data);
+            {
+                for &import_data_id in &job_state.dependencies.import_data {
+                    profiling::scope!(&format!("Load Import Data {:?}", import_data_id));
+                    let import_data = import_data_provider.load_import_data(schema_set, import_data_id);
+                    required_import_data.insert(import_data_id, import_data.import_data);
+                }
             }
 
             // Load the upstream job result data
 
             // Execute the job
             let job_processor = self.job_processor_registry.get(job_state.job_type).unwrap();
-            let output_data = job_processor.run_inner(
-                &job_state.input_data,
-                data_set,
-                schema_set,
-                &required_import_data,
-                self,
-            );
+            let output_data = {
+                profiling::scope!(&format!("JobProcessor::run_inner"));
+                job_processor.run_inner(
+                    &job_state.input_data,
+                    data_set,
+                    schema_set,
+                    &required_import_data,
+                    self,
+                )
+            };
 
             //TODO: Write to file
             //hydrate_base::uuid_path::uuid_to_path()

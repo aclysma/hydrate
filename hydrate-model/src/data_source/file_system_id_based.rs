@@ -146,6 +146,7 @@ impl DataSource for FileSystemIdBasedDataSource {
         // this data source does not contain source files so can't have generated assets
     }
 
+    #[profiling::function]
     fn load_from_storage(
         &mut self,
         edit_context: &mut EditContext,

@@ -27,3 +27,4 @@ glam = { version = "0.13.1", features = [ "serde" ] }
 rafx-api = { version = "0.0.14", features = [] }
 siphasher = "0.3"
 crossbeam-channel = "0.5"
+profiling = "1.0"

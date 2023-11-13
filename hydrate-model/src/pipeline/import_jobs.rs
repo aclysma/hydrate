@@ -115,8 +115,9 @@ impl ImportJobs {
         schema_set: &SchemaSet,
         asset_id: AssetId,
     ) -> ImportData {
+        profiling::scope!(&format!("Load asset import data {:?}", asset_id));
         let path = uuid_to_path(&self.root_path, asset_id.as_uuid(), "if");
-        println!("LOAD DATA PATH {:?}", path);
+        log::debug!("LOAD DATA PATH {:?}", path);
         let str = std::fs::read_to_string(&path).unwrap();
         let metadata = path.metadata().unwrap();
         let metadata_hash = hash_file_metadata(&metadata);
@@ -152,12 +153,14 @@ impl ImportJobs {
     //     }
     // }
 
+    #[profiling::function]
     pub fn update(
         &mut self,
         importer_registry: &ImporterRegistry,
         editor_model: &mut EditorModel,
     ) {
         for import_op in &self.import_operations {
+            profiling::scope!(&format!("Import {:?}", import_op.path.to_string_lossy()));
             //let importer_id = editor_model.root_edit_context().import_info()
             let importer_id = import_op.importer_id;
             //let fingerprint = editor_model.root_edit_context().asset_schema(import_op.import_info).unwrap().fingerprint();
@@ -179,11 +182,14 @@ impl ImportJobs {
                 );
             }
 
-            let imported_assets = importer.import_file(
-                &import_op.path,
-                &importable_assets,
-                editor_model.schema_set(),
-            );
+            let imported_assets = {
+                profiling::scope!("Importer::import_file");
+                importer.import_file(
+                    &import_op.path,
+                    &importable_assets,
+                    editor_model.schema_set(),
+                )
+            };
 
             //TODO: Validate that all requested importables exist?
             for (name, imported_asset) in imported_assets {
@@ -194,7 +200,8 @@ impl ImportJobs {
                         .asset_schema(*asset_id)
                         .unwrap()
                         .name();
-                    println!("importing {:?} {:?} {:?}", import_op.path, name, type_name);
+
+                    profiling::scope!(&format!("Importable {:?} {}", name, type_name));
 
                     if import_op.assets_to_regenerate.contains(asset_id) {
                         if let Some(default_asset) = &imported_asset.default_asset {

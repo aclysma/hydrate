@@ -783,6 +783,7 @@ impl Loader {
         //}
     }
 
+    #[profiling::function]
     pub fn update(
         &self,
         asset_storage: &mut dyn AssetStorage,

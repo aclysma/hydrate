@@ -111,7 +111,10 @@ impl SchemaLinker {
             let file = file.unwrap();
             log::debug!("Parsing schema file {}", file.path().display());
             let schema_str = std::fs::read_to_string(file.path()).unwrap();
-            let json_value: serde_json::Value = serde_json::from_str(&schema_str).unwrap();
+            let json_value: serde_json::Value = {
+                profiling::scope!("serde_json::from_str");
+                serde_json::from_str(&schema_str).unwrap()
+            };
             //println!("VALUE {:#?}", value);
 
             let json_objects = json_value.as_array().ok_or_else(|| {

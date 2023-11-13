@@ -72,6 +72,7 @@ impl BuildJobs {
         unimplemented!();
     }
 
+    #[profiling::function]
     pub fn update(
         &mut self,
         builder_registry: &BuilderRegistry,
@@ -324,11 +325,19 @@ impl BuildJobs {
 
         drop(manifest_release_file_writer);
 
-        std::fs::write(
-            manifest_path_debug,
-            serde_json::to_string_pretty(&manifest_json).unwrap(),
-        )
-        .unwrap();
+        {
+            profiling::scope!("Write debug manifest data");
+            let json = {
+                profiling::scope!("serde_json::to_string_pretty");
+                serde_json::to_string_pretty(&manifest_json).unwrap()
+            };
+
+            profiling::scope!("std::fs::write");
+            std::fs::write(
+                manifest_path_debug,
+                json,
+            ).unwrap();
+        }
 
         //
         // Write a new TOC with summary of this build

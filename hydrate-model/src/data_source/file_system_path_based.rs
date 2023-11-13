@@ -485,6 +485,7 @@ impl DataSource for FileSystemPathBasedDataSource {
         edit_context.clear_asset_modified_flag(asset_id);
     }
 
+    #[profiling::function]
     fn load_from_storage(
         &mut self,
         edit_context: &mut EditContext,
@@ -662,11 +663,14 @@ impl DataSource for FileSystemPathBasedDataSource {
             } else {
                 let importer = self.importer_registry.importer(importers[0]).unwrap();
 
-                let scanned_importables = importer.scan_file(
-                    &source_file,
-                    edit_context.schema_set(),
-                    &self.importer_registry,
-                );
+                let scanned_importables = {
+                    profiling::scope!(&format!("Importer::scan_file {}", source_file.to_string_lossy()));
+                    importer.scan_file(
+                        &source_file,
+                        edit_context.schema_set(),
+                        &self.importer_registry,
+                    )
+                };
 
                 //println!("  find meta file {:?}", source_file);
                 let mut meta_file = source_file_meta_files

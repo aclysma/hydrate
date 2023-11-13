@@ -296,6 +296,7 @@ pub struct EditContextAssetJson {
 }
 
 impl EditContextAssetJson {
+    #[profiling::function]
     pub fn load_edit_context_asset_from_string(
         edit_context: &mut EditContext,
         override_asset_id: Option<Uuid>,
@@ -305,7 +306,10 @@ impl EditContextAssetJson {
         override_asset_location: Option<AssetLocation>,
         json: &str,
     ) -> AssetId {
-        let stored_asset: EditContextAssetJson = serde_json::from_str(json).unwrap();
+        let stored_asset: EditContextAssetJson = {
+            profiling::scope!("serde_json::from_str");
+            serde_json::from_str(json).unwrap()
+        };
 
         // Use the provided override, or what's in the file, or worst case default to asset_source_id
         let asset_location = if let Some(override_asset_location) = override_asset_location {
@@ -385,6 +389,7 @@ impl EditContextAssetJson {
         asset_id
     }
 
+    #[profiling::function]
     pub fn save_edit_context_asset_to_string(
         edit_context: &EditContext,
         asset_id: AssetId,
@@ -425,6 +430,7 @@ impl EditContextAssetJson {
             properties: json_properties,
         };
 
+        profiling::scope!("serde_json::to_string_pretty");
         serde_json::to_string_pretty(&stored_asset).unwrap()
     }
 }
@@ -505,11 +511,15 @@ impl SingleObjectJson {
     //     value.as_asset()?.get("contents_hash")?.as_u64()
     // }
 
+    #[profiling::function]
     pub fn load_single_object_from_string(
         schema_set: &SchemaSet,
         json: &str,
     ) -> SingleObjectWithContentsHash {
-        let stored_object: SingleObjectJson = serde_json::from_str(json).unwrap();
+        let stored_object: SingleObjectJson = {
+            profiling::scope!("serde_json::from_str");
+            serde_json::from_str(json).unwrap()
+        };
         let contents_hash = stored_object.contents_hash;
         SingleObjectWithContentsHash {
             single_object: stored_object.to_single_object(schema_set),
@@ -517,8 +527,10 @@ impl SingleObjectJson {
         }
     }
 
+    #[profiling::function]
     pub fn save_single_object_to_string(object: &SingleObject) -> String {
         let stored_object = SingleObjectJson::new(object);
+        profiling::scope!("serde_json::to_string_pretty");
         serde_json::to_string_pretty(&stored_object).unwrap()
     }
 }
@@ -535,8 +547,12 @@ pub struct MetaFileJson {
 }
 
 impl MetaFileJson {
+    #[profiling::function]
     pub fn load_from_string(json: &str) -> MetaFile {
-        let meta_file: MetaFileJson = serde_json::from_str(json).unwrap();
+        let meta_file: MetaFileJson = {
+            profiling::scope!("serde_json::from_str");
+            serde_json::from_str(json).unwrap()
+        };
         let mut past_id_assignments = HashMap::default();
         for past_id_assignment in meta_file.past_id_assignments {
             past_id_assignments.insert(
@@ -550,6 +566,7 @@ impl MetaFileJson {
         }
     }
 
+    #[profiling::function]
     pub fn store_to_string(meta_file: &MetaFile) -> String {
         let mut past_id_assignments = HashMap::default();
         for past_id_assignment in &meta_file.past_id_assignments {
@@ -560,6 +577,7 @@ impl MetaFileJson {
         let json_object = MetaFileJson {
             past_id_assignments,
         };
+        profiling::scope!("serde_json::to_string_pretty");
         serde_json::to_string_pretty(&json_object).unwrap()
     }
 }

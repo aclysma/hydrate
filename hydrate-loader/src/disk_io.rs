@@ -47,14 +47,17 @@ impl DiskAssetIOWorkerThread {
         request_rx: Receiver<DiskAssetIORequest>,
         result_tx: Sender<LoaderEvent>,
         active_request_count: Arc<AtomicUsize>,
+        thread_index: usize,
     ) -> Self {
         let (finish_tx, finish_rx) = crossbeam_channel::bounded(1);
         let join_handle = std::thread::Builder::new().name("IO Thread".into()).spawn(move || {
+            profiling::register_thread!(&format!("DiskAssetIOWorkerThread {}", thread_index));
             loop {
                 crossbeam_channel::select! {
                     recv(request_rx) -> msg => {
                         match msg.unwrap() {
                             DiskAssetIORequest::Metadata(msg) => {
+                                profiling::scope!("DiskAssetIORequest::Metadata");
 
                                 // Read the data?
 
@@ -96,6 +99,7 @@ impl DiskAssetIOWorkerThread {
                                 active_request_count.fetch_sub(1, Ordering::Release);
                             },
                             DiskAssetIORequest::Data(msg) => {
+                                profiling::scope!("DiskAssetIORequest::Data");
                                 let path = hydrate_base::uuid_path::uuid_and_hash_to_path(&*root_path, msg.artifact_id.as_uuid(), msg.hash, "bf");
                                 let mut reader = std::fs::File::open(&path).unwrap();
                                 let _metadata = hydrate_base::BuiltArtifactMetadata::read_header(&mut reader).unwrap();
@@ -167,12 +171,13 @@ impl DiskAssetIOThreadPool {
         let active_request_count = Arc::new(AtomicUsize::new(0));
 
         let mut worker_threads = Vec::with_capacity(max_requests_in_flight);
-        for _ in 0..max_requests_in_flight {
+        for thread_index in 0..max_requests_in_flight {
             let worker = DiskAssetIOWorkerThread::new(
                 root_path.clone(),
                 request_rx.clone(),
                 result_tx.clone(),
                 active_request_count.clone(),
+                thread_index,
             );
             worker_threads.push(worker);
         }
@@ -217,6 +222,8 @@ impl BuildManifest {
         // Load release manifest data, this must exist and load correctly
         //
         let mut build_manifest = {
+            profiling::scope!("Load release manifest data");
+
             let mut asset_build_hashes = HashMap::default();
 
             let file_name = format!("{:0>16x}.manifest_release", build_hash.0);
@@ -277,9 +284,13 @@ impl BuildManifest {
             let file_name = format!("{:0>16x}.manifest_debug", build_hash.0);
             let file_path = manifest_dir_path.join(file_name);
             if file_path.exists() {
+                profiling::scope!("Load debug manifest data");
                 log::info!("Manifest debug data found");
                 let json_str = std::fs::read_to_string(file_path).unwrap();
-                let manifest_file: DebugManifestFileJson = serde_json::from_str(&json_str).unwrap();
+                let manifest_file: DebugManifestFileJson = {
+                    profiling::scope!("serde_json::from_str");
+                    serde_json::from_str(&json_str).unwrap()
+                };
 
                 for debug_manifest_entry in manifest_file.artifacts {
                     let manifest_entry = build_manifest.artifact_lookup.get_mut(&debug_manifest_entry.artifact_id).unwrap();

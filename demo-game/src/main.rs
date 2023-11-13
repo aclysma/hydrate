@@ -78,6 +78,9 @@ impl DynAssetLoader<GpuImageAsset> for GpuImageLoader {
 }
 
 fn main() {
+    let client = profiling::tracy_client::Client::start();
+    profiling::register_thread!("main");
+
     // Setup logging
     env_logger::Builder::default()
         .write_style(env_logger::WriteStyle::Always)
@@ -167,5 +170,7 @@ fn main() {
         } else {
             println!("load_handle_image not loaded");
         }
+
+        profiling::finish_frame!();
     }
 }

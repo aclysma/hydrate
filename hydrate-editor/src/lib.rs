@@ -142,6 +142,7 @@ pub fn run(
                     println!("Error during draw: {:?}", e);
                     *control_flow = winit::event_loop::ControlFlow::Exit
                 }
+                profiling::finish_frame!();
             }
 
             //

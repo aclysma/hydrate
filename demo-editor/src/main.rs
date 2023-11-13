@@ -40,68 +40,85 @@ pub fn job_data_path() -> PathBuf {
 }
 
 fn main() {
+    profiling::tracy_client::Client::start();
+    profiling::register_thread!("main");
+
     // Setup logging
     env_logger::Builder::default()
         .write_style(env_logger::WriteStyle::Always)
         .filter_level(log::LevelFilter::Debug)
         .init();
 
-    let mut linker = hydrate::model::SchemaLinker::default();
+    let (db_state, asset_engine) = {
+        profiling::scope!("Hydrate Initialization");
+        let mut linker = hydrate::model::SchemaLinker::default();
 
-    let asset_plugin_registration_helper =
-        hydrate::pipeline::AssetPluginRegistrationHelper::new()
-            .register_plugin::<GpuBufferAssetPlugin>(&mut linker)
-            .register_plugin::<GpuImageAssetPlugin>(&mut linker)
-            .register_plugin::<BlenderMaterialAssetPlugin>(&mut linker)
-            .register_plugin::<BlenderMeshAssetPlugin>(&mut linker)
-            .register_plugin::<MeshAdvAssetPlugin>(&mut linker)
-            .register_plugin::<GlslAssetPlugin>(&mut linker)
-            .register_plugin::<GltfAssetPlugin>(&mut linker)
-            .register_plugin::<SimpleDataAssetPlugin>(&mut linker);
+        let asset_plugin_registration_helper =
+            hydrate::pipeline::AssetPluginRegistrationHelper::new()
+                .register_plugin::<GpuBufferAssetPlugin>(&mut linker)
+                .register_plugin::<GpuImageAssetPlugin>(&mut linker)
+                .register_plugin::<BlenderMaterialAssetPlugin>(&mut linker)
+                .register_plugin::<BlenderMeshAssetPlugin>(&mut linker)
+                .register_plugin::<MeshAdvAssetPlugin>(&mut linker)
+                .register_plugin::<GlslAssetPlugin>(&mut linker)
+                .register_plugin::<GltfAssetPlugin>(&mut linker)
+                .register_plugin::<SimpleDataAssetPlugin>(&mut linker);
 
-    //TODO: Take a config file
-    //TODO: Support N sources using path nodes
-    let schema_set = hydrate::editor::DbState::load_schema(
-        linker,
-        &[&schema_def_path()],
-        &schema_cache_file_path(),
-    );
+        //TODO: Take a config file
+        //TODO: Support N sources using path nodes
+        let schema_set = {
+            profiling::scope!("Load Schema");
+            hydrate::editor::DbState::load_schema(
+                linker,
+                &[&schema_def_path()],
+                &schema_cache_file_path(),
+            )
+        };
 
-    let (importer_registry, builder_registry, job_processor_registry) =
-        asset_plugin_registration_helper.finish(&*schema_set);
+        let (importer_registry, builder_registry, job_processor_registry) =
+            asset_plugin_registration_helper.finish(&*schema_set);
 
-    let mut imports_to_queue = Vec::default();
-    let mut db_state = hydrate::editor::DbState::load_or_init_empty(
-        &schema_set,
-        &importer_registry,
-        &asset_id_based_asset_source_path(),
-        &asset_path_based_data_source_path(),
-        &schema_cache_file_path(),
-        &mut imports_to_queue,
-    );
-
-    let mut asset_engine = AssetEngine::new(
-        importer_registry,
-        builder_registry,
-        job_processor_registry,
-        &db_state.editor_model,
-        import_data_path(),
-        job_data_path(),
-        build_data_path(),
-    );
-
-    for import_to_queue in imports_to_queue {
-        //println!("Queueing import operation {:?}", import_to_queue);
-        asset_engine.queue_import_operation(
-            import_to_queue.requested_importables,
-            import_to_queue.importer_id,
-            import_to_queue.source_file_path,
-            import_to_queue.assets_to_regenerate,
+        let mut imports_to_queue = Vec::default();
+        let mut db_state = hydrate::editor::DbState::load_or_init_empty(
+            &schema_set,
+            &importer_registry,
+            &asset_id_based_asset_source_path(),
+            &asset_path_based_data_source_path(),
+            &schema_cache_file_path(),
+            &mut imports_to_queue,
         );
-    }
 
-    //Headless
-    asset_engine.update(&mut db_state.editor_model);
+        let mut asset_engine = {
+            profiling::scope!("Create Asset Engine");
+            AssetEngine::new(
+                importer_registry,
+                builder_registry,
+                job_processor_registry,
+                &db_state.editor_model,
+                import_data_path(),
+                job_data_path(),
+                build_data_path(),
+            )
+        };
+
+        {
+            profiling::scope!("Queue import operations");
+            for import_to_queue in imports_to_queue {
+                //println!("Queueing import operation {:?}", import_to_queue);
+                asset_engine.queue_import_operation(
+                    import_to_queue.requested_importables,
+                    import_to_queue.importer_id,
+                    import_to_queue.source_file_path,
+                    import_to_queue.assets_to_regenerate,
+                );
+            }
+        }
+
+        //Headless
+        profiling::scope!("First asset engine update");
+        asset_engine.update(&mut db_state.editor_model);
+        (db_state, asset_engine)
+    };
 
     hydrate::editor::run(db_state, asset_engine);
 }

@@ -89,9 +89,12 @@ impl Importer for BlenderMeshImporter {
         let b3f_reader = B3FReader::new(&bytes)
             .ok_or("Blender Mesh Import error, mesh file format not recognized")
             .unwrap();
-        let mesh_as_json: MeshJson = serde_json::from_slice(b3f_reader.get_block(0))
-            .map_err(|e| e.to_string())
-            .unwrap();
+        let mesh_as_json: MeshJson = {
+            profiling::scope!("serde_json::from_slice");
+            serde_json::from_slice(b3f_reader.get_block(0))
+                .map_err(|e| e.to_string())
+                .unwrap()
+        };
 
         fn try_add_file_reference<T: TypeUuid>(
             file_references: &mut Vec<ReferencedSourceFile>,
@@ -136,9 +139,12 @@ impl Importer for BlenderMeshImporter {
         let b3f_reader = B3FReader::new(&bytes)
             .ok_or("Blender Mesh Import error, mesh file format not recognized")
             .unwrap();
-        let mesh_as_json: MeshJson = serde_json::from_slice(b3f_reader.get_block(0))
-            .map_err(|e| e.to_string())
-            .unwrap();
+        let mesh_as_json: MeshJson = {
+            profiling::scope!("serde_json::from_slice");
+            serde_json::from_slice(b3f_reader.get_block(0))
+                .map_err(|e| e.to_string())
+                .unwrap()
+        };
 
         let mut import_data = MeshAdvMeshImportedDataRecord::new_single_object(schema_set).unwrap();
         let mut import_data_container =

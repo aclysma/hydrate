@@ -355,11 +355,15 @@ impl SchemaCacheSingleFile {
 
         let cache = SchemaCacheSingleFile { cached_schemas };
 
+        profiling::scope!("serde_json::to_string_pretty");
         serde_json::to_string_pretty(&cache).unwrap()
     }
 
     pub fn load_string(cache: &str) -> Vec<SchemaNamedType> {
-        let cache: SchemaCacheSingleFile = serde_json::from_str(cache).unwrap();
+        let cache: SchemaCacheSingleFile = {
+            profiling::scope!("serde_json::from_str");
+            serde_json::from_str(cache).unwrap()
+        };
         cache
             .cached_schemas
             .into_iter()

@@ -120,6 +120,7 @@ impl AssetEngine {
         &self.importer_registry
     }
 
+    #[profiling::function]
     pub fn update(
         &mut self,
         editor_model: &mut EditorModel,

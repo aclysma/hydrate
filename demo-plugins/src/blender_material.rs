@@ -67,7 +67,10 @@ impl Importer for BlenderMaterialImporter {
             .clone();
 
         let json_str = std::fs::read_to_string(path).unwrap();
-        let json_data: MaterialJsonFileFormat = serde_json::from_str(&json_str).unwrap();
+        let json_data: MaterialJsonFileFormat = {
+            profiling::scope!("serde_json::from_str");
+            serde_json::from_str(&json_str).unwrap()
+        };
 
         let mut file_references: Vec<ReferencedSourceFile> = Default::default();
 
@@ -112,7 +115,10 @@ impl Importer for BlenderMaterialImporter {
         // Read the file
         //
         let json_str = std::fs::read_to_string(path).unwrap();
-        let json_data: MaterialJsonFileFormat = serde_json::from_str(&json_str).unwrap();
+        let json_data: MaterialJsonFileFormat = {
+            profiling::scope!("serde_json::from_str");
+            serde_json::from_str(&json_str).unwrap()
+        };
 
         //
         // Parse strings to enums or provide default value if they weren't specified

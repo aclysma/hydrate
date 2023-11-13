@@ -63,6 +63,7 @@ pub trait JobApi {
         data_set: &DataSet,
         schema_set: &SchemaSet,
         job: NewJob,
+        debug_name: String,
     ) -> JobId;
 
     fn artifact_handle_created(
@@ -165,7 +166,8 @@ pub fn enqueue_job<T: JobProcessor>(
         input_data,
     };
 
-    job_api.enqueue_job(data_set, schema_set, queued_job)
+    let debug_name  = format!("{}", std::any::type_name::<T>());
+    job_api.enqueue_job(data_set, schema_set, queued_job, debug_name)
 }
 
 pub fn produce_asset<T: TypeUuid + Serialize>(

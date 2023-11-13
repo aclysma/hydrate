@@ -155,10 +155,8 @@ pub enum Schema {
     U64,
     F32,
     F64,
-    /// Variable amount of bytes stored within the asset, intended to be relatively small
+    /// Variable amount of bytes stored within the asset
     Bytes,
-    /// A variable amount of bytes stored on a reference-counted heap and shared. Can be large (MBs)
-    Buffer,
     /// Variable-length UTF-8 String
     String,
     /// Fixed-size array of values
@@ -231,13 +229,6 @@ impl Schema {
     pub fn is_bytes(&self) -> bool {
         match self {
             Schema::Bytes => true,
-            _ => false,
-        }
-    }
-
-    pub fn is_buffer(&self) -> bool {
-        match self {
-            Schema::Buffer => true,
             _ => false,
         }
     }

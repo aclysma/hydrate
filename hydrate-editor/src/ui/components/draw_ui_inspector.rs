@@ -830,9 +830,6 @@ fn draw_inspector_nexdb_property(
         Schema::Bytes => {
             draw_inspector_unimplemented_property(ui, property_name, "bytes");
         }
-        Schema::Buffer => {
-            draw_inspector_unimplemented_property(ui, property_name, "buffer");
-        }
         Schema::String => {
             let property_inherited = !edit_context.has_property_override(asset_id, &property_path);
             draw_property_style(ui, property_inherited, false, |ui| {

@@ -49,7 +49,6 @@ fn parse_json_schema_type_ref(
         "f32" => SchemaDefType::F32,
         "f64" => SchemaDefType::F64,
         "bytes" => SchemaDefType::Bytes,
-        "buffer" => SchemaDefType::Buffer,
         "string" => SchemaDefType::String,
         "static_array" => {
             unimplemented!()

@@ -273,8 +273,6 @@ enum CachedSchema {
     F64,
     /// Variable amount of bytes stored within the asset, intended to be relatively small
     Bytes,
-    /// A variable amount of bytes stored on a reference-counted heap and shared. Can be large (MBs)
-    Buffer,
     /// Variable-length UTF-8 String
     String,
     /// Fixed-size array of values
@@ -301,7 +299,6 @@ impl CachedSchema {
             Schema::F32 => CachedSchema::F32,
             Schema::F64 => CachedSchema::F64,
             Schema::Bytes => CachedSchema::Bytes,
-            Schema::Buffer => CachedSchema::Buffer,
             Schema::String => CachedSchema::String,
             Schema::StaticArray(x) => {
                 CachedSchema::StaticArray(CachedSchemaStaticArray::new_from_schema(x))
@@ -327,7 +324,6 @@ impl CachedSchema {
             CachedSchema::F32 => Schema::F32,
             CachedSchema::F64 => Schema::F64,
             CachedSchema::Bytes => Schema::Bytes,
-            CachedSchema::Buffer => Schema::Buffer,
             CachedSchema::String => Schema::String,
             CachedSchema::StaticArray(x) => Schema::StaticArray(x.to_schema()),
             CachedSchema::DynamicArray(x) => Schema::DynamicArray(x.to_schema()),

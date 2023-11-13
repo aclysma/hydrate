@@ -1,5 +1,5 @@
 use crate::AssetId;
-use crate::{BufferId, HashMap, Schema, SchemaFingerprint, SchemaNamedType, SchemaSet};
+use crate::{HashMap, Schema, SchemaFingerprint, SchemaNamedType, SchemaSet};
 use std::hash::{Hash, Hasher};
 
 use hydrate_schema::SchemaEnum;
@@ -14,7 +14,6 @@ pub enum PropertyValue {
     F32(f32),
     F64(f64),
     Bytes(Vec<u8>),
-    Buffer(BufferId),
     String(String),
     AssetRef(AssetId),
     Enum(ValueEnum),
@@ -32,7 +31,6 @@ impl PropertyValue {
             PropertyValue::F32(x) => Value::F32(*x),
             PropertyValue::F64(x) => Value::F64(*x),
             PropertyValue::Bytes(x) => Value::Bytes(x.clone()),
-            PropertyValue::Buffer(x) => Value::Buffer(*x),
             PropertyValue::String(x) => Value::String(x.clone()),
             PropertyValue::AssetRef(x) => Value::AssetRef(*x),
             PropertyValue::Enum(x) => Value::Enum(x.clone()),
@@ -123,7 +121,6 @@ pub enum Value {
     F32(f32),
     F64(f64),
     Bytes(Vec<u8>),
-    Buffer(BufferId),
     // buffer value hash
     String(String),
     StaticArray(Vec<Value>),
@@ -150,7 +147,6 @@ impl Hash for Value {
             Value::F32(x) => x.to_bits().hash(state),
             Value::F64(x) => x.to_bits().hash(state),
             Value::Bytes(x) => x.hash(state),
-            Value::Buffer(x) => x.hash(state),
             Value::String(x) => x.hash(state),
             Value::StaticArray(x) => x.hash(state),
             Value::DynamicArray(x) => x.hash(state),
@@ -171,7 +167,6 @@ const DEFAULT_VALUE_U32: Value = Value::U32(0);
 const DEFAULT_VALUE_U64: Value = Value::U64(0);
 const DEFAULT_VALUE_F32: Value = Value::F32(0.0);
 const DEFAULT_VALUE_F64: Value = Value::F64(0.0);
-const DEFAULT_VALUE_BUFFER: Value = Value::Buffer(BufferId::null());
 const DEFAULT_VALUE_ASSET_REF: Value = Value::AssetRef(AssetId::null());
 
 lazy_static::lazy_static! {
@@ -200,7 +195,6 @@ impl Value {
             Schema::F32 => &DEFAULT_VALUE_F32,
             Schema::F64 => &DEFAULT_VALUE_F64,
             Schema::Bytes => &DEFAULT_VALUE_BYTES,
-            Schema::Buffer => &DEFAULT_VALUE_BUFFER,
             Schema::String => &DEFAULT_VALUE_STRING,
             Schema::StaticArray(_) => &DEFAULT_VALUE_STATIC_ARRAY,
             Schema::DynamicArray(_) => &DEFAULT_VALUE_DYNAMIC_ARRAY,
@@ -247,7 +241,6 @@ impl Value {
             Value::F32(_) => schema.is_f32(),
             Value::F64(_) => schema.is_f64(),
             Value::Bytes(_) => schema.is_bytes(),
-            Value::Buffer(_) => schema.is_buffer(),
             Value::String(_) => schema.is_string(),
             Value::StaticArray(inner_values) => match schema {
                 Schema::StaticArray(inner_schema) => {
@@ -776,7 +769,6 @@ impl Value {
             Value::F32(x) => Some(PropertyValue::F32(*x)),
             Value::F64(x) => Some(PropertyValue::F64(*x)),
             Value::Bytes(x) => Some(PropertyValue::Bytes(x.clone())),
-            Value::Buffer(x) => Some(PropertyValue::Buffer(*x)),
             Value::String(x) => Some(PropertyValue::String(x.clone())),
             Value::AssetRef(x) => Some(PropertyValue::AssetRef(*x)),
             Value::Enum(x) => Some(PropertyValue::Enum(x.clone())),
@@ -798,7 +790,6 @@ impl Value {
             (Value::F32(lhs), Value::F32(rhs)) => *lhs == *rhs,
             (Value::F64(lhs), Value::F64(rhs)) => *lhs == *rhs,
             (Value::Bytes(lhs), Value::Bytes(rhs)) => *lhs == *rhs,
-            (Value::Buffer(lhs), Value::Buffer(rhs)) => *lhs == *rhs,
             (Value::String(lhs), Value::String(rhs)) => *lhs == *rhs,
             (Value::AssetRef(lhs), Value::AssetRef(rhs)) => *lhs == *rhs,
             (Value::Enum(lhs), Value::Enum(rhs)) => *lhs == *rhs,

@@ -445,7 +445,6 @@ pub enum SchemaDefType {
     F32,
     F64,
     Bytes,
-    Buffer,
     String,
     StaticArray(SchemaDefStaticArray),
     DynamicArray(SchemaDefDynamicArray),
@@ -469,7 +468,6 @@ impl SchemaDefType {
             SchemaDefType::F32 => {}
             SchemaDefType::F64 => {}
             SchemaDefType::Bytes => {}
-            SchemaDefType::Buffer => {}
             SchemaDefType::String => {}
             SchemaDefType::StaticArray(x) => x.apply_type_aliases(aliases),
             SchemaDefType::DynamicArray(x) => x.apply_type_aliases(aliases),
@@ -503,7 +501,6 @@ impl SchemaDefType {
             SchemaDefType::F32 => {}
             SchemaDefType::F64 => {}
             SchemaDefType::Bytes => {}
-            SchemaDefType::Buffer => {}
             SchemaDefType::String => {}
             SchemaDefType::StaticArray(x) => x.collect_all_related_types(types),
             SchemaDefType::DynamicArray(x) => x.collect_all_related_types(types),
@@ -535,7 +532,6 @@ impl SchemaDefType {
             SchemaDefType::F32 => "F32".hash(hasher),
             SchemaDefType::F64 => "F64".hash(hasher),
             SchemaDefType::Bytes => "Bytes".hash(hasher),
-            SchemaDefType::Buffer => "Buffer".hash(hasher),
             SchemaDefType::String => "String".hash(hasher),
             SchemaDefType::StaticArray(x) => {
                 "StaticArray".hash(hasher);
@@ -574,7 +570,6 @@ impl SchemaDefType {
             SchemaDefType::F32 => Schema::F32,
             SchemaDefType::F64 => Schema::F64,
             SchemaDefType::Bytes => Schema::Bytes,
-            SchemaDefType::Buffer => Schema::Buffer,
             SchemaDefType::String => Schema::String,
             SchemaDefType::StaticArray(x) => Schema::StaticArray(x.to_schema(named_types)),
             SchemaDefType::DynamicArray(x) => Schema::DynamicArray(x.to_schema(named_types)),

@@ -61,22 +61,3 @@ pub enum NullOverride {
 }
 
 pub use hydrate_base::AssetId;
-
-#[derive(Copy, Clone, PartialEq, Eq, Hash)]
-pub struct BufferId(u128);
-impl BufferId {
-    pub const fn null() -> Self {
-        BufferId(0)
-    }
-}
-
-impl Debug for BufferId {
-    fn fmt(
-        &self,
-        f: &mut Formatter<'_>,
-    ) -> std::fmt::Result {
-        f.debug_tuple("BufferId")
-            .field(&Uuid::from_u128(self.0))
-            .finish()
-    }
-}

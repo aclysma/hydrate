@@ -2,6 +2,9 @@ use std::sync::Arc;
 use crate::value::ValueEnum;
 use crate::{HashMap, SchemaFingerprint, SchemaLinker, SchemaLinkerResult, SchemaNamedType, Value};
 
+/// Accumulates linked types and can be used to create a schema. This allows validation of types
+/// and some work that can be pre-cached, such as generating default values for enums. (Values
+/// are not a concept that exists in the hydrate-schema crate)
 #[derive(Default)]
 pub struct SchemaSetBuilder {
     schemas_by_name: HashMap<String, SchemaFingerprint>,

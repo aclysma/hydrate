@@ -4,6 +4,8 @@ use std::hash::{Hash, Hasher};
 
 use hydrate_schema::SchemaEnum;
 
+/// All the possible value types that can exist that do not potentially contain values within them.
+/// So excludes containers, nullable, records, etc.
 #[derive(Clone, Debug, PartialEq)]
 pub enum PropertyValue {
     Boolean(bool),
@@ -21,6 +23,7 @@ pub enum PropertyValue {
 }
 
 impl PropertyValue {
+    /// Convert to a value
     pub fn as_value(&self) -> Value {
         match self {
             PropertyValue::Boolean(x) => Value::Boolean(*x),
@@ -37,8 +40,31 @@ impl PropertyValue {
             PropertyValue::Fixed(x) => Value::Fixed(x.clone()),
         }
     }
+
+    /// Validates if the values could be property values, and if they can if they would be matching
+    pub fn are_matching_property_values(
+        lhs: &Value,
+        rhs: &Value,
+    ) -> bool {
+        match (lhs, rhs) {
+            (Value::Boolean(lhs), Value::Boolean(rhs)) => *lhs == *rhs,
+            (Value::I32(lhs), Value::I32(rhs)) => *lhs == *rhs,
+            (Value::I64(lhs), Value::I64(rhs)) => *lhs == *rhs,
+            (Value::U32(lhs), Value::U32(rhs)) => *lhs == *rhs,
+            (Value::U64(lhs), Value::U64(rhs)) => *lhs == *rhs,
+            (Value::F32(lhs), Value::F32(rhs)) => *lhs == *rhs,
+            (Value::F64(lhs), Value::F64(rhs)) => *lhs == *rhs,
+            (Value::Bytes(lhs), Value::Bytes(rhs)) => *lhs == *rhs,
+            (Value::String(lhs), Value::String(rhs)) => *lhs == *rhs,
+            (Value::AssetRef(lhs), Value::AssetRef(rhs)) => *lhs == *rhs,
+            (Value::Enum(lhs), Value::Enum(rhs)) => *lhs == *rhs,
+            (Value::Fixed(lhs), Value::Fixed(rhs)) => *lhs == *rhs,
+            _ => false,
+        }
+    }
 }
 
+/// Hashmap-like container
 #[derive(Clone, Debug, Default)]
 pub struct ValueMap {
     properties: HashMap<Value, Value>,
@@ -61,6 +87,7 @@ impl Hash for ValueMap {
     }
 }
 
+/// A struct-like container of properties
 #[derive(Clone, Debug, Default)]
 pub struct ValueRecord {
     properties: HashMap<String, Value>,
@@ -83,20 +110,10 @@ impl Hash for ValueRecord {
     }
 }
 
-/*
-impl ValueRecord {
-    // fn get_property(&self, property_name: impl AsRef<str>) -> Option<&Value> {
-    //     self.properties.get(property_name.as_ref())
-    // }
-
-    pub fn find_property_value(&self, property_name: impl AsRef<str>) -> Option<&Value> {
-        self.properties.get(property_name.as_ref())
-    }
-}
-*/
+/// A value for an enum. Strings are used instead of numbers so that we can handle loading
+/// "broken" data.
 #[derive(Clone, Debug, Default, PartialEq, Hash)]
 pub struct ValueEnum {
-    //symbol_index: u32,
     symbol_name: String,
 }
 
@@ -110,6 +127,7 @@ impl ValueEnum {
     }
 }
 
+/// All the possible types that can be stored in a Value
 #[derive(Clone, Debug)]
 pub enum Value {
     Nullable(Option<Box<Value>>),
@@ -181,6 +199,9 @@ lazy_static::lazy_static! {
 }
 
 impl Value {
+    /// Produces a default value for the given schema. Because schemas may reference other schemas,
+    /// and a default value may have containers in it, we need to have access to all schemas that
+    /// may exist.
     pub fn default_for_schema<'a>(
         schema: &Schema,
         schema_set: &'a SchemaSet,
@@ -204,6 +225,8 @@ impl Value {
                 let named_type = schema_set.schemas().get(named_type_id).unwrap();
                 match named_type {
                     SchemaNamedType::Record(_) => &DEFAULT_VALUE_RECORD,
+                    // Enums can't be created at compile time and returned with a &'static ref, so
+                    // we rely on the schema set to have a cache of the default values
                     SchemaNamedType::Enum(enum_schema) => schema_set
                         .default_value_for_enum(enum_schema.fingerprint())
                         .unwrap(),
@@ -213,6 +236,9 @@ impl Value {
         }
     }
 
+    /// Validates that the value matches the provided schema exactly. Even if this returns false,
+    /// it may still be possible to migrate the data into the given schema. This will recursively
+    /// descend through containers, records, etc.
     pub fn matches_schema(
         &self,
         schema: &Schema,
@@ -358,6 +384,26 @@ impl Value {
         }
     }
 
+    /// Returns the value as a property value, if possible. Some types cannot be stored as
+    /// PropertyValue
+    pub fn as_property_value(&self) -> Option<PropertyValue> {
+        match self {
+            Value::Boolean(x) => Some(PropertyValue::Boolean(*x)),
+            Value::I32(x) => Some(PropertyValue::I32(*x)),
+            Value::I64(x) => Some(PropertyValue::I64(*x)),
+            Value::U32(x) => Some(PropertyValue::U32(*x)),
+            Value::U64(x) => Some(PropertyValue::U64(*x)),
+            Value::F32(x) => Some(PropertyValue::F32(*x)),
+            Value::F64(x) => Some(PropertyValue::F64(*x)),
+            Value::Bytes(x) => Some(PropertyValue::Bytes(x.clone())),
+            Value::String(x) => Some(PropertyValue::String(x.clone())),
+            Value::AssetRef(x) => Some(PropertyValue::AssetRef(*x)),
+            Value::Enum(x) => Some(PropertyValue::Enum(x.clone())),
+            Value::Fixed(x) => Some(PropertyValue::Fixed(x.clone())),
+            _ => None,
+        }
+    }
+
     //
     // Nullable
     //
@@ -382,11 +428,8 @@ impl Value {
         }
     }
 
-    pub fn as_nullable_mut(&mut self) -> Option<Option<&mut Value>> {
-        match self {
-            Value::Nullable(x) => Some(x.as_mut().map(|x| x.as_mut())),
-            _ => None,
-        }
+    pub fn set_nullable(&mut self, value: Option<Value>)  {
+        *self = Value::Nullable(value.map(|x| Box::new(x)))
     }
 
     //
@@ -441,20 +484,6 @@ impl Value {
     ) {
         *self = Value::I32(value);
     }
-
-    // fn get_i32(&self) -> Option<i32> {
-    //     match self {
-    //         Value::I32(x) => Some(*x),
-    //         _ => None
-    //     }
-    // }
-    //
-    // fn get_i32_mut(&mut self) -> Option<&mut i32> {
-    //     match self {
-    //         Value::I32(x) => Some(&mut *x),
-    //         _ => None
-    //     }
-    // }
 
     //
     // u32
@@ -625,10 +654,6 @@ impl Value {
     }
 
     //
-    // Buffer
-    //
-
-    //
     // String
     //
     pub fn is_string(&self) -> bool {
@@ -736,6 +761,9 @@ impl Value {
         *self = Value::Enum(value);
     }
 
+    /// Utility function to convert a string to an enum value. This handles potentially matching
+    /// a symbol alias and using the new symbol name instead. We generally expect an enum values
+    /// in memory to use the current symbol name, not an alias
     pub fn enum_value_from_string(
         schema_enum: &SchemaEnum,
         name: &str,
@@ -758,43 +786,4 @@ impl Value {
     //
     // Fixed
     //
-
-    pub fn as_property_value(&self) -> Option<PropertyValue> {
-        match self {
-            Value::Boolean(x) => Some(PropertyValue::Boolean(*x)),
-            Value::I32(x) => Some(PropertyValue::I32(*x)),
-            Value::I64(x) => Some(PropertyValue::I64(*x)),
-            Value::U32(x) => Some(PropertyValue::U32(*x)),
-            Value::U64(x) => Some(PropertyValue::U64(*x)),
-            Value::F32(x) => Some(PropertyValue::F32(*x)),
-            Value::F64(x) => Some(PropertyValue::F64(*x)),
-            Value::Bytes(x) => Some(PropertyValue::Bytes(x.clone())),
-            Value::String(x) => Some(PropertyValue::String(x.clone())),
-            Value::AssetRef(x) => Some(PropertyValue::AssetRef(*x)),
-            Value::Enum(x) => Some(PropertyValue::Enum(x.clone())),
-            Value::Fixed(x) => Some(PropertyValue::Fixed(x.clone())),
-            _ => None,
-        }
-    }
-
-    pub fn are_matching_property_values(
-        lhs: &Value,
-        rhs: &Value,
-    ) -> bool {
-        match (lhs, rhs) {
-            (Value::Boolean(lhs), Value::Boolean(rhs)) => *lhs == *rhs,
-            (Value::I32(lhs), Value::I32(rhs)) => *lhs == *rhs,
-            (Value::I64(lhs), Value::I64(rhs)) => *lhs == *rhs,
-            (Value::U32(lhs), Value::U32(rhs)) => *lhs == *rhs,
-            (Value::U64(lhs), Value::U64(rhs)) => *lhs == *rhs,
-            (Value::F32(lhs), Value::F32(rhs)) => *lhs == *rhs,
-            (Value::F64(lhs), Value::F64(rhs)) => *lhs == *rhs,
-            (Value::Bytes(lhs), Value::Bytes(rhs)) => *lhs == *rhs,
-            (Value::String(lhs), Value::String(rhs)) => *lhs == *rhs,
-            (Value::AssetRef(lhs), Value::AssetRef(rhs)) => *lhs == *rhs,
-            (Value::Enum(lhs), Value::Enum(rhs)) => *lhs == *rhs,
-            (Value::Fixed(lhs), Value::Fixed(rhs)) => *lhs == *rhs,
-            _ => false,
-        }
-    }
 }

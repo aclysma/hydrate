@@ -45,6 +45,8 @@ fn join_path_and_field(
 
 //TODO: Make these impl Read and Write?
 
+/// Provides a read-only view into a DataSet or SingleObject. A schema can be used to write into
+/// both forms.
 pub enum DataContainer<'a> {
     DataSet(&'a DataSet, &'a SchemaSet, AssetId),
     SingleObject(&'a SingleObject, &'a SchemaSet),
@@ -146,20 +148,22 @@ impl<'a> DataContainer<'a> {
     // }
 }
 
+/// Provides a read/write view into a DataSet or SingleObject. A schema can be used to write into
+/// both forms.
 pub enum DataContainerMut<'a> {
     DataSet(&'a mut DataSet, &'a SchemaSet, AssetId),
     SingleObject(&'a mut SingleObject, &'a SchemaSet),
 }
 
 impl<'a> DataContainerMut<'a> {
-    pub fn new_single_object(
+    pub fn from_single_object(
         single_object: &'a mut SingleObject,
         schema_set: &'a SchemaSet,
     ) -> Self {
         DataContainerMut::SingleObject(single_object, schema_set)
     }
 
-    pub fn new_dataset(
+    pub fn from_dataset(
         data_set: &'a mut DataSet,
         schema_set: &'a SchemaSet,
         asset_id: AssetId,
@@ -285,211 +289,5 @@ impl<'a> DataContainerMut<'a> {
                 single_object.add_dynamic_array_override(schema_set, path)
             }
         }
-    }
-}
-
-// pub struct SingleObjectView<'a> {
-//     data_set: &'a SingleObject,
-//     schema_set: &'a SchemaSet,
-//     asset_id: AssetId,
-//     property_path_stack: Vec<String>,
-//     //asset_schema: SchemaRecord,
-//     //schema_record_stack: Vec<Schema>,
-//     property_path: String,
-//     //property_path: String,
-// }
-//
-// impl<'a> SingleObjectView<'a> {
-//     pub fn new(data_set: &'a SingleObject, schema_set: &'a SchemaSet, asset_id: AssetId) -> Self {
-//         //let asset_schema = data_set.asset_schema(asset_id).unwrap().clone();
-//         //asset_schema.fin
-//         //let schema_record_stack = vec![Schema::NamedType()asset_schema.clone()];
-//
-//         SingleObjectView {
-//             data_set,
-//             schema_set,
-//             asset_id,
-//             property_path_stack: Default::default(),
-//             //asset_schema,
-//             property_path: Default::default()
-//         }
-//     }
-//
-//     pub fn schema_set(&self) -> &SchemaSet {
-//         self.schema_set
-//     }
-//
-//     pub fn push_property_path(&mut self, path: &str) {
-//         do_push_property_path(&mut self.property_path_stack, &mut self.property_path, path);
-//     }
-//
-//     pub fn pop_property_path(&mut self) {
-//         do_pop_property_path(&mut self.property_path_stack, &mut self.property_path);
-//     }
-//
-//     pub fn resolve_property(&self, field_name: &str) -> Option<Value> {
-//         self.data_set.resolve_property(self.schema_set, join_path_and_field(&self.property_path, field_name))
-//     }
-//
-//     pub fn resolve_is_null(&self, field_name: &str) -> Option<bool> {
-//         self.data_set.resolve_is_null(self.schema_set, join_path_and_field(&self.property_path, field_name))
-//     }
-//
-//     pub fn resolve_dynamic_array(&self, field_name: &str) -> Box<[Uuid]> {
-//         self.data_set.resolve_dynamic_array(self.schema_set, join_path_and_field(&self.property_path, field_name))
-//     }
-//
-//     pub fn get_override_behavior(&self, field_name: &str) -> OverrideBehavior {
-//         self.data_set.get_override_behavior(self.schema_set, join_path_and_field(&self.property_path, field_name))
-//     }
-//
-//     // pub fn schema(&self, field_name: &str) {
-//     //     self.asset_schema.find_property_schema()
-//     // }
-// }
-
-pub struct DataSetView<'a> {
-    data_container: DataContainer<'a>,
-    property_path_stack: Vec<String>,
-    //asset_schema: SchemaRecord,
-    //schema_record_stack: Vec<Schema>,
-    property_path: String,
-    //property_path: String,
-}
-
-impl<'a> DataSetView<'a> {
-    pub fn new(data_container: DataContainer<'a>) -> Self {
-        //let asset_schema = data_set.asset_schema(asset_id).unwrap().clone();
-        //asset_schema.fin
-        //let schema_record_stack = vec![Schema::NamedType()asset_schema.clone()];
-
-        DataSetView {
-            data_container,
-            property_path_stack: Default::default(),
-            //asset_schema,
-            property_path: Default::default(),
-        }
-    }
-
-    pub fn schema_set(&self) -> &SchemaSet {
-        self.data_container.schema_set()
-    }
-
-    pub fn push_property_path(
-        &mut self,
-        path: &str,
-    ) {
-        do_push_property_path(&mut self.property_path_stack, &mut self.property_path, path);
-    }
-
-    pub fn pop_property_path(&mut self) {
-        do_pop_property_path(&mut self.property_path_stack, &mut self.property_path);
-    }
-
-    pub fn resolve_property(
-        &self,
-        field_name: &str,
-    ) -> Option<&Value> {
-        self.data_container
-            .resolve_property(join_path_and_field(&self.property_path, field_name))
-    }
-
-    pub fn get_null_override(
-        &self,
-        field_name: &str,
-    ) -> Option<NullOverride> {
-        self.data_container
-            .get_null_override(join_path_and_field(&self.property_path, field_name))
-    }
-
-    pub fn resolve_is_null(
-        &self,
-        field_name: &str,
-    ) -> Option<bool> {
-        self.data_container
-            .resolve_is_null(join_path_and_field(&self.property_path, field_name))
-    }
-
-    pub fn resolve_dynamic_array(
-        &self,
-        field_name: &str,
-    ) -> Box<[Uuid]> {
-        self.data_container
-            .resolve_dynamic_array(join_path_and_field(&self.property_path, field_name))
-    }
-
-    pub fn get_override_behavior(
-        &self,
-        field_name: &str,
-    ) -> OverrideBehavior {
-        self.data_container
-            .get_override_behavior(join_path_and_field(&self.property_path, field_name))
-    }
-
-    // pub fn schema(&self, field_name: &str) {
-    //     self.asset_schema.find_property_schema()
-    // }
-}
-
-pub struct DataSetViewMut<'a> {
-    data_container: DataContainerMut<'a>,
-    //schema_set: &'a SchemaSet,
-    //asset_id: AssetId,
-    property_path_stack: Vec<String>,
-    //asset_schema: SchemaRecord,
-    //schema_record_stack: Vec<Schema>,
-    property_path: String,
-    //property_path: String,
-}
-
-impl<'a> DataSetViewMut<'a> {
-    pub fn push_property_path(
-        &mut self,
-        path: &str,
-    ) {
-        do_push_property_path(&mut self.property_path_stack, &mut self.property_path, path);
-    }
-
-    pub fn pop_property_path(&mut self) {
-        do_pop_property_path(&mut self.property_path_stack, &mut self.property_path);
-    }
-
-    pub fn set_null_override(
-        &mut self,
-        field_name: &str,
-        null_override: NullOverride,
-    ) {
-        self.data_container.set_null_override(
-            join_path_and_field(&self.property_path, field_name),
-            null_override,
-        );
-    }
-
-    pub fn remove_null_override(
-        &mut self,
-        field_name: &str,
-    ) {
-        self.data_container
-            .remove_null_override(join_path_and_field(&self.property_path, field_name));
-    }
-
-    pub fn set_property_override(
-        &mut self,
-        field_name: &str,
-        value: Value,
-    ) -> DataSetResult<()> {
-        self.data_container
-            .set_property_override(join_path_and_field(&self.property_path, field_name), value)
-    }
-
-    pub fn set_override_behavior(
-        &mut self,
-        field_name: &str,
-        behavior: OverrideBehavior,
-    ) {
-        self.data_container.set_override_behavior(
-            join_path_and_field(&self.property_path, field_name),
-            behavior,
-        )
     }
 }

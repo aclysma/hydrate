@@ -1,6 +1,5 @@
-use uuid::Uuid;
-//use serde::{Deserialize, Serialize};
-use std::fmt::{Debug, Formatter};
+
+use std::fmt::Debug;
 
 pub use hydrate_schema::*;
 
@@ -24,8 +23,6 @@ pub use data_set::OverrideBehavior;
 mod data_set_view;
 pub use data_set_view::DataContainer;
 pub use data_set_view::DataContainerMut;
-pub use data_set_view::DataSetView;
-pub use data_set_view::DataSetViewMut;
 
 mod single_object;
 pub use single_object::SingleObject;
@@ -41,10 +38,10 @@ mod field_wrappers;
 pub use field_wrappers::*;
 
 mod schema_set;
-pub use schema_set::*;
+pub use schema_set::{SchemaSetBuilder, SchemaSet};
 
 mod ordered_set;
-pub use ordered_set::*;
+pub use ordered_set::OrderedSet;
 
 //TODO: Delete unused property data when path ancestor is null or in replace mode
 

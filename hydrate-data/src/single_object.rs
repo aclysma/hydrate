@@ -5,6 +5,8 @@ use std::str::FromStr;
 use std::string::ToString;
 use uuid::Uuid;
 
+/// A simplified container of data. Can be used to produce a set of properties and be merged into
+/// a data set later, or be serialized by itself. Still support schema migration.
 #[derive(Clone, Debug)]
 pub struct SingleObject {
     schema: SchemaRecord,

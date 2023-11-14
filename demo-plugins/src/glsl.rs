@@ -572,7 +572,7 @@ impl Importer for GlslSourceFileImporter {
             let mut import_object =
                 GlslSourceFileImportedDataRecord::new_single_object(schema_set).unwrap();
             let mut import_data_container =
-                DataContainerMut::new_single_object(&mut import_object, schema_set);
+                DataContainerMut::from_single_object(&mut import_object, schema_set);
             let x = GlslSourceFileImportedDataRecord::default();
             x.code().set(&mut import_data_container, code).unwrap();
             import_object
@@ -582,7 +582,7 @@ impl Importer for GlslSourceFileImporter {
             let mut default_asset_object =
                 GlslSourceFileAssetRecord::new_single_object(schema_set).unwrap();
             let mut _default_asset_data_container =
-                DataContainerMut::new_single_object(&mut default_asset_object, schema_set);
+                DataContainerMut::from_single_object(&mut default_asset_object, schema_set);
             let _x = GlslSourceFileAssetRecord::default();
             // Nothing to set
             default_asset_object

@@ -1,7 +1,7 @@
 use crate::value::PropertyValue;
 use crate::{
     DataAssetInfo, DataSet, HashSet, NullOverride, AssetId, AssetLocation, AssetName,
-    SchemaSet, Value,
+    SchemaSet,
 };
 use std::path::PathBuf;
 use uuid::Uuid;
@@ -189,7 +189,7 @@ impl AssetDiffSet {
         //
         for (key, before_value) in &before_obj.properties {
             if let Some(after_value) = after_obj.properties.get(key) {
-                if !Value::are_matching_property_values(before_value, after_value) {
+                if !PropertyValue::are_matching_property_values(before_value, after_value) {
                     // Value was changed
                     apply_diff
                         .set_properties

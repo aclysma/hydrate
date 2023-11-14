@@ -151,7 +151,7 @@ impl Importer for GltfImporter {
                     let mut default_asset_object =
                         MeshAdvMaterialAssetRecord::new_single_object(schema_set).unwrap();
                     let mut default_asset_data_container =
-                        DataContainerMut::new_single_object(&mut default_asset_object, schema_set);
+                        DataContainerMut::from_single_object(&mut default_asset_object, schema_set);
                     let x = MeshAdvMaterialAssetRecord::default();
                     x.base_color_factor()
                         .set_vec4(

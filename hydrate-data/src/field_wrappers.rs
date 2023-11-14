@@ -1,6 +1,6 @@
 use crate::value::ValueEnum;
 use crate::{
-    DataContainer, DataContainerMut, DataSetError, DataSetResult, DataSetViewMut, NullOverride,
+    DataContainer, DataContainerMut, DataSetError, DataSetResult, NullOverride,
     AssetId, SchemaSet, SingleObject, Value,
 };
 use std::marker::PhantomData;
@@ -241,7 +241,7 @@ impl F64Field {
 
     pub fn set(
         &self,
-        data_container: &mut DataSetViewMut,
+        data_container: &mut DataContainerMut,
         value: f64,
     ) -> DataSetResult<()> {
         data_container.set_property_override(self.0.path(), Value::F64(value))
@@ -270,7 +270,7 @@ impl I32Field {
 
     pub fn set(
         &self,
-        data_container: &mut DataSetViewMut,
+        data_container: &mut DataContainerMut,
         value: i32,
     ) -> DataSetResult<()> {
         data_container.set_property_override(self.0.path(), Value::I32(value))
@@ -299,7 +299,7 @@ impl I64Field {
 
     pub fn set(
         &self,
-        data_container: &mut DataSetViewMut,
+        data_container: &mut DataContainerMut,
         value: i64,
     ) -> DataSetResult<()> {
         data_container.set_property_override(self.0.path(), Value::I64(value))

@@ -17,7 +17,7 @@ mod schema_def;
 pub use schema_def::*;
 
 mod schema_cache;
-pub use schema_cache::*;
+pub use schema_cache::SchemaCacheSingleFile;
 
 #[derive(Copy, Clone, PartialEq, Eq, Hash)]
 pub struct SchemaFingerprint(u128);

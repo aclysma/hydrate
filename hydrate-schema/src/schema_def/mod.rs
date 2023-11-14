@@ -1,3 +1,7 @@
+//! This package handles defining schema programmatically and by loading from json. A schema
+//! may reference other schemas, even cyclically, so we have to load all the schemas and do a final
+//! "linking" pass.
+
 mod schema_def;
 pub use schema_def::*;
 

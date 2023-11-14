@@ -26,8 +26,6 @@
 //! tripping over undefined behavior
 
 use std::convert::TryInto;
-use std::io::{BufWriter, Write};
-use std::path::Path;
 
 const HEADER_SIZE_IN_BYTES: usize = 16;
 const BLOCK_LENGTH_SIZE_IN_BYTES: usize = 8;
@@ -106,7 +104,7 @@ impl<'a> B3FWriter<'a> {
             writer.write(*block).unwrap();
             if block.len() % 16 != 0 {
                 let required_padding = 16 - block.len() % 16;
-                for i in 0..required_padding {
+                for _ in 0..required_padding {
                     writer.write(&0u8.to_ne_bytes()).unwrap();
                 }
             }
@@ -115,6 +113,7 @@ impl<'a> B3FWriter<'a> {
 }
 
 /// Used decode data from B3F format
+//TODO: Modify to use Read + Seek
 pub struct B3FReader<'a> {
     data: &'a [u8],
 }

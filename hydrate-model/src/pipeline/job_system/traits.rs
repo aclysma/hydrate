@@ -273,7 +273,7 @@ pub fn make_handle_to_artifact<T>(
         asset_artifact_id_pair.asset_id,
         asset_artifact_id_pair.artifact_id,
     );
-    hydrate_base::handle::make_handle::<T>(asset_artifact_id_pair.artifact_id)
+    hydrate_base::handle::make_handle_within_serde_context::<T>(asset_artifact_id_pair.artifact_id)
 }
 
 pub fn make_handle_to_artifact_raw<T>(
@@ -282,7 +282,7 @@ pub fn make_handle_to_artifact_raw<T>(
     artifact_id: ArtifactId,
 ) -> Handle<T> {
     job_api.artifact_handle_created(asset_id, artifact_id);
-    hydrate_base::handle::make_handle::<T>(artifact_id)
+    hydrate_base::handle::make_handle_within_serde_context::<T>(artifact_id)
 }
 
 pub fn make_handle_to_artifact_key<T, K: Hash>(
@@ -292,5 +292,5 @@ pub fn make_handle_to_artifact_key<T, K: Hash>(
 ) -> Handle<T> {
     let artifact_id = create_artifact_id(asset_id, artifact_key);
     job_api.artifact_handle_created(asset_id, artifact_id);
-    hydrate_base::handle::make_handle::<T>(artifact_id)
+    hydrate_base::handle::make_handle_within_serde_context::<T>(artifact_id)
 }

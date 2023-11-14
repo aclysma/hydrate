@@ -32,6 +32,9 @@ impl From<SchemaDefValidationError> for SchemaLinkerError {
 
 pub type SchemaLinkerResult<T> = Result<T, SchemaLinkerError>;
 
+/// Acccumulates schema definitions defined in code or by json. Once schemas have been loaded, they
+/// are "linked", producing read-only schemas that are hashed and may cyclically reference each
+/// other. The individual schemas are also very cheap to clone as they are stored in Arc<T>s.
 #[derive(Default)]
 pub struct SchemaLinker {
     types: HashMap<String, SchemaDefNamedType>,

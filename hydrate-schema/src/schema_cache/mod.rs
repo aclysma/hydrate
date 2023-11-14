@@ -1,3 +1,8 @@
+//! This package handles loading/saving the schema cache. The schema cache is a persistent,
+//! immutable record of all schemas that have ever existed. This assures that given a fingerprint
+//! and data, we can always load the data that was serialized, even if the schema or code have
+//! been changed.
+
 use crate::{
     HashMap, Schema, SchemaDynamicArray, SchemaEnum, SchemaEnumSymbol, SchemaFingerprint,
     SchemaFixed, SchemaMap, SchemaNamedType, SchemaRecord, SchemaRecordField, SchemaStaticArray,
@@ -334,6 +339,8 @@ impl CachedSchema {
     }
 }
 
+/// Handles saving and loading a schema cache, an immutable repository of all schemas that have ever
+/// existed.
 #[derive(Debug, Serialize, Deserialize)]
 pub struct SchemaCacheSingleFile {
     cached_schemas: Vec<CachedSchemaNamedType>,

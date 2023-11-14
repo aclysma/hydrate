@@ -20,10 +20,6 @@ use serde::{
 use uuid::Uuid;
 use crate::ArtifactId;
 
-/// A potentially unresolved reference to an asset
-#[derive(Debug, Hash, PartialEq, Eq, Clone, Ord, PartialOrd, Serialize, Deserialize)]
-pub struct ArtifactRef(pub ArtifactId);
-
 /// Loading ID allocated by [`Loader`](crate::loader::Loader) to track loading of a particular artifact
 /// or an indirect reference to an artifact.
 #[derive(Copy, Clone, PartialEq, Eq, Debug, Hash)]
@@ -53,7 +49,10 @@ impl LoadHandle {
     }
 }
 
-// Brought to hydrate_base from hydrate_loader because handle is in hydrate_base
+/// A potentially unresolved reference to an asset
+#[derive(Debug, Hash, PartialEq, Eq, Clone, Ord, PartialOrd, Serialize, Deserialize)]
+pub struct ArtifactRef(pub ArtifactId);
+
 /// Provides information about mappings between `ArtifactId` and `LoadHandle`.
 /// Intended to be used for `Handle` serde.
 pub trait LoaderInfoProvider: Send + Sync {
@@ -87,9 +86,6 @@ pub enum RefOp {
     Increase(LoadHandle),
     IncreaseUuid(ArtifactId),
 }
-
-// Moved up to hydrate_loader because it depends on Loader
-// pub fn process_ref_ops(loader: &Loader, rx: &Receiver<RefOp>) {
 
 /// Keeps track of whether a handle ref is a strong, weak or "internal" ref
 #[derive(Debug)]
@@ -898,25 +894,9 @@ pub trait ArtifactHandle {
     fn load_handle(&self) -> LoadHandle;
 }
 
-pub fn make_handle<T>(uuid: ArtifactId) -> Handle<T> {
+pub fn make_handle_within_serde_context<T>(uuid: ArtifactId) -> Handle<T> {
     SerdeContext::with_active(|loader_info_provider, ref_op_sender| {
         let load_handle = loader_info_provider.load_handle(&ArtifactRef(uuid)).unwrap();
         Handle::<T>::new(ref_op_sender.clone(), load_handle)
     })
 }
-
-// pub fn make_handle_to_artifact<T>(uuid: ArtifactId) -> Handle<T> {
-//     SerdeContext::with_active(|loader_info_provider, ref_op_sender| {
-//         let load_handle = loader_info_provider
-//             .get_load_handle(&ArtifactRef(uuid))
-//             .unwrap();
-//         Handle::<T>::new(ref_op_sender.clone(), load_handle)
-//     })
-// }
-
-// pub fn make_handle_from_str<T>(uuid_str: &str) -> Result<Handle<T>, uuid::Error> {
-//     use std::str::FromStr;
-//     Ok(make_handle(ArtifactId(
-//         *uuid::Uuid::from_str(uuid_str)?.as_bytes(),
-//     )))
-// }

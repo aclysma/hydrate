@@ -3,7 +3,12 @@ pub mod hashing;
 pub mod uuid_path;
 
 pub mod built_artifact_metadata;
-pub use built_artifact_metadata::*;
+pub use built_artifact_metadata::{
+    DebugArtifactManifestDataJson,
+    DebugManifestFileJson,
+    ArtifactManifestData,
+    BuiltArtifactMetadata
+};
 
 mod asset_id;
 pub use asset_id::AssetId;
@@ -12,7 +17,6 @@ mod artifact_id;
 pub use artifact_id::ArtifactId;
 
 pub mod handle;
-
 pub use handle::Handle;
 pub use handle::LoadHandle;
 

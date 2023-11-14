@@ -1,8 +1,5 @@
 use hydrate_model::import_util::ImportToQueue;
-use hydrate_model::{
-    DataSet, EditorModel, ImporterRegistry, AssetId, AssetLocation, AssetName, PathNode,
-    PathNodeRoot, SchemaCacheSingleFile, SchemaLinker, SchemaSet,
-};
+use hydrate_model::{DataSet, EditorModel, ImporterRegistry, AssetId, AssetLocation, AssetName, PathNode, PathNodeRoot, SchemaCacheSingleFile, SchemaLinker, SchemaSet, SchemaSetBuilder};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
@@ -54,7 +51,7 @@ impl DbState {
     // }
 
     fn init_empty_model(
-        schema_set: Arc<SchemaSet>,
+        schema_set: SchemaSet,
         importer_registry: &ImporterRegistry,
         asset_id_based_data_path: &Path,
         asset_path_based_data_path: &Path,
@@ -201,7 +198,7 @@ impl DbState {
     }
 
     fn try_load(
-        schema_set: Arc<SchemaSet>,
+        schema_set: SchemaSet,
         importer_registry: &ImporterRegistry,
         asset_id_based_data_path: &Path,
         asset_path_based_data_path: &Path,
@@ -231,8 +228,8 @@ impl DbState {
         mut linker: SchemaLinker,
         schema_def_paths: &[&Path],
         schema_cache_file_path: &Path,
-    ) -> Arc<SchemaSet> {
-        let mut schema_set = SchemaSet::default();
+    ) -> SchemaSet {
+        let mut schema_set = SchemaSetBuilder::default();
 
         PathNode::register_schema(&mut linker);
         PathNodeRoot::register_schema(&mut linker);
@@ -246,12 +243,12 @@ impl DbState {
             schema_set.restore_named_types(named_types);
         }
 
-        Arc::new(schema_set)
+        schema_set.build()
     }
 
     #[profiling::function]
     pub fn load_or_init_empty(
-        schema_set: &Arc<SchemaSet>,
+        schema_set: &SchemaSet,
         importer_registry: &ImporterRegistry,
         asset_id_based_data_path: &Path,
         asset_path_based_data_path: &Path,

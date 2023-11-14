@@ -14,7 +14,7 @@ use std::sync::Arc;
 slotmap::new_key_type! { pub struct EditContextKey; }
 
 pub struct EditorModel {
-    schema_set: Arc<SchemaSet>,
+    schema_set: SchemaSet,
     undo_stack: UndoStack,
     root_edit_context_key: EditContextKey,
     edit_contexts: DenseSlotMap<EditContextKey, EditContext>,
@@ -29,7 +29,7 @@ pub struct EditorModel {
 }
 
 impl EditorModel {
-    pub fn new(schema_set: Arc<SchemaSet>) -> Self {
+    pub fn new(schema_set: SchemaSet) -> Self {
         let undo_stack = UndoStack::default();
         let mut edit_contexts: DenseSlotMap<EditContextKey, EditContext> = Default::default();
 
@@ -117,10 +117,10 @@ impl EditorModel {
     }
 
     pub fn schema_set(&self) -> &SchemaSet {
-        &*self.schema_set
+        &self.schema_set
     }
 
-    pub fn clone_schema_set(&self) -> Arc<SchemaSet> {
+    pub fn clone_schema_set(&self) -> SchemaSet {
         self.schema_set.clone()
     }
 

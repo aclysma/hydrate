@@ -76,7 +76,7 @@ fn main() {
         };
 
         let (importer_registry, builder_registry, job_processor_registry) =
-            asset_plugin_registration_helper.finish(&*schema_set);
+            asset_plugin_registration_helper.finish(&schema_set);
 
         let mut imports_to_queue = Vec::default();
         let mut db_state = hydrate::editor::DbState::load_or_init_empty(
@@ -91,6 +91,7 @@ fn main() {
         let mut asset_engine = {
             profiling::scope!("Create Asset Engine");
             AssetEngine::new(
+                &schema_set,
                 importer_registry,
                 builder_registry,
                 job_processor_registry,

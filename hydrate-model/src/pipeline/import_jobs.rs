@@ -4,14 +4,44 @@ use hydrate_base::hashing::HashSet;
 use std::hash::{Hash, Hasher};
 use std::io::BufWriter;
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
+use std::time::Duration;
+use crossbeam_channel::{Receiver, TryIter};
 
 use crate::SingleObjectJson;
 use hydrate_base::uuid_path::{path_to_uuid, uuid_to_path};
+use crate::pipeline::import_thread_pool::{ImportThreadOutcome, ImportThreadRequest, ImportThreadRequestImport, ImportWorkerThreadPool};
 
 use super::import_types::*;
 use super::importer_registry::*;
 
-fn hash_file_metadata(metadata: &std::fs::Metadata) -> u64 {
+pub fn load_import_data(
+    import_data_root_path: &Path,
+    schema_set: &SchemaSet,
+    asset_id: AssetId,
+) -> ImportData {
+    profiling::scope!(&format!("Load asset import data {:?}", asset_id));
+    let path = uuid_to_path(import_data_root_path, asset_id.as_uuid(), "if");
+
+    // json format
+    //let str = std::fs::read_to_string(&path).unwrap();
+    //let import_data = SingleObjectJson::load_single_object_from_string(schema_set, &str);
+
+    // b3f format
+    let bytes = std::fs::read(&path).unwrap();
+    let import_data = SingleObjectJson::load_single_object_from_b3f(schema_set, &bytes);
+
+    let metadata = path.metadata().unwrap();
+    let metadata_hash = hash_file_metadata(&metadata);
+
+    ImportData {
+        import_data: import_data.single_object,
+        contents_hash: import_data.contents_hash,
+        metadata_hash,
+    }
+}
+
+pub(super) fn hash_file_metadata(metadata: &std::fs::Metadata) -> u64 {
     let mut hasher = siphasher::sip::SipHasher::default();
     metadata.modified().unwrap().hash(&mut hasher);
     metadata.len().hash(&mut hasher);
@@ -29,12 +59,13 @@ pub struct ImportData {
 }
 
 // An in-flight import operation we want to perform
-struct ImportOp {
+#[derive(Clone)]
+pub struct ImportOp {
     // The string is a key is an importable name
-    asset_ids: HashMap<Option<String>, AssetId>,
-    importer_id: ImporterId,
-    path: PathBuf,
-    assets_to_regenerate: HashSet<AssetId>,
+    pub asset_ids: HashMap<Option<String>, AssetId>,
+    pub importer_id: ImporterId,
+    pub path: PathBuf,
+    pub assets_to_regenerate: HashSet<AssetId>,
     //pub(crate) import_info: ImportInfo,
 }
 
@@ -65,7 +96,7 @@ impl ImportJob {
 // data to see if the job is complete, or is in a failed or stale state.
 pub struct ImportJobs {
     //import_editor_model: EditorModel
-    root_path: PathBuf,
+    import_data_root_path: PathBuf,
     import_jobs: HashMap<AssetId, ImportJob>,
     import_operations: Vec<ImportOp>,
 }
@@ -74,12 +105,12 @@ impl ImportJobs {
     pub fn new(
         importer_registry: &ImporterRegistry,
         editor_model: &EditorModel,
-        root_path: PathBuf,
+        import_data_root_path: &Path,
     ) -> Self {
-        let import_jobs = ImportJobs::find_all_jobs(importer_registry, editor_model, &root_path);
+        let import_jobs = ImportJobs::find_all_jobs(importer_registry, editor_model, import_data_root_path);
 
         ImportJobs {
-            root_path,
+            import_data_root_path: import_data_root_path.to_path_buf(),
             import_jobs,
             import_operations: Default::default(),
         }
@@ -105,38 +136,11 @@ impl ImportJobs {
         &self,
         asset_id: AssetId,
     ) -> ImportDataMetadataHash {
-        let path = uuid_to_path(&self.root_path, asset_id.as_uuid(), "if");
+        let path = uuid_to_path(&self.import_data_root_path, asset_id.as_uuid(), "if");
         //println!("LOAD DATA HASH PATH {:?}", path);
         let metadata = path.metadata().unwrap();
         let metadata_hash = hash_file_metadata(&metadata);
         ImportDataMetadataHash { metadata_hash }
-    }
-
-    pub fn load_import_data(
-        &self,
-        schema_set: &SchemaSet,
-        asset_id: AssetId,
-    ) -> ImportData {
-        profiling::scope!(&format!("Load asset import data {:?}", asset_id));
-        let path = uuid_to_path(&self.root_path, asset_id.as_uuid(), "if");
-        log::debug!("LOAD DATA PATH {:?}", path);
-
-        // json format
-        //let str = std::fs::read_to_string(&path).unwrap();
-        //let import_data = SingleObjectJson::load_single_object_from_string(schema_set, &str);
-
-        // b3f format
-        let bytes = std::fs::read(&path).unwrap();
-        let import_data = SingleObjectJson::load_single_object_from_b3f(schema_set, &bytes);
-
-        let metadata = path.metadata().unwrap();
-        let metadata_hash = hash_file_metadata(&metadata);
-
-        ImportData {
-            import_data: import_data.single_object,
-            contents_hash: import_data.contents_hash,
-            metadata_hash,
-        }
     }
 
     // We do a clone because we want to allow background processing of this data and detecting if
@@ -154,8 +158,8 @@ impl ImportJobs {
 
     // pub fn handle_file_updates(&mut self, file_updates: &[PathBuf]) {
     //     for file_update in file_updates {
-    //         if let Ok(relative) = file_update.strip_prefix(&self.root_path) {
-    //             if let Some(uuid) = path_to_uuid(&self.root_path, file_update) {
+    //         if let Ok(relative) = file_update.strip_prefix(&self.import_data_root_path) {
+    //             if let Some(uuid) = path_to_uuid(&self.import_data_root_path, file_update) {
     //                 let asset_id = AssetId(uuid.as_u128());
     //
     //             }
@@ -169,6 +173,88 @@ impl ImportJobs {
         importer_registry: &ImporterRegistry,
         editor_model: &mut EditorModel,
     ) {
+        profiling::scope!("Process Import Operations");
+        if self.import_operations.is_empty() {
+            return;
+        }
+
+        //
+        // Take the import operations
+        //
+        let mut import_operations = Vec::default();
+        std::mem::swap(&mut self.import_operations, &mut import_operations);
+
+        //
+        // Create the thread pool
+        //
+        let (result_tx, result_rx) = crossbeam_channel::unbounded();
+        let thread_pool = ImportWorkerThreadPool::new(
+            importer_registry,
+            editor_model.schema_set(),
+            &self.import_data_root_path,
+            16,
+            result_tx
+        );
+
+        //
+        // Queue the import operations
+        //
+        for import_op in import_operations {
+            let mut importable_assets = HashMap::<Option<String>, ImportableAsset>::default();
+            for (name, asset_id) in &import_op.asset_ids {
+                let referenced_paths = editor_model
+                    .root_edit_context()
+                    .resolve_all_file_references(*asset_id)
+                    .unwrap_or_default();
+                importable_assets.insert(
+                    name.clone(),
+                    ImportableAsset {
+                        id: *asset_id,
+                        referenced_paths,
+                    },
+                );
+            }
+
+            thread_pool.add_request(ImportThreadRequest::RequestImport(ImportThreadRequestImport {
+                import_op,
+                importable_assets
+            }));
+        }
+
+        //
+        // Wait for the thread pool to finish
+        //
+        while !thread_pool.is_idle() {
+            std::thread::sleep(std::time::Duration::from_millis(50));
+        }
+
+        thread_pool.finish();
+
+        //
+        // Commit the imports
+        //
+        for outcome in result_rx.try_iter() {
+            match outcome {
+                ImportThreadOutcome::Complete(msg) => {
+                    for (name, imported_asset) in msg.imported_importables {
+                        if let Some(asset_id) = msg.request.import_op.asset_ids.get(&name) {
+                            if msg.request.import_op.assets_to_regenerate.contains(asset_id) {
+                                if let Some(default_asset) = &imported_asset.default_asset {
+                                    editor_model
+                                        .root_edit_context_mut()
+                                        .init_from_single_object(*asset_id, default_asset)
+                                        .unwrap();
+                                }
+                            }
+                        }
+                    }
+                },
+                ImportThreadOutcome::Failed(failed) => {
+                    unimplemented!()
+                }
+            }
+        }
+/*
         for import_op in &self.import_operations {
             profiling::scope!(&format!("Import {:?}", import_op.path.to_string_lossy()));
             //let importer_id = editor_model.root_edit_context().import_info()
@@ -232,7 +318,7 @@ impl ImportJobs {
                         SingleObjectJson::save_single_object_to_b3f(&mut buf_writer, import_data);
                         let data = buf_writer.into_inner().unwrap();
 
-                        let path = uuid_to_path(&self.root_path, asset_id.as_uuid(), "if");
+                        let path = uuid_to_path(&self.import_data_root_path, asset_id.as_uuid(), "if");
 
                         if let Some(parent) = path.parent() {
                             std::fs::create_dir_all(parent).unwrap();
@@ -273,8 +359,9 @@ impl ImportJobs {
                 }
             }
         }
+        */
 
-        self.import_operations.clear();
+        //self.import_operations.clear();
 
         // Send/mark for processing?
     }
@@ -282,14 +369,14 @@ impl ImportJobs {
     fn find_all_jobs(
         importer_registry: &ImporterRegistry,
         editor_model: &EditorModel,
-        root_path: &Path,
+        import_data_root_path: &Path,
     ) -> HashMap<AssetId, ImportJob> {
         let mut import_jobs = HashMap::<AssetId, ImportJob>::default();
 
         //
         // Scan import dir for known import data
         //
-        let walker = globwalk::GlobWalkerBuilder::from_patterns(root_path, &["**.if"])
+        let walker = globwalk::GlobWalkerBuilder::from_patterns(import_data_root_path, &["**.if"])
             .file_type(globwalk::FileType::FILE)
             .build()
             .unwrap();
@@ -297,7 +384,7 @@ impl ImportJobs {
         for file in walker {
             if let Ok(file) = file {
                 //println!("import file {:?}", file);
-                let import_file_uuid = path_to_uuid(root_path, file.path()).unwrap();
+                let import_file_uuid = path_to_uuid(import_data_root_path, file.path()).unwrap();
                 let asset_id = AssetId::from_uuid(import_file_uuid);
                 let job = import_jobs
                     .entry(asset_id)

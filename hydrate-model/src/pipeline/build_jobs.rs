@@ -43,12 +43,14 @@ pub struct BuildJobs {
 
 impl BuildJobs {
     pub fn new(
+        schema_set: &SchemaSet,
         job_processor_registry: &JobProcessorRegistry,
+        import_data_root_path: PathBuf,
         job_data_root_path: PathBuf,
         build_data_root_path: PathBuf,
     ) -> Self {
         //TODO: May need to scan disk to see what is cached?
-        let job_executor = JobExecutor::new(job_data_root_path, job_processor_registry);
+        let job_executor = JobExecutor::new(schema_set, job_processor_registry, import_data_root_path, job_data_root_path, build_data_root_path.clone());
         let build_jobs = Default::default();
 
         BuildJobs {
@@ -82,9 +84,13 @@ impl BuildJobs {
         _import_data_metadata_hashes: &HashMap<AssetId, u64>,
         combined_build_hash: u64,
     ) {
+        profiling::scope!("Process Build Operations");
         editor_model.refresh_tree_node_cache();
 
-        let data_set = editor_model.root_edit_context().data_set();
+        let data_set = {
+            profiling::scope!("Clone Dataset");
+            Arc::new(editor_model.root_edit_context().data_set().clone())
+        };
         let schema_set = editor_model.schema_set();
 
         //
@@ -128,94 +134,80 @@ impl BuildJobs {
             // For all the requested assets, see if there is a builder for the asset. If there is,
             // kick off the jobs needed to produce the asset for it
             //
-            while let Some(request) = requested_build_ops.pop_front() {
-                if started_build_ops.contains(&request.asset_id) {
-                    continue;
+            {
+                //profiling::scope!("Start Jobs");
+                while let Some(request) = requested_build_ops.pop_front() {
+                    if started_build_ops.contains(&request.asset_id) {
+                        continue;
+                    }
+
+                    let asset_id = request.asset_id;
+                    started_build_ops.insert(asset_id);
+
+                    let asset_type = editor_model
+                        .root_edit_context()
+                        .asset_schema(asset_id)
+                        .unwrap();
+
+                    let Some(builder) = builder_registry.builder_for_asset(asset_type.fingerprint())
+                        else {
+                            continue;
+                        };
+
+                    builder.start_jobs(asset_id, &data_set, schema_set, self.job_executor.job_api());
                 }
-
-                let asset_id = request.asset_id;
-                started_build_ops.insert(asset_id);
-
-                println!("find {:?}", asset_id);
-                let asset_type = editor_model
-                    .root_edit_context()
-                    .asset_schema(asset_id)
-                    .unwrap();
-
-                let Some(builder) = builder_registry.builder_for_asset(asset_type.fingerprint())
-                else {
-                    continue;
-                };
-
-                println!("building {:?} {}", asset_id, asset_type.name());
-                builder.start_jobs(asset_id, data_set, schema_set, &self.job_executor);
             }
 
             //
             // Pump the job executor, this will schedule work to be done on threads
             //
-            self.job_executor.update(data_set, schema_set, import_jobs);
+            {
+                //profiling::scope!("Job Executor Update");
+                self.job_executor.update(&data_set, schema_set, import_jobs);
+            }
 
-            //
-            // Jobs will produce artifacts. We will save these to disk and possibly trigger
-            // additional jobs for assets that they reference.
-            //
-            let built_artifacts = self
-                .job_executor
-                .take_built_artifacts(&mut artifact_asset_lookup);
-            for built_artifact in built_artifacts {
+            {
+                //profiling::scope!("Take written artifacts");
+
                 //
-                // Trigger building any dependencies.
+                // Jobs will produce artifacts. We will save these to disk and possibly trigger
+                // additional jobs for assets that they reference.
                 //
-                for &dependency_artifact_id in &built_artifact.metadata.dependencies {
-                    let dependency_asset_id =
-                        *artifact_asset_lookup.get(&dependency_artifact_id).unwrap();
-                    requested_build_ops.push_back(BuildRequest {
-                        asset_id: dependency_asset_id,
+                let written_artifacts = self
+                    .job_executor
+                    .take_written_artifacts(&mut artifact_asset_lookup);
+
+                for written_artifact in written_artifacts {
+                    //
+                    // Trigger building any dependencies.
+                    //
+                    for &dependency_artifact_id in &written_artifact.metadata.dependencies {
+                        let dependency_asset_id =
+                            *artifact_asset_lookup.get(&dependency_artifact_id).unwrap();
+                        requested_build_ops.push_back(BuildRequest {
+                            asset_id: dependency_asset_id,
+                        });
+                    }
+
+                    //
+                    // Ensure the artifact will be in the metadata
+                    //
+                    build_hashes.insert(written_artifact.artifact_id, written_artifact.build_hash);
+
+                    let job = self
+                        .build_jobs
+                        .entry(written_artifact.asset_id)
+                        .or_insert_with(|| BuildJob::new());
+                    job.asset_exists = true;
+                    job.build_data_exists
+                        .insert((written_artifact.artifact_id, written_artifact.build_hash));
+
+                    built_artifact_info.insert(written_artifact.artifact_id, BuiltArtifactInfo {
+                        asset_id: written_artifact.asset_id,
+                        artifact_key_debug_name: written_artifact.artifact_key_debug_name,
+                        metadata: written_artifact.metadata,
                     });
                 }
-
-                //
-                // Serialize the artifacts to disk
-                //
-                let mut hasher = siphasher::sip::SipHasher::default();
-                built_artifact.data.hash(&mut hasher);
-                built_artifact.metadata.hash(&mut hasher);
-                let build_hash = hasher.finish();
-
-                let path = uuid_and_hash_to_path(
-                    &self.build_data_root_path,
-                    built_artifact.artifact_id.as_uuid(),
-                    build_hash,
-                    "bf",
-                );
-
-                if let Some(parent) = path.parent() {
-                    std::fs::create_dir_all(parent).unwrap();
-                }
-
-                let mut file = std::fs::File::create(&path).unwrap();
-                built_artifact.metadata.write_header(&mut file).unwrap();
-                file.write(&built_artifact.data).unwrap();
-
-                //
-                // Ensure the artifact will be in the metadata
-                //
-                build_hashes.insert(built_artifact.artifact_id, build_hash);
-
-                let job = self
-                    .build_jobs
-                    .entry(built_artifact.asset_id)
-                    .or_insert_with(|| BuildJob::new());
-                job.asset_exists = true;
-                job.build_data_exists
-                    .insert((built_artifact.artifact_id, build_hash));
-
-                built_artifact_info.insert(built_artifact.artifact_id, BuiltArtifactInfo {
-                    asset_id: built_artifact.asset_id,
-                    artifact_key_debug_name: built_artifact.artifact_key_debug_name,
-                    metadata: built_artifact.metadata,
-                });
             }
         }
 

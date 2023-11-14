@@ -9,6 +9,7 @@ use hydrate_data::{ImporterId, AssetId, AssetLocation, AssetName, AssetSourceId}
 use hydrate_schema::{HashMap, SchemaNamedType};
 use std::ffi::OsStr;
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 use uuid::Uuid;
 
 // New trait design
@@ -485,12 +486,12 @@ impl DataSource for FileSystemPathBasedDataSource {
         edit_context.clear_asset_modified_flag(asset_id);
     }
 
-    #[profiling::function]
     fn load_from_storage(
         &mut self,
         edit_context: &mut EditContext,
         imports_to_queue: &mut Vec<ImportToQueue>,
     ) {
+        profiling::scope!(&format!("load_from_storage {:?}", self.file_system_root_path));
         //
         // Delete all assets from the database owned by this data source
         //
@@ -511,49 +512,52 @@ impl DataSource for FileSystemPathBasedDataSource {
 
         let mut path_to_path_node_id = self.canonicalize_all_path_nodes(edit_context);
 
-        //
-        // First visit all folders to create path nodes
-        //
-        let walker =
-            globwalk::GlobWalkerBuilder::from_patterns(&self.file_system_root_path, &["**"])
-                .file_type(globwalk::FileType::DIR)
-                .build()
-                .unwrap();
-
-        for file in walker {
-            if let Ok(file) = file {
-                self.ensure_asset_location_exists(
-                    file.path(),
-                    &mut path_to_path_node_id,
-                    edit_context,
-                );
-            }
-        }
-
-        //
-        // Visit all files and categorize them as meta files, asset files, or source files
-        // - Asset files end in .af
-        // - Meta files end in .meta
-        // - Anything else is presumed to be a source file
-        //
-        let walker =
-            globwalk::GlobWalkerBuilder::from_patterns(&self.file_system_root_path, &["**"])
-                .file_type(globwalk::FileType::FILE)
-                .build()
-                .unwrap();
-
         let mut source_files = Vec::default();
         let mut asset_files = Vec::default();
         let mut meta_files = Vec::default();
 
-        for file in walker {
-            if let Ok(file) = file {
-                if file.path().extension() == Some(OsStr::new("meta")) {
-                    meta_files.push(file.path().to_path_buf());
-                } else if file.path().extension() == Some(OsStr::new("af")) {
-                    asset_files.push(file.path().to_path_buf());
-                } else {
-                    source_files.push(file.path().to_path_buf());
+        {
+            profiling::scope!("Categorize files on disk");
+            //
+            // First visit all folders to create path nodes
+            //
+            let walker =
+                globwalk::GlobWalkerBuilder::from_patterns(&self.file_system_root_path, &["**"])
+                    .file_type(globwalk::FileType::DIR)
+                    .build()
+                    .unwrap();
+
+            for file in walker {
+                if let Ok(file) = file {
+                    self.ensure_asset_location_exists(
+                        file.path(),
+                        &mut path_to_path_node_id,
+                        edit_context,
+                    );
+                }
+            }
+
+            //
+            // Visit all files and categorize them as meta files, asset files, or source files
+            // - Asset files end in .af
+            // - Meta files end in .meta
+            // - Anything else is presumed to be a source file
+            //
+            let walker =
+                globwalk::GlobWalkerBuilder::from_patterns(&self.file_system_root_path, &["**"])
+                    .file_type(globwalk::FileType::FILE)
+                    .build()
+                    .unwrap();
+
+            for file in walker {
+                if let Ok(file) = file {
+                    if file.path().extension() == Some(OsStr::new("meta")) {
+                        meta_files.push(file.path().to_path_buf());
+                    } else if file.path().extension() == Some(OsStr::new("af")) {
+                        asset_files.push(file.path().to_path_buf());
+                    } else {
+                        source_files.push(file.path().to_path_buf());
+                    }
                 }
             }
         }
@@ -564,18 +568,21 @@ impl DataSource for FileSystemPathBasedDataSource {
         // meta file and source files in a path-based data source get re-imported automatically)
         //
         let mut source_file_meta_files = HashMap::<PathBuf, MetaFile>::default();
-        for meta_file in meta_files {
-            let source_file = meta_file.with_extension("");
-            if !source_file.exists() {
-                println!("Could not find source file, can't re-import data. Restore the source file or delete the meta file.");
-                continue;
+        {
+            profiling::scope!("Read meta files");
+            for meta_file in meta_files {
+                let source_file = meta_file.with_extension("");
+                if !source_file.exists() {
+                    println!("Could not find source file, can't re-import data. Restore the source file or delete the meta file.");
+                    continue;
+                }
+                //println!("meta file {:?} source file {:?}", meta_file, source_file);
+
+                let contents = std::fs::read_to_string(meta_file.as_path()).unwrap();
+                let meta_file_contents = MetaFileJson::load_from_string(&contents);
+
+                source_file_meta_files.insert(source_file, meta_file_contents);
             }
-            //println!("meta file {:?} source file {:?}", meta_file, source_file);
-
-            let contents = std::fs::read_to_string(meta_file.as_path()).unwrap();
-            let meta_file_contents = crate::json_storage::MetaFileJson::load_from_string(&contents);
-
-            source_file_meta_files.insert(source_file, meta_file_contents);
         }
 
         let mut source_files_disk_state = HashMap::<PathBuf, SourceFileDiskState>::default();
@@ -584,37 +591,40 @@ impl DataSource for FileSystemPathBasedDataSource {
         //
         // Load any asset files.
         //
-        for asset_file in asset_files {
-            //println!("asset file {:?}", asset_file);
-            let contents = std::fs::read_to_string(asset_file.as_path()).unwrap();
+        {
+            profiling::scope!("Load Asset Files");
+            for asset_file in asset_files {
+                //println!("asset file {:?}", asset_file);
+                let contents = std::fs::read_to_string(asset_file.as_path()).unwrap();
 
-            let asset_location = self.ensure_asset_location_exists(
-                asset_file.as_path().parent().unwrap(),
-                &mut path_to_path_node_id,
-                edit_context,
-            );
-            let asset_id =
-                crate::json_storage::EditContextAssetJson::load_edit_context_asset_from_string(
+                let asset_location = self.ensure_asset_location_exists(
+                    asset_file.as_path().parent().unwrap(),
+                    &mut path_to_path_node_id,
                     edit_context,
-                    None,
-                    self.asset_source_id,
-                    Some(asset_location.clone()),
-                    &contents,
                 );
+                let asset_id =
+                    crate::json_storage::EditContextAssetJson::load_edit_context_asset_from_string(
+                        edit_context,
+                        None,
+                        self.asset_source_id,
+                        Some(asset_location.clone()),
+                        &contents,
+                    );
 
-            //TODO: Track some revision number instead of modified flags?
-            edit_context.clear_asset_modified_flag(asset_id);
-            edit_context.clear_location_modified_flag(&asset_location);
+                //TODO: Track some revision number instead of modified flags?
+                edit_context.clear_asset_modified_flag(asset_id);
+                edit_context.clear_location_modified_flag(&asset_location);
 
-            let asset_file_metadata = FileMetadata::new(&std::fs::metadata(&asset_file).unwrap());
+                let asset_file_metadata = FileMetadata::new(&std::fs::metadata(&asset_file).unwrap());
 
-            assets_disk_state.insert(
-                asset_id,
-                AssetDiskState::Persisted(PersistedAssetDiskState {
-                    _asset_file_path: asset_file,
-                    _asset_file_metadata: asset_file_metadata,
-                }),
-            );
+                assets_disk_state.insert(
+                    asset_id,
+                    AssetDiskState::Persisted(PersistedAssetDiskState {
+                        _asset_file_path: asset_file,
+                        _asset_file_metadata: asset_file_metadata,
+                    }),
+                );
+            }
         }
 
         //
@@ -633,247 +643,253 @@ impl DataSource for FileSystemPathBasedDataSource {
         //
         struct ScannedSourceFile<'a> {
             meta_file: MetaFile,
-            importer: &'a Box<dyn Importer>,
+            importer: &'a Arc<dyn Importer>,
             scanned_importables: Vec<ScannedImportable>,
         }
         let mut scanned_source_files = HashMap::<PathBuf, ScannedSourceFile>::default();
 
         let empty_string = "".to_string();
 
-        for source_file in source_files {
-            //println!("source file first pass {:?}", source_file);
-            // Does a meta file exist?
-            // - If it does: re-import it, but only create new assets if there is not already an asset file
-            // - If it does not: re-import it and create all new asset files
+        {
+            profiling::scope!("Scan Source Files");
 
-            let extension = &source_file.extension();
-            if extension.is_none() {
-                // Can happen for files like .DS_Store
-                continue;
-            }
+            for source_file in source_files {
+                //println!("source file first pass {:?}", source_file);
+                // Does a meta file exist?
+                // - If it does: re-import it, but only create new assets if there is not already an asset file
+                // - If it does not: re-import it and create all new asset files
 
-            let importers = self
-                .importer_registry
-                .importers_for_file_extension(&extension.unwrap().to_string_lossy());
+                let extension = &source_file.extension();
+                if extension.is_none() {
+                    // Can happen for files like .DS_Store
+                    continue;
+                }
 
-            if importers.is_empty() {
-                // No importer found
-            } else if importers.len() > 1 {
-                // Multiple importers found, no way of disambiguating
-            } else {
-                let importer = self.importer_registry.importer(importers[0]).unwrap();
+                let importers = self
+                    .importer_registry
+                    .importers_for_file_extension(&extension.unwrap().to_string_lossy());
 
-                let scanned_importables = {
-                    profiling::scope!(&format!("Importer::scan_file {}", source_file.to_string_lossy()));
-                    importer.scan_file(
-                        &source_file,
-                        edit_context.schema_set(),
-                        &self.importer_registry,
-                    )
-                };
+                if importers.is_empty() {
+                    // No importer found
+                } else if importers.len() > 1 {
+                    // Multiple importers found, no way of disambiguating
+                } else {
+                    let importer = self.importer_registry.importer(importers[0]).unwrap();
 
-                //println!("  find meta file {:?}", source_file);
-                let mut meta_file = source_file_meta_files
-                    .get(&source_file)
-                    .cloned()
-                    .unwrap_or_default();
-                for scanned_importable in &scanned_importables {
-                    // Does it exist in the meta file? If so, we need to reuse the ID
-                    meta_file
-                        .past_id_assignments
-                        .entry(
+                    let scanned_importables = {
+                        profiling::scope!(&format!("Importer::scan_file {}", source_file.to_string_lossy()));
+                        importer.scan_file(
+                            &source_file,
+                            edit_context.schema_set(),
+                            &self.importer_registry,
+                        )
+                    };
+
+                    //println!("  find meta file {:?}", source_file);
+                    let mut meta_file = source_file_meta_files
+                        .get(&source_file)
+                        .cloned()
+                        .unwrap_or_default();
+                    for scanned_importable in &scanned_importables {
+                        // Does it exist in the meta file? If so, we need to reuse the ID
+                        meta_file
+                            .past_id_assignments
+                            .entry(
+                                scanned_importable
+                                    .name
+                                    .as_ref()
+                                    .cloned()
+                                    .unwrap_or_default(),
+                            )
+                            .or_insert_with(|| AssetId::from_uuid(Uuid::new_v4()));
+                    }
+
+                    let mut meta_file_path = source_file.clone().into_os_string();
+                    meta_file_path.push(".meta");
+
+                    //let source_file_metadata = FileMetadata::new(&std::fs::metadata(&source_file).unwrap());
+
+                    let mut importables = HashMap::<Option<String>, AssetId>::default();
+                    for scanned_importable in &scanned_importables {
+                        let empty_string = String::default();
+                        let imporable_asset_id = meta_file.past_id_assignments.get(
                             scanned_importable
                                 .name
                                 .as_ref()
-                                .cloned()
-                                .unwrap_or_default(),
-                        )
-                        .or_insert_with(|| AssetId::from_uuid(Uuid::new_v4()));
-                }
+                                .unwrap_or(&empty_string)
+                                .as_str(),
+                        );
+                        importables.insert(
+                            scanned_importable.name.clone(),
+                            *imporable_asset_id.unwrap(),
+                        );
+                    }
 
-                let mut meta_file_path = source_file.clone().into_os_string();
-                meta_file_path.push(".meta");
-
-                //let source_file_metadata = FileMetadata::new(&std::fs::metadata(&source_file).unwrap());
-
-                let mut importables = HashMap::<Option<String>, AssetId>::default();
-                for scanned_importable in &scanned_importables {
-                    let empty_string = String::default();
-                    let imporable_asset_id = meta_file.past_id_assignments.get(
-                        scanned_importable
-                            .name
-                            .as_ref()
-                            .unwrap_or(&empty_string)
-                            .as_str(),
+                    source_files_disk_state.insert(
+                        source_file.clone(),
+                        SourceFileDiskState {
+                            generated_assets: Default::default(),
+                            persisted_assets: Default::default(),
+                            //source_file_metadata,
+                            _importer_id: importer.importer_id(),
+                            _importables: importables,
+                        },
                     );
-                    importables.insert(
-                        scanned_importable.name.clone(),
-                        *imporable_asset_id.unwrap(),
+
+                    std::fs::write(meta_file_path, MetaFileJson::store_to_string(&meta_file)).unwrap();
+                    scanned_source_files.insert(
+                        source_file,
+                        ScannedSourceFile {
+                            meta_file,
+                            importer,
+                            scanned_importables,
+                        },
                     );
                 }
-
-                source_files_disk_state.insert(
-                    source_file.clone(),
-                    SourceFileDiskState {
-                        generated_assets: Default::default(),
-                        persisted_assets: Default::default(),
-                        //source_file_metadata,
-                        _importer_id: importer.importer_id(),
-                        _importables: importables,
-                    },
-                );
-
-                std::fs::write(meta_file_path, MetaFileJson::store_to_string(&meta_file)).unwrap();
-                scanned_source_files.insert(
-                    source_file,
-                    ScannedSourceFile {
-                        meta_file,
-                        importer,
-                        scanned_importables,
-                    },
-                );
             }
         }
 
         //
         // Re-import source files
         //
-        for (source_file_path, scanned_source_file) in &scanned_source_files {
-            println!("source file second pass {:?}", source_file_path);
-            let parent_dir = source_file_path.parent().unwrap();
-            //println!("  import to dir {:?}", parent_dir);
-            let import_location =
-                AssetLocation::new(*path_to_path_node_id.get(parent_dir).unwrap());
+        {
+            profiling::scope!("Enqueue import operations");
+            for (source_file_path, scanned_source_file) in &scanned_source_files {
+                let parent_dir = source_file_path.parent().unwrap();
+                //println!("  import to dir {:?}", parent_dir);
+                let import_location =
+                    AssetLocation::new(*path_to_path_node_id.get(parent_dir).unwrap());
 
-            let source_file_disk_state = source_files_disk_state.get_mut(source_file_path).unwrap();
+                let source_file_disk_state = source_files_disk_state.get_mut(source_file_path).unwrap();
 
-            let mut requested_importables = HashMap::default();
-            let mut assets_to_regenerate = HashSet::default();
-            for scanned_importable in &scanned_source_file.scanned_importables {
-                // The ID assigned to this importable. We have this now because we previously scanned
-                // all source files and assigned IDs to any importable
-                let importable_asset_id = *scanned_source_files
-                    .get(source_file_path)
-                    .unwrap()
-                    .meta_file
-                    .past_id_assignments
-                    .get(scanned_importable.name.as_ref().unwrap_or(&empty_string))
-                    .unwrap();
-
-                // Create an asset name for this asset
-                let asset_name =
-                    import_util::create_asset_name(source_file_path, scanned_importable);
-
-                let asset_file_exists = edit_context.has_asset(importable_asset_id);
-
-                if !asset_file_exists {
-                    edit_context
-                        .new_asset_with_id(
-                            importable_asset_id,
-                            &asset_name,
-                            &import_location,
-                            &scanned_importable.asset_type,
-                        )
-                        .unwrap();
-
-                    // Create the import info for this asset
-                    let import_info = import_util::create_import_info(
-                        source_file_path,
-                        scanned_source_file.importer,
-                        scanned_importable,
-                    );
-                    edit_context.set_import_info(importable_asset_id, import_info);
-
-                    assets_disk_state.insert(
-                        importable_asset_id,
-                        AssetDiskState::Generated(GeneratedAssetDiskState {
-                            source_file_path: source_file_path.clone(),
-                        }),
-                    );
-                    source_file_disk_state
-                        .generated_assets
-                        .insert(importable_asset_id);
-                } else {
-                    assert_eq!(
-                        edit_context
-                            .asset_schema(importable_asset_id)
-                            .unwrap()
-                            .fingerprint(),
-                        scanned_importable.asset_type.fingerprint()
-                    );
-                    //edit_context.set_asset_name(importable_asset_id, asset_name);
-                    //edit_context.set_asset_location(importable_asset_id, *import_location);
-                    //edit_context.set_import_info(importable_asset_id, import_info);
-
-                    // We iterated through asset files already, so just check that we inserted a AssetDiskState::Persisted into this map
-                    assert!(assets_disk_state
-                        .get(&importable_asset_id)
+                let mut requested_importables = HashMap::default();
+                let mut assets_to_regenerate = HashSet::default();
+                for scanned_importable in &scanned_source_file.scanned_importables {
+                    // The ID assigned to this importable. We have this now because we previously scanned
+                    // all source files and assigned IDs to any importable
+                    let importable_asset_id = *scanned_source_files
+                        .get(source_file_path)
                         .unwrap()
-                        .is_persisted());
-                    source_file_disk_state
-                        .persisted_assets
-                        .insert(importable_asset_id);
-                }
-
-                // For any referenced file, locate the AssetID at that path. It must be in this data source,
-                // and for now we only support referencing the default importable out of source files (so
-                // can't reference asset files by path, for now). So it must exist.
-                let mut referenced_source_file_asset_ids = Vec::default();
-                for file_reference in &scanned_importable.file_references {
-                    let file_reference_absolute_path = if file_reference.path.is_relative() {
-                        source_file_path
-                            .parent()
-                            .unwrap()
-                            .join(&file_reference.path)
-                            .canonicalize()
-                            .unwrap()
-                    } else {
-                        file_reference.path.clone()
-                    };
-
-                    //println!("referenced {:?} {:?}", file_reference_absolute_path, scanned_source_files.keys());
-                    let referenced_scanned_source_file = scanned_source_files
-                        .get(&file_reference_absolute_path)
+                        .meta_file
+                        .past_id_assignments
+                        .get(scanned_importable.name.as_ref().unwrap_or(&empty_string))
                         .unwrap();
-                    assert_eq!(
-                        file_reference.importer_id,
-                        referenced_scanned_source_file.importer.importer_id()
-                    );
-                    referenced_source_file_asset_ids
-                        .push(referenced_scanned_source_file.meta_file.past_id_assignments.get(""));
-                }
 
-                assert_eq!(
-                    referenced_source_file_asset_ids.len(),
-                    scanned_importable.file_references.len()
-                );
+                    // Create an asset name for this asset
+                    let asset_name =
+                        import_util::create_asset_name(source_file_path, scanned_importable);
 
-                for (k, v) in scanned_importable
-                    .file_references
-                    .iter()
-                    .zip(referenced_source_file_asset_ids)
-                {
-                    if let Some(v) = v {
-                        edit_context.set_file_reference_override(
-                            importable_asset_id,
-                            k.path.clone(),
-                            *v,
+                    let asset_file_exists = edit_context.has_asset(importable_asset_id);
+
+                    if !asset_file_exists {
+                        edit_context
+                            .new_asset_with_id(
+                                importable_asset_id,
+                                &asset_name,
+                                &import_location,
+                                &scanned_importable.asset_type,
+                            )
+                            .unwrap();
+
+                        // Create the import info for this asset
+                        let import_info = import_util::create_import_info(
+                            source_file_path,
+                            scanned_source_file.importer,
+                            scanned_importable,
                         );
+                        edit_context.set_import_info(importable_asset_id, import_info);
+
+                        assets_disk_state.insert(
+                            importable_asset_id,
+                            AssetDiskState::Generated(GeneratedAssetDiskState {
+                                source_file_path: source_file_path.clone(),
+                            }),
+                        );
+                        source_file_disk_state
+                            .generated_assets
+                            .insert(importable_asset_id);
+                    } else {
+                        assert_eq!(
+                            edit_context
+                                .asset_schema(importable_asset_id)
+                                .unwrap()
+                                .fingerprint(),
+                            scanned_importable.asset_type.fingerprint()
+                        );
+                        //edit_context.set_asset_name(importable_asset_id, asset_name);
+                        //edit_context.set_asset_location(importable_asset_id, *import_location);
+                        //edit_context.set_import_info(importable_asset_id, import_info);
+
+                        // We iterated through asset files already, so just check that we inserted a AssetDiskState::Persisted into this map
+                        assert!(assets_disk_state
+                            .get(&importable_asset_id)
+                            .unwrap()
+                            .is_persisted());
+                        source_file_disk_state
+                            .persisted_assets
+                            .insert(importable_asset_id);
+                    }
+
+                    // For any referenced file, locate the AssetID at that path. It must be in this data source,
+                    // and for now we only support referencing the default importable out of source files (so
+                    // can't reference asset files by path, for now). So it must exist.
+                    let mut referenced_source_file_asset_ids = Vec::default();
+                    for file_reference in &scanned_importable.file_references {
+                        let file_reference_absolute_path = if file_reference.path.is_relative() {
+                            source_file_path
+                                .parent()
+                                .unwrap()
+                                .join(&file_reference.path)
+                                .canonicalize()
+                                .unwrap()
+                        } else {
+                            file_reference.path.clone()
+                        };
+
+                        //println!("referenced {:?} {:?}", file_reference_absolute_path, scanned_source_files.keys());
+                        let referenced_scanned_source_file = scanned_source_files
+                            .get(&file_reference_absolute_path)
+                            .unwrap();
+                        assert_eq!(
+                            file_reference.importer_id,
+                            referenced_scanned_source_file.importer.importer_id()
+                        );
+                        referenced_source_file_asset_ids
+                            .push(referenced_scanned_source_file.meta_file.past_id_assignments.get(""));
+                    }
+
+                    assert_eq!(
+                        referenced_source_file_asset_ids.len(),
+                        scanned_importable.file_references.len()
+                    );
+
+                    for (k, v) in scanned_importable
+                        .file_references
+                        .iter()
+                        .zip(referenced_source_file_asset_ids)
+                    {
+                        if let Some(v) = v {
+                            edit_context.set_file_reference_override(
+                                importable_asset_id,
+                                k.path.clone(),
+                                *v,
+                            );
+                        }
+                    }
+
+                    requested_importables.insert(scanned_importable.name.clone(), importable_asset_id);
+                    if !asset_file_exists {
+                        assets_to_regenerate.insert(importable_asset_id);
                     }
                 }
 
-                requested_importables.insert(scanned_importable.name.clone(), importable_asset_id);
-                if !asset_file_exists {
-                    assets_to_regenerate.insert(importable_asset_id);
-                }
+                imports_to_queue.push(ImportToQueue {
+                    source_file_path: source_file_path.to_path_buf(),
+                    importer_id: scanned_source_file.importer.importer_id(),
+                    requested_importables,
+                    assets_to_regenerate,
+                });
             }
-
-            imports_to_queue.push(ImportToQueue {
-                source_file_path: source_file_path.to_path_buf(),
-                importer_id: scanned_source_file.importer.importer_id(),
-                requested_importables,
-                assets_to_regenerate,
-            });
         }
 
         self.assets_disk_state = assets_disk_state;
@@ -902,6 +918,7 @@ impl DataSource for FileSystemPathBasedDataSource {
         &mut self,
         edit_context: &mut EditContext,
     ) {
+        profiling::scope!(&format!("flush_to_storage {:?}", self.file_system_root_path));
         // Delete files for assets that were deleted
         // for asset_id in edit_context.modified_assets() {
         //     if self.all_asset_ids_on_disk_with_original_path.contains_key(asset_id)

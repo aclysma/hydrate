@@ -15,6 +15,14 @@ pub struct BuiltArtifact {
     pub artifact_key_debug_name: Option<String>,
 }
 
+pub struct WrittenArtifact {
+    pub asset_id: AssetId,
+    pub artifact_id: ArtifactId,
+    pub metadata: BuiltArtifactMetadata,
+    pub build_hash: u64,
+    pub artifact_key_debug_name: Option<String>,
+}
+
 // Interface all builders must implement
 pub trait Builder {
     // The type of asset that this builder handles

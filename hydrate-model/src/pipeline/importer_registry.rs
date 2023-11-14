@@ -7,7 +7,7 @@ use super::import_types::*;
 
 // Keeps track of all known importers
 pub struct ImporterRegistryInner {
-    registered_importers: HashMap<ImporterId, Box<dyn Importer>>,
+    registered_importers: HashMap<ImporterId, Arc<dyn Importer>>,
     file_extension_associations: HashMap<String, Vec<ImporterId>>,
 }
 
@@ -32,14 +32,14 @@ impl ImporterRegistry {
     pub fn importer(
         &self,
         importer_id: ImporterId,
-    ) -> Option<&Box<dyn Importer>> {
+    ) -> Option<&Arc<dyn Importer>> {
         self.inner.registered_importers.get(&importer_id)
     }
 }
 
 #[derive(Default)]
 pub struct ImporterRegistryBuilder {
-    registered_importers: HashMap<ImporterId, Box<dyn Importer>>,
+    registered_importers: HashMap<ImporterId, Arc<dyn Importer>>,
     file_extension_associations: HashMap<String, Vec<ImporterId>>,
 }
 
@@ -55,7 +55,7 @@ impl ImporterRegistryBuilder {
         &mut self,
         importer: T,
     ) {
-        let handler = Box::new(importer);
+        let handler = Arc::new(importer);
         let importer_id = ImporterId(Uuid::from_bytes(T::UUID));
         self.registered_importers.insert(importer_id, handler);
 

@@ -1,5 +1,6 @@
 use std::hash::{Hash, Hasher};
 use std::path::PathBuf;
+use std::sync::Arc;
 
 mod import_jobs;
 pub use import_jobs::*;
@@ -24,6 +25,7 @@ pub use builder_registry::*;
 use hydrate_base::hashing::HashSet;
 
 pub mod import_util;
+mod import_thread_pool;
 
 use crate::{
     EditorModel, HashMap, ImporterId, AssetId, SchemaFingerprint, SchemaLinker, SchemaSet,
@@ -89,21 +91,22 @@ pub struct AssetEngine {
 
 impl AssetEngine {
     pub fn new(
+        schema_set: &SchemaSet,
         importer_registry: ImporterRegistry,
         builder_registry: BuilderRegistry,
         job_processor_registry: JobProcessorRegistry,
         editor_model: &EditorModel,
-        import_data_path: PathBuf,
+        import_data_root_path: PathBuf,
         job_data_path: PathBuf,
         build_data_path: PathBuf,
     ) -> Self {
         let import_jobs = ImportJobs::new(
             &importer_registry,
             &editor_model,
-            import_data_path, /*DbState::import_data_source_path()*/
+            &import_data_root_path, /*DbState::import_data_source_path()*/
         );
 
-        let build_jobs = BuildJobs::new(&job_processor_registry, job_data_path, build_data_path);
+        let build_jobs = BuildJobs::new(schema_set, &job_processor_registry, import_data_root_path, job_data_path, build_data_path);
 
         //TODO: Consider looking at disk to determine previous combined build hash so we don't for a rebuild every time we open
 
@@ -208,7 +211,7 @@ impl AssetEngine {
     pub fn importer(
         &self,
         importer_id: ImporterId,
-    ) -> Option<&Box<dyn Importer>> {
+    ) -> Option<&Arc<dyn Importer>> {
         self.importer_registry.importer(importer_id)
     }
 

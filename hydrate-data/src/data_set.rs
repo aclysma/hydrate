@@ -225,7 +225,7 @@ impl DataAssetInfo {
     }
 }
 
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub struct DataSet {
     assets: HashMap<AssetId, DataAssetInfo>,
 }

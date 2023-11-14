@@ -186,7 +186,7 @@ fn parse_json_schema_def_record(
     })?;
 
     let error_prefix = format!("{}[Record {}]", error_prefix, name_str);
-    log::debug!("Parsing record named '{}'", name_str);
+    log::trace!("Parsing record named '{}'", name_str);
 
     let json_aliases = json_object.get("aliases").map(|x| x.as_array()).flatten();
     let mut aliases = vec![];
@@ -296,7 +296,7 @@ fn parse_json_schema_def_enum(
     })?;
 
     let error_prefix = format!("{}[Enum {}]", error_prefix, name_str);
-    log::debug!("Parsing enum named '{}'", name_str);
+    log::trace!("Parsing enum named '{}'", name_str);
 
     let json_aliases = json_object.get("aliases").map(|x| x.as_array()).flatten();
     let mut aliases = vec![];

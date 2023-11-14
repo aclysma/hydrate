@@ -8,6 +8,7 @@ use hydrate_model::{HashSet, LocationTreeNode, AssetId, AssetLocation};
 use imgui::sys::ImVec2;
 use imgui::{im_str, PopupModal, TreeNodeFlags};
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 
 pub struct ImportFilesModal {
     finished_first_draw: bool,
@@ -152,7 +153,7 @@ pub fn path_tree(
 
 fn recursively_gather_import_operations_and_create_assets(
     file: &Path,
-    importer: &Box<dyn Importer>,
+    importer: &Arc<dyn Importer>,
     db_state: &mut DbState,
     asset_engine: &AssetEngine,
     selected_import_location: &AssetLocation,

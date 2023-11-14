@@ -299,7 +299,6 @@ impl JobProcessor for MeshAdvMeshPreprocessJobProcessor {
         //
         // Vertex Full Buffer
         //
-        println!("asset id {:?}", input.asset_id);
         let vertex_buffer_full_artifact_id = if !all_vertices_full.is_empty() {
             Some(job_system::produce_artifact(
                 job_api,

@@ -4,6 +4,9 @@ pub use traits::*;
 mod executor;
 pub use executor::*;
 
+mod job_executor_thread_pool;
+use job_executor_thread_pool::*;
+
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
 use std::hash::Hash;

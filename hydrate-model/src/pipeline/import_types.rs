@@ -48,7 +48,7 @@ pub struct ImportableAsset {
 }
 
 // Interface all importers must implement
-pub trait Importer: TypeUuidDynamic {
+pub trait Importer: TypeUuidDynamic + Sync + Send + 'static {
     fn importer_id(&self) -> ImporterId {
         ImporterId(Uuid::from_bytes(self.uuid()))
     }

@@ -1,4 +1,6 @@
-use crate::BuiltArtifact;
+use std::hash::Hasher;
+use std::io::Write;
+use crate::{BuiltArtifact, WrittenArtifact};
 use crossbeam_channel::{Receiver, Sender};
 use hydrate_base::hashing::HashMap;
 use hydrate_base::{ArtifactId, AssetId};
@@ -6,12 +8,13 @@ use hydrate_data::{DataSet, SchemaSet, SingleObject};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use std::sync::Arc;
+use hydrate_base::uuid_path::uuid_and_hash_to_path;
 
 use super::*;
 
 struct JobWrapper<T: JobProcessor>(T);
 
-impl<T: JobProcessor> JobProcessorAbstract for JobWrapper<T>
+impl<T: JobProcessor + Send + Sync> JobProcessorAbstract for JobWrapper<T>
 where
     <T as JobProcessor>::InputT: for<'a> Deserialize<'a> + 'static,
     <T as JobProcessor>::OutputT: Serialize + 'static,
@@ -65,11 +68,14 @@ where
 
 struct JobState {
     job_type: JobTypeId,
-    dependencies: JobEnumeratedDependencies,
-    input_data: Vec<u8>,
+    dependencies: Arc<JobEnumeratedDependencies>,
+    input_data: Arc<Vec<u8>>,
+    debug_name: Arc<String>,
+
+    // When we send the job to the thread pool, this is set to true
+    has_been_scheduled: bool,
     // This would eventually be stored on file system
-    output_data: Option<Vec<u8>>,
-    debug_name: String,
+    output_data: Option<Arc<Vec<u8>>>,
 }
 
 //TODO: Future optimization, we clone this and it could be big, especially when we re-run jobs. We
@@ -78,9 +84,9 @@ struct JobState {
 struct QueuedJob {
     job_id: JobId,
     job_type: JobTypeId,
-    input_data: Vec<u8>,
-    dependencies: JobEnumeratedDependencies,
-    debug_name: String,
+    input_data: Arc<Vec<u8>>,
+    dependencies: Arc<JobEnumeratedDependencies>,
+    debug_name: Arc<String>,
 }
 
 struct CompletedJob {
@@ -90,25 +96,25 @@ struct CompletedJob {
 
 #[derive(Default)]
 pub struct JobProcessorRegistryBuilder {
-    job_processors: HashMap<JobTypeId, Box<dyn JobProcessorAbstract>>,
+    job_processors: HashMap<JobTypeId, Arc<dyn JobProcessorAbstract>>,
 }
 
 impl JobProcessorRegistryBuilder {
-    pub fn register_job_processor<T: JobProcessor + Default + 'static>(&mut self)
+    pub fn register_job_processor<T: JobProcessor + Send + Sync + Default + 'static>(&mut self)
     where
         <T as JobProcessor>::InputT: for<'a> Deserialize<'a>,
         <T as JobProcessor>::OutputT: Serialize,
     {
         let old = self.job_processors.insert(
             JobTypeId::from_bytes(T::UUID),
-            Box::new(JobWrapper(T::default())),
+            Arc::new(JobWrapper(T::default())),
         );
         if old.is_some() {
             panic!("Multiple job processors registered with the same UUID");
         }
     }
 
-    pub fn register_job_processor_instance<T: JobProcessor + 'static>(
+    pub fn register_job_processor_instance<T: JobProcessor + Send + Sync + 'static>(
         &mut self,
         job_processor: T,
     ) where
@@ -117,7 +123,7 @@ impl JobProcessorRegistryBuilder {
     {
         let old = self.job_processors.insert(
             JobTypeId::from_bytes(T::UUID),
-            Box::new(JobWrapper(job_processor)),
+            Arc::new(JobWrapper(job_processor)),
         );
         if old.is_some() {
             panic!("Multiple job processors registered with the same UUID");
@@ -136,7 +142,7 @@ impl JobProcessorRegistryBuilder {
 }
 
 pub struct JobProcessorRegistryInner {
-    job_processors: HashMap<JobTypeId, Box<dyn JobProcessorAbstract>>,
+    job_processors: HashMap<JobTypeId, Arc<dyn JobProcessorAbstract>>,
 }
 
 impl JobProcessorRegistry {
@@ -160,42 +166,27 @@ pub struct JobProcessorRegistry {
     inner: Arc<JobProcessorRegistryInner>,
 }
 
-#[derive(Clone, Debug)]
-pub struct AssetArtifactIdPair {
-    pub asset_id: AssetId,
-    pub artifact_id: ArtifactId,
+impl JobProcessorRegistry {
+    pub fn get_processor(&self, job_type: JobTypeId) -> Option<Arc<dyn JobProcessorAbstract>> {
+        self.inner.job_processors.get(&job_type).cloned()
+
+    }
 }
 
-pub struct JobExecutor {
-    // Will be needed when we start doing job caching
-    _root_path: PathBuf,
+struct JobApiImplInner {
+    build_data_root_path: PathBuf,
     job_processor_registry: JobProcessorRegistry,
-
-    // Represents all known previous executions of a job
-    //job_history: HashMap<JobId, JobHistory>,
-    // All the jobs that we have run or will run in this job batch
-    current_jobs: HashMap<JobId, JobState>,
-
-    // Queue for jobs to request additional jobs to run
     job_create_queue_tx: Sender<QueuedJob>,
-    job_create_queue_rx: Receiver<QueuedJob>,
-
-    //TODO: We will have additional deques for jobs that are in a ready state to avoid O(n) iteration
-
-    // Queue for jobs to notify that they have completed
-    job_completed_queue_tx: Sender<CompletedJob>,
-    job_completed_queue_rx: Receiver<CompletedJob>,
-
     artifact_handle_created_tx: Sender<AssetArtifactIdPair>,
-    artifact_handle_created_rx: Receiver<AssetArtifactIdPair>,
-
-    // built_asset_queue_tx: Sender<BuiltAsset>,
-    // built_asset_queue_rx: Receiver<BuiltAsset>,
-    built_artifact_queue_tx: Sender<BuiltArtifact>,
-    built_artifact_queue_rx: Receiver<BuiltArtifact>,
+    written_artifact_queue_tx: Sender<WrittenArtifact>,
 }
 
-impl JobApi for JobExecutor {
+#[derive(Clone)]
+pub struct JobApiImpl {
+    inner: Arc<JobApiImplInner>
+}
+
+impl JobApi for JobApiImpl {
     fn enqueue_job(
         &self,
         data_set: &DataSet,
@@ -211,16 +202,16 @@ impl JobApi for JobExecutor {
         //   hashes of above stuff
         // - Build Data (we need the build hash, which takes into account the asset/import data
         let job_id = JobId::from_u128(new_job.input_hash);
-        let processor = self.job_processor_registry.get(new_job.job_type).unwrap();
+        let processor = self.inner.job_processor_registry.get(new_job.job_type).unwrap();
         let dependencies =
             processor.enumerate_dependencies_inner(&new_job.input_data, data_set, schema_set);
-        self.enqueue_job_internal(QueuedJob {
+        self.inner.job_create_queue_tx.send(QueuedJob {
             job_id,
             job_type: new_job.job_type,
-            input_data: new_job.input_data,
-            dependencies,
-            debug_name,
-        });
+            input_data: Arc::new(new_job.input_data),
+            dependencies: Arc::new(dependencies),
+            debug_name: Arc::new(debug_name),
+        }).unwrap();
         job_id
     }
 
@@ -233,7 +224,7 @@ impl JobApi for JobExecutor {
         asset_id: AssetId,
         artifact_id: ArtifactId,
     ) {
-        self.artifact_handle_created_tx
+        self.inner.artifact_handle_created_tx
             .send(AssetArtifactIdPair {
                 asset_id,
                 artifact_id,
@@ -245,39 +236,157 @@ impl JobApi for JobExecutor {
         &self,
         artifact: BuiltArtifact,
     ) {
-        self.built_artifact_queue_tx.send(artifact).unwrap();
+        profiling::scope!("Write Asset to Disk");
+        //
+        // Hash the artifact
+        //
+        let mut hasher = siphasher::sip::SipHasher::default();
+        artifact.data.hash(&mut hasher);
+        artifact.metadata.hash(&mut hasher);
+        let build_hash = hasher.finish();
+
+        //
+        // Determine where we will store the asset and ensure the directory exists
+        //
+        let path = uuid_and_hash_to_path(
+            &self.inner.build_data_root_path,
+            artifact.artifact_id.as_uuid(),
+            build_hash,
+            "bf",
+        );
+
+        if let Some(parent) = path.parent() {
+            std::fs::create_dir_all(parent).unwrap();
+        }
+
+        //
+        // Serialize the artifacts to disk
+        //
+        let mut file = std::fs::File::create(&path).unwrap();
+        artifact.metadata.write_header(&mut file).unwrap();
+        file.write(&artifact.data).unwrap();
+
+        //
+        // Send info about the written asset back to main thread for inclusion in the manifest
+        //
+        self.inner.written_artifact_queue_tx.send(WrittenArtifact {
+            asset_id: artifact.asset_id,
+            artifact_id: artifact.artifact_id,
+            metadata: artifact.metadata,
+            build_hash,
+            artifact_key_debug_name: artifact.artifact_key_debug_name,
+        }).unwrap();
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct AssetArtifactIdPair {
+    pub asset_id: AssetId,
+    pub artifact_id: ArtifactId,
+}
+
+pub struct JobExecutor {
+    // Will be needed when we start doing job caching
+    _root_path: PathBuf,
+    job_api_impl: JobApiImpl,
+
+    job_processor_registry: JobProcessorRegistry,
+
+    // Represents all known previous executions of a job
+    //job_history: HashMap<JobId, JobHistory>,
+    // All the jobs that we have run or will run in this job batch
+    current_jobs: HashMap<JobId, JobState>,
+
+    // Queue for jobs to request additional jobs to run
+    //job_create_queue_tx: Sender<QueuedJob>,
+    job_create_queue_rx: Receiver<QueuedJob>,
+
+    //TODO: We will have additional deques for jobs that are in a ready state to avoid O(n) iteration
+
+    // Queue for jobs to notify that they have completed
+    //job_completed_queue_tx: Sender<CompletedJob>,
+    //job_completed_queue_rx: Receiver<CompletedJob>,
+
+    //artifact_handle_created_tx: Sender<AssetArtifactIdPair>,
+    artifact_handle_created_rx: Receiver<AssetArtifactIdPair>,
+
+    // built_asset_queue_tx: Sender<BuiltAsset>,
+    // built_asset_queue_rx: Receiver<BuiltAsset>,
+    //built_artifact_queue_tx: Sender<BuiltArtifact>,
+    written_artifact_queue_rx: Receiver<WrittenArtifact>,
+
+    thread_pool_result_rx: Receiver<JobExecutorThreadPoolOutcome>,
+    thread_pool: Option<JobExecutorThreadPool>,
+}
+
+impl Drop for JobExecutor {
+    fn drop(&mut self) {
+        let thread_pool = self.thread_pool.take().unwrap();
+        thread_pool.finish();
     }
 }
 
 impl JobExecutor {
     pub fn new(
-        root_path: PathBuf,
+        schema_set: &SchemaSet,
         job_processor_registry: &JobProcessorRegistry,
+        import_data_root_path: PathBuf,
+        job_data_root_path: PathBuf,
+        build_data_root_path: PathBuf,
     ) -> Self {
         let (job_create_queue_tx, job_create_queue_rx) = crossbeam_channel::unbounded();
-        let (job_completed_queue_tx, job_completed_queue_rx) = crossbeam_channel::unbounded();
+        //let (job_completed_queue_tx, job_completed_queue_rx) = crossbeam_channel::unbounded();
         //let (built_asset_queue_tx, built_asset_queue_rx) = crossbeam_channel::unbounded();
 
         let (artifact_handle_created_tx, artifact_handle_created_rx) =
             crossbeam_channel::unbounded();
-        let (built_artifact_queue_tx, built_artifact_queue_rx) = crossbeam_channel::unbounded();
+        let (written_artifact_queue_tx, written_artifact_queue_rx) = crossbeam_channel::unbounded();
+
+        let job_api_impl = JobApiImpl {
+            inner: Arc::new(JobApiImplInner {
+                build_data_root_path,
+                job_processor_registry: job_processor_registry.clone(),
+                job_create_queue_tx,
+                artifact_handle_created_tx,
+                written_artifact_queue_tx,
+            })
+        };
+
+        let (thread_pool_result_tx, thread_pool_result_rx) = crossbeam_channel::unbounded();
+        let thread_pool = JobExecutorThreadPool::new(
+            job_processor_registry.clone(),
+            schema_set.clone(),
+            &import_data_root_path,
+            &job_data_root_path,
+            job_api_impl.clone(),
+            16,
+            thread_pool_result_tx,
+        );
+
 
         JobExecutor {
-            _root_path: root_path,
+            _root_path: job_data_root_path,
+            job_api_impl,
             job_processor_registry: job_processor_registry.clone(),
             //job_history: Default::default(),
             current_jobs: Default::default(),
-            job_create_queue_tx,
+            //job_create_queue_tx,
             job_create_queue_rx,
-            job_completed_queue_tx,
-            job_completed_queue_rx,
+            //job_completed_queue_tx,
+            //job_completed_queue_rx,
             // built_asset_queue_tx,
             // built_asset_queue_rx,
-            artifact_handle_created_tx,
+            //artifact_handle_created_tx,
             artifact_handle_created_rx,
-            built_artifact_queue_tx,
-            built_artifact_queue_rx,
+            //built_artifact_queue_tx,
+            written_artifact_queue_rx,
+            thread_pool_result_rx,
+            thread_pool: Some(thread_pool),
         }
+    }
+
+    pub fn job_api(&self) -> &dyn JobApi {
+        &self.job_api_impl
     }
 
     // pub fn take_built_assets(&self) -> Vec<BuiltAsset> {
@@ -289,56 +398,37 @@ impl JobExecutor {
     //     built_assets
     // }
 
-    pub fn take_built_artifacts(
+    pub fn take_written_artifacts(
         &self,
         artifact_asset_lookup: &mut HashMap<ArtifactId, AssetId>,
-    ) -> Vec<BuiltArtifact> {
-        let mut built_artifacts = Vec::default();
-        while let Ok(built_artifact) = self.built_artifact_queue_rx.try_recv() {
+    ) -> Vec<WrittenArtifact> {
+        let mut written_artifacts = Vec::default();
+        while let Ok(written_artifact) = self.written_artifact_queue_rx.try_recv() {
             let old =
-                artifact_asset_lookup.insert(built_artifact.artifact_id, built_artifact.asset_id);
-            if old.is_some() {
-                println!(
-                    "{:?} {:?} {:?}",
-                    built_artifact.artifact_id,
-                    built_artifact.asset_id,
-                    built_artifact.metadata.asset_type
-                );
-                panic!("produced same asset multiple times?");
-            }
-            // We produced the same asset multiple times?
-            assert!(old.is_none());
-            // if old.is_some() {
-            //     assert_eq!(old, Some(built_artifact.asset_id));
-            // }
+                artifact_asset_lookup.insert(written_artifact.artifact_id, written_artifact.asset_id);
+            //assert!(old.is_none());
 
-            built_artifacts.push(built_artifact);
+            if old.is_some() {
+                // Is it possible a job has already created a handle to this asset, even if the asset hasn't been built yet
+                assert_eq!(old, Some(written_artifact.asset_id));
+            }
+
+            written_artifacts.push(written_artifact);
         }
 
-        // This happens after taking built artifacts because the built artifacts might have handles
-        // to artifacts and we need to know the asset ID associated with them.
         while let Ok(asset_artifact_pair) = self.artifact_handle_created_rx.try_recv() {
-            println!(
-                "pair {:?} {:?}",
-                asset_artifact_pair.artifact_id, asset_artifact_pair.asset_id
-            );
             let old = artifact_asset_lookup.insert(
                 asset_artifact_pair.artifact_id,
                 asset_artifact_pair.asset_id,
             );
             if old.is_some() {
+                // This happens after taking built artifacts because the built artifacts might have handles
+                // to artifacts and we need to know the asset ID associated with them.
                 assert_eq!(old, Some(asset_artifact_pair.asset_id));
             }
         }
 
-        built_artifacts
-    }
-
-    fn enqueue_job_internal(
-        &self,
-        job: QueuedJob,
-    ) {
-        self.job_create_queue_tx.send(job).unwrap();
+        written_artifacts
     }
 
     fn clear_create_queue(&mut self) {
@@ -363,6 +453,7 @@ impl JobExecutor {
                         dependencies: queued_job.dependencies,
                         input_data: queued_job.input_data,
                         debug_name: queued_job.debug_name,
+                        has_been_scheduled: false,
                         output_data: None,
                     },
                 );
@@ -371,18 +462,32 @@ impl JobExecutor {
     }
 
     fn handle_completed_queue(&mut self) {
-        while let Ok(completed_job) = self.job_completed_queue_rx.try_recv() {
-            self.current_jobs
-                .get_mut(&completed_job.job_id)
-                .unwrap()
-                .output_data = Some(completed_job.output_data);
+        while let Ok(result) = self.thread_pool_result_rx.try_recv() {
+            match result {
+                JobExecutorThreadPoolOutcome::RunJobComplete(msg) => {
+                    self.current_jobs
+                        .get_mut(&msg.request.job_id)
+                        .unwrap()
+                        .output_data = Some(msg.output_data);
+                },
+                JobExecutorThreadPoolOutcome::RunJobFailed(msg) => {
+                    unimplemented!()
+                }
+            }
         }
+
+        // while let Ok(completed_job) = self.job_completed_queue_rx.try_recv() {
+        //     self.current_jobs
+        //         .get_mut(&completed_job.job_id)
+        //         .unwrap()
+        //         .output_data = Some(completed_job.output_data);
+        // }
     }
 
     #[profiling::function]
     pub fn update(
         &mut self,
-        data_set: &DataSet,
+        data_set: &Arc<DataSet>,
         schema_set: &SchemaSet,
         import_data_provider: &dyn ImportDataProvider,
     ) {
@@ -391,14 +496,18 @@ impl JobExecutor {
         //
         self.handle_create_queue();
 
+        let mut started_jobs = Vec::default();
+
         //TODO: Don't iterate every job in existence
         for (&job_id, job_state) in &self.current_jobs {
             //
             // See if we already did this job during the current execution cycle
             //
-            if job_state.output_data.is_some() {
+            if job_state.has_been_scheduled {
                 continue;
             }
+
+            assert!(job_state.output_data.is_none());
 
             //
             // See if the job we need to wait for has completed
@@ -455,46 +564,20 @@ impl JobExecutor {
             // At this point we have either never run the job before, or we know the job inputs have changed
             // Go ahead and run it.
             //
+            self.thread_pool.as_ref().unwrap().add_request(JobExecutorThreadPoolRequest::RunJob(JobExecutorThreadPoolRequestRunJob {
+                job_id,
+                job_type: job_state.job_type,
+                data_set: data_set.clone(),
+                debug_name: job_state.debug_name.clone(),
+                dependencies: job_state.dependencies.clone(),
+                input_data: job_state.input_data.clone(),
+            }));
 
-            //TODO: Read from files
+            started_jobs.push(job_id);
+        }
 
-            profiling::scope!(&format!("Handle Job {}", job_state.debug_name));
-
-            // Load the import data
-            let mut required_import_data = HashMap::default();
-            {
-                for &import_data_id in &job_state.dependencies.import_data {
-                    profiling::scope!(&format!("Load Import Data {:?}", import_data_id));
-                    let import_data = import_data_provider.load_import_data(schema_set, import_data_id);
-                    required_import_data.insert(import_data_id, import_data.import_data);
-                }
-            }
-
-            // Load the upstream job result data
-
-            // Execute the job
-            let job_processor = self.job_processor_registry.get(job_state.job_type).unwrap();
-            let output_data = {
-                profiling::scope!(&format!("JobProcessor::run_inner"));
-                job_processor.run_inner(
-                    &job_state.input_data,
-                    data_set,
-                    schema_set,
-                    &required_import_data,
-                    self,
-                )
-            };
-
-            //TODO: Write to file
-            //hydrate_base::uuid_path::uuid_to_path()
-
-            // Send via crossbeam, this will eventually be on a thread pool
-            self.job_completed_queue_tx
-                .send(CompletedJob {
-                    job_id,
-                    output_data,
-                })
-                .unwrap();
+        for job_id in started_jobs {
+            self.current_jobs.get_mut(&job_id).unwrap().has_been_scheduled = true;
         }
 
         self.handle_completed_queue();
@@ -513,7 +596,11 @@ impl JobExecutor {
             return false;
         }
 
-        if !self.job_completed_queue_rx.is_empty() {
+        // if !self.job_completed_queue_rx.is_empty() {
+        //     return false;
+        // }
+
+        if !self.thread_pool.as_ref().unwrap().is_idle() {
             return false;
         }
 
@@ -521,7 +608,7 @@ impl JobExecutor {
         //     return false;
         // }
 
-        if !self.built_artifact_queue_rx.is_empty() {
+        if !self.written_artifact_queue_rx.is_empty() {
             return false;
         }
 

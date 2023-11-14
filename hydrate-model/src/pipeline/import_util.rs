@@ -6,6 +6,7 @@ use crate::{
 };
 use hydrate_base::hashing::HashSet;
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 
 #[derive(Debug)]
 pub struct ImportToQueue {
@@ -17,7 +18,7 @@ pub struct ImportToQueue {
 
 pub fn create_import_info(
     source_file_path: &Path,
-    importer: &Box<dyn Importer>,
+    importer: &Arc<dyn Importer>,
     scanned_importable: &ScannedImportable,
 ) -> ImportInfo {
     let mut file_references = Vec::default();
@@ -54,7 +55,7 @@ pub fn create_asset_name(
 
 pub fn recursively_gather_import_operations_and_create_assets(
     source_file_path: &Path,
-    importer: &Box<dyn Importer>,
+    importer: &Arc<dyn Importer>,
     editor_context: &mut EditContext,
     importer_registry: &ImporterRegistry,
     //asset_engine: &AssetEngine,

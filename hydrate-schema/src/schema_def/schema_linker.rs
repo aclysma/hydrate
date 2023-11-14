@@ -51,7 +51,7 @@ impl SchemaLinker {
         &mut self,
         named_type: SchemaDefNamedType,
     ) -> SchemaLinkerResult<()> {
-        log::debug!("Adding type {}", named_type.type_name());
+        log::trace!("Adding type {}", named_type.type_name());
         if self.types.contains_key(named_type.type_name()) {
             Err(SchemaLinkerError::String(format!(
                 "Type name {} has already been used",
@@ -109,7 +109,7 @@ impl SchemaLinker {
 
         for file in walker {
             let file = file.unwrap();
-            log::debug!("Parsing schema file {}", file.path().display());
+            log::trace!("Parsing schema file {}", file.path().display());
             let schema_str = std::fs::read_to_string(file.path()).unwrap();
             let json_value: serde_json::Value = {
                 profiling::scope!("serde_json::from_str");

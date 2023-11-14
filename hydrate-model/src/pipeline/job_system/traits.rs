@@ -57,7 +57,7 @@ fn create_artifact_id<T: Hash>(
 //
 // API Design
 //
-pub trait JobApi {
+pub trait JobApi: Send + Sync {
     fn enqueue_job(
         &self,
         data_set: &DataSet,
@@ -105,7 +105,7 @@ pub struct JobEnumeratedDependencies {
     pub upstream_jobs: Vec<JobId>,
 }
 
-pub trait JobProcessorAbstract {
+pub trait JobProcessorAbstract: Send + Sync {
     fn version_inner(&self) -> u32;
 
     fn enumerate_dependencies_inner(
@@ -240,7 +240,7 @@ pub fn produce_artifact_with_handles<T: TypeUuid + Serialize, U: Hash + std::fmt
 
     let referenced_assets = ctx.end_serialize_artifact(artifact_id);
 
-    println!("produce_artifact {:?} {:?} {:?}", asset_id, artifact_id, artifact_key_debug_name);
+    log::trace!("produce_artifact {:?} {:?} {:?}", asset_id, artifact_id, artifact_key_debug_name);
     job_api.produce_artifact(BuiltArtifact {
         asset_id,
         artifact_id,

@@ -39,7 +39,7 @@ use crate::{
 // - These undo contexts can be pushed onto a single global queue or a per-document queue
 
 pub struct EditContext {
-    schema_set: Arc<SchemaSet>,
+    schema_set: SchemaSet,
     pub(super) data_set: DataSet,
     undo_context: UndoContext,
 
@@ -161,7 +161,7 @@ impl EditContext {
 
     pub fn new(
         edit_context_key: EditContextKey,
-        schema_set: Arc<SchemaSet>,
+        schema_set: SchemaSet,
         undo_stack: &UndoStack,
     ) -> Self {
         EditContext {
@@ -175,7 +175,7 @@ impl EditContext {
 
     pub fn new_with_data(
         edit_context_key: EditContextKey,
-        schema_set: Arc<SchemaSet>,
+        schema_set: SchemaSet,
         undo_stack: &UndoStack,
     ) -> Self {
         EditContext {
@@ -226,7 +226,7 @@ impl EditContext {
     //
     // Schema-related functions
     //
-    pub fn schema_set(&self) -> &Arc<SchemaSet> {
+    pub fn schema_set(&self) -> &SchemaSet {
         &self.schema_set
     }
 

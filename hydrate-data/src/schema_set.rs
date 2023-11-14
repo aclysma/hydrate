@@ -1,40 +1,25 @@
+use std::sync::Arc;
 use crate::value::ValueEnum;
 use crate::{HashMap, SchemaFingerprint, SchemaLinker, SchemaLinkerResult, SchemaNamedType, Value};
 
-#[derive(Default, Clone)]
-pub struct SchemaSet {
+#[derive(Default)]
+pub struct SchemaSetBuilder {
     schemas_by_name: HashMap<String, SchemaFingerprint>,
     schemas: HashMap<SchemaFingerprint, SchemaNamedType>,
     default_enum_values: HashMap<SchemaFingerprint, Value>,
 }
 
-impl SchemaSet {
-    pub fn schemas(&self) -> &HashMap<SchemaFingerprint, SchemaNamedType> {
-        &self.schemas
-    }
+impl SchemaSetBuilder {
+    pub fn build(self) -> SchemaSet {
+        let inner = SchemaSetInner {
+            schemas_by_name: self.schemas_by_name,
+            schemas: self.schemas,
+            default_enum_values: self.default_enum_values
+        };
 
-    pub fn default_value_for_enum(
-        &self,
-        fingerprint: SchemaFingerprint,
-    ) -> Option<&Value> {
-        self.default_enum_values.get(&fingerprint)
-    }
-
-    pub fn find_named_type(
-        &self,
-        name: impl AsRef<str>,
-    ) -> Option<&SchemaNamedType> {
-        self.schemas_by_name
-            .get(name.as_ref())
-            .map(|fingerprint| self.find_named_type_by_fingerprint(*fingerprint))
-            .flatten()
-    }
-
-    pub fn find_named_type_by_fingerprint(
-        &self,
-        fingerprint: SchemaFingerprint,
-    ) -> Option<&SchemaNamedType> {
-        self.schemas.get(&fingerprint)
+        SchemaSet {
+            inner: Arc::new(inner)
+        }
     }
 
     pub fn add_linked_types(
@@ -77,5 +62,46 @@ impl SchemaSet {
         for named_type in named_types {
             self.schemas.insert(named_type.fingerprint(), named_type);
         }
+    }
+}
+
+pub struct SchemaSetInner {
+    schemas_by_name: HashMap<String, SchemaFingerprint>,
+    schemas: HashMap<SchemaFingerprint, SchemaNamedType>,
+    default_enum_values: HashMap<SchemaFingerprint, Value>,
+}
+
+#[derive(Clone)]
+pub struct SchemaSet {
+    inner: Arc<SchemaSetInner>,
+}
+
+impl SchemaSet {
+    pub fn schemas(&self) -> &HashMap<SchemaFingerprint, SchemaNamedType> {
+        &self.inner.schemas
+    }
+
+    pub fn default_value_for_enum(
+        &self,
+        fingerprint: SchemaFingerprint,
+    ) -> Option<&Value> {
+        self.inner.default_enum_values.get(&fingerprint)
+    }
+
+    pub fn find_named_type(
+        &self,
+        name: impl AsRef<str>,
+    ) -> Option<&SchemaNamedType> {
+        self.inner.schemas_by_name
+            .get(name.as_ref())
+            .map(|fingerprint| self.find_named_type_by_fingerprint(*fingerprint))
+            .flatten()
+    }
+
+    pub fn find_named_type_by_fingerprint(
+        &self,
+        fingerprint: SchemaFingerprint,
+    ) -> Option<&SchemaNamedType> {
+        self.inner.schemas.get(&fingerprint)
     }
 }

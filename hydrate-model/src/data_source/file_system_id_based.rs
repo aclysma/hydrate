@@ -152,6 +152,8 @@ impl DataSource for FileSystemIdBasedDataSource {
         edit_context: &mut EditContext,
         _imports_to_queue: &mut Vec<ImportToQueue>,
     ) {
+        profiling::scope!(&format!("load_from_storage {:?}", self.file_system_root_path));
+
         //
         // Delete all assets from the database owned by this data source
         //
@@ -181,6 +183,8 @@ impl DataSource for FileSystemIdBasedDataSource {
         &mut self,
         edit_context: &mut EditContext,
     ) {
+        profiling::scope!(&format!("flush_to_storage {:?}", self.file_system_root_path));
+
         // Delete files for assets that were deleted
         let modified_assets = self.find_all_modified_assets(edit_context);
         for asset_id in &modified_assets {

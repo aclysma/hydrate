@@ -478,7 +478,6 @@ pub(crate) fn include_impl(
         dependency_lookup.get(&(requested_from.to_path_buf(), requested_path.to_path_buf()));
     if let Some(referenced_asset_id) = referenced_asset {
         if let Some(dependency_data) = dependency_data.get(referenced_asset_id) {
-            println!("Resolved the content");
             let content = dependency_data
                 .resolve_property(schema_set, "code")
                 .unwrap()
@@ -518,7 +517,7 @@ impl Importer for GlslSourceFileImporter {
         schema_set: &SchemaSet,
         _importer_registry: &ImporterRegistry,
     ) -> Vec<ScannedImportable> {
-        log::info!("GlslSourceFileImporter reading file {:?}", path);
+        log::debug!("GlslSourceFileImporter reading file {:?}", path);
         let code = std::fs::read_to_string(path).unwrap();
         let code_chars: Vec<_> = code.chars().collect();
 
@@ -707,8 +706,6 @@ impl JobProcessor for GlslBuildTargetJobProcessor {
             }
         }
 
-        println!("DEPENDENCY LOOKUPS {:?}", dependency_lookup);
-
         //
         // Compile the shader
         //
@@ -759,10 +756,10 @@ impl JobProcessor for GlslBuildTargetJobProcessor {
             );
 
             if let Ok(compiled_code) = compiled_code {
-                println!("SUCCESS BUILDING SHADER");
+                //println!("SUCCESS BUILDING SHADER");
                 compiled_spv = compiled_code.as_binary_u8().to_vec();
             } else {
-                println!("Error: {:?}", compiled_code.err());
+                panic!("Error: {:?}", compiled_code.err());
             }
         }
 

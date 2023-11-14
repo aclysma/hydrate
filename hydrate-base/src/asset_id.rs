@@ -4,6 +4,8 @@ use std::fmt;
 use std::str::FromStr;
 use serde::{de, ser};
 
+/// ID for a user-edited piece of data. It may have import data associated with it. Assets can be
+/// thought of as a list of properties that follow a particular schema.
 #[derive(Copy, Clone, PartialEq, Eq, Hash, Ord, PartialOrd, Default)]
 pub struct AssetId(pub Uuid);
 impl AssetId {
@@ -33,6 +35,14 @@ impl AssetId {
 
     pub fn as_u128(&self) -> u128 {
         self.0.as_u128()
+    }
+
+    pub fn from_bytes(bytes: uuid::Bytes) -> Self {
+        AssetId(Uuid::from_bytes(bytes))
+    }
+
+    pub fn as_bytes(&self) -> &uuid::Bytes {
+        self.0.as_bytes()
     }
 }
 

@@ -12,6 +12,9 @@ use hydrate_base::{ArtifactId, StringHash};
 use std::path::PathBuf;
 use type_uuid::TypeUuid;
 
+mod artifact_type_id;
+pub use artifact_type_id::ArtifactTypeId;
+
 use crate::storage::IndirectIdentifier;
 pub use hydrate_base::handle::Handle;
 

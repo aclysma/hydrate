@@ -9,6 +9,12 @@ pub enum StringHashContents {
     Unknown,
 }
 
+/// Store a hash and optionally the string used to create it. The string may not be available if:
+///  - The hash was created directly without a string
+///  - The `strip-stringhash-strings` feature is enabled in the crate
+///
+/// This allows for debugging ease normally but can be used in release to save memory and avoid
+/// leaking data in strings
 #[derive(Clone)]
 pub struct StringHash {
     hash: u128,

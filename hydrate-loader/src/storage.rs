@@ -4,7 +4,8 @@ use crate::loader::LoaderEvent;
 use crossbeam_channel::Sender;
 use dashmap::DashMap;
 use hydrate_base::handle::LoaderInfoProvider;
-use hydrate_base::{AssetTypeId, LoadHandle, StringHash};
+use hydrate_base::{LoadHandle, StringHash};
+use crate::ArtifactTypeId;
 
 #[derive(Debug)]
 pub enum HandleOp {
@@ -105,7 +106,7 @@ pub trait AssetStorage {
     fn update_asset(
         &mut self,
         loader_info: &dyn LoaderInfoProvider,
-        asset_type_id: &AssetTypeId,
+        asset_type_id: &ArtifactTypeId,
         data: Vec<u8>,
         load_handle: LoadHandle,
         load_op: AssetLoadOp,
@@ -121,7 +122,7 @@ pub trait AssetStorage {
     /// * `version`: Runtime load version of this asset, increments each time the asset is updated.
     fn commit_asset_version(
         &mut self,
-        asset_type: &AssetTypeId,
+        asset_type: &ArtifactTypeId,
         load_handle: LoadHandle,
         version: u32,
     );
@@ -134,7 +135,7 @@ pub trait AssetStorage {
     /// * `load_handle`: ID allocated by [`Loader`](crate::loader::Loader) to track loading of a particular asset.
     fn free(
         &mut self,
-        asset_type_id: &AssetTypeId,
+        asset_type_id: &ArtifactTypeId,
         load_handle: LoadHandle,
         version: u32,
     );
@@ -147,8 +148,8 @@ pub trait AssetStorage {
 #[derive(Clone, PartialEq, Eq, Debug, Hash)]
 pub enum IndirectIdentifier {
     //PathWithTagAndType(String, String, AssetTypeId),
-    PathWithType(String, AssetTypeId),
-    SymbolWithType(StringHash, AssetTypeId),
+    PathWithType(String, ArtifactTypeId),
+    SymbolWithType(StringHash, ArtifactTypeId),
     //Path(String),
 }
 

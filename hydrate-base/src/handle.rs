@@ -12,12 +12,17 @@ use std::{
 
 use crossbeam_channel::Sender;
 use serde::{
-    de::{self, Deserialize, Visitor},
-    ser::{self, Serialize, Serializer},
+    de,
+    ser,
+    Serialize,
+    Deserialize
 };
 use uuid::Uuid;
+use crate::ArtifactId;
 
-use crate::{ArtifactId, ArtifactRef};
+/// A potentially unresolved reference to an asset
+#[derive(Debug, Hash, PartialEq, Eq, Clone, Ord, PartialOrd, Serialize, Deserialize)]
+pub struct ArtifactRef(pub ArtifactId);
 
 /// Loading ID allocated by [`Loader`](crate::loader::Loader) to track loading of a particular artifact
 /// or an indirect reference to an artifact.
@@ -566,7 +571,7 @@ fn serialize_handle<S>(
     serializer: S,
 ) -> Result<S::Ok, S::Error>
 where
-    S: Serializer,
+    S: ser::Serializer,
 {
     SerdeContext::with_active(|loader, _| {
         use ser::SerializeSeq;
@@ -584,7 +589,7 @@ impl<T> Serialize for Handle<T> {
         serializer: S,
     ) -> Result<S::Ok, S::Error>
     where
-        S: Serializer,
+        S: ser::Serializer,
     {
         serialize_handle(self.handle_ref.id, serializer)
     }
@@ -595,7 +600,7 @@ impl Serialize for GenericHandle {
         serializer: S,
     ) -> Result<S::Ok, S::Error>
     where
-        S: Serializer,
+        S: ser::Serializer,
     {
         serialize_handle(self.handle_ref.id, serializer)
     }
@@ -646,7 +651,7 @@ impl<'de> Deserialize<'de> for GenericHandle {
 
 struct ArtifactRefVisitor;
 
-impl<'de> Visitor<'de> for ArtifactRefVisitor {
+impl<'de> de::Visitor<'de> for ArtifactRefVisitor {
     type Value = ArtifactRef;
 
     fn expecting(

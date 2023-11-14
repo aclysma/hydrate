@@ -7,13 +7,14 @@ use crate::storage::IndirectIdentifier;
 use crossbeam_channel::{Receiver, Sender};
 use hydrate_base::hashing::HashMap;
 use hydrate_base::{LoadHandle, StringHash};
-use hydrate_base::{ArtifactId, AssetTypeId, ManifestFileEntry, DebugManifestFileJson};
+use hydrate_base::{ArtifactId, ArtifactManifestData, DebugManifestFileJson};
 use std::io::{BufRead, SeekFrom};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 use std::thread::JoinHandle;
 use uuid::Uuid;
+use crate::ArtifactTypeId;
 
 struct DiskAssetIORequestMetadata {
     artifact_id: ArtifactId,
@@ -82,7 +83,7 @@ impl DiskAssetIOWorkerThread {
 
                                 let metadata = ArtifactMetadata {
                                     dependencies: metadata.dependencies,
-                                    asset_type: AssetTypeId(*metadata.asset_type.as_bytes()), //AssetTypeId(*uuid::Uuid::parse_str("1a4dde10-5e60-483d-88fa-4f59752e4524").unwrap().as_bytes()),
+                                    asset_type: ArtifactTypeId::from_uuid(metadata.asset_type), //AssetTypeId(*uuid::Uuid::parse_str("1a4dde10-5e60-483d-88fa-4f59752e4524").unwrap().as_bytes()),
                                     hash: msg.hash,
                                 };
 
@@ -209,7 +210,7 @@ impl DiskAssetIOThreadPool {
 }
 
 pub struct BuildManifest {
-    pub artifact_lookup: HashMap<ArtifactId, ManifestFileEntry>,
+    pub artifact_lookup: HashMap<ArtifactId, ArtifactManifestData>,
     pub symbol_lookup: HashMap<u128, ArtifactId>,
 }
 
@@ -257,7 +258,7 @@ impl BuildManifest {
 
                 let old = artifact_lookup.insert(
                     artifact_id,
-                    ManifestFileEntry {
+                    ArtifactManifestData {
                         artifact_id,
                         build_hash,
                         symbol_hash,
@@ -404,14 +405,14 @@ impl LoaderIO for DiskAssetIO {
     fn manifest_entry(
         &self,
         artifact_id: ArtifactId,
-    ) -> Option<&ManifestFileEntry> {
+    ) -> Option<&ArtifactManifestData> {
         self.manifest.artifact_lookup.get(&artifact_id)
     }
 
     fn resolve_indirect(
         &self,
         indirect_identifier: &IndirectIdentifier,
-    ) -> Option<&ManifestFileEntry> {
+    ) -> Option<&ArtifactManifestData> {
         let (artifact_id, asset_type) = match indirect_identifier {
             IndirectIdentifier::PathWithType(asset_path, asset_type) => {
                 let artifact_id = self.manifest.symbol_lookup.get(&StringHash::from_runtime_str(asset_path).hash())?;
@@ -425,7 +426,7 @@ impl LoaderIO for DiskAssetIO {
         };
 
         let metadata = self.manifest.artifact_lookup.get(&artifact_id)?;
-        if *metadata.artifact_type.as_bytes() == asset_type.0 {
+        if metadata.artifact_type == asset_type.0 {
             Some(metadata)
         } else {
             panic!(

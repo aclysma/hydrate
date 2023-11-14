@@ -2,7 +2,7 @@ use std::path::{Path, PathBuf};
 use uuid::Uuid;
 
 /// Converts a UUID to a path starting at the given root and with the given extension
-/// Example: /2/d4/154f72b3c422387677e8d1fa70447.af
+/// Example: /2/d/2d4154f72b3c422387677e8d1fa70447.af
 pub fn uuid_to_path(
     root: &Path,
     uuid: Uuid,
@@ -22,7 +22,7 @@ pub fn uuid_to_path(
 
 /// Converts a UUID to a path starting at the given root and with the given extension
 /// and appends a u64 hash of the contents
-/// Example: /2/d4/1f453d6224b2fab9bc8021a6c7dde-45647afbadf0c93d.bf
+/// Example: /2/d/2d41f453d6224b2fab9bc8021a6c7dde-45647afbadf0c93d.bf
 pub fn uuid_and_hash_to_path(
     root: &Path,
     uuid: Uuid,

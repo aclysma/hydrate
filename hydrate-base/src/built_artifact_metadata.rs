@@ -3,11 +3,10 @@ use crate::{ArtifactId, StringHash};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-// TODO: We can split up the debug/non-debug data. The debug format could be something like json
-// that's debug-friendly and contains all the data. The runtime-only could be a mean-and-lean bincode
-// or other binary format
+/// Used to store debug manifest data. It's not needed for the game to function but can be used in
+/// addition to the release manifest to get helpful debug info
 #[derive(Serialize, Deserialize)]
-pub struct DebugManifestFileEntryJson {
+pub struct DebugArtifactManifestDataJson {
     pub artifact_id: ArtifactId,
     // stored as a string so we can encoded as hex
     pub build_hash: String,
@@ -19,12 +18,18 @@ pub struct DebugManifestFileEntryJson {
     pub debug_name: String,
 }
 
+/// Used to store debug manifest data. It's not needed for the game to function but can be used in
+/// addition to the release manifest to get helpful debug info
 #[derive(Serialize, Deserialize, Default)]
 pub struct DebugManifestFileJson {
-    pub artifacts: Vec<DebugManifestFileEntryJson>,
+    pub artifacts: Vec<DebugArtifactManifestDataJson>,
 }
 
-pub struct ManifestFileEntry {
+/// Metadata about the asset that is loaded in memory at all times. May include extra debug data.
+/// This is just enough information to know if an asset exists and know where to get more info
+/// about it. Some data needed for load is encoded in the asset itself and not in memory until the
+/// asset is requested and must be fetched from disk.
+pub struct ArtifactManifestData {
     pub artifact_id: ArtifactId,
     pub build_hash: u64,
     // If the artifact cannot be addressed by symbol, this will be None
@@ -36,6 +41,13 @@ pub struct ManifestFileEntry {
     pub debug_name: Option<Arc<String>>,
 }
 
+// No real reason this limit needs to exist, just don't want to read corrupt data and try to
+// allocate or load based on corrupt data. This is larger than a header is actually expected
+// to be.
+const MAX_HEADER_SIZE: usize = 1024 * 1024;
+
+/// Data encoded into the asset. This is necessary for loading but is not available in memory at
+/// all times. The load process will fetch this from the top of the built artifact data.
 #[derive(Debug, Serialize, Deserialize, Hash)]
 pub struct BuiltArtifactMetadata {
     pub dependencies: Vec<ArtifactId>,
@@ -47,16 +59,10 @@ impl BuiltArtifactMetadata {
         &self,
         writer: &mut T,
     ) -> std::io::Result<()> {
-        // writer.write(&(self.dependencies.len() as u32).to_le_bytes())?;
-        // for dependency in &self.dependencies {
-        //     writer.write(&dependency.0.to_le_bytes())?;
-        // }
-        //
-        // writer.write(&self.subresource_count.to_le_bytes())?;
-        // writer.write(&self.asset_type.as_u128().to_le_bytes())?;
-
         let serialized = bincode::serialize(self).unwrap();
         let bytes = serialized.len();
+        // Just
+        assert!(bytes < MAX_HEADER_SIZE);
         writer.write(&bytes.to_le_bytes())?;
         writer.write(&serialized)?;
 
@@ -64,28 +70,15 @@ impl BuiltArtifactMetadata {
     }
 
     pub fn read_header<T: std::io::Read>(reader: &mut T) -> std::io::Result<BuiltArtifactMetadata> {
-        // let mut buffer = [0; 16];
-        // reader.read(&mut buffer[0..4])?;
-        // let count = u32::from_le_bytes(&buffer[0..4]);
-        // let mut dependencies = Vec::with_capacity(count as usize);
-        // for _ in 0..count {
-        //     dependencies.push(ArtifactId(reader.read_u128()?));
-        // }
-        //
-        // let subresource_count = reader.read_u32()?;
-        // let asset_type = Uuid::from_u128(reader.read_u128()?);
-
         let mut length_bytes = [0u8; 8];
         reader.read(&mut length_bytes)?;
-        //let length = usize::from_le_bytes(length_bytes);
+        let length = usize::from_le_bytes(length_bytes);
+        assert!(length < MAX_HEADER_SIZE);
 
-        let metadata = bincode::deserialize_from(reader).unwrap();
+        let mut read_buffer = vec![0u8; length];
+        reader.read_exact(&mut read_buffer).unwrap();
+
+        let metadata = bincode::deserialize(&read_buffer).unwrap();
         Ok(metadata)
-
-        // Ok(BuiltArtifactMetadata {
-        //     dependencies,
-        //     subresource_count,
-        //     asset_type
-        // })
     }
 }

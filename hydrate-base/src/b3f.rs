@@ -1,29 +1,29 @@
-// Basic Binary Block Format (B3F)
-//
-// File Format
-// [4] magic number encoded as u32 (0xBB33FF00)
-// [4] file tag (arbitrary 4 bytes for user)
-// [4] version (arbitrary meaning for user, encoded as u32)
-// [4] block count (encoded as u32)
-// [8] bytes indicating 0 (0x00)
-// [8*n] ending offset of block
-// [x] pad to 16 byte offset
-// [n*len(n)] data (format/encoding/semantics would be implied by file tag). Each block begins at
-// [x] pad to 16 byte offset
-//
-// Endianness is undefined. Use the magic number to detect if endianness is different between
-// writer/reader
-//
-// This format can be encoded into a block, making this structure hierarchical. In this
-// case, omit the magic number, and use the file tag to optionally indicate the contents
-// of the block. (So it becomes a "block tag")
-//
-// if you c-cast the range memory from byte 16 to block count * 8, you have an array of u64 of n+1
-// length where n is number of blocks. Offset for block n is given by array[n]. End of block n is
-// given by array[n+1]. Size of block n in bytes is given by array[n+1] - array[n]
-//
-// Alignment of blocks to 16 bytes promotes reinterpreting bytes i.e. u8 to u64 or __m128 without
-// tripping over undefined behavior
+//! Basic Binary Block Format (B3F)
+//!
+//! File Format
+//! [4] magic number encoded as u32 (0xBB33FF00)
+//! [4] file tag (arbitrary 4 bytes for user)
+//! [4] version (arbitrary meaning for user, encoded as u32)
+//! [4] block count (encoded as u32)
+//! [8] bytes indicating 0 (0x00)
+//! [8*n] ending offset of block
+//! [x] pad to 16 byte offset
+//! [n*len(n)] data (format/encoding/semantics would be implied by file tag). Each block begins at
+//! [x] pad to 16 byte offset
+//!
+//! Endianness is undefined. Use the magic number to detect if endianness is different between
+//! writer/reader
+//!
+//! This format can be encoded into a block, making this structure hierarchical. In this
+//! case, omit the magic number, and use the file tag to optionally indicate the contents
+//! of the block. (So it becomes a "block tag")
+//!
+//! if you c-cast the range memory from byte 16 to block count * 8, you have an array of u64 of n+1
+//! length where n is number of blocks. Offset for block n is given by array[n]. End of block n is
+//! given by array[n+1]. Size of block n in bytes is given by array[n+1] - array[n]
+//!
+//! Alignment of blocks to 16 bytes promotes reinterpreting bytes i.e. u8 to u64 or __m128 without
+//! tripping over undefined behavior
 
 use std::convert::TryInto;
 use std::io::{BufWriter, Write};
@@ -33,6 +33,7 @@ const HEADER_SIZE_IN_BYTES: usize = 16;
 const BLOCK_LENGTH_SIZE_IN_BYTES: usize = 8;
 const BLOCK_ALIGNMENT_IN_BYTES: usize = 16;
 
+/// Used to encode data into B3F format
 pub struct B3FWriter<'a> {
     file_tag: u32,
     version: u32,
@@ -113,6 +114,7 @@ impl<'a> B3FWriter<'a> {
     }
 }
 
+/// Used decode data from B3F format
 pub struct B3FReader<'a> {
     data: &'a [u8],
 }

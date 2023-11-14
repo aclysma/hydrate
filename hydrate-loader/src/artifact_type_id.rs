@@ -4,18 +4,17 @@ use std::fmt;
 use std::str::FromStr;
 use serde::{de, ser};
 
-/// ID of a built piece of data. A build job can produce any number of artifacts, usually reading
-/// import data and/or asset data. Different platforms may have different artifacts for the same
-/// conceptual piece of data
+/// Identified an artifact type. These are not schema-aware and get rebuilt if the data format
+/// changes. It's defined as a UUID on the struct itself.
 #[derive(Copy, Clone, PartialEq, Eq, Hash, Ord, PartialOrd, Default)]
-pub struct ArtifactId(pub Uuid);
-impl ArtifactId {
+pub struct ArtifactTypeId(pub Uuid);
+impl ArtifactTypeId {
     pub const fn null() -> Self {
-        ArtifactId(Uuid::nil())
+        ArtifactTypeId(Uuid::nil())
     }
 
     pub fn parse_str(input: &str) -> Result<Self, uuid::Error> {
-        Ok(ArtifactId(Uuid::parse_str(input)?))
+        Ok(ArtifactTypeId(Uuid::parse_str(input)?))
     }
 
     pub fn is_null(&self) -> bool {
@@ -23,7 +22,7 @@ impl ArtifactId {
     }
 
     pub fn from_uuid(uuid: Uuid) -> Self {
-        ArtifactId(uuid)
+        ArtifactTypeId(uuid)
     }
 
     pub fn as_uuid(&self) -> Uuid {
@@ -39,7 +38,7 @@ impl ArtifactId {
     }
 
     pub fn from_bytes(bytes: uuid::Bytes) -> Self {
-        ArtifactId(Uuid::from_bytes(bytes))
+        ArtifactTypeId(Uuid::from_bytes(bytes))
     }
 
     pub fn as_bytes(&self) -> &uuid::Bytes {
@@ -47,18 +46,18 @@ impl ArtifactId {
     }
 }
 
-impl fmt::Debug for ArtifactId {
+impl fmt::Debug for ArtifactTypeId {
     fn fmt(
         &self,
         f: &mut fmt::Formatter<'_>,
     ) -> fmt::Result {
-        f.debug_tuple("ArtifactId")
+        f.debug_tuple("AssetTypeId")
             .field(&self.0)
             .finish()
     }
 }
 
-impl fmt::Display for ArtifactId {
+impl fmt::Display for ArtifactTypeId {
     fn fmt(
         &self,
         f: &mut fmt::Formatter<'_>,
@@ -67,7 +66,7 @@ impl fmt::Display for ArtifactId {
     }
 }
 
-impl Serialize for ArtifactId {
+impl Serialize for ArtifactTypeId {
     fn serialize<S: ser::Serializer>(
         &self,
         serializer: S,
@@ -80,10 +79,10 @@ impl Serialize for ArtifactId {
     }
 }
 
-struct ArtifactIdVisitor;
+struct AssetIdVisitor;
 
-impl<'a> de::Visitor<'a> for ArtifactIdVisitor {
-    type Value = ArtifactId;
+impl<'a> de::Visitor<'a> for AssetIdVisitor {
+    type Value = ArtifactTypeId;
 
     fn expecting(
         &self,
@@ -97,17 +96,17 @@ impl<'a> de::Visitor<'a> for ArtifactIdVisitor {
         s: &str,
     ) -> Result<Self::Value, E> {
         Uuid::from_str(s)
-            .map(|id| ArtifactId(id))
+            .map(|id| ArtifactTypeId(id))
             .map_err(|_| de::Error::invalid_value(de::Unexpected::Str(s), &self))
     }
 }
 
-impl<'de> Deserialize<'de> for ArtifactId {
+impl<'de> Deserialize<'de> for ArtifactTypeId {
     fn deserialize<D: de::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
         if deserializer.is_human_readable() {
-            deserializer.deserialize_string(ArtifactIdVisitor)
+            deserializer.deserialize_string(AssetIdVisitor)
         } else {
-            Ok(ArtifactId(Uuid::deserialize(deserializer)?))
+            Ok(ArtifactTypeId(Uuid::deserialize(deserializer)?))
         }
     }
 }

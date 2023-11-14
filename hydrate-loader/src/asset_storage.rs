@@ -6,9 +6,9 @@ use crossbeam_channel::{Receiver, Sender};
 use downcast_rs::Downcast;
 use hydrate_base::handle::LoaderInfoProvider;
 use hydrate_base::handle::SerdeContext;
-use hydrate_base::AssetTypeId;
 use std::marker::PhantomData;
 use type_uuid::TypeUuid;
+use crate::ArtifactTypeId;
 
 // Used to dynamic dispatch into a storage, supports checked downcasting
 pub trait DynAssetStorage: Downcast + Send {
@@ -37,9 +37,9 @@ pub trait DynAssetStorage: Downcast + Send {
 downcast_rs::impl_downcast!(DynAssetStorage);
 
 pub struct AssetStorageSetInner {
-    storage: HashMap<AssetTypeId, Box<dyn DynAssetStorage>>,
-    data_to_asset_type_uuid: HashMap<AssetTypeId, AssetTypeId>,
-    asset_to_data_type_uuid: HashMap<AssetTypeId, AssetTypeId>,
+    storage: HashMap<ArtifactTypeId, Box<dyn DynAssetStorage>>,
+    data_to_asset_type_uuid: HashMap<ArtifactTypeId, ArtifactTypeId>,
+    asset_to_data_type_uuid: HashMap<ArtifactTypeId, ArtifactTypeId>,
     refop_sender: Sender<RefOp>,
     indirection_table: IndirectionTable,
 }
@@ -76,14 +76,14 @@ impl AssetStorageSet {
         let refop_sender = inner.refop_sender.clone();
         let old = inner
             .data_to_asset_type_uuid
-            .insert(AssetTypeId(T::UUID), AssetTypeId(T::UUID));
+            .insert(ArtifactTypeId::from_bytes(T::UUID), ArtifactTypeId::from_bytes(T::UUID));
         assert!(old.is_none());
         let old = inner
             .asset_to_data_type_uuid
-            .insert(AssetTypeId(T::UUID), AssetTypeId(T::UUID));
+            .insert(ArtifactTypeId::from_bytes(T::UUID), ArtifactTypeId::from_bytes(T::UUID));
         assert!(old.is_none());
         inner.storage.insert(
-            AssetTypeId(T::UUID),
+            ArtifactTypeId::from_bytes(T::UUID),
             Box::new(Storage::<T>::new(
                 refop_sender,
                 Box::new(DefaultAssetLoader::default()),
@@ -105,14 +105,14 @@ impl AssetStorageSet {
         let refop_sender = inner.refop_sender.clone();
         let old = inner
             .data_to_asset_type_uuid
-            .insert(AssetTypeId(AssetDataT::UUID), AssetTypeId(AssetT::UUID));
+            .insert(ArtifactTypeId::from_bytes(AssetDataT::UUID), ArtifactTypeId::from_bytes(AssetT::UUID));
         assert!(old.is_none());
         let old = inner
             .asset_to_data_type_uuid
-            .insert(AssetTypeId(AssetT::UUID), AssetTypeId(AssetDataT::UUID));
+            .insert(ArtifactTypeId::from_bytes(AssetT::UUID), ArtifactTypeId::from_bytes(AssetDataT::UUID));
         assert!(old.is_none());
         inner.storage.insert(
-            AssetTypeId(AssetT::UUID),
+            ArtifactTypeId::from_bytes(AssetT::UUID),
             Box::new(Storage::<AssetT>::new(
                 refop_sender,
                 loader,
@@ -121,14 +121,14 @@ impl AssetStorageSet {
         );
     }
 
-    pub fn asset_to_data_type_uuid<AssetT>(&self) -> Option<AssetTypeId>
+    pub fn asset_to_data_type_uuid<AssetT>(&self) -> Option<ArtifactTypeId>
     where
         AssetT: TypeUuid + 'static + Send,
     {
         let inner = self.inner.lock().unwrap();
         inner
             .asset_to_data_type_uuid
-            .get(&AssetTypeId(AssetT::UUID))
+            .get(&ArtifactTypeId::from_bytes(AssetT::UUID))
             .cloned()
     }
 }
@@ -139,7 +139,7 @@ impl AssetStorage for AssetStorageSet {
     fn update_asset(
         &mut self,
         loader_info: &dyn LoaderInfoProvider,
-        asset_data_type_id: &AssetTypeId,
+        asset_data_type_id: &ArtifactTypeId,
         data: Vec<u8>,
         load_handle: LoadHandle,
         load_op: AssetLoadOp,
@@ -162,7 +162,7 @@ impl AssetStorage for AssetStorageSet {
 
     fn commit_asset_version(
         &mut self,
-        asset_data_type_id: &AssetTypeId,
+        asset_data_type_id: &ArtifactTypeId,
         load_handle: LoadHandle,
         version: u32,
     ) {
@@ -182,7 +182,7 @@ impl AssetStorage for AssetStorageSet {
 
     fn free(
         &mut self,
-        asset_data_type_id: &AssetTypeId,
+        asset_data_type_id: &ArtifactTypeId,
         load_handle: LoadHandle,
         version: u32,
     ) {
@@ -215,7 +215,7 @@ impl<A: TypeUuid + 'static + Send> TypedArtifactStorage<A> for AssetStorageSet {
                     .lock()
                     .unwrap()
                     .storage
-                    .get(&AssetTypeId(A::UUID))
+                    .get(&ArtifactTypeId::from_bytes(A::UUID))
                     .expect("unknown asset type")
                     .as_ref()
                     .downcast_ref::<Storage<A>>()
@@ -232,7 +232,7 @@ impl<A: TypeUuid + 'static + Send> TypedArtifactStorage<A> for AssetStorageSet {
             .lock()
             .unwrap()
             .storage
-            .get(&AssetTypeId(A::UUID))
+            .get(&ArtifactTypeId::from_bytes(A::UUID))
             .expect("unknown asset type")
             .as_ref()
             .downcast_ref::<Storage<A>>()
@@ -250,7 +250,7 @@ impl<A: TypeUuid + 'static + Send> TypedArtifactStorage<A> for AssetStorageSet {
                     .lock()
                     .unwrap()
                     .storage
-                    .get(&AssetTypeId(A::UUID))
+                    .get(&ArtifactTypeId::from_bytes(A::UUID))
                     .expect("unknown asset type")
                     .as_ref()
                     .downcast_ref::<Storage<A>>()

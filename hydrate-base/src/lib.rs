@@ -11,12 +11,6 @@ pub use asset_id::AssetId;
 mod artifact_id;
 pub use artifact_id::ArtifactId;
 
-mod asset_type_id;
-pub use asset_type_id::AssetTypeId;
-
-mod asset_ref;
-pub use asset_ref::ArtifactRef;
-
 pub mod handle;
 
 pub use handle::Handle;

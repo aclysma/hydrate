@@ -1,5 +1,5 @@
 use crate::{EditorModel, HashMap, AssetId};
-use hydrate_base::{ArtifactId, BuiltArtifactMetadata, DebugManifestFileEntryJson, DebugManifestFileJson, StringHash};
+use hydrate_base::{ArtifactId, BuiltArtifactMetadata, DebugArtifactManifestDataJson, DebugManifestFileJson, StringHash};
 use std::collections::VecDeque;
 use std::hash::{Hash, Hasher};
 use std::io::Write;
@@ -301,7 +301,7 @@ impl BuildJobs {
                 editor_model.asset_display_name_long(asset_id)
             };
 
-            manifest_json.artifacts.push(DebugManifestFileEntryJson {
+            manifest_json.artifacts.push(DebugArtifactManifestDataJson {
                 artifact_id,
                 build_hash: format!("{:0>16x}", build_hash),
                 symbol_hash: format!("{:0>32x}", symbol_name_hash),

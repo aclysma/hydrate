@@ -1,12 +1,13 @@
 use crate::storage::{AssetLoadOp, AssetStorage, HandleOp, IndirectIdentifier, IndirectionTable};
 use crossbeam_channel::{Receiver, Sender};
 use dashmap::DashMap;
-use hydrate_base::handle::{LoadState, LoadStateProvider, LoaderInfoProvider};
-use hydrate_base::{LoadHandle, ManifestFileEntry, StringHash};
-use hydrate_base::{ArtifactRef, AssetTypeId, AssetId, ArtifactId};
+use hydrate_base::handle::{LoadState, LoadStateProvider, LoaderInfoProvider, ArtifactRef};
+use hydrate_base::{LoadHandle, ArtifactManifestData, StringHash};
+use hydrate_base::{AssetId, ArtifactId};
 use std::fmt::Debug;
 use std::sync::atomic::{AtomicU32, AtomicU64, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
+use crate::ArtifactTypeId;
 
 // Sequence of operations:
 // * User creates a type-safe handle through an interface, as long as it is alive, the asset remains loaded
@@ -67,7 +68,7 @@ use std::sync::{Arc, Mutex};
 #[derive(Debug)]
 pub struct ArtifactMetadata {
     pub dependencies: Vec<ArtifactId>,
-    pub asset_type: AssetTypeId,
+    pub asset_type: ArtifactTypeId,
     pub hash: u64,
     // size?
 }
@@ -145,12 +146,12 @@ pub trait LoaderIO: Sync + Send {
     fn manifest_entry(
         &self,
         artifact_id: ArtifactId,
-    ) -> Option<&ManifestFileEntry>;
+    ) -> Option<&ArtifactManifestData>;
 
     fn resolve_indirect(
         &self,
         indirect_identifier: &IndirectIdentifier,
-    ) -> Option<&ManifestFileEntry>;
+    ) -> Option<&ArtifactManifestData>;
 
     // This results in a RequestMetadataResult being sent to the loader
     fn request_metadata(
@@ -252,7 +253,7 @@ struct LoadHandleVersionInfo {
     // dependencies
     //artifact_id: ArtifactId,
     load_state: LoadState,
-    asset_type: AssetTypeId,
+    asset_type: ArtifactTypeId,
     hash: u64,
     dependency_ref_count: AtomicU32,
 
@@ -955,7 +956,7 @@ impl Loader {
                         //load_state: LoadState::Unloaded,
                         versions: vec![LoadHandleVersionInfo {
                             load_state: LoadState::Unloaded,
-                            asset_type: AssetTypeId::default(),
+                            asset_type: ArtifactTypeId::default(),
                             hash: 0,
                             dependency_ref_count: AtomicU32::new(0),
                             blocking_dependency_count: AtomicU32::new(0),

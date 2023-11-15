@@ -1,7 +1,7 @@
 use crate::data_set::DataSetResult;
 use crate::{DataSet, NullOverride, AssetId, OverrideBehavior, SchemaSet, SingleObject, Value};
 use uuid::Uuid;
-
+/*
 pub fn do_push_property_path(
     property_path_stack: &mut Vec<String>,
     property_path: &mut String,
@@ -42,7 +42,7 @@ fn join_path_and_field(
         }
     }
 }
-
+*/
 //TODO: Make these impl Read and Write?
 
 /// Provides a read-only view into a DataSet or SingleObject. A schema can be used to write into
@@ -78,7 +78,7 @@ impl<'a> DataContainer<'a> {
     pub fn resolve_property(
         &self,
         path: impl AsRef<str>,
-    ) -> Option<&Value> {
+    ) -> DataSetResult<&Value> {
         match *self {
             DataContainer::DataSet(data_set, schema_set, asset_id) => {
                 data_set.resolve_property(schema_set, asset_id, path)
@@ -92,7 +92,7 @@ impl<'a> DataContainer<'a> {
     pub fn get_null_override(
         &self,
         path: impl AsRef<str>,
-    ) -> Option<NullOverride> {
+    ) -> DataSetResult<NullOverride> {
         match *self {
             DataContainer::DataSet(data_set, schema_set, asset_id) => {
                 data_set.get_null_override(schema_set, asset_id, path)
@@ -103,16 +103,16 @@ impl<'a> DataContainer<'a> {
         }
     }
 
-    pub fn resolve_is_null(
+    pub fn resolve_null_override(
         &self,
         path: impl AsRef<str>,
-    ) -> Option<bool> {
+    ) -> DataSetResult<NullOverride> {
         match *self {
             DataContainer::DataSet(data_set, schema_set, asset_id) => {
-                data_set.resolve_is_null(schema_set, asset_id, path)
+                data_set.resolve_null_override(schema_set, asset_id, path)
             }
             DataContainer::SingleObject(single_object, schema_set) => {
-                single_object.resolve_is_null(schema_set, path)
+                single_object.resolve_null_override(schema_set, path)
             }
         }
     }
@@ -120,7 +120,7 @@ impl<'a> DataContainer<'a> {
     pub fn resolve_dynamic_array(
         &self,
         path: impl AsRef<str>,
-    ) -> Box<[Uuid]> {
+    ) -> DataSetResult<Box<[Uuid]>> {
         match *self {
             DataContainer::DataSet(data_set, schema_set, asset_id) => {
                 data_set.resolve_dynamic_array(schema_set, asset_id, path)
@@ -134,18 +134,14 @@ impl<'a> DataContainer<'a> {
     pub fn get_override_behavior(
         &self,
         path: impl AsRef<str>,
-    ) -> OverrideBehavior {
+    ) -> DataSetResult<OverrideBehavior> {
         match *self {
             DataContainer::DataSet(data_set, schema_set, asset_id) => {
                 data_set.get_override_behavior(schema_set, asset_id, path)
             }
-            DataContainer::SingleObject(_, _) => OverrideBehavior::Replace,
+            DataContainer::SingleObject(_, _) => Ok(OverrideBehavior::Replace),
         }
     }
-
-    // pub fn schema(&self, field_name: &str) {
-    //     self.asset_schema.find_property_schema()
-    // }
 }
 
 /// Provides a read/write view into a DataSet or SingleObject. A schema can be used to write into
@@ -181,7 +177,7 @@ impl<'a> DataContainerMut<'a> {
     pub fn resolve_property(
         &self,
         path: impl AsRef<str>,
-    ) -> Option<&Value> {
+    ) -> DataSetResult<&Value> {
         match self {
             DataContainerMut::DataSet(data_set, schema_set, asset_id) => {
                 data_set.resolve_property(schema_set, *asset_id, path)
@@ -195,7 +191,7 @@ impl<'a> DataContainerMut<'a> {
     pub fn get_null_override(
         &self,
         path: impl AsRef<str>,
-    ) -> Option<NullOverride> {
+    ) -> DataSetResult<NullOverride> {
         self.read().get_null_override(path)
     }
 
@@ -203,7 +199,7 @@ impl<'a> DataContainerMut<'a> {
         &mut self,
         path: impl AsRef<str>,
         null_override: NullOverride,
-    ) {
+    ) -> DataSetResult<()> {
         match self {
             DataContainerMut::DataSet(data_set, schema_set, asset_id) => {
                 data_set.set_null_override(schema_set, *asset_id, path, null_override)
@@ -214,46 +210,32 @@ impl<'a> DataContainerMut<'a> {
         }
     }
 
-    pub fn remove_null_override(
-        &mut self,
-        path: impl AsRef<str>,
-    ) {
-        match self {
-            DataContainerMut::DataSet(data_set, schema_set, asset_id) => {
-                data_set.remove_null_override(schema_set, *asset_id, path)
-            }
-            DataContainerMut::SingleObject(single_object, schema_set) => {
-                single_object.remove_null_override(schema_set, path)
-            }
-        }
-    }
-
-    pub fn resolve_is_null(
+    pub fn resolve_null_override(
         &self,
         path: impl AsRef<str>,
-    ) -> Option<bool> {
-        self.read().resolve_is_null(path)
+    ) -> DataSetResult<NullOverride> {
+        self.read().resolve_null_override(path)
     }
 
     pub fn resolve_dynamic_array(
         &self,
         path: impl AsRef<str>,
-    ) -> Box<[Uuid]> {
+    ) -> DataSetResult<Box<[Uuid]>> {
         self.read().resolve_dynamic_array(path)
     }
 
     pub fn get_override_behavior(
         &self,
         path: impl AsRef<str>,
-    ) -> OverrideBehavior {
+    ) -> DataSetResult<OverrideBehavior> {
         self.read().get_override_behavior(path)
     }
 
     pub fn set_property_override(
         &mut self,
         path: impl AsRef<str>,
-        value: Value,
-    ) -> DataSetResult<()> {
+        value: Option<Value>,
+    ) -> DataSetResult<Option<Value>> {
         match self {
             DataContainerMut::DataSet(data_set, schema_set, asset_id) => {
                 data_set.set_property_override(schema_set, *asset_id, path, value)
@@ -268,19 +250,19 @@ impl<'a> DataContainerMut<'a> {
         &mut self,
         path: impl AsRef<str>,
         behavior: OverrideBehavior,
-    ) {
+    ) -> DataSetResult<()> {
         match self {
             DataContainerMut::DataSet(data_set, schema_set, asset_id) => {
                 data_set.set_override_behavior(schema_set, *asset_id, path, behavior)
             }
-            DataContainerMut::SingleObject(_, _) => {}
+            DataContainerMut::SingleObject(_, _) => { Ok(()) }
         }
     }
 
     pub fn add_dynamic_array_override(
         &mut self,
         path: impl AsRef<str>,
-    ) -> Uuid {
+    ) -> DataSetResult<Uuid> {
         match self {
             DataContainerMut::DataSet(data_set, schema_set, asset_id) => {
                 data_set.add_dynamic_array_override(schema_set, *asset_id, path)

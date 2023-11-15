@@ -1,4 +1,4 @@
-use crate::{HashMap, Schema, SchemaFingerprint, SchemaNamedType, SchemaRecord};
+use crate::{DataSetError, DataSetResult, HashMap, Schema, SchemaFingerprint, SchemaNamedType, SchemaRecord};
 
 pub(super) fn truncate_property_path(
     path: impl AsRef<str>,
@@ -30,7 +30,7 @@ pub(super) fn property_schema_and_path_ancestors_to_check<'a>(
     dynamic_array_ancestors: &mut Vec<String>,
     map_ancestors: &mut Vec<String>,
     accessed_dynamic_array_keys: &mut Vec<(String, String)>,
-) -> Option<Schema> {
+) -> DataSetResult<Schema> {
     let mut schema = Schema::NamedType(named_type.fingerprint());
 
     //TODO: Escape map keys (and probably avoid path strings anyways)
@@ -39,14 +39,12 @@ pub(super) fn property_schema_and_path_ancestors_to_check<'a>(
     let mut parent_is_dynamic_array = false;
 
     for (i, path_segment) in split_path[0..split_path.len() - 1].iter().enumerate() {
-        //.as_ref().split(".").enumerate() {
-        let s = schema.find_field_schema(path_segment, named_types)?;
-        //println!("  next schema {:?}", s);
+        let s = schema.find_field_schema(path_segment, named_types).ok_or(DataSetError::SchemaNotFound)?;
 
         // current path needs to be verified as existing
         if parent_is_dynamic_array {
             accessed_dynamic_array_keys.push((
-                super::truncate_property_path(path.as_ref(), i - 1),
+                truncate_property_path(path.as_ref(), i - 1),
                 path_segment.to_string(),
             ));
         }
@@ -75,16 +73,14 @@ pub(super) fn property_schema_and_path_ancestors_to_check<'a>(
         }
 
         schema = s.clone();
-        //} else {
-        //    return None;
-        //}
     }
 
     if let Some(last_path_segment) = split_path.last() {
         schema = schema
-            .find_field_schema(last_path_segment, named_types)?
+            .find_field_schema(last_path_segment, named_types)
+            .ok_or(DataSetError::SchemaNotFound)?
             .clone();
     }
 
-    Some(schema)
+    Ok(schema)
 }

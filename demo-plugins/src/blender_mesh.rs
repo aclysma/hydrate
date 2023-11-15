@@ -212,7 +212,7 @@ impl Importer for BlenderMeshImporter {
 
             let material_index = *material_slots_lookup.get(&mesh_part.material).unwrap();
 
-            let entry_uuid = x.mesh_parts().add_entry(&mut import_data_container);
+            let entry_uuid = x.mesh_parts().add_entry(&mut import_data_container).unwrap();
             let entry = x.mesh_parts().entry(entry_uuid);
             entry
                 .positions()
@@ -258,7 +258,8 @@ impl Importer for BlenderMeshImporter {
                     .unwrap();
                 let entry = x
                     .material_slots()
-                    .add_entry(&mut default_asset_data_container);
+                    .add_entry(&mut default_asset_data_container)
+                    .unwrap();
                 x.material_slots()
                     .entry(entry)
                     .set(&mut default_asset_data_container, *asset_id)

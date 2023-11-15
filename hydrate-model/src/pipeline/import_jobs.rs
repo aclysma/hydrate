@@ -1,12 +1,7 @@
-use std::fs::File;
 use crate::{EditorModel, HashMap, ImporterId, AssetId, SchemaSet, SingleObject};
 use hydrate_base::hashing::HashSet;
 use std::hash::{Hash, Hasher};
-use std::io::BufWriter;
 use std::path::{Path, PathBuf};
-use std::sync::Arc;
-use std::time::Duration;
-use crossbeam_channel::{Receiver, TryIter};
 
 use crate::SingleObjectJson;
 use hydrate_base::uuid_path::{path_to_uuid, uuid_to_path};
@@ -102,6 +97,10 @@ pub struct ImportJobs {
 }
 
 impl ImportJobs {
+    pub fn import_data_root_path(&self) -> &Path {
+        &self.import_data_root_path
+    }
+
     pub fn new(
         importer_registry: &ImporterRegistry,
         editor_model: &EditorModel,
@@ -249,7 +248,7 @@ impl ImportJobs {
                         }
                     }
                 },
-                ImportThreadOutcome::Failed(failed) => {
+                ImportThreadOutcome::Failed(_failed) => {
                     unimplemented!()
                 }
             }
@@ -402,7 +401,7 @@ impl ImportJobs {
         // Scan assets to find any asset that has an associated importer
         //
         let data_set = editor_model.root_edit_context().data_set();
-        for asset_id in data_set.all_assets() {
+        for (asset_id, _) in data_set.assets() {
             if let Some(import_info) = data_set.import_info(*asset_id) {
                 let importer_id = import_info.importer_id();
                 let importer = importer_registry.importer(importer_id);

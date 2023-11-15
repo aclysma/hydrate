@@ -383,6 +383,7 @@ pub fn draw_asset(
         .editor_model
         .root_edit_context()
         .asset_name(id)
+        .unwrap()
         .as_string()
     {
         format!("{}", name)

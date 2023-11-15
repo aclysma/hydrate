@@ -64,8 +64,7 @@ impl<T: Enum> EnumField<T> {
         data_container: &DataContainer,
     ) -> DataSetResult<T> {
         let e = data_container
-            .resolve_property(self.0.path())
-            .ok_or(DataSetError::PathParentIsNull)?;
+            .resolve_property(self.0.path())?;
         T::from_symbol_name(e.as_enum().unwrap().symbol_name())
             .ok_or(DataSetError::UnexpectedEnumSymbol)
     }
@@ -74,10 +73,10 @@ impl<T: Enum> EnumField<T> {
         &self,
         data_container: &mut DataContainerMut,
         value: T,
-    ) -> DataSetResult<()> {
+    ) -> DataSetResult<Option<Value>> {
         data_container.set_property_override(
             self.0.path(),
-            Value::Enum(ValueEnum::new(value.to_symbol_name().to_string())),
+            Some(Value::Enum(ValueEnum::new(value.to_symbol_name().to_string()))),
         )
     }
 }
@@ -94,7 +93,7 @@ impl<T: Field> DynamicArrayField<T> {
     pub fn resolve_entries(
         &self,
         data_container: &DataContainer,
-    ) -> Box<[Uuid]> {
+    ) -> DataSetResult<Box<[Uuid]>> {
         data_container.resolve_dynamic_array(self.0.path())
     }
 
@@ -108,7 +107,7 @@ impl<T: Field> DynamicArrayField<T> {
     pub fn add_entry(
         &self,
         data_container: &mut DataContainerMut,
-    ) -> Uuid {
+    ) -> DataSetResult<Uuid> {
         data_container.add_dynamic_array_override(self.0.path())
     }
 }
@@ -125,41 +124,29 @@ impl<T: Field> NullableField<T> {
     pub fn resolve_null(
         &self,
         data_container: &DataContainer,
-    ) -> Option<T> {
-        if !self.is_null(data_container) {
-            Some(T::new(self.0.push("value")))
+    ) -> DataSetResult<Option<T>> {
+        if self.resolve_null_override(data_container)? == NullOverride::SetNonNull {
+            Ok(Some(T::new(self.0.push("value"))))
         } else {
-            None
+            Ok(None)
         }
     }
 
-    pub fn is_null(
+    pub fn resolve_null_override(
         &self,
         data_container: &DataContainer,
-    ) -> bool {
-        data_container.resolve_is_null(self.0.path()).unwrap()
+    ) -> DataSetResult<NullOverride> {
+        data_container.resolve_null_override(self.0.path())
     }
 
-    // set_is_null
-
-    // is_null
-
-    pub fn set_not_null(
+    pub fn set_null_override(
         &self,
         data_container: &mut DataContainerMut,
-    ) -> T {
-        data_container.set_null_override(self.0.path(), NullOverride::SetNonNull);
-        T::new(self.0.push("value"))
-
-        //TODO: This is wrong
-        //data_container.set_property_override(self.0.path(), Value::F32(value))
+        null_override: NullOverride,
+    ) -> DataSetResult<()> {
+        data_container.set_null_override(self.0.path(), null_override)
     }
 }
-
-// Getter, Accessor, Field, Member, Prop, Property, Value, Schema, Path,
-// consider how containers and nullable works?
-//
-// Use Field/Record/Enum/Fixed terminology?
 
 pub struct BytesField(pub PropertyPath);
 
@@ -175,8 +162,7 @@ impl BytesField {
         data_container: &'b DataContainer,
     ) -> DataSetResult<&'b Vec<u8>> {
         Ok(data_container
-            .resolve_property(self.0.path())
-            .ok_or(DataSetError::PathParentIsNull)?
+            .resolve_property(self.0.path())?
             .as_bytes()
             .unwrap())
     }
@@ -185,8 +171,8 @@ impl BytesField {
         &self,
         data_container: &mut DataContainerMut,
         value: Vec<u8>,
-    ) -> DataSetResult<()> {
-        data_container.set_property_override(self.0.path(), Value::Bytes(value))
+    ) -> DataSetResult<Option<Value>> {
+        data_container.set_property_override(self.0.path(), Some(Value::Bytes(value)))
     }
 }
 
@@ -204,8 +190,7 @@ impl F32Field {
         data_container: &DataContainer,
     ) -> DataSetResult<f32> {
         Ok(data_container
-            .resolve_property(self.0.path())
-            .ok_or(DataSetError::PathParentIsNull)?
+            .resolve_property(self.0.path())?
             .as_f32()
             .unwrap())
     }
@@ -214,8 +199,8 @@ impl F32Field {
         &self,
         data_container: &mut DataContainerMut,
         value: f32,
-    ) -> DataSetResult<()> {
-        data_container.set_property_override(self.0.path(), Value::F32(value))
+    ) -> DataSetResult<Option<Value>> {
+        data_container.set_property_override(self.0.path(), Some(Value::F32(value)))
     }
 }
 
@@ -233,8 +218,7 @@ impl F64Field {
         data_container: &DataContainer,
     ) -> DataSetResult<f64> {
         Ok(data_container
-            .resolve_property(self.0.path())
-            .ok_or(DataSetError::PathParentIsNull)?
+            .resolve_property(self.0.path())?
             .as_f64()
             .unwrap())
     }
@@ -243,8 +227,8 @@ impl F64Field {
         &self,
         data_container: &mut DataContainerMut,
         value: f64,
-    ) -> DataSetResult<()> {
-        data_container.set_property_override(self.0.path(), Value::F64(value))
+    ) -> DataSetResult<Option<Value>> {
+        data_container.set_property_override(self.0.path(), Some(Value::F64(value)))
     }
 }
 
@@ -262,8 +246,7 @@ impl I32Field {
         data_container: &DataContainer,
     ) -> DataSetResult<i32> {
         Ok(data_container
-            .resolve_property(self.0.path())
-            .ok_or(DataSetError::PathParentIsNull)?
+            .resolve_property(self.0.path())?
             .as_i32()
             .unwrap())
     }
@@ -272,8 +255,8 @@ impl I32Field {
         &self,
         data_container: &mut DataContainerMut,
         value: i32,
-    ) -> DataSetResult<()> {
-        data_container.set_property_override(self.0.path(), Value::I32(value))
+    ) -> DataSetResult<Option<Value>> {
+        data_container.set_property_override(self.0.path(), Some(Value::I32(value)))
     }
 }
 
@@ -291,8 +274,7 @@ impl I64Field {
         data_container: &DataContainer,
     ) -> DataSetResult<i64> {
         Ok(data_container
-            .resolve_property(self.0.path())
-            .ok_or(DataSetError::PathParentIsNull)?
+            .resolve_property(self.0.path())?
             .as_i64()
             .unwrap())
     }
@@ -301,8 +283,8 @@ impl I64Field {
         &self,
         data_container: &mut DataContainerMut,
         value: i64,
-    ) -> DataSetResult<()> {
-        data_container.set_property_override(self.0.path(), Value::I64(value))
+    ) -> DataSetResult<Option<Value>> {
+        data_container.set_property_override(self.0.path(), Some(Value::I64(value)))
     }
 }
 
@@ -320,8 +302,7 @@ impl U32Field {
         data_container: &DataContainer,
     ) -> DataSetResult<u32> {
         Ok(data_container
-            .resolve_property(self.0.path())
-            .ok_or(DataSetError::PathParentIsNull)?
+            .resolve_property(self.0.path())?
             .as_u32()
             .unwrap())
     }
@@ -330,8 +311,8 @@ impl U32Field {
         &self,
         data_container: &mut DataContainerMut,
         value: u32,
-    ) -> DataSetResult<()> {
-        data_container.set_property_override(self.0.path(), Value::U32(value))
+    ) -> DataSetResult<Option<Value>> {
+        data_container.set_property_override(self.0.path(), Some(Value::U32(value)))
     }
 }
 
@@ -349,8 +330,7 @@ impl U64Field {
         data_container: &DataContainer,
     ) -> DataSetResult<u64> {
         Ok(data_container
-            .resolve_property(self.0.path())
-            .ok_or(DataSetError::PathParentIsNull)?
+            .resolve_property(self.0.path())?
             .as_u64()
             .unwrap())
     }
@@ -359,8 +339,8 @@ impl U64Field {
         &self,
         data_container: &mut DataContainerMut,
         value: u64,
-    ) -> DataSetResult<()> {
-        data_container.set_property_override(self.0.path(), Value::U64(value))
+    ) -> DataSetResult<Option<Value>> {
+        data_container.set_property_override(self.0.path(), Some(Value::U64(value)))
     }
 }
 
@@ -378,8 +358,7 @@ impl BooleanField {
         data_container: &DataContainer,
     ) -> DataSetResult<bool> {
         Ok(data_container
-            .resolve_property(self.0.path())
-            .ok_or(DataSetError::PathParentIsNull)?
+            .resolve_property(self.0.path())?
             .as_boolean()
             .unwrap())
     }
@@ -388,8 +367,8 @@ impl BooleanField {
         &self,
         data_container: &mut DataContainerMut,
         value: bool,
-    ) -> DataSetResult<()> {
-        data_container.set_property_override(self.0.path(), Value::Boolean(value))
+    ) -> DataSetResult<Option<Value>> {
+        data_container.set_property_override(self.0.path(), Some(Value::Boolean(value)))
     }
 }
 
@@ -407,8 +386,7 @@ impl StringField {
         data_container: &DataContainer,
     ) -> DataSetResult<String> {
         Ok(data_container
-            .resolve_property(self.0.path())
-            .ok_or(DataSetError::PathParentIsNull)?
+            .resolve_property(self.0.path())?
             .as_string()
             .unwrap()
             .to_string())
@@ -418,8 +396,8 @@ impl StringField {
         &self,
         data_container: &mut DataContainerMut,
         value: String,
-    ) -> DataSetResult<()> {
-        data_container.set_property_override(self.0.path(), Value::String(value))
+    ) -> DataSetResult<Option<Value>> {
+        data_container.set_property_override(self.0.path(), Some(Value::String(value)))
     }
 }
 
@@ -437,8 +415,7 @@ impl AssetRefField {
         data_container: &DataContainer,
     ) -> DataSetResult<AssetId> {
         Ok(data_container
-            .resolve_property(self.0.path())
-            .ok_or(DataSetError::PathParentIsNull)?
+            .resolve_property(self.0.path())?
             .as_asset_ref()
             .unwrap())
     }
@@ -447,7 +424,7 @@ impl AssetRefField {
         &self,
         data_container: &mut DataContainerMut,
         value: AssetId,
-    ) -> DataSetResult<()> {
-        data_container.set_property_override(self.0.path(), Value::AssetRef(value))
+    ) -> DataSetResult<Option<Value>> {
+        data_container.set_property_override(self.0.path(), Some(Value::AssetRef(value)))
     }
 }

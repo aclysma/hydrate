@@ -210,6 +210,7 @@ impl JobProcessor for MeshAdvMeshPreprocessJobProcessor {
         for entry in x
             .material_slots()
             .resolve_entries(&data_container)
+            .unwrap()
             .into_iter()
         {
             let entry = x
@@ -235,7 +236,7 @@ impl JobProcessor for MeshAdvMeshPreprocessJobProcessor {
         let mut all_indices = PushBuffer::new(16384);
 
         let mut mesh_part_data = Vec::default();
-        for entry in x.mesh_parts().resolve_entries(&data_container).into_iter() {
+        for entry in x.mesh_parts().resolve_entries(&data_container).unwrap().into_iter() {
             let entry = x.mesh_parts().entry(*entry);
 
             //
@@ -340,6 +341,7 @@ impl JobProcessor for MeshAdvMeshPreprocessJobProcessor {
             for (entry, part_data) in x
                 .mesh_parts()
                 .resolve_entries(&data_container)
+                .unwrap()
                 .into_iter()
                 .zip(mesh_part_data)
             {

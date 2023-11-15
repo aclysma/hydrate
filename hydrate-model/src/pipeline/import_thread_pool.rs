@@ -5,11 +5,10 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::thread::JoinHandle;
 use crossbeam_channel::{Receiver, Sender};
-use hydrate_base::AssetId;
-use hydrate_base::hashing::{HashMap, HashSet};
+use hydrate_base::hashing::HashMap;
 use hydrate_base::uuid_path::uuid_to_path;
-use hydrate_data::{ImporterId, SchemaSet, SingleObject};
-use crate::{ImportableAsset, ImportedImportable, ImporterRegistry, SingleObjectJson};
+use hydrate_data::{SchemaSet, SingleObject};
+use crate::{ImportableAsset, ImporterRegistry, SingleObjectJson};
 use crate::pipeline::import_jobs::ImportOp;
 
 // Ask the thread to gather import data from the asset

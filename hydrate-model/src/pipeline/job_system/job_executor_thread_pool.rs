@@ -4,8 +4,8 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::thread::JoinHandle;
 use crossbeam_channel::{Receiver, Sender};
 use hydrate_base::hashing::HashMap;
-use hydrate_data::{DataSet, SchemaSet, SingleObject};
-use crate::{ImportDataProvider, JobApi, JobApiImpl, JobEnumeratedDependencies, JobExecutor, JobId, JobProcessorRegistry, JobTypeId};
+use hydrate_data::{DataSet, SchemaSet};
+use crate::{JobApi, JobApiImpl, JobEnumeratedDependencies, JobId, JobProcessorRegistry, JobTypeId};
 
 // Ask the thread to gather build data from the asset
 pub struct JobExecutorThreadPoolRequestRunJob {

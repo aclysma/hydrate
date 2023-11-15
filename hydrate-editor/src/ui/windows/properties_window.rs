@@ -18,7 +18,7 @@ pub fn draw_properties_window_single_select(
 
     ui.text(im_str!(
         "Name: {}",
-        name.as_string().cloned().unwrap_or_default()
+        name.unwrap().as_string().cloned().unwrap_or_default()
     ));
     let import_info = edit_context.import_info(asset_id);
     if let Some(import_info) = import_info {
@@ -26,10 +26,10 @@ pub fn draw_properties_window_single_select(
             "Imported From: {}",
             import_info.source_file_path().to_string_lossy()
         ));
-        if !import_info.importable_name().is_empty() {
+        if let Some(importable_name) = import_info.importable_name() {
             ui.text(im_str!(
                 "Importable Name: {}",
-                import_info.importable_name()
+                importable_name
             ));
         }
     }

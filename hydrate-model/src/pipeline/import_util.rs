@@ -7,6 +7,7 @@ use crate::{
 use hydrate_base::hashing::HashSet;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
+use hydrate_data::ImportableName;
 
 #[derive(Debug)]
 pub struct ImportToQueue {
@@ -32,7 +33,7 @@ pub fn create_import_info(
     ImportInfo::new(
         importer.importer_id(),
         source_file_path.to_path_buf(),
-        scanned_importable.name.clone().unwrap_or_default(),
+        ImportableName::new_optional(scanned_importable.name.clone()),
         file_references,
     )
 }
@@ -119,9 +120,9 @@ pub fn recursively_gather_import_operations_and_create_assets(
 
             // Does it already exist?
             let mut found = None;
-            for asset_id in editor_context.all_assets() {
+            for (asset_id, _) in editor_context.assets() {
                 if let Some(import_info) = editor_context.import_info(*asset_id) {
-                    if import_info.importable_name().is_empty()
+                    if import_info.importable_name().is_none()
                         && import_info.source_file_path() == referenced_file_absolute_path
                     {
                         found = Some(*asset_id);

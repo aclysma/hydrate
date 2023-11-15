@@ -10,7 +10,6 @@ use hydrate_data::{AssetLocation, AssetName};
 use hydrate_schema::SchemaFingerprint;
 use slotmap::DenseSlotMap;
 use std::path::PathBuf;
-use std::sync::Arc;
 slotmap::new_key_type! { pub struct EditContextKey; }
 
 pub struct EditorModel {
@@ -156,7 +155,7 @@ impl EditorModel {
             .cloned()
             .unwrap_or_else(AssetPath::root);
 
-        let name = root_data_set.asset_name(asset_id);
+        let name = root_data_set.asset_name(asset_id).unwrap();
         if let Some(name) = name.as_string() {
             path.join(name).as_str().to_string()
         } else {

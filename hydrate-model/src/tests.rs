@@ -271,7 +271,7 @@ fn property_in_nullable() {
 
     let obj = db.new_asset(asset_location(), &outer_struct_type);
 
-    assert_eq!(db.resolve_is_null(obj, "nullable").unwrap(), true);
+    assert_eq!(db.resolve_null_override(obj, "nullable").unwrap(), true);
     assert_eq!(
         db.resolve_property(obj, "nullable.value.x")
             .map(|x| x.as_f32().unwrap()),
@@ -279,15 +279,15 @@ fn property_in_nullable() {
     );
     // This should fail because we are trying to set a null value
     assert!(!db.set_property_override(obj, "nullable.value.x", Value::F32(10.0)));
-    assert_eq!(db.resolve_is_null(obj, "nullable").unwrap(), true);
+    assert_eq!(db.resolve_null_override(obj, "nullable").unwrap(), true);
     assert_eq!(
         db.resolve_property(obj, "nullable.value.x")
             .map(|x| x.as_f32().unwrap()),
         None
     );
     db.set_null_override(obj, "nullable", NullOverride::SetNonNull);
-    assert_eq!(db.resolve_is_null(obj, "nullable").unwrap(), false);
-    assert_eq!(db.resolve_is_null(obj, "nullable"), Some(false));
+    assert_eq!(db.resolve_null_override(obj, "nullable").unwrap(), false);
+    assert_eq!(db.resolve_null_override(obj, "nullable"), Some(false));
     // This is still set to 0 because the above set should have failed
     assert_eq!(
         db.resolve_property(obj, "nullable.value.x")
@@ -345,9 +345,9 @@ fn nullable_property_in_nullable() {
 
     let obj = db.new_asset(asset_location(), &outer_struct_type);
 
-    assert_eq!(db.resolve_is_null(obj, "nullable").unwrap(), true);
+    assert_eq!(db.resolve_null_override(obj, "nullable").unwrap(), true);
     // This returns none because parent property is null, so this property should act like it doesn't exist
-    assert_eq!(db.resolve_is_null(obj, "nullable.value"), None);
+    assert_eq!(db.resolve_null_override(obj, "nullable.value"), None);
     assert_eq!(
         db.resolve_property(obj, "nullable.value.value.x")
             .map(|x| x.as_f32().unwrap()),
@@ -355,24 +355,24 @@ fn nullable_property_in_nullable() {
     );
     // This attempt to set should fail because an ancestor path is null
     assert!(!db.set_property_override(obj, "nullable.value.value.x", Value::F32(10.0)));
-    assert_eq!(db.resolve_is_null(obj, "nullable").unwrap(), true);
-    assert_eq!(db.resolve_is_null(obj, "nullable.value"), None);
+    assert_eq!(db.resolve_null_override(obj, "nullable").unwrap(), true);
+    assert_eq!(db.resolve_null_override(obj, "nullable.value"), None);
     assert_eq!(
         db.resolve_property(obj, "nullable.value.value.x")
             .map(|x| x.as_f32().unwrap()),
         None
     );
     db.set_null_override(obj, "nullable", NullOverride::SetNonNull);
-    assert_eq!(db.resolve_is_null(obj, "nullable").unwrap(), false);
-    assert_eq!(db.resolve_is_null(obj, "nullable.value").unwrap(), true);
+    assert_eq!(db.resolve_null_override(obj, "nullable").unwrap(), false);
+    assert_eq!(db.resolve_null_override(obj, "nullable.value").unwrap(), true);
     assert_eq!(
         db.resolve_property(obj, "nullable.value.value.x")
             .map(|x| x.as_f32().unwrap()),
         None
     );
     db.set_null_override(obj, "nullable.value", NullOverride::SetNonNull);
-    assert_eq!(db.resolve_is_null(obj, "nullable").unwrap(), false);
-    assert_eq!(db.resolve_is_null(obj, "nullable.value").unwrap(), false);
+    assert_eq!(db.resolve_null_override(obj, "nullable").unwrap(), false);
+    assert_eq!(db.resolve_null_override(obj, "nullable.value").unwrap(), false);
     // This is default value because the attempt to set it to 10 above should have failed
     assert_eq!(
         db.resolve_property(obj, "nullable.value.value.x")

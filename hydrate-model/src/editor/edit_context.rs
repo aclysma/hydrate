@@ -1,12 +1,11 @@
 use hydrate_data::{OrderedSet, SingleObject};
 use std::path::PathBuf;
-use std::sync::Arc;
 use uuid::Uuid;
 
 use crate::editor::undo::{UndoContext, UndoStack};
 use crate::{
-    BuildInfo, DataAssetInfo, DataSet, DataSetDiff, DataSetResult, EditContextKey,
-    EndContextBehavior, HashMap, HashMapKeys, HashSet, ImportInfo, NullOverride,
+    BuildInfo, DataSetAssetInfo, DataSet, DataSetDiff, DataSetResult, EditContextKey,
+    EndContextBehavior, HashMap, HashSet, ImportInfo, NullOverride,
     AssetId, AssetLocation, AssetName, OverrideBehavior, SchemaFingerprint, SchemaNamedType,
     SchemaRecord, SchemaSet, Value,
 };
@@ -291,11 +290,8 @@ impl EditContext {
     //     })
     // }
     //
-    pub fn all_assets<'a>(&'a self) -> HashMapKeys<'a, AssetId, DataAssetInfo> {
-        self.data_set.all_assets()
-    }
 
-    pub fn assets(&self) -> &HashMap<AssetId, DataAssetInfo> {
+    pub fn assets(&self) -> &HashMap<AssetId, DataSetAssetInfo> {
         self.data_set.assets()
     }
 
@@ -350,14 +346,14 @@ impl EditContext {
         asset_name: &AssetName,
         asset_location: &AssetLocation,
         prototype: AssetId,
-    ) -> AssetId {
+    ) -> DataSetResult<AssetId> {
         let asset_id = self.data_set.new_asset_from_prototype(
             asset_name.clone(),
             asset_location.clone(),
             prototype,
-        );
+        )?;
         self.track_new_asset(asset_id, &asset_location);
-        asset_id
+        Ok(asset_id)
     }
 
     pub fn init_from_single_object(
@@ -452,7 +448,7 @@ impl EditContext {
     pub fn asset_name(
         &self,
         asset_id: AssetId,
-    ) -> &AssetName {
+    ) -> Option<&AssetName> {
         self.data_set.asset_name(asset_id)
     }
 
@@ -475,7 +471,7 @@ impl EditContext {
     pub fn asset_location_chain(
         &self,
         asset_id: AssetId,
-    ) -> Vec<AssetLocation> {
+    ) -> DataSetResult<Vec<AssetLocation>> {
         self.data_set.asset_location_chain(asset_id)
     }
 
@@ -489,7 +485,7 @@ impl EditContext {
     pub fn resolve_all_file_references(
         &self,
         asset_id: AssetId,
-    ) -> Option<HashMap<PathBuf, AssetId>> {
+    ) -> DataSetResult<HashMap<PathBuf, AssetId>> {
         self.data_set.resolve_all_file_references(asset_id)
     }
 
@@ -529,7 +525,7 @@ impl EditContext {
         &self,
         asset_id: AssetId,
         path: impl AsRef<str>,
-    ) -> Option<NullOverride> {
+    ) -> DataSetResult<NullOverride> {
         self.data_set
             .get_null_override(&self.schema_set, asset_id, path)
     }
@@ -539,36 +535,26 @@ impl EditContext {
         asset_id: AssetId,
         path: impl AsRef<str>,
         null_override: NullOverride,
-    ) {
+    ) -> DataSetResult<()> {
         self.track_existing_asset(asset_id);
         self.data_set
             .set_null_override(&self.schema_set, asset_id, path, null_override)
     }
 
-    pub fn remove_null_override(
-        &mut self,
-        asset_id: AssetId,
-        path: impl AsRef<str>,
-    ) {
-        self.track_existing_asset(asset_id);
-        self.data_set
-            .remove_null_override(&self.schema_set, asset_id, path)
-    }
-
-    pub fn resolve_is_null(
+    pub fn resolve_null_override(
         &self,
         asset_id: AssetId,
         path: impl AsRef<str>,
-    ) -> Option<bool> {
+    ) -> DataSetResult<NullOverride> {
         self.data_set
-            .resolve_is_null(&self.schema_set, asset_id, path)
+            .resolve_null_override(&self.schema_set, asset_id, path)
     }
 
     pub fn has_property_override(
         &self,
         asset_id: AssetId,
         path: impl AsRef<str>,
-    ) -> bool {
+    ) -> DataSetResult<bool> {
         self.data_set.has_property_override(asset_id, path)
     }
 
@@ -578,7 +564,7 @@ impl EditContext {
         &self,
         asset_id: AssetId,
         path: impl AsRef<str>,
-    ) -> Option<&Value> {
+    ) -> DataSetResult<Option<&Value>> {
         self.data_set.get_property_override(asset_id, path)
     }
 
@@ -587,20 +573,11 @@ impl EditContext {
         &mut self,
         asset_id: AssetId,
         path: impl AsRef<str>,
-        value: Value,
-    ) -> DataSetResult<()> {
+        value: Option<Value>,
+    ) -> DataSetResult<Option<Value>> {
         self.track_existing_asset(asset_id);
         self.data_set
             .set_property_override(&self.schema_set, asset_id, path, value)
-    }
-
-    pub fn remove_property_override(
-        &mut self,
-        asset_id: AssetId,
-        path: impl AsRef<str>,
-    ) -> Option<Value> {
-        self.track_existing_asset(asset_id);
-        self.data_set.remove_property_override(asset_id, path)
     }
 
     pub fn apply_property_override_to_prototype(
@@ -621,7 +598,7 @@ impl EditContext {
         &self,
         asset_id: AssetId,
         path: impl AsRef<str>,
-    ) -> Option<&Value> {
+    ) -> DataSetResult<&Value> {
         self.data_set
             .resolve_property(&self.schema_set, asset_id, path)
     }
@@ -630,7 +607,7 @@ impl EditContext {
         &self,
         asset_id: AssetId,
         path: impl AsRef<str>,
-    ) -> Option<std::slice::Iter<Uuid>> {
+    ) -> DataSetResult<std::slice::Iter<Uuid>> {
         self.data_set
             .get_dynamic_array_overrides(&self.schema_set, asset_id, path)
     }
@@ -639,7 +616,7 @@ impl EditContext {
         &mut self,
         asset_id: AssetId,
         path: impl AsRef<str>,
-    ) -> Uuid {
+    ) -> DataSetResult<Uuid> {
         self.track_existing_asset(asset_id);
         self.data_set
             .add_dynamic_array_override(&self.schema_set, asset_id, path)
@@ -650,7 +627,7 @@ impl EditContext {
         asset_id: AssetId,
         path: impl AsRef<str>,
         element_id: Uuid,
-    ) {
+    ) -> DataSetResult<bool> {
         self.track_existing_asset(asset_id);
         self.data_set
             .remove_dynamic_array_override(&self.schema_set, asset_id, path, element_id)
@@ -660,7 +637,7 @@ impl EditContext {
         &self,
         asset_id: AssetId,
         path: impl AsRef<str>,
-    ) -> Box<[Uuid]> {
+    ) -> DataSetResult<Box<[Uuid]>> {
         self.data_set
             .resolve_dynamic_array(&self.schema_set, asset_id, path)
     }
@@ -669,7 +646,7 @@ impl EditContext {
         &self,
         asset_id: AssetId,
         path: impl AsRef<str>,
-    ) -> OverrideBehavior {
+    ) -> DataSetResult<OverrideBehavior> {
         self.data_set
             .get_override_behavior(&self.schema_set, asset_id, path)
     }
@@ -679,7 +656,7 @@ impl EditContext {
         asset_id: AssetId,
         path: impl AsRef<str>,
         behavior: OverrideBehavior,
-    ) {
+    ) -> DataSetResult<()> {
         self.track_existing_asset(asset_id);
         self.data_set
             .set_override_behavior(&self.schema_set, asset_id, path, behavior)

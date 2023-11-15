@@ -107,20 +107,23 @@ impl SingleObject {
         &self.dynamic_array_entries
     }
 
+    /// Gets if the property has a null override associated with it An error will be returned if
+    /// the schema doesn't exist or if this field is not nullable
     pub fn get_null_override(
         &self,
         schema_set: &SchemaSet,
         path: impl AsRef<str>,
-    ) -> Option<NullOverride> {
+    ) -> DataSetResult<NullOverride> {
         let property_schema = self
             .schema
             .find_property_schema(&path, schema_set.schemas())
-            .unwrap();
+            .ok_or(DataSetError::SchemaNotFound)?;
 
         if property_schema.is_nullable() {
-            self.property_null_overrides.get(path.as_ref()).copied()
+            // Not existing in the map implies that it is unset
+            Ok(self.property_null_overrides.get(path.as_ref()).copied().unwrap_or(NullOverride::Unset))
         } else {
-            None
+            Err(DataSetError::InvalidSchema)
         }
     }
 
@@ -129,40 +132,32 @@ impl SingleObject {
         schema_set: &SchemaSet,
         path: impl AsRef<str>,
         null_override: NullOverride,
-    ) {
+    ) -> DataSetResult<()> {
         let property_schema = self
             .schema
             .find_property_schema(&path, schema_set.schemas())
-            .unwrap();
+            .ok_or(DataSetError::SchemaNotFound)?;
 
         if property_schema.is_nullable() {
-            self.property_null_overrides
-                .insert(path.as_ref().to_string(), null_override);
-        }
-    }
-
-    pub fn remove_null_override(
-        &mut self,
-        schema_set: &SchemaSet,
-        path: impl AsRef<str>,
-    ) {
-        let property_schema = self
-            .schema
-            .find_property_schema(&path, schema_set.schemas())
-            .unwrap();
-
-        if property_schema.is_nullable() {
-            self.property_null_overrides.remove(path.as_ref());
+            if null_override != NullOverride::Unset {
+                self.property_null_overrides
+                    .insert(path.as_ref().to_string(), null_override);
+            } else {
+                self.property_null_overrides.remove(path.as_ref());
+            }
+            Ok(())
+        } else {
+            Err(DataSetError::InvalidSchema)
         }
     }
 
     // None return means the property can't be resolved, maybe because something higher in
     // property hierarchy is null or non-existing
-    pub fn resolve_is_null(
+    pub fn resolve_null_override(
         &self,
         schema_set: &SchemaSet,
         path: impl AsRef<str>,
-    ) -> Option<bool> {
+    ) -> DataSetResult<NullOverride> {
         // Contains the path segments that we need to check for being null
         let mut nullable_ancestors = vec![];
         // Contains the path segments that we need to check for being in append mode
@@ -182,33 +177,30 @@ impl SingleObject {
             &mut dynamic_array_ancestors,
             &mut map_ancestors,
             &mut accessed_dynamic_array_keys,
-        )
-        .unwrap();
+        )?;
 
+        // This field is not nullable, return an error
         if !property_schema.is_nullable() {
-            return None;
+            return Err(DataSetError::InvalidSchema);
         }
 
+        // See if this field was contained in any nullables. If any of those were null, return None.
         for checked_property in &nullable_ancestors {
-            if self.resolve_is_null(schema_set, checked_property) != Some(false) {
-                return None;
+            if self.resolve_null_override(schema_set, checked_property)? != NullOverride::SetNonNull {
+                return Err(DataSetError::PathParentIsNull);
             }
         }
 
+        // See if this field was contained in a container. If any of those containers didn't contain
+        // this property path, return None
         for (path, key) in &accessed_dynamic_array_keys {
-            let dynamic_array_entries = self.resolve_dynamic_array(schema_set, path);
-            if !dynamic_array_entries.contains(&Uuid::from_str(key).unwrap()) {
-                return None;
+            let dynamic_array_entries = self.resolve_dynamic_array(schema_set, path)?;
+            if !dynamic_array_entries.contains(&Uuid::from_str(key).map_err(|_| DataSetError::UuidParseError)?) {
+                return Err(DataSetError::PathDynamicArrayEntryDoesNotExist);
             }
         }
 
-        // Recursively look for a null override
-        if let Some(value) = self.property_null_overrides.get(path.as_ref()) {
-            return Some(*value == NullOverride::SetNull);
-        }
-
-        //TODO: Return schema default value
-        Some(true)
+        Ok(self.property_null_overrides.get(path.as_ref()).copied().unwrap_or(NullOverride::Unset))
     }
 
     pub fn has_property_override(
@@ -232,22 +224,22 @@ impl SingleObject {
         &mut self,
         schema_set: &SchemaSet,
         path: impl AsRef<str>,
-        value: Value,
-    ) -> DataSetResult<()> {
+        value: Option<Value>,
+    ) -> DataSetResult<Option<Value>> {
         let property_schema = self
             .schema
             .find_property_schema(&path, schema_set.schemas())
-            .unwrap();
+            .ok_or(DataSetError::SchemaNotFound)?;
 
-        //TODO: Should we check for null in path ancestors?
-        //TODO: Only allow setting on values that exist, in particular, dynamic array overrides
-        if !value.matches_schema(&property_schema, schema_set.schemas()) {
-            log::debug!(
-                "Value {:?} doesn't match schema {:?}",
-                value,
-                property_schema
-            );
-            return Err(DataSetError::ValueDoesNotMatchSchema);
+        if let Some(value) = &value {
+            if !value.matches_schema(&property_schema, schema_set.schemas()) {
+                log::debug!(
+                    "Value {:?} doesn't match schema {:?}",
+                    value,
+                    property_schema
+                );
+                return Err(DataSetError::ValueDoesNotMatchSchema);
+            }
         }
 
         // Contains the path segments that we need to check for being null
@@ -267,38 +259,34 @@ impl SingleObject {
             &mut dynamic_array_ancestors,
             &mut map_ancestors,
             &mut accessed_dynamic_array_keys,
-        )
-        .unwrap();
+        )?;
 
         for checked_property in &nullable_ancestors {
-            if self.resolve_is_null(schema_set, checked_property) != Some(false) {
+            if self.resolve_null_override(schema_set, checked_property)? != NullOverride::SetNonNull {
                 return Err(DataSetError::PathParentIsNull);
             }
         }
 
         for (path, key) in &accessed_dynamic_array_keys {
-            let dynamic_array_entries = self.resolve_dynamic_array(schema_set, path);
-            if !dynamic_array_entries.contains(&Uuid::from_str(key).unwrap()) {
+            let dynamic_array_entries = self.resolve_dynamic_array(schema_set, path)?;
+            if !dynamic_array_entries.contains(&Uuid::from_str(key).map_err(|_| DataSetError::UuidParseError)?) {
                 return Err(DataSetError::PathDynamicArrayEntryDoesNotExist);
             }
         }
 
-        self.properties.insert(path.as_ref().to_string(), value);
-        Ok(())
-    }
-
-    pub fn remove_property_override(
-        &mut self,
-        path: impl AsRef<str>,
-    ) -> Option<Value> {
-        self.properties.remove(path.as_ref())
+        let old_value = if let Some(value) = value {
+            self.properties.insert(path.as_ref().to_string(), value)
+        } else {
+            self.properties.remove(path.as_ref())
+        };
+        Ok(old_value)
     }
 
     pub fn resolve_property<'a>(
         &'a self,
         schema_set: &'a SchemaSet,
         path: impl AsRef<str>,
-    ) -> Option<&'a Value> {
+    ) -> DataSetResult<&'a Value> {
         // Contains the path segments that we need to check for being null
         let mut nullable_ancestors = vec![];
         // Contains the path segments that we need to check for being in append mode
@@ -308,8 +296,6 @@ impl SingleObject {
         // Contains the dynamic arrays we access and what keys are used to access them
         let mut accessed_dynamic_array_keys = vec![];
 
-        //TODO: Only allow getting values that exist, in particular, dynamic array overrides
-
         let property_schema = super::property_schema_and_path_ancestors_to_check(
             &self.schema,
             &path,
@@ -318,48 +304,46 @@ impl SingleObject {
             &mut dynamic_array_ancestors,
             &mut map_ancestors,
             &mut accessed_dynamic_array_keys,
-        )
-        .unwrap();
+        )?;
 
         for checked_property in &nullable_ancestors {
-            if self.resolve_is_null(schema_set, checked_property) != Some(false) {
-                return None;
+            if self.resolve_null_override(schema_set, checked_property)? != NullOverride::SetNonNull {
+                return Err(DataSetError::PathParentIsNull);
             }
         }
 
         for (path, key) in &accessed_dynamic_array_keys {
-            let dynamic_array_entries = self.resolve_dynamic_array(schema_set, path);
-            if !dynamic_array_entries.contains(&Uuid::from_str(key).unwrap()) {
-                return None;
+            let dynamic_array_entries = self.resolve_dynamic_array(schema_set, path)?;
+            if !dynamic_array_entries.contains(&Uuid::from_str(key).map_err(|_| DataSetError::UuidParseError)?) {
+                return Err(DataSetError::PathDynamicArrayEntryDoesNotExist);
             }
         }
 
         if let Some(value) = self.properties.get(path.as_ref()) {
-            return Some(value);
+            return Ok(value);
         }
 
-        //TODO: Return schema default value
-        Some(Value::default_for_schema(&property_schema, schema_set))
+        Ok(Value::default_for_schema(&property_schema, schema_set))
     }
 
     pub fn get_dynamic_array_overrides(
         &self,
         schema_set: &SchemaSet,
         path: impl AsRef<str>,
-    ) -> Option<std::slice::Iter<Uuid>> {
+    ) -> DataSetResult<std::slice::Iter<Uuid>> {
         let property_schema = self
             .schema
             .find_property_schema(&path, schema_set.schemas())
-            .unwrap();
+            .ok_or(DataSetError::SchemaNotFound)?;
 
         if !property_schema.is_dynamic_array() {
-            panic!("get_dynamic_array_overrides only allowed on dynamic arrays");
+            return Err(DataSetError::InvalidSchema);
         }
 
         if let Some(overrides) = self.dynamic_array_entries.get(path.as_ref()) {
-            Some(overrides.iter())
+            Ok(overrides.iter())
         } else {
-            None
+            Ok(std::slice::Iter::default())
         }
     }
 
@@ -367,14 +351,14 @@ impl SingleObject {
         &mut self,
         schema_set: &SchemaSet,
         path: impl AsRef<str>,
-    ) -> Uuid {
+    ) -> DataSetResult<Uuid> {
         let property_schema = self
             .schema
             .find_property_schema(&path, schema_set.schemas())
-            .unwrap();
+            .ok_or(DataSetError::SchemaNotFound)?;
 
         if !property_schema.is_dynamic_array() {
-            panic!("add_dynamic_array_override only allowed on dynamic arrays");
+            return Err(DataSetError::InvalidSchema);
         }
 
         let entry = self
@@ -384,9 +368,9 @@ impl SingleObject {
         let new_uuid = Uuid::new_v4();
         let newly_inserted = entry.try_insert_at_end(new_uuid);
         if !newly_inserted {
-            panic!("Already existed")
+            panic!("Created a new random UUID but it matched an existing UUID");
         }
-        new_uuid
+        Ok(new_uuid)
     }
 
     pub fn remove_dynamic_array_override(
@@ -394,20 +378,23 @@ impl SingleObject {
         schema_set: &SchemaSet,
         path: impl AsRef<str>,
         element_id: Uuid,
-    ) {
+    ) -> DataSetResult<bool> {
         let property_schema = self
             .schema
             .find_property_schema(&path, schema_set.schemas())
-            .unwrap();
+            .ok_or(DataSetError::SchemaNotFound)?;
 
         if !property_schema.is_dynamic_array() {
-            panic!("remove_dynamic_array_override only allowed on dynamic arrays");
+            return Err(DataSetError::InvalidSchema);
         }
 
         if let Some(override_list) = self.dynamic_array_entries.get_mut(path.as_ref()) {
-            if !override_list.remove(&element_id) {
-                panic!("Could not find override")
-            }
+            // Return if the override existed or not
+            let was_removed = override_list.remove(&element_id);
+            Ok(was_removed)
+        } else {
+            // The override didn't exist
+            Ok(false)
         }
     }
 
@@ -427,7 +414,7 @@ impl SingleObject {
         &self,
         schema_set: &SchemaSet,
         path: impl AsRef<str>,
-    ) -> Box<[Uuid]> {
+    ) -> DataSetResult<Box<[Uuid]>> {
         // Contains the path segments that we need to check for being null
         let mut nullable_ancestors = vec![];
         // Contains the path segments that we need to check for being in append mode
@@ -437,7 +424,7 @@ impl SingleObject {
         // Contains the dynamic arrays we access and what keys are used to access them
         let mut accessed_dynamic_array_keys = vec![];
 
-        let property_schema = super::property_schema_and_path_ancestors_to_check(
+        let _property_schema = super::property_schema_and_path_ancestors_to_check(
             &self.schema,
             &path,
             schema_set.schemas(),
@@ -445,26 +432,23 @@ impl SingleObject {
             &mut dynamic_array_ancestors,
             &mut map_ancestors,
             &mut accessed_dynamic_array_keys,
-        );
-        if property_schema.is_none() {
-            panic!("dynamic array not found");
-        }
+        )?;
 
         for checked_property in &nullable_ancestors {
-            if self.resolve_is_null(schema_set, checked_property) != Some(false) {
-                return vec![].into_boxed_slice();
+            if self.resolve_null_override(schema_set, checked_property)? != NullOverride::SetNonNull {
+                return Err(DataSetError::PathParentIsNull);
             }
         }
 
         for (path, key) in &accessed_dynamic_array_keys {
-            let dynamic_array_entries = self.resolve_dynamic_array(schema_set, path);
-            if !dynamic_array_entries.contains(&Uuid::from_str(key).unwrap()) {
-                return vec![].into_boxed_slice();
+            let dynamic_array_entries = self.resolve_dynamic_array(schema_set, path)?;
+            if !dynamic_array_entries.contains(&Uuid::from_str(key).map_err(|_| DataSetError::UuidParseError)?) {
+                return Err(DataSetError::PathDynamicArrayEntryDoesNotExist);
             }
         }
 
         let mut resolved_entries = vec![];
         self.do_resolve_dynamic_array(path.as_ref(), &mut resolved_entries);
-        resolved_entries.into_boxed_slice()
+        Ok(resolved_entries.into_boxed_slice())
     }
 }

@@ -10,7 +10,7 @@ use std::path::PathBuf;
 use std::str::FromStr;
 use uuid::Uuid;
 use hydrate_base::b3f;
-use hydrate_data::OrderedSet;
+use hydrate_data::{ImportableName, OrderedSet};
 
 fn property_value_to_json(value: &Value, buffers: &mut Option<Vec<Vec<u8>>>) -> serde_json::Value {
     match value {
@@ -95,6 +95,7 @@ fn null_override_to_string_value(null_override: NullOverride) -> &'static str {
     match null_override {
         NullOverride::SetNull => "SetNull",
         NullOverride::SetNonNull => "SetNonNull",
+        NullOverride::Unset => unreachable!(), // Should not be in the map
     }
 }
 
@@ -252,7 +253,7 @@ impl EditContextAssetImportInfoJson {
         EditContextAssetImportInfoJson {
             importer_id: import_info.importer_id().0,
             source_file_path,
-            importable_name: import_info.importable_name().to_string(),
+            importable_name: import_info.importable_name().map(|x| x.to_string()).unwrap_or_default(),
             file_references: import_info.file_references().iter().cloned().collect(),
         }
     }
@@ -264,7 +265,7 @@ impl EditContextAssetImportInfoJson {
         ImportInfo::new(
             ImporterId(self.importer_id),
             PathBuf::from_str(&self.source_file_path).unwrap(),
-            self.importable_name.clone(),
+            ImportableName::new(self.importable_name.clone()),
             self.file_references.clone(),
         )
     }

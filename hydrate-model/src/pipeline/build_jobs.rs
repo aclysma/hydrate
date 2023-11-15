@@ -1,13 +1,10 @@
 use crate::{EditorModel, HashMap, AssetId};
 use hydrate_base::{ArtifactId, BuiltArtifactMetadata, DebugArtifactManifestDataJson, DebugManifestFileJson, StringHash};
 use std::collections::VecDeque;
-use std::hash::{Hash, Hasher};
 use std::io::Write;
 use std::path::PathBuf;
 
 use super::ImportJobs;
-
-use hydrate_base::uuid_path::uuid_and_hash_to_path;
 
 use super::*;
 

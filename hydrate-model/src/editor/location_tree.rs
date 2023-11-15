@@ -69,7 +69,7 @@ impl LocationTree {
         tree_node_id: AssetId,
     ) {
         let mut path_asset_stack = vec![AssetLocation::new(tree_node_id)];
-        path_asset_stack.append(&mut data_set.asset_location_chain(tree_node_id));
+        path_asset_stack.append(&mut data_set.asset_location_chain(tree_node_id).unwrap_or_default());
 
         //
         // Get the node key for the first element of the path. It should already exist because we create
@@ -82,6 +82,7 @@ impl LocationTree {
             location: root_location.clone(),
             name: data_set
                 .asset_name(root_location_path_node_id)
+                .unwrap()
                 .as_string()
                 .cloned()
                 .unwrap_or_default(),
@@ -97,6 +98,7 @@ impl LocationTree {
 
                 let node_name = data_set
                     .asset_name(node_object.path_node_id())
+                    .unwrap()
                     .as_string()
                     .cloned()
                     .unwrap(); //.unwrap_or_else(|| node_asset.as_uuid().to_string());
@@ -135,7 +137,7 @@ impl LocationTree {
         let mut root_nodes: BTreeMap<LocationTreeNodeKey, LocationTreeNode> = Default::default();
         for (source_id, _data_source) in data_sources {
             let location = AssetLocation::new(AssetId::from_uuid(*source_id.uuid()));
-            let name = data_set.asset_name(location.path_node_id());
+            let name = data_set.asset_name(location.path_node_id()).unwrap();
             root_nodes.insert(
                 LocationTreeNodeKey {
                     location: location.clone(),

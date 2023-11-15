@@ -1,8 +1,5 @@
 use crate::value::PropertyValue;
-use crate::{
-    DataAssetInfo, DataSet, HashSet, NullOverride, AssetId, AssetLocation, AssetName,
-    SchemaSet,
-};
+use crate::{DataSetAssetInfo, DataSet, HashSet, NullOverride, AssetId, AssetLocation, AssetName, SchemaSet, DataSetResult};
 use std::path::PathBuf;
 use uuid::Uuid;
 
@@ -47,7 +44,7 @@ impl AssetDiff {
 
     pub fn apply(
         &self,
-        asset: &mut DataAssetInfo,
+        asset: &mut DataSetAssetInfo,
     ) {
         if let Some(set_name) = &self.set_name {
             asset.asset_name = set_name.clone();
@@ -430,7 +427,7 @@ impl AssetDiffSet {
 
 #[derive(Default, Debug)]
 pub struct DataSetDiff {
-    creates: Vec<(AssetId, DataAssetInfo)>,
+    creates: Vec<(AssetId, DataSetAssetInfo)>,
     deletes: Vec<AssetId>,
     changes: Vec<(AssetId, AssetDiff)>,
 }
@@ -444,9 +441,9 @@ impl DataSetDiff {
         &self,
         data_set: &mut DataSet,
         schema_set: &SchemaSet,
-    ) {
+    ) -> DataSetResult<()> {
         for delete in &self.deletes {
-            data_set.delete_asset(*delete);
+            data_set.delete_asset(*delete)?;
         }
 
         for (id, create) in &self.creates {
@@ -463,7 +460,7 @@ impl DataSetDiff {
                 create.property_null_overrides.clone(),
                 create.properties_in_replace_mode.clone(),
                 create.dynamic_array_entries.clone(),
-            );
+            )?;
         }
 
         for (asset_id, v) in &self.changes {
@@ -471,6 +468,8 @@ impl DataSetDiff {
                 v.apply(asset);
             }
         }
+
+        Ok(())
     }
 
     pub fn get_modified_assets(

@@ -70,6 +70,7 @@ impl FileSystemIdBasedDataSource {
         //TODO: is_null means we default to using this source
         let root_location = edit_context
             .asset_location_chain(asset_id)
+            .unwrap_or_default()
             .last()
             .cloned()
             .unwrap_or_else(AssetLocation::null);

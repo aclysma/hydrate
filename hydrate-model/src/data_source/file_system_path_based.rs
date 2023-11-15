@@ -1,11 +1,11 @@
 use crate::edit_context::EditContext;
 use crate::import_util::ImportToQueue;
-use crate::DataSource;
+use crate::{AssetSourceId, DataSource};
 use crate::{
     import_util, HashSet, Importer, ImporterRegistry, MetaFile, MetaFileJson, PathNode,
     PathNodeRoot, ScannedImportable,
 };
-use hydrate_data::{ImporterId, AssetId, AssetLocation, AssetName, AssetSourceId};
+use hydrate_data::{ImporterId, AssetId, AssetLocation, AssetName};
 use hydrate_schema::{HashMap, SchemaNamedType};
 use std::ffi::OsStr;
 use std::path::{Path, PathBuf};
@@ -188,6 +188,7 @@ impl FileSystemPathBasedDataSource {
 
         let root_location = edit_context
             .asset_location_chain(asset_id)
+            .unwrap_or_default()
             .last()
             .cloned()
             .unwrap_or_else(AssetLocation::null);
@@ -237,7 +238,7 @@ impl FileSystemPathBasedDataSource {
         edit_context: &EditContext,
         asset_id: AssetId,
     ) -> PathBuf {
-        let mut location_chain = edit_context.asset_location_chain(asset_id);
+        let mut location_chain = edit_context.asset_location_chain(asset_id).unwrap_or_default();
 
         let mut parent_dir = self.file_system_root_path.clone();
 
@@ -255,7 +256,7 @@ impl FileSystemPathBasedDataSource {
         }
 
         for location in location_chain.iter().rev() {
-            let name = edit_context.asset_name(location.path_node_id());
+            let name = edit_context.asset_name(location.path_node_id()).unwrap();
             parent_dir.push(name.as_string().unwrap());
         }
 
@@ -310,7 +311,7 @@ impl FileSystemPathBasedDataSource {
         // - Cyclical references: delete the path nodes and place all assets contained in them at the root
         // - Empty names: use the asset ID
         for (k, v) in edit_context.assets() {
-            let mut location_chain = edit_context.asset_location_chain(*k);
+            let mut location_chain = edit_context.asset_location_chain(*k).unwrap_or_default();
             let root_location = location_chain
                 .last()
                 .cloned()
@@ -331,7 +332,7 @@ impl FileSystemPathBasedDataSource {
 
             let mut root_dir = self.file_system_root_path.clone();
             for element in location_chain {
-                let node_name = edit_context.asset_name(element.path_node_id());
+                let node_name = edit_context.asset_name(element.path_node_id()).unwrap();
                 let sanitized_name = Self::sanitize_asset_name(element.path_node_id(), node_name);
                 root_dir.push(sanitized_name);
 
@@ -443,7 +444,7 @@ impl DataSource for FileSystemPathBasedDataSource {
         let containing_file_path = self.containing_file_path_for_asset(edit_context, asset_id);
         let is_directory = false;
         let asset_name =
-            Self::sanitize_asset_name(asset_id, edit_context.asset_name(asset_id));
+            Self::sanitize_asset_name(asset_id, edit_context.asset_name(asset_id).unwrap());
         let file_name = Self::file_name_for_asset(&asset_name, is_directory);
         let asset_file_path = containing_file_path.join(file_name);
         // It's a asset, create an asset file

@@ -17,5 +17,8 @@ pub use data_source::*;
 pub mod pipeline;
 pub use pipeline::*;
 
+mod asset_source_id;
+pub use asset_source_id::AssetSourceId;
+
 #[cfg(test)]
 mod tests;

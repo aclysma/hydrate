@@ -1,7 +1,6 @@
 use hydrate_model::import_util::ImportToQueue;
 use hydrate_model::{DataSet, EditorModel, ImporterRegistry, AssetId, AssetLocation, AssetName, PathNode, PathNodeRoot, SchemaCacheSingleFile, SchemaLinker, SchemaSet, SchemaSetBuilder};
 use std::path::{Path, PathBuf};
-use std::sync::Arc;
 
 pub struct DbState {
     //pub db: hydrate_model::Database,
@@ -124,20 +123,20 @@ impl DbState {
             AssetName::new("asset_b"),
             asset_location,
             prototype_obj,
-        );
+        ).unwrap();
 
         db.set_property_override(
             &schema_set,
             prototype_obj,
             "position.x",
-            hydrate_model::Value::F64(10.0),
+            Some(hydrate_model::Value::F64(10.0)),
         )
         .unwrap();
         db.set_property_override(
             &schema_set,
             instance_obj,
             "position.x",
-            hydrate_model::Value::F64(20.0),
+            Some(hydrate_model::Value::F64(20.0)),
         )
         .unwrap();
 
@@ -216,7 +215,7 @@ impl DbState {
             importer_registry,
             imports_to_queue,
         );
-        if editor_model.root_edit_context().all_assets().len() == 0 {
+        if editor_model.root_edit_context().assets().len() == 0 {
             None
         } else {
             Some(editor_model)

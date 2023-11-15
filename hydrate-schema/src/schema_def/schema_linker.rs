@@ -1,3 +1,5 @@
+use std::error::Error;
+use std::fmt::{Display, Formatter};
 use super::enum_type_builder::*;
 use super::fixed_type_builder::*;
 use super::record_type_builder::*;
@@ -12,6 +14,16 @@ pub enum SchemaLinkerError {
     Str(&'static str),
     String(String),
     ValidationError(SchemaDefValidationError),
+}
+
+impl Display for SchemaLinkerError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Error linking schema: {:?}", self)
+    }
+}
+
+impl Error for SchemaLinkerError {
+
 }
 
 impl From<SchemaDefParserError> for SchemaLinkerError {

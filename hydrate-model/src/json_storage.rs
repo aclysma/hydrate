@@ -10,7 +10,7 @@ use std::path::PathBuf;
 use std::str::FromStr;
 use uuid::Uuid;
 use hydrate_base::b3f;
-use hydrate_data::{ImportableName, OrderedSet};
+use hydrate_data::{DataSetResult, ImportableName, OrderedSet};
 
 fn property_value_to_json(value: &Value, buffers: &mut Option<Vec<Vec<u8>>>) -> serde_json::Value {
     match value {
@@ -329,7 +329,7 @@ impl EditContextAssetJson {
         // If set, we use this instead of what the file says to use
         override_asset_location: Option<AssetLocation>,
         json: &str,
-    ) -> AssetId {
+    ) -> DataSetResult<AssetId> {
         let stored_asset: EditContextAssetJson = {
             profiling::scope!("serde_json::from_str");
             serde_json::from_str(json).unwrap()
@@ -410,9 +410,9 @@ impl EditContextAssetJson {
             property_null_overrides,
             properties_in_replace_mode,
             dynamic_array_entries,
-        );
+        )?;
 
-        asset_id
+        Ok(asset_id)
     }
 
     #[profiling::function]

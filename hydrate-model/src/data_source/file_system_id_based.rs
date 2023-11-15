@@ -29,7 +29,7 @@ fn load_asset_files(
                 asset_source_id,
                 None,
                 &contents,
-            );
+            ).unwrap();
             let asset_id = AssetId::from_uuid(file_uuid);
             let asset_location = edit_context
                 .assets()
@@ -166,7 +166,7 @@ impl DataSource for FileSystemIdBasedDataSource {
         }
 
         for asset_to_delete in assets_to_delete {
-            edit_context.delete_asset(asset_to_delete);
+            edit_context.delete_asset(asset_to_delete).unwrap();
         }
 
         //

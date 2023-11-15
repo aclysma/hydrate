@@ -504,7 +504,7 @@ impl DataSource for FileSystemPathBasedDataSource {
         }
 
         for asset_to_delete in assets_to_delete {
-            edit_context.delete_asset(asset_to_delete);
+            edit_context.delete_asset(asset_to_delete).unwrap();
         }
 
         // for (asset_id, asset_disk_state) in &self.assets_disk_state {
@@ -610,7 +610,7 @@ impl DataSource for FileSystemPathBasedDataSource {
                         self.asset_source_id,
                         Some(asset_location.clone()),
                         &contents,
-                    );
+                    ).unwrap();
 
                 //TODO: Track some revision number instead of modified flags?
                 edit_context.clear_asset_modified_flag(asset_id);
@@ -798,7 +798,7 @@ impl DataSource for FileSystemPathBasedDataSource {
                             scanned_source_file.importer,
                             scanned_importable,
                         );
-                        edit_context.set_import_info(importable_asset_id, import_info);
+                        edit_context.set_import_info(importable_asset_id, import_info).unwrap();
 
                         assets_disk_state.insert(
                             importable_asset_id,
@@ -874,7 +874,7 @@ impl DataSource for FileSystemPathBasedDataSource {
                                 importable_asset_id,
                                 k.path.clone(),
                                 *v,
-                            );
+                            ).unwrap();
                         }
                     }
 

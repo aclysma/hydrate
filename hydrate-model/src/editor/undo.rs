@@ -1,6 +1,7 @@
 use slotmap::DenseSlotMap;
 use std::sync::mpsc;
 use std::sync::mpsc::{Receiver, Sender};
+use hydrate_data::DataSetResult;
 
 use crate::edit_context::EditContext;
 use crate::{DataSet, DataSetDiffSet, EditContextKey, HashSet, AssetId, AssetLocation};
@@ -65,33 +66,36 @@ impl UndoStack {
     pub fn undo(
         &mut self,
         edit_contexts: &mut DenseSlotMap<EditContextKey, EditContext>,
-    ) {
+    ) -> DataSetResult<()> {
         // If we have any incoming steps, consume them now
         self.drain_rx();
 
         // if we undo the first step in the chain (i.e. our undo index is currently 1), we want to
         // use the revert diff in the 0th index of the chain
         if self.current_undo_index > 0 {
-            if let Some(current_step) = self.undo_chain.get(self.current_undo_index - 1) {
+            if let Some(current_step) = self.undo_chain.get(self.current_undo_index) {
                 let edit_context = edit_contexts
                     .get_mut(current_step.edit_context_key)
                     .unwrap();
                 // We don't want anything being written to the undo context at this point, since we're using it
-                edit_context.cancel_pending_undo_context();
-                edit_context.apply_diff(
+                edit_context.cancel_pending_undo_context()?;
+                let result = edit_context.apply_diff(
                     &current_step.diff_set.revert_diff,
                     &current_step.diff_set.modified_assets,
                     &current_step.diff_set.modified_locations,
                 );
                 self.current_undo_index -= 1;
+                return result;
             }
         }
+
+        Ok(())
     }
 
     pub fn redo(
         &mut self,
         edit_contexts: &mut DenseSlotMap<EditContextKey, EditContext>,
-    ) {
+    ) -> DataSetResult<()> {
         // If we have any incoming steps, consume them now
         self.drain_rx();
 
@@ -103,14 +107,17 @@ impl UndoStack {
                 .get_mut(current_step.edit_context_key)
                 .unwrap();
             // We don't want anything being written to the undo context at this point, since we're using it
-            edit_context.cancel_pending_undo_context();
-            edit_context.apply_diff(
+            edit_context.cancel_pending_undo_context()?;
+            let result = edit_context.apply_diff(
                 &current_step.diff_set.apply_diff,
                 &current_step.diff_set.modified_assets,
                 &current_step.diff_set.modified_locations,
             );
             self.current_undo_index += 1;
+            return result;
         }
+
+        Ok(())
     }
 }
 
@@ -153,14 +160,16 @@ impl UndoContext {
         &mut self,
         after_state: &DataSet,
         asset_id: AssetId,
-    ) {
+    ) -> DataSetResult<()> {
         if self.context_name.is_some() {
             //TODO: Preserve sub-assets?
             if !self.tracked_assets.contains(&asset_id) {
                 self.tracked_assets.insert(asset_id);
-                self.before_state.copy_from(&after_state, asset_id);
+                self.before_state.copy_from(&after_state, asset_id)?;
             }
         }
+
+        Ok(())
     }
 
     pub(crate) fn has_open_context(&self) -> bool {
@@ -203,7 +212,9 @@ impl UndoContext {
     pub(crate) fn cancel_context(
         &mut self,
         after_state: &mut DataSet,
-    ) {
+    ) -> DataSetResult<()> {
+        let mut first_error = None;
+
         if !self.tracked_assets.is_empty() {
             // Delete newly created assets
             let keys_to_delete: Vec<_> = after_state
@@ -216,13 +227,21 @@ impl UndoContext {
                 .collect();
 
             for key_to_delete in keys_to_delete {
-                after_state.delete_asset(key_to_delete);
+                if let Err(e) = after_state.delete_asset(key_to_delete) {
+                    if first_error.is_none() {
+                        first_error = Some(Err(e));
+                    }
+                }
             }
 
             // Overwrite pre-existing assets back to the previous state (before_state only contains
             // assets that were tracked and were pre-existing)
             for (asset_id, _asset) in self.before_state.assets() {
-                after_state.copy_from(&self.before_state, *asset_id);
+                if let Err(e) = after_state.copy_from(&self.before_state, *asset_id) {
+                    if first_error.is_none() {
+                        first_error = Some(Err(e));
+                    }
+                }
             }
 
             // before state will be cleared
@@ -231,6 +250,8 @@ impl UndoContext {
 
         self.before_state = Default::default();
         self.context_name = None;
+
+        first_error.unwrap_or(Ok(()))
     }
 
     pub(crate) fn commit_context(

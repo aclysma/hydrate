@@ -71,11 +71,11 @@ impl EditContext {
     fn track_existing_asset(
         &mut self,
         asset_id: AssetId,
-    ) {
+    ) -> DataSetResult<()> {
         if self.undo_context.has_open_context() {
             // If an undo is open, we use the diff for change tracking
             self.undo_context
-                .track_existing_asset(&mut self.data_set, asset_id);
+                .track_existing_asset(&mut self.data_set, asset_id)?;
         } else {
             // If we don't have an undo context open, fast path to do change tracking ourselves
             self.modified_assets.insert(asset_id);
@@ -89,6 +89,8 @@ impl EditContext {
                 }
             }
         }
+
+        Ok(())
     }
 
     pub fn clear_change_tracking(&mut self) {
@@ -146,8 +148,8 @@ impl EditContext {
         diff: &DataSetDiff,
         modified_assets: &HashSet<AssetId>,
         modified_locations: &HashSet<AssetLocation>,
-    ) {
-        diff.apply(&mut self.data_set, &self.schema_set);
+    ) -> DataSetResult<()> {
+        diff.apply(&mut self.data_set, &self.schema_set)?;
 
         // Marks the assets as changed
         self.modified_assets.extend(modified_assets);
@@ -156,6 +158,8 @@ impl EditContext {
                 self.modified_locations.insert(modified_location.clone());
             }
         }
+
+        Ok(())
     }
 
     pub fn new(
@@ -214,8 +218,8 @@ impl EditContext {
         );
     }
 
-    pub fn cancel_pending_undo_context(&mut self) {
-        self.undo_context.cancel_context(&mut self.data_set);
+    pub fn cancel_pending_undo_context(&mut self) -> DataSetResult<()> {
+        self.undo_context.cancel_context(&mut self.data_set)
     }
 
     // pub fn apply_diff(&mut self, diff: &DataSetDiff) {
@@ -361,7 +365,7 @@ impl EditContext {
         asset_id: AssetId,
         single_object: &SingleObject,
     ) -> DataSetResult<()> {
-        self.track_existing_asset(asset_id);
+        self.track_existing_asset(asset_id)?;
         self.data_set
             .copy_from_single_object(asset_id, single_object)
     }
@@ -369,7 +373,7 @@ impl EditContext {
     pub fn restore_assets_from(
         &mut self,
         data_set: DataSet,
-    ) {
+    ) -> DataSetResult<()> {
         for (k, v) in data_set.take_assets() {
             self.restore_asset(
                 k,
@@ -383,8 +387,10 @@ impl EditContext {
                 v.property_null_overrides().clone(),
                 v.properties_in_replace_mode().clone(),
                 v.dynamic_array_entries().clone(),
-            );
+            )?;
         }
+
+        Ok(())
     }
 
     pub(crate) fn restore_asset(
@@ -400,7 +406,7 @@ impl EditContext {
         property_null_overrides: HashMap<String, NullOverride>,
         properties_in_replace_mode: HashSet<String>,
         dynamic_array_entries: HashMap<String, OrderedSet<Uuid>>,
-    ) {
+    ) -> DataSetResult<()> {
         self.track_new_asset(asset_id, &asset_location);
         self.data_set.restore_asset(
             asset_id,
@@ -415,34 +421,35 @@ impl EditContext {
             property_null_overrides,
             properties_in_replace_mode,
             dynamic_array_entries,
-        );
+        )
     }
 
     pub fn delete_asset(
         &mut self,
         asset_id: AssetId,
-    ) {
-        self.track_existing_asset(asset_id);
-        self.data_set.delete_asset(asset_id);
+    ) -> DataSetResult<()> {
+        self.track_existing_asset(asset_id)?;
+        self.data_set.delete_asset(asset_id)
     }
 
     pub fn set_asset_location(
         &mut self,
         asset_id: AssetId,
         new_location: AssetLocation,
-    ) {
-        self.track_existing_asset(asset_id);
-        self.data_set.set_asset_location(asset_id, new_location);
+    ) -> DataSetResult<()> {
+        self.track_existing_asset(asset_id)?;
+        self.data_set.set_asset_location(asset_id, new_location)?;
         // Again so that we track the new location too
-        self.track_existing_asset(asset_id);
+        self.track_existing_asset(asset_id)?;
+        Ok(())
     }
 
     pub fn set_import_info(
         &mut self,
         asset_id: AssetId,
         import_info: ImportInfo,
-    ) {
-        self.data_set.set_import_info(asset_id, import_info);
+    ) -> DataSetResult<()> {
+        self.data_set.set_import_info(asset_id, import_info)
     }
 
     pub fn asset_name(
@@ -456,9 +463,9 @@ impl EditContext {
         &mut self,
         asset_id: AssetId,
         asset_name: AssetName,
-    ) {
-        self.track_existing_asset(asset_id);
-        self.data_set.set_asset_name(asset_id, asset_name);
+    ) -> DataSetResult<()> {
+        self.track_existing_asset(asset_id)?;
+        self.data_set.set_asset_name(asset_id, asset_name)
     }
 
     pub fn asset_location(
@@ -501,10 +508,10 @@ impl EditContext {
         asset_id: AssetId,
         path: PathBuf,
         referenced_asset_id: AssetId,
-    ) {
-        self.track_existing_asset(asset_id);
+    ) -> DataSetResult<()> {
+        self.track_existing_asset(asset_id)?;
         self.data_set
-            .set_file_reference_override(asset_id, path, referenced_asset_id);
+            .set_file_reference_override(asset_id, path, referenced_asset_id)
     }
 
     pub fn asset_prototype(
@@ -536,7 +543,7 @@ impl EditContext {
         path: impl AsRef<str>,
         null_override: NullOverride,
     ) -> DataSetResult<()> {
-        self.track_existing_asset(asset_id);
+        self.track_existing_asset(asset_id)?;
         self.data_set
             .set_null_override(&self.schema_set, asset_id, path, null_override)
     }
@@ -575,7 +582,7 @@ impl EditContext {
         path: impl AsRef<str>,
         value: Option<Value>,
     ) -> DataSetResult<Option<Value>> {
-        self.track_existing_asset(asset_id);
+        self.track_existing_asset(asset_id)?;
         self.data_set
             .set_property_override(&self.schema_set, asset_id, path, value)
     }
@@ -585,9 +592,9 @@ impl EditContext {
         asset_id: AssetId,
         path: impl AsRef<str>,
     ) -> DataSetResult<()> {
-        self.track_existing_asset(asset_id);
+        self.track_existing_asset(asset_id)?;
         if let Some(prototype) = self.asset_prototype(asset_id) {
-            self.track_existing_asset(prototype);
+            self.track_existing_asset(prototype)?;
         }
 
         self.data_set
@@ -617,7 +624,7 @@ impl EditContext {
         asset_id: AssetId,
         path: impl AsRef<str>,
     ) -> DataSetResult<Uuid> {
-        self.track_existing_asset(asset_id);
+        self.track_existing_asset(asset_id)?;
         self.data_set
             .add_dynamic_array_override(&self.schema_set, asset_id, path)
     }
@@ -628,7 +635,7 @@ impl EditContext {
         path: impl AsRef<str>,
         element_id: Uuid,
     ) -> DataSetResult<bool> {
-        self.track_existing_asset(asset_id);
+        self.track_existing_asset(asset_id)?;
         self.data_set
             .remove_dynamic_array_override(&self.schema_set, asset_id, path, element_id)
     }
@@ -657,7 +664,7 @@ impl EditContext {
         path: impl AsRef<str>,
         behavior: OverrideBehavior,
     ) -> DataSetResult<()> {
-        self.track_existing_asset(asset_id);
+        self.track_existing_asset(asset_id)?;
         self.data_set
             .set_override_behavior(&self.schema_set, asset_id, path, behavior)
     }

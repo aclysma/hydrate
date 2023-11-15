@@ -174,8 +174,8 @@ impl AppState {
                     .db_state
                     .editor_model
                     .revert_root_edit_context(&mut imports_to_queue),
-                QueuedActions::Undo => self.db_state.editor_model.undo(),
-                QueuedActions::Redo => self.db_state.editor_model.redo(),
+                QueuedActions::Undo => self.db_state.editor_model.undo().unwrap(),
+                QueuedActions::Redo => self.db_state.editor_model.redo().unwrap(),
                 QueuedActions::Quit => {
                     self.db_state
                         .editor_model

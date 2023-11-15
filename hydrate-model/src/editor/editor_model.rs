@@ -6,7 +6,7 @@ use crate::{
     HashSet, ImporterRegistry, LocationTree, AssetId, AssetPath, AssetSourceId, PathNode,
     PathNodeRoot, SchemaNamedType, SchemaSet,
 };
-use hydrate_data::{AssetLocation, AssetName};
+use hydrate_data::{AssetLocation, AssetName, DataSetError, DataSetResult};
 use hydrate_schema::SchemaFingerprint;
 use slotmap::DenseSlotMap;
 use std::path::PathBuf;
@@ -310,7 +310,7 @@ impl EditorModel {
             .edit_contexts
             .get_mut(self.root_edit_context_key)
             .unwrap();
-        root_edit_context.cancel_pending_undo_context();
+        root_edit_context.cancel_pending_undo_context().unwrap();
 
         //
         // Take the contents of the modified asset list, leaving the edit context with a cleared list
@@ -358,7 +358,7 @@ impl EditorModel {
     pub fn open_edit_context(
         &mut self,
         assets: &[AssetId],
-    ) -> EditContextKey {
+    ) -> DataSetResult<EditContextKey> {
         let new_edit_context_key = self.edit_contexts.insert_with_key(|key| {
             EditContext::new_with_data(key, self.schema_set.clone(), &self.undo_stack)
         });
@@ -368,32 +368,47 @@ impl EditorModel {
             .get_disjoint_mut([self.root_edit_context_key, new_edit_context_key])
             .unwrap();
 
+        for asset in assets {
+            if !root_edit_context.assets().contains_key(asset) {
+                return Err(DataSetError::AssetNotFound);
+            }
+        }
+
         for &asset_id in assets {
             new_edit_context
                 .data_set
-                .copy_from(root_edit_context.data_set(), asset_id);
+                .copy_from(root_edit_context.data_set(), asset_id).expect("Could not copy asset to newly created edit context");
         }
 
-        new_edit_context_key
+        Ok(new_edit_context_key)
     }
 
     pub fn flush_edit_context_to_root(
         &mut self,
         edit_context: EditContextKey,
-    ) {
+    ) -> DataSetResult<()> {
         assert_ne!(edit_context, self.root_edit_context_key);
         let [root_context, context_to_flush] = self
             .edit_contexts
             .get_disjoint_mut([self.root_edit_context_key, edit_context])
             .unwrap();
 
+        // In the case of failure we want to flush as much as we can, so keep the error around and
+        // return it after trying to flush all the assetsa
+        let mut first_error = None;
         for &asset_id in context_to_flush.modified_assets() {
-            root_context
+            if let Err(e) = root_context
                 .data_set
-                .copy_from(&context_to_flush.data_set, asset_id);
+                .copy_from(&context_to_flush.data_set, asset_id) {
+                if first_error.is_none() {
+                    first_error = Some(Err(e));
+                }
+            }
         }
 
         context_to_flush.clear_change_tracking();
+
+        first_error.unwrap_or(Ok(()))
     }
 
     pub fn close_edit_context(
@@ -404,11 +419,11 @@ impl EditorModel {
         self.edit_contexts.remove(edit_context);
     }
 
-    pub fn undo(&mut self) {
+    pub fn undo(&mut self) -> DataSetResult<()> {
         self.undo_stack.undo(&mut self.edit_contexts)
     }
 
-    pub fn redo(&mut self) {
+    pub fn redo(&mut self) -> DataSetResult<()> {
         self.undo_stack.redo(&mut self.edit_contexts)
     }
 

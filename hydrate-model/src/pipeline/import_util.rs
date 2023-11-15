@@ -160,7 +160,7 @@ pub fn recursively_gather_import_operations_and_create_assets(
             &scanned_importable.asset_type,
         );
         //TODO: Do this when we actually import to avoid potential race conditions
-        editor_context.set_import_info(asset_id, import_info.clone());
+        editor_context.set_import_info(asset_id, import_info.clone()).unwrap();
 
         for (k, v) in scanned_importable
             .file_references
@@ -168,7 +168,7 @@ pub fn recursively_gather_import_operations_and_create_assets(
             .zip(referenced_source_file_asset_ids)
         {
             if let Some(v) = v {
-                editor_context.set_file_reference_override(asset_id, k.path.clone(), v);
+                editor_context.set_file_reference_override(asset_id, k.path.clone(), v).unwrap();
             }
         }
 

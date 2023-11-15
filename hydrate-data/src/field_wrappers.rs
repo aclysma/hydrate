@@ -143,8 +143,13 @@ impl<T: Field> NullableField<T> {
         &self,
         data_container: &mut DataContainerMut,
         null_override: NullOverride,
-    ) -> DataSetResult<()> {
-        data_container.set_null_override(self.0.path(), null_override)
+    ) -> DataSetResult<Option<T>> {
+        data_container.set_null_override(self.0.path(), null_override)?;
+        if data_container.resolve_null_override(self.0.path())? == NullOverride::SetNonNull {
+            Ok(Some(T::new(self.0.push("value"))))
+        } else {
+            Ok(None)
+        }
     }
 }
 

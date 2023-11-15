@@ -17,7 +17,6 @@ pub enum HandleOp {
 /// Type that allows the downstream asset storage implementation to signal that an asset update
 /// operation has completed. See [`AssetStorage::update_asset`].
 pub struct AssetLoadOp {
-    //sender: Option<Sender<HandleOp>>,
     sender: Option<Sender<LoaderEvent>>,
     handle: LoadHandle,
     version: u32,
@@ -141,16 +140,10 @@ pub trait AssetStorage {
     );
 }
 
-// LoaderInfoProvider - Moved to hydrate_base
-// HandleAllocator - Removed
-
 /// An indirect identifier that can be resolved to a specific [`AssetId`] by an [`IndirectionResolver`] impl.
 #[derive(Clone, PartialEq, Eq, Debug, Hash)]
 pub enum IndirectIdentifier {
-    //PathWithTagAndType(String, String, AssetTypeId),
-    PathWithType(String, ArtifactTypeId),
     SymbolWithType(StringHash, ArtifactTypeId),
-    //Path(String),
 }
 
 /// Resolves indirect [`LoadHandle`]s. See [`LoadHandle::is_indirect`] for details.

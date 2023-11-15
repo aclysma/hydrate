@@ -18,36 +18,6 @@ pub use artifact_type_id::ArtifactTypeId;
 use crate::storage::IndirectIdentifier;
 pub use hydrate_base::handle::Handle;
 
-// trait AssetStorage {
-//     // prepare asset
-//     // - we get a callback that gives us the data for the asset, we prepare it and notify when it is
-//     //   prepared. It is "uncommitted" at this point - meaning most game logic won't see the the
-//     //   effects of this call yet (just game logic involved in preparing the data)
-//
-//     // commit asset
-//     // - we get a callback that tells us to "activate" the prepared asset, such that future requests
-//     //   for the asset return the most-recently prepared data
-//
-//     // free
-//     // - we can unload the prepared and committed data for this asset
-// }
-
-// struct IOCommandUpdateAsset {
-//     asset_id: AssetId,
-//     version: u64,
-//     data: Vec<u8>,
-// }
-//
-// struct IOCommandCommitAsset {
-//     asset_id: AssetId,
-//     version: u64,
-// }
-//
-// enum IOCommand {
-//     Update(IOCommandUpdateAsset),
-//     Commit(IOCommandCommitAsset),
-// }
-
 // Asset states can be:
 // Unloaded, not subscribed
 // Unloaded, subscribed, not requested yet
@@ -94,7 +64,6 @@ pub use hydrate_base::handle::Handle;
 // - list of thigns that are loaded, with score of value in having loaded
 // - by default, load requests are mandatory (max score?)
 // - requests can be both assets and asset sub-resources
-// -
 //
 // how to handle updates
 // - we have some code that works ignoring the updates
@@ -141,31 +110,14 @@ pub struct AssetManager {
 
 impl AssetManager {
     pub fn new(build_data_root_path: PathBuf) -> Result<Self, String> {
-        //let asset_io = DiskAssetIO::new(build_data_root_path.clone());
-
         let (ref_op_tx, ref_op_rx) = crossbeam_channel::unbounded();
         let (loader_events_tx, loader_events_rx) = crossbeam_channel::unbounded();
 
         let asset_io = DiskAssetIO::new(build_data_root_path, loader_events_tx.clone())?;
         let loader = Loader::new(Box::new(asset_io), loader_events_tx, loader_events_rx);
-        //let asset_storage = DummyAssetStorage::default();
         let asset_storage = AssetStorageSet::new(ref_op_tx.clone(), loader.indirection_table());
 
-        // let t0 = std::time::Instant::now();
-        // for (k, v) in &asset_io.manifest().asset_build_hashes {
-        //     asset_io.request_data(LoadHandle(0), *k, None, hash);
-        // }
-        //
-        // while asset_io.active_request_count() > 0 {
-        //     //std::thread::sleep(std::time::Duration::from_millis(10));
-        // }
-        //
-        // let t1 = std::time::Instant::now();
-        // log::info!("Loaded everything in {}ms", (t1 - t0).as_secs_f32() * 1000.0);
-
         let mut loader = AssetManager {
-            //build_root_path,
-            //asset_io,
             asset_storage,
             loader,
             ref_op_tx,
@@ -208,15 +160,8 @@ impl AssetManager {
         &self,
         artifact_id: ArtifactId,
     ) -> Handle<T> {
-        //self.asset_io.request_data(LoadHandle(0), artifact_id, None);
         let load_handle = self.loader.add_engine_ref(artifact_id);
-
         Handle::new(self.ref_op_tx.clone(), load_handle)
-
-        // Figure out what assets need to be loaded (i.e. dependerncies)
-        // Issue disk IO requests
-        // Wait until they are completed
-        // Possibly some extra on-load-complete stuff
     }
 
     pub fn load_asset_symbol_name<T: TypeUuid + 'static + Send>(
@@ -244,37 +189,8 @@ impl AssetManager {
         Handle::<T>::new(self.ref_op_tx.clone(), load_handle)
     }
 
-    pub fn load_asset_path<T: TypeUuid + 'static + Send, U: Into<String>>(
-        &self,
-        path: U,
-    ) -> Handle<T> {
-        let data_type_uuid = self
-            .storage()
-            .asset_to_data_type_uuid::<T>()
-            .expect("Called load_asset_path with unregistered asset type");
-
-        let load_handle = self
-            .loader
-            .add_engine_ref_indirect(IndirectIdentifier::PathWithType(
-                path.into(),
-                data_type_uuid,
-            ));
-        Handle::<T>::new(self.ref_op_tx.clone(), load_handle)
-    }
-
     pub fn update(&mut self) {
         process_ref_ops(&self.loader, &self.ref_op_rx);
         self.loader.update(&mut self.asset_storage);
-        // while let Ok(result) = self.asset_io.results().try_recv() {
-        //     match result.result {
-        //         Ok(data) => {
-        //             println!("Load asset {:?} {:?} bytes", result.artifact_id, data.len());
-        //             self.asset_storage.prepare(result.artifact_id, data);
-        //         }
-        //         Err(e) => {
-        //             println!("there was an error {:?}", e);
-        //         }
-        //     }
-        // }
     }
 }

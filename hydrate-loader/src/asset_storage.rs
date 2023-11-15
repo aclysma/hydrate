@@ -440,11 +440,12 @@ impl<AssetT: TypeUuid + 'static + Send> DynAssetStorage for Storage<AssetT> {
         load_op: AssetLoadOp,
         version: u32,
     ) -> Result<(), Box<dyn Error + Send + 'static>> {
+        let artifact_id = loader_info.artifact_id(load_handle).unwrap();
         log::debug!(
             "update_asset {} {:?} {:?} {}",
             core::any::type_name::<AssetT>(),
             load_handle,
-            loader_info.artifact_id(load_handle).unwrap(),
+            artifact_id,
             version
         );
 
@@ -456,13 +457,12 @@ impl<AssetT: TypeUuid + 'static + Send> DynAssetStorage for Storage<AssetT> {
             load_op,
             version,
         )?;
-        let asset_uuid = loader_info.artifact_id(load_handle).unwrap();
 
         // Add to list of uncommitted assets
         self.uncommitted.insert(
             load_handle,
             UncommittedArtifactState {
-                artifact_id: asset_uuid,
+                artifact_id,
                 result,
                 version,
             },
@@ -490,7 +490,7 @@ impl<AssetT: TypeUuid + 'static + Send> DynAssetStorage for Storage<AssetT> {
             version
         );
 
-        let asset_uuid = uncommitted_asset_state.artifact_id;
+        let artifact_id = uncommitted_asset_state.artifact_id;
         let version = uncommitted_asset_state.version;
         let asset = match uncommitted_asset_state.result {
             UpdateAssetResult::Result(asset) => asset,
@@ -504,7 +504,7 @@ impl<AssetT: TypeUuid + 'static + Send> DynAssetStorage for Storage<AssetT> {
 
         let asset_state = ArtifactState {
             asset,
-            artifact_id: asset_uuid,
+            artifact_id,
             version,
         };
 

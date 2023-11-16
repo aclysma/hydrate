@@ -2,9 +2,6 @@ pub use hydrate_schema::*;
 
 pub use hydrate_data::*;
 
-mod json_storage;
-pub use json_storage::*;
-
 mod editor;
 pub use editor::*;
 
@@ -14,11 +11,10 @@ pub use asset_path::*;
 mod data_source;
 pub use data_source::*;
 
-pub mod pipeline;
-pub use pipeline::*;
-
 mod asset_source_id;
 pub use asset_source_id::AssetSourceId;
+
+pub use hydrate_pipeline as pipeline;
 
 #[cfg(test)]
 mod tests;

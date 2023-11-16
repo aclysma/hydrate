@@ -8,8 +8,9 @@ use crossbeam_channel::{Receiver, Sender};
 use hydrate_base::hashing::HashMap;
 use hydrate_base::uuid_path::uuid_to_path;
 use hydrate_data::{SchemaSet, SingleObject};
-use crate::{ImportableAsset, ImporterRegistry, SingleObjectJson};
-use crate::pipeline::import_jobs::ImportOp;
+use hydrate_data::json_storage::SingleObjectJson;
+use crate::{ImportableAsset, ImporterRegistry};
+use crate::import_jobs::ImportOp;
 
 // Ask the thread to gather import data from the asset
 pub struct ImportThreadRequestImport {

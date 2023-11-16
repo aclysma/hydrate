@@ -6,7 +6,7 @@ use crate::edit_context::EditContext;
 use crate::AssetId;
 
 mod file_system_path_based;
-use crate::import_util::ImportToQueue;
+use hydrate_pipeline::import_util::ImportToQueue;
 pub use file_system_path_based::*;
 
 trait SourceFileHandler {

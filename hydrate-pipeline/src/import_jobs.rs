@@ -1,11 +1,13 @@
-use crate::{EditorModel, HashMap, ImporterId, AssetId, SchemaSet, SingleObject};
-use hydrate_base::hashing::HashSet;
+use hydrate_base::hashing::{HashMap, HashSet};
 use std::hash::{Hash, Hasher};
 use std::path::{Path, PathBuf};
+use hydrate_base::AssetId;
 
-use crate::SingleObjectJson;
+use hydrate_data::json_storage::SingleObjectJson;
 use hydrate_base::uuid_path::{path_to_uuid, uuid_to_path};
-use crate::pipeline::import_thread_pool::{ImportThreadOutcome, ImportThreadRequest, ImportThreadRequestImport, ImportWorkerThreadPool};
+use hydrate_data::{ImporterId, SchemaSet, SingleObject};
+use crate::DynEditorModel;
+use crate::import_thread_pool::{ImportThreadOutcome, ImportThreadRequest, ImportThreadRequestImport, ImportWorkerThreadPool};
 
 use super::import_types::*;
 use super::importer_registry::*;
@@ -103,7 +105,7 @@ impl ImportJobs {
 
     pub fn new(
         importer_registry: &ImporterRegistry,
-        editor_model: &EditorModel,
+        editor_model: &dyn DynEditorModel,
         import_data_root_path: &Path,
     ) -> Self {
         let import_jobs = ImportJobs::find_all_jobs(importer_registry, editor_model, import_data_root_path);
@@ -170,7 +172,7 @@ impl ImportJobs {
     pub fn update(
         &mut self,
         importer_registry: &ImporterRegistry,
-        editor_model: &mut EditorModel,
+        editor_model: &mut dyn DynEditorModel,
     ) {
         profiling::scope!("Process Import Operations");
         if self.import_operations.is_empty() {
@@ -202,7 +204,7 @@ impl ImportJobs {
             let mut importable_assets = HashMap::<Option<String>, ImportableAsset>::default();
             for (name, asset_id) in &import_op.asset_ids {
                 let referenced_paths = editor_model
-                    .root_edit_context()
+                    .data_set()
                     .resolve_all_file_references(*asset_id)
                     .unwrap_or_default();
                 importable_assets.insert(
@@ -240,7 +242,6 @@ impl ImportJobs {
                             if msg.request.import_op.assets_to_regenerate.contains(asset_id) {
                                 if let Some(default_asset) = &imported_asset.default_asset {
                                     editor_model
-                                        .root_edit_context_mut()
                                         .init_from_single_object(*asset_id, default_asset)
                                         .unwrap();
                                 }
@@ -367,7 +368,7 @@ impl ImportJobs {
 
     fn find_all_jobs(
         importer_registry: &ImporterRegistry,
-        editor_model: &EditorModel,
+        editor_model: &dyn DynEditorModel,
         import_data_root_path: &Path,
     ) -> HashMap<AssetId, ImportJob> {
         let mut import_jobs = HashMap::<AssetId, ImportJob>::default();
@@ -401,9 +402,8 @@ impl ImportJobs {
         //
         // Scan assets to find any asset that has an associated importer
         //
-        let data_set = editor_model.root_edit_context().data_set();
-        for (asset_id, _) in data_set.assets() {
-            if let Some(import_info) = data_set.import_info(*asset_id) {
+        for (asset_id, _) in editor_model.data_set().assets() {
+            if let Some(import_info) = editor_model.data_set().import_info(*asset_id) {
                 let importer_id = import_info.importer_id();
                 let importer = importer_registry.importer(importer_id);
                 if importer.is_some() {

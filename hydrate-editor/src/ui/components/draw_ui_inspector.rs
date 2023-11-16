@@ -924,6 +924,7 @@ fn draw_inspector_nexdb_property(
         }
         Schema::NamedType(named_type_fingerprint) => {
             let named_type = edit_context
+                .schema_set()
                 .find_named_type_by_fingerprint(*named_type_fingerprint)
                 .unwrap()
                 .clone();

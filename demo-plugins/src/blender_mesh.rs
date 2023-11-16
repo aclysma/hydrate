@@ -9,7 +9,7 @@ use crate::generated::{
 use crate::push_buffer::PushBuffer;
 use hydrate_model::pipeline::AssetPlugin;
 use hydrate_model::pipeline::{ImportedImportable, Importer, ScannedImportable};
-use hydrate_model::{
+use hydrate_pipeline::{
     BuilderRegistryBuilder, DataContainerMut, HashMap,
     ImportableAsset, ImporterId, ImporterRegistry, ImporterRegistryBuilder,
     JobProcessorRegistryBuilder, Record, ReferencedSourceFile,

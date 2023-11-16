@@ -1,7 +1,7 @@
 use super::generated::{AllFieldsRecord, TransformRecord, TransformRefRecord};
 use demo_types::simple_data::*;
 use hydrate_model::pipeline::AssetPlugin;
-use hydrate_model::{
+use hydrate_pipeline::{
     job_system, BuilderRegistryBuilder, DataContainer, ImporterRegistryBuilder, JobApi,
     JobProcessorRegistryBuilder, SchemaLinker,
 };

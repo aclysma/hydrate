@@ -1,9 +1,10 @@
-use crate::{
-    HashMap, ImporterId, ImporterRegistry, AssetId, SchemaRecord, SchemaSet, SingleObject,
+use hydrate_data::{
+    HashMap, ImporterId, AssetId, SchemaRecord, SchemaSet, SingleObject,
 };
 use std::path::{Path, PathBuf};
 use type_uuid::{TypeUuid, TypeUuidDynamic};
 use uuid::Uuid;
+use crate::ImporterRegistry;
 
 // Represents a path to another file encountered in a file that will need to be resolved to an asset
 // at build time

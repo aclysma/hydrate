@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 use siphasher::sip128::Hasher128;
 use std::hash::Hash;
 use type_uuid::{TypeUuid, TypeUuidDynamic};
-use crate::pipeline::import_jobs;
+use crate::import_jobs;
 
 pub trait ImportDataProvider {
     fn clone_import_data_metadata_hashes(&self) -> HashMap<AssetId, u64>;

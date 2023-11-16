@@ -1,7 +1,7 @@
 use crate::app_state::{ActionQueueSender, ModalAction, ModalActionControlFlow};
 use crate::db_state::DbState;
 use crate::ui_state::UiState;
-use hydrate_model::import_util::ImportToQueue;
+use hydrate_model::pipeline::import_util::ImportToQueue;
 use hydrate_model::pipeline::Importer;
 use hydrate_model::pipeline::{AssetEngine, ImporterRegistry};
 use hydrate_model::{HashSet, LocationTreeNode, AssetId, AssetLocation};

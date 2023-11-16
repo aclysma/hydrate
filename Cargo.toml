@@ -7,6 +7,7 @@ members = [
     "hydrate-schema",
     "hydrate-data",
     "hydrate-base",
+    "hydrate-pipeline",
     "hydrate-model",
     "hydrate-editor",
     "hydrate-loader",

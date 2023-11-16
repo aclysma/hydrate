@@ -1,4 +1,4 @@
-use crate::{HashMap, ImporterId};
+use hydrate_data::{HashMap, ImporterId};
 use std::sync::Arc;
 use type_uuid::TypeUuid;
 use uuid::Uuid;

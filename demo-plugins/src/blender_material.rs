@@ -3,7 +3,7 @@ use std::path::{Path, PathBuf};
 
 use hydrate_model::pipeline::AssetPlugin;
 use hydrate_model::pipeline::{ImportedImportable, Importer, ScannedImportable};
-use hydrate_model::{
+use hydrate_pipeline::{
     BuilderRegistryBuilder, DataContainerMut, Enum, HashMap,
     ImportableAsset, ImporterId, ImporterRegistry, ImporterRegistryBuilder,
     JobProcessorRegistryBuilder, AssetRefField, Record, ReferencedSourceFile,

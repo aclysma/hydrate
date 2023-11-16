@@ -1,4 +1,4 @@
-use crate::{BuilderId, HashMap, SchemaFingerprint, SchemaSet};
+use hydrate_data::{BuilderId, HashMap, SchemaFingerprint, SchemaSet};
 use std::sync::Arc;
 
 use super::build_types::*;

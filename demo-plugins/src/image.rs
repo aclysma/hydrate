@@ -4,9 +4,9 @@ use std::path::Path;
 
 use super::generated::{GpuImageAssetRecord, GpuImageImportedDataRecord};
 use demo_types::image::*;
-use hydrate_model::pipeline::{AssetPlugin, Builder};
-use hydrate_model::pipeline::{ImportedImportable, Importer, ScannedImportable};
-use hydrate_model::{
+use hydrate_pipeline::{AssetPlugin, Builder};
+use hydrate_pipeline::{ImportedImportable, Importer, ScannedImportable};
+use hydrate_pipeline::{
     job_system, BuilderRegistryBuilder, DataContainer, DataContainerMut,
     DataSet, Field, HashMap, ImportableAsset, ImporterRegistry, ImporterRegistryBuilder, JobApi,
     JobEnumeratedDependencies, JobInput, JobOutput, JobProcessor,

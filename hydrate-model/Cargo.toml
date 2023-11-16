@@ -9,6 +9,7 @@ edition = "2021"
 hydrate-base = { path = "../hydrate-base" }
 hydrate-schema = { path = "../hydrate-schema" }
 hydrate-data = { path = "../hydrate-data" }
+hydrate-pipeline = { path = "../hydrate-pipeline" }
 
 ahash = "0.7.4"
 uuid = { version = "0.8.2", features = ["v4", "serde"] }

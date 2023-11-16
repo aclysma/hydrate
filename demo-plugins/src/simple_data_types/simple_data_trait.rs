@@ -1,4 +1,4 @@
-use hydrate_model::{DataContainer, JobApi};
+use hydrate_pipeline::{DataContainer, JobApi};
 
 /// Data that is generally a simple copy from asset to game type, not accessing other assets and not
 /// accessing import data. Assets must also implement serialize/deserialize

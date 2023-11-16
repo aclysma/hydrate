@@ -9,7 +9,7 @@ use hydrate_model::pipeline::{
     AssetPlugin, ImporterRegistry,
 };
 use hydrate_model::pipeline::{ImportedImportable, Importer, ScannedImportable};
-use hydrate_model::{
+use hydrate_pipeline::{
     BuilderRegistryBuilder, DataContainerMut, HashMap, ImportableAsset,
     ImporterRegistryBuilder, JobProcessorRegistryBuilder,
     Record, SchemaLinker, SchemaSet,

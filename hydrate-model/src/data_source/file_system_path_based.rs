@@ -1,9 +1,11 @@
 use crate::edit_context::EditContext;
-use crate::import_util::ImportToQueue;
+use hydrate_pipeline::import_util::ImportToQueue;
 use crate::{AssetSourceId, DataSource};
-use crate::{
-    import_util, HashSet, Importer, ImporterRegistry, MetaFile, MetaFileJson, PathNode,
-    PathNodeRoot, ScannedImportable,
+use hydrate_data::json_storage::{MetaFile, MetaFileJson};
+use crate::{PathNode, PathNodeRoot};
+use hydrate_base::hashing::HashSet;
+use hydrate_pipeline::{
+    import_util, Importer, ImporterRegistry, ScannedImportable,
 };
 use hydrate_data::{ImporterId, AssetId, AssetLocation, AssetName};
 use hydrate_schema::{HashMap, SchemaNamedType};
@@ -448,8 +450,8 @@ impl DataSource for FileSystemPathBasedDataSource {
         let file_name = Self::file_name_for_asset(&asset_name, is_directory);
         let asset_file_path = containing_file_path.join(file_name);
         // It's a asset, create an asset file
-        let data = crate::json_storage::EditContextAssetJson::save_edit_context_asset_to_string(
-            edit_context,
+        let data = crate::json_storage::AssetJson::save_asset_to_string(
+            edit_context.assets(),
             asset_id,
             true,
             None,
@@ -605,11 +607,14 @@ impl DataSource for FileSystemPathBasedDataSource {
                     &mut path_to_path_node_id,
                     edit_context,
                 );
+                let default_asset_location = AssetLocation::new(AssetId(*self.asset_source_id.uuid()));
+                let schema_set = edit_context.schema_set().clone();
                 let asset_id =
-                    crate::json_storage::EditContextAssetJson::load_edit_context_asset_from_string(
+                    crate::json_storage::AssetJson::load_asset_from_string(
                         edit_context,
+                        &schema_set,
                         None,
-                        self.asset_source_id,
+                        default_asset_location,
                         Some(asset_location.clone()),
                         &contents,
                     ).unwrap();
@@ -971,8 +976,8 @@ impl DataSource for FileSystemPathBasedDataSource {
                         std::fs::create_dir_all(&asset_file_path).unwrap();
                     } else {
                         // It's a asset, create an asset file
-                        let data = crate::json_storage::EditContextAssetJson::save_edit_context_asset_to_string(
-                            edit_context,
+                        let data = crate::json_storage::AssetJson::save_asset_to_string(
+                            edit_context.assets(),
                             *asset_id,
                             true,
                             None

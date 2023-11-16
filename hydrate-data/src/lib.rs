@@ -4,6 +4,8 @@ pub use hydrate_schema::*;
 pub mod value;
 pub use value::Value;
 
+pub mod json_storage;
+
 mod data_set;
 pub use data_set::BuildInfo;
 pub use data_set::BuilderId;

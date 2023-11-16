@@ -7,7 +7,7 @@ use crate::generated_wrapper::MeshAdvMeshImportedDataRecord;
 use crate::push_buffer::PushBuffer;
 use demo_types::mesh_adv::*;
 use hydrate_model::pipeline::{AssetPlugin, Builder};
-use hydrate_model::{
+use hydrate_pipeline::{
     job_system, BuilderRegistryBuilder, DataContainer, DataSet, HashMap,
     ImporterRegistryBuilder, JobApi, JobEnumeratedDependencies, JobInput, JobOutput, JobProcessor,
     JobProcessorRegistryBuilder, AssetId, Record, SchemaLinker, SchemaSet, SingleObject,

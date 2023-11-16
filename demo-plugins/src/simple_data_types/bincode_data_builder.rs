@@ -1,7 +1,7 @@
 use hydrate_model::pipeline::{
     Builder
 };
-use hydrate_model::{
+use hydrate_pipeline::{
     job_system, DataContainer, DataSet, HashMap,
     JobApi, JobEnumeratedDependencies, JobInput, JobOutput, JobProcessor,
     AssetId, SchemaSet, SingleObject,

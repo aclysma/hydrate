@@ -1,13 +1,13 @@
-use crate::edit_context::EditContext;
-use crate::pipeline::Importer;
-use crate::pipeline::ImporterRegistry;
-use crate::{
-    HashMap, ImportInfo, ImporterId, AssetId, AssetLocation, AssetName, ScannedImportable,
+use crate::{Importer, ScannedImportable};
+use crate::ImporterRegistry;
+use hydrate_data::{
+    HashMap, ImportInfo, ImporterId, AssetId, AssetLocation, AssetName,
 };
 use hydrate_base::hashing::HashSet;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use hydrate_data::ImportableName;
+use crate::DynEditContext;
 
 #[derive(Debug)]
 pub struct ImportToQueue {
@@ -57,7 +57,7 @@ pub fn create_asset_name(
 pub fn recursively_gather_import_operations_and_create_assets(
     source_file_path: &Path,
     importer: &Arc<dyn Importer>,
-    editor_context: &mut EditContext,
+    editor_context: &mut dyn DynEditContext,
     importer_registry: &ImporterRegistry,
     //asset_engine: &AssetEngine,
     selected_import_location: &AssetLocation,
@@ -120,8 +120,8 @@ pub fn recursively_gather_import_operations_and_create_assets(
 
             // Does it already exist?
             let mut found = None;
-            for (asset_id, _) in editor_context.assets() {
-                if let Some(import_info) = editor_context.import_info(*asset_id) {
+            for (asset_id, _) in editor_context.data_set().assets() {
+                if let Some(import_info) = editor_context.data_set().import_info(*asset_id) {
                     if import_info.importable_name().is_none()
                         && import_info.source_file_path() == referenced_file_absolute_path
                     {

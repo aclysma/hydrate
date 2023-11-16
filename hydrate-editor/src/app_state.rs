@@ -1,7 +1,7 @@
 use crate::db_state::DbState;
 use crate::ui::modals::{ConfirmQuitWithoutSavingModal, ImportFilesModal};
 use crate::ui_state::UiState;
-use hydrate_model::import_util::ImportToQueue;
+use hydrate_model::pipeline::import_util::ImportToQueue;
 use hydrate_model::pipeline::AssetEngine;
 use hydrate_model::{EndContextBehavior, AssetId, AssetLocation};
 use std::fmt::Formatter;

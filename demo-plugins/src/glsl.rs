@@ -13,7 +13,7 @@ use hydrate_model::pipeline::{
 use hydrate_model::pipeline::{
     ImportedImportable, Importer, ReferencedSourceFile, ScannedImportable,
 };
-use hydrate_model::{
+use hydrate_pipeline::{
     job_system, BuilderRegistryBuilder, DataContainer, DataContainerMut, DataSet,
     HashMap, HashSet, ImportableAsset, ImporterRegistryBuilder, JobApi, JobEnumeratedDependencies,
     JobInput, JobOutput, JobProcessor, JobProcessorRegistryBuilder, AssetId,

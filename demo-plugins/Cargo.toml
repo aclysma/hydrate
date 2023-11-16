@@ -9,6 +9,7 @@ edition = "2021"
 hydrate-base = { path = "../hydrate-base" }
 hydrate-data = { path = "../hydrate-data" }
 hydrate-model = { path = "../hydrate-model" }
+hydrate-pipeline = { path = "../hydrate-pipeline" }
 
 demo-types = { path = "../demo-types", features = ["editor-types"] }
 

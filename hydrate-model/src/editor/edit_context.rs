@@ -1,6 +1,8 @@
 use hydrate_data::{OrderedSet, SingleObject};
 use std::path::PathBuf;
 use uuid::Uuid;
+use hydrate_data::json_storage::RestoreAssetFromStorageImpl;
+use hydrate_pipeline::DynEditContext;
 
 use crate::editor::undo::{UndoContext, UndoStack};
 use crate::{
@@ -46,6 +48,34 @@ pub struct EditContext {
     // was stored at
     modified_assets: HashSet<AssetId>,
     modified_locations: HashSet<AssetLocation>,
+}
+
+impl RestoreAssetFromStorageImpl for EditContext {
+    fn restore_asset(&mut self, asset_id: AssetId, asset_name: AssetName, asset_location: AssetLocation, import_info: Option<ImportInfo>, build_info: BuildInfo, prototype: Option<AssetId>, schema: SchemaFingerprint, properties: HashMap<String, Value>, property_null_overrides: HashMap<String, NullOverride>, properties_in_replace_mode: HashSet<String>, dynamic_array_entries: HashMap<String, OrderedSet<Uuid>>) -> DataSetResult<()> {
+        self.restore_asset(asset_id, asset_name, asset_location, import_info, build_info, prototype, schema, properties, property_null_overrides, properties_in_replace_mode, dynamic_array_entries)
+    }
+}
+
+impl DynEditContext for EditContext {
+    fn data_set(&self) -> &DataSet {
+        &self.data_set
+    }
+
+    fn schema_set(&self) -> &SchemaSet {
+        &self.schema_set
+    }
+
+    fn new_asset(&mut self, asset_name: &AssetName, asset_location: &AssetLocation, schema: &SchemaRecord) -> AssetId {
+        self.new_asset(asset_name, asset_location, schema)
+    }
+
+    fn set_import_info(&mut self, asset_id: AssetId, import_info: ImportInfo) -> DataSetResult<()> {
+        self.set_import_info(asset_id, import_info)
+    }
+
+    fn set_file_reference_override(&mut self, asset_id: AssetId, path: PathBuf, referenced_asset_id: AssetId) -> DataSetResult<()> {
+        self.set_file_reference_override(asset_id, path, referenced_asset_id)
+    }
 }
 
 impl EditContext {
@@ -237,19 +267,6 @@ impl EditContext {
         &self.schema_set.schemas()
     }
 
-    pub fn find_named_type(
-        &self,
-        name: impl AsRef<str>,
-    ) -> Option<&SchemaNamedType> {
-        self.schema_set.find_named_type(name)
-    }
-
-    pub fn find_named_type_by_fingerprint(
-        &self,
-        fingerprint: SchemaFingerprint,
-    ) -> Option<&SchemaNamedType> {
-        self.schema_set.find_named_type_by_fingerprint(fingerprint)
-    }
     //
     // pub fn default_value_for_schema(
     //     &self,

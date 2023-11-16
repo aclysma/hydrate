@@ -1,8 +1,9 @@
-use crate::{EditorModel, HashMap, AssetId};
+use hydrate_base::{hashing::HashMap, AssetId};
 use hydrate_base::{ArtifactId, BuiltArtifactMetadata, DebugArtifactManifestDataJson, DebugManifestFileJson, StringHash};
 use std::collections::VecDeque;
 use std::io::Write;
 use std::path::PathBuf;
+use crate::DynEditorModel;
 
 use super::ImportJobs;
 
@@ -75,7 +76,7 @@ impl BuildJobs {
     pub fn update(
         &mut self,
         builder_registry: &BuilderRegistry,
-        editor_model: &mut EditorModel,
+        editor_model: &mut dyn DynEditorModel,
         import_jobs: &ImportJobs,
         asset_hashes: &HashMap<AssetId, u64>,
         _import_data_metadata_hashes: &HashMap<AssetId, u64>,
@@ -86,7 +87,7 @@ impl BuildJobs {
 
         let data_set = {
             profiling::scope!("Clone Dataset");
-            Arc::new(editor_model.root_edit_context().data_set().clone())
+            Arc::new(editor_model.data_set().clone())
         };
         let schema_set = editor_model.schema_set();
 
@@ -97,7 +98,7 @@ impl BuildJobs {
         let mut requested_build_ops = VecDeque::default();
         for (&asset_id, _) in asset_hashes {
             assert!(!editor_model
-                .is_path_node_or_root(data_set.asset_schema(asset_id).unwrap().fingerprint()));
+                .is_path_node_or_root(&data_set.asset_schema(asset_id).unwrap()));
 
             //TODO: Skip assets that aren't explicitly requested, if any were requested
             //      For now just build everything
@@ -142,7 +143,7 @@ impl BuildJobs {
                     started_build_ops.insert(asset_id);
 
                     let asset_type = editor_model
-                        .root_edit_context()
+                        .data_set()
                         .asset_schema(asset_id)
                         .unwrap();
 

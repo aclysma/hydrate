@@ -1,13 +1,13 @@
 use crate::edit_context::EditContext;
 use crate::editor::undo::UndoStack;
-use crate::import_util::ImportToQueue;
+use hydrate_pipeline::{DynEditorModel, ImporterRegistry, import_util::ImportToQueue};
 use crate::{
     DataSet, DataSource, FileSystemIdBasedDataSource, FileSystemPathBasedDataSource, HashMap,
-    HashSet, ImporterRegistry, LocationTree, AssetId, AssetPath, AssetSourceId, PathNode,
+    HashSet, LocationTree, AssetId, AssetPath, AssetSourceId, PathNode,
     PathNodeRoot, SchemaNamedType, SchemaSet,
 };
-use hydrate_data::{AssetLocation, AssetName, DataSetError, DataSetResult};
-use hydrate_schema::SchemaFingerprint;
+use hydrate_data::{AssetLocation, AssetName, DataSetError, DataSetResult, SingleObject};
+use hydrate_schema::{SchemaFingerprint, SchemaRecord};
 use slotmap::DenseSlotMap;
 use std::path::PathBuf;
 slotmap::new_key_type! { pub struct EditContextKey; }
@@ -25,6 +25,32 @@ pub struct EditorModel {
 
     path_node_schema: SchemaNamedType,
     path_node_root_schema: SchemaNamedType,
+}
+
+impl DynEditorModel for EditorModel {
+    fn schema_set(&self) -> &SchemaSet {
+        &self.schema_set
+    }
+
+    fn init_from_single_object(&mut self, asset_id: AssetId, single_object: &SingleObject) -> DataSetResult<()> {
+        self.root_edit_context_mut().init_from_single_object(asset_id, single_object)
+    }
+
+    fn refresh_tree_node_cache(&mut self) {
+        self.refresh_tree_node_cache();
+    }
+
+    fn data_set(&self) -> &DataSet {
+        self.root_edit_context().data_set()
+    }
+
+    fn is_path_node_or_root(&self, schema_record: &SchemaRecord) -> bool {
+        self.is_path_node_or_root(schema_record.fingerprint())
+    }
+
+    fn asset_display_name_long(&self, asset_id: AssetId) -> String {
+        self.asset_display_name_long(asset_id)
+    }
 }
 
 impl EditorModel {

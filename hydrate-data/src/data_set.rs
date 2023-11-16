@@ -49,7 +49,7 @@ impl AssetName {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Ord, PartialOrd)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Ord, PartialOrd)]
 pub struct AssetLocation {
     path_node_id: AssetId,
 }

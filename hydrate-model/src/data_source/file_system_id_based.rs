@@ -1,5 +1,5 @@
 use crate::edit_context::EditContext;
-use crate::import_util::ImportToQueue;
+use hydrate_pipeline::import_util::ImportToQueue;
 use crate::{DataSource, HashSet, AssetId, AssetSourceId, PathNodeRoot};
 use hydrate_base::uuid_path::{path_to_uuid, uuid_to_path};
 use hydrate_data::AssetLocation;
@@ -24,10 +24,14 @@ fn load_asset_files(
             //println!("asset file {:?}", file);
             let file_uuid = path_to_uuid(root_path, &file).unwrap();
             let contents = std::fs::read_to_string(&file).unwrap();
-            crate::json_storage::EditContextAssetJson::load_edit_context_asset_from_string(
+            let default_asset_location = AssetLocation::new(AssetId(*asset_source_id.uuid()));
+
+            let schema_set = edit_context.schema_set().clone();
+            crate::json_storage::AssetJson::load_asset_from_string(
                 edit_context,
+                &schema_set,
                 Some(file_uuid),
-                asset_source_id,
+                default_asset_location,
                 None,
                 &contents,
             ).unwrap();
@@ -206,20 +210,21 @@ impl DataSource for FileSystemIdBasedDataSource {
                         continue;
                     }
 
-                    let parent_dir = asset_info.asset_location().path_node_id().as_uuid();
-                    let parent_dir = if parent_dir == Uuid::nil()
-                        || parent_dir == *self.asset_source_id.uuid()
+                    // If the asset doesn't have a location set or is set to the root of this data
+                    // source, serialize with a null location
+                    let asset_location = if asset_info.asset_location().is_null()
+                        || asset_info.asset_location().path_node_id().as_uuid() == *self.asset_source_id.uuid()
                     {
                         None
                     } else {
-                        Some(parent_dir)
+                        Some(*asset_info.asset_location())
                     };
 
-                    let data = crate::json_storage::EditContextAssetJson::save_edit_context_asset_to_string(
-                        edit_context,
+                    let data = crate::json_storage::AssetJson::save_asset_to_string(
+                        edit_context.assets(),
                         *asset_id,
                         false, //don't include ID because we assume it by file name
-                        parent_dir
+                        asset_location
                     );
                     let file_path =
                         uuid_to_path(&self.file_system_root_path, asset_id.as_uuid(), "af");

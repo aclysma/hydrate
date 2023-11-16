@@ -530,8 +530,9 @@ impl DataSource for FileSystemPathBasedDataSource {
 
             for file in walker {
                 if let Ok(file) = file {
+                    let file = dunce::canonicalize(&file.path()).unwrap();
                     self.ensure_asset_location_exists(
-                        file.path(),
+                        &file,
                         &mut path_to_path_node_id,
                         edit_context,
                     );
@@ -552,12 +553,13 @@ impl DataSource for FileSystemPathBasedDataSource {
 
             for file in walker {
                 if let Ok(file) = file {
-                    if file.path().extension() == Some(OsStr::new("meta")) {
-                        meta_files.push(file.path().to_path_buf());
-                    } else if file.path().extension() == Some(OsStr::new("af")) {
-                        asset_files.push(file.path().to_path_buf());
+                    let file = dunce::canonicalize(&file.path()).unwrap();
+                    if file.extension() == Some(OsStr::new("meta")) {
+                        meta_files.push(file.to_path_buf());
+                    } else if file.extension() == Some(OsStr::new("af")) {
+                        asset_files.push(file.to_path_buf());
                     } else {
-                        source_files.push(file.path().to_path_buf());
+                        source_files.push(file.to_path_buf());
                     }
                 }
             }
@@ -837,17 +839,20 @@ impl DataSource for FileSystemPathBasedDataSource {
                     let mut referenced_source_file_asset_ids = Vec::default();
                     for file_reference in &scanned_importable.file_references {
                         let file_reference_absolute_path = if file_reference.path.is_relative() {
-                            source_file_path
+                            dunce::canonicalize(source_file_path
                                 .parent()
                                 .unwrap()
-                                .join(&file_reference.path)
-                                .canonicalize()
+                                .join(&file_reference.path))
                                 .unwrap()
+                                //.canonicalize()
+                                //.unwrap()
                         } else {
                             file_reference.path.clone()
                         };
 
                         //println!("referenced {:?} {:?}", file_reference_absolute_path, scanned_source_files.keys());
+                        //println!("pull from {:?}", scanned_source_files.keys());
+                        //println!("referenced {:?}", file_reference_absolute_path);
                         let referenced_scanned_source_file = scanned_source_files
                             .get(&file_reference_absolute_path)
                             .unwrap();

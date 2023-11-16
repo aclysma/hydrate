@@ -20,9 +20,10 @@ fn load_asset_files(
 
     for file in walker {
         if let Ok(file) = file {
+            let file = dunce::canonicalize(&file.path()).unwrap();
             //println!("asset file {:?}", file);
-            let file_uuid = path_to_uuid(root_path, file.path()).unwrap();
-            let contents = std::fs::read_to_string(file.path()).unwrap();
+            let file_uuid = path_to_uuid(root_path, &file).unwrap();
+            let contents = std::fs::read_to_string(&file).unwrap();
             crate::json_storage::EditContextAssetJson::load_edit_context_asset_from_string(
                 edit_context,
                 Some(file_uuid),

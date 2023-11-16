@@ -191,9 +191,9 @@ impl EditorModel {
         file_system_root_path: RootPathT,
         imports_to_queue: &mut Vec<ImportToQueue>,
     ) -> AssetSourceId {
+        let file_system_root_path = dunce::canonicalize(&file_system_root_path.into()).unwrap();
         let path_node_root_schema = self.path_node_root_schema.as_record().unwrap().clone();
         let root_edit_context = self.root_edit_context_mut();
-        let file_system_root_path = file_system_root_path.into();
 
         // Commit any pending changes so we have a clean change tracking state
         root_edit_context.commit_pending_undo_context();
@@ -238,9 +238,9 @@ impl EditorModel {
         importer_registry: &ImporterRegistry,
         imports_to_queue: &mut Vec<ImportToQueue>,
     ) -> AssetSourceId {
+        let file_system_root_path = dunce::canonicalize(&file_system_root_path.into()).unwrap();
         let path_node_root_schema = self.path_node_root_schema.as_record().unwrap().clone();
         let root_edit_context = self.root_edit_context_mut();
-        let file_system_root_path = file_system_root_path.into();
 
         // Commit any pending changes so we have a clean change tracking state
         root_edit_context.commit_pending_undo_context();

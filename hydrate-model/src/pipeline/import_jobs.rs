@@ -191,7 +191,7 @@ impl ImportJobs {
             importer_registry,
             editor_model.schema_set(),
             &self.import_data_root_path,
-            16,
+            num_cpus::get(),
             result_tx
         );
 
@@ -382,8 +382,9 @@ impl ImportJobs {
 
         for file in walker {
             if let Ok(file) = file {
+                let file = dunce::canonicalize(&file.path()).unwrap();
                 //println!("import file {:?}", file);
-                let import_file_uuid = path_to_uuid(import_data_root_path, file.path()).unwrap();
+                let import_file_uuid = path_to_uuid(import_data_root_path, &file).unwrap();
                 let asset_id = AssetId::from_uuid(import_file_uuid);
                 let job = import_jobs
                     .entry(asset_id)

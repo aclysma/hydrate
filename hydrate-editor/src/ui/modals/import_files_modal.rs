@@ -35,12 +35,13 @@ impl ImportFilesModal {
 
                 for file in walker {
                     if let Ok(file) = file {
-                        if let Some(extension) = file.path().extension() {
+                        let file = dunce::canonicalize(&file.path()).unwrap();
+                        if let Some(extension) = file.extension() {
                             if !importer_registry
                                 .importers_for_file_extension(&*extension.to_string_lossy())
                                 .is_empty()
                             {
-                                all_files_to_import.insert(file.path().to_path_buf());
+                                all_files_to_import.insert(file.to_path_buf());
                                 println!("import {:?}", file);
                             }
                         }
@@ -360,6 +361,7 @@ impl ModalAction for ImportFilesModal {
                 //
                 //         for file in walker {
                 //             if let Ok(file) = file {
+                //                 let file = dunce::canonicalize(&file.path()).unwrap();
                 //                 if let Some(extension) = file.path().extension() {
                 //                     if !asset_engine.importer_registry().importers_for_file_extension(&*extension.to_string_lossy()).is_empty() {
                 //                         files_to_import.insert(file.path().to_path_buf());

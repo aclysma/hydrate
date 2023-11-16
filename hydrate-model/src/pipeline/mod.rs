@@ -100,6 +100,9 @@ impl AssetEngine {
         job_data_path: PathBuf,
         build_data_path: PathBuf,
     ) -> Self {
+        let import_data_root_path = dunce::canonicalize(&import_data_root_path).unwrap();
+        let job_data_path = dunce::canonicalize(&job_data_path).unwrap();
+        let build_data_path = dunce::canonicalize(&build_data_path).unwrap();
         let import_jobs = ImportJobs::new(
             &importer_registry,
             &editor_model,

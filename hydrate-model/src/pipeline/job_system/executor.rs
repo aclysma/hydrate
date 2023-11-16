@@ -359,7 +359,7 @@ impl JobExecutor {
             &import_data_root_path,
             &job_data_root_path,
             job_api_impl.clone(),
-            16,
+            num_cpus::get(),
             thread_pool_result_tx,
         );
 

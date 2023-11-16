@@ -364,6 +364,7 @@ impl BuildJobs {
 
         for file in walker {
             if let Ok(file) = file {
+                let file = dunce::canonicalize(&file.path()).unwrap();
                 //println!("built file {:?}", file);
                 let (built_file_uuid, built_file_hash) = path_to_uuid_and_hash(root_path, file.path()).unwrap();
                 let asset_id = AssetId(built_file_uuid.as_u128());

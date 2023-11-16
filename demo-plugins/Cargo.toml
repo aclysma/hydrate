@@ -18,7 +18,7 @@ serde = { default-features = false, version = "1.0.145", features = ["derive"] }
 serde_json = { default-features = false, version = "1.0.85", features = ["std"] }
 bincode = "1.3.1"
 
-image = "0.23.12"
+image = { version = "0.23.12", default-features = false, features = ["gif", "jpeg", "ico", "png", "pnm", "tga", "tiff", "bmp"] }
 basis-universal = "0.2.0"
 shaderc = "0.8"
 gltf = "1.0.0"

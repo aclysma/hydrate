@@ -106,8 +106,7 @@ pub fn path_to_uuid_and_hash(
     }
 
     if let Some(hash_begin) = filename.find('-') {
-        let hash = u64::from_str_radix(&filename[(hash_begin + 1)..], 16)
-            .ok()?;
+        let hash = u64::from_str_radix(&filename[(hash_begin + 1)..], 16).ok()?;
 
         let uuid = u128::from_str_radix(&filename[0..hash_begin], 16)
             .ok()

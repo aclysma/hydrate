@@ -35,31 +35,43 @@ const BLOCK_ALIGNMENT_IN_BYTES: usize = 16;
 pub struct B3FWriter<'a> {
     file_tag: u32,
     version: u32,
-    blocks: Vec<&'a [u8]>
+    blocks: Vec<&'a [u8]>,
 }
 
 impl<'a> B3FWriter<'a> {
-    pub fn new_from_u8_tag(file_tag: [u8; 4], version: u32) -> Self {
+    pub fn new_from_u8_tag(
+        file_tag: [u8; 4],
+        version: u32,
+    ) -> Self {
         B3FWriter {
             file_tag: u32::from_ne_bytes(file_tag),
             version,
-            blocks: Vec::default()
+            blocks: Vec::default(),
         }
     }
 
-    pub fn new_from_u32_tag(file_tag: u32, version: u32) -> Self {
+    pub fn new_from_u32_tag(
+        file_tag: u32,
+        version: u32,
+    ) -> Self {
         B3FWriter {
             file_tag,
             version,
-            blocks: Vec::default()
+            blocks: Vec::default(),
         }
     }
 
-    pub fn add_block(&mut self, data: &'a [u8]) {
+    pub fn add_block(
+        &mut self,
+        data: &'a [u8],
+    ) {
         self.blocks.push(data);
     }
 
-    pub fn write<W: std::io::Write>(&self, mut writer: W) {
+    pub fn write<W: std::io::Write>(
+        &self,
+        mut writer: W,
+    ) {
         //
         // 16 byte header
         //
@@ -90,7 +102,8 @@ impl<'a> B3FWriter<'a> {
         //
         // Pad block 0 to start at a 16 byte offset
         //
-        let data_offset = HEADER_SIZE_IN_BYTES + ((self.blocks.len() + 1) * BLOCK_LENGTH_SIZE_IN_BYTES);
+        let data_offset =
+            HEADER_SIZE_IN_BYTES + ((self.blocks.len() + 1) * BLOCK_LENGTH_SIZE_IN_BYTES);
         if data_offset % 16 == 8 {
             writer.write(&0u64.to_ne_bytes()).unwrap();
         } else {

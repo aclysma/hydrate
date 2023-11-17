@@ -12,10 +12,10 @@ use hydrate_model::pipeline::{
     ImportedImportable, Importer, ReferencedSourceFile, ScannedImportable,
 };
 use hydrate_pipeline::{
-    job_system, BuilderRegistryBuilder, DataContainer, DataContainerMut, DataSet,
-    HashMap, HashSet, ImportableAsset, ImporterRegistryBuilder, JobApi, JobEnumeratedDependencies,
-    JobInput, JobOutput, JobProcessor, JobProcessorRegistryBuilder, AssetId,
-    Record, SchemaLinker, SchemaSet, SingleObject,
+    job_system, AssetId, BuilderRegistryBuilder, DataContainer, DataContainerMut, DataSet, HashMap,
+    HashSet, ImportableAsset, ImporterRegistryBuilder, JobApi, JobEnumeratedDependencies, JobInput,
+    JobOutput, JobProcessor, JobProcessorRegistryBuilder, Record, SchemaLinker, SchemaSet,
+    SingleObject,
 };
 use serde::{Deserialize, Serialize};
 use shaderc::IncludeType;
@@ -526,7 +526,8 @@ impl Importer for GlslSourceFileImporter {
             })
             .collect();
 
-        let asset_type = context.schema_set
+        let asset_type = context
+            .schema_set
             .find_named_type(GlslSourceFileAssetRecord::schema_name())
             .unwrap()
             .as_record()

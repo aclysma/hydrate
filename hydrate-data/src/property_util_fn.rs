@@ -1,4 +1,6 @@
-use crate::{DataSetError, DataSetResult, HashMap, Schema, SchemaFingerprint, SchemaNamedType, SchemaRecord};
+use crate::{
+    DataSetError, DataSetResult, HashMap, Schema, SchemaFingerprint, SchemaNamedType, SchemaRecord,
+};
 
 pub(super) fn truncate_property_path(
     path: impl AsRef<str>,
@@ -39,7 +41,9 @@ pub(super) fn property_schema_and_path_ancestors_to_check<'a>(
     let mut parent_is_dynamic_array = false;
 
     for (i, path_segment) in split_path[0..split_path.len() - 1].iter().enumerate() {
-        let s = schema.find_field_schema(path_segment, named_types).ok_or(DataSetError::SchemaNotFound)?;
+        let s = schema
+            .find_field_schema(path_segment, named_types)
+            .ok_or(DataSetError::SchemaNotFound)?;
 
         // current path needs to be verified as existing
         if parent_is_dynamic_array {

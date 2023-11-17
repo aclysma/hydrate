@@ -27,17 +27,11 @@ pub fn draw_properties_window_single_select(
             import_info.source_file_path().to_string_lossy()
         ));
         if let Some(importable_name) = import_info.importable_name() {
-            ui.text(im_str!(
-                "Importable Name: {}",
-                importable_name
-            ));
+            ui.text(im_str!("Importable Name: {}", importable_name));
         }
     }
 
-    let is_generated = app_state
-        .db_state
-        .editor_model
-        .is_generated_asset(asset_id);
+    let is_generated = app_state.db_state.editor_model.is_generated_asset(asset_id);
     if is_generated {
         ui.text(im_str!("This asset is generated from a source file and can't be modified unless it is persisted to disk. A new asset file will be created and source file changes will no longer affect it."));
     }

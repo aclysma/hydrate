@@ -1,14 +1,14 @@
-use std::hash::Hasher;
-use std::io::Write;
 use crate::{BuiltArtifact, WrittenArtifact};
 use crossbeam_channel::{Receiver, Sender};
 use hydrate_base::hashing::HashMap;
+use hydrate_base::uuid_path::uuid_and_hash_to_path;
 use hydrate_base::{ArtifactId, AssetId};
 use hydrate_data::{DataSet, SchemaSet, SingleObject};
 use serde::{Deserialize, Serialize};
+use std::hash::Hasher;
+use std::io::Write;
 use std::path::PathBuf;
 use std::sync::Arc;
-use hydrate_base::uuid_path::uuid_and_hash_to_path;
 
 use super::*;
 
@@ -44,8 +44,7 @@ where
         let data: <T as JobProcessor>::InputT = bincode::deserialize(input.as_slice()).unwrap();
         let output = {
             profiling::scope!(&format!("{:?}::run", std::any::type_name::<T>()));
-            self
-                .0
+            self.0
                 .run(&data, data_set, schema_set, dependency_data, job_api)
         };
         bincode::serialize(&output).unwrap()
@@ -167,9 +166,11 @@ pub struct JobProcessorRegistry {
 }
 
 impl JobProcessorRegistry {
-    pub fn get_processor(&self, job_type: JobTypeId) -> Option<Arc<dyn JobProcessorAbstract>> {
+    pub fn get_processor(
+        &self,
+        job_type: JobTypeId,
+    ) -> Option<Arc<dyn JobProcessorAbstract>> {
         self.inner.job_processors.get(&job_type).cloned()
-
     }
 }
 
@@ -183,7 +184,7 @@ struct JobApiImplInner {
 
 #[derive(Clone)]
 pub struct JobApiImpl {
-    inner: Arc<JobApiImplInner>
+    inner: Arc<JobApiImplInner>,
 }
 
 impl JobApi for JobApiImpl {
@@ -202,16 +203,23 @@ impl JobApi for JobApiImpl {
         //   hashes of above stuff
         // - Build Data (we need the build hash, which takes into account the asset/import data
         let job_id = JobId::from_u128(new_job.input_hash);
-        let processor = self.inner.job_processor_registry.get(new_job.job_type).unwrap();
+        let processor = self
+            .inner
+            .job_processor_registry
+            .get(new_job.job_type)
+            .unwrap();
         let dependencies =
             processor.enumerate_dependencies_inner(&new_job.input_data, data_set, schema_set);
-        self.inner.job_create_queue_tx.send(QueuedJob {
-            job_id,
-            job_type: new_job.job_type,
-            input_data: Arc::new(new_job.input_data),
-            dependencies: Arc::new(dependencies),
-            debug_name: Arc::new(debug_name),
-        }).unwrap();
+        self.inner
+            .job_create_queue_tx
+            .send(QueuedJob {
+                job_id,
+                job_type: new_job.job_type,
+                input_data: Arc::new(new_job.input_data),
+                dependencies: Arc::new(dependencies),
+                debug_name: Arc::new(debug_name),
+            })
+            .unwrap();
         job_id
     }
 
@@ -224,7 +232,8 @@ impl JobApi for JobApiImpl {
         asset_id: AssetId,
         artifact_id: ArtifactId,
     ) {
-        self.inner.artifact_handle_created_tx
+        self.inner
+            .artifact_handle_created_tx
             .send(AssetArtifactIdPair {
                 asset_id,
                 artifact_id,
@@ -269,13 +278,16 @@ impl JobApi for JobApiImpl {
         //
         // Send info about the written asset back to main thread for inclusion in the manifest
         //
-        self.inner.written_artifact_queue_tx.send(WrittenArtifact {
-            asset_id: artifact.asset_id,
-            artifact_id: artifact.artifact_id,
-            metadata: artifact.metadata,
-            build_hash,
-            artifact_key_debug_name: artifact.artifact_key_debug_name,
-        }).unwrap();
+        self.inner
+            .written_artifact_queue_tx
+            .send(WrittenArtifact {
+                asset_id: artifact.asset_id,
+                artifact_id: artifact.artifact_id,
+                metadata: artifact.metadata,
+                build_hash,
+                artifact_key_debug_name: artifact.artifact_key_debug_name,
+            })
+            .unwrap();
     }
 }
 
@@ -349,7 +361,7 @@ impl JobExecutor {
                 job_create_queue_tx,
                 artifact_handle_created_tx,
                 written_artifact_queue_tx,
-            })
+            }),
         };
 
         let (thread_pool_result_tx, thread_pool_result_rx) = crossbeam_channel::unbounded();
@@ -362,7 +374,6 @@ impl JobExecutor {
             num_cpus::get(),
             thread_pool_result_tx,
         );
-
 
         JobExecutor {
             _root_path: job_data_root_path,
@@ -404,8 +415,8 @@ impl JobExecutor {
     ) -> Vec<WrittenArtifact> {
         let mut written_artifacts = Vec::default();
         while let Ok(written_artifact) = self.written_artifact_queue_rx.try_recv() {
-            let old =
-                artifact_asset_lookup.insert(written_artifact.artifact_id, written_artifact.asset_id);
+            let old = artifact_asset_lookup
+                .insert(written_artifact.artifact_id, written_artifact.asset_id);
             //assert!(old.is_none());
 
             if old.is_some() {
@@ -469,7 +480,7 @@ impl JobExecutor {
                         .get_mut(&msg.request.job_id)
                         .unwrap()
                         .output_data = Some(msg.output_data);
-                },
+                }
                 JobExecutorThreadPoolOutcome::RunJobFailed(msg) => {
                     unimplemented!()
                 }
@@ -564,20 +575,28 @@ impl JobExecutor {
             // At this point we have either never run the job before, or we know the job inputs have changed
             // Go ahead and run it.
             //
-            self.thread_pool.as_ref().unwrap().add_request(JobExecutorThreadPoolRequest::RunJob(JobExecutorThreadPoolRequestRunJob {
-                job_id,
-                job_type: job_state.job_type,
-                data_set: data_set.clone(),
-                debug_name: job_state.debug_name.clone(),
-                dependencies: job_state.dependencies.clone(),
-                input_data: job_state.input_data.clone(),
-            }));
+            self.thread_pool
+                .as_ref()
+                .unwrap()
+                .add_request(JobExecutorThreadPoolRequest::RunJob(
+                    JobExecutorThreadPoolRequestRunJob {
+                        job_id,
+                        job_type: job_state.job_type,
+                        data_set: data_set.clone(),
+                        debug_name: job_state.debug_name.clone(),
+                        dependencies: job_state.dependencies.clone(),
+                        input_data: job_state.input_data.clone(),
+                    },
+                ));
 
             started_jobs.push(job_id);
         }
 
         for job_id in started_jobs {
-            self.current_jobs.get_mut(&job_id).unwrap().has_been_scheduled = true;
+            self.current_jobs
+                .get_mut(&job_id)
+                .unwrap()
+                .has_been_scheduled = true;
         }
 
         self.handle_completed_queue();

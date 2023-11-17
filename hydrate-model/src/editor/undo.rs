@@ -1,10 +1,10 @@
+use hydrate_data::DataSetResult;
 use slotmap::DenseSlotMap;
 use std::sync::mpsc;
 use std::sync::mpsc::{Receiver, Sender};
-use hydrate_data::DataSetResult;
 
 use crate::edit_context::EditContext;
-use crate::{DataSet, DataSetDiffSet, EditContextKey, HashSet, AssetId, AssetLocation};
+use crate::{AssetId, AssetLocation, DataSet, DataSetDiffSet, EditContextKey, HashSet};
 
 //TODO: Delete unused property data when path ancestor is null or in replace mode
 

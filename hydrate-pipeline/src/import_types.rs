@@ -1,10 +1,8 @@
-use hydrate_data::{
-    HashMap, ImporterId, AssetId, SchemaRecord, SchemaSet, SingleObject,
-};
+use crate::ImporterRegistry;
+use hydrate_data::{AssetId, HashMap, ImporterId, SchemaRecord, SchemaSet, SingleObject};
 use std::path::{Path, PathBuf};
 use type_uuid::{TypeUuid, TypeUuidDynamic};
 use uuid::Uuid;
-use crate::ImporterRegistry;
 
 // Represents a path to another file encountered in a file that will need to be resolved to an asset
 // at build time
@@ -72,7 +70,7 @@ pub trait Importer: TypeUuidDynamic + Sync + Send + 'static {
     // Open the file and determine what assets exist in it that can be imported
     fn scan_file(
         &self,
-        context: ScanContext
+        context: ScanContext,
     ) -> Vec<ScannedImportable>;
 
     // Open the file and extract all the data from it required for the build step, or for build

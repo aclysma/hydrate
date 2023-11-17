@@ -1,4 +1,4 @@
-use hydrate_model::{HashSet, AssetId, AssetLocation};
+use hydrate_model::{AssetId, AssetLocation, HashSet};
 
 #[derive(PartialEq)]
 pub enum ActiveToolRegion {

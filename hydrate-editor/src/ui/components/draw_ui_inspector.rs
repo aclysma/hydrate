@@ -63,7 +63,9 @@ fn draw_inspector_simple_property<
             imgui::sys::ImGuiPopupFlags_MouseButtonRight as _,
         ) {
             if imgui::MenuItem::new(im_str!("Clear Override")).build(ui) {
-                edit_context.set_property_override(asset_id, &property_path, None).unwrap();
+                edit_context
+                    .set_property_override(asset_id, &property_path, None)
+                    .unwrap();
             }
 
             if imgui::MenuItem::new(im_str!("Apply Override")).build(ui) {
@@ -633,7 +635,8 @@ fn draw_inspector_nexdb_property(
         Schema::Nullable(inner_schema) => {
             let property_inherited = edit_context
                 .get_null_override(asset_id, &property_path)
-                .unwrap() == NullOverride::Unset;
+                .unwrap()
+                == NullOverride::Unset;
             let mut null_override = edit_context
                 .resolve_null_override(asset_id, &property_path)
                 .unwrap();
@@ -702,7 +705,9 @@ fn draw_inspector_nexdb_property(
             }
         }
         Schema::Boolean => {
-            let property_inherited = !edit_context.has_property_override(asset_id, &property_path).unwrap();
+            let property_inherited = !edit_context
+                .has_property_override(asset_id, &property_path)
+                .unwrap();
             draw_property_style(ui, property_inherited, false, |ui| {
                 draw_inspector_simple_property_bool(
                     ui,
@@ -720,7 +725,9 @@ fn draw_inspector_nexdb_property(
             });
         }
         Schema::I32 => {
-            let property_inherited = !edit_context.has_property_override(asset_id, &property_path).unwrap();
+            let property_inherited = !edit_context
+                .has_property_override(asset_id, &property_path)
+                .unwrap();
             draw_property_style(ui, property_inherited, false, |ui| {
                 draw_inspector_simple_property_i32(
                     ui,
@@ -738,7 +745,9 @@ fn draw_inspector_nexdb_property(
             });
         }
         Schema::I64 => {
-            let property_inherited = !edit_context.has_property_override(asset_id, &property_path).unwrap();
+            let property_inherited = !edit_context
+                .has_property_override(asset_id, &property_path)
+                .unwrap();
             draw_property_style(ui, property_inherited, false, |ui| {
                 draw_inspector_simple_property_i64(
                     ui,
@@ -756,7 +765,9 @@ fn draw_inspector_nexdb_property(
             });
         }
         Schema::U32 => {
-            let property_inherited = !edit_context.has_property_override(asset_id, &property_path).unwrap();
+            let property_inherited = !edit_context
+                .has_property_override(asset_id, &property_path)
+                .unwrap();
             draw_property_style(ui, property_inherited, false, |ui| {
                 draw_inspector_simple_property_u32(
                     ui,
@@ -774,7 +785,9 @@ fn draw_inspector_nexdb_property(
             });
         }
         Schema::U64 => {
-            let property_inherited = !edit_context.has_property_override(asset_id, &property_path).unwrap();
+            let property_inherited = !edit_context
+                .has_property_override(asset_id, &property_path)
+                .unwrap();
             draw_property_style(ui, property_inherited, false, |ui| {
                 draw_inspector_simple_property_u64(
                     ui,
@@ -792,7 +805,9 @@ fn draw_inspector_nexdb_property(
             });
         }
         Schema::F32 => {
-            let property_inherited = !edit_context.has_property_override(asset_id, &property_path).unwrap();
+            let property_inherited = !edit_context
+                .has_property_override(asset_id, &property_path)
+                .unwrap();
             draw_property_style(ui, property_inherited, false, |ui| {
                 draw_inspector_simple_property_f32(
                     ui,
@@ -810,7 +825,9 @@ fn draw_inspector_nexdb_property(
             });
         }
         Schema::F64 => {
-            let property_inherited = !edit_context.has_property_override(asset_id, &property_path).unwrap();
+            let property_inherited = !edit_context
+                .has_property_override(asset_id, &property_path)
+                .unwrap();
             draw_property_style(ui, property_inherited, false, |ui| {
                 draw_inspector_simple_property_f64(
                     ui,
@@ -831,7 +848,9 @@ fn draw_inspector_nexdb_property(
             draw_inspector_unimplemented_property(ui, property_name, "bytes");
         }
         Schema::String => {
-            let property_inherited = !edit_context.has_property_override(asset_id, &property_path).unwrap();
+            let property_inherited = !edit_context
+                .has_property_override(asset_id, &property_path)
+                .unwrap();
             draw_property_style(ui, property_inherited, false, |ui| {
                 draw_inspector_simple_property_string(
                     ui,
@@ -852,7 +871,9 @@ fn draw_inspector_nexdb_property(
             draw_inspector_unimplemented_property(ui, property_name, "static array");
         }
         Schema::DynamicArray(array) => {
-            let resolve = edit_context.resolve_dynamic_array(asset_id, &property_path).unwrap();
+            let resolve = edit_context
+                .resolve_dynamic_array(asset_id, &property_path)
+                .unwrap();
             let overrides: Vec<_> = edit_context
                 .get_dynamic_array_overrides(asset_id, &property_path)
                 .map(|x| x.cloned().collect())
@@ -905,7 +926,9 @@ fn draw_inspector_nexdb_property(
         }
         //Schema::RecordRef(_) => {}
         Schema::AssetRef(_named_type_fingerprint) => {
-            let property_inherited = !edit_context.has_property_override(asset_id, &property_path).unwrap();
+            let property_inherited = !edit_context
+                .has_property_override(asset_id, &property_path)
+                .unwrap();
             draw_property_style(ui, property_inherited, false, |ui| {
                 draw_inspector_asset_ref(
                     ui,
@@ -973,8 +996,9 @@ fn draw_inspector_nexdb_property(
                     //     property_name,
                     //     "enum"
                     // );
-                    let property_inherited =
-                        !edit_context.has_property_override(asset_id, &property_path).unwrap();
+                    let property_inherited = !edit_context
+                        .has_property_override(asset_id, &property_path)
+                        .unwrap();
                     draw_inspector_simple_property_enum(
                         ui,
                         ui_state,

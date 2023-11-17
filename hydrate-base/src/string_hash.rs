@@ -46,17 +46,21 @@ impl fmt::Debug for StringHash {
 }
 
 impl PartialEq for StringHash {
-    fn eq(&self, other: &Self) -> bool {
+    fn eq(
+        &self,
+        other: &Self,
+    ) -> bool {
         self.hash.eq(&other.hash)
     }
 }
 
-impl Eq for StringHash {
-
-}
+impl Eq for StringHash {}
 
 impl Hash for StringHash {
-    fn hash<H: Hasher>(&self, state: &mut H) {
+    fn hash<H: Hasher>(
+        &self,
+        state: &mut H,
+    ) {
         self.hash.hash(state);
     }
 }
@@ -75,7 +79,7 @@ impl StringHash {
         StringHash {
             hash,
             #[cfg(not(feature = "strip-stringhash-strings"))]
-            contents
+            contents,
         }
     }
 
@@ -92,7 +96,7 @@ impl StringHash {
         StringHash {
             hash,
             #[cfg(not(feature = "strip-stringhash-strings"))]
-            contents
+            contents,
         }
     }
 

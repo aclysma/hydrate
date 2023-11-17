@@ -1,12 +1,12 @@
 use crate::edit_context::EditContext;
 use crate::editor::undo::UndoStack;
-use hydrate_pipeline::{DynEditorModel, ImporterRegistry, import_util::ImportToQueue};
 use crate::{
-    DataSet, DataSource, FileSystemIdBasedDataSource, FileSystemPathBasedDataSource, HashMap,
-    HashSet, LocationTree, AssetId, AssetPath, AssetSourceId, PathNode,
-    PathNodeRoot, SchemaNamedType, SchemaSet,
+    AssetId, AssetPath, AssetSourceId, DataSet, DataSource, FileSystemIdBasedDataSource,
+    FileSystemPathBasedDataSource, HashMap, HashSet, LocationTree, PathNode, PathNodeRoot,
+    SchemaNamedType, SchemaSet,
 };
 use hydrate_data::{AssetLocation, AssetName, DataSetError, DataSetResult, SingleObject};
+use hydrate_pipeline::{import_util::ImportToQueue, DynEditorModel, ImporterRegistry};
 use hydrate_schema::{SchemaFingerprint, SchemaRecord};
 use slotmap::DenseSlotMap;
 use std::path::PathBuf;
@@ -32,8 +32,13 @@ impl DynEditorModel for EditorModel {
         &self.schema_set
     }
 
-    fn init_from_single_object(&mut self, asset_id: AssetId, single_object: &SingleObject) -> DataSetResult<()> {
-        self.root_edit_context_mut().init_from_single_object(asset_id, single_object)
+    fn init_from_single_object(
+        &mut self,
+        asset_id: AssetId,
+        single_object: &SingleObject,
+    ) -> DataSetResult<()> {
+        self.root_edit_context_mut()
+            .init_from_single_object(asset_id, single_object)
     }
 
     fn refresh_tree_node_cache(&mut self) {
@@ -44,11 +49,17 @@ impl DynEditorModel for EditorModel {
         self.root_edit_context().data_set()
     }
 
-    fn is_path_node_or_root(&self, schema_record: &SchemaRecord) -> bool {
+    fn is_path_node_or_root(
+        &self,
+        schema_record: &SchemaRecord,
+    ) -> bool {
         self.is_path_node_or_root(schema_record.fingerprint())
     }
 
-    fn asset_display_name_long(&self, asset_id: AssetId) -> String {
+    fn asset_display_name_long(
+        &self,
+        asset_id: AssetId,
+    ) -> String {
         self.asset_display_name_long(asset_id)
     }
 }
@@ -403,7 +414,8 @@ impl EditorModel {
         for &asset_id in assets {
             new_edit_context
                 .data_set
-                .copy_from(root_edit_context.data_set(), asset_id).expect("Could not copy asset to newly created edit context");
+                .copy_from(root_edit_context.data_set(), asset_id)
+                .expect("Could not copy asset to newly created edit context");
         }
 
         Ok(new_edit_context_key)
@@ -425,7 +437,8 @@ impl EditorModel {
         for &asset_id in context_to_flush.modified_assets() {
             if let Err(e) = root_context
                 .data_set
-                .copy_from(&context_to_flush.data_set, asset_id) {
+                .copy_from(&context_to_flush.data_set, asset_id)
+            {
                 if first_error.is_none() {
                     first_error = Some(Err(e));
                 }

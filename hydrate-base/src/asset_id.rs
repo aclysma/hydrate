@@ -1,8 +1,8 @@
+use serde::{de, ser};
 use serde::{Deserialize, Serialize};
-use uuid::Uuid;
 use std::fmt;
 use std::str::FromStr;
-use serde::{de, ser};
+use uuid::Uuid;
 
 /// ID for a user-edited piece of data. It may have import data associated with it. Assets can be
 /// thought of as a list of properties that follow a particular schema.
@@ -51,9 +51,7 @@ impl fmt::Debug for AssetId {
         &self,
         f: &mut fmt::Formatter<'_>,
     ) -> fmt::Result {
-        f.debug_tuple("AssetId")
-            .field(&self.0)
-            .finish()
+        f.debug_tuple("AssetId").field(&self.0).finish()
     }
 }
 

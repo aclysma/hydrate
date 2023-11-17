@@ -428,7 +428,10 @@ impl Value {
         }
     }
 
-    pub fn set_nullable(&mut self, value: Option<Value>)  {
+    pub fn set_nullable(
+        &mut self,
+        value: Option<Value>,
+    ) {
         *self = Value::Nullable(value.map(|x| Box::new(x)))
     }
 

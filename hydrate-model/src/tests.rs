@@ -1,6 +1,6 @@
 use crate::edit_context::EditContext;
 use crate::{
-    NullOverride, AssetLocation, AssetPath, AssetSourceId, OverrideBehavior, SchemaDefType,
+    AssetLocation, AssetPath, AssetSourceId, NullOverride, OverrideBehavior, SchemaDefType,
     SchemaLinker, SchemaLinkerResult, SchemaSet, UndoStack, Value,
 };
 use std::sync::Arc;
@@ -364,7 +364,10 @@ fn nullable_property_in_nullable() {
     );
     db.set_null_override(obj, "nullable", NullOverride::SetNonNull);
     assert_eq!(db.resolve_null_override(obj, "nullable").unwrap(), false);
-    assert_eq!(db.resolve_null_override(obj, "nullable.value").unwrap(), true);
+    assert_eq!(
+        db.resolve_null_override(obj, "nullable.value").unwrap(),
+        true
+    );
     assert_eq!(
         db.resolve_property(obj, "nullable.value.value.x")
             .map(|x| x.as_f32().unwrap()),
@@ -372,7 +375,10 @@ fn nullable_property_in_nullable() {
     );
     db.set_null_override(obj, "nullable.value", NullOverride::SetNonNull);
     assert_eq!(db.resolve_null_override(obj, "nullable").unwrap(), false);
-    assert_eq!(db.resolve_null_override(obj, "nullable.value").unwrap(), false);
+    assert_eq!(
+        db.resolve_null_override(obj, "nullable.value").unwrap(),
+        false
+    );
     // This is default value because the attempt to set it to 10 above should have failed
     assert_eq!(
         db.resolve_property(obj, "nullable.value.value.x")

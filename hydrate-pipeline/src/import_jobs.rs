@@ -1,13 +1,15 @@
 use hydrate_base::hashing::{HashMap, HashSet};
+use hydrate_base::AssetId;
 use std::hash::{Hash, Hasher};
 use std::path::{Path, PathBuf};
-use hydrate_base::AssetId;
 
-use hydrate_data::json_storage::SingleObjectJson;
-use hydrate_base::uuid_path::{path_to_uuid, uuid_to_path};
-use hydrate_data::{ImporterId, SchemaSet, SingleObject};
+use crate::import_thread_pool::{
+    ImportThreadOutcome, ImportThreadRequest, ImportThreadRequestImport, ImportWorkerThreadPool,
+};
 use crate::DynEditorModel;
-use crate::import_thread_pool::{ImportThreadOutcome, ImportThreadRequest, ImportThreadRequestImport, ImportWorkerThreadPool};
+use hydrate_base::uuid_path::{path_to_uuid, uuid_to_path};
+use hydrate_data::json_storage::SingleObjectJson;
+use hydrate_data::{ImporterId, SchemaSet, SingleObject};
 
 use super::import_types::*;
 use super::importer_registry::*;
@@ -108,7 +110,8 @@ impl ImportJobs {
         editor_model: &dyn DynEditorModel,
         import_data_root_path: &Path,
     ) -> Self {
-        let import_jobs = ImportJobs::find_all_jobs(importer_registry, editor_model, import_data_root_path);
+        let import_jobs =
+            ImportJobs::find_all_jobs(importer_registry, editor_model, import_data_root_path);
 
         ImportJobs {
             import_data_root_path: import_data_root_path.to_path_buf(),
@@ -194,7 +197,7 @@ impl ImportJobs {
             editor_model.schema_set(),
             &self.import_data_root_path,
             num_cpus::get(),
-            result_tx
+            result_tx,
         );
 
         //
@@ -216,10 +219,12 @@ impl ImportJobs {
                 );
             }
 
-            thread_pool.add_request(ImportThreadRequest::RequestImport(ImportThreadRequestImport {
-                import_op,
-                importable_assets
-            }));
+            thread_pool.add_request(ImportThreadRequest::RequestImport(
+                ImportThreadRequestImport {
+                    import_op,
+                    importable_assets,
+                },
+            ));
         }
 
         //
@@ -239,7 +244,12 @@ impl ImportJobs {
                 ImportThreadOutcome::Complete(msg) => {
                     for (name, imported_asset) in msg.imported_importables {
                         if let Some(asset_id) = msg.request.import_op.asset_ids.get(&name) {
-                            if msg.request.import_op.assets_to_regenerate.contains(asset_id) {
+                            if msg
+                                .request
+                                .import_op
+                                .assets_to_regenerate
+                                .contains(asset_id)
+                            {
                                 if let Some(default_asset) = &imported_asset.default_asset {
                                     editor_model
                                         .init_from_single_object(*asset_id, default_asset)
@@ -248,13 +258,13 @@ impl ImportJobs {
                             }
                         }
                     }
-                },
+                }
                 ImportThreadOutcome::Failed(_failed) => {
                     unimplemented!()
                 }
             }
         }
-/*
+        /*
         for import_op in &self.import_operations {
             profiling::scope!(&format!("Import {:?}", import_op.path.to_string_lossy()));
             //let importer_id = editor_model.root_edit_context().import_info()

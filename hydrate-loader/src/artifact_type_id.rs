@@ -1,8 +1,8 @@
+use serde::{de, ser};
 use serde::{Deserialize, Serialize};
-use uuid::Uuid;
 use std::fmt;
 use std::str::FromStr;
-use serde::{de, ser};
+use uuid::Uuid;
 
 /// Identified an artifact type. These are not schema-aware and get rebuilt if the data format
 /// changes. It's defined as a UUID on the struct itself.
@@ -51,9 +51,7 @@ impl fmt::Debug for ArtifactTypeId {
         &self,
         f: &mut fmt::Formatter<'_>,
     ) -> fmt::Result {
-        f.debug_tuple("AssetTypeId")
-            .field(&self.0)
-            .finish()
+        f.debug_tuple("AssetTypeId").field(&self.0).finish()
     }
 }
 

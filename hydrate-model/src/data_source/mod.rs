@@ -6,8 +6,8 @@ use crate::edit_context::EditContext;
 use crate::AssetId;
 
 mod file_system_path_based;
-use hydrate_pipeline::import_util::ImportToQueue;
 pub use file_system_path_based::*;
+use hydrate_pipeline::import_util::ImportToQueue;
 
 trait SourceFileHandler {
     fn supported_file_extensions(&self) -> &[&'static str];

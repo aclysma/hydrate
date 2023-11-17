@@ -166,14 +166,14 @@ impl AssetManager {
 
     pub fn load_asset_symbol_name<T: TypeUuid + 'static + Send>(
         &self,
-        symbol_name: &'static str
+        symbol_name: &'static str,
     ) -> Handle<T> {
         self.load_asset_symbol_string_hash(StringHash::from_static_str(symbol_name))
     }
 
     pub fn load_asset_symbol_string_hash<T: TypeUuid + 'static + Send>(
         &self,
-        symbol: StringHash
+        symbol: StringHash,
     ) -> Handle<T> {
         let data_type_uuid = self
             .storage()
@@ -182,10 +182,7 @@ impl AssetManager {
 
         let load_handle = self
             .loader
-            .add_engine_ref_indirect(IndirectIdentifier::SymbolWithType(
-                symbol,
-                data_type_uuid,
-            ));
+            .add_engine_ref_indirect(IndirectIdentifier::SymbolWithType(symbol, data_type_uuid));
         Handle::<T>::new(self.ref_op_tx.clone(), load_handle)
     }
 

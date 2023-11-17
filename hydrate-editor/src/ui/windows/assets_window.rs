@@ -5,7 +5,7 @@ use crate::ui::asset_browser_grid_drag_drop::{
 };
 use crate::ui_state::{ActiveToolRegion, UiState};
 use crate::QueuedActions;
-use hydrate_model::{LocationTreeNode, AssetId, AssetLocation};
+use hydrate_model::{AssetId, AssetLocation, LocationTreeNode};
 use imgui::sys::ImVec2;
 use imgui::{im_str, ImStr, ImString, TreeNodeFlags};
 use imgui::{sys as is, StyleColor};
@@ -609,12 +609,7 @@ pub fn assets_window_right(
             //     }
             // }
 
-            for (k, v) in app_state
-                .db_state
-                .editor_model
-                .root_edit_context()
-                .assets()
-            {
+            for (k, v) in app_state.db_state.editor_model.root_edit_context().assets() {
                 if !app_state.db_state.editor_model.is_a_root_asset(*k) {
                     filtered_assets.push((*k, v.asset_location().clone()));
                 }

@@ -1,14 +1,17 @@
-use hydrate_base::{ArtifactId, handle::{ArtifactHandle, RefOp, TypedArtifactStorage}, LoadHandle};
+use hydrate_base::{
+    handle::{ArtifactHandle, RefOp, TypedArtifactStorage},
+    ArtifactId, LoadHandle,
+};
 use std::{collections::HashMap, error::Error, sync::Mutex};
 
 use crate::storage::{AssetLoadOp, AssetStorage, IndirectionTable};
+use crate::ArtifactTypeId;
 use crossbeam_channel::{Receiver, Sender};
 use downcast_rs::Downcast;
 use hydrate_base::handle::LoaderInfoProvider;
 use hydrate_base::handle::SerdeContext;
 use std::marker::PhantomData;
 use type_uuid::TypeUuid;
-use crate::ArtifactTypeId;
 
 // Used to dynamic dispatch into a storage, supports checked downcasting
 pub trait DynAssetStorage: Downcast + Send {
@@ -74,13 +77,15 @@ impl AssetStorageSet {
         let mut inner = self.inner.lock().unwrap();
         let indirection_table = inner.indirection_table.clone();
         let refop_sender = inner.refop_sender.clone();
-        let old = inner
-            .data_to_asset_type_uuid
-            .insert(ArtifactTypeId::from_bytes(T::UUID), ArtifactTypeId::from_bytes(T::UUID));
+        let old = inner.data_to_asset_type_uuid.insert(
+            ArtifactTypeId::from_bytes(T::UUID),
+            ArtifactTypeId::from_bytes(T::UUID),
+        );
         assert!(old.is_none());
-        let old = inner
-            .asset_to_data_type_uuid
-            .insert(ArtifactTypeId::from_bytes(T::UUID), ArtifactTypeId::from_bytes(T::UUID));
+        let old = inner.asset_to_data_type_uuid.insert(
+            ArtifactTypeId::from_bytes(T::UUID),
+            ArtifactTypeId::from_bytes(T::UUID),
+        );
         assert!(old.is_none());
         inner.storage.insert(
             ArtifactTypeId::from_bytes(T::UUID),
@@ -103,13 +108,15 @@ impl AssetStorageSet {
         let mut inner = self.inner.lock().unwrap();
         let indirection_table = inner.indirection_table.clone();
         let refop_sender = inner.refop_sender.clone();
-        let old = inner
-            .data_to_asset_type_uuid
-            .insert(ArtifactTypeId::from_bytes(AssetDataT::UUID), ArtifactTypeId::from_bytes(AssetT::UUID));
+        let old = inner.data_to_asset_type_uuid.insert(
+            ArtifactTypeId::from_bytes(AssetDataT::UUID),
+            ArtifactTypeId::from_bytes(AssetT::UUID),
+        );
         assert!(old.is_none());
-        let old = inner
-            .asset_to_data_type_uuid
-            .insert(ArtifactTypeId::from_bytes(AssetT::UUID), ArtifactTypeId::from_bytes(AssetDataT::UUID));
+        let old = inner.asset_to_data_type_uuid.insert(
+            ArtifactTypeId::from_bytes(AssetT::UUID),
+            ArtifactTypeId::from_bytes(AssetDataT::UUID),
+        );
         assert!(old.is_none());
         inner.storage.insert(
             ArtifactTypeId::from_bytes(AssetT::UUID),

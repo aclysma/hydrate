@@ -1,20 +1,20 @@
 use crate::loader::ArtifactData;
 use crate::loader::{
-    CombinedBuildHash, LoaderEvent, LoaderIO, ArtifactMetadata, RequestDataResult,
+    ArtifactMetadata, CombinedBuildHash, LoaderEvent, LoaderIO, RequestDataResult,
     RequestMetadataResult,
 };
 use crate::storage::IndirectIdentifier;
+use crate::ArtifactTypeId;
 use crossbeam_channel::{Receiver, Sender};
 use hydrate_base::hashing::HashMap;
-use hydrate_base::{LoadHandle, StringHash};
 use hydrate_base::{ArtifactId, ArtifactManifestData, DebugManifestFileJson};
+use hydrate_base::{LoadHandle, StringHash};
 use std::io::{BufRead, SeekFrom};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 use std::thread::JoinHandle;
 use uuid::Uuid;
-use crate::ArtifactTypeId;
 
 struct DiskAssetIORequestMetadata {
     artifact_id: ArtifactId,
@@ -220,9 +220,11 @@ impl BuildManifest {
 
                 let fragments: Vec<_> = line_str.split(",").into_iter().collect();
 
-                let artifact_id = ArtifactId::from_u128(u128::from_str_radix(fragments[0], 16).unwrap());
+                let artifact_id =
+                    ArtifactId::from_u128(u128::from_str_radix(fragments[0], 16).unwrap());
                 let build_hash = u64::from_str_radix(fragments[1], 16).unwrap();
-                let artifact_type = Uuid::from_u128(u128::from_str_radix(fragments[2], 16).unwrap());
+                let artifact_type =
+                    Uuid::from_u128(u128::from_str_radix(fragments[2], 16).unwrap());
                 let symbol_hash_u128 = u128::from_str_radix(fragments[3], 16).unwrap();
 
                 let symbol_hash = if symbol_hash_u128 != 0 {
@@ -271,27 +273,39 @@ impl BuildManifest {
                 };
 
                 for debug_manifest_entry in manifest_file.artifacts {
-                    let manifest_entry = build_manifest.artifact_lookup.get_mut(&debug_manifest_entry.artifact_id).unwrap();
+                    let manifest_entry = build_manifest
+                        .artifact_lookup
+                        .get_mut(&debug_manifest_entry.artifact_id)
+                        .unwrap();
 
                     assert_eq!(manifest_entry.artifact_id, debug_manifest_entry.artifact_id);
-                    assert_eq!(manifest_entry.artifact_type, debug_manifest_entry.artifact_type);
-                    let debug_manifest_build_hash = u64::from_str_radix(&debug_manifest_entry.build_hash, 16).unwrap();
+                    assert_eq!(
+                        manifest_entry.artifact_type,
+                        debug_manifest_entry.artifact_type
+                    );
+                    let debug_manifest_build_hash =
+                        u64::from_str_radix(&debug_manifest_entry.build_hash, 16).unwrap();
                     assert_eq!(manifest_entry.build_hash, debug_manifest_build_hash);
 
                     if debug_manifest_entry.symbol_name.is_empty() {
                         assert_eq!(manifest_entry.symbol_hash, None);
                     } else {
-                        let debug_manifest_symbol_hash = StringHash::from_runtime_str(&debug_manifest_entry.symbol_name);
-                        assert_eq!(manifest_entry.symbol_hash.as_ref().unwrap().hash(), debug_manifest_symbol_hash.hash());
+                        let debug_manifest_symbol_hash =
+                            StringHash::from_runtime_str(&debug_manifest_entry.symbol_name);
+                        assert_eq!(
+                            manifest_entry.symbol_hash.as_ref().unwrap().hash(),
+                            debug_manifest_symbol_hash.hash()
+                        );
                         manifest_entry.symbol_hash = Some(debug_manifest_symbol_hash);
                     }
 
                     manifest_entry.debug_name = Some(Arc::new(debug_manifest_entry.debug_name));
                 }
             } else {
-                log::info!("No manifest debug data found, less debug info will be available at runtime")
+                log::info!(
+                    "No manifest debug data found, less debug info will be available at runtime"
+                )
             }
-
         }
 
         build_manifest

@@ -1,13 +1,13 @@
 use crate::storage::{AssetLoadOp, AssetStorage, HandleOp, IndirectIdentifier, IndirectionTable};
+use crate::ArtifactTypeId;
 use crossbeam_channel::{Receiver, Sender};
 use dashmap::DashMap;
-use hydrate_base::handle::{LoadState, LoadStateProvider, LoaderInfoProvider, ArtifactRef};
-use hydrate_base::{LoadHandle, ArtifactManifestData, StringHash};
-use hydrate_base::{AssetId, ArtifactId};
+use hydrate_base::handle::{ArtifactRef, LoadState, LoadStateProvider, LoaderInfoProvider};
+use hydrate_base::{ArtifactId, AssetId};
+use hydrate_base::{ArtifactManifestData, LoadHandle, StringHash};
 use std::fmt::Debug;
 use std::sync::atomic::{AtomicU32, AtomicU64, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
-use crate::ArtifactTypeId;
 
 // Sequence of operations:
 // * User creates a type-safe handle through an interface, as long as it is alive, the asset remains loaded
@@ -369,14 +369,20 @@ impl Loader {
         &self,
         load: LoadHandle,
     ) -> Option<StringHash> {
-        self.load_handle_infos.get(&load).map(|l| l.symbol.clone()).flatten()
+        self.load_handle_infos
+            .get(&load)
+            .map(|l| l.symbol.clone())
+            .flatten()
     }
 
     pub fn debug_name(
         &self,
         load: LoadHandle,
     ) -> Option<Arc<String>> {
-        self.load_handle_infos.get(&load).map(|l| l.debug_name.clone()).flatten()
+        self.load_handle_infos
+            .get(&load)
+            .map(|l| l.debug_name.clone())
+            .flatten()
     }
 
     pub fn new(
@@ -439,8 +445,12 @@ impl Loader {
             // We have not started to load this asset, so we can potentially start it now
             if current_version.dependency_ref_count.load(Ordering::Relaxed) > 0 {
                 // The engine is still referencing it, so we should start loading it now
-                self.loader_io
-                    .request_metadata(build_hash, load_handle, artifact_id, version as u32);
+                self.loader_io.request_metadata(
+                    build_hash,
+                    load_handle,
+                    artifact_id,
+                    version as u32,
+                );
                 current_version.load_state = LoadState::WaitingForMetadata;
             } else {
                 // it's not referenced anymore, don't bother loading it. If it becomes
@@ -711,7 +721,12 @@ impl Loader {
         match load_result {
             HandleOp::Error(load_handle, _version, error) => {
                 let asset_info = self.load_handle_infos.get(&load_handle).unwrap();
-                log::debug!("handle_load_result error {:?} {:?} {:?}", load_handle, asset_info.debug_name, asset_info.artifact_id);
+                log::debug!(
+                    "handle_load_result error {:?} {:?} {:?}",
+                    load_handle,
+                    asset_info.debug_name,
+                    asset_info.artifact_id
+                );
                 //TODO: How to handle error?
                 log::error!("load error {}", error);
                 panic!("load error {}", error);

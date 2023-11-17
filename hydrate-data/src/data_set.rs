@@ -1,4 +1,7 @@
-use crate::{HashMap, HashSet, AssetId, OrderedSet, Schema, SchemaFingerprint, SchemaRecord, SingleObject, Value};
+use crate::{
+    AssetId, HashMap, HashSet, OrderedSet, Schema, SchemaFingerprint, SchemaRecord, SingleObject,
+    Value,
+};
 use crate::{NullOverride, SchemaSet};
 use std::hash::{Hash, Hasher};
 use std::path::{Path, PathBuf};
@@ -85,7 +88,6 @@ pub struct ImporterId(pub Uuid);
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct BuilderId(pub usize);
-
 
 // This newtype ensures we do not allow both a None and a Some("") importable name
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
@@ -300,8 +302,14 @@ impl DataSet {
         properties_in_replace_mode: HashSet<String>,
         dynamic_array_entries: HashMap<String, OrderedSet<Uuid>>,
     ) -> DataSetResult<()> {
-        let schema = schema_set.schemas().get(&schema).ok_or(DataSetError::SchemaNotFound)?;
-        let schema_record = schema.as_record().cloned().ok_or(DataSetError::InvalidSchema)?;
+        let schema = schema_set
+            .schemas()
+            .get(&schema)
+            .ok_or(DataSetError::SchemaNotFound)?;
+        let schema_record = schema
+            .as_record()
+            .cloned()
+            .ok_or(DataSetError::InvalidSchema)?;
         let obj = DataSetAssetInfo {
             schema: schema_record,
             asset_name,
@@ -368,10 +376,20 @@ impl DataSet {
         asset_location: AssetLocation,
         prototype_asset_id: AssetId,
     ) -> DataSetResult<AssetId> {
-        let prototype_schema = self.assets.get(&prototype_asset_id).ok_or(DataSetError::AssetNotFound)?;
+        let prototype_schema = self
+            .assets
+            .get(&prototype_asset_id)
+            .ok_or(DataSetError::AssetNotFound)?;
 
-        let id = self.new_asset(asset_name, asset_location, &prototype_schema.schema().clone());
-        self.assets.get_mut(&id).expect("Newly created asset was not found").prototype = Some(prototype_asset_id);
+        let id = self.new_asset(
+            asset_name,
+            asset_location,
+            &prototype_schema.schema().clone(),
+        );
+        self.assets
+            .get_mut(&id)
+            .expect("Newly created asset was not found")
+            .prototype = Some(prototype_asset_id);
         Ok(id)
     }
 
@@ -382,7 +400,10 @@ impl DataSet {
         asset_id: AssetId,
         single_object: &SingleObject,
     ) -> DataSetResult<()> {
-        let asset = self.assets.get_mut(&asset_id).ok_or(DataSetError::AssetNotFound)?;
+        let asset = self
+            .assets
+            .get_mut(&asset_id)
+            .ok_or(DataSetError::AssetNotFound)?;
 
         if asset.schema.fingerprint() != single_object.schema().fingerprint() {
             return Err(DataSetError::SingleObjectDoesNotMatchSchema);
@@ -438,7 +459,10 @@ impl DataSet {
         asset_id: AssetId,
         new_location: AssetLocation,
     ) -> DataSetResult<()> {
-        let asset = self.assets.get_mut(&asset_id).ok_or(DataSetError::AssetNotFound)?;
+        let asset = self
+            .assets
+            .get_mut(&asset_id)
+            .ok_or(DataSetError::AssetNotFound)?;
 
         asset.asset_location = new_location;
         Ok(())
@@ -450,7 +474,10 @@ impl DataSet {
         asset_id: AssetId,
         import_info: ImportInfo,
     ) -> DataSetResult<()> {
-        let asset = self.assets.get_mut(&asset_id).ok_or(DataSetError::AssetNotFound)?;
+        let asset = self
+            .assets
+            .get_mut(&asset_id)
+            .ok_or(DataSetError::AssetNotFound)?;
 
         asset.import_info = Some(import_info);
         Ok(())
@@ -464,7 +491,10 @@ impl DataSet {
         other: &DataSet,
         asset_id: AssetId,
     ) -> DataSetResult<()> {
-        let asset = other.assets.get(&asset_id).ok_or(DataSetError::AssetNotFound)?;
+        let asset = other
+            .assets
+            .get(&asset_id)
+            .ok_or(DataSetError::AssetNotFound)?;
 
         self.assets.insert(asset_id, asset.clone());
         Ok(())
@@ -484,7 +514,10 @@ impl DataSet {
         asset_id: AssetId,
         asset_name: AssetName,
     ) -> DataSetResult<()> {
-        let asset = self.assets.get_mut(&asset_id).ok_or(DataSetError::AssetNotFound)?;
+        let asset = self
+            .assets
+            .get_mut(&asset_id)
+            .ok_or(DataSetError::AssetNotFound)?;
 
         asset.asset_name = asset_name;
         Ok(())
@@ -519,8 +552,7 @@ impl DataSet {
             }
 
             asset_location_chain.push(obj_iter.clone());
-            obj_iter = if let Some(location) = self.asset_location(obj_iter.path_node_id).cloned()
-            {
+            obj_iter = if let Some(location) = self.asset_location(obj_iter.path_node_id).cloned() {
                 // May be null, in which case we will terminate and return this list so far not including the null
                 location
             } else {
@@ -589,9 +621,15 @@ impl DataSet {
         path: PathBuf,
         referenced_asset_id: AssetId,
     ) -> DataSetResult<()> {
-        let asset = self.assets.get_mut(&asset_id).ok_or(DataSetError::AssetNotFound)?;
+        let asset = self
+            .assets
+            .get_mut(&asset_id)
+            .ok_or(DataSetError::AssetNotFound)?;
 
-        asset.build_info.file_reference_overrides.insert(path, referenced_asset_id);
+        asset
+            .build_info
+            .file_reference_overrides
+            .insert(path, referenced_asset_id);
         Ok(())
     }
 
@@ -696,7 +734,10 @@ impl DataSet {
         asset_id: AssetId,
         path: impl AsRef<str>,
     ) -> DataSetResult<NullOverride> {
-        let asset = self.assets.get(&asset_id).ok_or(DataSetError::AssetNotFound)?;
+        let asset = self
+            .assets
+            .get(&asset_id)
+            .ok_or(DataSetError::AssetNotFound)?;
         let property_schema = asset
             .schema
             .find_property_schema(&path, schema_set.schemas())
@@ -704,7 +745,11 @@ impl DataSet {
 
         if property_schema.is_nullable() {
             // Not existing in the map implies that it is unset
-            Ok(asset.property_null_overrides.get(path.as_ref()).copied().unwrap_or(NullOverride::Unset))
+            Ok(asset
+                .property_null_overrides
+                .get(path.as_ref())
+                .copied()
+                .unwrap_or(NullOverride::Unset))
         } else {
             Err(DataSetError::InvalidSchema)
         }
@@ -718,7 +763,10 @@ impl DataSet {
         path: impl AsRef<str>,
         null_override: NullOverride,
     ) -> DataSetResult<()> {
-        let asset = self.assets.get_mut(&asset_id).ok_or(DataSetError::AssetNotFound)?;
+        let asset = self
+            .assets
+            .get_mut(&asset_id)
+            .ok_or(DataSetError::AssetNotFound)?;
         let property_schema = asset
             .schema
             .find_property_schema(&path, schema_set.schemas())
@@ -746,7 +794,9 @@ impl DataSet {
         asset_id: AssetId,
         path: impl AsRef<str>,
     ) -> DataSetResult<NullOverride> {
-        let asset_schema = self.asset_schema(asset_id).ok_or(DataSetError::AssetNotFound)?;
+        let asset_schema = self
+            .asset_schema(asset_id)
+            .ok_or(DataSetError::AssetNotFound)?;
 
         // Contains the path segments that we need to check for being null
         let mut nullable_ancestors = vec![];
@@ -776,7 +826,9 @@ impl DataSet {
 
         // See if this field was contained in any nullables. If any of those were null, return None.
         for checked_property in &nullable_ancestors {
-            if self.resolve_null_override(schema_set, asset_id, checked_property)? != NullOverride::SetNonNull {
+            if self.resolve_null_override(schema_set, asset_id, checked_property)?
+                != NullOverride::SetNonNull
+            {
                 return Err(DataSetError::PathParentIsNull);
             }
         }
@@ -785,7 +837,9 @@ impl DataSet {
         // this property path, return None
         for (path, key) in &accessed_dynamic_array_keys {
             let dynamic_array_entries = self.resolve_dynamic_array(schema_set, asset_id, path)?;
-            if !dynamic_array_entries.contains(&Uuid::from_str(key).map_err(|_| DataSetError::UuidParseError)?) {
+            if !dynamic_array_entries
+                .contains(&Uuid::from_str(key).map_err(|_| DataSetError::UuidParseError)?)
+            {
                 return Err(DataSetError::PathDynamicArrayEntryDoesNotExist);
             }
         }
@@ -793,7 +847,10 @@ impl DataSet {
         // Recursively look for a null override for this property being set. We can make a call
         let mut prototype_id = Some(asset_id);
         while let Some(prototype_id_iter) = prototype_id {
-            let obj = self.assets.get(&prototype_id_iter).ok_or(DataSetError::AssetNotFound)?;
+            let obj = self
+                .assets
+                .get(&prototype_id_iter)
+                .ok_or(DataSetError::AssetNotFound)?;
 
             if let Some(value) = obj.property_null_overrides.get(path.as_ref()) {
                 match value {
@@ -826,7 +883,10 @@ impl DataSet {
         asset_id: AssetId,
         path: impl AsRef<str>,
     ) -> DataSetResult<Option<&Value>> {
-        let asset = self.assets.get(&asset_id).ok_or(DataSetError::AssetNotFound)?;
+        let asset = self
+            .assets
+            .get(&asset_id)
+            .ok_or(DataSetError::AssetNotFound)?;
         Ok(asset.properties.get(path.as_ref()))
     }
 
@@ -838,7 +898,9 @@ impl DataSet {
         path: impl AsRef<str>,
         value: Option<Value>,
     ) -> DataSetResult<Option<Value>> {
-        let asset_schema = self.asset_schema(asset_id).ok_or(DataSetError::AssetNotFound)?;
+        let asset_schema = self
+            .asset_schema(asset_id)
+            .ok_or(DataSetError::AssetNotFound)?;
         let property_schema = asset_schema
             .find_property_schema(&path, schema_set.schemas())
             .ok_or(DataSetError::SchemaNotFound)?;
@@ -874,19 +936,26 @@ impl DataSet {
         )?;
 
         for checked_property in &nullable_ancestors {
-            if self.resolve_null_override(schema_set, asset_id, checked_property)? != NullOverride::SetNonNull {
+            if self.resolve_null_override(schema_set, asset_id, checked_property)?
+                != NullOverride::SetNonNull
+            {
                 return Err(DataSetError::PathParentIsNull);
             }
         }
 
         for (path, key) in &accessed_dynamic_array_keys {
             let dynamic_array_entries = self.resolve_dynamic_array(schema_set, asset_id, path)?;
-            if !dynamic_array_entries.contains(&Uuid::from_str(key).map_err(|_| DataSetError::UuidParseError)?) {
+            if !dynamic_array_entries
+                .contains(&Uuid::from_str(key).map_err(|_| DataSetError::UuidParseError)?)
+            {
                 return Err(DataSetError::PathDynamicArrayEntryDoesNotExist);
             }
         }
 
-        let obj = self.assets.get_mut(&asset_id).ok_or(DataSetError::AssetNotFound)?;
+        let obj = self
+            .assets
+            .get_mut(&asset_id)
+            .ok_or(DataSetError::AssetNotFound)?;
         let old_value = if let Some(value) = value {
             obj.properties.insert(path.as_ref().to_string(), value)
         } else {
@@ -901,7 +970,10 @@ impl DataSet {
         asset_id: AssetId,
         path: impl AsRef<str>,
     ) -> DataSetResult<()> {
-        let asset = self.assets.get(&asset_id).ok_or(DataSetError::AssetNotFound)?;
+        let asset = self
+            .assets
+            .get(&asset_id)
+            .ok_or(DataSetError::AssetNotFound)?;
         let prototype_id = asset.prototype;
 
         if let Some(prototype_id) = prototype_id {
@@ -925,7 +997,9 @@ impl DataSet {
         asset_id: AssetId,
         path: impl AsRef<str>,
     ) -> DataSetResult<&'a Value> {
-        let asset_schema = self.asset_schema(asset_id).ok_or(DataSetError::AssetNotFound)?;
+        let asset_schema = self
+            .asset_schema(asset_id)
+            .ok_or(DataSetError::AssetNotFound)?;
 
         // Contains the path segments that we need to check for being null
         let mut nullable_ancestors = vec![];
@@ -947,14 +1021,18 @@ impl DataSet {
         )?;
 
         for checked_property in &nullable_ancestors {
-            if self.resolve_null_override(schema_set, asset_id, checked_property)? != NullOverride::SetNonNull {
+            if self.resolve_null_override(schema_set, asset_id, checked_property)?
+                != NullOverride::SetNonNull
+            {
                 return Err(DataSetError::PathParentIsNull);
             }
         }
 
         for (path, key) in &accessed_dynamic_array_keys {
             let dynamic_array_entries = self.resolve_dynamic_array(schema_set, asset_id, path)?;
-            if !dynamic_array_entries.contains(&Uuid::from_str(key).map_err(|_| DataSetError::UuidParseError)?) {
+            if !dynamic_array_entries
+                .contains(&Uuid::from_str(key).map_err(|_| DataSetError::UuidParseError)?)
+            {
                 return Err(DataSetError::PathDynamicArrayEntryDoesNotExist);
             }
         }
@@ -984,7 +1062,10 @@ impl DataSet {
         asset_id: AssetId,
         path: impl AsRef<str>,
     ) -> DataSetResult<std::slice::Iter<Uuid>> {
-        let asset = self.assets.get(&asset_id).ok_or(DataSetError::AssetNotFound)?;
+        let asset = self
+            .assets
+            .get(&asset_id)
+            .ok_or(DataSetError::AssetNotFound)?;
         let property_schema = asset
             .schema
             .find_property_schema(&path, schema_set.schemas())
@@ -1007,7 +1088,10 @@ impl DataSet {
         asset_id: AssetId,
         path: impl AsRef<str>,
     ) -> DataSetResult<Uuid> {
-        let asset = self.assets.get_mut(&asset_id).ok_or(DataSetError::AssetNotFound)?;
+        let asset = self
+            .assets
+            .get_mut(&asset_id)
+            .ok_or(DataSetError::AssetNotFound)?;
         let property_schema = asset
             .schema
             .find_property_schema(&path, schema_set.schemas())
@@ -1036,7 +1120,10 @@ impl DataSet {
         path: impl AsRef<str>,
         element_id: Uuid,
     ) -> DataSetResult<bool> {
-        let asset = self.assets.get_mut(&asset_id).ok_or(DataSetError::AssetNotFound)?;
+        let asset = self
+            .assets
+            .get_mut(&asset_id)
+            .ok_or(DataSetError::AssetNotFound)?;
         let property_schema = asset
             .schema
             .find_property_schema(&path, schema_set.schemas())
@@ -1066,7 +1153,10 @@ impl DataSet {
         accessed_dynamic_array_keys: &Vec<(String, String)>,
         resolved_entries: &mut Vec<Uuid>,
     ) -> DataSetResult<()> {
-        let obj = self.assets.get(&asset_id).ok_or(DataSetError::AssetNotFound)?;
+        let obj = self
+            .assets
+            .get(&asset_id)
+            .ok_or(DataSetError::AssetNotFound)?;
 
         // See if any properties in the path ancestry are replacing parent data
         let mut check_parents = true;
@@ -1121,7 +1211,9 @@ impl DataSet {
         asset_id: AssetId,
         path: impl AsRef<str>,
     ) -> DataSetResult<Box<[Uuid]>> {
-        let asset_schema = self.asset_schema(asset_id).ok_or(DataSetError::AssetNotFound)?;
+        let asset_schema = self
+            .asset_schema(asset_id)
+            .ok_or(DataSetError::AssetNotFound)?;
 
         // Contains the path segments that we need to check for being null
         let mut nullable_ancestors = vec![];
@@ -1143,14 +1235,18 @@ impl DataSet {
         )?;
 
         for checked_property in &nullable_ancestors {
-            if self.resolve_null_override(schema_set, asset_id, checked_property)? != NullOverride::SetNonNull {
+            if self.resolve_null_override(schema_set, asset_id, checked_property)?
+                != NullOverride::SetNonNull
+            {
                 return Err(DataSetError::PathParentIsNull);
             }
         }
 
         for (path, key) in &accessed_dynamic_array_keys {
             let dynamic_array_entries = self.resolve_dynamic_array(schema_set, asset_id, path)?;
-            if !dynamic_array_entries.contains(&Uuid::from_str(key).map_err(|_| DataSetError::UuidParseError)?) {
+            if !dynamic_array_entries
+                .contains(&Uuid::from_str(key).map_err(|_| DataSetError::UuidParseError)?)
+            {
                 return Err(DataSetError::PathDynamicArrayEntryDoesNotExist);
             }
         }
@@ -1174,7 +1270,10 @@ impl DataSet {
         asset_id: AssetId,
         path: impl AsRef<str>,
     ) -> DataSetResult<OverrideBehavior> {
-        let asset = self.assets.get(&asset_id).ok_or(DataSetError::AssetNotFound)?;
+        let asset = self
+            .assets
+            .get(&asset_id)
+            .ok_or(DataSetError::AssetNotFound)?;
         let property_schema = asset
             .schema
             .find_property_schema(&path, schema_set.schemas())
@@ -1199,7 +1298,10 @@ impl DataSet {
         path: impl AsRef<str>,
         behavior: OverrideBehavior,
     ) -> DataSetResult<()> {
-        let asset = self.assets.get_mut(&asset_id).ok_or(DataSetError::AssetNotFound)?;
+        let asset = self
+            .assets
+            .get_mut(&asset_id)
+            .ok_or(DataSetError::AssetNotFound)?;
         let property_schema = asset
             .schema
             .find_property_schema(&path, schema_set.schemas())

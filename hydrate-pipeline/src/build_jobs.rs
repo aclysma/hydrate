@@ -1,9 +1,12 @@
+use crate::DynEditorModel;
 use hydrate_base::{hashing::HashMap, AssetId};
-use hydrate_base::{ArtifactId, BuiltArtifactMetadata, DebugArtifactManifestDataJson, DebugManifestFileJson, StringHash};
+use hydrate_base::{
+    ArtifactId, BuiltArtifactMetadata, DebugArtifactManifestDataJson, DebugManifestFileJson,
+    StringHash,
+};
 use std::collections::VecDeque;
 use std::io::Write;
 use std::path::PathBuf;
-use crate::DynEditorModel;
 
 use super::ImportJobs;
 
@@ -48,7 +51,13 @@ impl BuildJobs {
         build_data_root_path: PathBuf,
     ) -> Self {
         //TODO: May need to scan disk to see what is cached?
-        let job_executor = JobExecutor::new(schema_set, job_processor_registry, import_data_root_path, job_data_root_path, build_data_root_path.clone());
+        let job_executor = JobExecutor::new(
+            schema_set,
+            job_processor_registry,
+            import_data_root_path,
+            job_data_root_path,
+            build_data_root_path.clone(),
+        );
         let build_jobs = Default::default();
 
         BuildJobs {
@@ -97,8 +106,7 @@ impl BuildJobs {
         //
         let mut requested_build_ops = VecDeque::default();
         for (&asset_id, _) in asset_hashes {
-            assert!(!editor_model
-                .is_path_node_or_root(&data_set.asset_schema(asset_id).unwrap()));
+            assert!(!editor_model.is_path_node_or_root(&data_set.asset_schema(asset_id).unwrap()));
 
             //TODO: Skip assets that aren't explicitly requested, if any were requested
             //      For now just build everything
@@ -142,17 +150,20 @@ impl BuildJobs {
                     let asset_id = request.asset_id;
                     started_build_ops.insert(asset_id);
 
-                    let asset_type = editor_model
-                        .data_set()
-                        .asset_schema(asset_id)
-                        .unwrap();
+                    let asset_type = editor_model.data_set().asset_schema(asset_id).unwrap();
 
-                    let Some(builder) = builder_registry.builder_for_asset(asset_type.fingerprint())
-                        else {
-                            continue;
-                        };
+                    let Some(builder) =
+                        builder_registry.builder_for_asset(asset_type.fingerprint())
+                    else {
+                        continue;
+                    };
 
-                    builder.start_jobs(asset_id, &data_set, schema_set, self.job_executor.job_api());
+                    builder.start_jobs(
+                        asset_id,
+                        &data_set,
+                        schema_set,
+                        self.job_executor.job_api(),
+                    );
                 }
             }
 
@@ -200,11 +211,14 @@ impl BuildJobs {
                     job.build_data_exists
                         .insert((written_artifact.artifact_id, written_artifact.build_hash));
 
-                    built_artifact_info.insert(written_artifact.artifact_id, BuiltArtifactInfo {
-                        asset_id: written_artifact.asset_id,
-                        artifact_key_debug_name: written_artifact.artifact_key_debug_name,
-                        metadata: written_artifact.metadata,
-                    });
+                    built_artifact_info.insert(
+                        written_artifact.artifact_id,
+                        BuiltArtifactInfo {
+                            asset_id: written_artifact.asset_id,
+                            artifact_key_debug_name: written_artifact.artifact_key_debug_name,
+                            metadata: written_artifact.metadata,
+                        },
+                    );
                 }
             }
         }
@@ -260,12 +274,14 @@ impl BuildJobs {
         std::fs::create_dir_all(&manifest_path).unwrap();
 
         // This is a more compact file that is run at release
-        let manifest_path_release = manifest_path.join(format!("{:0>16x}.manifest_release", combined_build_hash));
+        let manifest_path_release =
+            manifest_path.join(format!("{:0>16x}.manifest_release", combined_build_hash));
         let manifest_release_file = std::fs::File::create(manifest_path_release).unwrap();
         let mut manifest_release_file_writer = std::io::BufWriter::new(manifest_release_file);
 
         // This is a json file that supplements the release manifest
-        let manifest_path_debug = manifest_path.join(format!("{:0>16x}.manifest_debug", combined_build_hash));
+        let manifest_path_debug =
+            manifest_path.join(format!("{:0>16x}.manifest_debug", combined_build_hash));
 
         let mut manifest_json = DebugManifestFileJson::default();
 
@@ -286,15 +302,22 @@ impl BuildJobs {
                 None
             };
 
-            let symbol_name_hash = StringHash::from_runtime_str(&symbol_name.clone().unwrap_or_default()).hash();
+            let symbol_name_hash =
+                StringHash::from_runtime_str(&symbol_name.clone().unwrap_or_default()).hash();
             if symbol_name_hash != 0 {
                 let newly_inserted = all_hashes.insert(symbol_name_hash);
                 // We have a hash collision if this assert fires
                 assert!(newly_inserted);
             }
 
-            let debug_name = if let Some(artifact_key_debug_name) = &built_artifact_info.artifact_key_debug_name {
-                format!("{}#{}", editor_model.asset_display_name_long(asset_id), artifact_key_debug_name)
+            let debug_name = if let Some(artifact_key_debug_name) =
+                &built_artifact_info.artifact_key_debug_name
+            {
+                format!(
+                    "{}#{}",
+                    editor_model.asset_display_name_long(asset_id),
+                    artifact_key_debug_name
+                )
             } else {
                 editor_model.asset_display_name_long(asset_id)
             };
@@ -310,7 +333,15 @@ impl BuildJobs {
             });
 
             // Write the artifact ID, build hash, asset type, and hash of symbol name in CSV (this could be very compact binary one day
-            write!(manifest_release_file_writer, "{:0>32x},{:0>16x},{:0>32x},{:0>32x}\n", artifact_id.as_u128(), build_hash, built_artifact_info.metadata.asset_type.as_u128(), symbol_name_hash).unwrap();
+            write!(
+                manifest_release_file_writer,
+                "{:0>32x},{:0>16x},{:0>32x},{:0>32x}\n",
+                artifact_id.as_u128(),
+                build_hash,
+                built_artifact_info.metadata.asset_type.as_u128(),
+                symbol_name_hash
+            )
+            .unwrap();
         }
 
         drop(manifest_release_file_writer);
@@ -323,10 +354,7 @@ impl BuildJobs {
             };
 
             profiling::scope!("std::fs::write");
-            std::fs::write(
-                manifest_path_debug,
-                json,
-            ).unwrap();
+            std::fs::write(manifest_path_debug, json).unwrap();
         }
 
         //
@@ -337,9 +365,9 @@ impl BuildJobs {
         std::fs::create_dir_all(&toc_path).unwrap();
 
         let timestamp = std::time::SystemTime::now()
-        .duration_since(std::time::SystemTime::UNIX_EPOCH)
-        .unwrap()
-        .as_millis();
+            .duration_since(std::time::SystemTime::UNIX_EPOCH)
+            .unwrap()
+            .as_millis();
         toc_path.push(format!("{:0>16x}.toc", timestamp));
 
         std::fs::write(toc_path, format!("{:0>16x}", combined_build_hash)).unwrap();

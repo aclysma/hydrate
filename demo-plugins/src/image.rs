@@ -4,18 +4,17 @@ use std::path::Path;
 
 use super::generated::{GpuImageAssetRecord, GpuImageImportedDataRecord};
 use demo_types::image::*;
+use hydrate_model::pipeline::{ImportContext, ScanContext};
+use hydrate_pipeline::{
+    job_system, AssetId, BuilderRegistryBuilder, DataContainer, DataContainerMut, DataSet, Field,
+    HashMap, ImportableAsset, ImporterRegistry, ImporterRegistryBuilder, JobApi,
+    JobEnumeratedDependencies, JobInput, JobOutput, JobProcessor, JobProcessorRegistryBuilder,
+    PropertyPath, Record, SchemaLinker, SchemaSet, SingleObject,
+};
 use hydrate_pipeline::{AssetPlugin, Builder};
 use hydrate_pipeline::{ImportedImportable, Importer, ScannedImportable};
-use hydrate_pipeline::{
-    job_system, BuilderRegistryBuilder, DataContainer, DataContainerMut,
-    DataSet, Field, HashMap, ImportableAsset, ImporterRegistry, ImporterRegistryBuilder, JobApi,
-    JobEnumeratedDependencies, JobInput, JobOutput, JobProcessor,
-    JobProcessorRegistryBuilder, AssetId, PropertyPath, Record, SchemaLinker, SchemaSet,
-    SingleObject,
-};
 use serde::{Deserialize, Serialize};
 use type_uuid::TypeUuid;
-use hydrate_model::pipeline::{ImportContext, ScanContext};
 
 #[derive(TypeUuid, Default)]
 #[uuid = "e7c83acb-f73b-4b3c-b14d-fe5cc17c0fa3"]
@@ -30,7 +29,8 @@ impl Importer for GpuImageImporter {
         &self,
         context: ScanContext,
     ) -> Vec<ScannedImportable> {
-        let asset_type = context.schema_set
+        let asset_type = context
+            .schema_set
             .find_named_type(GpuImageAssetRecord::schema_name())
             .unwrap()
             .as_record()

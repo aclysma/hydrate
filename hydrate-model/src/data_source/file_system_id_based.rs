@@ -1,8 +1,8 @@
 use crate::edit_context::EditContext;
-use hydrate_pipeline::import_util::ImportToQueue;
-use crate::{DataSource, HashSet, AssetId, AssetSourceId, PathNodeRoot};
+use crate::{AssetId, AssetSourceId, DataSource, HashSet, PathNodeRoot};
 use hydrate_base::uuid_path::{path_to_uuid, uuid_to_path};
 use hydrate_data::AssetLocation;
+use hydrate_pipeline::import_util::ImportToQueue;
 use hydrate_schema::SchemaNamedType;
 use std::path::{Path, PathBuf};
 use uuid::Uuid;
@@ -34,7 +34,8 @@ fn load_asset_files(
                 default_asset_location,
                 None,
                 &contents,
-            ).unwrap();
+            )
+            .unwrap();
             let asset_id = AssetId::from_uuid(file_uuid);
             let asset_location = edit_context
                 .assets()
@@ -158,7 +159,10 @@ impl DataSource for FileSystemIdBasedDataSource {
         edit_context: &mut EditContext,
         _imports_to_queue: &mut Vec<ImportToQueue>,
     ) {
-        profiling::scope!(&format!("load_from_storage {:?}", self.file_system_root_path));
+        profiling::scope!(&format!(
+            "load_from_storage {:?}",
+            self.file_system_root_path
+        ));
 
         //
         // Delete all assets from the database owned by this data source
@@ -189,13 +193,15 @@ impl DataSource for FileSystemIdBasedDataSource {
         &mut self,
         edit_context: &mut EditContext,
     ) {
-        profiling::scope!(&format!("flush_to_storage {:?}", self.file_system_root_path));
+        profiling::scope!(&format!(
+            "flush_to_storage {:?}",
+            self.file_system_root_path
+        ));
 
         // Delete files for assets that were deleted
         let modified_assets = self.find_all_modified_assets(edit_context);
         for asset_id in &modified_assets {
-            if self.all_asset_ids_on_disk.contains(&asset_id)
-                && !edit_context.has_asset(*asset_id)
+            if self.all_asset_ids_on_disk.contains(&asset_id) && !edit_context.has_asset(*asset_id)
             {
                 //TODO: delete the asset file
                 self.all_asset_ids_on_disk.remove(&asset_id);
@@ -213,7 +219,8 @@ impl DataSource for FileSystemIdBasedDataSource {
                     // If the asset doesn't have a location set or is set to the root of this data
                     // source, serialize with a null location
                     let asset_location = if asset_info.asset_location().is_null()
-                        || asset_info.asset_location().path_node_id().as_uuid() == *self.asset_source_id.uuid()
+                        || asset_info.asset_location().path_node_id().as_uuid()
+                            == *self.asset_source_id.uuid()
                     {
                         None
                     } else {
@@ -224,7 +231,7 @@ impl DataSource for FileSystemIdBasedDataSource {
                         edit_context.assets(),
                         *asset_id,
                         false, //don't include ID because we assume it by file name
-                        asset_location
+                        asset_location,
                     );
                     let file_path =
                         uuid_to_path(&self.file_system_root_path, asset_id.as_uuid(), "af");

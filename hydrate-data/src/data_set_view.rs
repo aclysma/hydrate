@@ -1,5 +1,5 @@
 use crate::data_set::DataSetResult;
-use crate::{DataSet, NullOverride, AssetId, OverrideBehavior, SchemaSet, SingleObject, Value};
+use crate::{AssetId, DataSet, NullOverride, OverrideBehavior, SchemaSet, SingleObject, Value};
 use uuid::Uuid;
 /*
 pub fn do_push_property_path(
@@ -255,7 +255,7 @@ impl<'a> DataContainerMut<'a> {
             DataContainerMut::DataSet(data_set, schema_set, asset_id) => {
                 data_set.set_override_behavior(schema_set, *asset_id, path, behavior)
             }
-            DataContainerMut::SingleObject(_, _) => { Ok(()) }
+            DataContainerMut::SingleObject(_, _) => Ok(()),
         }
     }
 

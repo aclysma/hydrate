@@ -4,12 +4,12 @@ use crate::generated::GpuBufferAssetRecord;
 use demo_types::gpu_buffer::GpuBufferBuiltData;
 use hydrate_model::pipeline::{AssetPlugin, Builder};
 use hydrate_pipeline::{
-    job_system, BuilderRegistryBuilder, DataSet, HashMap,
-    ImporterRegistryBuilder, JobApi, JobEnumeratedDependencies, JobInput, JobOutput, JobProcessor,
-    JobProcessorRegistryBuilder, AssetId, Record, SchemaLinker, SchemaSet, SingleObject,
+    job_system, AssetId, BuilderRegistryBuilder, DataSet, HashMap, ImporterRegistryBuilder, JobApi,
+    JobEnumeratedDependencies, JobInput, JobOutput, JobProcessor, JobProcessorRegistryBuilder,
+    Record, SchemaLinker, SchemaSet, SingleObject,
 };
 use serde::{Deserialize, Serialize};
-use type_uuid::{TypeUuid};
+use type_uuid::TypeUuid;
 
 #[derive(Hash, Serialize, Deserialize)]
 pub struct GpuBufferJobInput {

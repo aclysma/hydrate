@@ -1,6 +1,6 @@
-use hydrate_data::{DataSet, AssetId, SchemaSet};
-use hydrate_base::{ArtifactId, BuiltArtifactMetadata};
 use crate::JobApi;
+use hydrate_base::{ArtifactId, BuiltArtifactMetadata};
+use hydrate_data::{AssetId, DataSet, SchemaSet};
 
 pub struct BuiltAsset {
     pub asset_id: AssetId,

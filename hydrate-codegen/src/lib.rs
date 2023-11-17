@@ -1,4 +1,6 @@
-use hydrate_model::{Schema, SchemaEnum, SchemaNamedType, SchemaRecord, SchemaSet, SchemaSetBuilder};
+use hydrate_model::{
+    Schema, SchemaEnum, SchemaNamedType, SchemaRecord, SchemaSet, SchemaSetBuilder,
+};
 use std::error::Error;
 use std::io::Write;
 use std::path::{Path, PathBuf};
@@ -32,22 +34,29 @@ fn schema_to_rs(
     outfile: &Path,
 ) -> Result<(), Box<dyn Error>> {
     let mut linker = hydrate_model::SchemaLinker::default();
-    linker.add_source_dir(&schema_path, "**.json").map_err(|x| Box::new(x))?;
+    linker
+        .add_source_dir(&schema_path, "**.json")
+        .map_err(|x| Box::new(x))?;
 
     let named_types_to_build = linker.unlinked_type_names();
 
     for referenced_schema_path in referenced_schema_paths {
         linker
-            .add_source_dir(referenced_schema_path, "**.json").map_err(|x| Box::new(x))?;
+            .add_source_dir(referenced_schema_path, "**.json")
+            .map_err(|x| Box::new(x))?;
     }
 
     let mut schema_set_builder = SchemaSetBuilder::default();
-    schema_set_builder.add_linked_types(linker).map_err(|x| Box::new(x))?;
+    schema_set_builder
+        .add_linked_types(linker)
+        .map_err(|x| Box::new(x))?;
     let schema_set = schema_set_builder.build();
 
     let mut all_schemas_to_build = Vec::default();
     for named_type_to_build in named_types_to_build {
-        let named_type = schema_set.find_named_type(named_type_to_build).expect("Cannot find linked type in built schema");
+        let named_type = schema_set
+            .find_named_type(named_type_to_build)
+            .expect("Cannot find linked type in built schema");
         all_schemas_to_build.push((named_type.fingerprint(), named_type));
     }
 

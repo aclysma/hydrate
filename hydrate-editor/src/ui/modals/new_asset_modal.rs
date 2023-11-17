@@ -2,7 +2,7 @@ use crate::app_state::{ActionQueueSender, ModalAction, ModalActionControlFlow};
 use crate::db_state::DbState;
 use crate::ui_state::UiState;
 use hydrate_model::pipeline::AssetEngine;
-use hydrate_model::{HashSet, AssetLocation, AssetName, SchemaFingerprint};
+use hydrate_model::{AssetLocation, AssetName, HashSet, SchemaFingerprint};
 use imgui::sys::ImVec2;
 use imgui::{im_str, ImString, PopupModal};
 

@@ -1,7 +1,7 @@
 use crate::value::ValueEnum;
 use crate::{
-    DataContainer, DataContainerMut, DataSetError, DataSetResult, NullOverride,
-    AssetId, SchemaSet, SingleObject, Value,
+    AssetId, DataContainer, DataContainerMut, DataSetError, DataSetResult, NullOverride, SchemaSet,
+    SingleObject, Value,
 };
 use std::marker::PhantomData;
 use uuid::Uuid;
@@ -63,8 +63,7 @@ impl<T: Enum> EnumField<T> {
         &self,
         data_container: &DataContainer,
     ) -> DataSetResult<T> {
-        let e = data_container
-            .resolve_property(self.0.path())?;
+        let e = data_container.resolve_property(self.0.path())?;
         T::from_symbol_name(e.as_enum().unwrap().symbol_name())
             .ok_or(DataSetError::UnexpectedEnumSymbol)
     }
@@ -76,7 +75,9 @@ impl<T: Enum> EnumField<T> {
     ) -> DataSetResult<Option<Value>> {
         data_container.set_property_override(
             self.0.path(),
-            Some(Value::Enum(ValueEnum::new(value.to_symbol_name().to_string()))),
+            Some(Value::Enum(ValueEnum::new(
+                value.to_symbol_name().to_string(),
+            ))),
         )
     }
 }

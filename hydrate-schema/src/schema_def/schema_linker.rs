@@ -1,11 +1,11 @@
-use std::error::Error;
-use std::fmt::{Display, Formatter};
 use super::enum_type_builder::*;
 use super::fixed_type_builder::*;
 use super::record_type_builder::*;
 use super::schema_def::*;
 use crate::{HashMap, HashSet, SchemaDefParserError, SchemaFingerprint, SchemaNamedType};
 use siphasher::sip128::Hasher128;
+use std::error::Error;
+use std::fmt::{Display, Formatter};
 use std::hash::Hash;
 use std::path::Path;
 
@@ -17,14 +17,15 @@ pub enum SchemaLinkerError {
 }
 
 impl Display for SchemaLinkerError {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    fn fmt(
+        &self,
+        f: &mut Formatter<'_>,
+    ) -> std::fmt::Result {
         write!(f, "Error linking schema: {:?}", self)
     }
 }
 
-impl Error for SchemaLinkerError {
-
-}
+impl Error for SchemaLinkerError {}
 
 impl From<SchemaDefParserError> for SchemaLinkerError {
     fn from(err: SchemaDefParserError) -> Self {

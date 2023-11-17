@@ -1,11 +1,11 @@
-use std::hash::Hash;
 use hydrate_base::hashing::HashSet;
+use std::hash::Hash;
 
 #[derive(Clone, Default)]
 pub struct OrderedSet<T: Eq + PartialEq + Hash + Clone> {
     vec: Vec<T>,
     // the set is just a lookup, the vec is the real authority
-    set: HashSet<T>
+    set: HashSet<T>,
 }
 
 impl<'a, T: Eq + PartialEq + Hash + Clone> IntoIterator for &'a OrderedSet<T> {
@@ -34,12 +34,18 @@ impl<T: Eq + PartialEq + Hash + Clone> OrderedSet<T> {
         self.vec.iter()
     }
 
-    pub fn contains(&self, value: &T) -> bool {
+    pub fn contains(
+        &self,
+        value: &T,
+    ) -> bool {
         self.set.contains(value)
     }
 
     // Returns true if insert is "successful". Otherwise it's false if it already existed
-    pub fn try_insert_at_end(&mut self, value: T) -> bool {
+    pub fn try_insert_at_end(
+        &mut self,
+        value: T,
+    ) -> bool {
         let is_newly_inserted = self.set.insert(value.clone());
         if is_newly_inserted {
             self.vec.push(value);
@@ -48,10 +54,14 @@ impl<T: Eq + PartialEq + Hash + Clone> OrderedSet<T> {
         is_newly_inserted
     }
 
-    pub fn remove(&mut self, value: &T) -> bool {
+    pub fn remove(
+        &mut self,
+        value: &T,
+    ) -> bool {
         let removed = self.set.remove(value);
         if removed {
-            self.vec.remove(self.vec.iter().position(|x| x == value).unwrap());
+            self.vec
+                .remove(self.vec.iter().position(|x| x == value).unwrap());
         }
 
         removed

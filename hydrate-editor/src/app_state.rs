@@ -3,7 +3,7 @@ use crate::ui::modals::{ConfirmQuitWithoutSavingModal, ImportFilesModal};
 use crate::ui_state::UiState;
 use hydrate_model::pipeline::import_util::ImportToQueue;
 use hydrate_model::pipeline::AssetEngine;
-use hydrate_model::{EndContextBehavior, AssetId, AssetLocation};
+use hydrate_model::{AssetId, AssetLocation, EndContextBehavior};
 use std::fmt::Formatter;
 use std::path::PathBuf;
 use std::sync::mpsc::{Receiver, Sender};
@@ -223,9 +223,7 @@ impl AppState {
                 }
                 QueuedActions::PersistAssets(assets) => {
                     for asset_id in assets {
-                        self.db_state
-                            .editor_model
-                            .persist_generated_asset(asset_id)
+                        self.db_state.editor_model.persist_generated_asset(asset_id)
                     }
                 }
             }

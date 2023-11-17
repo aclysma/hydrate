@@ -27,8 +27,8 @@ pub use build_types::*;
 mod builder_registry;
 pub use builder_registry::*;
 
-pub mod import_util;
 mod import_thread_pool;
+pub mod import_util;
 
 use hydrate_schema::SchemaRecord;
 
@@ -94,7 +94,10 @@ pub trait DynEditorModel {
 
     fn data_set(&self) -> &DataSet;
 
-    fn is_path_node_or_root(&self, schema_record: &SchemaRecord) -> bool;
+    fn is_path_node_or_root(
+        &self,
+        schema_record: &SchemaRecord,
+    ) -> bool;
 
     fn asset_display_name_long(
         &self,
@@ -157,7 +160,13 @@ impl AssetEngine {
             &import_data_root_path, /*DbState::import_data_source_path()*/
         );
 
-        let build_jobs = BuildJobs::new(schema_set, &job_processor_registry, import_data_root_path, job_data_path, build_data_path);
+        let build_jobs = BuildJobs::new(
+            schema_set,
+            &job_processor_registry,
+            import_data_root_path,
+            job_data_path,
+            build_data_path,
+        );
 
         //TODO: Consider looking at disk to determine previous combined build hash so we don't for a rebuild every time we open
 
@@ -199,10 +208,7 @@ impl AssetEngine {
         let mut combined_build_hash = 0;
         let mut object_hashes = HashMap::default();
         for (asset_id, object) in editor_model.data_set().assets() {
-            let hash = editor_model
-                .data_set()
-                .hash_properties(*asset_id)
-                .unwrap();
+            let hash = editor_model.data_set().hash_properties(*asset_id).unwrap();
 
             if !editor_model.is_path_node_or_root(object.schema()) {
                 object_hashes.insert(*asset_id, hash);
@@ -283,12 +289,8 @@ impl AssetEngine {
         path: PathBuf,
         assets_to_regenerate: HashSet<AssetId>,
     ) {
-        self.import_jobs.queue_import_operation(
-            asset_ids,
-            importer_id,
-            path,
-            assets_to_regenerate,
-        );
+        self.import_jobs
+            .queue_import_operation(asset_ids, importer_id, path, assets_to_regenerate);
     }
 
     pub fn queue_build_operation(

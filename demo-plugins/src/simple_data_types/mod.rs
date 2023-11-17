@@ -74,9 +74,8 @@ impl AssetPlugin for SimpleDataAssetPlugin {
     ) {
         macro_rules! register {
             ($data_type:ty, $name:literal) => {
-                builder_registry.register_handler_instance(
-                    SimpleBincodeDataBuilder::<$data_type>::new($name),
-                );
+                builder_registry
+                    .register_handler_instance(SimpleBincodeDataBuilder::<$data_type>::new($name));
                 job_processor_registry
                     .register_job_processor::<SimpleBincodeDataJobProcessor<$data_type>>()
             };

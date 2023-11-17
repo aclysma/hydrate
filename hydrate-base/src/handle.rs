@@ -10,15 +10,10 @@ use std::{
     },
 };
 
-use crossbeam_channel::Sender;
-use serde::{
-    de,
-    ser,
-    Serialize,
-    Deserialize
-};
-use uuid::Uuid;
 use crate::ArtifactId;
+use crossbeam_channel::Sender;
+use serde::{de, ser, Deserialize, Serialize};
+use uuid::Uuid;
 
 /// Loading ID allocated by [`Loader`](crate::loader::Loader) to track loading of a particular artifact
 /// or an indirect reference to an artifact.
@@ -480,7 +475,9 @@ impl LoaderInfoProvider for DummySerdeContext {
                 if ArtifactRef(*current_serde_id) != *artifact_ref
                     && *artifact_ref != ArtifactRef(ArtifactId::null())
                 {
-                    current.current_serde_dependencies.insert(artifact_ref.clone());
+                    current
+                        .current_serde_dependencies
+                        .insert(artifact_ref.clone());
                 }
             }
         }
@@ -571,7 +568,11 @@ where
 {
     SerdeContext::with_active(|loader, _| {
         use ser::SerializeSeq;
-        let uuid_bytes: uuid::Bytes = *loader.artifact_id(load).unwrap_or_default().as_uuid().as_bytes();
+        let uuid_bytes: uuid::Bytes = *loader
+            .artifact_id(load)
+            .unwrap_or_default()
+            .as_uuid()
+            .as_bytes();
         let mut seq = serializer.serialize_seq(Some(uuid_bytes.len()))?;
         for element in &uuid_bytes {
             seq.serialize_element(element)?;
@@ -896,7 +897,9 @@ pub trait ArtifactHandle {
 
 pub fn make_handle_within_serde_context<T>(uuid: ArtifactId) -> Handle<T> {
     SerdeContext::with_active(|loader_info_provider, ref_op_sender| {
-        let load_handle = loader_info_provider.load_handle(&ArtifactRef(uuid)).unwrap();
+        let load_handle = loader_info_provider
+            .load_handle(&ArtifactRef(uuid))
+            .unwrap();
         Handle::<T>::new(ref_op_sender.clone(), load_handle)
     })
 }

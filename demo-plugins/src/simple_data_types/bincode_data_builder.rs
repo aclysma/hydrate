@@ -1,10 +1,7 @@
-use hydrate_model::pipeline::{
-    Builder
-};
+use hydrate_model::pipeline::Builder;
 use hydrate_pipeline::{
-    job_system, DataContainer, DataSet, HashMap,
-    JobApi, JobEnumeratedDependencies, JobInput, JobOutput, JobProcessor,
-    AssetId, SchemaSet, SingleObject,
+    job_system, AssetId, DataContainer, DataSet, HashMap, JobApi, JobEnumeratedDependencies,
+    JobInput, JobOutput, JobProcessor, SchemaSet, SingleObject,
 };
 use serde::{Deserialize, Serialize};
 use std::marker::PhantomData;

@@ -449,7 +449,7 @@ pub enum SchemaDefType {
     StaticArray(SchemaDefStaticArray),
     DynamicArray(SchemaDefDynamicArray),
     Map(SchemaDefMap),
-    AssetRef(String), // name of the type
+    AssetRef(String),  // name of the type
     NamedType(String), // name of the type
 }
 

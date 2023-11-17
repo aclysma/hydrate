@@ -4,16 +4,17 @@ use std::path::{Path, PathBuf};
 use hydrate_model::pipeline::{AssetPlugin, ImportContext, ScanContext};
 use hydrate_model::pipeline::{ImportedImportable, Importer, ScannedImportable};
 use hydrate_pipeline::{
-    BuilderRegistryBuilder, DataContainerMut, Enum, HashMap,
-    ImportableAsset, ImporterId, ImporterRegistry, ImporterRegistryBuilder,
-    JobProcessorRegistryBuilder, AssetRefField, Record, ReferencedSourceFile,
-    SchemaLinker, SchemaSet,
+    AssetRefField, BuilderRegistryBuilder, DataContainerMut, Enum, HashMap, ImportableAsset,
+    ImporterId, ImporterRegistry, ImporterRegistryBuilder, JobProcessorRegistryBuilder, Record,
+    ReferencedSourceFile, SchemaLinker, SchemaSet,
 };
 use serde::{Deserialize, Serialize};
 use type_uuid::TypeUuid;
 use uuid::Uuid;
 
-use super::generated::{MeshAdvBlendMethodEnum, MeshAdvMaterialAssetRecord, MeshAdvShadowMethodEnum};
+use super::generated::{
+    MeshAdvBlendMethodEnum, MeshAdvMaterialAssetRecord, MeshAdvShadowMethodEnum,
+};
 
 #[derive(Serialize, Deserialize)]
 struct MaterialJsonFileFormat {
@@ -57,7 +58,8 @@ impl Importer for BlenderMaterialImporter {
         &self,
         context: ScanContext,
     ) -> Vec<ScannedImportable> {
-        let asset_type = context.schema_set
+        let asset_type = context
+            .schema_set
             .find_named_type(MeshAdvMaterialAssetRecord::schema_name())
             .unwrap()
             .as_record()
@@ -182,9 +184,7 @@ impl Importer for BlenderMaterialImporter {
                         .referenced_paths
                         .get(path_as_string)
                     {
-                        ref_field
-                            .set(data_container, *referenced_asset_id)
-                            .unwrap();
+                        ref_field.set(data_container, *referenced_asset_id).unwrap();
                     }
                 }
             }

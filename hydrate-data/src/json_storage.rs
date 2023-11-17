@@ -1,13 +1,19 @@
-use crate::{BuildInfo, HashMap, HashSet, ImportInfo, ImporterId, NullOverride, AssetId, Schema, SchemaFingerprint, SchemaNamedType, SchemaSet, SingleObject, Value, DataSetAssetInfo};
+use crate::{
+    AssetId, BuildInfo, DataSetAssetInfo, HashMap, HashSet, ImportInfo, ImporterId, NullOverride,
+    Schema, SchemaFingerprint, SchemaNamedType, SchemaSet, SingleObject, Value,
+};
+use crate::{AssetLocation, AssetName, DataSetResult, ImportableName, OrderedSet};
+use hydrate_base::b3f;
 use serde::{Deserialize, Serialize};
 use std::hash::{Hash, Hasher};
 use std::path::PathBuf;
 use std::str::FromStr;
 use uuid::Uuid;
-use hydrate_base::b3f;
-use crate::{ImportableName, OrderedSet, AssetLocation, DataSetResult, AssetName};
 
-fn property_value_to_json(value: &Value, buffers: &mut Option<Vec<Vec<u8>>>) -> serde_json::Value {
+fn property_value_to_json(
+    value: &Value,
+    buffers: &mut Option<Vec<Vec<u8>>>,
+) -> serde_json::Value {
     match value {
         Value::Nullable(_) => unimplemented!(),
         Value::Boolean(x) => serde_json::Value::from(*x),
@@ -27,7 +33,7 @@ fn property_value_to_json(value: &Value, buffers: &mut Option<Vec<Vec<u8>>>) -> 
                 // Encode the data inline as a base64 string
                 serde_json::Value::from(base64::encode(x))
             }
-        },
+        }
         Value::String(x) => serde_json::Value::from(x.clone()),
         Value::StaticArray(_) => unimplemented!(),
         Value::DynamicArray(_) => unimplemented!(),
@@ -43,7 +49,7 @@ fn json_to_property_value_with_schema(
     named_types: &HashMap<SchemaFingerprint, SchemaNamedType>,
     schema: &Schema,
     value: &serde_json::Value,
-    buffers: &mut Option<Vec<Vec<u8>>>
+    buffers: &mut Option<Vec<Vec<u8>>>,
 ) -> Value {
     match schema {
         Schema::Nullable(_) => unimplemented!(),
@@ -65,13 +71,13 @@ fn json_to_property_value_with_schema(
                 // The data is encoded inline as a base64 string, decode and return the value
                 Value::Bytes(base64::decode(value.as_str().unwrap()).unwrap())
             }
-        },
+        }
         Schema::String => Value::String(value.as_str().unwrap().to_string()),
         Schema::StaticArray(_) => unimplemented!(),
         Schema::DynamicArray(_) => unimplemented!(),
         Schema::Map(_) => unimplemented!(),
         Schema::AssetRef(_) => Value::AssetRef(AssetId::from_uuid(
-            Uuid::parse_str(value.as_str().unwrap()).unwrap()
+            Uuid::parse_str(value.as_str().unwrap()).unwrap(),
         )),
         Schema::NamedType(x) => {
             let named_type = named_types.get(x).unwrap();
@@ -132,7 +138,7 @@ fn load_json_properties(
     property_null_overrides: &mut HashMap<String, NullOverride>,
     mut properties_in_replace_mode: Option<&mut HashSet<String>>,
     dynamic_array_entries: &mut HashMap<String, OrderedSet<Uuid>>,
-    buffers: &mut Option<Vec<Vec<u8>>>
+    buffers: &mut Option<Vec<Vec<u8>>>,
 ) {
     let mut max_path_length = 0;
     for (k, _) in json_properties {
@@ -185,7 +191,12 @@ fn load_json_properties(
                     }
                 }
             } else {
-                let v = json_to_property_value_with_schema(named_types, &property_schema, &value, buffers);
+                let v = json_to_property_value_with_schema(
+                    named_types,
+                    &property_schema,
+                    &value,
+                    buffers,
+                );
                 log::trace!("set {} to {:?}", path, v);
                 properties.insert(path.to_string(), v);
             }
@@ -198,7 +209,7 @@ fn store_json_properties(
     property_null_overrides: &HashMap<String, NullOverride>,
     properties_in_replace_mode: Option<&HashSet<String>>,
     dynamic_array_entries: &HashMap<String, OrderedSet<Uuid>>,
-    buffers: &mut Option<Vec<Vec<u8>>>
+    buffers: &mut Option<Vec<Vec<u8>>>,
 ) -> HashMap<String, serde_json::Value> {
     let mut saved_properties: HashMap<String, serde_json::Value> = Default::default();
 
@@ -247,7 +258,10 @@ impl AssetImportInfoJson {
         AssetImportInfoJson {
             importer_id: import_info.importer_id().0,
             source_file_path,
-            importable_name: import_info.importable_name().map(|x| x.to_string()).unwrap_or_default(),
+            importable_name: import_info
+                .importable_name()
+                .map(|x| x.to_string())
+                .unwrap_or_default(),
             file_references: import_info.file_references().iter().cloned().collect(),
         }
     }
@@ -404,9 +418,7 @@ impl AssetJson {
         let import_info = stored_asset
             .import_info
             .map(|x| x.to_import_info(schema_set));
-        let build_info = stored_asset
-            .build_info
-            .to_build_info(schema_set);
+        let build_info = stored_asset.build_info.to_build_info(schema_set);
 
         restore_asset_impl.restore_asset(
             asset_id,
@@ -442,7 +454,7 @@ impl AssetJson {
             obj.property_null_overrides(),
             Some(obj.properties_in_replace_mode()),
             obj.dynamic_array_entries(),
-            &mut buffers
+            &mut buffers,
         );
 
         let import_info = obj
@@ -490,14 +502,14 @@ pub struct SingleObjectJson {
 impl SingleObjectJson {
     fn new(
         object: &SingleObject,
-        buffers: &mut Option<Vec<Vec<u8>>>
+        buffers: &mut Option<Vec<Vec<u8>>>,
     ) -> SingleObjectJson {
         let json_properties = store_json_properties(
             &object.properties(),
             &object.property_null_overrides(),
             None,
             &object.dynamic_array_entries(),
-            buffers
+            buffers,
         );
 
         let mut hasher = siphasher::sip::SipHasher::default();
@@ -515,7 +527,7 @@ impl SingleObjectJson {
     fn to_single_object(
         &self,
         schema_set: &SchemaSet,
-        buffers: &mut Option<Vec<Vec<u8>>>
+        buffers: &mut Option<Vec<Vec<u8>>>,
     ) -> SingleObject {
         let schema_fingerprint = SchemaFingerprint::from_uuid(self.schema);
 
@@ -536,7 +548,7 @@ impl SingleObjectJson {
             &mut property_null_overrides,
             None,
             &mut dynamic_array_entries,
-            buffers
+            buffers,
         );
 
         SingleObject::restore(
@@ -613,7 +625,10 @@ impl SingleObjectJson {
     }
 
     #[profiling::function]
-    pub fn save_single_object_to_b3f<W: std::io::Write>(write: W, object: &SingleObject) {
+    pub fn save_single_object_to_b3f<W: std::io::Write>(
+        write: W,
+        object: &SingleObject,
+    ) {
         // Start with a single empty buffer. It will be a placeholder for the actual json data
         let mut buffers = Some(vec![Vec::default()]);
         let single_object = SingleObjectJson::new(object, &mut buffers);

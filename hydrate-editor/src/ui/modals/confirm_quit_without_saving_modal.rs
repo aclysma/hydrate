@@ -3,7 +3,7 @@ use crate::db_state::DbState;
 use crate::ui_state::UiState;
 use crate::QueuedActions;
 use hydrate_model::pipeline::AssetEngine;
-use hydrate_model::{HashSet, AssetId};
+use hydrate_model::{AssetId, HashSet};
 use imgui::{im_str, PopupModal};
 
 pub struct ConfirmQuitWithoutSavingModal {

@@ -1,7 +1,10 @@
 use hydrate_model::pipeline::import_util::ImportToQueue;
-use hydrate_model::{DataSet, EditorModel, AssetId, AssetLocation, AssetName, PathNode, PathNodeRoot, SchemaCacheSingleFile, SchemaLinker, SchemaSet, SchemaSetBuilder};
-use std::path::{Path, PathBuf};
 use hydrate_model::pipeline::ImporterRegistry;
+use hydrate_model::{
+    AssetId, AssetLocation, AssetName, DataSet, EditorModel, PathNode, PathNodeRoot,
+    SchemaCacheSingleFile, SchemaLinker, SchemaSet, SchemaSetBuilder,
+};
+use std::path::{Path, PathBuf};
 
 pub struct DbState {
     //pub db: hydrate_model::Database,
@@ -120,11 +123,9 @@ impl DbState {
             asset_location.clone(),
             &transform_schema_record,
         );
-        let instance_obj = db.new_asset_from_prototype(
-            AssetName::new("asset_b"),
-            asset_location,
-            prototype_obj,
-        ).unwrap();
+        let instance_obj = db
+            .new_asset_from_prototype(AssetName::new("asset_b"), asset_location, prototype_obj)
+            .unwrap();
 
         db.set_property_override(
             &schema_set,

@@ -1,15 +1,14 @@
+use hydrate_data::json_storage::RestoreAssetFromStorageImpl;
 use hydrate_data::{OrderedSet, SingleObject};
+use hydrate_pipeline::DynEditContext;
 use std::path::PathBuf;
 use uuid::Uuid;
-use hydrate_data::json_storage::RestoreAssetFromStorageImpl;
-use hydrate_pipeline::DynEditContext;
 
 use crate::editor::undo::{UndoContext, UndoStack};
 use crate::{
-    BuildInfo, DataSetAssetInfo, DataSet, DataSetDiff, DataSetResult, EditContextKey,
-    EndContextBehavior, HashMap, HashSet, ImportInfo, NullOverride,
-    AssetId, AssetLocation, AssetName, OverrideBehavior, SchemaFingerprint, SchemaNamedType,
-    SchemaRecord, SchemaSet, Value,
+    AssetId, AssetLocation, AssetName, BuildInfo, DataSet, DataSetAssetInfo, DataSetDiff,
+    DataSetResult, EditContextKey, EndContextBehavior, HashMap, HashSet, ImportInfo, NullOverride,
+    OverrideBehavior, SchemaFingerprint, SchemaNamedType, SchemaRecord, SchemaSet, Value,
 };
 
 //TODO: Delete unused property data when path ancestor is null or in replace mode
@@ -51,8 +50,33 @@ pub struct EditContext {
 }
 
 impl RestoreAssetFromStorageImpl for EditContext {
-    fn restore_asset(&mut self, asset_id: AssetId, asset_name: AssetName, asset_location: AssetLocation, import_info: Option<ImportInfo>, build_info: BuildInfo, prototype: Option<AssetId>, schema: SchemaFingerprint, properties: HashMap<String, Value>, property_null_overrides: HashMap<String, NullOverride>, properties_in_replace_mode: HashSet<String>, dynamic_array_entries: HashMap<String, OrderedSet<Uuid>>) -> DataSetResult<()> {
-        self.restore_asset(asset_id, asset_name, asset_location, import_info, build_info, prototype, schema, properties, property_null_overrides, properties_in_replace_mode, dynamic_array_entries)
+    fn restore_asset(
+        &mut self,
+        asset_id: AssetId,
+        asset_name: AssetName,
+        asset_location: AssetLocation,
+        import_info: Option<ImportInfo>,
+        build_info: BuildInfo,
+        prototype: Option<AssetId>,
+        schema: SchemaFingerprint,
+        properties: HashMap<String, Value>,
+        property_null_overrides: HashMap<String, NullOverride>,
+        properties_in_replace_mode: HashSet<String>,
+        dynamic_array_entries: HashMap<String, OrderedSet<Uuid>>,
+    ) -> DataSetResult<()> {
+        self.restore_asset(
+            asset_id,
+            asset_name,
+            asset_location,
+            import_info,
+            build_info,
+            prototype,
+            schema,
+            properties,
+            property_null_overrides,
+            properties_in_replace_mode,
+            dynamic_array_entries,
+        )
     }
 }
 
@@ -65,15 +89,29 @@ impl DynEditContext for EditContext {
         &self.schema_set
     }
 
-    fn new_asset(&mut self, asset_name: &AssetName, asset_location: &AssetLocation, schema: &SchemaRecord) -> AssetId {
+    fn new_asset(
+        &mut self,
+        asset_name: &AssetName,
+        asset_location: &AssetLocation,
+        schema: &SchemaRecord,
+    ) -> AssetId {
         self.new_asset(asset_name, asset_location, schema)
     }
 
-    fn set_import_info(&mut self, asset_id: AssetId, import_info: ImportInfo) -> DataSetResult<()> {
+    fn set_import_info(
+        &mut self,
+        asset_id: AssetId,
+        import_info: ImportInfo,
+    ) -> DataSetResult<()> {
         self.set_import_info(asset_id, import_info)
     }
 
-    fn set_file_reference_override(&mut self, asset_id: AssetId, path: PathBuf, referenced_asset_id: AssetId) -> DataSetResult<()> {
+    fn set_file_reference_override(
+        &mut self,
+        asset_id: AssetId,
+        path: PathBuf,
+        referenced_asset_id: AssetId,
+    ) -> DataSetResult<()> {
         self.set_file_reference_override(asset_id, path, referenced_asset_id)
     }
 }
@@ -355,9 +393,9 @@ impl EditContext {
         asset_location: &AssetLocation,
         schema: &SchemaRecord,
     ) -> AssetId {
-        let asset_id =
-            self.data_set
-                .new_asset(asset_name.clone(), asset_location.clone(), schema);
+        let asset_id = self
+            .data_set
+            .new_asset(asset_name.clone(), asset_location.clone(), schema);
         self.track_new_asset(asset_id, asset_location);
         asset_id
     }

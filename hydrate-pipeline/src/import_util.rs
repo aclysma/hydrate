@@ -1,13 +1,11 @@
-use crate::{Importer, ScanContext, ScannedImportable};
+use crate::DynEditContext;
 use crate::ImporterRegistry;
-use hydrate_data::{
-    HashMap, ImportInfo, ImporterId, AssetId, AssetLocation, AssetName,
-};
+use crate::{Importer, ScanContext, ScannedImportable};
 use hydrate_base::hashing::HashSet;
+use hydrate_data::ImportableName;
+use hydrate_data::{AssetId, AssetLocation, AssetName, HashMap, ImportInfo, ImporterId};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
-use hydrate_data::ImportableName;
-use crate::DynEditContext;
 
 #[derive(Debug)]
 pub struct ImportToQueue {
@@ -160,7 +158,9 @@ pub fn recursively_gather_import_operations_and_create_assets(
             &scanned_importable.asset_type,
         );
         //TODO: Do this when we actually import to avoid potential race conditions
-        editor_context.set_import_info(asset_id, import_info.clone()).unwrap();
+        editor_context
+            .set_import_info(asset_id, import_info.clone())
+            .unwrap();
 
         for (k, v) in scanned_importable
             .file_references
@@ -168,7 +168,9 @@ pub fn recursively_gather_import_operations_and_create_assets(
             .zip(referenced_source_file_asset_ids)
         {
             if let Some(v) = v {
-                editor_context.set_file_reference_override(asset_id, k.path.clone(), v).unwrap();
+                editor_context
+                    .set_file_reference_override(asset_id, k.path.clone(), v)
+                    .unwrap();
             }
         }
 

@@ -8,16 +8,14 @@ use crate::push_buffer::PushBuffer;
 use demo_types::mesh_adv::*;
 use hydrate_model::pipeline::{AssetPlugin, Builder};
 use hydrate_pipeline::{
-    job_system, BuilderRegistryBuilder, DataContainer, DataSet, HashMap,
+    job_system, AssetId, BuilderRegistryBuilder, DataContainer, DataSet, HashMap,
     ImporterRegistryBuilder, JobApi, JobEnumeratedDependencies, JobInput, JobOutput, JobProcessor,
-    JobProcessorRegistryBuilder, AssetId, Record, SchemaLinker, SchemaSet, SingleObject,
+    JobProcessorRegistryBuilder, Record, SchemaLinker, SchemaSet, SingleObject,
 };
 use serde::{Deserialize, Serialize};
 use type_uuid::TypeUuid;
 
-use super::generated::{
-    MeshAdvMaterialAssetRecord
-};
+use super::generated::MeshAdvMaterialAssetRecord;
 
 #[derive(Hash, Serialize, Deserialize)]
 pub struct MeshAdvMaterialJobInput {
@@ -236,7 +234,12 @@ impl JobProcessor for MeshAdvMeshPreprocessJobProcessor {
         let mut all_indices = PushBuffer::new(16384);
 
         let mut mesh_part_data = Vec::default();
-        for entry in x.mesh_parts().resolve_entries(&data_container).unwrap().into_iter() {
+        for entry in x
+            .mesh_parts()
+            .resolve_entries(&data_container)
+            .unwrap()
+            .into_iter()
+        {
             let entry = x.mesh_parts().entry(*entry);
 
             //

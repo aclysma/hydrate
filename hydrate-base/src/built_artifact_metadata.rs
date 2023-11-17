@@ -1,6 +1,6 @@
-use std::sync::Arc;
 use crate::{ArtifactId, StringHash};
 use serde::{Deserialize, Serialize};
+use std::sync::Arc;
 use uuid::Uuid;
 
 /// Used to store debug manifest data. It's not needed for the game to function but can be used in

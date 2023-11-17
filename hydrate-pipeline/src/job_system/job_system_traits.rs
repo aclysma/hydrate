@@ -1,4 +1,5 @@
 use super::{JobId, JobTypeId};
+use crate::import_jobs;
 use crate::{AssetArtifactIdPair, BuiltArtifact, ImportData, ImportJobs};
 use hydrate_base::handle::DummySerdeContextHandle;
 use hydrate_base::hashing::HashMap;
@@ -8,7 +9,6 @@ use serde::{Deserialize, Serialize};
 use siphasher::sip128::Hasher128;
 use std::hash::Hash;
 use type_uuid::{TypeUuid, TypeUuidDynamic};
-use crate::import_jobs;
 
 pub trait ImportDataProvider {
     fn clone_import_data_metadata_hashes(&self) -> HashMap<AssetId, u64>;
@@ -167,7 +167,7 @@ pub fn enqueue_job<T: JobProcessor>(
         input_data,
     };
 
-    let debug_name  = format!("{}", std::any::type_name::<T>());
+    let debug_name = format!("{}", std::any::type_name::<T>());
     job_api.enqueue_job(data_set, schema_set, queued_job, debug_name)
 }
 
@@ -221,7 +221,11 @@ pub fn produce_artifact<T: TypeUuid + Serialize, U: Hash + std::fmt::Display>(
     }
 }
 
-pub fn produce_artifact_with_handles<T: TypeUuid + Serialize, U: Hash + std::fmt::Display, F: FnOnce() -> T>(
+pub fn produce_artifact_with_handles<
+    T: TypeUuid + Serialize,
+    U: Hash + std::fmt::Display,
+    F: FnOnce() -> T,
+>(
     job_api: &dyn JobApi,
     asset_id: AssetId,
     artifact_key: Option<U>,
@@ -241,7 +245,12 @@ pub fn produce_artifact_with_handles<T: TypeUuid + Serialize, U: Hash + std::fmt
 
     let referenced_assets = ctx.end_serialize_artifact(artifact_id);
 
-    log::trace!("produce_artifact {:?} {:?} {:?}", asset_id, artifact_id, artifact_key_debug_name);
+    log::trace!(
+        "produce_artifact {:?} {:?} {:?}",
+        asset_id,
+        artifact_id,
+        artifact_key_debug_name
+    );
     job_api.produce_artifact(BuiltArtifact {
         asset_id,
         artifact_id,
@@ -253,7 +262,7 @@ pub fn produce_artifact_with_handles<T: TypeUuid + Serialize, U: Hash + std::fmt
             asset_type: uuid::Uuid::from_bytes(asset_type),
         },
         data: built_data,
-        artifact_key_debug_name
+        artifact_key_debug_name,
     });
 
     artifact_id

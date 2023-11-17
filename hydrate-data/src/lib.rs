@@ -1,4 +1,3 @@
-
 pub use hydrate_schema::*;
 
 pub mod value;
@@ -7,17 +6,17 @@ pub use value::Value;
 pub mod json_storage;
 
 mod data_set;
+pub use data_set::AssetLocation;
+pub use data_set::AssetName;
 pub use data_set::BuildInfo;
 pub use data_set::BuilderId;
-pub use data_set::DataSetAssetInfo;
 pub use data_set::DataSet;
+pub use data_set::DataSetAssetInfo;
 pub use data_set::DataSetError;
 pub use data_set::DataSetResult;
 pub use data_set::ImportInfo;
-pub use data_set::ImporterId;
 pub use data_set::ImportableName;
-pub use data_set::AssetLocation;
-pub use data_set::AssetName;
+pub use data_set::ImporterId;
 pub use data_set::OverrideBehavior;
 
 mod data_set_view;
@@ -38,7 +37,7 @@ mod field_wrappers;
 pub use field_wrappers::*;
 
 mod schema_set;
-pub use schema_set::{SchemaSetBuilder, SchemaSet};
+pub use schema_set::{SchemaSet, SchemaSetBuilder};
 
 mod ordered_set;
 pub use ordered_set::OrderedSet;

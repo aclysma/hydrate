@@ -1,11 +1,13 @@
-use std::path::{Path, PathBuf};
-use std::sync::Arc;
-use std::sync::atomic::{AtomicUsize, Ordering};
-use std::thread::JoinHandle;
+use crate::{
+    JobApi, JobApiImpl, JobEnumeratedDependencies, JobId, JobProcessorRegistry, JobTypeId,
+};
 use crossbeam_channel::{Receiver, Sender};
 use hydrate_base::hashing::HashMap;
 use hydrate_data::{DataSet, SchemaSet};
-use crate::{JobApi, JobApiImpl, JobEnumeratedDependencies, JobId, JobProcessorRegistry, JobTypeId};
+use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::Arc;
+use std::thread::JoinHandle;
 
 // Ask the thread to gather build data from the asset
 pub struct JobExecutorThreadPoolRequestRunJob {
@@ -36,7 +38,7 @@ pub struct JobExecutorThreadPoolOutcomeRunJobFailure {
 
 pub enum JobExecutorThreadPoolOutcome {
     RunJobComplete(JobExecutorThreadPoolOutcomeRunJobComplete),
-    RunJobFailed(JobExecutorThreadPoolOutcomeRunJobFailure)
+    RunJobFailed(JobExecutorThreadPoolOutcomeRunJobFailure),
 }
 
 // Thread that tries to take jobs out of the request channel and ends when the finish channel is signalled
@@ -59,7 +61,11 @@ fn do_build(
     {
         for &import_data_id in &request.dependencies.import_data {
             profiling::scope!(&format!("Load Import Data {:?}", import_data_id));
-            let import_data = super::super::import_jobs::load_import_data(import_data_root_path, schema_set, import_data_id);
+            let import_data = super::super::import_jobs::load_import_data(
+                import_data_root_path,
+                schema_set,
+                import_data_id,
+            );
             required_import_data.insert(import_data_id, import_data.import_data);
         }
     }
@@ -67,7 +73,9 @@ fn do_build(
     // Load the upstream job result data
 
     // Execute the job
-    let job_processor = job_processor_registry.get_processor(request.job_type).unwrap();
+    let job_processor = job_processor_registry
+        .get_processor(request.job_type)
+        .unwrap();
     let output_data = {
         profiling::scope!(&format!("JobProcessor::run_inner"));
         job_processor.run_inner(
@@ -101,34 +109,37 @@ impl JobExecutorWorkerThread {
         thread_index: usize,
     ) -> Self {
         let (finish_tx, finish_rx) = crossbeam_channel::bounded(1);
-        let join_handle = std::thread::Builder::new().name("IO Thread".into()).spawn(move || {
-            profiling::register_thread!(&format!("JobExecutorWorkerThread {}", thread_index));
-            loop {
-                crossbeam_channel::select! {
-                    recv(request_rx) -> msg => {
-                        match msg.unwrap() {
-                            JobExecutorThreadPoolRequest::RunJob(msg) => {
-                                profiling::scope!("JobExecutorThreadPoolRequest::RequestBuild");
+        let join_handle = std::thread::Builder::new()
+            .name("IO Thread".into())
+            .spawn(move || {
+                profiling::register_thread!(&format!("JobExecutorWorkerThread {}", thread_index));
+                loop {
+                    crossbeam_channel::select! {
+                        recv(request_rx) -> msg => {
+                            match msg.unwrap() {
+                                JobExecutorThreadPoolRequest::RunJob(msg) => {
+                                    profiling::scope!("JobExecutorThreadPoolRequest::RequestBuild");
 
-                                let result = do_build(
-                                    &*import_data_root_path,
-                                    &job_processor_registry,
-                                    &schema_set,
-                                    &job_api,
-                                    msg
-                                );
+                                    let result = do_build(
+                                        &*import_data_root_path,
+                                        &job_processor_registry,
+                                        &schema_set,
+                                        &job_api,
+                                        msg
+                                    );
 
-                                outcome_tx.send(result).unwrap();
-                                active_request_count.fetch_sub(1, Ordering::Release);
-                            },
+                                    outcome_tx.send(result).unwrap();
+                                    active_request_count.fetch_sub(1, Ordering::Release);
+                                },
+                            }
+                        },
+                        recv(finish_rx) -> _msg => {
+                            return;
                         }
-                    },
-                    recv(finish_rx) -> _msg => {
-                        return;
                     }
                 }
-            }
-        }).unwrap();
+            })
+            .unwrap();
 
         JobExecutorWorkerThread {
             finish_tx,
@@ -156,7 +167,8 @@ impl JobExecutorThreadPool {
     ) -> Self {
         let import_data_root_path = Arc::new(import_data_root_path.to_path_buf());
         let job_data_root_path = Arc::new(job_data_root_path.to_path_buf());
-        let (request_tx, request_rx) = crossbeam_channel::unbounded::<JobExecutorThreadPoolRequest>();
+        let (request_tx, request_rx) =
+            crossbeam_channel::unbounded::<JobExecutorThreadPoolRequest>();
         let active_request_count = Arc::new(AtomicUsize::new(0));
 
         let mut worker_threads = Vec::with_capacity(max_requests_in_flight);

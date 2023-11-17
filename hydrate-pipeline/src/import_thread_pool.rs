@@ -1,16 +1,16 @@
-use std::hash::{Hash, Hasher};
-use std::io::BufWriter;
-use std::path::{Path, PathBuf};
-use std::sync::Arc;
-use std::sync::atomic::{AtomicUsize, Ordering};
-use std::thread::JoinHandle;
+use crate::import_jobs::ImportOp;
+use crate::{ImportContext, ImportableAsset, ImporterRegistry};
 use crossbeam_channel::{Receiver, Sender};
 use hydrate_base::hashing::HashMap;
 use hydrate_base::uuid_path::uuid_to_path;
-use hydrate_data::{SchemaSet, SingleObject};
 use hydrate_data::json_storage::SingleObjectJson;
-use crate::{ImportableAsset, ImportContext, ImporterRegistry};
-use crate::import_jobs::ImportOp;
+use hydrate_data::{SchemaSet, SingleObject};
+use std::hash::{Hash, Hasher};
+use std::io::BufWriter;
+use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::Arc;
+use std::thread::JoinHandle;
 
 // Ask the thread to gather import data from the asset
 pub struct ImportThreadRequestImport {
@@ -19,7 +19,7 @@ pub struct ImportThreadRequestImport {
     // pub path: PathBuf,
     // pub assets_to_regenerate: HashSet<AssetId>,
     pub import_op: ImportOp,
-    pub importable_assets: HashMap<Option<String>, ImportableAsset>
+    pub importable_assets: HashMap<Option<String>, ImportableAsset>,
 }
 
 pub enum ImportThreadRequest {
@@ -35,7 +35,6 @@ pub struct ImportThreadImportedImportable {
 pub struct ImportThreadOutcomeComplete {
     pub request: ImportThreadRequestImport,
     pub imported_importables: HashMap<Option<String>, ImportThreadImportedImportable>,
-
     //asset: SingleObject,
     //import_data: SingleObject,
 }
@@ -47,7 +46,7 @@ pub struct ImportThreadOutcomeFailed {
 
 pub enum ImportThreadOutcome {
     Complete(ImportThreadOutcomeComplete),
-    Failed(ImportThreadOutcomeFailed)
+    Failed(ImportThreadOutcomeFailed),
 }
 
 // Thread that tries to take jobs out of the request channel and ends when the finish channel is signalled
@@ -60,7 +59,7 @@ fn do_import(
     importer_registry: &ImporterRegistry,
     schema_set: &SchemaSet,
     import_data_root_path: &Path,
-    msg: ImportThreadRequestImport
+    msg: ImportThreadRequestImport,
 ) -> ImportThreadOutcome {
     let importer_id = msg.import_op.importer_id;
     let importer = importer_registry.importer(importer_id).unwrap();
@@ -127,9 +126,12 @@ fn do_import(
             }
         }
 
-        imported_importables.insert(name, ImportThreadImportedImportable {
-            default_asset: imported_asset.default_asset
-        });
+        imported_importables.insert(
+            name,
+            ImportThreadImportedImportable {
+                default_asset: imported_asset.default_asset,
+            },
+        );
     }
 
     ImportThreadOutcome::Complete(ImportThreadOutcomeComplete {
@@ -149,32 +151,35 @@ impl ImportWorkerThread {
         thread_index: usize,
     ) -> Self {
         let (finish_tx, finish_rx) = crossbeam_channel::bounded(1);
-        let join_handle = std::thread::Builder::new().name("IO Thread".into()).spawn(move || {
-            profiling::register_thread!(&format!("ImportWorkerThread {}", thread_index));
-            loop {
-                crossbeam_channel::select! {
-                    recv(request_rx) -> msg => {
-                        match msg.unwrap() {
-                            ImportThreadRequest::RequestImport(msg) => {
-                                profiling::scope!("ImportThreadRequest::RequestImport");
-                                let result = do_import(
-                                    &importer_registry,
-                                    &schema_set,
-                                    &*import_data_root_path,
-                                    msg,
-                                );
+        let join_handle = std::thread::Builder::new()
+            .name("IO Thread".into())
+            .spawn(move || {
+                profiling::register_thread!(&format!("ImportWorkerThread {}", thread_index));
+                loop {
+                    crossbeam_channel::select! {
+                        recv(request_rx) -> msg => {
+                            match msg.unwrap() {
+                                ImportThreadRequest::RequestImport(msg) => {
+                                    profiling::scope!("ImportThreadRequest::RequestImport");
+                                    let result = do_import(
+                                        &importer_registry,
+                                        &schema_set,
+                                        &*import_data_root_path,
+                                        msg,
+                                    );
 
-                                outcome_tx.send(result).unwrap();
-                                active_request_count.fetch_sub(1, Ordering::Release);
-                            },
+                                    outcome_tx.send(result).unwrap();
+                                    active_request_count.fetch_sub(1, Ordering::Release);
+                                },
+                            }
+                        },
+                        recv(finish_rx) -> _msg => {
+                            return;
                         }
-                    },
-                    recv(finish_rx) -> _msg => {
-                        return;
                     }
                 }
-            }
-        }).unwrap();
+            })
+            .unwrap();
 
         ImportWorkerThread {
             finish_tx,

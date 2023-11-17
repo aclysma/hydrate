@@ -1,6 +1,6 @@
-use std::sync::Arc;
 use crate::value::ValueEnum;
 use crate::{HashMap, SchemaFingerprint, SchemaLinker, SchemaLinkerResult, SchemaNamedType, Value};
+use std::sync::Arc;
 
 /// Accumulates linked types and can be used to create a schema. This allows validation of types
 /// and some work that can be pre-cached, such as generating default values for enums. (Values
@@ -17,11 +17,11 @@ impl SchemaSetBuilder {
         let inner = SchemaSetInner {
             schemas_by_name: self.schemas_by_name,
             schemas: self.schemas,
-            default_enum_values: self.default_enum_values
+            default_enum_values: self.default_enum_values,
         };
 
         SchemaSet {
-            inner: Arc::new(inner)
+            inner: Arc::new(inner),
         }
     }
 
@@ -95,7 +95,8 @@ impl SchemaSet {
         &self,
         name: impl AsRef<str>,
     ) -> Option<&SchemaNamedType> {
-        self.inner.schemas_by_name
+        self.inner
+            .schemas_by_name
             .get(name.as_ref())
             .map(|fingerprint| self.find_named_type_by_fingerprint(*fingerprint))
             .flatten()

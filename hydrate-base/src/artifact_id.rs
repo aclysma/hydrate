@@ -1,8 +1,8 @@
+use serde::{de, ser};
 use serde::{Deserialize, Serialize};
-use uuid::Uuid;
 use std::fmt;
 use std::str::FromStr;
-use serde::{de, ser};
+use uuid::Uuid;
 
 /// ID of a built piece of data. A build job can produce any number of artifacts, usually reading
 /// import data and/or asset data. Different platforms may have different artifacts for the same
@@ -52,9 +52,7 @@ impl fmt::Debug for ArtifactId {
         &self,
         f: &mut fmt::Formatter<'_>,
     ) -> fmt::Result {
-        f.debug_tuple("ArtifactId")
-            .field(&self.0)
-            .finish()
+        f.debug_tuple("ArtifactId").field(&self.0).finish()
     }
 }
 

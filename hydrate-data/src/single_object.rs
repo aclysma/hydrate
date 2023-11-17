@@ -1,4 +1,6 @@
-use crate::{DataSetError, DataSetResult, HashMap, OrderedSet, SchemaFingerprint, SchemaRecord, Value};
+use crate::{
+    DataSetError, DataSetResult, HashMap, OrderedSet, SchemaFingerprint, SchemaRecord, Value,
+};
 use crate::{NullOverride, SchemaSet};
 use std::hash::{Hash, Hasher};
 use std::str::FromStr;
@@ -121,7 +123,11 @@ impl SingleObject {
 
         if property_schema.is_nullable() {
             // Not existing in the map implies that it is unset
-            Ok(self.property_null_overrides.get(path.as_ref()).copied().unwrap_or(NullOverride::Unset))
+            Ok(self
+                .property_null_overrides
+                .get(path.as_ref())
+                .copied()
+                .unwrap_or(NullOverride::Unset))
         } else {
             Err(DataSetError::InvalidSchema)
         }
@@ -186,7 +192,8 @@ impl SingleObject {
 
         // See if this field was contained in any nullables. If any of those were null, return None.
         for checked_property in &nullable_ancestors {
-            if self.resolve_null_override(schema_set, checked_property)? != NullOverride::SetNonNull {
+            if self.resolve_null_override(schema_set, checked_property)? != NullOverride::SetNonNull
+            {
                 return Err(DataSetError::PathParentIsNull);
             }
         }
@@ -195,12 +202,18 @@ impl SingleObject {
         // this property path, return None
         for (path, key) in &accessed_dynamic_array_keys {
             let dynamic_array_entries = self.resolve_dynamic_array(schema_set, path)?;
-            if !dynamic_array_entries.contains(&Uuid::from_str(key).map_err(|_| DataSetError::UuidParseError)?) {
+            if !dynamic_array_entries
+                .contains(&Uuid::from_str(key).map_err(|_| DataSetError::UuidParseError)?)
+            {
                 return Err(DataSetError::PathDynamicArrayEntryDoesNotExist);
             }
         }
 
-        Ok(self.property_null_overrides.get(path.as_ref()).copied().unwrap_or(NullOverride::Unset))
+        Ok(self
+            .property_null_overrides
+            .get(path.as_ref())
+            .copied()
+            .unwrap_or(NullOverride::Unset))
     }
 
     pub fn has_property_override(
@@ -262,14 +275,17 @@ impl SingleObject {
         )?;
 
         for checked_property in &nullable_ancestors {
-            if self.resolve_null_override(schema_set, checked_property)? != NullOverride::SetNonNull {
+            if self.resolve_null_override(schema_set, checked_property)? != NullOverride::SetNonNull
+            {
                 return Err(DataSetError::PathParentIsNull);
             }
         }
 
         for (path, key) in &accessed_dynamic_array_keys {
             let dynamic_array_entries = self.resolve_dynamic_array(schema_set, path)?;
-            if !dynamic_array_entries.contains(&Uuid::from_str(key).map_err(|_| DataSetError::UuidParseError)?) {
+            if !dynamic_array_entries
+                .contains(&Uuid::from_str(key).map_err(|_| DataSetError::UuidParseError)?)
+            {
                 return Err(DataSetError::PathDynamicArrayEntryDoesNotExist);
             }
         }
@@ -307,14 +323,17 @@ impl SingleObject {
         )?;
 
         for checked_property in &nullable_ancestors {
-            if self.resolve_null_override(schema_set, checked_property)? != NullOverride::SetNonNull {
+            if self.resolve_null_override(schema_set, checked_property)? != NullOverride::SetNonNull
+            {
                 return Err(DataSetError::PathParentIsNull);
             }
         }
 
         for (path, key) in &accessed_dynamic_array_keys {
             let dynamic_array_entries = self.resolve_dynamic_array(schema_set, path)?;
-            if !dynamic_array_entries.contains(&Uuid::from_str(key).map_err(|_| DataSetError::UuidParseError)?) {
+            if !dynamic_array_entries
+                .contains(&Uuid::from_str(key).map_err(|_| DataSetError::UuidParseError)?)
+            {
                 return Err(DataSetError::PathDynamicArrayEntryDoesNotExist);
             }
         }
@@ -435,14 +454,17 @@ impl SingleObject {
         )?;
 
         for checked_property in &nullable_ancestors {
-            if self.resolve_null_override(schema_set, checked_property)? != NullOverride::SetNonNull {
+            if self.resolve_null_override(schema_set, checked_property)? != NullOverride::SetNonNull
+            {
                 return Err(DataSetError::PathParentIsNull);
             }
         }
 
         for (path, key) in &accessed_dynamic_array_keys {
             let dynamic_array_entries = self.resolve_dynamic_array(schema_set, path)?;
-            if !dynamic_array_entries.contains(&Uuid::from_str(key).map_err(|_| DataSetError::UuidParseError)?) {
+            if !dynamic_array_entries
+                .contains(&Uuid::from_str(key).map_err(|_| DataSetError::UuidParseError)?)
+            {
                 return Err(DataSetError::PathDynamicArrayEntryDoesNotExist);
             }
         }

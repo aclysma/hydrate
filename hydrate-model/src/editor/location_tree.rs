@@ -1,4 +1,4 @@
-use crate::{DataSet, DataSource, HashMap, AssetId, AssetLocation, AssetPath, AssetSourceId};
+use crate::{AssetId, AssetLocation, AssetPath, AssetSourceId, DataSet, DataSource, HashMap};
 use std::cmp::Ordering;
 use std::collections::BTreeMap;
 
@@ -69,7 +69,11 @@ impl LocationTree {
         tree_node_id: AssetId,
     ) {
         let mut path_asset_stack = vec![AssetLocation::new(tree_node_id)];
-        path_asset_stack.append(&mut data_set.asset_location_chain(tree_node_id).unwrap_or_default());
+        path_asset_stack.append(
+            &mut data_set
+                .asset_location_chain(tree_node_id)
+                .unwrap_or_default(),
+        );
 
         //
         // Get the node key for the first element of the path. It should already exist because we create

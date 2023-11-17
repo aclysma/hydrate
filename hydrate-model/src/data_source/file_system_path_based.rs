@@ -4,9 +4,7 @@ use crate::{AssetSourceId, DataSource};
 use hydrate_data::json_storage::{MetaFile, MetaFileJson};
 use crate::{PathNode, PathNodeRoot};
 use hydrate_base::hashing::HashSet;
-use hydrate_pipeline::{
-    import_util, Importer, ImporterRegistry, ScannedImportable,
-};
+use hydrate_pipeline::{import_util, Importer, ImporterRegistry, ScanContext, ScannedImportable};
 use hydrate_data::{ImporterId, AssetId, AssetLocation, AssetName};
 use hydrate_schema::{HashMap, SchemaNamedType};
 use std::ffi::OsStr;
@@ -686,11 +684,11 @@ impl DataSource for FileSystemPathBasedDataSource {
 
                     let scanned_importables = {
                         profiling::scope!(&format!("Importer::scan_file {}", source_file.to_string_lossy()));
-                        importer.scan_file(
-                            &source_file,
-                            edit_context.schema_set(),
-                            &self.importer_registry,
-                        )
+                        importer.scan_file(ScanContext {
+                            path: &source_file,
+                            schema_set: edit_context.schema_set(),
+                            importer_registry: &self.importer_registry
+                        })
                     };
 
                     //println!("  find meta file {:?}", source_file);

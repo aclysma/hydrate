@@ -1,4 +1,4 @@
-use crate::{Importer, ScannedImportable};
+use crate::{Importer, ScanContext, ScannedImportable};
 use crate::ImporterRegistry;
 use hydrate_data::{
     HashMap, ImportInfo, ImporterId, AssetId, AssetLocation, AssetName,
@@ -76,11 +76,11 @@ pub fn recursively_gather_import_operations_and_create_assets(
     let mut default_importable_asset_id = None;
     let mut assets_to_regenerate = HashSet::default();
 
-    let scanned_importables = importer.scan_file(
-        source_file_path,
-        editor_context.schema_set(),
+    let scanned_importables = importer.scan_file(ScanContext {
+        path: source_file_path,
+        schema_set: editor_context.schema_set(),
         importer_registry,
-    );
+    });
     for scanned_importable in &scanned_importables {
         // let mut file_references = Vec::default();
         // for file_reference in &scanned_importable.file_references {

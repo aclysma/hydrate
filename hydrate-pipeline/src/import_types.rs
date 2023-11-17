@@ -48,6 +48,18 @@ pub struct ImportableAsset {
     pub referenced_paths: HashMap<PathBuf, AssetId>,
 }
 
+pub struct ScanContext<'a> {
+    pub path: &'a Path,
+    pub schema_set: &'a SchemaSet,
+    pub importer_registry: &'a ImporterRegistry,
+}
+
+pub struct ImportContext<'a> {
+    pub path: &'a Path,
+    pub importable_assets: &'a HashMap<Option<String>, ImportableAsset>,
+    pub schema_set: &'a SchemaSet,
+}
+
 // Interface all importers must implement
 pub trait Importer: TypeUuidDynamic + Sync + Send + 'static {
     fn importer_id(&self) -> ImporterId {
@@ -60,19 +72,13 @@ pub trait Importer: TypeUuidDynamic + Sync + Send + 'static {
     // Open the file and determine what assets exist in it that can be imported
     fn scan_file(
         &self,
-        path: &Path,
-        schema_set: &SchemaSet,
-        importer_registry: &ImporterRegistry,
+        context: ScanContext
     ) -> Vec<ScannedImportable>;
 
     // Open the file and extract all the data from it required for the build step, or for build
     // steps for assets referencing this asset
     fn import_file(
         &self,
-        path: &Path,
-        importable_assets: &HashMap<Option<String>, ImportableAsset>,
-        schema: &SchemaSet,
-        //import_info: &ImportInfo,
-        //referenced_source_file_paths: &mut Vec<PathBuf>,
+        context: ImportContext,
     ) -> HashMap<Option<String>, ImportedImportable>;
 }

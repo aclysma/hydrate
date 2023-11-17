@@ -9,7 +9,7 @@ use hydrate_base::hashing::HashMap;
 use hydrate_base::uuid_path::uuid_to_path;
 use hydrate_data::{SchemaSet, SingleObject};
 use hydrate_data::json_storage::SingleObjectJson;
-use crate::{ImportableAsset, ImporterRegistry};
+use crate::{ImportableAsset, ImportContext, ImporterRegistry};
 use crate::import_jobs::ImportOp;
 
 // Ask the thread to gather import data from the asset
@@ -67,11 +67,11 @@ fn do_import(
 
     let imported_assets = {
         profiling::scope!("Importer::import_file");
-        importer.import_file(
-            &msg.import_op.path,
-            &msg.importable_assets,
+        importer.import_file(ImportContext {
+            path: &msg.import_op.path,
+            importable_assets: &msg.importable_assets,
             schema_set,
-        )
+        })
     };
 
     let mut imported_importables = HashMap::default();

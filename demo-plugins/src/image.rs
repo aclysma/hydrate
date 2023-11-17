@@ -15,6 +15,7 @@ use hydrate_pipeline::{
 };
 use serde::{Deserialize, Serialize};
 use type_uuid::TypeUuid;
+use hydrate_model::pipeline::{ImportContext, ScanContext};
 
 #[derive(TypeUuid, Default)]
 #[uuid = "e7c83acb-f73b-4b3c-b14d-fe5cc17c0fa3"]
@@ -27,11 +28,9 @@ impl Importer for GpuImageImporter {
 
     fn scan_file(
         &self,
-        _path: &Path,
-        schema_set: &SchemaSet,
-        _importer_registry: &ImporterRegistry,
+        context: ScanContext,
     ) -> Vec<ScannedImportable> {
-        let asset_type = schema_set
+        let asset_type = context.schema_set
             .find_named_type(GpuImageAssetRecord::schema_name())
             .unwrap()
             .as_record()
@@ -46,14 +45,12 @@ impl Importer for GpuImageImporter {
 
     fn import_file(
         &self,
-        path: &Path,
-        importable_assets: &HashMap<Option<String>, ImportableAsset>,
-        schema_set: &SchemaSet,
+        context: ImportContext,
     ) -> HashMap<Option<String>, ImportedImportable> {
         //
         // Read the file
         //
-        let decoded_image = ::image::open(path).unwrap();
+        let decoded_image = ::image::open(context.path).unwrap();
 
         let (width, height) = decoded_image.dimensions();
         let image_bytes = decoded_image.into_rgba8().to_vec();
@@ -63,9 +60,9 @@ impl Importer for GpuImageImporter {
         //
         let import_data = {
             let mut import_object =
-                GpuImageImportedDataRecord::new_single_object(schema_set).unwrap();
+                GpuImageImportedDataRecord::new_single_object(context.schema_set).unwrap();
             let mut import_data_container =
-                DataContainerMut::from_single_object(&mut import_object, schema_set);
+                DataContainerMut::from_single_object(&mut import_object, context.schema_set);
             let x = GpuImageImportedDataRecord::default();
             x.image_bytes()
                 .set(&mut import_data_container, image_bytes)
@@ -80,9 +77,9 @@ impl Importer for GpuImageImporter {
         //
         let default_asset = {
             let mut default_asset_object =
-                GpuImageAssetRecord::new_single_object(schema_set).unwrap();
+                GpuImageAssetRecord::new_single_object(context.schema_set).unwrap();
             let mut default_asset_data_container =
-                DataContainerMut::from_single_object(&mut default_asset_object, schema_set);
+                DataContainerMut::from_single_object(&mut default_asset_object, context.schema_set);
             let x = GpuImageAssetRecord::default();
             x.compress()
                 .set(&mut default_asset_data_container, false)

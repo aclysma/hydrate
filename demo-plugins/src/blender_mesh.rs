@@ -7,7 +7,7 @@ use crate::generated::{
     MeshAdvMeshImportedDataRecord,
 };
 use crate::push_buffer::PushBuffer;
-use hydrate_model::pipeline::AssetPlugin;
+use hydrate_model::pipeline::{AssetPlugin, ImportContext, ScanContext};
 use hydrate_model::pipeline::{ImportedImportable, Importer, ScannedImportable};
 use hydrate_pipeline::{
     BuilderRegistryBuilder, DataContainerMut, HashMap,
@@ -73,18 +73,16 @@ impl Importer for BlenderMeshImporter {
 
     fn scan_file(
         &self,
-        path: &Path,
-        schema_set: &SchemaSet,
-        _importer_registry: &ImporterRegistry,
+        context: ScanContext,
     ) -> Vec<ScannedImportable> {
-        let mesh_adv_asset_type = schema_set
+        let mesh_adv_asset_type = context.schema_set
             .find_named_type(MeshAdvMeshAssetRecord::schema_name())
             .unwrap()
             .as_record()
             .unwrap()
             .clone();
 
-        let bytes = std::fs::read(path).unwrap();
+        let bytes = std::fs::read(context.path).unwrap();
 
         let b3f_reader = B3FReader::new(&bytes)
             .ok_or("Blender Mesh Import error, mesh file format not recognized")
@@ -127,14 +125,12 @@ impl Importer for BlenderMeshImporter {
 
     fn import_file(
         &self,
-        path: &Path,
-        importable_assets: &HashMap<Option<String>, ImportableAsset>,
-        schema_set: &SchemaSet,
+        context: ImportContext,
     ) -> HashMap<Option<String>, ImportedImportable> {
         //
         // Read the file
         //
-        let bytes = std::fs::read(path).unwrap();
+        let bytes = std::fs::read(context.path).unwrap();
 
         let b3f_reader = B3FReader::new(&bytes)
             .ok_or("Blender Mesh Import error, mesh file format not recognized")
@@ -146,9 +142,9 @@ impl Importer for BlenderMeshImporter {
                 .unwrap()
         };
 
-        let mut import_data = MeshAdvMeshImportedDataRecord::new_single_object(schema_set).unwrap();
+        let mut import_data = MeshAdvMeshImportedDataRecord::new_single_object(context.schema_set).unwrap();
         let mut import_data_container =
-            DataContainerMut::from_single_object(&mut import_data, schema_set);
+            DataContainerMut::from_single_object(&mut import_data, context.schema_set);
         let x = MeshAdvMeshImportedDataRecord::default();
 
         //
@@ -241,16 +237,16 @@ impl Importer for BlenderMeshImporter {
         //
         let default_asset = {
             let mut default_asset_object =
-                MeshAdvMeshAssetRecord::new_single_object(schema_set).unwrap();
+                MeshAdvMeshAssetRecord::new_single_object(context.schema_set).unwrap();
             let mut default_asset_data_container =
-                DataContainerMut::from_single_object(&mut default_asset_object, schema_set);
+                DataContainerMut::from_single_object(&mut default_asset_object, context.schema_set);
             let x = MeshAdvMeshAssetRecord::default();
 
             //
             // Set up the material slots
             //
             for material_slot in material_slots {
-                let asset_id = importable_assets
+                let asset_id = context.importable_assets
                     .get(&None)
                     .unwrap()
                     .referenced_paths

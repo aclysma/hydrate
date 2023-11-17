@@ -5,9 +5,7 @@ use super::generated::{
     MeshAdvMaterialAssetRecord, MeshAdvMeshAssetRecord,
     MeshAdvMeshImportedDataRecord,
 };
-use hydrate_model::pipeline::{
-    AssetPlugin, ImporterRegistry,
-};
+use hydrate_model::pipeline::{AssetPlugin, ImportContext, ImporterRegistry, ScanContext};
 use hydrate_model::pipeline::{ImportedImportable, Importer, ScannedImportable};
 use hydrate_pipeline::{
     BuilderRegistryBuilder, DataContainerMut, HashMap, ImportableAsset,
@@ -39,25 +37,23 @@ impl Importer for GltfImporter {
 
     fn scan_file(
         &self,
-        path: &Path,
-        schema_set: &SchemaSet,
-        _importer_registry: &ImporterRegistry,
+        context: ScanContext,
     ) -> Vec<ScannedImportable> {
-        let mesh_asset_type = schema_set
+        let mesh_asset_type = context.schema_set
             .find_named_type(MeshAdvMeshAssetRecord::schema_name())
             .unwrap()
             .as_record()
             .unwrap()
             .clone();
 
-        let material_asset_type = schema_set
+        let material_asset_type = context.schema_set
             .find_named_type(MeshAdvMaterialAssetRecord::schema_name())
             .unwrap()
             .as_record()
             .unwrap()
             .clone();
 
-        let (doc, _buffers, _images) = ::gltf::import(path).unwrap();
+        let (doc, _buffers, _images) = ::gltf::import(context.path).unwrap();
 
         let mut importables = Vec::default();
 
@@ -86,27 +82,24 @@ impl Importer for GltfImporter {
 
     fn import_file(
         &self,
-        path: &Path,
-        importable_assets: &HashMap<Option<String>, ImportableAsset>,
-        schema_set: &SchemaSet,
-        //import_info: &ImportInfo,
+        context: ImportContext,
     ) -> HashMap<Option<String>, ImportedImportable> {
         //
         // Read the file
         //
-        let (doc, _buffers, _images) = ::gltf::import(path).unwrap();
+        let (doc, _buffers, _images) = ::gltf::import(context.path).unwrap();
 
         let mut imported_assets = HashMap::default();
 
         for (i, mesh) in doc.meshes().enumerate() {
             let name = Some(name_or_index("mesh", mesh.name(), i));
-            if importable_assets.contains_key(&name) {
+            if context.importable_assets.contains_key(&name) {
                 //
                 // Create import data
                 //
                 let import_data = {
                     let import_object =
-                        MeshAdvMeshImportedDataRecord::new_single_object(schema_set).unwrap();
+                        MeshAdvMeshImportedDataRecord::new_single_object(context.schema_set).unwrap();
                     // let mut import_data_container =
                     //     DataContainerMut::new_single_object(&mut import_object, schema_set);
                     // let x = MeshAdvMeshImportedDataRecord::default();
@@ -119,7 +112,7 @@ impl Importer for GltfImporter {
 
                 let default_asset = {
                     let default_asset_object =
-                        MeshAdvMeshAssetRecord::new_single_object(schema_set).unwrap();
+                        MeshAdvMeshAssetRecord::new_single_object(context.schema_set).unwrap();
                     // let mut default_asset_data_container =
                     //     DataContainerMut::new_single_object(&mut default_asset_object, schema_set);
                     // let x = MeshAdvMeshAssetRecord::default();
@@ -142,16 +135,16 @@ impl Importer for GltfImporter {
 
         for (i, material) in doc.materials().enumerate() {
             let name = Some(name_or_index("material", material.name(), i));
-            if importable_assets.contains_key(&name) {
+            if context.importable_assets.contains_key(&name) {
                 //
                 // Create the default asset
                 //
 
                 let default_asset = {
                     let mut default_asset_object =
-                        MeshAdvMaterialAssetRecord::new_single_object(schema_set).unwrap();
+                        MeshAdvMaterialAssetRecord::new_single_object(context.schema_set).unwrap();
                     let mut default_asset_data_container =
-                        DataContainerMut::from_single_object(&mut default_asset_object, schema_set);
+                        DataContainerMut::from_single_object(&mut default_asset_object, context.schema_set);
                     let x = MeshAdvMaterialAssetRecord::default();
                     x.base_color_factor()
                         .set_vec4(

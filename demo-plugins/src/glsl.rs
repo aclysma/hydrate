@@ -7,9 +7,7 @@ use super::generated::{
     GlslBuildTargetAssetRecord, GlslSourceFileAssetRecord, GlslSourceFileImportedDataRecord,
 };
 use demo_types::glsl::*;
-use hydrate_model::pipeline::{
-    AssetPlugin, Builder, ImporterRegistry,
-};
+use hydrate_model::pipeline::{AssetPlugin, Builder, ImportContext, ImporterRegistry, ScanContext};
 use hydrate_model::pipeline::{
     ImportedImportable, Importer, ReferencedSourceFile, ScannedImportable,
 };
@@ -513,12 +511,10 @@ impl Importer for GlslSourceFileImporter {
 
     fn scan_file(
         &self,
-        path: &Path,
-        schema_set: &SchemaSet,
-        _importer_registry: &ImporterRegistry,
+        context: ScanContext,
     ) -> Vec<ScannedImportable> {
-        log::debug!("GlslSourceFileImporter reading file {:?}", path);
-        let code = std::fs::read_to_string(path).unwrap();
+        log::debug!("GlslSourceFileImporter reading file {:?}", context.path);
+        let code = std::fs::read_to_string(context.path).unwrap();
         let code_chars: Vec<_> = code.chars().collect();
 
         let referenced_source_files: Vec<_> = find_included_paths(&code_chars)
@@ -530,7 +526,7 @@ impl Importer for GlslSourceFileImporter {
             })
             .collect();
 
-        let asset_type = schema_set
+        let asset_type = context.schema_set
             .find_named_type(GlslSourceFileAssetRecord::schema_name())
             .unwrap()
             .as_record()
@@ -545,15 +541,12 @@ impl Importer for GlslSourceFileImporter {
 
     fn import_file(
         &self,
-        path: &Path,
-        importable_assets: &HashMap<Option<String>, ImportableAsset>,
-        schema_set: &SchemaSet,
-        //import_info: &ImportInfo,
+        context: ImportContext,
     ) -> HashMap<Option<String>, ImportedImportable> {
         //
         // Read the file
         //
-        let code = std::fs::read_to_string(path).unwrap();
+        let code = std::fs::read_to_string(context.path).unwrap();
         let code_chars: Vec<_> = code.chars().collect();
 
         let referenced_source_files: Vec<_> = find_included_paths(&code_chars)
@@ -570,9 +563,9 @@ impl Importer for GlslSourceFileImporter {
         //
         let import_data = {
             let mut import_object =
-                GlslSourceFileImportedDataRecord::new_single_object(schema_set).unwrap();
+                GlslSourceFileImportedDataRecord::new_single_object(context.schema_set).unwrap();
             let mut import_data_container =
-                DataContainerMut::from_single_object(&mut import_object, schema_set);
+                DataContainerMut::from_single_object(&mut import_object, context.schema_set);
             let x = GlslSourceFileImportedDataRecord::default();
             x.code().set(&mut import_data_container, code).unwrap();
             import_object
@@ -580,9 +573,9 @@ impl Importer for GlslSourceFileImporter {
 
         let default_asset = {
             let mut default_asset_object =
-                GlslSourceFileAssetRecord::new_single_object(schema_set).unwrap();
+                GlslSourceFileAssetRecord::new_single_object(context.schema_set).unwrap();
             let mut _default_asset_data_container =
-                DataContainerMut::from_single_object(&mut default_asset_object, schema_set);
+                DataContainerMut::from_single_object(&mut default_asset_object, context.schema_set);
             let _x = GlslSourceFileAssetRecord::default();
             // Nothing to set
             default_asset_object

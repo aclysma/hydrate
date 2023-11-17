@@ -1,7 +1,7 @@
 pub use super::*;
 use std::path::{Path, PathBuf};
 
-use hydrate_model::pipeline::AssetPlugin;
+use hydrate_model::pipeline::{AssetPlugin, ImportContext, ScanContext};
 use hydrate_model::pipeline::{ImportedImportable, Importer, ScannedImportable};
 use hydrate_pipeline::{
     BuilderRegistryBuilder, DataContainerMut, Enum, HashMap,
@@ -55,18 +55,16 @@ impl Importer for BlenderMaterialImporter {
 
     fn scan_file(
         &self,
-        path: &Path,
-        schema_set: &SchemaSet,
-        _importer_registry: &ImporterRegistry,
+        context: ScanContext,
     ) -> Vec<ScannedImportable> {
-        let asset_type = schema_set
+        let asset_type = context.schema_set
             .find_named_type(MeshAdvMaterialAssetRecord::schema_name())
             .unwrap()
             .as_record()
             .unwrap()
             .clone();
 
-        let json_str = std::fs::read_to_string(path).unwrap();
+        let json_str = std::fs::read_to_string(context.path).unwrap();
         let json_data: MaterialJsonFileFormat = {
             profiling::scope!("serde_json::from_str");
             serde_json::from_str(&json_str).unwrap()
@@ -107,14 +105,12 @@ impl Importer for BlenderMaterialImporter {
 
     fn import_file(
         &self,
-        path: &Path,
-        importable_assets: &HashMap<Option<String>, ImportableAsset>,
-        schema_set: &SchemaSet,
+        context: ImportContext,
     ) -> HashMap<Option<String>, ImportedImportable> {
         //
         // Read the file
         //
-        let json_str = std::fs::read_to_string(path).unwrap();
+        let json_str = std::fs::read_to_string(context.path).unwrap();
         let json_data: MaterialJsonFileFormat = {
             profiling::scope!("serde_json::from_str");
             serde_json::from_str(&json_str).unwrap()
@@ -144,9 +140,9 @@ impl Importer for BlenderMaterialImporter {
         //
         let default_asset = {
             let mut default_asset_object =
-                MeshAdvMaterialAssetRecord::new_single_object(schema_set).unwrap();
+                MeshAdvMaterialAssetRecord::new_single_object(context.schema_set).unwrap();
             let mut default_asset_data_container =
-                DataContainerMut::from_single_object(&mut default_asset_object, schema_set);
+                DataContainerMut::from_single_object(&mut default_asset_object, context.schema_set);
             let x = MeshAdvMaterialAssetRecord::default();
             x.base_color_factor()
                 .set_vec4(
@@ -194,25 +190,25 @@ impl Importer for BlenderMaterialImporter {
             }
 
             try_find_file_reference(
-                &importable_assets,
+                &context.importable_assets,
                 &mut default_asset_data_container,
                 x.color_texture(),
                 &json_data.color_texture,
             );
             try_find_file_reference(
-                &importable_assets,
+                &context.importable_assets,
                 &mut default_asset_data_container,
                 x.metallic_roughness_texture(),
                 &json_data.metallic_roughness_texture,
             );
             try_find_file_reference(
-                &importable_assets,
+                &context.importable_assets,
                 &mut default_asset_data_container,
                 x.normal_texture(),
                 &json_data.normal_texture,
             );
             try_find_file_reference(
-                &importable_assets,
+                &context.importable_assets,
                 &mut default_asset_data_container,
                 x.emissive_texture(),
                 &json_data.emissive_texture,

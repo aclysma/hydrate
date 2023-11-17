@@ -1,5 +1,5 @@
-mod traits;
-pub use traits::*;
+mod job_system_traits;
+pub use job_system_traits::*;
 
 mod executor;
 pub use executor::*;

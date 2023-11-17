@@ -1,4 +1,4 @@
-use crate::JobApi;
+use crate::{JobApi, JobId, JobProcessor};
 use hydrate_base::{ArtifactId, BuiltArtifactMetadata};
 use hydrate_data::{AssetId, DataSet, SchemaSet};
 
@@ -29,6 +29,18 @@ pub struct BuilderContext<'a> {
     pub data_set: &'a DataSet,
     pub schema_set: &'a SchemaSet,
     pub job_api: &'a dyn JobApi,
+}
+
+impl<'a> BuilderContext<'a> {
+    pub fn enqueue_job<JobProcessorT: JobProcessor>(
+        &self,
+        data_set: &DataSet,
+        schema_set: &SchemaSet,
+        job_api: &dyn JobApi,
+        input: <JobProcessorT as JobProcessor>::InputT,
+    ) -> JobId {
+        super::job_system::enqueue_job::<JobProcessorT>(data_set, schema_set, job_api, input)
+    }
 }
 
 // Interface all builders must implement

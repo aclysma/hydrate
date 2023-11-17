@@ -1,10 +1,7 @@
 use super::generated::{AllFieldsRecord, TransformRecord, TransformRefRecord};
 use demo_types::simple_data::*;
 use hydrate_model::pipeline::AssetPlugin;
-use hydrate_pipeline::{
-    job_system, BuilderRegistryBuilder, DataContainer, ImporterRegistryBuilder, JobApi,
-    JobProcessorRegistryBuilder, SchemaLinker,
-};
+use hydrate_pipeline::{job_system, BuilderRegistryBuilder, DataContainer, ImporterRegistryBuilder, JobApi, JobProcessorRegistryBuilder, SchemaLinker, HandleFactory};
 
 mod simple_data_trait;
 pub use simple_data_trait::SimpleData;
@@ -15,13 +12,13 @@ use bincode_data_builder::{SimpleBincodeDataBuilder, SimpleBincodeDataJobProcess
 impl SimpleData for TransformRef {
     fn from_data_container(
         data_set_view: &DataContainer,
-        job_api: &dyn JobApi,
+        handle_context: HandleFactory,
     ) -> Self {
         let x = TransformRefRecord::default();
         let transform = x.transform().get(data_set_view).unwrap();
 
         //TODO: Verify type?
-        let handle = job_system::make_handle_to_default_artifact(job_api, transform);
+        let handle = handle_context.make_handle_to_default_artifact(transform);
 
         TransformRef { transform: handle }
     }
@@ -30,7 +27,7 @@ impl SimpleData for TransformRef {
 impl SimpleData for Transform {
     fn from_data_container(
         data_container: &DataContainer,
-        _job_api: &dyn JobApi,
+        _handle_context: HandleFactory,
     ) -> Self {
         let x = TransformRecord::default();
         let position = x.position().get_vec3(data_container).unwrap();
@@ -48,7 +45,7 @@ impl SimpleData for Transform {
 impl SimpleData for AllFields {
     fn from_data_container(
         data_container: &DataContainer,
-        _job_api: &dyn JobApi,
+        _handle_context: HandleFactory
     ) -> Self {
         let x = AllFieldsRecord::default();
         let boolean = x.boolean().get(data_container).unwrap();

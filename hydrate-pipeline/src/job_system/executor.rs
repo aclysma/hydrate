@@ -176,7 +176,7 @@ pub struct JobProcessorRegistry {
 }
 
 impl JobProcessorRegistry {
-    pub fn get_processor(
+    pub(crate) fn get_processor(
         &self,
         job_type: JobTypeId,
     ) -> Option<Arc<dyn JobProcessorAbstract>> {

@@ -194,7 +194,7 @@ impl JobProcessor for GpuImageJobProcessor {
         //
         // Serialize and return
         //
-        job_system::produce_asset(context.job_api, context.input.asset_id, processed_data);
+        context.produce_default_artifact(context.input.asset_id, processed_data);
 
         GpuImageJobOutput {}
     }
@@ -218,7 +218,7 @@ impl Builder for GpuImageBuilder {
         let compressed = x.compress().get(&data_container).unwrap();
 
         //Future: Might produce jobs per-platform
-        job_system::enqueue_job::<GpuImageJobProcessor>(
+        context.enqueue_job::<GpuImageJobProcessor>(
             context.data_set,
             context.schema_set,
             context.job_api,

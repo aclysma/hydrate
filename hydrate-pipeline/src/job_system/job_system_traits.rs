@@ -126,18 +126,65 @@ pub trait JobProcessorAbstract: Send + Sync {
     ) -> Vec<u8>;
 }
 
-pub struct EnumerateDependenciesContext<'a, T> {
-    pub input: &'a T,
+pub struct EnumerateDependenciesContext<'a, InputT> {
+    pub input: &'a InputT,
     pub data_set: &'a DataSet,
     pub schema_set: &'a SchemaSet,
 }
 
-pub struct RunContext<'a, T> {
-    pub input: &'a T,
+pub struct RunContext<'a, InputT> {
+    pub input: &'a InputT,
     pub data_set: &'a DataSet,
     pub schema_set: &'a SchemaSet,
     pub dependency_data: &'a HashMap<AssetId, SingleObject>,
-    pub job_api: &'a dyn JobApi,
+    pub(super) job_api: &'a dyn JobApi,
+}
+
+impl<'a, InputT> RunContext<'a, InputT> {
+    pub fn enqueue_job<JobProcessorT: JobProcessor>(
+        &self,
+        input: <JobProcessorT as JobProcessor>::InputT,
+    ) -> JobId {
+        enqueue_job::<JobProcessorT>(self.data_set, self.schema_set, self.job_api, input)
+    }
+
+    pub fn produce_artifact<KeyT: Hash + std::fmt::Display, ArtifactT: TypeUuid + Serialize>(
+        &self,
+        asset_id: AssetId,
+        artifact_key: Option<KeyT>,
+        asset: ArtifactT,
+    ) -> AssetArtifactIdPair {
+        produce_artifact(self.job_api, asset_id, artifact_key, asset)
+    }
+
+    pub fn produce_artifact_with_handles<
+        KeyT: Hash + std::fmt::Display,
+        ArtifactT: TypeUuid + Serialize,
+        F: FnOnce(HandleFactory) -> ArtifactT,
+    >(
+        &self,
+        asset_id: AssetId,
+        artifact_key: Option<KeyT>,
+        asset_fn: F,
+    ) -> ArtifactId {
+        produce_artifact_with_handles(self.job_api, asset_id, artifact_key, asset_fn)
+    }
+
+    pub fn produce_default_artifact<AssetT: TypeUuid + Serialize>(
+        &self,
+        asset_id: AssetId,
+        asset: AssetT,
+    ) {
+        produce_default_artifact(self.job_api, asset_id, asset)
+    }
+
+    pub fn produce_default_artifact_with_handles<AssetT: TypeUuid + Serialize, F: FnOnce(HandleFactory) -> AssetT>(
+        &self,
+        asset_id: AssetId,
+        asset_fn: F,
+    ) {
+        produce_default_artifact_with_handles(self.job_api, asset_id, asset_fn)
+    }
 }
 
 pub trait JobProcessor: TypeUuid {
@@ -157,7 +204,7 @@ pub trait JobProcessor: TypeUuid {
     ) -> Self::OutputT;
 }
 
-pub fn enqueue_job<T: JobProcessor>(
+pub(crate) fn enqueue_job<T: JobProcessor>(
     data_set: &DataSet,
     schema_set: &SchemaSet,
     job_api: &dyn JobApi,
@@ -179,16 +226,16 @@ pub fn enqueue_job<T: JobProcessor>(
     job_api.enqueue_job(data_set, schema_set, queued_job, debug_name)
 }
 
-pub fn produce_asset<T: TypeUuid + Serialize>(
+fn produce_default_artifact<T: TypeUuid + Serialize>(
     job_api: &dyn JobApi,
     asset_id: AssetId,
     asset: T,
 ) {
     //produce_asset_with_handles(job_api, asset_id, || asset);
-    produce_artifact_with_handles(job_api, asset_id, None::<u32>, || asset);
+    produce_artifact_with_handles(job_api, asset_id, None::<u32>, |handle_factory| asset);
 }
 
-pub fn produce_asset_with_handles<T: TypeUuid + Serialize, F: FnOnce() -> T>(
+fn produce_default_artifact_with_handles<T: TypeUuid + Serialize, F: FnOnce(HandleFactory) -> T>(
     job_api: &dyn JobApi,
     asset_id: AssetId,
     asset_fn: F,
@@ -216,23 +263,23 @@ pub fn produce_asset_with_handles<T: TypeUuid + Serialize, F: FnOnce() -> T>(
     // });
 }
 
-pub fn produce_artifact<T: TypeUuid + Serialize, U: Hash + std::fmt::Display>(
+fn produce_artifact<T: TypeUuid + Serialize, U: Hash + std::fmt::Display>(
     job_api: &dyn JobApi,
     asset_id: AssetId,
     artifact_key: Option<U>,
     asset: T,
 ) -> AssetArtifactIdPair {
-    let artifact_id = produce_artifact_with_handles(job_api, asset_id, artifact_key, || asset);
+    let artifact_id = produce_artifact_with_handles(job_api, asset_id, artifact_key, |handle_factory| asset);
     AssetArtifactIdPair {
         asset_id,
         artifact_id,
     }
 }
 
-pub fn produce_artifact_with_handles<
+fn produce_artifact_with_handles<
     T: TypeUuid + Serialize,
     U: Hash + std::fmt::Display,
-    F: FnOnce() -> T,
+    F: FnOnce(HandleFactory) -> T,
 >(
     job_api: &dyn JobApi,
     asset_id: AssetId,
@@ -246,7 +293,9 @@ pub fn produce_artifact_with_handles<
     ctx.begin_serialize_artifact(artifact_id);
 
     let (built_data, asset_type) = ctx.scope(|| {
-        let asset = (asset_fn)();
+        let asset = (asset_fn)(HandleFactory {
+            job_api
+        });
         let built_data = bincode::serialize(&asset).unwrap();
         (built_data, asset.uuid())
     });
@@ -276,25 +325,71 @@ pub fn produce_artifact_with_handles<
     artifact_id
 }
 
-pub fn make_handle_to_default_artifact<T>(
+#[derive(Copy, Clone)]
+pub struct HandleFactory<'a> {
+    job_api: &'a dyn JobApi,
+}
+
+impl<'a> HandleFactory<'a> {
+    pub fn make_handle_to_default_artifact<T>(
+        &self,
+        asset_id: AssetId,
+    ) -> Handle<T> {
+        self.make_handle_to_artifact_key(asset_id, None::<u32>)
+    }
+
+    pub fn make_handle_to_artifact<T>(
+        &self,
+        asset_artifact_id_pair: AssetArtifactIdPair,
+    ) -> Handle<T> {
+        self.job_api.artifact_handle_created(
+            asset_artifact_id_pair.asset_id,
+            asset_artifact_id_pair.artifact_id,
+        );
+        hydrate_base::handle::make_handle_within_serde_context::<T>(asset_artifact_id_pair.artifact_id)
+    }
+
+    pub fn make_handle_to_artifact_raw<T>(
+        &self,
+        asset_id: AssetId,
+        artifact_id: ArtifactId,
+    ) -> Handle<T> {
+        self.job_api.artifact_handle_created(asset_id, artifact_id);
+        hydrate_base::handle::make_handle_within_serde_context::<T>(artifact_id)
+    }
+
+    pub fn make_handle_to_artifact_key<T, K: Hash>(
+        &self,
+        asset_id: AssetId,
+        artifact_key: Option<K>,
+    ) -> Handle<T> {
+        let artifact_id = create_artifact_id(asset_id, artifact_key);
+        self.job_api.artifact_handle_created(asset_id, artifact_id);
+        hydrate_base::handle::make_handle_within_serde_context::<T>(artifact_id)
+    }
+
+}
+
+/*
+fn make_handle_to_default_artifact<T>(
     job_api: &dyn JobApi,
     asset_id: AssetId,
 ) -> Handle<T> {
     make_handle_to_artifact_key(job_api, asset_id, None::<u32>)
 }
 
-pub fn make_handle_to_artifact<T>(
-    job_api: &dyn JobApi,
-    asset_artifact_id_pair: AssetArtifactIdPair,
-) -> Handle<T> {
-    job_api.artifact_handle_created(
-        asset_artifact_id_pair.asset_id,
-        asset_artifact_id_pair.artifact_id,
-    );
-    hydrate_base::handle::make_handle_within_serde_context::<T>(asset_artifact_id_pair.artifact_id)
-}
+// pub fn make_handle_to_artifact<T>(
+//     job_api: &dyn JobApi,
+//     asset_artifact_id_pair: AssetArtifactIdPair,
+// ) -> Handle<T> {
+//     job_api.artifact_handle_created(
+//         asset_artifact_id_pair.asset_id,
+//         asset_artifact_id_pair.artifact_id,
+//     );
+//     hydrate_base::handle::make_handle_within_serde_context::<T>(asset_artifact_id_pair.artifact_id)
+// }
 
-pub fn make_handle_to_artifact_raw<T>(
+fn make_handle_to_artifact_raw<T>(
     job_api: &dyn JobApi,
     asset_id: AssetId,
     artifact_id: ArtifactId,
@@ -303,7 +398,7 @@ pub fn make_handle_to_artifact_raw<T>(
     hydrate_base::handle::make_handle_within_serde_context::<T>(artifact_id)
 }
 
-pub fn make_handle_to_artifact_key<T, K: Hash>(
+fn make_handle_to_artifact_key<T, K: Hash>(
     job_api: &dyn JobApi,
     asset_id: AssetId,
     artifact_key: Option<K>,
@@ -312,3 +407,4 @@ pub fn make_handle_to_artifact_key<T, K: Hash>(
     job_api.artifact_handle_created(asset_id, artifact_id);
     hydrate_base::handle::make_handle_within_serde_context::<T>(artifact_id)
 }
+*/

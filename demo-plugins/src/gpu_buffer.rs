@@ -65,7 +65,7 @@ impl JobProcessor for GpuBufferJobProcessor {
         //
         // Serialize and return
         //
-        job_system::produce_asset(context.job_api, context.input.asset_id, processed_data);
+        context.produce_default_artifact(context.input.asset_id, processed_data);
 
         GpuBufferJobOutput {}
     }
@@ -84,7 +84,7 @@ impl Builder for GpuBufferBuilder {
         &self,
         context: BuilderContext
     ) {
-        job_system::enqueue_job::<GpuBufferJobProcessor>(
+        context.enqueue_job::<GpuBufferJobProcessor>(
             context.data_set,
             context.schema_set,
             context.job_api,

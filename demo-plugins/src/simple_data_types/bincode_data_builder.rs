@@ -60,8 +60,8 @@ impl<T: SimpleData + Sized + Serialize + for<'a> Deserialize<'a> + TypeUuid> Job
         //
         // Serialize and return
         //
-        job_system::produce_asset_with_handles(context.job_api, context.input.asset_id, || {
-            T::from_data_container(&mut data_set_view, context.job_api)
+        context.produce_default_artifact_with_handles(context.input.asset_id, |handle_factory| {
+            T::from_data_container(&mut data_set_view, handle_factory)
         });
         SimpleBincodeDataJobOutput {}
     }
@@ -99,7 +99,7 @@ impl<T: SimpleData + Sized + Serialize + for<'a> Deserialize<'a> + TypeUuid> Bui
         &self,
         context: BuilderContext
     ) {
-        job_system::enqueue_job::<SimpleBincodeDataJobProcessor<T>>(
+        context.enqueue_job::<SimpleBincodeDataJobProcessor<T>>(
             context.data_set,
             context.schema_set,
             context.job_api,

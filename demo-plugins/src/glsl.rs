@@ -750,7 +750,7 @@ impl JobProcessor for GlslBuildTargetJobProcessor {
         // Create the processed data
         //
         let processed_data = GlslBuildTargetBuiltData { spv: compiled_spv };
-        job_system::produce_asset(context.job_api, context.input.asset_id, processed_data);
+        context.produce_default_artifact(context.input.asset_id, processed_data);
         GlslBuildTargetJobOutput {}
     }
 }
@@ -768,7 +768,7 @@ impl Builder for GlslBuildTargetBuilder {
         &self,
         context: BuilderContext,
     ) {
-        job_system::enqueue_job::<GlslBuildTargetJobProcessor>(
+        context.enqueue_job::<GlslBuildTargetJobProcessor>(
             context.data_set,
             context.schema_set,
             context.job_api,

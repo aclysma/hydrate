@@ -1,8 +1,5 @@
 use hydrate_model::pipeline::Builder;
-use hydrate_pipeline::{
-    job_system, AssetId, DataContainer, DataSet, HashMap, JobApi, JobEnumeratedDependencies,
-    JobInput, JobOutput, JobProcessor, SchemaSet, SingleObject,
-};
+use hydrate_pipeline::{job_system, AssetId, DataContainer, DataSet, HashMap, JobApi, JobEnumeratedDependencies, JobInput, JobOutput, JobProcessor, SchemaSet, SingleObject, BuilderContext, EnumerateDependenciesContext, RunContext};
 use serde::{Deserialize, Serialize};
 use std::marker::PhantomData;
 use type_uuid::{Bytes, TypeUuid};
@@ -48,9 +45,7 @@ impl<T: SimpleData + Sized + Serialize + for<'a> Deserialize<'a> + TypeUuid> Job
 
     fn enumerate_dependencies(
         &self,
-        _input: &SimpleBincodeDataJobInput,
-        _data_set: &DataSet,
-        _schema_set: &SchemaSet,
+        context: EnumerateDependenciesContext<Self::InputT>,
     ) -> JobEnumeratedDependencies {
         // No dependencies
         JobEnumeratedDependencies::default()
@@ -58,19 +53,15 @@ impl<T: SimpleData + Sized + Serialize + for<'a> Deserialize<'a> + TypeUuid> Job
 
     fn run(
         &self,
-        input: &SimpleBincodeDataJobInput,
-        data_set: &DataSet,
-        schema_set: &SchemaSet,
-        _dependency_data: &HashMap<AssetId, SingleObject>,
-        job_api: &dyn JobApi,
+        context: RunContext<Self::InputT>,
     ) -> SimpleBincodeDataJobOutput {
-        let mut data_set_view = DataContainer::from_dataset(&data_set, schema_set, input.asset_id);
+        let mut data_set_view = DataContainer::from_dataset(&context.data_set, context.schema_set, context.input.asset_id);
 
         //
         // Serialize and return
         //
-        job_system::produce_asset_with_handles(job_api, input.asset_id, || {
-            T::from_data_container(&mut data_set_view, job_api)
+        job_system::produce_asset_with_handles(context.job_api, context.input.asset_id, || {
+            T::from_data_container(&mut data_set_view, context.job_api)
         });
         SimpleBincodeDataJobOutput {}
     }
@@ -106,16 +97,13 @@ impl<T: SimpleData + Sized + Serialize + for<'a> Deserialize<'a> + TypeUuid> Bui
 
     fn start_jobs(
         &self,
-        asset_id: AssetId,
-        data_set: &DataSet,
-        schema_set: &SchemaSet,
-        job_api: &dyn JobApi,
+        context: BuilderContext
     ) {
         job_system::enqueue_job::<SimpleBincodeDataJobProcessor<T>>(
-            data_set,
-            schema_set,
-            job_api,
-            SimpleBincodeDataJobInput { asset_id },
+            context.data_set,
+            context.schema_set,
+            context.job_api,
+            SimpleBincodeDataJobInput { asset_id: context.asset_id },
         );
     }
 }

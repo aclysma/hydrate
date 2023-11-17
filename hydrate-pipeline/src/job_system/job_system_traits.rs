@@ -126,6 +126,20 @@ pub trait JobProcessorAbstract: Send + Sync {
     ) -> Vec<u8>;
 }
 
+pub struct EnumerateDependenciesContext<'a, T> {
+    pub input: &'a T,
+    pub data_set: &'a DataSet,
+    pub schema_set: &'a SchemaSet,
+}
+
+pub struct RunContext<'a, T> {
+    pub input: &'a T,
+    pub data_set: &'a DataSet,
+    pub schema_set: &'a SchemaSet,
+    pub dependency_data: &'a HashMap<AssetId, SingleObject>,
+    pub job_api: &'a dyn JobApi,
+}
+
 pub trait JobProcessor: TypeUuid {
     type InputT: JobInput + 'static;
     type OutputT: JobOutput + 'static;
@@ -134,18 +148,12 @@ pub trait JobProcessor: TypeUuid {
 
     fn enumerate_dependencies(
         &self,
-        input: &Self::InputT,
-        data_set: &DataSet,
-        schema_set: &SchemaSet,
+        context: EnumerateDependenciesContext<Self::InputT>,
     ) -> JobEnumeratedDependencies;
 
     fn run(
         &self,
-        input: &Self::InputT,
-        data_set: &DataSet,
-        schema_set: &SchemaSet,
-        dependency_data: &HashMap<AssetId, SingleObject>,
-        job_api: &dyn JobApi,
+        context: RunContext<Self::InputT>,
     ) -> Self::OutputT;
 }
 

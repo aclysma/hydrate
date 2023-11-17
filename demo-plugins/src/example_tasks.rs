@@ -37,9 +37,7 @@ impl JobProcessor for ExampleBuildJobTopLevel {
 
     fn enumerate_dependencies(
         &self,
-        _input: &Self::InputT,
-        _data_set: &DataSet,
-        _schema_set: &SchemaSet,
+        context: EnumerateDependenciesContext<Self::InputT>,
     ) -> JobEnumeratedDependencies {
         // No dependencies
         JobEnumeratedDependencies::default()
@@ -47,46 +45,42 @@ impl JobProcessor for ExampleBuildJobTopLevel {
 
     fn run(
         &self,
-        input: &Self::InputT,
-        data_set: &DataSet,
-        schema_set: &SchemaSet,
-        _dependency_data: &HashMap<AssetId, SingleObject>,
-        job_api: &dyn JobApi,
+        context: RunContext<Self::InputT>,
     ) -> Self::OutputT {
         let task_id1 = job_system::enqueue_job::<ExampleBuildJobScatter>(
-            data_set,
-            schema_set,
-            job_api,
+            context.data_set,
+            context.schema_set,
+            context.job_api,
             ExampleBuildJobScatterInput {
-                asset_id: input.asset_id,
+                asset_id: context.input.asset_id,
                 some_other_parameter: "Test1".to_string(),
             },
         );
         let task_id2 = job_system::enqueue_job::<ExampleBuildJobScatter>(
-            data_set,
-            schema_set,
-            job_api,
+            context.data_set,
+            context.schema_set,
+            context.job_api,
             ExampleBuildJobScatterInput {
-                asset_id: input.asset_id,
+                asset_id: context.input.asset_id,
                 some_other_parameter: "Test2".to_string(),
             },
         );
         let task_id3 = job_system::enqueue_job::<ExampleBuildJobScatter>(
-            data_set,
-            schema_set,
-            job_api,
+            context.data_set,
+            context.schema_set,
+            context.job_api,
             ExampleBuildJobScatterInput {
-                asset_id: input.asset_id,
+                asset_id: context.input.asset_id,
                 some_other_parameter: "Test3".to_string(),
             },
         );
 
         let final_task = job_system::enqueue_job::<ExampleBuildJobGather>(
-            data_set,
-            schema_set,
-            job_api,
+            context.data_set,
+            context.schema_set,
+            context.job_api,
             ExampleBuildJobGatherInput {
-                asset_id: input.asset_id,
+                asset_id: context.input.asset_id,
                 scatter_tasks: vec![task_id1, task_id2, task_id3],
             },
         );
@@ -125,9 +119,7 @@ impl JobProcessor for ExampleBuildJobScatter {
 
     fn enumerate_dependencies(
         &self,
-        _input: &Self::InputT,
-        _data_set: &DataSet,
-        _schema_set: &SchemaSet,
+        context: EnumerateDependenciesContext<Self::InputT>,
     ) -> JobEnumeratedDependencies {
         // No dependencies
         JobEnumeratedDependencies::default()
@@ -135,11 +127,7 @@ impl JobProcessor for ExampleBuildJobScatter {
 
     fn run(
         &self,
-        _input: &Self::InputT,
-        _data_set: &DataSet,
-        _schema_set: &SchemaSet,
-        _dependency_data: &HashMap<AssetId, SingleObject>,
-        _job_api: &dyn JobApi,
+        context: RunContext<Self::InputT>,
     ) -> Self::OutputT {
         //Do stuff
         // We could return the result
@@ -178,23 +166,17 @@ impl JobProcessor for ExampleBuildJobGather {
 
     fn enumerate_dependencies(
         &self,
-        input: &Self::InputT,
-        _data_set: &DataSet,
-        _schema_set: &SchemaSet,
+        context: EnumerateDependenciesContext<Self::InputT>,
     ) -> JobEnumeratedDependencies {
         JobEnumeratedDependencies {
             import_data: Default::default(),
-            upstream_jobs: input.scatter_tasks.clone(),
+            upstream_jobs: context.input.scatter_tasks.clone(),
         }
     }
 
     fn run(
         &self,
-        _input: &Self::InputT,
-        _data_set: &DataSet,
-        _schema_set: &SchemaSet,
-        _dependency_data: &HashMap<AssetId, SingleObject>,
-        _job_api: &dyn JobApi,
+        context: RunContext<Self::InputT>,
     ) -> Self::OutputT {
         // Now use inputs from other jobs to produce an output
         //job_api.publish_built_asset(...);

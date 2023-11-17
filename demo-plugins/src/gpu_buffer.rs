@@ -3,11 +3,7 @@ pub use super::*;
 use crate::generated::GpuBufferAssetRecord;
 use demo_types::gpu_buffer::GpuBufferBuiltData;
 use hydrate_model::pipeline::{AssetPlugin, Builder};
-use hydrate_pipeline::{
-    job_system, AssetId, BuilderRegistryBuilder, DataSet, HashMap, ImporterRegistryBuilder, JobApi,
-    JobEnumeratedDependencies, JobInput, JobOutput, JobProcessor, JobProcessorRegistryBuilder,
-    Record, SchemaLinker, SchemaSet, SingleObject,
-};
+use hydrate_pipeline::{job_system, AssetId, BuilderRegistryBuilder, DataSet, HashMap, ImporterRegistryBuilder, JobApi, JobEnumeratedDependencies, JobInput, JobOutput, JobProcessor, JobProcessorRegistryBuilder, Record, SchemaLinker, SchemaSet, SingleObject, BuilderContext, EnumerateDependenciesContext, RunContext};
 use serde::{Deserialize, Serialize};
 use type_uuid::TypeUuid;
 
@@ -35,24 +31,18 @@ impl JobProcessor for GpuBufferJobProcessor {
 
     fn enumerate_dependencies(
         &self,
-        input: &GpuBufferJobInput,
-        _data_set: &DataSet,
-        _schema_set: &SchemaSet,
+        context: EnumerateDependenciesContext<Self::InputT>,
     ) -> JobEnumeratedDependencies {
         // No dependencies
         JobEnumeratedDependencies {
-            import_data: vec![input.asset_id],
+            import_data: vec![context.input.asset_id],
             upstream_jobs: Vec::default(),
         }
     }
 
     fn run(
         &self,
-        input: &GpuBufferJobInput,
-        _data_set: &DataSet,
-        _schema_set: &SchemaSet,
-        _dependency_data: &HashMap<AssetId, SingleObject>,
-        job_api: &dyn JobApi,
+        context: RunContext<Self::InputT>,
     ) -> GpuBufferJobOutput {
         //
         // Read asset data
@@ -75,7 +65,7 @@ impl JobProcessor for GpuBufferJobProcessor {
         //
         // Serialize and return
         //
-        job_system::produce_asset(job_api, input.asset_id, processed_data);
+        job_system::produce_asset(context.job_api, context.input.asset_id, processed_data);
 
         GpuBufferJobOutput {}
     }
@@ -92,16 +82,13 @@ impl Builder for GpuBufferBuilder {
 
     fn start_jobs(
         &self,
-        asset_id: AssetId,
-        data_set: &DataSet,
-        schema_set: &SchemaSet,
-        job_api: &dyn JobApi,
+        context: BuilderContext
     ) {
         job_system::enqueue_job::<GpuBufferJobProcessor>(
-            data_set,
-            schema_set,
-            job_api,
-            GpuBufferJobInput { asset_id },
+            context.data_set,
+            context.schema_set,
+            context.job_api,
+            GpuBufferJobInput { asset_id: context.asset_id },
         );
     }
 }

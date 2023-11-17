@@ -24,6 +24,13 @@ pub struct WrittenArtifact {
     pub artifact_key_debug_name: Option<String>,
 }
 
+pub struct BuilderContext<'a> {
+    pub asset_id: AssetId,
+    pub data_set: &'a DataSet,
+    pub schema_set: &'a SchemaSet,
+    pub job_api: &'a dyn JobApi,
+}
+
 // Interface all builders must implement
 pub trait Builder {
     // The type of asset that this builder handles
@@ -31,15 +38,8 @@ pub trait Builder {
 
     fn start_jobs(
         &self,
-        asset_id: AssetId,
-        data_set: &DataSet,
-        schema_set: &SchemaSet,
-        job_api: &dyn JobApi,
+        context: BuilderContext
     );
-
-    fn is_job_based(&self) -> bool {
-        true
-    }
 
     // Returns the assets that this build job needs to be available to complete
     // fn enumerate_dependencies(

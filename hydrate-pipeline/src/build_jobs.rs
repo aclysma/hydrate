@@ -158,12 +158,12 @@ impl BuildJobs {
                         continue;
                     };
 
-                    builder.start_jobs(
+                    builder.start_jobs(BuilderContext {
                         asset_id,
-                        &data_set,
+                        data_set: &data_set,
                         schema_set,
-                        self.job_executor.job_api(),
-                    );
+                        job_api: self.job_executor.job_api()
+                    });
                 }
             }
 

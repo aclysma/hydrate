@@ -30,7 +30,11 @@ where
         schema_set: &SchemaSet,
     ) -> JobEnumeratedDependencies {
         let data: <T as JobProcessor>::InputT = bincode::deserialize(input.as_slice()).unwrap();
-        self.0.enumerate_dependencies(&data, data_set, schema_set)
+        self.0.enumerate_dependencies(EnumerateDependenciesContext {
+            input: &data,
+            data_set,
+            schema_set,
+        })
     }
 
     fn run_inner(
@@ -45,7 +49,13 @@ where
         let output = {
             profiling::scope!(&format!("{:?}::run", std::any::type_name::<T>()));
             self.0
-                .run(&data, data_set, schema_set, dependency_data, job_api)
+                .run(RunContext {
+                    input: &data,
+                    data_set,
+                    schema_set,
+                    dependency_data,
+                    job_api
+                })
         };
         bincode::serialize(&output).unwrap()
     }

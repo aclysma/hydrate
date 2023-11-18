@@ -1,6 +1,7 @@
 pub use super::*;
 use ::image::GenericImageView;
 use std::path::Path;
+use std::sync::Arc;
 
 use super::generated::{
     GpuImageAssetAccessor, GpuImageAssetOwned, GpuImageAssetReader, GpuImageImportedDataAccessor,

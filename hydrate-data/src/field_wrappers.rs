@@ -8,6 +8,7 @@ use std::cell::RefCell;
 use std::marker::PhantomData;
 use std::ops::{Deref, DerefMut};
 use std::rc::Rc;
+use std::sync::Arc;
 use uuid::Uuid;
 
 #[derive(Default)]
@@ -1330,12 +1331,12 @@ impl BytesFieldAccessor {
             .unwrap())
     }
 
-    fn do_set(
+    fn do_set<T: Into<Arc<Vec<u8>>>>(
         property_path: &PropertyPath,
         data_container: &mut DataContainerRefMut,
-        value: Vec<u8>,
+        value: T,
     ) -> DataSetResult<Option<Value>> {
-        data_container.set_property_override(property_path.path(), Some(Value::Bytes(value)))
+        data_container.set_property_override(property_path.path(), Some(Value::Bytes(value.into())))
     }
 
     pub fn get<'a, 'b>(
@@ -1348,7 +1349,7 @@ impl BytesFieldAccessor {
     pub fn set(
         &self,
         data_container: &mut DataContainerRefMut,
-        value: Vec<u8>,
+        value: Arc<Vec<u8>>,
     ) -> DataSetResult<Option<Value>> {
         Self::do_set(&self.0, data_container, value)
     }
@@ -1383,7 +1384,7 @@ impl<'a> FieldWriter<'a> for BytesFieldWriter<'a> {
 }
 
 impl<'a> BytesFieldWriter<'a> {
-    pub fn get(&self) -> DataSetResult<Vec<u8>> {
+    pub fn get(&self) -> DataSetResult<Arc<Vec<u8>>> {
         // The writer has to clone because we can't return a reference to the interior of the Rc<RefCell<T>>
         // We could fix this by making the bytes type be an Arc<[u8]>
         Ok(self
@@ -1395,9 +1396,9 @@ impl<'a> BytesFieldWriter<'a> {
             .clone())
     }
 
-    pub fn set(
+    pub fn set<T: Into<Arc<Vec<u8>>>>(
         &self,
-        value: Vec<u8>,
+        value: Arc<Vec<u8>>,
     ) -> DataSetResult<Option<Value>> {
         BytesFieldAccessor::do_set(&self.0, &mut *self.1.borrow_mut(), value)
     }
@@ -1415,7 +1416,7 @@ impl FieldOwned for BytesFieldOwned {
 }
 
 impl BytesFieldOwned {
-    pub fn get(&self) -> DataSetResult<Vec<u8>> {
+    pub fn get(&self) -> DataSetResult<Arc<Vec<u8>>> {
         // The writer has to clone because we can't return a reference to the interior of the Rc<RefCell<T>>
         // We could fix this by making the bytes type be an Arc<[u8]>
         Ok(self
@@ -1429,9 +1430,9 @@ impl BytesFieldOwned {
             .clone())
     }
 
-    pub fn set(
+    pub fn set<T: Into<Arc<Vec<u8>>>>(
         &self,
-        value: Vec<u8>,
+        value: T,
     ) -> DataSetResult<Option<Value>> {
         BytesFieldAccessor::do_set(
             &self.0,
@@ -1458,33 +1459,33 @@ impl StringFieldAccessor {
     fn do_get(
         property_path: &PropertyPath,
         data_container: DataContainerRef,
-    ) -> DataSetResult<String> {
+    ) -> DataSetResult<Arc<String>> {
         Ok(data_container
             .resolve_property(property_path.path())?
             .as_string()
             .unwrap()
-            .to_string())
+            .clone())
     }
 
-    fn do_set(
+    fn do_set<T: Into<Arc<String>>>(
         property_path: &PropertyPath,
         data_container: &mut DataContainerRefMut,
-        value: String,
+        value: T,
     ) -> DataSetResult<Option<Value>> {
-        data_container.set_property_override(property_path.path(), Some(Value::String(value)))
+        data_container.set_property_override(property_path.path(), Some(Value::String(value.into().clone())))
     }
 
     pub fn get(
         &self,
         data_container: DataContainerRef,
-    ) -> DataSetResult<String> {
+    ) -> DataSetResult<Arc<String>> {
         Self::do_get(&self.0, data_container)
     }
 
-    pub fn set(
+    pub fn set<'a, T: Into<Arc<String>>>(
         &self,
-        data_container: &mut DataContainerRefMut,
-        value: String,
+        data_container: &'a mut DataContainerRefMut,
+        value: T,
     ) -> DataSetResult<Option<Value>> {
         Self::do_set(&self.0, data_container, value)
     }
@@ -1502,7 +1503,7 @@ impl<'a> FieldReader<'a> for StringFieldReader<'a> {
 }
 
 impl<'a> StringFieldReader<'a> {
-    pub fn get(&self) -> DataSetResult<String> {
+    pub fn get(&'a self) -> DataSetResult<Arc<String>> {
         StringFieldAccessor::do_get(&self.0, self.1)
     }
 }
@@ -1519,13 +1520,13 @@ impl<'a> FieldWriter<'a> for StringFieldWriter<'a> {
 }
 
 impl<'a> StringFieldWriter<'a> {
-    pub fn get(&self) -> DataSetResult<String> {
+    pub fn get(&'a self) -> DataSetResult<Arc<String>> {
         StringFieldAccessor::do_get(&self.0, self.1.borrow_mut().read())
     }
 
-    pub fn set(
+    pub fn set<T: Into<Arc<String>>>(
         &self,
-        value: String,
+        value: T,
     ) -> DataSetResult<Option<Value>> {
         StringFieldAccessor::do_set(&self.0, &mut *self.1.borrow_mut(), value)
     }
@@ -1543,7 +1544,7 @@ impl FieldOwned for StringFieldOwned {
 }
 
 impl StringFieldOwned {
-    pub fn get(&self) -> DataSetResult<String> {
+    pub fn get(&self) -> DataSetResult<Arc<String>> {
         StringFieldAccessor::do_get(
             &self.0,
             self.1
@@ -1554,9 +1555,9 @@ impl StringFieldOwned {
         )
     }
 
-    pub fn set(
+    pub fn set<T: Into<Arc<String>>>(
         &self,
-        value: String,
+        value: T,
     ) -> DataSetResult<Option<Value>> {
         StringFieldAccessor::do_set(
             &self.0,

@@ -1,6 +1,7 @@
 use crate::AssetId;
 use crate::{HashMap, Schema, SchemaFingerprint, SchemaNamedType, SchemaSet};
 use std::hash::{Hash, Hasher};
+use std::sync::Arc;
 
 use hydrate_schema::SchemaEnum;
 
@@ -15,11 +16,11 @@ pub enum PropertyValue {
     U64(u64),
     F32(f32),
     F64(f64),
-    Bytes(Vec<u8>),
-    String(String),
+    Bytes(Arc<Vec<u8>>),
+    String(Arc<String>),
     AssetRef(AssetId),
     Enum(ValueEnum),
-    Fixed(Box<[u8]>),
+    Fixed(Arc<Vec<u8>>),
 }
 
 impl PropertyValue {
@@ -138,16 +139,16 @@ pub enum Value {
     U64(u64),
     F32(f32),
     F64(f64),
-    Bytes(Vec<u8>),
+    Bytes(Arc<Vec<u8>>),
     // buffer value hash
-    String(String),
+    String(Arc<String>),
     StaticArray(Vec<Value>),
     DynamicArray(Vec<Value>),
     Map(ValueMap),
     AssetRef(AssetId),
     Record(ValueRecord),
     Enum(ValueEnum),
-    Fixed(Box<[u8]>),
+    Fixed(Arc<Vec<u8>>),
 }
 
 impl Hash for Value {
@@ -188,14 +189,14 @@ const DEFAULT_VALUE_F64: Value = Value::F64(0.0);
 const DEFAULT_VALUE_ASSET_REF: Value = Value::AssetRef(AssetId::null());
 
 lazy_static::lazy_static! {
-    static ref DEFAULT_VALUE_BYTES: Value = Value::Bytes(Default::default());
-    static ref DEFAULT_VALUE_STRING: Value = Value::String(Default::default());
+    static ref DEFAULT_VALUE_BYTES: Value = Value::Bytes(Arc::new(Vec::default()));
+    static ref DEFAULT_VALUE_STRING: Value = Value::String(Arc::from(String::default()));
     static ref DEFAULT_VALUE_STATIC_ARRAY: Value = Value::StaticArray(Default::default());
     static ref DEFAULT_VALUE_DYNAMIC_ARRAY: Value = Value::DynamicArray(Default::default());
     static ref DEFAULT_VALUE_MAP: Value = Value::Map(ValueMap::default());
     static ref DEFAULT_VALUE_RECORD: Value = Value::Record(ValueRecord::default());
     static ref DEFAULT_VALUE_ENUM: Value = Value::Enum(ValueEnum::default());
-    static ref DEFAULT_VALUE_FIXED: Value = Value::Fixed(Box::new([]));
+    static ref DEFAULT_VALUE_FIXED: Value = Value::Fixed(Arc::new(Vec::default()));
 }
 
 impl Value {
@@ -643,7 +644,7 @@ impl Value {
         }
     }
 
-    pub fn as_bytes(&self) -> Option<&Vec<u8>> {
+    pub fn as_bytes(&self) -> Option<&Arc<Vec<u8>>> {
         match self {
             Value::Bytes(x) => Some(x),
             _ => None,
@@ -651,7 +652,7 @@ impl Value {
     }
     pub fn set_bytes(
         &mut self,
-        value: Vec<u8>,
+        value: Arc<Vec<u8>>,
     ) {
         *self = Value::Bytes(value);
     }
@@ -666,16 +667,16 @@ impl Value {
         }
     }
 
-    pub fn as_string(&self) -> Option<&str> {
+    pub fn as_string(&self) -> Option<&Arc<String>> {
         match self {
-            Value::String(x) => Some(&*x),
+            Value::String(x) => Some(x),
             _ => None,
         }
     }
 
     pub fn set_string(
         &mut self,
-        value: String,
+        value: Arc<String>,
     ) {
         *self = Value::String(value);
     }

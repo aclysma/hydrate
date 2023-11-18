@@ -1,3 +1,4 @@
+use std::sync::Arc;
 use crate::app_state::AppState;
 use crate::ui::asset_browser_grid_drag_drop::AssetBrowserGridPayload;
 use crate::ui::ImguiDisableHelper;
@@ -518,7 +519,7 @@ fn draw_inspector_simple_property_string(
             }
 
             if modified {
-                Some(Value::String(value.to_string()))
+                Some(Value::String(Arc::new(value.to_string())))
             } else {
                 None
             }

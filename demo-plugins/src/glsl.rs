@@ -2,6 +2,7 @@ pub use super::*;
 use std::collections::VecDeque;
 use std::ops::Range;
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 
 use super::generated::{
     GlslBuildTargetAssetAccessor, GlslSourceFileAssetAccessor, GlslSourceFileImportedDataAccessor,

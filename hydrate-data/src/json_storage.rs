@@ -8,11 +8,12 @@ use serde::{Deserialize, Serialize};
 use std::hash::{Hash, Hasher};
 use std::path::PathBuf;
 use std::str::FromStr;
+use std::sync::Arc;
 use uuid::Uuid;
 
 fn property_value_to_json(
     value: &Value,
-    buffers: &mut Option<Vec<Vec<u8>>>,
+    buffers: &mut Option<Vec<Arc<Vec<u8>>>>,
 ) -> serde_json::Value {
     match value {
         Value::Nullable(_) => unimplemented!(),
@@ -31,10 +32,10 @@ fn property_value_to_json(
                 serde_json::Value::from(buffer_index)
             } else {
                 // Encode the data inline as a base64 string
-                serde_json::Value::from(base64::encode(x))
+                serde_json::Value::from(base64::encode(&**x))
             }
         }
-        Value::String(x) => serde_json::Value::from(x.clone()),
+        Value::String(x) => serde_json::Value::from(x.to_string()),
         Value::StaticArray(_) => unimplemented!(),
         Value::DynamicArray(_) => unimplemented!(),
         Value::Map(_) => unimplemented!(),
@@ -49,7 +50,7 @@ fn json_to_property_value_with_schema(
     named_types: &HashMap<SchemaFingerprint, SchemaNamedType>,
     schema: &Schema,
     value: &serde_json::Value,
-    buffers: &mut Option<Vec<Vec<u8>>>,
+    buffers: &Option<Vec<Arc<Vec<u8>>>>,
 ) -> Value {
     match schema {
         Schema::Nullable(_) => unimplemented!(),
@@ -64,15 +65,14 @@ fn json_to_property_value_with_schema(
             if let Some(buffers) = buffers {
                 // The data is an index into a buffer, take the data from the buffer
                 let buffer_index = value.as_u64().unwrap() as usize;
-                let mut buffer = Vec::default();
-                std::mem::swap(&mut buffer, &mut buffers[buffer_index]);
-                Value::Bytes(buffer)
+                Value::Bytes(buffers[buffer_index].clone())
             } else {
                 // The data is encoded inline as a base64 string, decode and return the value
-                Value::Bytes(base64::decode(value.as_str().unwrap()).unwrap())
+                let data = base64::decode(value.as_str().unwrap()).unwrap();
+                Value::Bytes(Arc::new(data))
             }
         }
-        Schema::String => Value::String(value.as_str().unwrap().to_string()),
+        Schema::String => Value::String(Arc::new(value.as_str().unwrap().to_string())),
         Schema::StaticArray(_) => unimplemented!(),
         Schema::DynamicArray(_) => unimplemented!(),
         Schema::Map(_) => unimplemented!(),
@@ -138,7 +138,7 @@ fn load_json_properties(
     property_null_overrides: &mut HashMap<String, NullOverride>,
     mut properties_in_replace_mode: Option<&mut HashSet<String>>,
     dynamic_array_entries: &mut HashMap<String, OrderedSet<Uuid>>,
-    buffers: &mut Option<Vec<Vec<u8>>>,
+    buffers: &mut Option<Vec<Arc<Vec<u8>>>>,
 ) {
     let mut max_path_length = 0;
     for (k, _) in json_properties {
@@ -209,7 +209,7 @@ fn store_json_properties(
     property_null_overrides: &HashMap<String, NullOverride>,
     properties_in_replace_mode: Option<&HashSet<String>>,
     dynamic_array_entries: &HashMap<String, OrderedSet<Uuid>>,
-    buffers: &mut Option<Vec<Vec<u8>>>,
+    buffers: &mut Option<Vec<Arc<Vec<u8>>>>,
 ) -> HashMap<String, serde_json::Value> {
     let mut saved_properties: HashMap<String, serde_json::Value> = Default::default();
 
@@ -502,7 +502,7 @@ pub struct SingleObjectJson {
 impl SingleObjectJson {
     fn new(
         object: &SingleObject,
-        buffers: &mut Option<Vec<Vec<u8>>>,
+        buffers: &mut Option<Vec<Arc<Vec<u8>>>>,
     ) -> SingleObjectJson {
         let json_properties = store_json_properties(
             &object.properties(),
@@ -527,7 +527,7 @@ impl SingleObjectJson {
     fn to_single_object(
         &self,
         schema_set: &SchemaSet,
-        buffers: &mut Option<Vec<Vec<u8>>>,
+        buffers: &mut Option<Vec<Arc<Vec<u8>>>>,
     ) -> SingleObject {
         let schema_fingerprint = SchemaFingerprint::from_uuid(self.schema);
 
@@ -607,9 +607,9 @@ impl SingleObjectJson {
 
         // Append remaining blocks to the buffers list. Put a placeholder buffer in for index 0
         // as that is where the json was stored
-        let mut buffers = vec![Vec::default()];
+        let mut buffers = vec![Arc::new(Vec::default())];
         for i in 1..b3f.block_count() {
-            buffers.push(b3f.get_block(i).to_vec());
+            buffers.push(Arc::new(b3f.get_block(i).to_vec()));
         }
 
         // Parse the json to reconstruct the property data
@@ -630,7 +630,7 @@ impl SingleObjectJson {
         object: &SingleObject,
     ) {
         // Start with a single empty buffer. It will be a placeholder for the actual json data
-        let mut buffers = Some(vec![Vec::default()]);
+        let mut buffers = Some(vec![Arc::new(Vec::default())]);
         let single_object = SingleObjectJson::new(object, &mut buffers);
 
         // Encode the object to json
@@ -641,7 +641,7 @@ impl SingleObjectJson {
 
         // Store the json in the first buffer
         let mut buffers = buffers.unwrap();
-        buffers[0] = single_object_json.into_bytes();
+        buffers[0] = Arc::new(single_object_json.into_bytes());
 
         // Write it to a file
         let mut b3f_writer = b3f::B3FWriter::new_from_u8_tag(*b"HYIF", 1);

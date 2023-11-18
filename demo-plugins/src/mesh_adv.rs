@@ -2,7 +2,7 @@ pub use super::*;
 use glam::Vec3;
 use rafx_api::RafxResourceType;
 
-use crate::generated::MeshAdvMeshAssetAccessor;
+use crate::generated::{MeshAdvMeshAssetAccessor, MeshAdvMeshImportedDataReader};
 use crate::generated_wrapper::MeshAdvMeshImportedDataAccessor;
 use crate::push_buffer::PushBuffer;
 use demo_types::mesh_adv::*;
@@ -218,9 +218,7 @@ impl JobProcessor for MeshAdvMeshPreprocessJobProcessor {
         //
         // Read import data
         //
-        let imported_data = &context.dependency_data[&context.input.asset_id];
-        let data_container = DataContainerRef::from_single_object(imported_data, context.schema_set);
-        let x = MeshAdvMeshImportedDataAccessor::default();
+        let imported_data = context.imported_data::<MeshAdvMeshImportedDataReader>(context.input.asset_id).unwrap();
 
         let mut all_positions = Vec::<glam::Vec3>::with_capacity(1024);
         let mut all_position_indices = Vec::<u32>::with_capacity(8192);
@@ -230,41 +228,37 @@ impl JobProcessor for MeshAdvMeshPreprocessJobProcessor {
         let mut all_indices = PushBuffer::new(16384);
 
         let mut mesh_part_data = Vec::default();
-        for entry in x
+        for entry in imported_data
             .mesh_parts()
-            .resolve_entries(data_container)
+            .resolve_entries()
             .unwrap()
             .into_iter()
         {
-            let entry = x.mesh_parts().entry(*entry);
-
-            //
-            // Get byte slices of all input data for this mesh part
-            //
-            let positions_bytes = entry.positions().get(&data_container).unwrap();
-            let normals_bytes = entry.normals().get(&data_container).unwrap();
-            let tex_coords_bytes = entry.texture_coordinates().get(&data_container).unwrap();
-            let indices_bytes = entry.indices().get(&data_container).unwrap();
-
-            // let mut tex_coords_pb = PushBuffer::new(tex_coords_bytes.len());
-            // let tex_coords_pb_result = tex_coords_pb.push_bytes(&tex_coords_bytes, std::mem::align_of::<[f32; 2]>());
-            // let tex_coords_data = tex_coords_pb.into_data();
-            // let tex_coords_slice = unsafe {
-            //     std::slice::from_raw_parts(tex_coords_data.as_ptr().add(tex_coords_pb_result.offset()), tex_coords_pb_result.size())
-            // };
+            let entry = imported_data.mesh_parts().entry(*entry);
 
             //
             // Get strongly typed slices of all input data for this mesh part
             //
+            let positions_field_reader = entry.positions();
+            let positions_bytes = positions_field_reader.get().unwrap();
             let positions = try_cast_u8_slice::<[f32; 3]>(positions_bytes)
                 .ok_or("Could not cast due to alignment")
                 .unwrap();
+
+            let normal_field_reader = entry.normals();
+            let normals_bytes = normal_field_reader.get().unwrap();
             let normals = try_cast_u8_slice::<[f32; 3]>(normals_bytes)
                 .ok_or("Could not cast due to alignment")
                 .unwrap();
+
+            let tex_coords_field_reader = entry.texture_coordinates();
+            let tex_coords_bytes = tex_coords_field_reader.get().unwrap();
             let tex_coords = try_cast_u8_slice::<[f32; 2]>(tex_coords_bytes)
                 .ok_or("Could not cast due to alignment")
                 .unwrap();
+
+            let indices_field_reader = entry.indices();
+            let indices_bytes = indices_field_reader.get().unwrap();
             let part_indices = try_cast_u8_slice::<u32>(indices_bytes)
                 .ok_or("Could not cast due to alignment")
                 .unwrap();
@@ -272,7 +266,7 @@ impl JobProcessor for MeshAdvMeshPreprocessJobProcessor {
             //
             // Part data which mostly contains offsets in the buffers for this part
             //
-            let part_data = super::mesh_util::process_mesh_part(
+            let part_data = mesh_util::process_mesh_part(
                 part_indices,
                 positions,
                 normals,
@@ -335,16 +329,16 @@ impl JobProcessor for MeshAdvMeshPreprocessJobProcessor {
         //
         context.produce_default_artifact_with_handles(context.input.asset_id, |handle_factory| {
             let mut mesh_parts = Vec::default();
-            for (entry, part_data) in x
+            for (entry, part_data) in imported_data
                 .mesh_parts()
-                .resolve_entries(data_container)
+                .resolve_entries()
                 .unwrap()
                 .into_iter()
                 .zip(mesh_part_data)
             {
-                let entry = x.mesh_parts().entry(*entry);
+                let entry = imported_data.mesh_parts().entry(*entry);
 
-                let material_slot_index = entry.material_index().get(data_container).unwrap();
+                let material_slot_index = entry.material_index().get().unwrap();
                 let material_asset_id = materials[material_slot_index as usize];
                 let material_handle =
                     handle_factory.make_handle_to_default_artifact(material_asset_id);

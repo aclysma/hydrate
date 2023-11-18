@@ -1,7 +1,7 @@
 pub use super::*;
 use std::path::{Path, PathBuf};
 
-use crate::generated::{MeshAdvMeshAssetAccessor, MeshAdvMeshImportedDataAccessor};
+use crate::generated::{MeshAdvMeshAssetAccessor, MeshAdvMeshAssetOwned, MeshAdvMeshImportedDataAccessor, MeshAdvMeshImportedDataOwned};
 use crate::push_buffer::PushBuffer;
 use hydrate_base::b3f::B3FReader;
 use hydrate_model::pipeline::{AssetPlugin, ImportContext, ScanContext};
@@ -14,6 +14,7 @@ use hydrate_pipeline::{
 use serde::{Deserialize, Serialize};
 use type_uuid::TypeUuid;
 use uuid::Uuid;
+use hydrate_data::{RecordBuilder, RecordOwned};
 
 #[derive(Serialize, Deserialize, Debug)]
 enum MeshPartJsonIndexType {
@@ -139,11 +140,7 @@ impl Importer for BlenderMeshImporter {
                 .unwrap()
         };
 
-        let mut import_data =
-            MeshAdvMeshImportedDataAccessor::new_single_object(context.schema_set).unwrap();
-        let mut import_data_container =
-            DataContainerRefMut::from_single_object(&mut import_data, context.schema_set);
-        let x = MeshAdvMeshImportedDataAccessor::default();
+        let import_data = MeshAdvMeshImportedDataOwned::new_builder(context.schema_set);
 
         //
         // Find the materials and assign them unique slot indexes
@@ -206,66 +203,58 @@ impl Importer for BlenderMeshImporter {
 
             let material_index = *material_slots_lookup.get(&mesh_part.material).unwrap();
 
-            let entry_uuid = x
+            let entry_uuid = import_data
                 .mesh_parts()
-                .add_entry(&mut import_data_container)
+                .add_entry()
                 .unwrap();
-            let entry = x.mesh_parts().entry(entry_uuid);
+            let entry = import_data.mesh_parts().entry(entry_uuid);
             entry
                 .positions()
-                .set(&mut import_data_container, positions_bytes.to_vec())
+                .set(positions_bytes.to_vec())
                 .unwrap();
             entry
                 .normals()
-                .set(&mut import_data_container, normals_bytes.to_vec())
+                .set(normals_bytes.to_vec())
                 .unwrap();
             entry
                 .texture_coordinates()
-                .set(&mut import_data_container, tex_coords_bytes.to_vec())
+                .set(tex_coords_bytes.to_vec())
                 .unwrap();
             entry
                 .indices()
-                .set(&mut import_data_container, part_indices)
+                .set(part_indices)
                 .unwrap();
             entry
                 .material_index()
-                .set(&mut import_data_container, material_index)
+                .set(material_index)
                 .unwrap();
         }
 
         //
         // Create the default asset
         //
-        let default_asset = {
-            let mut default_asset_object =
-                MeshAdvMeshAssetAccessor::new_single_object(context.schema_set).unwrap();
-            let mut default_asset_data_container =
-                DataContainerRefMut::from_single_object(&mut default_asset_object, context.schema_set);
-            let x = MeshAdvMeshAssetAccessor::default();
+        let default_asset = MeshAdvMeshAssetOwned::new_builder(context.schema_set);
 
-            //
-            // Set up the material slots
-            //
-            for material_slot in material_slots {
-                let asset_id = context
-                    .importable_assets
-                    .get(&None)
-                    .unwrap()
-                    .referenced_paths
-                    .get(&material_slot)
-                    .unwrap();
-                let entry = x
-                    .material_slots()
-                    .add_entry(&mut default_asset_data_container)
-                    .unwrap();
-                x.material_slots()
-                    .entry(entry)
-                    .set(&mut default_asset_data_container, *asset_id)
-                    .unwrap();
-            }
-
-            default_asset_object
-        };
+        //
+        // Set up the material slots
+        //
+        for material_slot in material_slots {
+            let asset_id = context
+                .importable_assets
+                .get(&None)
+                .unwrap()
+                .referenced_paths
+                .get(&material_slot)
+                .unwrap();
+            let entry = default_asset
+                .material_slots()
+                .add_entry()
+                .unwrap();
+            default_asset.material_slots()
+                .entry(entry)
+                .set(*asset_id)
+                .unwrap();
+        }
 
         //
         // Return the created assets
@@ -275,8 +264,8 @@ impl Importer for BlenderMeshImporter {
             None,
             ImportedImportable {
                 file_references: Default::default(),
-                import_data: Some(import_data),
-                default_asset: Some(default_asset),
+                import_data: Some(import_data.into_inner().unwrap()),
+                default_asset: Some(default_asset.into_inner().unwrap()),
             },
         );
         imported_assets

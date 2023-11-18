@@ -83,7 +83,7 @@ pub trait RecordWriter {
     fn schema_name() -> &'static str;
 }
 
-pub trait RecordOwned {
+pub trait RecordOwned: Sized + FieldOwned {
     fn schema_name() -> &'static str;
 
     fn new_single_object(schema_set: &SchemaSet) -> Option<SingleObject> {
@@ -93,6 +93,10 @@ pub trait RecordOwned {
             .as_record()?;
 
         Some(SingleObject::new(schema))
+    }
+
+    fn new_builder(schema_set: &SchemaSet) -> RecordBuilder<Self> {
+        RecordBuilder::new(schema_set)
     }
 }
 

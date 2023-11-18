@@ -54,6 +54,50 @@ impl Vec4Accessor {
     }
 }
 
+impl Vec3Owned {
+    pub fn set_vec3(
+        &self,
+        value: [f32; 3],
+    ) -> DataSetResult<()> {
+        self.x().set(value[0])?;
+        self.y().set(value[1])?;
+        self.z().set(value[2])?;
+        Ok(())
+    }
+
+    pub fn get_vec3(
+        &self,
+    ) -> DataSetResult<[f32; 3]> {
+        let x = self.x().get()?;
+        let y = self.y().get()?;
+        let z = self.z().get()?;
+        Ok([x, y, z])
+    }
+}
+
+impl Vec4Owned {
+    pub fn set_vec4(
+        &self,
+        value: [f32; 4],
+    ) -> DataSetResult<()> {
+        self.x().set(value[0])?;
+        self.y().set(value[1])?;
+        self.z().set(value[2])?;
+        self.w().set(value[3])?;
+        Ok(())
+    }
+
+    pub fn get_vec4(
+        &self,
+    ) -> DataSetResult<[f32; 4]> {
+        let x = self.x().get()?;
+        let y = self.y().get()?;
+        let z = self.z().get()?;
+        let w = self.w().get()?;
+        Ok([x, y, z, w])
+    }
+}
+
 impl Into<MeshAdvBlendMethod> for MeshAdvBlendMethodEnum {
     fn into(self) -> MeshAdvBlendMethod {
         match self {

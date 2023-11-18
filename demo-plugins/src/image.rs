@@ -2,7 +2,7 @@ pub use super::*;
 use ::image::GenericImageView;
 use std::path::Path;
 
-use super::generated::{GpuImageAssetReader, GpuImageAssetAccessor, GpuImageImportedDataOwned, GpuImageImportedDataReader, GpuImageImportedDataAccessor, GpuImageImportedDataWriter};
+use super::generated::{GpuImageAssetReader, GpuImageAssetAccessor, GpuImageImportedDataOwned, GpuImageImportedDataReader, GpuImageImportedDataAccessor, GpuImageImportedDataWriter, GpuImageAssetOwned};
 use demo_types::image::*;
 use hydrate_model::pipeline::{ImportContext, ScanContext};
 use hydrate_pipeline::{
@@ -16,7 +16,7 @@ use hydrate_pipeline::{AssetPlugin, Builder};
 use hydrate_pipeline::{ImportedImportable, Importer, ScannedImportable};
 use serde::{Deserialize, Serialize};
 use type_uuid::TypeUuid;
-use hydrate_data::RecordBuilder;
+use hydrate_data::{RecordBuilder, RecordOwned};
 
 #[derive(TypeUuid, Default)]
 #[uuid = "e7c83acb-f73b-4b3c-b14d-fe5cc17c0fa3"]
@@ -60,40 +60,16 @@ impl Importer for GpuImageImporter {
         //
         // Create import data
         //
-        let import_data = {
-            let import_object = RecordBuilder::<GpuImageImportedDataOwned>::new(context.schema_set);
-            import_object.image_bytes().set(image_bytes).unwrap();
-            import_object.width().set(width).unwrap();
-            import_object.height().set(height).unwrap();
-            import_object.into_inner().unwrap()
-
-            // let mut import_object =
-            //     GpuImageImportedDataAccessor::new_single_object(context.schema_set).unwrap();
-            // let mut import_data_container =
-            //     DataContainerMut::from_single_object(&mut import_object, context.schema_set);
-            // let x = GpuImageImportedDataAccessor::default();
-            // x.image_bytes()
-            //     .set(&mut import_data_container, image_bytes)
-            //     .unwrap();
-            // x.width().set(&mut import_data_container, width).unwrap();
-            // x.height().set(&mut import_data_container, height).unwrap();
-            //import_object
-        };
+        let import_data = GpuImageImportedDataOwned::new_builder(context.schema_set);
+        import_data.image_bytes().set(image_bytes).unwrap();
+        import_data.width().set(width).unwrap();
+        import_data.height().set(height).unwrap();
 
         //
         // Create the default asset
         //
-        let default_asset = {
-            let mut default_asset_object =
-                GpuImageAssetAccessor::new_single_object(context.schema_set).unwrap();
-            let mut default_asset_data_container =
-                DataContainerRefMut::from_single_object(&mut default_asset_object, context.schema_set);
-            let x = GpuImageAssetAccessor::default();
-            x.compress()
-                .set(&mut default_asset_data_container, false)
-                .unwrap();
-            default_asset_object
-        };
+        let default_asset = GpuImageAssetOwned::new_builder(context.schema_set);
+        default_asset.compress().set(false).unwrap();
 
         //
         // Return the created assets
@@ -103,8 +79,8 @@ impl Importer for GpuImageImporter {
             None,
             ImportedImportable {
                 file_references: Default::default(),
-                import_data: Some(import_data),
-                default_asset: Some(default_asset),
+                import_data: Some(import_data.into_inner().unwrap()),
+                default_asset: Some(default_asset.into_inner().unwrap()),
             },
         );
         imported_assets

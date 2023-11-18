@@ -3,9 +3,7 @@ use std::collections::VecDeque;
 use std::ops::Range;
 use std::path::{Path, PathBuf};
 
-use super::generated::{
-    GlslBuildTargetAssetAccessor, GlslSourceFileAssetAccessor, GlslSourceFileImportedDataAccessor,
-};
+use super::generated::{GlslBuildTargetAssetAccessor, GlslSourceFileAssetAccessor, GlslSourceFileImportedDataAccessor, GlslSourceFileImportedDataOwned};
 use demo_types::glsl::*;
 use hydrate_model::pipeline::{AssetPlugin, Builder, ImportContext, ImporterRegistry, ScanContext};
 use hydrate_model::pipeline::{
@@ -20,6 +18,8 @@ use hydrate_pipeline::{
 use serde::{Deserialize, Serialize};
 use shaderc::IncludeType;
 use type_uuid::TypeUuid;
+use hydrate_data::RecordOwned;
+use crate::generated_wrapper::{GlslBuildTargetAssetReader, GlslSourceFileAssetOwned};
 
 fn range_of_line_at_position(
     code: &[char],
@@ -562,25 +562,11 @@ impl Importer for GlslSourceFileImporter {
         //
         // Create import data
         //
-        let import_data = {
-            let mut import_object =
-                GlslSourceFileImportedDataAccessor::new_single_object(context.schema_set).unwrap();
-            let mut import_data_container =
-                DataContainerRefMut::from_single_object(&mut import_object, context.schema_set);
-            let x = GlslSourceFileImportedDataAccessor::default();
-            x.code().set(&mut import_data_container, code).unwrap();
-            import_object
-        };
+        let import_data = GlslSourceFileImportedDataOwned::new_builder(context.schema_set);
+        import_data.code().set(code).unwrap();
 
-        let default_asset = {
-            let mut default_asset_object =
-                GlslSourceFileAssetAccessor::new_single_object(context.schema_set).unwrap();
-            let mut _default_asset_data_container =
-                DataContainerRefMut::from_single_object(&mut default_asset_object, context.schema_set);
-            let _x = GlslSourceFileAssetAccessor::default();
-            // Nothing to set
-            default_asset_object
-        };
+        let default_asset = GlslSourceFileAssetOwned::new_builder(context.schema_set);
+        // Nothing to set
 
         //
         // Return the created assets
@@ -590,8 +576,8 @@ impl Importer for GlslSourceFileImporter {
             None,
             ImportedImportable {
                 file_references: referenced_source_files,
-                import_data: Some(import_data),
-                default_asset: Some(default_asset),
+                import_data: Some(import_data.into_inner().unwrap()),
+                default_asset: Some(default_asset.into_inner().unwrap()),
             },
         );
         imported_assets
@@ -675,15 +661,10 @@ impl JobProcessor for GlslBuildTargetJobProcessor {
         //
         // Read asset properties
         //
-        let data_container = DataContainerRef::from_dataset(
-            context.data_set,
-            context.schema_set,
-            context.input.asset_id,
-        );
-        let x = GlslBuildTargetAssetAccessor::default();
+        let asset_data = context.asset::<GlslBuildTargetAssetReader>(context.input.asset_id).unwrap();
 
-        let source_file = x.source_file().get(data_container).unwrap();
-        let entry_point = x.entry_point().get(data_container).unwrap();
+        let source_file = asset_data.source_file().get().unwrap();
+        let entry_point = asset_data.entry_point().get().unwrap();
 
         //
         // Build a lookup of source file AssetID to PathBuf that it was imported from

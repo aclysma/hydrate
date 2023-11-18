@@ -1,9 +1,7 @@
 pub use super::*;
 use std::path::Path;
 
-use super::generated::{
-    MeshAdvMaterialAssetAccessor, MeshAdvMeshAssetAccessor, MeshAdvMeshImportedDataAccessor,
-};
+use super::generated::{MeshAdvMaterialAssetAccessor, MeshAdvMaterialAssetOwned, MeshAdvMeshAssetAccessor, MeshAdvMeshAssetOwned, MeshAdvMeshImportedDataAccessor, MeshAdvMeshImportedDataOwned};
 use hydrate_model::pipeline::{AssetPlugin, ImportContext, ImporterRegistry, ScanContext};
 use hydrate_model::pipeline::{ImportedImportable, Importer, ScannedImportable};
 use hydrate_pipeline::{
@@ -11,6 +9,7 @@ use hydrate_pipeline::{
     JobProcessorRegistryBuilder, RecordAccessor, SchemaLinker, SchemaSet,
 };
 use type_uuid::TypeUuid;
+use hydrate_data::{RecordBuilder, RecordOwned};
 
 fn name_or_index(
     prefix: &str,
@@ -97,28 +96,12 @@ impl Importer for GltfImporter {
                 //
                 // Create import data
                 //
-                let import_data = {
-                    let import_object =
-                        MeshAdvMeshImportedDataAccessor::new_single_object(context.schema_set)
-                            .unwrap();
-                    // let mut import_data_container =
-                    //     DataContainerMut::new_single_object(&mut import_object, schema_set);
-                    // let x = MeshAdvMeshImportedDataAccessor::default();
-                    import_object
-                };
+                let import_data = MeshAdvMeshImportedDataOwned::new_builder(context.schema_set);
 
                 //
                 // Create the default asset
                 //
-
-                let default_asset = {
-                    let default_asset_object =
-                        MeshAdvMeshAssetAccessor::new_single_object(context.schema_set).unwrap();
-                    // let mut default_asset_data_container =
-                    //     DataContainerMut::new_single_object(&mut default_asset_object, schema_set);
-                    // let x = MeshAdvMeshAssetAccessor::default();
-                    default_asset_object
-                };
+                let asset_data = MeshAdvMeshAssetOwned::new_builder(context.schema_set);
 
                 //
                 // Return the created assets
@@ -127,8 +110,8 @@ impl Importer for GltfImporter {
                     name,
                     ImportedImportable {
                         file_references: Default::default(),
-                        import_data: Some(import_data),
-                        default_asset: Some(default_asset),
+                        import_data: Some(import_data.into_inner().unwrap()),
+                        default_asset: Some(asset_data.into_inner().unwrap()),
                     },
                 );
             }
@@ -140,94 +123,78 @@ impl Importer for GltfImporter {
                 //
                 // Create the default asset
                 //
+                let default_asset = MeshAdvMaterialAssetOwned::new_builder(context.schema_set);
+                default_asset.base_color_factor()
+                    .set_vec4(
+                        material.pbr_metallic_roughness().base_color_factor(),
+                    )
+                    .unwrap();
+                default_asset.emissive_factor()
+                    .set_vec3(
+                        material.emissive_factor(),
+                    )
+                    .unwrap();
+                default_asset.metallic_factor()
+                    .set(
+                        material.pbr_metallic_roughness().metallic_factor(),
+                    )
+                    .unwrap();
+                default_asset.roughness_factor()
+                    .set(
+                        material.pbr_metallic_roughness().roughness_factor(),
+                    )
+                    .unwrap();
+                default_asset.normal_texture_scale()
+                    .set(
+                        material.normal_texture().map_or(1.0, |x| x.scale()),
+                    )
+                    .unwrap();
 
-                let default_asset = {
-                    let mut default_asset_object =
-                        MeshAdvMaterialAssetAccessor::new_single_object(context.schema_set).unwrap();
-                    let mut default_asset_data_container = DataContainerRefMut::from_single_object(
-                        &mut default_asset_object,
-                        context.schema_set,
-                    );
-                    let x = MeshAdvMaterialAssetAccessor::default();
-                    x.base_color_factor()
-                        .set_vec4(
-                            &mut default_asset_data_container,
-                            material.pbr_metallic_roughness().base_color_factor(),
-                        )
-                        .unwrap();
-                    x.emissive_factor()
-                        .set_vec3(
-                            &mut default_asset_data_container,
-                            material.emissive_factor(),
-                        )
-                        .unwrap();
-                    x.metallic_factor()
-                        .set(
-                            &mut default_asset_data_container,
-                            material.pbr_metallic_roughness().metallic_factor(),
-                        )
-                        .unwrap();
-                    x.roughness_factor()
-                        .set(
-                            &mut default_asset_data_container,
-                            material.pbr_metallic_roughness().roughness_factor(),
-                        )
-                        .unwrap();
-                    x.normal_texture_scale()
-                        .set(
-                            &mut default_asset_data_container,
-                            material.normal_texture().map_or(1.0, |x| x.scale()),
-                        )
-                        .unwrap();
+                //TODO: This needs to be updated to handle images in the GLTF or referenced externally
 
-                    //TODO: This needs to be updated to handle images in the GLTF or referenced externally
+                // x.color_texture().set(&mut default_asset_data_container, material.color_texture().unwrap_or_default()).unwrap();
+                // x.metallic_roughness_texture().set(&mut default_asset_data_container, material.metallic_roughness_texture().unwrap_or_default()).unwrap();
+                // x.normal_texture().set(&mut default_asset_data_container, material.normal_texture().unwrap_or_default()).unwrap();
+                // x.emissive_texture().set(&mut default_asset_data_container, material.emissive_texture().unwrap_or_default()).unwrap();
 
-                    // x.color_texture().set(&mut default_asset_data_container, material.color_texture().unwrap_or_default()).unwrap();
-                    // x.metallic_roughness_texture().set(&mut default_asset_data_container, material.metallic_roughness_texture().unwrap_or_default()).unwrap();
-                    // x.normal_texture().set(&mut default_asset_data_container, material.normal_texture().unwrap_or_default()).unwrap();
-                    // x.emissive_texture().set(&mut default_asset_data_container, material.emissive_texture().unwrap_or_default()).unwrap();
+                // if let Some(color_texture) = material.pbr_metallic_roughness().base_color_texture() {
+                //     if let Some(referenced_asset_id) = importable_assets.get(&None).unwrap().referenced_paths.get(&PathBuf::from_str(&color_texture.).unwrap()) {
+                //         x.color_texture().set(&mut default_asset_data_container, *referenced_asset_id).unwrap();
+                //     }
+                // }
+                //
+                // if let Some(metallic_roughness_texture) = json_data.metallic_roughness_texture {
+                //     if let Some(referenced_asset_id) = importable_assets.get(&None).unwrap().referenced_paths.get(&PathBuf::from_str(&metallic_roughness_texture).unwrap()) {
+                //         x.color_texture().set(&mut default_asset_data_container, *referenced_asset_id).unwrap();
+                //     }
+                // }
+                //
+                // if let Some(normal_texture) = json_data.normal_texture {
+                //     if let Some(referenced_asset_id) = importable_assets.get(&None).unwrap().referenced_paths.get(&PathBuf::from_str(&normal_texture).unwrap()) {
+                //         x.color_texture().set(&mut default_asset_data_container, *referenced_asset_id).unwrap();
+                //     }
+                // }
+                //
+                // if let Some(emissive_texture) = json_data.emissive_texture {
+                //     if let Some(referenced_asset_id) = importable_assets.get(&None).unwrap().referenced_paths.get(&PathBuf::from_str(&emissive_texture).unwrap()) {
+                //         x.color_texture().set(&mut default_asset_data_container, *referenced_asset_id).unwrap();
+                //     }
+                // }
 
-                    // if let Some(color_texture) = material.pbr_metallic_roughness().base_color_texture() {
-                    //     if let Some(referenced_asset_id) = importable_assets.get(&None).unwrap().referenced_paths.get(&PathBuf::from_str(&color_texture.).unwrap()) {
-                    //         x.color_texture().set(&mut default_asset_data_container, *referenced_asset_id).unwrap();
-                    //     }
-                    // }
-                    //
-                    // if let Some(metallic_roughness_texture) = json_data.metallic_roughness_texture {
-                    //     if let Some(referenced_asset_id) = importable_assets.get(&None).unwrap().referenced_paths.get(&PathBuf::from_str(&metallic_roughness_texture).unwrap()) {
-                    //         x.color_texture().set(&mut default_asset_data_container, *referenced_asset_id).unwrap();
-                    //     }
-                    // }
-                    //
-                    // if let Some(normal_texture) = json_data.normal_texture {
-                    //     if let Some(referenced_asset_id) = importable_assets.get(&None).unwrap().referenced_paths.get(&PathBuf::from_str(&normal_texture).unwrap()) {
-                    //         x.color_texture().set(&mut default_asset_data_container, *referenced_asset_id).unwrap();
-                    //     }
-                    // }
-                    //
-                    // if let Some(emissive_texture) = json_data.emissive_texture {
-                    //     if let Some(referenced_asset_id) = importable_assets.get(&None).unwrap().referenced_paths.get(&PathBuf::from_str(&emissive_texture).unwrap()) {
-                    //         x.color_texture().set(&mut default_asset_data_container, *referenced_asset_id).unwrap();
-                    //     }
-                    // }
-
-                    //x.shadow_method().set(&mut default_asset_data_container, shadow_method).unwrap();
-                    //x.blend_method().set(&mut default_asset_data_container, blend_method).unwrap();
-                    x.alpha_threshold()
-                        .set(
-                            &mut default_asset_data_container,
-                            material.alpha_cutoff().unwrap_or(0.5),
-                        )
-                        .unwrap();
-                    x.backface_culling()
-                        .set(&mut default_asset_data_container, false)
-                        .unwrap();
-                    //TODO: Does this incorrectly write older enum string names when code is older than schema file?
-                    x.color_texture_has_alpha_channel()
-                        .set(&mut default_asset_data_container, false)
-                        .unwrap();
-                    default_asset_object
-                };
+                //x.shadow_method().set(&mut default_asset_data_container, shadow_method).unwrap();
+                //x.blend_method().set(&mut default_asset_data_container, blend_method).unwrap();
+                default_asset.alpha_threshold()
+                    .set(
+                        material.alpha_cutoff().unwrap_or(0.5),
+                    )
+                    .unwrap();
+                default_asset.backface_culling()
+                    .set(false)
+                    .unwrap();
+                //TODO: Does this incorrectly write older enum string names when code is older than schema file?
+                default_asset.color_texture_has_alpha_channel()
+                    .set(false)
+                    .unwrap();
 
                 //
                 // Return the created assets
@@ -237,7 +204,7 @@ impl Importer for GltfImporter {
                     ImportedImportable {
                         file_references: Default::default(),
                         import_data: None,
-                        default_asset: Some(default_asset),
+                        default_asset: Some(default_asset.into_inner().unwrap()),
                     },
                 );
             }

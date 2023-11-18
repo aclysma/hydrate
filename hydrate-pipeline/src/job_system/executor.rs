@@ -9,6 +9,7 @@ use std::hash::Hasher;
 use std::io::Write;
 use std::path::PathBuf;
 use std::sync::Arc;
+use std::sync::atomic::AtomicU32;
 
 use super::*;
 
@@ -338,6 +339,9 @@ pub struct JobExecutor {
 
     thread_pool_result_rx: Receiver<JobExecutorThreadPoolOutcome>,
     thread_pool: Option<JobExecutorThreadPool>,
+
+    completed_job_count: u32,
+    last_job_print_time: Option<std::time::Instant>,
 }
 
 impl Drop for JobExecutor {
@@ -402,6 +406,8 @@ impl JobExecutor {
             written_artifact_queue_rx,
             thread_pool_result_rx,
             thread_pool: Some(thread_pool),
+            completed_job_count: 0,
+            last_job_print_time: None,
         }
     }
 
@@ -485,10 +491,11 @@ impl JobExecutor {
         while let Ok(result) = self.thread_pool_result_rx.try_recv() {
             match result {
                 JobExecutorThreadPoolOutcome::RunJobComplete(msg) => {
-                    self.current_jobs
+                    let job = self.current_jobs
                         .get_mut(&msg.request.job_id)
-                        .unwrap()
-                        .output_data = Some(msg.output_data);
+                        .unwrap();
+                    job.output_data = Some(msg.output_data);
+                    self.completed_job_count += 1;
                 }
                 JobExecutorThreadPoolOutcome::RunJobFailed(msg) => {
                     unimplemented!()
@@ -609,6 +616,19 @@ impl JobExecutor {
         }
 
         self.handle_completed_queue();
+
+        let now = std::time::Instant::now();
+        let mut print_progress = true;
+        if let Some(last_job_print_time) = self.last_job_print_time {
+            if (now - last_job_print_time) < std::time::Duration::from_millis(500) {
+                print_progress = false;
+            }
+        }
+
+        if print_progress {
+            log::info!("Jobs: {}/{}", self.completed_job_count, self.current_jobs.len());
+            self.last_job_print_time = Some(now);
+        }
     }
 
     pub fn stop(&mut self) {

@@ -203,6 +203,7 @@ impl ImportJobs {
         //
         // Queue the import operations
         //
+        let mut total_jobs = 0;
         for import_op in import_operations {
             let mut importable_assets = HashMap::<Option<String>, ImportableAsset>::default();
             for (name, asset_id) in &import_op.asset_ids {
@@ -219,6 +220,7 @@ impl ImportJobs {
                 );
             }
 
+            total_jobs += 1;
             thread_pool.add_request(ImportThreadRequest::RequestImport(
                 ImportThreadRequestImport {
                     import_op,
@@ -230,8 +232,23 @@ impl ImportJobs {
         //
         // Wait for the thread pool to finish
         //
+        let mut last_job_print_time = None;
         while !thread_pool.is_idle() {
             std::thread::sleep(std::time::Duration::from_millis(50));
+
+            let now = std::time::Instant::now();
+            let mut print_progress = true;
+            if let Some(last_job_print_time) = last_job_print_time {
+                if (now - last_job_print_time) < std::time::Duration::from_millis(500) {
+                    print_progress = false;
+                }
+            }
+
+            if print_progress {
+                log::info!("Import jobs: {}/{}", total_jobs - thread_pool.active_request_count(), total_jobs);
+                last_job_print_time = Some(now);
+            }
+
         }
 
         thread_pool.finish();

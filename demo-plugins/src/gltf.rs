@@ -1,7 +1,11 @@
 pub use super::*;
 use std::path::Path;
 
-use super::generated::{MeshAdvMaterialAssetAccessor, MeshAdvMaterialAssetOwned, MeshAdvMeshAssetAccessor, MeshAdvMeshAssetOwned, MeshAdvMeshImportedDataAccessor, MeshAdvMeshImportedDataOwned};
+use super::generated::{
+    MeshAdvMaterialAssetAccessor, MeshAdvMaterialAssetOwned, MeshAdvMeshAssetAccessor,
+    MeshAdvMeshAssetOwned, MeshAdvMeshImportedDataAccessor, MeshAdvMeshImportedDataOwned,
+};
+use hydrate_data::{RecordBuilder, RecordOwned};
 use hydrate_model::pipeline::{AssetPlugin, ImportContext, ImporterRegistry, ScanContext};
 use hydrate_model::pipeline::{ImportedImportable, Importer, ScannedImportable};
 use hydrate_pipeline::{
@@ -9,7 +13,6 @@ use hydrate_pipeline::{
     JobProcessorRegistryBuilder, RecordAccessor, SchemaLinker, SchemaSet,
 };
 use type_uuid::TypeUuid;
-use hydrate_data::{RecordBuilder, RecordOwned};
 
 fn name_or_index(
     prefix: &str,
@@ -124,30 +127,25 @@ impl Importer for GltfImporter {
                 // Create the default asset
                 //
                 let default_asset = MeshAdvMaterialAssetOwned::new_builder(context.schema_set);
-                default_asset.base_color_factor()
-                    .set_vec4(
-                        material.pbr_metallic_roughness().base_color_factor(),
-                    )
+                default_asset
+                    .base_color_factor()
+                    .set_vec4(material.pbr_metallic_roughness().base_color_factor())
                     .unwrap();
-                default_asset.emissive_factor()
-                    .set_vec3(
-                        material.emissive_factor(),
-                    )
+                default_asset
+                    .emissive_factor()
+                    .set_vec3(material.emissive_factor())
                     .unwrap();
-                default_asset.metallic_factor()
-                    .set(
-                        material.pbr_metallic_roughness().metallic_factor(),
-                    )
+                default_asset
+                    .metallic_factor()
+                    .set(material.pbr_metallic_roughness().metallic_factor())
                     .unwrap();
-                default_asset.roughness_factor()
-                    .set(
-                        material.pbr_metallic_roughness().roughness_factor(),
-                    )
+                default_asset
+                    .roughness_factor()
+                    .set(material.pbr_metallic_roughness().roughness_factor())
                     .unwrap();
-                default_asset.normal_texture_scale()
-                    .set(
-                        material.normal_texture().map_or(1.0, |x| x.scale()),
-                    )
+                default_asset
+                    .normal_texture_scale()
+                    .set(material.normal_texture().map_or(1.0, |x| x.scale()))
                     .unwrap();
 
                 //TODO: This needs to be updated to handle images in the GLTF or referenced externally
@@ -183,16 +181,14 @@ impl Importer for GltfImporter {
 
                 //x.shadow_method().set(&mut default_asset_data_container, shadow_method).unwrap();
                 //x.blend_method().set(&mut default_asset_data_container, blend_method).unwrap();
-                default_asset.alpha_threshold()
-                    .set(
-                        material.alpha_cutoff().unwrap_or(0.5),
-                    )
+                default_asset
+                    .alpha_threshold()
+                    .set(material.alpha_cutoff().unwrap_or(0.5))
                     .unwrap();
-                default_asset.backface_culling()
-                    .set(false)
-                    .unwrap();
+                default_asset.backface_culling().set(false).unwrap();
                 //TODO: Does this incorrectly write older enum string names when code is older than schema file?
-                default_asset.color_texture_has_alpha_channel()
+                default_asset
+                    .color_texture_has_alpha_channel()
                     .set(false)
                     .unwrap();
 

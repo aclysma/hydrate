@@ -1,6 +1,6 @@
 use demo_types::mesh_adv::{MeshAdvBlendMethod, MeshAdvShadowMethod};
 use hydrate_data::*;
-use hydrate_model::{DataContainerRef, DataContainerRefMut, DataContainerOwned, DataSetResult};
+use hydrate_model::{DataContainerOwned, DataContainerRef, DataContainerRefMut, DataSetResult};
 use std::cell::RefCell;
 use std::rc::Rc;
 
@@ -65,9 +65,7 @@ impl Vec3Owned {
         Ok(())
     }
 
-    pub fn get_vec3(
-        &self,
-    ) -> DataSetResult<[f32; 3]> {
+    pub fn get_vec3(&self) -> DataSetResult<[f32; 3]> {
         let x = self.x().get()?;
         let y = self.y().get()?;
         let z = self.z().get()?;
@@ -87,9 +85,7 @@ impl Vec4Owned {
         Ok(())
     }
 
-    pub fn get_vec4(
-        &self,
-    ) -> DataSetResult<[f32; 4]> {
+    pub fn get_vec4(&self) -> DataSetResult<[f32; 4]> {
         let x = self.x().get()?;
         let y = self.y().get()?;
         let z = self.z().get()?;

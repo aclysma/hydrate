@@ -392,7 +392,6 @@ impl<'a> DataContainerWrite for DataContainerRefMut<'a> {
     }
 }
 
-
 /// Provides a read/write view into a DataSet or SingleObject. A schema can be used to write into
 /// both forms.
 pub enum DataContainerOwned {
@@ -402,7 +401,7 @@ pub enum DataContainerOwned {
 impl DataContainerOwned {
     pub fn into_inner(self) -> SingleObject {
         match self {
-            DataContainerOwned::SingleObject(a, b) => a
+            DataContainerOwned::SingleObject(a, b) => a,
         }
     }
 
@@ -421,7 +420,7 @@ impl DataContainerOwned {
 
     pub fn to_mut(&mut self) -> DataContainerRefMut {
         match self {
-            DataContainerOwned::SingleObject(a, b) => DataContainerRefMut::SingleObject(a, b)
+            DataContainerOwned::SingleObject(a, b) => DataContainerRefMut::SingleObject(a, b),
         }
     }
 

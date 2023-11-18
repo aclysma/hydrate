@@ -218,7 +218,9 @@ impl JobProcessor for MeshAdvMeshPreprocessJobProcessor {
         //
         // Read import data
         //
-        let imported_data = context.imported_data::<MeshAdvMeshImportedDataReader>(context.input.asset_id).unwrap();
+        let imported_data = context
+            .imported_data::<MeshAdvMeshImportedDataReader>(context.input.asset_id)
+            .unwrap();
 
         let mut all_positions = Vec::<glam::Vec3>::with_capacity(1024);
         let mut all_position_indices = Vec::<u32>::with_capacity(8192);

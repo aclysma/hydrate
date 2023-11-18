@@ -20,9 +20,9 @@ pub use data_set::ImporterId;
 pub use data_set::OverrideBehavior;
 
 mod data_set_view;
+pub use data_set_view::DataContainerOwned;
 pub use data_set_view::DataContainerRef;
 pub use data_set_view::DataContainerRefMut;
-pub use data_set_view::DataContainerOwned;
 
 mod single_object;
 pub use single_object::SingleObject;

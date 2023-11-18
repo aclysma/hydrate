@@ -2,21 +2,24 @@ pub use super::*;
 use ::image::GenericImageView;
 use std::path::Path;
 
-use super::generated::{GpuImageAssetReader, GpuImageAssetAccessor, GpuImageImportedDataOwned, GpuImageImportedDataReader, GpuImageImportedDataAccessor, GpuImageImportedDataWriter, GpuImageAssetOwned};
+use super::generated::{
+    GpuImageAssetAccessor, GpuImageAssetOwned, GpuImageAssetReader, GpuImageImportedDataAccessor,
+    GpuImageImportedDataOwned, GpuImageImportedDataReader, GpuImageImportedDataWriter,
+};
 use demo_types::image::*;
+use hydrate_data::{RecordBuilder, RecordOwned};
 use hydrate_model::pipeline::{ImportContext, ScanContext};
 use hydrate_pipeline::{
-    job_system, AssetId, BuilderContext, BuilderRegistryBuilder, DataContainerRef, DataContainerRefMut,
-    DataSet, EnumerateDependenciesContext, FieldAccessor, HashMap, ImportableAsset, ImporterRegistry,
-    ImporterRegistryBuilder, JobApi, JobEnumeratedDependencies, JobInput, JobOutput, JobProcessor,
-    JobProcessorRegistryBuilder, PropertyPath, RecordAccessor, RunContext, SchemaLinker, SchemaSet,
-    SingleObject,
+    job_system, AssetId, BuilderContext, BuilderRegistryBuilder, DataContainerRef,
+    DataContainerRefMut, DataSet, EnumerateDependenciesContext, FieldAccessor, HashMap,
+    ImportableAsset, ImporterRegistry, ImporterRegistryBuilder, JobApi, JobEnumeratedDependencies,
+    JobInput, JobOutput, JobProcessor, JobProcessorRegistryBuilder, PropertyPath, RecordAccessor,
+    RunContext, SchemaLinker, SchemaSet, SingleObject,
 };
 use hydrate_pipeline::{AssetPlugin, Builder};
 use hydrate_pipeline::{ImportedImportable, Importer, ScannedImportable};
 use serde::{Deserialize, Serialize};
 use type_uuid::TypeUuid;
-use hydrate_data::{RecordBuilder, RecordOwned};
 
 #[derive(TypeUuid, Default)]
 #[uuid = "e7c83acb-f73b-4b3c-b14d-fe5cc17c0fa3"]
@@ -128,7 +131,9 @@ impl JobProcessor for GpuImageJobProcessor {
         //
         // Read asset properties
         //
-        let asset = context.asset::<GpuImageAssetReader>(context.input.asset_id).unwrap();
+        let asset = context
+            .asset::<GpuImageAssetReader>(context.input.asset_id)
+            .unwrap();
         let compressed = asset.compress().get().unwrap();
 
         //

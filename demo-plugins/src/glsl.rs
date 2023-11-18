@@ -3,23 +3,26 @@ use std::collections::VecDeque;
 use std::ops::Range;
 use std::path::{Path, PathBuf};
 
-use super::generated::{GlslBuildTargetAssetAccessor, GlslSourceFileAssetAccessor, GlslSourceFileImportedDataAccessor, GlslSourceFileImportedDataOwned};
+use super::generated::{
+    GlslBuildTargetAssetAccessor, GlslSourceFileAssetAccessor, GlslSourceFileImportedDataAccessor,
+    GlslSourceFileImportedDataOwned,
+};
+use crate::generated_wrapper::{GlslBuildTargetAssetReader, GlslSourceFileAssetOwned};
 use demo_types::glsl::*;
+use hydrate_data::RecordOwned;
 use hydrate_model::pipeline::{AssetPlugin, Builder, ImportContext, ImporterRegistry, ScanContext};
 use hydrate_model::pipeline::{
     ImportedImportable, Importer, ReferencedSourceFile, ScannedImportable,
 };
 use hydrate_pipeline::{
-    job_system, AssetId, BuilderContext, BuilderRegistryBuilder, DataContainerRef, DataContainerRefMut,
-    DataSet, EnumerateDependenciesContext, HashMap, HashSet, ImportableAsset,
+    job_system, AssetId, BuilderContext, BuilderRegistryBuilder, DataContainerRef,
+    DataContainerRefMut, DataSet, EnumerateDependenciesContext, HashMap, HashSet, ImportableAsset,
     ImporterRegistryBuilder, JobApi, JobEnumeratedDependencies, JobInput, JobOutput, JobProcessor,
     JobProcessorRegistryBuilder, RecordAccessor, RunContext, SchemaLinker, SchemaSet, SingleObject,
 };
 use serde::{Deserialize, Serialize};
 use shaderc::IncludeType;
 use type_uuid::TypeUuid;
-use hydrate_data::RecordOwned;
-use crate::generated_wrapper::{GlslBuildTargetAssetReader, GlslSourceFileAssetOwned};
 
 fn range_of_line_at_position(
     code: &[char],
@@ -661,7 +664,9 @@ impl JobProcessor for GlslBuildTargetJobProcessor {
         //
         // Read asset properties
         //
-        let asset_data = context.asset::<GlslBuildTargetAssetReader>(context.input.asset_id).unwrap();
+        let asset_data = context
+            .asset::<GlslBuildTargetAssetReader>(context.input.asset_id)
+            .unwrap();
 
         let source_file = asset_data.source_file().get().unwrap();
         let entry_point = asset_data.entry_point().get().unwrap();

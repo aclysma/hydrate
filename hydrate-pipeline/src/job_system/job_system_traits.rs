@@ -4,7 +4,10 @@ use crate::{AssetArtifactIdPair, BuiltArtifact, ImportData, ImportJobs};
 use hydrate_base::handle::DummySerdeContextHandle;
 use hydrate_base::hashing::HashMap;
 use hydrate_base::{ArtifactId, AssetId, BuiltArtifactMetadata, Handle};
-use hydrate_data::{DataContainerRef, DataSet, DataSetError, DataSetResult, FieldReader, PropertyPath, RecordReader, SchemaSet, SingleObject};
+use hydrate_data::{
+    DataContainerRef, DataSet, DataSetError, DataSetResult, FieldReader, PropertyPath,
+    RecordReader, SchemaSet, SingleObject,
+};
 use serde::{Deserialize, Serialize};
 use siphasher::sip128::Hasher128;
 use std::hash::Hash;
@@ -145,17 +148,19 @@ impl<'a, InputT> RunContext<'a, InputT> {
         &'a self,
         asset_id: AssetId,
     ) -> DataSetResult<T> {
-        if self.data_set.asset_schema(asset_id).ok_or(DataSetError::AssetNotFound)?.name() != T::schema_name() {
+        if self
+            .data_set
+            .asset_schema(asset_id)
+            .ok_or(DataSetError::AssetNotFound)?
+            .name()
+            != T::schema_name()
+        {
             return Err(DataSetError::InvalidSchema);
         }
 
         Ok(T::new(
             PropertyPath::default(),
-            DataContainerRef::from_dataset(
-                self.data_set,
-                self.schema_set,
-                asset_id
-            ),
+            DataContainerRef::from_dataset(self.data_set, self.schema_set, asset_id),
         ))
     }
 
@@ -163,17 +168,17 @@ impl<'a, InputT> RunContext<'a, InputT> {
         &'a self,
         asset_id: AssetId,
     ) -> DataSetResult<T> {
-        let import_data = self.dependency_data.get(&asset_id).ok_or(DataSetError::ImportDataNotFound)?;
+        let import_data = self
+            .dependency_data
+            .get(&asset_id)
+            .ok_or(DataSetError::ImportDataNotFound)?;
         if import_data.schema().name() != T::schema_name() {
             return Err(DataSetError::InvalidSchema);
         }
 
         Ok(T::new(
             PropertyPath::default(),
-            DataContainerRef::from_single_object(
-                import_data,
-                self.schema_set,
-            ),
+            DataContainerRef::from_single_object(import_data, self.schema_set),
         ))
     }
 

@@ -213,14 +213,18 @@ fn generate_accessor(
     s.vis("pub");
     s.derive("Default");
 
-    let field_impl = scope.new_impl(accessor_name.as_str()).impl_trait("FieldAccessor");
+    let field_impl = scope
+        .new_impl(accessor_name.as_str())
+        .impl_trait("FieldAccessor");
     let new_fn = field_impl
         .new_fn("new")
         .arg("property_path", "PropertyPath");
     new_fn.ret("Self");
     new_fn.line(format!("{}(property_path)", accessor_name));
 
-    let accessor_impl = scope.new_impl(accessor_name.as_str()).impl_trait("RecordAccessor");
+    let accessor_impl = scope
+        .new_impl(accessor_name.as_str())
+        .impl_trait("RecordAccessor");
     let schema_name_fn = accessor_impl.new_fn("schema_name");
     schema_name_fn.ret("&'static str");
     schema_name_fn.line(format!("\"{}\"", schema.name()));

@@ -1,19 +1,22 @@
 pub use super::*;
 use std::path::{Path, PathBuf};
 
+use hydrate_data::{AssetRefFieldOwned, RecordBuilder, RecordOwned};
 use hydrate_model::pipeline::{AssetPlugin, ImportContext, ScanContext};
 use hydrate_model::pipeline::{ImportedImportable, Importer, ScannedImportable};
 use hydrate_pipeline::{
-    AssetRefFieldAccessor, BuilderRegistryBuilder, DataContainerRefMut, Enum, HashMap, ImportableAsset,
-    ImporterId, ImporterRegistry, ImporterRegistryBuilder, JobProcessorRegistryBuilder, RecordAccessor,
-    ReferencedSourceFile, SchemaLinker, SchemaSet,
+    AssetRefFieldAccessor, BuilderRegistryBuilder, DataContainerRefMut, Enum, HashMap,
+    ImportableAsset, ImporterId, ImporterRegistry, ImporterRegistryBuilder,
+    JobProcessorRegistryBuilder, RecordAccessor, ReferencedSourceFile, SchemaLinker, SchemaSet,
 };
 use serde::{Deserialize, Serialize};
 use type_uuid::TypeUuid;
 use uuid::Uuid;
-use hydrate_data::{AssetRefFieldOwned, RecordBuilder, RecordOwned};
 
-use super::generated::{MeshAdvBlendMethodEnum, MeshAdvMaterialAssetAccessor, MeshAdvMaterialAssetOwned, MeshAdvShadowMethodEnum};
+use super::generated::{
+    MeshAdvBlendMethodEnum, MeshAdvMaterialAssetAccessor, MeshAdvMaterialAssetOwned,
+    MeshAdvShadowMethodEnum,
+};
 
 #[derive(Serialize, Deserialize)]
 struct MaterialJsonFileFormat {
@@ -141,29 +144,25 @@ impl Importer for BlenderMaterialImporter {
         //
         let default_asset = MeshAdvMaterialAssetOwned::new_builder(context.schema_set);
 
-        default_asset.base_color_factor()
-            .set_vec4(
-
-                json_data.base_color_factor,
-            )
+        default_asset
+            .base_color_factor()
+            .set_vec4(json_data.base_color_factor)
             .unwrap();
-        default_asset.emissive_factor()
-            .set_vec3( json_data.emissive_factor)
+        default_asset
+            .emissive_factor()
+            .set_vec3(json_data.emissive_factor)
             .unwrap();
-        default_asset.metallic_factor()
-            .set( json_data.metallic_factor)
+        default_asset
+            .metallic_factor()
+            .set(json_data.metallic_factor)
             .unwrap();
-        default_asset.roughness_factor()
-            .set(
-
-                json_data.roughness_factor,
-            )
+        default_asset
+            .roughness_factor()
+            .set(json_data.roughness_factor)
             .unwrap();
-        default_asset.normal_texture_scale()
-            .set(
-
-                json_data.normal_texture_scale,
-            )
+        default_asset
+            .normal_texture_scale()
+            .set(json_data.normal_texture_scale)
             .unwrap();
 
         fn try_find_file_reference(
@@ -185,53 +184,39 @@ impl Importer for BlenderMaterialImporter {
 
         try_find_file_reference(
             &context.importable_assets,
-
             default_asset.color_texture(),
             &json_data.color_texture,
         );
         try_find_file_reference(
             &context.importable_assets,
-
             default_asset.metallic_roughness_texture(),
             &json_data.metallic_roughness_texture,
         );
         try_find_file_reference(
             &context.importable_assets,
-
             default_asset.normal_texture(),
             &json_data.normal_texture,
         );
         try_find_file_reference(
             &context.importable_assets,
-
             default_asset.emissive_texture(),
             &json_data.emissive_texture,
         );
 
-        default_asset.shadow_method()
-            .set( shadow_method)
+        default_asset.shadow_method().set(shadow_method).unwrap();
+        default_asset.blend_method().set(blend_method).unwrap();
+        default_asset
+            .alpha_threshold()
+            .set(json_data.alpha_threshold.unwrap_or(0.5))
             .unwrap();
-        default_asset.blend_method()
-            .set( blend_method)
-            .unwrap();
-        default_asset.alpha_threshold()
-            .set(
-
-                json_data.alpha_threshold.unwrap_or(0.5),
-            )
-            .unwrap();
-        default_asset.backface_culling()
-            .set(
-
-                json_data.backface_culling.unwrap_or(true),
-            )
+        default_asset
+            .backface_culling()
+            .set(json_data.backface_culling.unwrap_or(true))
             .unwrap();
         //TODO: Does this incorrectly write older enum string names when code is older than schema file?
-        default_asset.color_texture_has_alpha_channel()
-            .set(
-
-                json_data.color_texture_has_alpha_channel,
-            )
+        default_asset
+            .color_texture_has_alpha_channel()
+            .set(json_data.color_texture_has_alpha_channel)
             .unwrap();
 
         //

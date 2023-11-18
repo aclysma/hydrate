@@ -1,9 +1,13 @@
 pub use super::*;
 use std::path::{Path, PathBuf};
 
-use crate::generated::{MeshAdvMeshAssetAccessor, MeshAdvMeshAssetOwned, MeshAdvMeshImportedDataAccessor, MeshAdvMeshImportedDataOwned};
+use crate::generated::{
+    MeshAdvMeshAssetAccessor, MeshAdvMeshAssetOwned, MeshAdvMeshImportedDataAccessor,
+    MeshAdvMeshImportedDataOwned,
+};
 use crate::push_buffer::PushBuffer;
 use hydrate_base::b3f::B3FReader;
+use hydrate_data::{RecordBuilder, RecordOwned};
 use hydrate_model::pipeline::{AssetPlugin, ImportContext, ScanContext};
 use hydrate_model::pipeline::{ImportedImportable, Importer, ScannedImportable};
 use hydrate_pipeline::{
@@ -14,7 +18,6 @@ use hydrate_pipeline::{
 use serde::{Deserialize, Serialize};
 use type_uuid::TypeUuid;
 use uuid::Uuid;
-use hydrate_data::{RecordBuilder, RecordOwned};
 
 #[derive(Serialize, Deserialize, Debug)]
 enum MeshPartJsonIndexType {
@@ -203,31 +206,16 @@ impl Importer for BlenderMeshImporter {
 
             let material_index = *material_slots_lookup.get(&mesh_part.material).unwrap();
 
-            let entry_uuid = import_data
-                .mesh_parts()
-                .add_entry()
-                .unwrap();
+            let entry_uuid = import_data.mesh_parts().add_entry().unwrap();
             let entry = import_data.mesh_parts().entry(entry_uuid);
-            entry
-                .positions()
-                .set(positions_bytes.to_vec())
-                .unwrap();
-            entry
-                .normals()
-                .set(normals_bytes.to_vec())
-                .unwrap();
+            entry.positions().set(positions_bytes.to_vec()).unwrap();
+            entry.normals().set(normals_bytes.to_vec()).unwrap();
             entry
                 .texture_coordinates()
                 .set(tex_coords_bytes.to_vec())
                 .unwrap();
-            entry
-                .indices()
-                .set(part_indices)
-                .unwrap();
-            entry
-                .material_index()
-                .set(material_index)
-                .unwrap();
+            entry.indices().set(part_indices).unwrap();
+            entry.material_index().set(material_index).unwrap();
         }
 
         //
@@ -246,11 +234,9 @@ impl Importer for BlenderMeshImporter {
                 .referenced_paths
                 .get(&material_slot)
                 .unwrap();
-            let entry = default_asset
+            let entry = default_asset.material_slots().add_entry().unwrap();
+            default_asset
                 .material_slots()
-                .add_entry()
-                .unwrap();
-            default_asset.material_slots()
                 .entry(entry)
                 .set(*asset_id)
                 .unwrap();

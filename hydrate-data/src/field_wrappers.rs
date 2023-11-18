@@ -1,14 +1,14 @@
+use crate::data_set_view::DataContainerOwned;
 use crate::value::ValueEnum;
 use crate::{
-    AssetId, DataContainerRef, DataContainerRefMut, DataSetError, DataSetResult, NullOverride, SchemaSet,
-    SingleObject, Value,
+    AssetId, DataContainerRef, DataContainerRefMut, DataSetError, DataSetResult, NullOverride,
+    SchemaSet, SingleObject, Value,
 };
 use std::cell::RefCell;
 use std::marker::PhantomData;
 use std::ops::{Deref, DerefMut};
 use std::rc::Rc;
 use uuid::Uuid;
-use crate::data_set_view::DataContainerOwned;
 
 #[derive(Default)]
 pub struct PropertyPath(String);
@@ -100,13 +100,15 @@ pub trait RecordOwned: Sized + FieldOwned {
     }
 }
 
-
-pub struct RecordBuilder<T: RecordOwned + FieldOwned>(Rc<RefCell<Option<DataContainerOwned>>>, T, PhantomData<T>);
+pub struct RecordBuilder<T: RecordOwned + FieldOwned>(
+    Rc<RefCell<Option<DataContainerOwned>>>,
+    T,
+    PhantomData<T>,
+);
 
 impl<T: RecordOwned + FieldOwned> RecordBuilder<T> {
     pub fn new(schema_set: &SchemaSet) -> Self {
-        let single_object =
-            T::new_single_object(schema_set).unwrap();
+        let single_object = T::new_single_object(schema_set).unwrap();
         let data_container =
             DataContainerOwned::from_single_object(single_object, schema_set.clone());
         let data_container = Rc::new(RefCell::new(Some(data_container)));
@@ -116,7 +118,12 @@ impl<T: RecordOwned + FieldOwned> RecordBuilder<T> {
 
     pub fn into_inner(self) -> DataSetResult<SingleObject> {
         // We are unwrapping an Rc, the RefCell, Option, and the DataContainer
-        Ok(self.0.borrow_mut().take().ok_or(DataSetError::DataTaken)?.into_inner())
+        Ok(self
+            .0
+            .borrow_mut()
+            .take()
+            .ok_or(DataSetError::DataTaken)?
+            .into_inner())
     }
 }
 
@@ -243,14 +250,30 @@ impl<T: Enum> FieldOwned for EnumFieldOwned<T> {
 
 impl<T: Enum> EnumFieldOwned<T> {
     pub fn get(&self) -> DataSetResult<T> {
-        EnumFieldAccessor::<T>::do_get(&self.0, self.1.borrow().as_ref().ok_or(DataSetError::DataTaken)?.read())
+        EnumFieldAccessor::<T>::do_get(
+            &self.0,
+            self.1
+                .borrow()
+                .as_ref()
+                .ok_or(DataSetError::DataTaken)?
+                .read(),
+        )
     }
 
     pub fn set(
         &self,
         value: T,
     ) -> DataSetResult<Option<Value>> {
-        EnumFieldAccessor::<T>::do_set(&self.0, &mut self.1.borrow_mut().as_mut().ok_or(DataSetError::DataTaken)?.to_mut(), value)
+        EnumFieldAccessor::<T>::do_set(
+            &self.0,
+            &mut self
+                .1
+                .borrow_mut()
+                .as_mut()
+                .ok_or(DataSetError::DataTaken)?
+                .to_mut(),
+            value,
+        )
     }
 }
 
@@ -363,7 +386,6 @@ impl<'a, T: FieldWriter<'a>> NullableFieldWriter<'a, T> {
     }
 }
 
-
 pub struct NullableFieldOwned<T: FieldOwned>(
     pub PropertyPath,
     Rc<RefCell<Option<DataContainerOwned>>>,
@@ -389,7 +411,11 @@ impl<T: FieldOwned> NullableFieldOwned<T> {
     }
 
     pub fn resolve_null_override(&self) -> DataSetResult<NullOverride> {
-        self.1.borrow_mut().as_ref().ok_or(DataSetError::DataTaken)?.resolve_null_override(self.0.path())
+        self.1
+            .borrow_mut()
+            .as_ref()
+            .ok_or(DataSetError::DataTaken)?
+            .resolve_null_override(self.0.path())
     }
 
     pub fn set_null_override(
@@ -397,17 +423,25 @@ impl<T: FieldOwned> NullableFieldOwned<T> {
         null_override: NullOverride,
     ) -> DataSetResult<Option<T>> {
         let path = self.0.path();
-        self.1.borrow_mut().as_mut().ok_or(DataSetError::DataTaken)?.set_null_override(path, null_override)?;
-        if self.1.borrow_mut().as_mut().ok_or(DataSetError::DataTaken)?.resolve_null_override(path)? == NullOverride::SetNonNull {
+        self.1
+            .borrow_mut()
+            .as_mut()
+            .ok_or(DataSetError::DataTaken)?
+            .set_null_override(path, null_override)?;
+        if self
+            .1
+            .borrow_mut()
+            .as_mut()
+            .ok_or(DataSetError::DataTaken)?
+            .resolve_null_override(path)?
+            == NullOverride::SetNonNull
+        {
             Ok(Some(T::new(self.0.push("value"), &self.1)))
         } else {
             Ok(None)
         }
     }
 }
-
-
-
 
 pub struct BooleanFieldAccessor(pub PropertyPath);
 
@@ -506,14 +540,30 @@ impl FieldOwned for BooleanFieldOwned {
 
 impl BooleanFieldOwned {
     pub fn get(&self) -> DataSetResult<bool> {
-        BooleanFieldAccessor::do_get(&self.0, self.1.borrow_mut().as_mut().ok_or(DataSetError::DataTaken)?.read())
+        BooleanFieldAccessor::do_get(
+            &self.0,
+            self.1
+                .borrow_mut()
+                .as_mut()
+                .ok_or(DataSetError::DataTaken)?
+                .read(),
+        )
     }
 
     pub fn set(
         &self,
         value: bool,
     ) -> DataSetResult<Option<Value>> {
-        BooleanFieldAccessor::do_set(&self.0, &mut self.1.borrow_mut().as_mut().ok_or(DataSetError::DataTaken)?.to_mut(), value)
+        BooleanFieldAccessor::do_set(
+            &self.0,
+            &mut self
+                .1
+                .borrow_mut()
+                .as_mut()
+                .ok_or(DataSetError::DataTaken)?
+                .to_mut(),
+            value,
+        )
     }
 }
 
@@ -614,17 +664,32 @@ impl FieldOwned for I32FieldOwned {
 
 impl I32FieldOwned {
     pub fn get(&self) -> DataSetResult<i32> {
-        I32FieldAccessor::do_get(&self.0, self.1.borrow_mut().as_mut().ok_or(DataSetError::DataTaken)?.read())
+        I32FieldAccessor::do_get(
+            &self.0,
+            self.1
+                .borrow_mut()
+                .as_mut()
+                .ok_or(DataSetError::DataTaken)?
+                .read(),
+        )
     }
 
     pub fn set(
         &self,
         value: i32,
     ) -> DataSetResult<Option<Value>> {
-        I32FieldAccessor::do_set(&self.0, &mut self.1.borrow_mut().as_mut().ok_or(DataSetError::DataTaken)?.to_mut(), value)
+        I32FieldAccessor::do_set(
+            &self.0,
+            &mut self
+                .1
+                .borrow_mut()
+                .as_mut()
+                .ok_or(DataSetError::DataTaken)?
+                .to_mut(),
+            value,
+        )
     }
 }
-
 
 pub struct I64FieldAccessor(pub PropertyPath);
 
@@ -723,14 +788,30 @@ impl FieldOwned for I64FieldOwned {
 
 impl I64FieldOwned {
     pub fn get(&self) -> DataSetResult<i64> {
-        I64FieldAccessor::do_get(&self.0, self.1.borrow_mut().as_mut().ok_or(DataSetError::DataTaken)?.read())
+        I64FieldAccessor::do_get(
+            &self.0,
+            self.1
+                .borrow_mut()
+                .as_mut()
+                .ok_or(DataSetError::DataTaken)?
+                .read(),
+        )
     }
 
     pub fn set(
         &self,
         value: i64,
     ) -> DataSetResult<Option<Value>> {
-        I64FieldAccessor::do_set(&self.0, &mut self.1.borrow_mut().as_mut().ok_or(DataSetError::DataTaken)?.to_mut(), value)
+        I64FieldAccessor::do_set(
+            &self.0,
+            &mut self
+                .1
+                .borrow_mut()
+                .as_mut()
+                .ok_or(DataSetError::DataTaken)?
+                .to_mut(),
+            value,
+        )
     }
 }
 
@@ -831,14 +912,30 @@ impl FieldOwned for U32FieldOwned {
 
 impl U32FieldOwned {
     pub fn get(&self) -> DataSetResult<u32> {
-        U32FieldAccessor::do_get(&self.0, self.1.borrow_mut().as_mut().ok_or(DataSetError::DataTaken)?.read())
+        U32FieldAccessor::do_get(
+            &self.0,
+            self.1
+                .borrow_mut()
+                .as_mut()
+                .ok_or(DataSetError::DataTaken)?
+                .read(),
+        )
     }
 
     pub fn set(
         &self,
         value: u32,
     ) -> DataSetResult<Option<Value>> {
-        U32FieldAccessor::do_set(&self.0, &mut self.1.borrow_mut().as_mut().ok_or(DataSetError::DataTaken)?.to_mut(), value)
+        U32FieldAccessor::do_set(
+            &self.0,
+            &mut self
+                .1
+                .borrow_mut()
+                .as_mut()
+                .ok_or(DataSetError::DataTaken)?
+                .to_mut(),
+            value,
+        )
     }
 }
 
@@ -939,14 +1036,30 @@ impl FieldOwned for U64FieldOwned {
 
 impl U64FieldOwned {
     pub fn get(&self) -> DataSetResult<u64> {
-        U64FieldAccessor::do_get(&self.0, self.1.borrow_mut().as_mut().ok_or(DataSetError::DataTaken)?.read())
+        U64FieldAccessor::do_get(
+            &self.0,
+            self.1
+                .borrow_mut()
+                .as_mut()
+                .ok_or(DataSetError::DataTaken)?
+                .read(),
+        )
     }
 
     pub fn set(
         &self,
         value: u64,
     ) -> DataSetResult<Option<Value>> {
-        U64FieldAccessor::do_set(&self.0, &mut self.1.borrow_mut().as_mut().ok_or(DataSetError::DataTaken)?.to_mut(), value)
+        U64FieldAccessor::do_set(
+            &self.0,
+            &mut self
+                .1
+                .borrow_mut()
+                .as_mut()
+                .ok_or(DataSetError::DataTaken)?
+                .to_mut(),
+            value,
+        )
     }
 }
 
@@ -1047,14 +1160,30 @@ impl FieldOwned for F32FieldOwned {
 
 impl F32FieldOwned {
     pub fn get(&self) -> DataSetResult<f32> {
-        F32FieldAccessor::do_get(&self.0, self.1.borrow_mut().as_mut().ok_or(DataSetError::DataTaken)?.read())
+        F32FieldAccessor::do_get(
+            &self.0,
+            self.1
+                .borrow_mut()
+                .as_mut()
+                .ok_or(DataSetError::DataTaken)?
+                .read(),
+        )
     }
 
     pub fn set(
         &self,
         value: f32,
     ) -> DataSetResult<Option<Value>> {
-        F32FieldAccessor::do_set(&self.0, &mut self.1.borrow_mut().as_mut().ok_or(DataSetError::DataTaken)?.to_mut(), value)
+        F32FieldAccessor::do_set(
+            &self.0,
+            &mut self
+                .1
+                .borrow_mut()
+                .as_mut()
+                .ok_or(DataSetError::DataTaken)?
+                .to_mut(),
+            value,
+        )
     }
 }
 
@@ -1155,14 +1284,30 @@ impl FieldOwned for F64FieldOwned {
 
 impl F64FieldOwned {
     pub fn get(&self) -> DataSetResult<f64> {
-        F64FieldAccessor::do_get(&self.0, self.1.borrow_mut().as_mut().ok_or(DataSetError::DataTaken)?.read())
+        F64FieldAccessor::do_get(
+            &self.0,
+            self.1
+                .borrow_mut()
+                .as_mut()
+                .ok_or(DataSetError::DataTaken)?
+                .read(),
+        )
     }
 
     pub fn set(
         &self,
         value: f64,
     ) -> DataSetResult<Option<Value>> {
-        F64FieldAccessor::do_set(&self.0, &mut self.1.borrow_mut().as_mut().ok_or(DataSetError::DataTaken)?.to_mut(), value)
+        F64FieldAccessor::do_set(
+            &self.0,
+            &mut self
+                .1
+                .borrow_mut()
+                .as_mut()
+                .ok_or(DataSetError::DataTaken)?
+                .to_mut(),
+            value,
+        )
     }
 }
 
@@ -1288,7 +1433,16 @@ impl BytesFieldOwned {
         &self,
         value: Vec<u8>,
     ) -> DataSetResult<Option<Value>> {
-        BytesFieldAccessor::do_set(&self.0, &mut self.1.borrow_mut().as_mut().ok_or(DataSetError::DataTaken)?.to_mut(), value)
+        BytesFieldAccessor::do_set(
+            &self.0,
+            &mut self
+                .1
+                .borrow_mut()
+                .as_mut()
+                .ok_or(DataSetError::DataTaken)?
+                .to_mut(),
+            value,
+        )
     }
 }
 
@@ -1390,14 +1544,30 @@ impl FieldOwned for StringFieldOwned {
 
 impl StringFieldOwned {
     pub fn get(&self) -> DataSetResult<String> {
-        StringFieldAccessor::do_get(&self.0, self.1.borrow_mut().as_mut().ok_or(DataSetError::DataTaken)?.read())
+        StringFieldAccessor::do_get(
+            &self.0,
+            self.1
+                .borrow_mut()
+                .as_mut()
+                .ok_or(DataSetError::DataTaken)?
+                .read(),
+        )
     }
 
     pub fn set(
         &self,
         value: String,
     ) -> DataSetResult<Option<Value>> {
-        StringFieldAccessor::do_set(&self.0, &mut self.1.borrow_mut().as_mut().ok_or(DataSetError::DataTaken)?.to_mut(), value)
+        StringFieldAccessor::do_set(
+            &self.0,
+            &mut self
+                .1
+                .borrow_mut()
+                .as_mut()
+                .ok_or(DataSetError::DataTaken)?
+                .to_mut(),
+            value,
+        )
     }
 }
 
@@ -1476,9 +1646,7 @@ impl<'a, T: FieldWriter<'a>> FieldWriter<'a> for DynamicArrayFieldWriter<'a, T> 
 }
 
 impl<'a, T: FieldWriter<'a>> DynamicArrayFieldWriter<'a, T> {
-    pub fn resolve_entries(
-        &self,
-    ) -> DataSetResult<Box<[Uuid]>> {
+    pub fn resolve_entries(&self) -> DataSetResult<Box<[Uuid]>> {
         self.1.borrow_mut().resolve_dynamic_array(self.0.path())
     }
 
@@ -1512,10 +1680,12 @@ impl<'a, T: FieldOwned> FieldOwned for DynamicArrayFieldOwned<T> {
 }
 
 impl<'a, T: FieldOwned> DynamicArrayFieldOwned<T> {
-    pub fn resolve_entries(
-        &self,
-    ) -> DataSetResult<Box<[Uuid]>> {
-        self.1.borrow_mut().as_mut().ok_or(DataSetError::DataTaken)?.resolve_dynamic_array(self.0.path())
+    pub fn resolve_entries(&self) -> DataSetResult<Box<[Uuid]>> {
+        self.1
+            .borrow_mut()
+            .as_mut()
+            .ok_or(DataSetError::DataTaken)?
+            .resolve_dynamic_array(self.0.path())
     }
 
     pub fn entry(
@@ -1631,13 +1801,29 @@ impl FieldOwned for AssetRefFieldOwned {
 
 impl AssetRefFieldOwned {
     pub fn get(&self) -> DataSetResult<AssetId> {
-        AssetRefFieldAccessor::do_get(&self.0, self.1.borrow_mut().as_mut().ok_or(DataSetError::DataTaken)?.read())
+        AssetRefFieldAccessor::do_get(
+            &self.0,
+            self.1
+                .borrow_mut()
+                .as_mut()
+                .ok_or(DataSetError::DataTaken)?
+                .read(),
+        )
     }
 
     pub fn set(
         &self,
         value: AssetId,
     ) -> DataSetResult<Option<Value>> {
-        AssetRefFieldAccessor::do_set(&self.0, &mut self.1.borrow_mut().as_mut().ok_or(DataSetError::DataTaken)?.to_mut(), value)
+        AssetRefFieldAccessor::do_set(
+            &self.0,
+            &mut self
+                .1
+                .borrow_mut()
+                .as_mut()
+                .ok_or(DataSetError::DataTaken)?
+                .to_mut(),
+            value,
+        )
     }
 }

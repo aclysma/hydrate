@@ -4,7 +4,7 @@ use std::ops::Range;
 use std::path::{Path, PathBuf};
 
 use super::generated::{
-    GlslBuildTargetAssetRecord, GlslSourceFileAssetRecord, GlslSourceFileImportedDataRecord,
+    GlslBuildTargetAssetAccessor, GlslSourceFileAssetAccessor, GlslSourceFileImportedDataAccessor,
 };
 use demo_types::glsl::*;
 use hydrate_model::pipeline::{AssetPlugin, Builder, ImportContext, ImporterRegistry, ScanContext};
@@ -15,7 +15,7 @@ use hydrate_pipeline::{
     job_system, AssetId, BuilderContext, BuilderRegistryBuilder, DataContainer, DataContainerMut,
     DataSet, EnumerateDependenciesContext, HashMap, HashSet, ImportableAsset,
     ImporterRegistryBuilder, JobApi, JobEnumeratedDependencies, JobInput, JobOutput, JobProcessor,
-    JobProcessorRegistryBuilder, Record, RunContext, SchemaLinker, SchemaSet, SingleObject,
+    JobProcessorRegistryBuilder, RecordAccessor, RunContext, SchemaLinker, SchemaSet, SingleObject,
 };
 use serde::{Deserialize, Serialize};
 use shaderc::IncludeType;
@@ -528,7 +528,7 @@ impl Importer for GlslSourceFileImporter {
 
         let asset_type = context
             .schema_set
-            .find_named_type(GlslSourceFileAssetRecord::schema_name())
+            .find_named_type(GlslSourceFileAssetAccessor::schema_name())
             .unwrap()
             .as_record()
             .unwrap()
@@ -564,20 +564,20 @@ impl Importer for GlslSourceFileImporter {
         //
         let import_data = {
             let mut import_object =
-                GlslSourceFileImportedDataRecord::new_single_object(context.schema_set).unwrap();
+                GlslSourceFileImportedDataAccessor::new_single_object(context.schema_set).unwrap();
             let mut import_data_container =
                 DataContainerMut::from_single_object(&mut import_object, context.schema_set);
-            let x = GlslSourceFileImportedDataRecord::default();
+            let x = GlslSourceFileImportedDataAccessor::default();
             x.code().set(&mut import_data_container, code).unwrap();
             import_object
         };
 
         let default_asset = {
             let mut default_asset_object =
-                GlslSourceFileAssetRecord::new_single_object(context.schema_set).unwrap();
+                GlslSourceFileAssetAccessor::new_single_object(context.schema_set).unwrap();
             let mut _default_asset_data_container =
                 DataContainerMut::from_single_object(&mut default_asset_object, context.schema_set);
-            let _x = GlslSourceFileAssetRecord::default();
+            let _x = GlslSourceFileAssetAccessor::default();
             // Nothing to set
             default_asset_object
         };
@@ -629,7 +629,7 @@ impl JobProcessor for GlslBuildTargetJobProcessor {
             context.schema_set,
             context.input.asset_id,
         );
-        let x = GlslBuildTargetAssetRecord::default();
+        let x = GlslBuildTargetAssetAccessor::default();
 
         // The source file is the "top level" file where the GLSL entry point is defined
         let source_file = x.source_file().get(data_container).unwrap();
@@ -680,7 +680,7 @@ impl JobProcessor for GlslBuildTargetJobProcessor {
             context.schema_set,
             context.input.asset_id,
         );
-        let x = GlslBuildTargetAssetRecord::default();
+        let x = GlslBuildTargetAssetAccessor::default();
 
         let source_file = x.source_file().get(data_container).unwrap();
         let entry_point = x.entry_point().get(data_container).unwrap();
@@ -777,7 +777,7 @@ pub struct GlslBuildTargetBuilder {}
 
 impl Builder for GlslBuildTargetBuilder {
     fn asset_type(&self) -> &'static str {
-        GlslBuildTargetAssetRecord::schema_name()
+        GlslBuildTargetAssetAccessor::schema_name()
     }
 
     fn start_jobs(

@@ -1,4 +1,4 @@
-use super::generated::{AllFieldsRecord, TransformRecord, TransformRefRecord};
+use super::generated::{AllFieldsAccessor, TransformAccessor, TransformRefAccessor};
 use demo_types::simple_data::*;
 use hydrate_model::pipeline::AssetPlugin;
 use hydrate_pipeline::{
@@ -17,7 +17,7 @@ impl SimpleData for TransformRef {
         data_set_view: DataContainer,
         handle_context: HandleFactory,
     ) -> Self {
-        let x = TransformRefRecord::default();
+        let x = TransformRefAccessor::default();
         let transform = x.transform().get(data_set_view).unwrap();
 
         //TODO: Verify type?
@@ -32,7 +32,7 @@ impl SimpleData for Transform {
         data_container: DataContainer,
         _handle_context: HandleFactory,
     ) -> Self {
-        let x = TransformRecord::default();
+        let x = TransformAccessor::default();
         let position = x.position().get_vec3(data_container).unwrap();
         let rotation = x.rotation().get_vec4(data_container).unwrap();
         let scale = x.scale().get_vec3(data_container).unwrap();
@@ -50,7 +50,7 @@ impl SimpleData for AllFields {
         data_container: DataContainer,
         _handle_context: HandleFactory,
     ) -> Self {
-        let x = AllFieldsRecord::default();
+        let x = AllFieldsAccessor::default();
         let boolean = x.boolean().get(data_container).unwrap();
         let int32 = x.i32().get(data_container).unwrap();
         let int64 = x.i64().get(data_container).unwrap();

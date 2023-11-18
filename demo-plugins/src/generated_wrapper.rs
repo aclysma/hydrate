@@ -6,7 +6,7 @@ use std::rc::Rc;
 
 include!("generated.rs");
 
-impl Vec3Record {
+impl Vec3Accessor {
     pub fn set_vec3(
         &self,
         data_container: &mut DataContainerMut,
@@ -29,7 +29,7 @@ impl Vec3Record {
     }
 }
 
-impl Vec4Record {
+impl Vec4Accessor {
     pub fn set_vec4(
         &self,
         data_container: &mut DataContainerMut,

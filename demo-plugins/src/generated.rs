@@ -1,70 +1,70 @@
 // This file generated automatically by hydrate-codegen. Do not make manual edits. Use include!() to place these types in the intended location.
 #[derive(Default)]
-pub struct AllFieldsRecord(PropertyPath);
+pub struct AllFieldsAccessor(PropertyPath);
 
-impl Field for AllFieldsRecord {
+impl FieldAccessor for AllFieldsAccessor {
     fn new(property_path: PropertyPath) -> Self {
-        AllFieldsRecord(property_path)
+        AllFieldsAccessor(property_path)
     }
 }
 
-impl Record for AllFieldsRecord {
+impl RecordAccessor for AllFieldsAccessor {
     fn schema_name() -> &'static str {
         "AllFields"
     }
 }
 
-impl AllFieldsRecord {
-    pub fn boolean(&self) -> BooleanField {
-        BooleanField::new(self.0.push("boolean"))
+impl AllFieldsAccessor {
+    pub fn boolean(&self) -> BooleanFieldAccessor {
+        BooleanFieldAccessor::new(self.0.push("boolean"))
     }
 
-    pub fn dynamic_array_i32(&self) -> DynamicArrayField::<I32Field> {
-        DynamicArrayField::<I32Field>::new(self.0.push("dynamic_array_i32"))
+    pub fn dynamic_array_i32(&self) -> DynamicArrayFieldAccessor::<I32FieldAccessor> {
+        DynamicArrayFieldAccessor::<I32FieldAccessor>::new(self.0.push("dynamic_array_i32"))
     }
 
-    pub fn dynamic_array_vec3(&self) -> DynamicArrayField::<Vec3Record> {
-        DynamicArrayField::<Vec3Record>::new(self.0.push("dynamic_array_vec3"))
+    pub fn dynamic_array_vec3(&self) -> DynamicArrayFieldAccessor::<Vec3Accessor> {
+        DynamicArrayFieldAccessor::<Vec3Accessor>::new(self.0.push("dynamic_array_vec3"))
     }
 
-    pub fn f32(&self) -> F32Field {
-        F32Field::new(self.0.push("f32"))
+    pub fn f32(&self) -> F32FieldAccessor {
+        F32FieldAccessor::new(self.0.push("f32"))
     }
 
-    pub fn f64(&self) -> F64Field {
-        F64Field::new(self.0.push("f64"))
+    pub fn f64(&self) -> F64FieldAccessor {
+        F64FieldAccessor::new(self.0.push("f64"))
     }
 
-    pub fn i32(&self) -> I32Field {
-        I32Field::new(self.0.push("i32"))
+    pub fn i32(&self) -> I32FieldAccessor {
+        I32FieldAccessor::new(self.0.push("i32"))
     }
 
-    pub fn i64(&self) -> I64Field {
-        I64Field::new(self.0.push("i64"))
+    pub fn i64(&self) -> I64FieldAccessor {
+        I64FieldAccessor::new(self.0.push("i64"))
     }
 
-    pub fn nullable_bool(&self) -> NullableField::<BooleanField> {
-        NullableField::<BooleanField>::new(self.0.push("nullable_bool"))
+    pub fn nullable_bool(&self) -> NullableFieldAccessor::<BooleanFieldAccessor> {
+        NullableFieldAccessor::<BooleanFieldAccessor>::new(self.0.push("nullable_bool"))
     }
 
-    pub fn nullable_vec3(&self) -> NullableField::<Vec3Record> {
-        NullableField::<Vec3Record>::new(self.0.push("nullable_vec3"))
+    pub fn nullable_vec3(&self) -> NullableFieldAccessor::<Vec3Accessor> {
+        NullableFieldAccessor::<Vec3Accessor>::new(self.0.push("nullable_vec3"))
     }
 
-    pub fn reference(&self) -> AssetRefField {
-        AssetRefField::new(self.0.push("reference"))
+    pub fn reference(&self) -> AssetRefFieldAccessor {
+        AssetRefFieldAccessor::new(self.0.push("reference"))
     }
 
-    pub fn string(&self) -> StringField {
-        StringField::new(self.0.push("string"))
+    pub fn string(&self) -> StringFieldAccessor {
+        StringFieldAccessor::new(self.0.push("string"))
     }
 
-    pub fn u32(&self) -> U32Field {
-        U32Field::new(self.0.push("u32"))
+    pub fn u32(&self) -> U32FieldAccessor {
+        U32FieldAccessor::new(self.0.push("u32"))
     }
 
-    pub fn u64(&self) -> U64Field {
-        U64Field::new(self.0.push("u64"))
+    pub fn u64(&self) -> U64FieldAccessor {
+        U64FieldAccessor::new(self.0.push("u64"))
     }
 }
 pub struct AllFieldsReader<'a>(PropertyPath, DataContainer<'a>);
@@ -269,27 +269,27 @@ impl AllFieldsOwned {
     }
 }
 #[derive(Default)]
-pub struct GlslBuildTargetAssetRecord(PropertyPath);
+pub struct GlslBuildTargetAssetAccessor(PropertyPath);
 
-impl Field for GlslBuildTargetAssetRecord {
+impl FieldAccessor for GlslBuildTargetAssetAccessor {
     fn new(property_path: PropertyPath) -> Self {
-        GlslBuildTargetAssetRecord(property_path)
+        GlslBuildTargetAssetAccessor(property_path)
     }
 }
 
-impl Record for GlslBuildTargetAssetRecord {
+impl RecordAccessor for GlslBuildTargetAssetAccessor {
     fn schema_name() -> &'static str {
         "GlslBuildTargetAsset"
     }
 }
 
-impl GlslBuildTargetAssetRecord {
-    pub fn entry_point(&self) -> StringField {
-        StringField::new(self.0.push("entry_point"))
+impl GlslBuildTargetAssetAccessor {
+    pub fn entry_point(&self) -> StringFieldAccessor {
+        StringFieldAccessor::new(self.0.push("entry_point"))
     }
 
-    pub fn source_file(&self) -> AssetRefField {
-        AssetRefField::new(self.0.push("source_file"))
+    pub fn source_file(&self) -> AssetRefFieldAccessor {
+        AssetRefFieldAccessor::new(self.0.push("source_file"))
     }
 }
 pub struct GlslBuildTargetAssetReader<'a>(PropertyPath, DataContainer<'a>);
@@ -362,21 +362,21 @@ impl GlslBuildTargetAssetOwned {
     }
 }
 #[derive(Default)]
-pub struct GlslSourceFileAssetRecord(PropertyPath);
+pub struct GlslSourceFileAssetAccessor(PropertyPath);
 
-impl Field for GlslSourceFileAssetRecord {
+impl FieldAccessor for GlslSourceFileAssetAccessor {
     fn new(property_path: PropertyPath) -> Self {
-        GlslSourceFileAssetRecord(property_path)
+        GlslSourceFileAssetAccessor(property_path)
     }
 }
 
-impl Record for GlslSourceFileAssetRecord {
+impl RecordAccessor for GlslSourceFileAssetAccessor {
     fn schema_name() -> &'static str {
         "GlslSourceFileAsset"
     }
 }
 
-impl GlslSourceFileAssetRecord {
+impl GlslSourceFileAssetAccessor {
 }
 pub struct GlslSourceFileAssetReader<'a>(PropertyPath, DataContainer<'a>);
 
@@ -427,23 +427,23 @@ impl RecordOwned for GlslSourceFileAssetOwned {
 impl GlslSourceFileAssetOwned {
 }
 #[derive(Default)]
-pub struct GlslSourceFileImportedDataRecord(PropertyPath);
+pub struct GlslSourceFileImportedDataAccessor(PropertyPath);
 
-impl Field for GlslSourceFileImportedDataRecord {
+impl FieldAccessor for GlslSourceFileImportedDataAccessor {
     fn new(property_path: PropertyPath) -> Self {
-        GlslSourceFileImportedDataRecord(property_path)
+        GlslSourceFileImportedDataAccessor(property_path)
     }
 }
 
-impl Record for GlslSourceFileImportedDataRecord {
+impl RecordAccessor for GlslSourceFileImportedDataAccessor {
     fn schema_name() -> &'static str {
         "GlslSourceFileImportedData"
     }
 }
 
-impl GlslSourceFileImportedDataRecord {
-    pub fn code(&self) -> StringField {
-        StringField::new(self.0.push("code"))
+impl GlslSourceFileImportedDataAccessor {
+    pub fn code(&self) -> StringFieldAccessor {
+        StringFieldAccessor::new(self.0.push("code"))
     }
 }
 pub struct GlslSourceFileImportedDataReader<'a>(PropertyPath, DataContainer<'a>);
@@ -504,21 +504,21 @@ impl GlslSourceFileImportedDataOwned {
     }
 }
 #[derive(Default)]
-pub struct GpuBufferAssetRecord(PropertyPath);
+pub struct GpuBufferAssetAccessor(PropertyPath);
 
-impl Field for GpuBufferAssetRecord {
+impl FieldAccessor for GpuBufferAssetAccessor {
     fn new(property_path: PropertyPath) -> Self {
-        GpuBufferAssetRecord(property_path)
+        GpuBufferAssetAccessor(property_path)
     }
 }
 
-impl Record for GpuBufferAssetRecord {
+impl RecordAccessor for GpuBufferAssetAccessor {
     fn schema_name() -> &'static str {
         "GpuBufferAsset"
     }
 }
 
-impl GpuBufferAssetRecord {
+impl GpuBufferAssetAccessor {
 }
 pub struct GpuBufferAssetReader<'a>(PropertyPath, DataContainer<'a>);
 
@@ -569,31 +569,31 @@ impl RecordOwned for GpuBufferAssetOwned {
 impl GpuBufferAssetOwned {
 }
 #[derive(Default)]
-pub struct GpuBufferImportedDataRecord(PropertyPath);
+pub struct GpuBufferImportedDataAccessor(PropertyPath);
 
-impl Field for GpuBufferImportedDataRecord {
+impl FieldAccessor for GpuBufferImportedDataAccessor {
     fn new(property_path: PropertyPath) -> Self {
-        GpuBufferImportedDataRecord(property_path)
+        GpuBufferImportedDataAccessor(property_path)
     }
 }
 
-impl Record for GpuBufferImportedDataRecord {
+impl RecordAccessor for GpuBufferImportedDataAccessor {
     fn schema_name() -> &'static str {
         "GpuBufferImportedData"
     }
 }
 
-impl GpuBufferImportedDataRecord {
-    pub fn alignment(&self) -> U32Field {
-        U32Field::new(self.0.push("alignment"))
+impl GpuBufferImportedDataAccessor {
+    pub fn alignment(&self) -> U32FieldAccessor {
+        U32FieldAccessor::new(self.0.push("alignment"))
     }
 
-    pub fn data(&self) -> BytesField {
-        BytesField::new(self.0.push("data"))
+    pub fn data(&self) -> BytesFieldAccessor {
+        BytesFieldAccessor::new(self.0.push("data"))
     }
 
-    pub fn resource_type(&self) -> U32Field {
-        U32Field::new(self.0.push("resource_type"))
+    pub fn resource_type(&self) -> U32FieldAccessor {
+        U32FieldAccessor::new(self.0.push("resource_type"))
     }
 }
 pub struct GpuBufferImportedDataReader<'a>(PropertyPath, DataContainer<'a>);
@@ -678,23 +678,23 @@ impl GpuBufferImportedDataOwned {
     }
 }
 #[derive(Default)]
-pub struct GpuImageAssetRecord(PropertyPath);
+pub struct GpuImageAssetAccessor(PropertyPath);
 
-impl Field for GpuImageAssetRecord {
+impl FieldAccessor for GpuImageAssetAccessor {
     fn new(property_path: PropertyPath) -> Self {
-        GpuImageAssetRecord(property_path)
+        GpuImageAssetAccessor(property_path)
     }
 }
 
-impl Record for GpuImageAssetRecord {
+impl RecordAccessor for GpuImageAssetAccessor {
     fn schema_name() -> &'static str {
         "GpuImageAsset"
     }
 }
 
-impl GpuImageAssetRecord {
-    pub fn compress(&self) -> BooleanField {
-        BooleanField::new(self.0.push("compress"))
+impl GpuImageAssetAccessor {
+    pub fn compress(&self) -> BooleanFieldAccessor {
+        BooleanFieldAccessor::new(self.0.push("compress"))
     }
 }
 pub struct GpuImageAssetReader<'a>(PropertyPath, DataContainer<'a>);
@@ -755,31 +755,31 @@ impl GpuImageAssetOwned {
     }
 }
 #[derive(Default)]
-pub struct GpuImageImportedDataRecord(PropertyPath);
+pub struct GpuImageImportedDataAccessor(PropertyPath);
 
-impl Field for GpuImageImportedDataRecord {
+impl FieldAccessor for GpuImageImportedDataAccessor {
     fn new(property_path: PropertyPath) -> Self {
-        GpuImageImportedDataRecord(property_path)
+        GpuImageImportedDataAccessor(property_path)
     }
 }
 
-impl Record for GpuImageImportedDataRecord {
+impl RecordAccessor for GpuImageImportedDataAccessor {
     fn schema_name() -> &'static str {
         "GpuImageImportedData"
     }
 }
 
-impl GpuImageImportedDataRecord {
-    pub fn height(&self) -> U32Field {
-        U32Field::new(self.0.push("height"))
+impl GpuImageImportedDataAccessor {
+    pub fn height(&self) -> U32FieldAccessor {
+        U32FieldAccessor::new(self.0.push("height"))
     }
 
-    pub fn image_bytes(&self) -> BytesField {
-        BytesField::new(self.0.push("image_bytes"))
+    pub fn image_bytes(&self) -> BytesFieldAccessor {
+        BytesFieldAccessor::new(self.0.push("image_bytes"))
     }
 
-    pub fn width(&self) -> U32Field {
-        U32Field::new(self.0.push("width"))
+    pub fn width(&self) -> U32FieldAccessor {
+        U32FieldAccessor::new(self.0.push("width"))
     }
 }
 pub struct GpuImageImportedDataReader<'a>(PropertyPath, DataContainer<'a>);
@@ -927,75 +927,75 @@ impl MeshAdvIndexTypeEnum {
     }
 }
 #[derive(Default)]
-pub struct MeshAdvMaterialAssetRecord(PropertyPath);
+pub struct MeshAdvMaterialAssetAccessor(PropertyPath);
 
-impl Field for MeshAdvMaterialAssetRecord {
+impl FieldAccessor for MeshAdvMaterialAssetAccessor {
     fn new(property_path: PropertyPath) -> Self {
-        MeshAdvMaterialAssetRecord(property_path)
+        MeshAdvMaterialAssetAccessor(property_path)
     }
 }
 
-impl Record for MeshAdvMaterialAssetRecord {
+impl RecordAccessor for MeshAdvMaterialAssetAccessor {
     fn schema_name() -> &'static str {
         "MeshAdvMaterialAsset"
     }
 }
 
-impl MeshAdvMaterialAssetRecord {
-    pub fn alpha_threshold(&self) -> F32Field {
-        F32Field::new(self.0.push("alpha_threshold"))
+impl MeshAdvMaterialAssetAccessor {
+    pub fn alpha_threshold(&self) -> F32FieldAccessor {
+        F32FieldAccessor::new(self.0.push("alpha_threshold"))
     }
 
-    pub fn backface_culling(&self) -> BooleanField {
-        BooleanField::new(self.0.push("backface_culling"))
+    pub fn backface_culling(&self) -> BooleanFieldAccessor {
+        BooleanFieldAccessor::new(self.0.push("backface_culling"))
     }
 
-    pub fn base_color_factor(&self) -> Vec4Record {
-        Vec4Record::new(self.0.push("base_color_factor"))
+    pub fn base_color_factor(&self) -> Vec4Accessor {
+        Vec4Accessor::new(self.0.push("base_color_factor"))
     }
 
-    pub fn blend_method(&self) -> EnumField::<MeshAdvBlendMethodEnum> {
-        EnumField::<MeshAdvBlendMethodEnum>::new(self.0.push("blend_method"))
+    pub fn blend_method(&self) -> EnumFieldAccessor::<MeshAdvBlendMethodEnum> {
+        EnumFieldAccessor::<MeshAdvBlendMethodEnum>::new(self.0.push("blend_method"))
     }
 
-    pub fn color_texture(&self) -> AssetRefField {
-        AssetRefField::new(self.0.push("color_texture"))
+    pub fn color_texture(&self) -> AssetRefFieldAccessor {
+        AssetRefFieldAccessor::new(self.0.push("color_texture"))
     }
 
-    pub fn color_texture_has_alpha_channel(&self) -> BooleanField {
-        BooleanField::new(self.0.push("color_texture_has_alpha_channel"))
+    pub fn color_texture_has_alpha_channel(&self) -> BooleanFieldAccessor {
+        BooleanFieldAccessor::new(self.0.push("color_texture_has_alpha_channel"))
     }
 
-    pub fn emissive_factor(&self) -> Vec3Record {
-        Vec3Record::new(self.0.push("emissive_factor"))
+    pub fn emissive_factor(&self) -> Vec3Accessor {
+        Vec3Accessor::new(self.0.push("emissive_factor"))
     }
 
-    pub fn emissive_texture(&self) -> AssetRefField {
-        AssetRefField::new(self.0.push("emissive_texture"))
+    pub fn emissive_texture(&self) -> AssetRefFieldAccessor {
+        AssetRefFieldAccessor::new(self.0.push("emissive_texture"))
     }
 
-    pub fn metallic_factor(&self) -> F32Field {
-        F32Field::new(self.0.push("metallic_factor"))
+    pub fn metallic_factor(&self) -> F32FieldAccessor {
+        F32FieldAccessor::new(self.0.push("metallic_factor"))
     }
 
-    pub fn metallic_roughness_texture(&self) -> AssetRefField {
-        AssetRefField::new(self.0.push("metallic_roughness_texture"))
+    pub fn metallic_roughness_texture(&self) -> AssetRefFieldAccessor {
+        AssetRefFieldAccessor::new(self.0.push("metallic_roughness_texture"))
     }
 
-    pub fn normal_texture(&self) -> AssetRefField {
-        AssetRefField::new(self.0.push("normal_texture"))
+    pub fn normal_texture(&self) -> AssetRefFieldAccessor {
+        AssetRefFieldAccessor::new(self.0.push("normal_texture"))
     }
 
-    pub fn normal_texture_scale(&self) -> F32Field {
-        F32Field::new(self.0.push("normal_texture_scale"))
+    pub fn normal_texture_scale(&self) -> F32FieldAccessor {
+        F32FieldAccessor::new(self.0.push("normal_texture_scale"))
     }
 
-    pub fn roughness_factor(&self) -> F32Field {
-        F32Field::new(self.0.push("roughness_factor"))
+    pub fn roughness_factor(&self) -> F32FieldAccessor {
+        F32FieldAccessor::new(self.0.push("roughness_factor"))
     }
 
-    pub fn shadow_method(&self) -> EnumField::<MeshAdvShadowMethodEnum> {
-        EnumField::<MeshAdvShadowMethodEnum>::new(self.0.push("shadow_method"))
+    pub fn shadow_method(&self) -> EnumFieldAccessor::<MeshAdvShadowMethodEnum> {
+        EnumFieldAccessor::<MeshAdvShadowMethodEnum>::new(self.0.push("shadow_method"))
     }
 }
 pub struct MeshAdvMaterialAssetReader<'a>(PropertyPath, DataContainer<'a>);
@@ -1212,21 +1212,21 @@ impl MeshAdvMaterialAssetOwned {
     }
 }
 #[derive(Default)]
-pub struct MeshAdvMaterialImportedDataRecord(PropertyPath);
+pub struct MeshAdvMaterialImportedDataAccessor(PropertyPath);
 
-impl Field for MeshAdvMaterialImportedDataRecord {
+impl FieldAccessor for MeshAdvMaterialImportedDataAccessor {
     fn new(property_path: PropertyPath) -> Self {
-        MeshAdvMaterialImportedDataRecord(property_path)
+        MeshAdvMaterialImportedDataAccessor(property_path)
     }
 }
 
-impl Record for MeshAdvMaterialImportedDataRecord {
+impl RecordAccessor for MeshAdvMaterialImportedDataAccessor {
     fn schema_name() -> &'static str {
         "MeshAdvMaterialImportedData"
     }
 }
 
-impl MeshAdvMaterialImportedDataRecord {
+impl MeshAdvMaterialImportedDataAccessor {
 }
 pub struct MeshAdvMaterialImportedDataReader<'a>(PropertyPath, DataContainer<'a>);
 
@@ -1277,23 +1277,23 @@ impl RecordOwned for MeshAdvMaterialImportedDataOwned {
 impl MeshAdvMaterialImportedDataOwned {
 }
 #[derive(Default)]
-pub struct MeshAdvMeshAssetRecord(PropertyPath);
+pub struct MeshAdvMeshAssetAccessor(PropertyPath);
 
-impl Field for MeshAdvMeshAssetRecord {
+impl FieldAccessor for MeshAdvMeshAssetAccessor {
     fn new(property_path: PropertyPath) -> Self {
-        MeshAdvMeshAssetRecord(property_path)
+        MeshAdvMeshAssetAccessor(property_path)
     }
 }
 
-impl Record for MeshAdvMeshAssetRecord {
+impl RecordAccessor for MeshAdvMeshAssetAccessor {
     fn schema_name() -> &'static str {
         "MeshAdvMeshAsset"
     }
 }
 
-impl MeshAdvMeshAssetRecord {
-    pub fn material_slots(&self) -> DynamicArrayField::<AssetRefField> {
-        DynamicArrayField::<AssetRefField>::new(self.0.push("material_slots"))
+impl MeshAdvMeshAssetAccessor {
+    pub fn material_slots(&self) -> DynamicArrayFieldAccessor::<AssetRefFieldAccessor> {
+        DynamicArrayFieldAccessor::<AssetRefFieldAccessor>::new(self.0.push("material_slots"))
     }
 }
 pub struct MeshAdvMeshAssetReader<'a>(PropertyPath, DataContainer<'a>);
@@ -1354,23 +1354,23 @@ impl MeshAdvMeshAssetOwned {
     }
 }
 #[derive(Default)]
-pub struct MeshAdvMeshImportedDataRecord(PropertyPath);
+pub struct MeshAdvMeshImportedDataAccessor(PropertyPath);
 
-impl Field for MeshAdvMeshImportedDataRecord {
+impl FieldAccessor for MeshAdvMeshImportedDataAccessor {
     fn new(property_path: PropertyPath) -> Self {
-        MeshAdvMeshImportedDataRecord(property_path)
+        MeshAdvMeshImportedDataAccessor(property_path)
     }
 }
 
-impl Record for MeshAdvMeshImportedDataRecord {
+impl RecordAccessor for MeshAdvMeshImportedDataAccessor {
     fn schema_name() -> &'static str {
         "MeshAdvMeshImportedData"
     }
 }
 
-impl MeshAdvMeshImportedDataRecord {
-    pub fn mesh_parts(&self) -> DynamicArrayField::<MeshAdvMeshImportedDataMeshPartRecord> {
-        DynamicArrayField::<MeshAdvMeshImportedDataMeshPartRecord>::new(self.0.push("mesh_parts"))
+impl MeshAdvMeshImportedDataAccessor {
+    pub fn mesh_parts(&self) -> DynamicArrayFieldAccessor::<MeshAdvMeshImportedDataMeshPartAccessor> {
+        DynamicArrayFieldAccessor::<MeshAdvMeshImportedDataMeshPartAccessor>::new(self.0.push("mesh_parts"))
     }
 }
 pub struct MeshAdvMeshImportedDataReader<'a>(PropertyPath, DataContainer<'a>);
@@ -1431,39 +1431,39 @@ impl MeshAdvMeshImportedDataOwned {
     }
 }
 #[derive(Default)]
-pub struct MeshAdvMeshImportedDataMeshPartRecord(PropertyPath);
+pub struct MeshAdvMeshImportedDataMeshPartAccessor(PropertyPath);
 
-impl Field for MeshAdvMeshImportedDataMeshPartRecord {
+impl FieldAccessor for MeshAdvMeshImportedDataMeshPartAccessor {
     fn new(property_path: PropertyPath) -> Self {
-        MeshAdvMeshImportedDataMeshPartRecord(property_path)
+        MeshAdvMeshImportedDataMeshPartAccessor(property_path)
     }
 }
 
-impl Record for MeshAdvMeshImportedDataMeshPartRecord {
+impl RecordAccessor for MeshAdvMeshImportedDataMeshPartAccessor {
     fn schema_name() -> &'static str {
         "MeshAdvMeshImportedDataMeshPart"
     }
 }
 
-impl MeshAdvMeshImportedDataMeshPartRecord {
-    pub fn indices(&self) -> BytesField {
-        BytesField::new(self.0.push("indices"))
+impl MeshAdvMeshImportedDataMeshPartAccessor {
+    pub fn indices(&self) -> BytesFieldAccessor {
+        BytesFieldAccessor::new(self.0.push("indices"))
     }
 
-    pub fn material_index(&self) -> U32Field {
-        U32Field::new(self.0.push("material_index"))
+    pub fn material_index(&self) -> U32FieldAccessor {
+        U32FieldAccessor::new(self.0.push("material_index"))
     }
 
-    pub fn normals(&self) -> BytesField {
-        BytesField::new(self.0.push("normals"))
+    pub fn normals(&self) -> BytesFieldAccessor {
+        BytesFieldAccessor::new(self.0.push("normals"))
     }
 
-    pub fn positions(&self) -> BytesField {
-        BytesField::new(self.0.push("positions"))
+    pub fn positions(&self) -> BytesFieldAccessor {
+        BytesFieldAccessor::new(self.0.push("positions"))
     }
 
-    pub fn texture_coordinates(&self) -> BytesField {
-        BytesField::new(self.0.push("texture_coordinates"))
+    pub fn texture_coordinates(&self) -> BytesFieldAccessor {
+        BytesFieldAccessor::new(self.0.push("texture_coordinates"))
     }
 }
 pub struct MeshAdvMeshImportedDataMeshPartReader<'a>(PropertyPath, DataContainer<'a>);
@@ -1602,35 +1602,35 @@ impl MeshAdvShadowMethodEnum {
     }
 }
 #[derive(Default)]
-pub struct TransformRecord(PropertyPath);
+pub struct TransformAccessor(PropertyPath);
 
-impl Field for TransformRecord {
+impl FieldAccessor for TransformAccessor {
     fn new(property_path: PropertyPath) -> Self {
-        TransformRecord(property_path)
+        TransformAccessor(property_path)
     }
 }
 
-impl Record for TransformRecord {
+impl RecordAccessor for TransformAccessor {
     fn schema_name() -> &'static str {
         "Transform"
     }
 }
 
-impl TransformRecord {
-    pub fn all_fields(&self) -> AllFieldsRecord {
-        AllFieldsRecord::new(self.0.push("all_fields"))
+impl TransformAccessor {
+    pub fn all_fields(&self) -> AllFieldsAccessor {
+        AllFieldsAccessor::new(self.0.push("all_fields"))
     }
 
-    pub fn position(&self) -> Vec3Record {
-        Vec3Record::new(self.0.push("position"))
+    pub fn position(&self) -> Vec3Accessor {
+        Vec3Accessor::new(self.0.push("position"))
     }
 
-    pub fn rotation(&self) -> Vec4Record {
-        Vec4Record::new(self.0.push("rotation"))
+    pub fn rotation(&self) -> Vec4Accessor {
+        Vec4Accessor::new(self.0.push("rotation"))
     }
 
-    pub fn scale(&self) -> Vec3Record {
-        Vec3Record::new(self.0.push("scale"))
+    pub fn scale(&self) -> Vec3Accessor {
+        Vec3Accessor::new(self.0.push("scale"))
     }
 }
 pub struct TransformReader<'a>(PropertyPath, DataContainer<'a>);
@@ -1727,23 +1727,23 @@ impl TransformOwned {
     }
 }
 #[derive(Default)]
-pub struct TransformRefRecord(PropertyPath);
+pub struct TransformRefAccessor(PropertyPath);
 
-impl Field for TransformRefRecord {
+impl FieldAccessor for TransformRefAccessor {
     fn new(property_path: PropertyPath) -> Self {
-        TransformRefRecord(property_path)
+        TransformRefAccessor(property_path)
     }
 }
 
-impl Record for TransformRefRecord {
+impl RecordAccessor for TransformRefAccessor {
     fn schema_name() -> &'static str {
         "TransformRef"
     }
 }
 
-impl TransformRefRecord {
-    pub fn transform(&self) -> AssetRefField {
-        AssetRefField::new(self.0.push("transform"))
+impl TransformRefAccessor {
+    pub fn transform(&self) -> AssetRefFieldAccessor {
+        AssetRefFieldAccessor::new(self.0.push("transform"))
     }
 }
 pub struct TransformRefReader<'a>(PropertyPath, DataContainer<'a>);
@@ -1804,31 +1804,31 @@ impl TransformRefOwned {
     }
 }
 #[derive(Default)]
-pub struct Vec3Record(PropertyPath);
+pub struct Vec3Accessor(PropertyPath);
 
-impl Field for Vec3Record {
+impl FieldAccessor for Vec3Accessor {
     fn new(property_path: PropertyPath) -> Self {
-        Vec3Record(property_path)
+        Vec3Accessor(property_path)
     }
 }
 
-impl Record for Vec3Record {
+impl RecordAccessor for Vec3Accessor {
     fn schema_name() -> &'static str {
         "Vec3"
     }
 }
 
-impl Vec3Record {
-    pub fn x(&self) -> F32Field {
-        F32Field::new(self.0.push("x"))
+impl Vec3Accessor {
+    pub fn x(&self) -> F32FieldAccessor {
+        F32FieldAccessor::new(self.0.push("x"))
     }
 
-    pub fn y(&self) -> F32Field {
-        F32Field::new(self.0.push("y"))
+    pub fn y(&self) -> F32FieldAccessor {
+        F32FieldAccessor::new(self.0.push("y"))
     }
 
-    pub fn z(&self) -> F32Field {
-        F32Field::new(self.0.push("z"))
+    pub fn z(&self) -> F32FieldAccessor {
+        F32FieldAccessor::new(self.0.push("z"))
     }
 }
 pub struct Vec3Reader<'a>(PropertyPath, DataContainer<'a>);
@@ -1913,35 +1913,35 @@ impl Vec3Owned {
     }
 }
 #[derive(Default)]
-pub struct Vec4Record(PropertyPath);
+pub struct Vec4Accessor(PropertyPath);
 
-impl Field for Vec4Record {
+impl FieldAccessor for Vec4Accessor {
     fn new(property_path: PropertyPath) -> Self {
-        Vec4Record(property_path)
+        Vec4Accessor(property_path)
     }
 }
 
-impl Record for Vec4Record {
+impl RecordAccessor for Vec4Accessor {
     fn schema_name() -> &'static str {
         "Vec4"
     }
 }
 
-impl Vec4Record {
-    pub fn w(&self) -> F32Field {
-        F32Field::new(self.0.push("w"))
+impl Vec4Accessor {
+    pub fn w(&self) -> F32FieldAccessor {
+        F32FieldAccessor::new(self.0.push("w"))
     }
 
-    pub fn x(&self) -> F32Field {
-        F32Field::new(self.0.push("x"))
+    pub fn x(&self) -> F32FieldAccessor {
+        F32FieldAccessor::new(self.0.push("x"))
     }
 
-    pub fn y(&self) -> F32Field {
-        F32Field::new(self.0.push("y"))
+    pub fn y(&self) -> F32FieldAccessor {
+        F32FieldAccessor::new(self.0.push("y"))
     }
 
-    pub fn z(&self) -> F32Field {
-        F32Field::new(self.0.push("z"))
+    pub fn z(&self) -> F32FieldAccessor {
+        F32FieldAccessor::new(self.0.push("z"))
     }
 }
 pub struct Vec4Reader<'a>(PropertyPath, DataContainer<'a>);

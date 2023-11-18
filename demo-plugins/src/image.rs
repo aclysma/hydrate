@@ -2,14 +2,14 @@ pub use super::*;
 use ::image::GenericImageView;
 use std::path::Path;
 
-use super::generated::{GpuImageAssetReader, GpuImageAssetRecord, GpuImageImportedDataOwned, GpuImageImportedDataReader, GpuImageImportedDataRecord, GpuImageImportedDataWriter};
+use super::generated::{GpuImageAssetReader, GpuImageAssetAccessor, GpuImageImportedDataOwned, GpuImageImportedDataReader, GpuImageImportedDataAccessor, GpuImageImportedDataWriter};
 use demo_types::image::*;
 use hydrate_model::pipeline::{ImportContext, ScanContext};
 use hydrate_pipeline::{
     job_system, AssetId, BuilderContext, BuilderRegistryBuilder, DataContainer, DataContainerMut,
-    DataSet, EnumerateDependenciesContext, Field, HashMap, ImportableAsset, ImporterRegistry,
+    DataSet, EnumerateDependenciesContext, FieldAccessor, HashMap, ImportableAsset, ImporterRegistry,
     ImporterRegistryBuilder, JobApi, JobEnumeratedDependencies, JobInput, JobOutput, JobProcessor,
-    JobProcessorRegistryBuilder, PropertyPath, Record, RunContext, SchemaLinker, SchemaSet,
+    JobProcessorRegistryBuilder, PropertyPath, RecordAccessor, RunContext, SchemaLinker, SchemaSet,
     SingleObject,
 };
 use hydrate_pipeline::{AssetPlugin, Builder};
@@ -33,7 +33,7 @@ impl Importer for GpuImageImporter {
     ) -> Vec<ScannedImportable> {
         let asset_type = context
             .schema_set
-            .find_named_type(GpuImageAssetRecord::schema_name())
+            .find_named_type(GpuImageAssetAccessor::schema_name())
             .unwrap()
             .as_record()
             .unwrap()
@@ -68,10 +68,10 @@ impl Importer for GpuImageImporter {
             import_object.into_inner().unwrap()
 
             // let mut import_object =
-            //     GpuImageImportedDataRecord::new_single_object(context.schema_set).unwrap();
+            //     GpuImageImportedDataAccessor::new_single_object(context.schema_set).unwrap();
             // let mut import_data_container =
             //     DataContainerMut::from_single_object(&mut import_object, context.schema_set);
-            // let x = GpuImageImportedDataRecord::default();
+            // let x = GpuImageImportedDataAccessor::default();
             // x.image_bytes()
             //     .set(&mut import_data_container, image_bytes)
             //     .unwrap();
@@ -85,10 +85,10 @@ impl Importer for GpuImageImporter {
         //
         let default_asset = {
             let mut default_asset_object =
-                GpuImageAssetRecord::new_single_object(context.schema_set).unwrap();
+                GpuImageAssetAccessor::new_single_object(context.schema_set).unwrap();
             let mut default_asset_data_container =
                 DataContainerMut::from_single_object(&mut default_asset_object, context.schema_set);
-            let x = GpuImageAssetRecord::default();
+            let x = GpuImageAssetAccessor::default();
             x.compress()
                 .set(&mut default_asset_data_container, false)
                 .unwrap();
@@ -218,7 +218,7 @@ pub struct GpuImageBuilder {}
 
 impl Builder for GpuImageBuilder {
     fn asset_type(&self) -> &'static str {
-        GpuImageAssetRecord::schema_name()
+        GpuImageAssetAccessor::schema_name()
     }
 
     fn start_jobs(
@@ -227,7 +227,7 @@ impl Builder for GpuImageBuilder {
     ) {
         let data_container =
             DataContainer::from_dataset(context.data_set, context.schema_set, context.asset_id);
-        let x = GpuImageAssetRecord::default();
+        let x = GpuImageAssetAccessor::default();
         let compressed = x.compress().get(data_container).unwrap();
 
         //Future: Might produce jobs per-platform

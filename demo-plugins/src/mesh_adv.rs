@@ -2,8 +2,8 @@ pub use super::*;
 use glam::Vec3;
 use rafx_api::RafxResourceType;
 
-use crate::generated::MeshAdvMeshAssetRecord;
-use crate::generated_wrapper::MeshAdvMeshImportedDataRecord;
+use crate::generated::MeshAdvMeshAssetAccessor;
+use crate::generated_wrapper::MeshAdvMeshImportedDataAccessor;
 use crate::push_buffer::PushBuffer;
 use demo_types::mesh_adv::*;
 use hydrate_model::pipeline::{AssetPlugin, Builder};
@@ -11,12 +11,12 @@ use hydrate_pipeline::{
     job_system, AssetId, BuilderContext, BuilderRegistryBuilder, DataContainer, DataSet,
     EnumerateDependenciesContext, HashMap, ImporterRegistryBuilder, JobApi,
     JobEnumeratedDependencies, JobInput, JobOutput, JobProcessor, JobProcessorRegistryBuilder,
-    Record, RunContext, SchemaLinker, SchemaSet, SingleObject,
+    RecordAccessor, RunContext, SchemaLinker, SchemaSet, SingleObject,
 };
 use serde::{Deserialize, Serialize};
 use type_uuid::TypeUuid;
 
-use super::generated::MeshAdvMaterialAssetRecord;
+use super::generated::MeshAdvMaterialAssetAccessor;
 
 #[derive(Hash, Serialize, Deserialize)]
 pub struct MeshAdvMaterialJobInput {
@@ -60,7 +60,7 @@ impl JobProcessor for MeshAdvMaterialJobProcessor {
             context.schema_set,
             context.input.asset_id,
         );
-        let x = MeshAdvMaterialAssetRecord::default();
+        let x = MeshAdvMaterialAssetAccessor::default();
 
         let base_color_factor = x.base_color_factor().get_vec4(data_container).unwrap();
         let emissive_factor = x.emissive_factor().get_vec3(data_container).unwrap();
@@ -119,7 +119,7 @@ pub struct MeshAdvMaterialBuilder {}
 
 impl Builder for MeshAdvMaterialBuilder {
     fn asset_type(&self) -> &'static str {
-        MeshAdvMaterialAssetRecord::schema_name()
+        MeshAdvMaterialAssetAccessor::schema_name()
     }
 
     fn start_jobs(
@@ -199,7 +199,7 @@ impl JobProcessor for MeshAdvMeshPreprocessJobProcessor {
             context.schema_set,
             context.input.asset_id,
         );
-        let x = MeshAdvMeshAssetRecord::default();
+        let x = MeshAdvMeshAssetAccessor::default();
         let mut materials = Vec::default();
         for entry in x
             .material_slots()
@@ -220,7 +220,7 @@ impl JobProcessor for MeshAdvMeshPreprocessJobProcessor {
         //
         let imported_data = &context.dependency_data[&context.input.asset_id];
         let data_container = DataContainer::from_single_object(imported_data, context.schema_set);
-        let x = MeshAdvMeshImportedDataRecord::default();
+        let x = MeshAdvMeshImportedDataAccessor::default();
 
         let mut all_positions = Vec::<glam::Vec3>::with_capacity(1024);
         let mut all_position_indices = Vec::<u32>::with_capacity(8192);
@@ -386,7 +386,7 @@ pub struct MeshAdvMeshBuilder {}
 
 impl Builder for MeshAdvMeshBuilder {
     fn asset_type(&self) -> &'static str {
-        MeshAdvMeshAssetRecord::schema_name()
+        MeshAdvMeshAssetAccessor::schema_name()
     }
 
     fn start_jobs(

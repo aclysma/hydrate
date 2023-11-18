@@ -1,13 +1,13 @@
 pub use super::*;
 
-use crate::generated::GpuBufferAssetRecord;
+use crate::generated::GpuBufferAssetAccessor;
 use demo_types::gpu_buffer::GpuBufferBuiltData;
 use hydrate_model::pipeline::{AssetPlugin, Builder};
 use hydrate_pipeline::{
     job_system, AssetId, BuilderContext, BuilderRegistryBuilder, DataSet,
     EnumerateDependenciesContext, HashMap, ImporterRegistryBuilder, JobApi,
     JobEnumeratedDependencies, JobInput, JobOutput, JobProcessor, JobProcessorRegistryBuilder,
-    Record, RunContext, SchemaLinker, SchemaSet, SingleObject,
+    RecordAccessor, RunContext, SchemaLinker, SchemaSet, SingleObject,
 };
 use serde::{Deserialize, Serialize};
 use type_uuid::TypeUuid;
@@ -53,7 +53,7 @@ impl JobProcessor for GpuBufferJobProcessor {
         // Read asset data
         //
         // let data_container = DataContainer::new_dataset(data_set, schema_set, input.asset_id);
-        // let x = GpuBufferAssetRecord::default();
+        // let x = GpuBufferAssetAccessor::default();
 
         //let base_color_factor = x.base_color_factor().get_vec4(&data_container).unwrap();
 
@@ -82,7 +82,7 @@ pub struct GpuBufferBuilder {}
 
 impl Builder for GpuBufferBuilder {
     fn asset_type(&self) -> &'static str {
-        GpuBufferAssetRecord::schema_name()
+        GpuBufferAssetAccessor::schema_name()
     }
 
     fn start_jobs(

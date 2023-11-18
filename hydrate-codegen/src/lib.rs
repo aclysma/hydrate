@@ -70,7 +70,7 @@ fn schema_to_rs(
 
         let scopes = match named_type {
             SchemaNamedType::Record(x) => vec![
-                generate_record(&schema_set, x),
+                generate_accessor(&schema_set, x),
                 generate_reader(&schema_set, x),
                 generate_writer(&schema_set, x),
                 generate_owned(&schema_set, x),
@@ -167,32 +167,32 @@ fn field_schema_to_field_type(
 ) -> Option<String> {
     Some(match field_schema {
         Schema::Nullable(x) => format!(
-            "NullableField::<{}>",
+            "NullableFieldAccessor::<{}>",
             field_schema_to_field_type(schema_set, &*x)?
         ),
-        Schema::Boolean => "BooleanField".to_string(),
-        Schema::I32 => "I32Field".to_string(),
-        Schema::I64 => "I64Field".to_string(),
-        Schema::U32 => "U32Field".to_string(),
-        Schema::U64 => "U64Field".to_string(),
-        Schema::F32 => "F32Field".to_string(),
-        Schema::F64 => "F64Field".to_string(),
-        Schema::Bytes => "BytesField".to_string(), //return None,//"Vec<u8>".to_string(),
-        Schema::String => "StringField".to_string(),
+        Schema::Boolean => "BooleanFieldAccessor".to_string(),
+        Schema::I32 => "I32FieldAccessor".to_string(),
+        Schema::I64 => "I64FieldAccessor".to_string(),
+        Schema::U32 => "U32FieldAccessor".to_string(),
+        Schema::U64 => "U64FieldAccessor".to_string(),
+        Schema::F32 => "F32FieldAccessor".to_string(),
+        Schema::F64 => "F64FieldAccessor".to_string(),
+        Schema::Bytes => "BytesFieldAccessor".to_string(), //return None,//"Vec<u8>".to_string(),
+        Schema::String => "StringFieldAccessor".to_string(),
         Schema::StaticArray(_x) => unimplemented!(), //return None,//format!("[{}; {}]", field_schema_to_rust_type(schema_set, x.item_type()), x.length()),
         Schema::DynamicArray(x) => format!(
-            "DynamicArrayField::<{}>",
+            "DynamicArrayFieldAccessor::<{}>",
             field_schema_to_field_type(schema_set, x.item_type())?
         ), //return None,//format!("Vec<{}>", field_schema_to_rust_type(schema_set, x.item_type())),
         Schema::Map(_x) => unimplemented!(), // return None,//format!("HashMap<{}, {}>", field_schema_to_rust_type(schema_set, x.key_type()), field_schema_to_rust_type(schema_set, x.value_type())),
-        Schema::AssetRef(_x) => "AssetRefField".to_string(),
+        Schema::AssetRef(_x) => "AssetRefFieldAccessor".to_string(),
         Schema::NamedType(x) => {
             let inner_type = schema_set.find_named_type_by_fingerprint(*x).unwrap();
 
             match inner_type {
-                SchemaNamedType::Record(_) => format!("{}Record", inner_type.name().to_string()),
+                SchemaNamedType::Record(_) => format!("{}Accessor", inner_type.name().to_string()),
                 SchemaNamedType::Enum(_) => {
-                    format!("EnumField::<{}Enum>", inner_type.name().to_string())
+                    format!("EnumFieldAccessor::<{}Enum>", inner_type.name().to_string())
                 }
                 SchemaNamedType::Fixed(_) => unimplemented!(),
             }
@@ -200,32 +200,32 @@ fn field_schema_to_field_type(
     })
 }
 
-fn generate_record(
+fn generate_accessor(
     schema_set: &SchemaSet,
     schema: &SchemaRecord,
 ) -> codegen::Scope {
     let mut scope = codegen::Scope::new();
 
-    let record_name = format!("{}Record", schema.name());
+    let accessor_name = format!("{}Accessor", schema.name());
     let s = scope
-        .new_struct(record_name.as_str())
+        .new_struct(accessor_name.as_str())
         .tuple_field("PropertyPath");
     s.vis("pub");
     s.derive("Default");
 
-    let field_impl = scope.new_impl(record_name.as_str()).impl_trait("Field");
+    let field_impl = scope.new_impl(accessor_name.as_str()).impl_trait("FieldAccessor");
     let new_fn = field_impl
         .new_fn("new")
         .arg("property_path", "PropertyPath");
     new_fn.ret("Self");
-    new_fn.line(format!("{}(property_path)", record_name));
+    new_fn.line(format!("{}(property_path)", accessor_name));
 
-    let record_impl = scope.new_impl(record_name.as_str()).impl_trait("Record");
-    let schema_name_fn = record_impl.new_fn("schema_name");
+    let accessor_impl = scope.new_impl(accessor_name.as_str()).impl_trait("RecordAccessor");
+    let schema_name_fn = accessor_impl.new_fn("schema_name");
     schema_name_fn.ret("&'static str");
     schema_name_fn.line(format!("\"{}\"", schema.name()));
 
-    let main_impl = scope.new_impl(record_name.as_str());
+    let main_impl = scope.new_impl(accessor_name.as_str());
     for field in schema.fields() {
         let field_type = field_schema_to_field_type(schema_set, field.field_schema());
         if let Some(field_type) = field_type {

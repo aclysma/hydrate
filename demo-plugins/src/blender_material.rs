@@ -4,8 +4,8 @@ use std::path::{Path, PathBuf};
 use hydrate_model::pipeline::{AssetPlugin, ImportContext, ScanContext};
 use hydrate_model::pipeline::{ImportedImportable, Importer, ScannedImportable};
 use hydrate_pipeline::{
-    AssetRefField, BuilderRegistryBuilder, DataContainerMut, Enum, HashMap, ImportableAsset,
-    ImporterId, ImporterRegistry, ImporterRegistryBuilder, JobProcessorRegistryBuilder, Record,
+    AssetRefFieldAccessor, BuilderRegistryBuilder, DataContainerMut, Enum, HashMap, ImportableAsset,
+    ImporterId, ImporterRegistry, ImporterRegistryBuilder, JobProcessorRegistryBuilder, RecordAccessor,
     ReferencedSourceFile, SchemaLinker, SchemaSet,
 };
 use serde::{Deserialize, Serialize};
@@ -13,7 +13,7 @@ use type_uuid::TypeUuid;
 use uuid::Uuid;
 
 use super::generated::{
-    MeshAdvBlendMethodEnum, MeshAdvMaterialAssetRecord, MeshAdvShadowMethodEnum,
+    MeshAdvBlendMethodEnum, MeshAdvMaterialAssetAccessor, MeshAdvShadowMethodEnum,
 };
 
 #[derive(Serialize, Deserialize)]
@@ -60,7 +60,7 @@ impl Importer for BlenderMaterialImporter {
     ) -> Vec<ScannedImportable> {
         let asset_type = context
             .schema_set
-            .find_named_type(MeshAdvMaterialAssetRecord::schema_name())
+            .find_named_type(MeshAdvMaterialAssetAccessor::schema_name())
             .unwrap()
             .as_record()
             .unwrap()
@@ -142,10 +142,10 @@ impl Importer for BlenderMaterialImporter {
         //
         let default_asset = {
             let mut default_asset_object =
-                MeshAdvMaterialAssetRecord::new_single_object(context.schema_set).unwrap();
+                MeshAdvMaterialAssetAccessor::new_single_object(context.schema_set).unwrap();
             let mut default_asset_data_container =
                 DataContainerMut::from_single_object(&mut default_asset_object, context.schema_set);
-            let x = MeshAdvMaterialAssetRecord::default();
+            let x = MeshAdvMaterialAssetAccessor::default();
             x.base_color_factor()
                 .set_vec4(
                     &mut default_asset_data_container,
@@ -174,7 +174,7 @@ impl Importer for BlenderMaterialImporter {
             fn try_find_file_reference(
                 importable_assets: &HashMap<Option<String>, ImportableAsset>,
                 data_container: &mut DataContainerMut,
-                ref_field: AssetRefField,
+                ref_field: AssetRefFieldAccessor,
                 path_as_string: &Option<PathBuf>,
             ) {
                 if let Some(path_as_string) = path_as_string {

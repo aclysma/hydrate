@@ -2,13 +2,13 @@ pub use super::*;
 use std::path::Path;
 
 use super::generated::{
-    MeshAdvMaterialAssetRecord, MeshAdvMeshAssetRecord, MeshAdvMeshImportedDataRecord,
+    MeshAdvMaterialAssetAccessor, MeshAdvMeshAssetAccessor, MeshAdvMeshImportedDataAccessor,
 };
 use hydrate_model::pipeline::{AssetPlugin, ImportContext, ImporterRegistry, ScanContext};
 use hydrate_model::pipeline::{ImportedImportable, Importer, ScannedImportable};
 use hydrate_pipeline::{
     BuilderRegistryBuilder, DataContainerMut, HashMap, ImportableAsset, ImporterRegistryBuilder,
-    JobProcessorRegistryBuilder, Record, SchemaLinker, SchemaSet,
+    JobProcessorRegistryBuilder, RecordAccessor, SchemaLinker, SchemaSet,
 };
 use type_uuid::TypeUuid;
 
@@ -39,7 +39,7 @@ impl Importer for GltfImporter {
     ) -> Vec<ScannedImportable> {
         let mesh_asset_type = context
             .schema_set
-            .find_named_type(MeshAdvMeshAssetRecord::schema_name())
+            .find_named_type(MeshAdvMeshAssetAccessor::schema_name())
             .unwrap()
             .as_record()
             .unwrap()
@@ -47,7 +47,7 @@ impl Importer for GltfImporter {
 
         let material_asset_type = context
             .schema_set
-            .find_named_type(MeshAdvMaterialAssetRecord::schema_name())
+            .find_named_type(MeshAdvMaterialAssetAccessor::schema_name())
             .unwrap()
             .as_record()
             .unwrap()
@@ -99,11 +99,11 @@ impl Importer for GltfImporter {
                 //
                 let import_data = {
                     let import_object =
-                        MeshAdvMeshImportedDataRecord::new_single_object(context.schema_set)
+                        MeshAdvMeshImportedDataAccessor::new_single_object(context.schema_set)
                             .unwrap();
                     // let mut import_data_container =
                     //     DataContainerMut::new_single_object(&mut import_object, schema_set);
-                    // let x = MeshAdvMeshImportedDataRecord::default();
+                    // let x = MeshAdvMeshImportedDataAccessor::default();
                     import_object
                 };
 
@@ -113,10 +113,10 @@ impl Importer for GltfImporter {
 
                 let default_asset = {
                     let default_asset_object =
-                        MeshAdvMeshAssetRecord::new_single_object(context.schema_set).unwrap();
+                        MeshAdvMeshAssetAccessor::new_single_object(context.schema_set).unwrap();
                     // let mut default_asset_data_container =
                     //     DataContainerMut::new_single_object(&mut default_asset_object, schema_set);
-                    // let x = MeshAdvMeshAssetRecord::default();
+                    // let x = MeshAdvMeshAssetAccessor::default();
                     default_asset_object
                 };
 
@@ -143,12 +143,12 @@ impl Importer for GltfImporter {
 
                 let default_asset = {
                     let mut default_asset_object =
-                        MeshAdvMaterialAssetRecord::new_single_object(context.schema_set).unwrap();
+                        MeshAdvMaterialAssetAccessor::new_single_object(context.schema_set).unwrap();
                     let mut default_asset_data_container = DataContainerMut::from_single_object(
                         &mut default_asset_object,
                         context.schema_set,
                     );
-                    let x = MeshAdvMaterialAssetRecord::default();
+                    let x = MeshAdvMaterialAssetAccessor::default();
                     x.base_color_factor()
                         .set_vec4(
                             &mut default_asset_data_container,

@@ -2,10 +2,19 @@ pub use super::*;
 use ::image::GenericImageView;
 use std::path::Path;
 
-use super::generated::{GpuImageAssetRecord, GpuImageImportedDataReader, GpuImageImportedDataRecord, GpuImageImportedDataWriter};
+use super::generated::{
+    GpuImageAssetRecord, GpuImageImportedDataReader, GpuImageImportedDataRecord,
+    GpuImageImportedDataWriter,
+};
 use demo_types::image::*;
 use hydrate_model::pipeline::{ImportContext, ScanContext};
-use hydrate_pipeline::{job_system, AssetId, BuilderRegistryBuilder, DataContainer, DataContainerMut, DataSet, Field, HashMap, ImportableAsset, ImporterRegistry, ImporterRegistryBuilder, JobApi, JobEnumeratedDependencies, JobInput, JobOutput, JobProcessor, JobProcessorRegistryBuilder, PropertyPath, Record, SchemaLinker, SchemaSet, SingleObject, BuilderContext, EnumerateDependenciesContext, RunContext};
+use hydrate_pipeline::{
+    job_system, AssetId, BuilderContext, BuilderRegistryBuilder, DataContainer, DataContainerMut,
+    DataSet, EnumerateDependenciesContext, Field, HashMap, ImportableAsset, ImporterRegistry,
+    ImporterRegistryBuilder, JobApi, JobEnumeratedDependencies, JobInput, JobOutput, JobProcessor,
+    JobProcessorRegistryBuilder, PropertyPath, Record, RunContext, SchemaLinker, SchemaSet,
+    SingleObject,
+};
 use hydrate_pipeline::{AssetPlugin, Builder};
 use hydrate_pipeline::{ImportedImportable, Importer, ScannedImportable};
 use serde::{Deserialize, Serialize};
@@ -139,14 +148,20 @@ impl JobProcessor for GpuImageJobProcessor {
         //
         // Read asset properties
         //
-        let data_container = DataContainer::from_dataset(context.data_set, context.schema_set, context.input.asset_id);
+        let data_container = DataContainer::from_dataset(
+            context.data_set,
+            context.schema_set,
+            context.input.asset_id,
+        );
         let x = GpuImageAssetRecord::default();
         let compressed = x.compress().get(data_container).unwrap();
 
         //
         // Read imported data
         //
-        let imported_data = context.imported_data::<GpuImageImportedDataReader>(context.input.asset_id).unwrap();
+        let imported_data = context
+            .imported_data::<GpuImageImportedDataReader>(context.input.asset_id)
+            .unwrap();
         let image_bytes_reader = imported_data.image_bytes();
         let image_bytes = image_bytes_reader.get().unwrap();
         let width = imported_data.width().get().unwrap();
@@ -209,9 +224,10 @@ impl Builder for GpuImageBuilder {
 
     fn start_jobs(
         &self,
-        context: BuilderContext
+        context: BuilderContext,
     ) {
-        let data_container = DataContainer::from_dataset(context.data_set, context.schema_set, context.asset_id);
+        let data_container =
+            DataContainer::from_dataset(context.data_set, context.schema_set, context.asset_id);
         let x = GpuImageAssetRecord::default();
         let compressed = x.compress().get(data_container).unwrap();
 

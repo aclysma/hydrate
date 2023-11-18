@@ -11,7 +11,12 @@ use hydrate_model::pipeline::{AssetPlugin, Builder, ImportContext, ImporterRegis
 use hydrate_model::pipeline::{
     ImportedImportable, Importer, ReferencedSourceFile, ScannedImportable,
 };
-use hydrate_pipeline::{job_system, AssetId, BuilderRegistryBuilder, DataContainer, DataContainerMut, DataSet, HashMap, HashSet, ImportableAsset, ImporterRegistryBuilder, JobApi, JobEnumeratedDependencies, JobInput, JobOutput, JobProcessor, JobProcessorRegistryBuilder, Record, SchemaLinker, SchemaSet, SingleObject, BuilderContext, EnumerateDependenciesContext, RunContext};
+use hydrate_pipeline::{
+    job_system, AssetId, BuilderContext, BuilderRegistryBuilder, DataContainer, DataContainerMut,
+    DataSet, EnumerateDependenciesContext, HashMap, HashSet, ImportableAsset,
+    ImporterRegistryBuilder, JobApi, JobEnumeratedDependencies, JobInput, JobOutput, JobProcessor,
+    JobProcessorRegistryBuilder, Record, RunContext, SchemaLinker, SchemaSet, SingleObject,
+};
 use serde::{Deserialize, Serialize};
 use shaderc::IncludeType;
 use type_uuid::TypeUuid;
@@ -619,7 +624,11 @@ impl JobProcessor for GlslBuildTargetJobProcessor {
         &self,
         context: EnumerateDependenciesContext<Self::InputT>,
     ) -> JobEnumeratedDependencies {
-        let data_container = DataContainer::from_dataset(context.data_set, context.schema_set, context.input.asset_id);
+        let data_container = DataContainer::from_dataset(
+            context.data_set,
+            context.schema_set,
+            context.input.asset_id,
+        );
         let x = GlslBuildTargetAssetRecord::default();
 
         // The source file is the "top level" file where the GLSL entry point is defined
@@ -640,7 +649,8 @@ impl JobProcessor for GlslBuildTargetJobProcessor {
 
         // Follow references to find all included source files without re-visiting the same file twice
         while let Some(next_reference) = visit_queue.pop_front() {
-            let references = context.data_set
+            let references = context
+                .data_set
                 .resolve_all_file_references(next_reference)
                 .unwrap();
 
@@ -665,7 +675,11 @@ impl JobProcessor for GlslBuildTargetJobProcessor {
         //
         // Read asset properties
         //
-        let data_container = DataContainer::from_dataset(context.data_set, context.schema_set, context.input.asset_id);
+        let data_container = DataContainer::from_dataset(
+            context.data_set,
+            context.schema_set,
+            context.input.asset_id,
+        );
         let x = GlslBuildTargetAssetRecord::default();
 
         let source_file = x.source_file().get(data_container).unwrap();
@@ -676,10 +690,12 @@ impl JobProcessor for GlslBuildTargetJobProcessor {
         //
         let mut dependency_lookup = HashMap::default();
         for (&dependency_asset_id, _) in context.dependency_data {
-            let all_references = context.data_set
+            let all_references = context
+                .data_set
                 .resolve_all_file_references(dependency_asset_id)
                 .unwrap();
-            let this_path = context.data_set
+            let this_path = context
+                .data_set
                 .import_info(dependency_asset_id)
                 .unwrap()
                 .source_file_path();
@@ -772,7 +788,9 @@ impl Builder for GlslBuildTargetBuilder {
             context.data_set,
             context.schema_set,
             context.job_api,
-            GlslBuildTargetJobInput { asset_id: context.asset_id },
+            GlslBuildTargetJobInput {
+                asset_id: context.asset_id,
+            },
         );
     }
 }

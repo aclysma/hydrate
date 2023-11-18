@@ -3,7 +3,12 @@ pub use super::*;
 use crate::generated::GpuBufferAssetRecord;
 use demo_types::gpu_buffer::GpuBufferBuiltData;
 use hydrate_model::pipeline::{AssetPlugin, Builder};
-use hydrate_pipeline::{job_system, AssetId, BuilderRegistryBuilder, DataSet, HashMap, ImporterRegistryBuilder, JobApi, JobEnumeratedDependencies, JobInput, JobOutput, JobProcessor, JobProcessorRegistryBuilder, Record, SchemaLinker, SchemaSet, SingleObject, BuilderContext, EnumerateDependenciesContext, RunContext};
+use hydrate_pipeline::{
+    job_system, AssetId, BuilderContext, BuilderRegistryBuilder, DataSet,
+    EnumerateDependenciesContext, HashMap, ImporterRegistryBuilder, JobApi,
+    JobEnumeratedDependencies, JobInput, JobOutput, JobProcessor, JobProcessorRegistryBuilder,
+    Record, RunContext, SchemaLinker, SchemaSet, SingleObject,
+};
 use serde::{Deserialize, Serialize};
 use type_uuid::TypeUuid;
 
@@ -82,13 +87,15 @@ impl Builder for GpuBufferBuilder {
 
     fn start_jobs(
         &self,
-        context: BuilderContext
+        context: BuilderContext,
     ) {
         context.enqueue_job::<GpuBufferJobProcessor>(
             context.data_set,
             context.schema_set,
             context.job_api,
-            GpuBufferJobInput { asset_id: context.asset_id },
+            GpuBufferJobInput {
+                asset_id: context.asset_id,
+            },
         );
     }
 }

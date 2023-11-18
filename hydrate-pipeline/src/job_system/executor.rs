@@ -48,14 +48,13 @@ where
         let data: <T as JobProcessor>::InputT = bincode::deserialize(input.as_slice()).unwrap();
         let output = {
             profiling::scope!(&format!("{:?}::run", std::any::type_name::<T>()));
-            self.0
-                .run(RunContext {
-                    input: &data,
-                    data_set,
-                    schema_set,
-                    dependency_data,
-                    job_api
-                })
+            self.0.run(RunContext {
+                input: &data,
+                data_set,
+                schema_set,
+                dependency_data,
+                job_api,
+            })
         };
         bincode::serialize(&output).unwrap()
     }

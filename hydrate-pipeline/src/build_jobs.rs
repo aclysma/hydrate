@@ -162,7 +162,7 @@ impl BuildJobs {
                         asset_id,
                         data_set: &data_set,
                         schema_set,
-                        job_api: self.job_executor.job_api()
+                        job_api: self.job_executor.job_api(),
                     });
                 }
             }

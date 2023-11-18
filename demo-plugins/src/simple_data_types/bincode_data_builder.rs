@@ -1,5 +1,9 @@
 use hydrate_model::pipeline::Builder;
-use hydrate_pipeline::{job_system, AssetId, DataContainer, DataSet, HashMap, JobApi, JobEnumeratedDependencies, JobInput, JobOutput, JobProcessor, SchemaSet, SingleObject, BuilderContext, EnumerateDependenciesContext, RunContext};
+use hydrate_pipeline::{
+    job_system, AssetId, BuilderContext, DataContainer, DataSet, EnumerateDependenciesContext,
+    HashMap, JobApi, JobEnumeratedDependencies, JobInput, JobOutput, JobProcessor, RunContext,
+    SchemaSet, SingleObject,
+};
 use serde::{Deserialize, Serialize};
 use std::marker::PhantomData;
 use type_uuid::{Bytes, TypeUuid};
@@ -55,7 +59,11 @@ impl<T: SimpleData + Sized + Serialize + for<'a> Deserialize<'a> + TypeUuid> Job
         &self,
         context: RunContext<Self::InputT>,
     ) -> SimpleBincodeDataJobOutput {
-        let mut data_set_view = DataContainer::from_dataset(&context.data_set, context.schema_set, context.input.asset_id);
+        let mut data_set_view = DataContainer::from_dataset(
+            &context.data_set,
+            context.schema_set,
+            context.input.asset_id,
+        );
 
         //
         // Serialize and return
@@ -97,13 +105,15 @@ impl<T: SimpleData + Sized + Serialize + for<'a> Deserialize<'a> + TypeUuid> Bui
 
     fn start_jobs(
         &self,
-        context: BuilderContext
+        context: BuilderContext,
     ) {
         context.enqueue_job::<SimpleBincodeDataJobProcessor<T>>(
             context.data_set,
             context.schema_set,
             context.job_api,
-            SimpleBincodeDataJobInput { asset_id: context.asset_id },
+            SimpleBincodeDataJobInput {
+                asset_id: context.asset_id,
+            },
         );
     }
 }

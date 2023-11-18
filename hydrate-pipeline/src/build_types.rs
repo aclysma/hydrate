@@ -50,7 +50,7 @@ pub trait Builder {
 
     fn start_jobs(
         &self,
-        context: BuilderContext
+        context: BuilderContext,
     );
 
     // Returns the assets that this build job needs to be available to complete

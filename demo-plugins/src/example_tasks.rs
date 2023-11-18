@@ -47,31 +47,23 @@ impl JobProcessor for ExampleBuildJobTopLevel {
         &self,
         context: RunContext<Self::InputT>,
     ) -> Self::OutputT {
-        let task_id1 = context.enqueue_job::<ExampleBuildJobScatter>(
-            ExampleBuildJobScatterInput {
-                asset_id: context.input.asset_id,
-                some_other_parameter: "Test1".to_string(),
-            },
-        );
-        let task_id2 = context.enqueue_job::<ExampleBuildJobScatter>(
-            ExampleBuildJobScatterInput {
-                asset_id: context.input.asset_id,
-                some_other_parameter: "Test2".to_string(),
-            },
-        );
-        let task_id3 = context.enqueue_job::<ExampleBuildJobScatter>(
-            ExampleBuildJobScatterInput {
-                asset_id: context.input.asset_id,
-                some_other_parameter: "Test3".to_string(),
-            },
-        );
+        let task_id1 = context.enqueue_job::<ExampleBuildJobScatter>(ExampleBuildJobScatterInput {
+            asset_id: context.input.asset_id,
+            some_other_parameter: "Test1".to_string(),
+        });
+        let task_id2 = context.enqueue_job::<ExampleBuildJobScatter>(ExampleBuildJobScatterInput {
+            asset_id: context.input.asset_id,
+            some_other_parameter: "Test2".to_string(),
+        });
+        let task_id3 = context.enqueue_job::<ExampleBuildJobScatter>(ExampleBuildJobScatterInput {
+            asset_id: context.input.asset_id,
+            some_other_parameter: "Test3".to_string(),
+        });
 
-        let final_task = context.enqueue_job::<ExampleBuildJobGather>(
-            ExampleBuildJobGatherInput {
-                asset_id: context.input.asset_id,
-                scatter_tasks: vec![task_id1, task_id2, task_id3],
-            },
-        );
+        let final_task = context.enqueue_job::<ExampleBuildJobGather>(ExampleBuildJobGatherInput {
+            asset_id: context.input.asset_id,
+            scatter_tasks: vec![task_id1, task_id2, task_id3],
+        });
 
         println!("ExampleBuildJobTopLevel");
         ExampleBuildJobTopLevelOutput { final_task }

@@ -7,7 +7,12 @@ use crate::generated_wrapper::MeshAdvMeshImportedDataRecord;
 use crate::push_buffer::PushBuffer;
 use demo_types::mesh_adv::*;
 use hydrate_model::pipeline::{AssetPlugin, Builder};
-use hydrate_pipeline::{job_system, AssetId, BuilderRegistryBuilder, DataContainer, DataSet, HashMap, ImporterRegistryBuilder, JobApi, JobEnumeratedDependencies, JobInput, JobOutput, JobProcessor, JobProcessorRegistryBuilder, Record, SchemaLinker, SchemaSet, SingleObject, BuilderContext, EnumerateDependenciesContext, RunContext};
+use hydrate_pipeline::{
+    job_system, AssetId, BuilderContext, BuilderRegistryBuilder, DataContainer, DataSet,
+    EnumerateDependenciesContext, HashMap, ImporterRegistryBuilder, JobApi,
+    JobEnumeratedDependencies, JobInput, JobOutput, JobProcessor, JobProcessorRegistryBuilder,
+    Record, RunContext, SchemaLinker, SchemaSet, SingleObject,
+};
 use serde::{Deserialize, Serialize};
 use type_uuid::TypeUuid;
 
@@ -50,7 +55,11 @@ impl JobProcessor for MeshAdvMaterialJobProcessor {
         //
         // Read asset data
         //
-        let data_container = DataContainer::from_dataset(context.data_set, context.schema_set, context.input.asset_id);
+        let data_container = DataContainer::from_dataset(
+            context.data_set,
+            context.schema_set,
+            context.input.asset_id,
+        );
         let x = MeshAdvMaterialAssetRecord::default();
 
         let base_color_factor = x.base_color_factor().get_vec4(data_container).unwrap();
@@ -115,14 +124,16 @@ impl Builder for MeshAdvMaterialBuilder {
 
     fn start_jobs(
         &self,
-        context: BuilderContext
+        context: BuilderContext,
     ) {
         //Future: Might produce jobs per-platform
         context.enqueue_job::<MeshAdvMaterialJobProcessor>(
             context.data_set,
             context.schema_set,
             context.job_api,
-            MeshAdvMaterialJobInput { asset_id: context.asset_id },
+            MeshAdvMaterialJobInput {
+                asset_id: context.asset_id,
+            },
         );
     }
 }
@@ -183,7 +194,11 @@ impl JobProcessor for MeshAdvMeshPreprocessJobProcessor {
         //
         // Read asset data
         //
-        let data_container = DataContainer::from_dataset(context.data_set, context.schema_set, context.input.asset_id);
+        let data_container = DataContainer::from_dataset(
+            context.data_set,
+            context.schema_set,
+            context.input.asset_id,
+        );
         let x = MeshAdvMeshAssetRecord::default();
         let mut materials = Vec::default();
         for entry in x
@@ -349,8 +364,8 @@ impl JobProcessor for MeshAdvMeshPreprocessJobProcessor {
                 })
             }
 
-            let vertex_full_buffer = vertex_buffer_full_artifact_id
-                .map(|x| handle_factory.make_handle_to_artifact(x));
+            let vertex_full_buffer =
+                vertex_buffer_full_artifact_id.map(|x| handle_factory.make_handle_to_artifact(x));
             let vertex_position_buffer = vertex_buffer_position_artifact_id
                 .map(|x| handle_factory.make_handle_to_artifact(x));
 
@@ -376,7 +391,7 @@ impl Builder for MeshAdvMeshBuilder {
 
     fn start_jobs(
         &self,
-        context: BuilderContext
+        context: BuilderContext,
     ) {
         // Produce an intermediate with all data
         // Produce buffers for various vertex types
@@ -386,7 +401,9 @@ impl Builder for MeshAdvMeshBuilder {
             context.data_set,
             context.schema_set,
             context.job_api,
-            MeshAdvMeshPreprocessJobInput { asset_id: context.asset_id },
+            MeshAdvMeshPreprocessJobInput {
+                asset_id: context.asset_id,
+            },
         );
     }
 }

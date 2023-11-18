@@ -72,7 +72,7 @@ fn schema_to_rs(
             SchemaNamedType::Record(x) => vec![
                 generate_record(&schema_set, x),
                 generate_reader(&schema_set, x),
-                generate_writer(&schema_set, x)
+                generate_writer(&schema_set, x),
             ],
             SchemaNamedType::Enum(x) => vec![generate_enum(&schema_set, x)],
             SchemaNamedType::Fixed(_) => unimplemented!(),
@@ -296,15 +296,24 @@ fn generate_reader(
         .tuple_field("DataContainer<'a>");
     s.vis("pub");
 
-    let field_impl = scope.new_impl(record_name.as_str()).generic("'a").impl_trait("FieldReader<'a>");
+    let field_impl = scope
+        .new_impl(record_name.as_str())
+        .generic("'a")
+        .impl_trait("FieldReader<'a>");
     let new_fn = field_impl
         .new_fn("new")
         .arg("property_path", "PropertyPath")
         .arg("data_container", "DataContainer<'a>");
     new_fn.ret("Self");
-    new_fn.line(format!("{}(property_path, data_container)", record_name_without_generic));
+    new_fn.line(format!(
+        "{}(property_path, data_container)",
+        record_name_without_generic
+    ));
 
-    let record_impl = scope.new_impl(record_name.as_str()).generic("'a").impl_trait("Record");
+    let record_impl = scope
+        .new_impl(record_name.as_str())
+        .generic("'a")
+        .impl_trait("Record");
     let schema_name_fn = record_impl.new_fn("schema_name");
     schema_name_fn.ret("&'static str");
     schema_name_fn.line(format!("\"{}\"", schema.name()));
@@ -381,15 +390,24 @@ fn generate_writer(
         .tuple_field("Rc<RefCell<DataContainerMut<'a>>>");
     s.vis("pub");
 
-    let field_impl = scope.new_impl(record_name.as_str()).generic("'a").impl_trait("FieldWriter<'a>");
+    let field_impl = scope
+        .new_impl(record_name.as_str())
+        .generic("'a")
+        .impl_trait("FieldWriter<'a>");
     let new_fn = field_impl
         .new_fn("new")
         .arg("property_path", "PropertyPath")
         .arg("data_container", "&Rc<RefCell<DataContainerMut<'a>>>");
     new_fn.ret("Self");
-    new_fn.line(format!("{}(property_path, data_container.clone())", record_name_without_generic));
+    new_fn.line(format!(
+        "{}(property_path, data_container.clone())",
+        record_name_without_generic
+    ));
 
-    let record_impl = scope.new_impl(record_name.as_str()).generic("'a").impl_trait("Record");
+    let record_impl = scope
+        .new_impl(record_name.as_str())
+        .generic("'a")
+        .impl_trait("Record");
     let schema_name_fn = record_impl.new_fn("schema_name");
     schema_name_fn.ret("&'static str");
     schema_name_fn.line(format!("\"{}\"", schema.name()));

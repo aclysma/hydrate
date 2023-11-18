@@ -1,7 +1,10 @@
 use super::generated::{AllFieldsRecord, TransformRecord, TransformRefRecord};
 use demo_types::simple_data::*;
 use hydrate_model::pipeline::AssetPlugin;
-use hydrate_pipeline::{job_system, BuilderRegistryBuilder, DataContainer, ImporterRegistryBuilder, JobApi, JobProcessorRegistryBuilder, SchemaLinker, HandleFactory};
+use hydrate_pipeline::{
+    job_system, BuilderRegistryBuilder, DataContainer, HandleFactory, ImporterRegistryBuilder,
+    JobApi, JobProcessorRegistryBuilder, SchemaLinker,
+};
 
 mod simple_data_trait;
 pub use simple_data_trait::SimpleData;
@@ -45,7 +48,7 @@ impl SimpleData for Transform {
 impl SimpleData for AllFields {
     fn from_data_container(
         data_container: DataContainer,
-        _handle_context: HandleFactory
+        _handle_context: HandleFactory,
     ) -> Self {
         let x = AllFieldsRecord::default();
         let boolean = x.boolean().get(data_container).unwrap();

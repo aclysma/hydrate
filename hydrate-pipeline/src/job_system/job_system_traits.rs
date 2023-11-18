@@ -141,8 +141,17 @@ pub struct RunContext<'a, InputT> {
 }
 
 impl<'a, InputT> RunContext<'a, InputT> {
-    pub fn imported_data<T: FieldReader<'a>>(&'a self, asset_id: AssetId) -> Option<T> {
-        Some(T::new(PropertyPath::default(), DataContainer::from_single_object(self.dependency_data.get(&asset_id)?, self.schema_set)))
+    pub fn imported_data<T: FieldReader<'a>>(
+        &'a self,
+        asset_id: AssetId,
+    ) -> Option<T> {
+        Some(T::new(
+            PropertyPath::default(),
+            DataContainer::from_single_object(
+                self.dependency_data.get(&asset_id)?,
+                self.schema_set,
+            ),
+        ))
     }
 
     pub fn enqueue_job<JobProcessorT: JobProcessor>(
@@ -182,7 +191,10 @@ impl<'a, InputT> RunContext<'a, InputT> {
         produce_default_artifact(self.job_api, asset_id, asset)
     }
 
-    pub fn produce_default_artifact_with_handles<AssetT: TypeUuid + Serialize, F: FnOnce(HandleFactory) -> AssetT>(
+    pub fn produce_default_artifact_with_handles<
+        AssetT: TypeUuid + Serialize,
+        F: FnOnce(HandleFactory) -> AssetT,
+    >(
         &self,
         asset_id: AssetId,
         asset_fn: F,
@@ -273,7 +285,8 @@ fn produce_artifact<T: TypeUuid + Serialize, U: Hash + std::fmt::Display>(
     artifact_key: Option<U>,
     asset: T,
 ) -> AssetArtifactIdPair {
-    let artifact_id = produce_artifact_with_handles(job_api, asset_id, artifact_key, |handle_factory| asset);
+    let artifact_id =
+        produce_artifact_with_handles(job_api, asset_id, artifact_key, |handle_factory| asset);
     AssetArtifactIdPair {
         asset_id,
         artifact_id,
@@ -297,9 +310,7 @@ fn produce_artifact_with_handles<
     ctx.begin_serialize_artifact(artifact_id);
 
     let (built_data, asset_type) = ctx.scope(|| {
-        let asset = (asset_fn)(HandleFactory {
-            job_api
-        });
+        let asset = (asset_fn)(HandleFactory { job_api });
         let built_data = bincode::serialize(&asset).unwrap();
         (built_data, asset.uuid())
     });
@@ -350,7 +361,9 @@ impl<'a> HandleFactory<'a> {
             asset_artifact_id_pair.asset_id,
             asset_artifact_id_pair.artifact_id,
         );
-        hydrate_base::handle::make_handle_within_serde_context::<T>(asset_artifact_id_pair.artifact_id)
+        hydrate_base::handle::make_handle_within_serde_context::<T>(
+            asset_artifact_id_pair.artifact_id,
+        )
     }
 
     pub fn make_handle_to_artifact_raw<T>(
@@ -371,7 +384,6 @@ impl<'a> HandleFactory<'a> {
         self.job_api.artifact_handle_created(asset_id, artifact_id);
         hydrate_base::handle::make_handle_within_serde_context::<T>(artifact_id)
     }
-
 }
 
 /*

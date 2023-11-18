@@ -294,7 +294,7 @@ fn generate_reader(
     let s = scope
         .new_struct(record_name.as_str())
         .tuple_field("PropertyPath")
-        .tuple_field("DataContainer<'a>");
+        .tuple_field("DataContainerRef<'a>");
     s.vis("pub");
 
     let field_impl = scope
@@ -304,7 +304,7 @@ fn generate_reader(
     let new_fn = field_impl
         .new_fn("new")
         .arg("property_path", "PropertyPath")
-        .arg("data_container", "DataContainer<'a>");
+        .arg("data_container", "DataContainerRef<'a>");
     new_fn.ret("Self");
     new_fn.line(format!(
         "{}(property_path, data_container)",
@@ -388,7 +388,7 @@ fn generate_writer(
     let s = scope
         .new_struct(record_name.as_str())
         .tuple_field("PropertyPath")
-        .tuple_field("Rc<RefCell<DataContainerMut<'a>>>");
+        .tuple_field("Rc<RefCell<DataContainerRefMut<'a>>>");
     s.vis("pub");
 
     let field_impl = scope
@@ -398,7 +398,7 @@ fn generate_writer(
     let new_fn = field_impl
         .new_fn("new")
         .arg("property_path", "PropertyPath")
-        .arg("data_container", "&Rc<RefCell<DataContainerMut<'a>>>");
+        .arg("data_container", "&Rc<RefCell<DataContainerRefMut<'a>>>");
     new_fn.ret("Self");
     new_fn.line(format!(
         "{}(property_path, data_container.clone())",

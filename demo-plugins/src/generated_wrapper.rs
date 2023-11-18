@@ -1,6 +1,6 @@
 use demo_types::mesh_adv::{MeshAdvBlendMethod, MeshAdvShadowMethod};
 use hydrate_data::*;
-use hydrate_model::{DataContainer, DataContainerMut, DataContainerOwned, DataSetResult};
+use hydrate_model::{DataContainerRef, DataContainerRefMut, DataContainerOwned, DataSetResult};
 use std::cell::RefCell;
 use std::rc::Rc;
 
@@ -9,7 +9,7 @@ include!("generated.rs");
 impl Vec3Accessor {
     pub fn set_vec3(
         &self,
-        data_container: &mut DataContainerMut,
+        data_container: &mut DataContainerRefMut,
         value: [f32; 3],
     ) -> DataSetResult<()> {
         self.x().set(data_container, value[0])?;
@@ -20,7 +20,7 @@ impl Vec3Accessor {
 
     pub fn get_vec3(
         &self,
-        data_container: DataContainer,
+        data_container: DataContainerRef,
     ) -> DataSetResult<[f32; 3]> {
         let x = self.x().get(data_container)?;
         let y = self.y().get(data_container)?;
@@ -32,7 +32,7 @@ impl Vec3Accessor {
 impl Vec4Accessor {
     pub fn set_vec4(
         &self,
-        data_container: &mut DataContainerMut,
+        data_container: &mut DataContainerRefMut,
         value: [f32; 4],
     ) -> DataSetResult<()> {
         self.x().set(data_container, value[0])?;
@@ -44,7 +44,7 @@ impl Vec4Accessor {
 
     pub fn get_vec4(
         &self,
-        data_container: DataContainer,
+        data_container: DataContainerRef,
     ) -> DataSetResult<[f32; 4]> {
         let x = self.x().get(data_container)?;
         let y = self.y().get(data_container)?;

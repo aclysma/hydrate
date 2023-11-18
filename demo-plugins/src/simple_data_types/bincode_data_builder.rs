@@ -1,6 +1,6 @@
 use hydrate_model::pipeline::Builder;
 use hydrate_pipeline::{
-    job_system, AssetId, BuilderContext, DataContainer, DataSet, EnumerateDependenciesContext,
+    job_system, AssetId, BuilderContext, DataContainerRef, DataSet, EnumerateDependenciesContext,
     HashMap, JobApi, JobEnumeratedDependencies, JobInput, JobOutput, JobProcessor, RunContext,
     SchemaSet, SingleObject,
 };
@@ -59,7 +59,7 @@ impl<T: SimpleData + Sized + Serialize + for<'a> Deserialize<'a> + TypeUuid> Job
         &self,
         context: RunContext<Self::InputT>,
     ) -> SimpleBincodeDataJobOutput {
-        let mut data_set_view = DataContainer::from_dataset(
+        let mut data_set_view = DataContainerRef::from_dataset(
             &context.data_set,
             context.schema_set,
             context.input.asset_id,

@@ -8,7 +8,7 @@ use crate::push_buffer::PushBuffer;
 use demo_types::mesh_adv::*;
 use hydrate_model::pipeline::{AssetPlugin, Builder};
 use hydrate_pipeline::{
-    job_system, AssetId, BuilderContext, BuilderRegistryBuilder, DataContainer, DataSet,
+    job_system, AssetId, BuilderContext, BuilderRegistryBuilder, DataContainerRef, DataSet,
     EnumerateDependenciesContext, HashMap, ImporterRegistryBuilder, JobApi,
     JobEnumeratedDependencies, JobInput, JobOutput, JobProcessor, JobProcessorRegistryBuilder,
     RecordAccessor, RunContext, SchemaLinker, SchemaSet, SingleObject,
@@ -55,7 +55,7 @@ impl JobProcessor for MeshAdvMaterialJobProcessor {
         //
         // Read asset data
         //
-        let data_container = DataContainer::from_dataset(
+        let data_container = DataContainerRef::from_dataset(
             context.data_set,
             context.schema_set,
             context.input.asset_id,
@@ -194,7 +194,7 @@ impl JobProcessor for MeshAdvMeshPreprocessJobProcessor {
         //
         // Read asset data
         //
-        let data_container = DataContainer::from_dataset(
+        let data_container = DataContainerRef::from_dataset(
             context.data_set,
             context.schema_set,
             context.input.asset_id,
@@ -219,7 +219,7 @@ impl JobProcessor for MeshAdvMeshPreprocessJobProcessor {
         // Read import data
         //
         let imported_data = &context.dependency_data[&context.input.asset_id];
-        let data_container = DataContainer::from_single_object(imported_data, context.schema_set);
+        let data_container = DataContainerRef::from_single_object(imported_data, context.schema_set);
         let x = MeshAdvMeshImportedDataAccessor::default();
 
         let mut all_positions = Vec::<glam::Vec3>::with_capacity(1024);

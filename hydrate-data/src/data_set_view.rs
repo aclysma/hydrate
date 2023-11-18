@@ -57,17 +57,17 @@ trait DataContainerWrite {
 /// Provides a read-only view into a DataSet or SingleObject. A schema can be used to write into
 /// both forms.
 #[derive(Copy, Clone)]
-pub enum DataContainer<'a> {
+pub enum DataContainerRef<'a> {
     DataSet(&'a DataSet, &'a SchemaSet, AssetId),
     SingleObject(&'a SingleObject, &'a SchemaSet),
 }
 
-impl<'a> DataContainer<'a> {
+impl<'a> DataContainerRef<'a> {
     pub fn from_single_object(
         single_object: &'a SingleObject,
         schema_set: &'a SchemaSet,
     ) -> Self {
-        DataContainer::SingleObject(single_object, schema_set)
+        DataContainerRef::SingleObject(single_object, schema_set)
     }
 
     pub fn from_dataset(
@@ -75,13 +75,13 @@ impl<'a> DataContainer<'a> {
         schema_set: &'a SchemaSet,
         asset_id: AssetId,
     ) -> Self {
-        DataContainer::DataSet(data_set, schema_set, asset_id)
+        DataContainerRef::DataSet(data_set, schema_set, asset_id)
     }
 
     pub fn schema_set(&self) -> &SchemaSet {
         match *self {
-            DataContainer::DataSet(_, schema_set, _) => schema_set,
-            DataContainer::SingleObject(_, schema_set) => schema_set,
+            DataContainerRef::DataSet(_, schema_set, _) => schema_set,
+            DataContainerRef::SingleObject(_, schema_set) => schema_set,
         }
     }
 
@@ -90,10 +90,10 @@ impl<'a> DataContainer<'a> {
         path: impl AsRef<str>,
     ) -> DataSetResult<&Value> {
         match *self {
-            DataContainer::DataSet(data_set, schema_set, asset_id) => {
+            DataContainerRef::DataSet(data_set, schema_set, asset_id) => {
                 data_set.resolve_property(schema_set, asset_id, path)
             }
-            DataContainer::SingleObject(single_object, schema_set) => {
+            DataContainerRef::SingleObject(single_object, schema_set) => {
                 single_object.resolve_property(schema_set, path)
             }
         }
@@ -104,10 +104,10 @@ impl<'a> DataContainer<'a> {
         path: impl AsRef<str>,
     ) -> DataSetResult<NullOverride> {
         match *self {
-            DataContainer::DataSet(data_set, schema_set, asset_id) => {
+            DataContainerRef::DataSet(data_set, schema_set, asset_id) => {
                 data_set.get_null_override(schema_set, asset_id, path)
             }
-            DataContainer::SingleObject(single_object, schema_set) => {
+            DataContainerRef::SingleObject(single_object, schema_set) => {
                 single_object.get_null_override(schema_set, path)
             }
         }
@@ -118,10 +118,10 @@ impl<'a> DataContainer<'a> {
         path: impl AsRef<str>,
     ) -> DataSetResult<NullOverride> {
         match *self {
-            DataContainer::DataSet(data_set, schema_set, asset_id) => {
+            DataContainerRef::DataSet(data_set, schema_set, asset_id) => {
                 data_set.resolve_null_override(schema_set, asset_id, path)
             }
-            DataContainer::SingleObject(single_object, schema_set) => {
+            DataContainerRef::SingleObject(single_object, schema_set) => {
                 single_object.resolve_null_override(schema_set, path)
             }
         }
@@ -132,10 +132,10 @@ impl<'a> DataContainer<'a> {
         path: impl AsRef<str>,
     ) -> DataSetResult<Box<[Uuid]>> {
         match *self {
-            DataContainer::DataSet(data_set, schema_set, asset_id) => {
+            DataContainerRef::DataSet(data_set, schema_set, asset_id) => {
                 data_set.resolve_dynamic_array(schema_set, asset_id, path)
             }
-            DataContainer::SingleObject(single_object, schema_set) => {
+            DataContainerRef::SingleObject(single_object, schema_set) => {
                 single_object.resolve_dynamic_array(schema_set, path)
             }
         }
@@ -146,15 +146,15 @@ impl<'a> DataContainer<'a> {
         path: impl AsRef<str>,
     ) -> DataSetResult<OverrideBehavior> {
         match *self {
-            DataContainer::DataSet(data_set, schema_set, asset_id) => {
+            DataContainerRef::DataSet(data_set, schema_set, asset_id) => {
                 data_set.get_override_behavior(schema_set, asset_id, path)
             }
-            DataContainer::SingleObject(_, _) => Ok(OverrideBehavior::Replace),
+            DataContainerRef::SingleObject(_, _) => Ok(OverrideBehavior::Replace),
         }
     }
 }
 
-impl<'a> DataContainerRead for DataContainer<'a> {
+impl<'a> DataContainerRead for DataContainerRef<'a> {
     fn resolve_property(
         &self,
         path: impl AsRef<str>,
@@ -193,17 +193,17 @@ impl<'a> DataContainerRead for DataContainer<'a> {
 
 /// Provides a read/write view into a DataSet or SingleObject. A schema can be used to write into
 /// both forms.
-pub enum DataContainerMut<'a> {
+pub enum DataContainerRefMut<'a> {
     DataSet(&'a mut DataSet, &'a SchemaSet, AssetId),
     SingleObject(&'a mut SingleObject, &'a SchemaSet),
 }
 
-impl<'a> DataContainerMut<'a> {
+impl<'a> DataContainerRefMut<'a> {
     pub fn from_single_object(
         single_object: &'a mut SingleObject,
         schema_set: &'a SchemaSet,
     ) -> Self {
-        DataContainerMut::SingleObject(single_object, schema_set)
+        DataContainerRefMut::SingleObject(single_object, schema_set)
     }
 
     pub fn from_dataset(
@@ -211,13 +211,13 @@ impl<'a> DataContainerMut<'a> {
         schema_set: &'a SchemaSet,
         asset_id: AssetId,
     ) -> Self {
-        DataContainerMut::DataSet(data_set, schema_set, asset_id)
+        DataContainerRefMut::DataSet(data_set, schema_set, asset_id)
     }
 
-    pub fn read(&'a self) -> DataContainer<'a> {
+    pub fn read(&'a self) -> DataContainerRef<'a> {
         match &*self {
-            DataContainerMut::DataSet(a, b, c) => DataContainer::DataSet(a, b, *c),
-            DataContainerMut::SingleObject(a, b) => DataContainer::SingleObject(a, b),
+            DataContainerRefMut::DataSet(a, b, c) => DataContainerRef::DataSet(a, b, *c),
+            DataContainerRefMut::SingleObject(a, b) => DataContainerRef::SingleObject(a, b),
         }
     }
 
@@ -227,10 +227,10 @@ impl<'a> DataContainerMut<'a> {
     ) -> DataSetResult<&Value> {
         // We can't simply call read().resolve_property() because rust can't prove the borrowing safety
         match self {
-            DataContainerMut::DataSet(data_set, schema_set, asset_id) => {
+            DataContainerRefMut::DataSet(data_set, schema_set, asset_id) => {
                 data_set.resolve_property(schema_set, *asset_id, path)
             }
-            DataContainerMut::SingleObject(single_object, schema_set) => {
+            DataContainerRefMut::SingleObject(single_object, schema_set) => {
                 single_object.resolve_property(schema_set, path)
             }
         }
@@ -249,10 +249,10 @@ impl<'a> DataContainerMut<'a> {
         null_override: NullOverride,
     ) -> DataSetResult<()> {
         match self {
-            DataContainerMut::DataSet(data_set, schema_set, asset_id) => {
+            DataContainerRefMut::DataSet(data_set, schema_set, asset_id) => {
                 data_set.set_null_override(schema_set, *asset_id, path, null_override)
             }
-            DataContainerMut::SingleObject(single_object, schema_set) => {
+            DataContainerRefMut::SingleObject(single_object, schema_set) => {
                 single_object.set_null_override(schema_set, path, null_override)
             }
         }
@@ -285,10 +285,10 @@ impl<'a> DataContainerMut<'a> {
         value: Option<Value>,
     ) -> DataSetResult<Option<Value>> {
         match self {
-            DataContainerMut::DataSet(data_set, schema_set, asset_id) => {
+            DataContainerRefMut::DataSet(data_set, schema_set, asset_id) => {
                 data_set.set_property_override(schema_set, *asset_id, path, value)
             }
-            DataContainerMut::SingleObject(single_object, schema_set) => {
+            DataContainerRefMut::SingleObject(single_object, schema_set) => {
                 single_object.set_property_override(schema_set, path, value)
             }
         }
@@ -300,10 +300,10 @@ impl<'a> DataContainerMut<'a> {
         behavior: OverrideBehavior,
     ) -> DataSetResult<()> {
         match self {
-            DataContainerMut::DataSet(data_set, schema_set, asset_id) => {
+            DataContainerRefMut::DataSet(data_set, schema_set, asset_id) => {
                 data_set.set_override_behavior(schema_set, *asset_id, path, behavior)
             }
-            DataContainerMut::SingleObject(_, _) => Ok(()),
+            DataContainerRefMut::SingleObject(_, _) => Ok(()),
         }
     }
 
@@ -312,17 +312,17 @@ impl<'a> DataContainerMut<'a> {
         path: impl AsRef<str>,
     ) -> DataSetResult<Uuid> {
         match self {
-            DataContainerMut::DataSet(data_set, schema_set, asset_id) => {
+            DataContainerRefMut::DataSet(data_set, schema_set, asset_id) => {
                 data_set.add_dynamic_array_override(schema_set, *asset_id, path)
             }
-            DataContainerMut::SingleObject(single_object, schema_set) => {
+            DataContainerRefMut::SingleObject(single_object, schema_set) => {
                 single_object.add_dynamic_array_override(schema_set, path)
             }
         }
     }
 }
 
-impl<'a> DataContainerRead for DataContainerMut<'a> {
+impl<'a> DataContainerRead for DataContainerRefMut<'a> {
     fn resolve_property(
         &self,
         path: impl AsRef<str>,
@@ -359,7 +359,7 @@ impl<'a> DataContainerRead for DataContainerMut<'a> {
     }
 }
 
-impl<'a> DataContainerWrite for DataContainerMut<'a> {
+impl<'a> DataContainerWrite for DataContainerRefMut<'a> {
     fn set_null_override(
         &mut self,
         path: impl AsRef<str>,
@@ -413,15 +413,15 @@ impl DataContainerOwned {
         DataContainerOwned::SingleObject(single_object, schema_set)
     }
 
-    pub fn read<'a>(&'a self) -> DataContainer<'a> {
+    pub fn read<'a>(&'a self) -> DataContainerRef<'a> {
         match self {
-            DataContainerOwned::SingleObject(a, b) => DataContainer::SingleObject(&a, &b),
+            DataContainerOwned::SingleObject(a, b) => DataContainerRef::SingleObject(&a, &b),
         }
     }
 
-    pub fn to_mut(&mut self) -> DataContainerMut {
+    pub fn to_mut(&mut self) -> DataContainerRefMut {
         match self {
-            DataContainerOwned::SingleObject(a, b) => DataContainerMut::SingleObject(a, b)
+            DataContainerOwned::SingleObject(a, b) => DataContainerRefMut::SingleObject(a, b)
         }
     }
 

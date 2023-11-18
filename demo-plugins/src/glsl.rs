@@ -12,7 +12,7 @@ use hydrate_model::pipeline::{
     ImportedImportable, Importer, ReferencedSourceFile, ScannedImportable,
 };
 use hydrate_pipeline::{
-    job_system, AssetId, BuilderContext, BuilderRegistryBuilder, DataContainer, DataContainerMut,
+    job_system, AssetId, BuilderContext, BuilderRegistryBuilder, DataContainerRef, DataContainerRefMut,
     DataSet, EnumerateDependenciesContext, HashMap, HashSet, ImportableAsset,
     ImporterRegistryBuilder, JobApi, JobEnumeratedDependencies, JobInput, JobOutput, JobProcessor,
     JobProcessorRegistryBuilder, RecordAccessor, RunContext, SchemaLinker, SchemaSet, SingleObject,
@@ -566,7 +566,7 @@ impl Importer for GlslSourceFileImporter {
             let mut import_object =
                 GlslSourceFileImportedDataAccessor::new_single_object(context.schema_set).unwrap();
             let mut import_data_container =
-                DataContainerMut::from_single_object(&mut import_object, context.schema_set);
+                DataContainerRefMut::from_single_object(&mut import_object, context.schema_set);
             let x = GlslSourceFileImportedDataAccessor::default();
             x.code().set(&mut import_data_container, code).unwrap();
             import_object
@@ -576,7 +576,7 @@ impl Importer for GlslSourceFileImporter {
             let mut default_asset_object =
                 GlslSourceFileAssetAccessor::new_single_object(context.schema_set).unwrap();
             let mut _default_asset_data_container =
-                DataContainerMut::from_single_object(&mut default_asset_object, context.schema_set);
+                DataContainerRefMut::from_single_object(&mut default_asset_object, context.schema_set);
             let _x = GlslSourceFileAssetAccessor::default();
             // Nothing to set
             default_asset_object
@@ -624,7 +624,7 @@ impl JobProcessor for GlslBuildTargetJobProcessor {
         &self,
         context: EnumerateDependenciesContext<Self::InputT>,
     ) -> JobEnumeratedDependencies {
-        let data_container = DataContainer::from_dataset(
+        let data_container = DataContainerRef::from_dataset(
             context.data_set,
             context.schema_set,
             context.input.asset_id,
@@ -675,7 +675,7 @@ impl JobProcessor for GlslBuildTargetJobProcessor {
         //
         // Read asset properties
         //
-        let data_container = DataContainer::from_dataset(
+        let data_container = DataContainerRef::from_dataset(
             context.data_set,
             context.schema_set,
             context.input.asset_id,

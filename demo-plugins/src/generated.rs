@@ -67,10 +67,10 @@ impl AllFieldsAccessor {
         U64FieldAccessor::new(self.0.push("u64"))
     }
 }
-pub struct AllFieldsReader<'a>(PropertyPath, DataContainer<'a>);
+pub struct AllFieldsReader<'a>(PropertyPath, DataContainerRef<'a>);
 
 impl<'a> FieldReader<'a> for AllFieldsReader<'a> {
-    fn new(property_path: PropertyPath, data_container: DataContainer<'a>) -> Self {
+    fn new(property_path: PropertyPath, data_container: DataContainerRef<'a>) -> Self {
         AllFieldsReader(property_path, data_container)
     }
 }
@@ -134,10 +134,10 @@ impl<'a> AllFieldsReader<'a> {
         U64FieldReader::new(self.0.push("u64"), self.1)
     }
 }
-pub struct AllFieldsWriter<'a>(PropertyPath, Rc<RefCell<DataContainerMut<'a>>>);
+pub struct AllFieldsWriter<'a>(PropertyPath, Rc<RefCell<DataContainerRefMut<'a>>>);
 
 impl<'a> FieldWriter<'a> for AllFieldsWriter<'a> {
-    fn new(property_path: PropertyPath, data_container: &Rc<RefCell<DataContainerMut<'a>>>) -> Self {
+    fn new(property_path: PropertyPath, data_container: &Rc<RefCell<DataContainerRefMut<'a>>>) -> Self {
         AllFieldsWriter(property_path, data_container.clone())
     }
 }
@@ -292,10 +292,10 @@ impl GlslBuildTargetAssetAccessor {
         AssetRefFieldAccessor::new(self.0.push("source_file"))
     }
 }
-pub struct GlslBuildTargetAssetReader<'a>(PropertyPath, DataContainer<'a>);
+pub struct GlslBuildTargetAssetReader<'a>(PropertyPath, DataContainerRef<'a>);
 
 impl<'a> FieldReader<'a> for GlslBuildTargetAssetReader<'a> {
-    fn new(property_path: PropertyPath, data_container: DataContainer<'a>) -> Self {
+    fn new(property_path: PropertyPath, data_container: DataContainerRef<'a>) -> Self {
         GlslBuildTargetAssetReader(property_path, data_container)
     }
 }
@@ -315,10 +315,10 @@ impl<'a> GlslBuildTargetAssetReader<'a> {
         AssetRefFieldReader::new(self.0.push("source_file"), self.1)
     }
 }
-pub struct GlslBuildTargetAssetWriter<'a>(PropertyPath, Rc<RefCell<DataContainerMut<'a>>>);
+pub struct GlslBuildTargetAssetWriter<'a>(PropertyPath, Rc<RefCell<DataContainerRefMut<'a>>>);
 
 impl<'a> FieldWriter<'a> for GlslBuildTargetAssetWriter<'a> {
-    fn new(property_path: PropertyPath, data_container: &Rc<RefCell<DataContainerMut<'a>>>) -> Self {
+    fn new(property_path: PropertyPath, data_container: &Rc<RefCell<DataContainerRefMut<'a>>>) -> Self {
         GlslBuildTargetAssetWriter(property_path, data_container.clone())
     }
 }
@@ -378,10 +378,10 @@ impl RecordAccessor for GlslSourceFileAssetAccessor {
 
 impl GlslSourceFileAssetAccessor {
 }
-pub struct GlslSourceFileAssetReader<'a>(PropertyPath, DataContainer<'a>);
+pub struct GlslSourceFileAssetReader<'a>(PropertyPath, DataContainerRef<'a>);
 
 impl<'a> FieldReader<'a> for GlslSourceFileAssetReader<'a> {
-    fn new(property_path: PropertyPath, data_container: DataContainer<'a>) -> Self {
+    fn new(property_path: PropertyPath, data_container: DataContainerRef<'a>) -> Self {
         GlslSourceFileAssetReader(property_path, data_container)
     }
 }
@@ -394,10 +394,10 @@ impl<'a> RecordReader for GlslSourceFileAssetReader<'a> {
 
 impl<'a> GlslSourceFileAssetReader<'a> {
 }
-pub struct GlslSourceFileAssetWriter<'a>(PropertyPath, Rc<RefCell<DataContainerMut<'a>>>);
+pub struct GlslSourceFileAssetWriter<'a>(PropertyPath, Rc<RefCell<DataContainerRefMut<'a>>>);
 
 impl<'a> FieldWriter<'a> for GlslSourceFileAssetWriter<'a> {
-    fn new(property_path: PropertyPath, data_container: &Rc<RefCell<DataContainerMut<'a>>>) -> Self {
+    fn new(property_path: PropertyPath, data_container: &Rc<RefCell<DataContainerRefMut<'a>>>) -> Self {
         GlslSourceFileAssetWriter(property_path, data_container.clone())
     }
 }
@@ -446,10 +446,10 @@ impl GlslSourceFileImportedDataAccessor {
         StringFieldAccessor::new(self.0.push("code"))
     }
 }
-pub struct GlslSourceFileImportedDataReader<'a>(PropertyPath, DataContainer<'a>);
+pub struct GlslSourceFileImportedDataReader<'a>(PropertyPath, DataContainerRef<'a>);
 
 impl<'a> FieldReader<'a> for GlslSourceFileImportedDataReader<'a> {
-    fn new(property_path: PropertyPath, data_container: DataContainer<'a>) -> Self {
+    fn new(property_path: PropertyPath, data_container: DataContainerRef<'a>) -> Self {
         GlslSourceFileImportedDataReader(property_path, data_container)
     }
 }
@@ -465,10 +465,10 @@ impl<'a> GlslSourceFileImportedDataReader<'a> {
         StringFieldReader::new(self.0.push("code"), self.1)
     }
 }
-pub struct GlslSourceFileImportedDataWriter<'a>(PropertyPath, Rc<RefCell<DataContainerMut<'a>>>);
+pub struct GlslSourceFileImportedDataWriter<'a>(PropertyPath, Rc<RefCell<DataContainerRefMut<'a>>>);
 
 impl<'a> FieldWriter<'a> for GlslSourceFileImportedDataWriter<'a> {
-    fn new(property_path: PropertyPath, data_container: &Rc<RefCell<DataContainerMut<'a>>>) -> Self {
+    fn new(property_path: PropertyPath, data_container: &Rc<RefCell<DataContainerRefMut<'a>>>) -> Self {
         GlslSourceFileImportedDataWriter(property_path, data_container.clone())
     }
 }
@@ -520,10 +520,10 @@ impl RecordAccessor for GpuBufferAssetAccessor {
 
 impl GpuBufferAssetAccessor {
 }
-pub struct GpuBufferAssetReader<'a>(PropertyPath, DataContainer<'a>);
+pub struct GpuBufferAssetReader<'a>(PropertyPath, DataContainerRef<'a>);
 
 impl<'a> FieldReader<'a> for GpuBufferAssetReader<'a> {
-    fn new(property_path: PropertyPath, data_container: DataContainer<'a>) -> Self {
+    fn new(property_path: PropertyPath, data_container: DataContainerRef<'a>) -> Self {
         GpuBufferAssetReader(property_path, data_container)
     }
 }
@@ -536,10 +536,10 @@ impl<'a> RecordReader for GpuBufferAssetReader<'a> {
 
 impl<'a> GpuBufferAssetReader<'a> {
 }
-pub struct GpuBufferAssetWriter<'a>(PropertyPath, Rc<RefCell<DataContainerMut<'a>>>);
+pub struct GpuBufferAssetWriter<'a>(PropertyPath, Rc<RefCell<DataContainerRefMut<'a>>>);
 
 impl<'a> FieldWriter<'a> for GpuBufferAssetWriter<'a> {
-    fn new(property_path: PropertyPath, data_container: &Rc<RefCell<DataContainerMut<'a>>>) -> Self {
+    fn new(property_path: PropertyPath, data_container: &Rc<RefCell<DataContainerRefMut<'a>>>) -> Self {
         GpuBufferAssetWriter(property_path, data_container.clone())
     }
 }
@@ -596,10 +596,10 @@ impl GpuBufferImportedDataAccessor {
         U32FieldAccessor::new(self.0.push("resource_type"))
     }
 }
-pub struct GpuBufferImportedDataReader<'a>(PropertyPath, DataContainer<'a>);
+pub struct GpuBufferImportedDataReader<'a>(PropertyPath, DataContainerRef<'a>);
 
 impl<'a> FieldReader<'a> for GpuBufferImportedDataReader<'a> {
-    fn new(property_path: PropertyPath, data_container: DataContainer<'a>) -> Self {
+    fn new(property_path: PropertyPath, data_container: DataContainerRef<'a>) -> Self {
         GpuBufferImportedDataReader(property_path, data_container)
     }
 }
@@ -623,10 +623,10 @@ impl<'a> GpuBufferImportedDataReader<'a> {
         U32FieldReader::new(self.0.push("resource_type"), self.1)
     }
 }
-pub struct GpuBufferImportedDataWriter<'a>(PropertyPath, Rc<RefCell<DataContainerMut<'a>>>);
+pub struct GpuBufferImportedDataWriter<'a>(PropertyPath, Rc<RefCell<DataContainerRefMut<'a>>>);
 
 impl<'a> FieldWriter<'a> for GpuBufferImportedDataWriter<'a> {
-    fn new(property_path: PropertyPath, data_container: &Rc<RefCell<DataContainerMut<'a>>>) -> Self {
+    fn new(property_path: PropertyPath, data_container: &Rc<RefCell<DataContainerRefMut<'a>>>) -> Self {
         GpuBufferImportedDataWriter(property_path, data_container.clone())
     }
 }
@@ -697,10 +697,10 @@ impl GpuImageAssetAccessor {
         BooleanFieldAccessor::new(self.0.push("compress"))
     }
 }
-pub struct GpuImageAssetReader<'a>(PropertyPath, DataContainer<'a>);
+pub struct GpuImageAssetReader<'a>(PropertyPath, DataContainerRef<'a>);
 
 impl<'a> FieldReader<'a> for GpuImageAssetReader<'a> {
-    fn new(property_path: PropertyPath, data_container: DataContainer<'a>) -> Self {
+    fn new(property_path: PropertyPath, data_container: DataContainerRef<'a>) -> Self {
         GpuImageAssetReader(property_path, data_container)
     }
 }
@@ -716,10 +716,10 @@ impl<'a> GpuImageAssetReader<'a> {
         BooleanFieldReader::new(self.0.push("compress"), self.1)
     }
 }
-pub struct GpuImageAssetWriter<'a>(PropertyPath, Rc<RefCell<DataContainerMut<'a>>>);
+pub struct GpuImageAssetWriter<'a>(PropertyPath, Rc<RefCell<DataContainerRefMut<'a>>>);
 
 impl<'a> FieldWriter<'a> for GpuImageAssetWriter<'a> {
-    fn new(property_path: PropertyPath, data_container: &Rc<RefCell<DataContainerMut<'a>>>) -> Self {
+    fn new(property_path: PropertyPath, data_container: &Rc<RefCell<DataContainerRefMut<'a>>>) -> Self {
         GpuImageAssetWriter(property_path, data_container.clone())
     }
 }
@@ -782,10 +782,10 @@ impl GpuImageImportedDataAccessor {
         U32FieldAccessor::new(self.0.push("width"))
     }
 }
-pub struct GpuImageImportedDataReader<'a>(PropertyPath, DataContainer<'a>);
+pub struct GpuImageImportedDataReader<'a>(PropertyPath, DataContainerRef<'a>);
 
 impl<'a> FieldReader<'a> for GpuImageImportedDataReader<'a> {
-    fn new(property_path: PropertyPath, data_container: DataContainer<'a>) -> Self {
+    fn new(property_path: PropertyPath, data_container: DataContainerRef<'a>) -> Self {
         GpuImageImportedDataReader(property_path, data_container)
     }
 }
@@ -809,10 +809,10 @@ impl<'a> GpuImageImportedDataReader<'a> {
         U32FieldReader::new(self.0.push("width"), self.1)
     }
 }
-pub struct GpuImageImportedDataWriter<'a>(PropertyPath, Rc<RefCell<DataContainerMut<'a>>>);
+pub struct GpuImageImportedDataWriter<'a>(PropertyPath, Rc<RefCell<DataContainerRefMut<'a>>>);
 
 impl<'a> FieldWriter<'a> for GpuImageImportedDataWriter<'a> {
-    fn new(property_path: PropertyPath, data_container: &Rc<RefCell<DataContainerMut<'a>>>) -> Self {
+    fn new(property_path: PropertyPath, data_container: &Rc<RefCell<DataContainerRefMut<'a>>>) -> Self {
         GpuImageImportedDataWriter(property_path, data_container.clone())
     }
 }
@@ -998,10 +998,10 @@ impl MeshAdvMaterialAssetAccessor {
         EnumFieldAccessor::<MeshAdvShadowMethodEnum>::new(self.0.push("shadow_method"))
     }
 }
-pub struct MeshAdvMaterialAssetReader<'a>(PropertyPath, DataContainer<'a>);
+pub struct MeshAdvMaterialAssetReader<'a>(PropertyPath, DataContainerRef<'a>);
 
 impl<'a> FieldReader<'a> for MeshAdvMaterialAssetReader<'a> {
-    fn new(property_path: PropertyPath, data_container: DataContainer<'a>) -> Self {
+    fn new(property_path: PropertyPath, data_container: DataContainerRef<'a>) -> Self {
         MeshAdvMaterialAssetReader(property_path, data_container)
     }
 }
@@ -1069,10 +1069,10 @@ impl<'a> MeshAdvMaterialAssetReader<'a> {
         EnumFieldReader::<MeshAdvShadowMethodEnum>::new(self.0.push("shadow_method"), self.1)
     }
 }
-pub struct MeshAdvMaterialAssetWriter<'a>(PropertyPath, Rc<RefCell<DataContainerMut<'a>>>);
+pub struct MeshAdvMaterialAssetWriter<'a>(PropertyPath, Rc<RefCell<DataContainerRefMut<'a>>>);
 
 impl<'a> FieldWriter<'a> for MeshAdvMaterialAssetWriter<'a> {
-    fn new(property_path: PropertyPath, data_container: &Rc<RefCell<DataContainerMut<'a>>>) -> Self {
+    fn new(property_path: PropertyPath, data_container: &Rc<RefCell<DataContainerRefMut<'a>>>) -> Self {
         MeshAdvMaterialAssetWriter(property_path, data_container.clone())
     }
 }
@@ -1228,10 +1228,10 @@ impl RecordAccessor for MeshAdvMaterialImportedDataAccessor {
 
 impl MeshAdvMaterialImportedDataAccessor {
 }
-pub struct MeshAdvMaterialImportedDataReader<'a>(PropertyPath, DataContainer<'a>);
+pub struct MeshAdvMaterialImportedDataReader<'a>(PropertyPath, DataContainerRef<'a>);
 
 impl<'a> FieldReader<'a> for MeshAdvMaterialImportedDataReader<'a> {
-    fn new(property_path: PropertyPath, data_container: DataContainer<'a>) -> Self {
+    fn new(property_path: PropertyPath, data_container: DataContainerRef<'a>) -> Self {
         MeshAdvMaterialImportedDataReader(property_path, data_container)
     }
 }
@@ -1244,10 +1244,10 @@ impl<'a> RecordReader for MeshAdvMaterialImportedDataReader<'a> {
 
 impl<'a> MeshAdvMaterialImportedDataReader<'a> {
 }
-pub struct MeshAdvMaterialImportedDataWriter<'a>(PropertyPath, Rc<RefCell<DataContainerMut<'a>>>);
+pub struct MeshAdvMaterialImportedDataWriter<'a>(PropertyPath, Rc<RefCell<DataContainerRefMut<'a>>>);
 
 impl<'a> FieldWriter<'a> for MeshAdvMaterialImportedDataWriter<'a> {
-    fn new(property_path: PropertyPath, data_container: &Rc<RefCell<DataContainerMut<'a>>>) -> Self {
+    fn new(property_path: PropertyPath, data_container: &Rc<RefCell<DataContainerRefMut<'a>>>) -> Self {
         MeshAdvMaterialImportedDataWriter(property_path, data_container.clone())
     }
 }
@@ -1296,10 +1296,10 @@ impl MeshAdvMeshAssetAccessor {
         DynamicArrayFieldAccessor::<AssetRefFieldAccessor>::new(self.0.push("material_slots"))
     }
 }
-pub struct MeshAdvMeshAssetReader<'a>(PropertyPath, DataContainer<'a>);
+pub struct MeshAdvMeshAssetReader<'a>(PropertyPath, DataContainerRef<'a>);
 
 impl<'a> FieldReader<'a> for MeshAdvMeshAssetReader<'a> {
-    fn new(property_path: PropertyPath, data_container: DataContainer<'a>) -> Self {
+    fn new(property_path: PropertyPath, data_container: DataContainerRef<'a>) -> Self {
         MeshAdvMeshAssetReader(property_path, data_container)
     }
 }
@@ -1315,10 +1315,10 @@ impl<'a> MeshAdvMeshAssetReader<'a> {
         DynamicArrayFieldReader::<AssetRefFieldReader>::new(self.0.push("material_slots"), self.1)
     }
 }
-pub struct MeshAdvMeshAssetWriter<'a>(PropertyPath, Rc<RefCell<DataContainerMut<'a>>>);
+pub struct MeshAdvMeshAssetWriter<'a>(PropertyPath, Rc<RefCell<DataContainerRefMut<'a>>>);
 
 impl<'a> FieldWriter<'a> for MeshAdvMeshAssetWriter<'a> {
-    fn new(property_path: PropertyPath, data_container: &Rc<RefCell<DataContainerMut<'a>>>) -> Self {
+    fn new(property_path: PropertyPath, data_container: &Rc<RefCell<DataContainerRefMut<'a>>>) -> Self {
         MeshAdvMeshAssetWriter(property_path, data_container.clone())
     }
 }
@@ -1373,10 +1373,10 @@ impl MeshAdvMeshImportedDataAccessor {
         DynamicArrayFieldAccessor::<MeshAdvMeshImportedDataMeshPartAccessor>::new(self.0.push("mesh_parts"))
     }
 }
-pub struct MeshAdvMeshImportedDataReader<'a>(PropertyPath, DataContainer<'a>);
+pub struct MeshAdvMeshImportedDataReader<'a>(PropertyPath, DataContainerRef<'a>);
 
 impl<'a> FieldReader<'a> for MeshAdvMeshImportedDataReader<'a> {
-    fn new(property_path: PropertyPath, data_container: DataContainer<'a>) -> Self {
+    fn new(property_path: PropertyPath, data_container: DataContainerRef<'a>) -> Self {
         MeshAdvMeshImportedDataReader(property_path, data_container)
     }
 }
@@ -1392,10 +1392,10 @@ impl<'a> MeshAdvMeshImportedDataReader<'a> {
         DynamicArrayFieldReader::<MeshAdvMeshImportedDataMeshPartReader>::new(self.0.push("mesh_parts"), self.1)
     }
 }
-pub struct MeshAdvMeshImportedDataWriter<'a>(PropertyPath, Rc<RefCell<DataContainerMut<'a>>>);
+pub struct MeshAdvMeshImportedDataWriter<'a>(PropertyPath, Rc<RefCell<DataContainerRefMut<'a>>>);
 
 impl<'a> FieldWriter<'a> for MeshAdvMeshImportedDataWriter<'a> {
-    fn new(property_path: PropertyPath, data_container: &Rc<RefCell<DataContainerMut<'a>>>) -> Self {
+    fn new(property_path: PropertyPath, data_container: &Rc<RefCell<DataContainerRefMut<'a>>>) -> Self {
         MeshAdvMeshImportedDataWriter(property_path, data_container.clone())
     }
 }
@@ -1466,10 +1466,10 @@ impl MeshAdvMeshImportedDataMeshPartAccessor {
         BytesFieldAccessor::new(self.0.push("texture_coordinates"))
     }
 }
-pub struct MeshAdvMeshImportedDataMeshPartReader<'a>(PropertyPath, DataContainer<'a>);
+pub struct MeshAdvMeshImportedDataMeshPartReader<'a>(PropertyPath, DataContainerRef<'a>);
 
 impl<'a> FieldReader<'a> for MeshAdvMeshImportedDataMeshPartReader<'a> {
-    fn new(property_path: PropertyPath, data_container: DataContainer<'a>) -> Self {
+    fn new(property_path: PropertyPath, data_container: DataContainerRef<'a>) -> Self {
         MeshAdvMeshImportedDataMeshPartReader(property_path, data_container)
     }
 }
@@ -1501,10 +1501,10 @@ impl<'a> MeshAdvMeshImportedDataMeshPartReader<'a> {
         BytesFieldReader::new(self.0.push("texture_coordinates"), self.1)
     }
 }
-pub struct MeshAdvMeshImportedDataMeshPartWriter<'a>(PropertyPath, Rc<RefCell<DataContainerMut<'a>>>);
+pub struct MeshAdvMeshImportedDataMeshPartWriter<'a>(PropertyPath, Rc<RefCell<DataContainerRefMut<'a>>>);
 
 impl<'a> FieldWriter<'a> for MeshAdvMeshImportedDataMeshPartWriter<'a> {
-    fn new(property_path: PropertyPath, data_container: &Rc<RefCell<DataContainerMut<'a>>>) -> Self {
+    fn new(property_path: PropertyPath, data_container: &Rc<RefCell<DataContainerRefMut<'a>>>) -> Self {
         MeshAdvMeshImportedDataMeshPartWriter(property_path, data_container.clone())
     }
 }
@@ -1633,10 +1633,10 @@ impl TransformAccessor {
         Vec3Accessor::new(self.0.push("scale"))
     }
 }
-pub struct TransformReader<'a>(PropertyPath, DataContainer<'a>);
+pub struct TransformReader<'a>(PropertyPath, DataContainerRef<'a>);
 
 impl<'a> FieldReader<'a> for TransformReader<'a> {
-    fn new(property_path: PropertyPath, data_container: DataContainer<'a>) -> Self {
+    fn new(property_path: PropertyPath, data_container: DataContainerRef<'a>) -> Self {
         TransformReader(property_path, data_container)
     }
 }
@@ -1664,10 +1664,10 @@ impl<'a> TransformReader<'a> {
         Vec3Reader::new(self.0.push("scale"), self.1)
     }
 }
-pub struct TransformWriter<'a>(PropertyPath, Rc<RefCell<DataContainerMut<'a>>>);
+pub struct TransformWriter<'a>(PropertyPath, Rc<RefCell<DataContainerRefMut<'a>>>);
 
 impl<'a> FieldWriter<'a> for TransformWriter<'a> {
-    fn new(property_path: PropertyPath, data_container: &Rc<RefCell<DataContainerMut<'a>>>) -> Self {
+    fn new(property_path: PropertyPath, data_container: &Rc<RefCell<DataContainerRefMut<'a>>>) -> Self {
         TransformWriter(property_path, data_container.clone())
     }
 }
@@ -1746,10 +1746,10 @@ impl TransformRefAccessor {
         AssetRefFieldAccessor::new(self.0.push("transform"))
     }
 }
-pub struct TransformRefReader<'a>(PropertyPath, DataContainer<'a>);
+pub struct TransformRefReader<'a>(PropertyPath, DataContainerRef<'a>);
 
 impl<'a> FieldReader<'a> for TransformRefReader<'a> {
-    fn new(property_path: PropertyPath, data_container: DataContainer<'a>) -> Self {
+    fn new(property_path: PropertyPath, data_container: DataContainerRef<'a>) -> Self {
         TransformRefReader(property_path, data_container)
     }
 }
@@ -1765,10 +1765,10 @@ impl<'a> TransformRefReader<'a> {
         AssetRefFieldReader::new(self.0.push("transform"), self.1)
     }
 }
-pub struct TransformRefWriter<'a>(PropertyPath, Rc<RefCell<DataContainerMut<'a>>>);
+pub struct TransformRefWriter<'a>(PropertyPath, Rc<RefCell<DataContainerRefMut<'a>>>);
 
 impl<'a> FieldWriter<'a> for TransformRefWriter<'a> {
-    fn new(property_path: PropertyPath, data_container: &Rc<RefCell<DataContainerMut<'a>>>) -> Self {
+    fn new(property_path: PropertyPath, data_container: &Rc<RefCell<DataContainerRefMut<'a>>>) -> Self {
         TransformRefWriter(property_path, data_container.clone())
     }
 }
@@ -1831,10 +1831,10 @@ impl Vec3Accessor {
         F32FieldAccessor::new(self.0.push("z"))
     }
 }
-pub struct Vec3Reader<'a>(PropertyPath, DataContainer<'a>);
+pub struct Vec3Reader<'a>(PropertyPath, DataContainerRef<'a>);
 
 impl<'a> FieldReader<'a> for Vec3Reader<'a> {
-    fn new(property_path: PropertyPath, data_container: DataContainer<'a>) -> Self {
+    fn new(property_path: PropertyPath, data_container: DataContainerRef<'a>) -> Self {
         Vec3Reader(property_path, data_container)
     }
 }
@@ -1858,10 +1858,10 @@ impl<'a> Vec3Reader<'a> {
         F32FieldReader::new(self.0.push("z"), self.1)
     }
 }
-pub struct Vec3Writer<'a>(PropertyPath, Rc<RefCell<DataContainerMut<'a>>>);
+pub struct Vec3Writer<'a>(PropertyPath, Rc<RefCell<DataContainerRefMut<'a>>>);
 
 impl<'a> FieldWriter<'a> for Vec3Writer<'a> {
-    fn new(property_path: PropertyPath, data_container: &Rc<RefCell<DataContainerMut<'a>>>) -> Self {
+    fn new(property_path: PropertyPath, data_container: &Rc<RefCell<DataContainerRefMut<'a>>>) -> Self {
         Vec3Writer(property_path, data_container.clone())
     }
 }
@@ -1944,10 +1944,10 @@ impl Vec4Accessor {
         F32FieldAccessor::new(self.0.push("z"))
     }
 }
-pub struct Vec4Reader<'a>(PropertyPath, DataContainer<'a>);
+pub struct Vec4Reader<'a>(PropertyPath, DataContainerRef<'a>);
 
 impl<'a> FieldReader<'a> for Vec4Reader<'a> {
-    fn new(property_path: PropertyPath, data_container: DataContainer<'a>) -> Self {
+    fn new(property_path: PropertyPath, data_container: DataContainerRef<'a>) -> Self {
         Vec4Reader(property_path, data_container)
     }
 }
@@ -1975,10 +1975,10 @@ impl<'a> Vec4Reader<'a> {
         F32FieldReader::new(self.0.push("z"), self.1)
     }
 }
-pub struct Vec4Writer<'a>(PropertyPath, Rc<RefCell<DataContainerMut<'a>>>);
+pub struct Vec4Writer<'a>(PropertyPath, Rc<RefCell<DataContainerRefMut<'a>>>);
 
 impl<'a> FieldWriter<'a> for Vec4Writer<'a> {
-    fn new(property_path: PropertyPath, data_container: &Rc<RefCell<DataContainerMut<'a>>>) -> Self {
+    fn new(property_path: PropertyPath, data_container: &Rc<RefCell<DataContainerRefMut<'a>>>) -> Self {
         Vec4Writer(property_path, data_container.clone())
     }
 }

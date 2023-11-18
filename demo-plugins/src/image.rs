@@ -6,7 +6,7 @@ use super::generated::{GpuImageAssetReader, GpuImageAssetAccessor, GpuImageImpor
 use demo_types::image::*;
 use hydrate_model::pipeline::{ImportContext, ScanContext};
 use hydrate_pipeline::{
-    job_system, AssetId, BuilderContext, BuilderRegistryBuilder, DataContainer, DataContainerMut,
+    job_system, AssetId, BuilderContext, BuilderRegistryBuilder, DataContainerRef, DataContainerRefMut,
     DataSet, EnumerateDependenciesContext, FieldAccessor, HashMap, ImportableAsset, ImporterRegistry,
     ImporterRegistryBuilder, JobApi, JobEnumeratedDependencies, JobInput, JobOutput, JobProcessor,
     JobProcessorRegistryBuilder, PropertyPath, RecordAccessor, RunContext, SchemaLinker, SchemaSet,
@@ -87,7 +87,7 @@ impl Importer for GpuImageImporter {
             let mut default_asset_object =
                 GpuImageAssetAccessor::new_single_object(context.schema_set).unwrap();
             let mut default_asset_data_container =
-                DataContainerMut::from_single_object(&mut default_asset_object, context.schema_set);
+                DataContainerRefMut::from_single_object(&mut default_asset_object, context.schema_set);
             let x = GpuImageAssetAccessor::default();
             x.compress()
                 .set(&mut default_asset_data_container, false)
@@ -226,7 +226,7 @@ impl Builder for GpuImageBuilder {
         context: BuilderContext,
     ) {
         let data_container =
-            DataContainer::from_dataset(context.data_set, context.schema_set, context.asset_id);
+            DataContainerRef::from_dataset(context.data_set, context.schema_set, context.asset_id);
         let x = GpuImageAssetAccessor::default();
         let compressed = x.compress().get(data_container).unwrap();
 

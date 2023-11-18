@@ -7,7 +7,7 @@ use super::generated::{
 use hydrate_model::pipeline::{AssetPlugin, ImportContext, ImporterRegistry, ScanContext};
 use hydrate_model::pipeline::{ImportedImportable, Importer, ScannedImportable};
 use hydrate_pipeline::{
-    BuilderRegistryBuilder, DataContainerMut, HashMap, ImportableAsset, ImporterRegistryBuilder,
+    BuilderRegistryBuilder, DataContainerRefMut, HashMap, ImportableAsset, ImporterRegistryBuilder,
     JobProcessorRegistryBuilder, RecordAccessor, SchemaLinker, SchemaSet,
 };
 use type_uuid::TypeUuid;
@@ -144,7 +144,7 @@ impl Importer for GltfImporter {
                 let default_asset = {
                     let mut default_asset_object =
                         MeshAdvMaterialAssetAccessor::new_single_object(context.schema_set).unwrap();
-                    let mut default_asset_data_container = DataContainerMut::from_single_object(
+                    let mut default_asset_data_container = DataContainerRefMut::from_single_object(
                         &mut default_asset_object,
                         context.schema_set,
                     );

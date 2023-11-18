@@ -1,6 +1,6 @@
 use crate::value::ValueEnum;
 use crate::{
-    AssetId, DataContainer, DataContainerMut, DataSetError, DataSetResult, NullOverride, SchemaSet,
+    AssetId, DataContainerRef, DataContainerRefMut, DataSetError, DataSetResult, NullOverride, SchemaSet,
     SingleObject, Value,
 };
 use std::cell::RefCell;
@@ -39,14 +39,14 @@ pub trait FieldAccessor {
 pub trait FieldReader<'a> {
     fn new(
         property_path: PropertyPath,
-        data_container: DataContainer<'a>,
+        data_container: DataContainerRef<'a>,
     ) -> Self;
 }
 
 pub trait FieldWriter<'a> {
     fn new(
         property_path: PropertyPath,
-        data_container: &'a Rc<RefCell<DataContainerMut<'a>>>,
+        data_container: &'a Rc<RefCell<DataContainerRefMut<'a>>>,
     ) -> Self;
 }
 
@@ -141,7 +141,7 @@ impl<T: Enum> FieldAccessor for EnumFieldAccessor<T> {
 impl<T: Enum> EnumFieldAccessor<T> {
     pub fn do_get(
         property_path: &PropertyPath,
-        data_container: DataContainer,
+        data_container: DataContainerRef,
     ) -> DataSetResult<T> {
         let e = data_container.resolve_property(property_path.path())?;
         T::from_symbol_name(e.as_enum().unwrap().symbol_name())
@@ -150,7 +150,7 @@ impl<T: Enum> EnumFieldAccessor<T> {
 
     pub fn do_set(
         property_path: &PropertyPath,
-        data_container: &mut DataContainerMut,
+        data_container: &mut DataContainerRefMut,
         value: T,
     ) -> DataSetResult<Option<Value>> {
         data_container.set_property_override(
@@ -163,26 +163,26 @@ impl<T: Enum> EnumFieldAccessor<T> {
 
     pub fn get(
         &self,
-        data_container: DataContainer,
+        data_container: DataContainerRef,
     ) -> DataSetResult<T> {
         Self::do_get(&self.0, data_container)
     }
 
     pub fn set(
         &self,
-        data_container: &mut DataContainerMut,
+        data_container: &mut DataContainerRefMut,
         value: T,
     ) -> DataSetResult<Option<Value>> {
         Self::do_set(&self.0, data_container, value)
     }
 }
 
-pub struct EnumFieldReader<'a, T>(pub PropertyPath, DataContainer<'a>, PhantomData<T>);
+pub struct EnumFieldReader<'a, T>(pub PropertyPath, DataContainerRef<'a>, PhantomData<T>);
 
 impl<'a, T: Enum> FieldReader<'a> for EnumFieldReader<'a, T> {
     fn new(
         property_path: PropertyPath,
-        data_container: DataContainer<'a>,
+        data_container: DataContainerRef<'a>,
     ) -> Self {
         EnumFieldReader(property_path, data_container, PhantomData)
     }
@@ -196,14 +196,14 @@ impl<'a, T: Enum> EnumFieldReader<'a, T> {
 
 pub struct EnumFieldWriter<'a, T: Enum>(
     pub PropertyPath,
-    Rc<RefCell<DataContainerMut<'a>>>,
+    Rc<RefCell<DataContainerRefMut<'a>>>,
     PhantomData<T>,
 );
 
 impl<'a, T: Enum> FieldWriter<'a> for EnumFieldWriter<'a, T> {
     fn new(
         property_path: PropertyPath,
-        data_container: &'a Rc<RefCell<DataContainerMut<'a>>>,
+        data_container: &'a Rc<RefCell<DataContainerRefMut<'a>>>,
     ) -> Self {
         EnumFieldWriter(property_path, data_container.clone(), PhantomData)
     }
@@ -261,7 +261,7 @@ impl<T: FieldAccessor> FieldAccessor for NullableFieldAccessor<T> {
 impl<T: FieldAccessor> NullableFieldAccessor<T> {
     pub fn resolve_null(
         &self,
-        data_container: DataContainer,
+        data_container: DataContainerRef,
     ) -> DataSetResult<Option<T>> {
         if self.resolve_null_override(data_container)? == NullOverride::SetNonNull {
             Ok(Some(T::new(self.0.push("value"))))
@@ -272,14 +272,14 @@ impl<T: FieldAccessor> NullableFieldAccessor<T> {
 
     pub fn resolve_null_override(
         &self,
-        data_container: DataContainer,
+        data_container: DataContainerRef,
     ) -> DataSetResult<NullOverride> {
         data_container.resolve_null_override(self.0.path())
     }
 
     pub fn set_null_override(
         &self,
-        data_container: &mut DataContainerMut,
+        data_container: &mut DataContainerRefMut,
         null_override: NullOverride,
     ) -> DataSetResult<Option<T>> {
         let path = self.0.path();
@@ -292,12 +292,12 @@ impl<T: FieldAccessor> NullableFieldAccessor<T> {
     }
 }
 
-pub struct NullableFieldReader<'a, T>(pub PropertyPath, DataContainer<'a>, PhantomData<T>);
+pub struct NullableFieldReader<'a, T>(pub PropertyPath, DataContainerRef<'a>, PhantomData<T>);
 
 impl<'a, T: FieldReader<'a>> FieldReader<'a> for NullableFieldReader<'a, T> {
     fn new(
         property_path: PropertyPath,
-        data_container: DataContainer<'a>,
+        data_container: DataContainerRef<'a>,
     ) -> Self {
         NullableFieldReader(property_path, data_container, PhantomData)
     }
@@ -319,14 +319,14 @@ impl<'a, T: FieldReader<'a>> NullableFieldReader<'a, T> {
 
 pub struct NullableFieldWriter<'a, T: FieldWriter<'a>>(
     pub PropertyPath,
-    Rc<RefCell<DataContainerMut<'a>>>,
+    Rc<RefCell<DataContainerRefMut<'a>>>,
     PhantomData<T>,
 );
 
 impl<'a, T: FieldWriter<'a>> FieldWriter<'a> for NullableFieldWriter<'a, T> {
     fn new(
         property_path: PropertyPath,
-        data_container: &'a Rc<RefCell<DataContainerMut<'a>>>,
+        data_container: &'a Rc<RefCell<DataContainerRefMut<'a>>>,
     ) -> Self {
         NullableFieldWriter(property_path, data_container.clone(), PhantomData)
     }
@@ -416,7 +416,7 @@ impl FieldAccessor for BooleanFieldAccessor {
 impl BooleanFieldAccessor {
     fn do_get(
         property_path: &PropertyPath,
-        data_container: DataContainer,
+        data_container: DataContainerRef,
     ) -> DataSetResult<bool> {
         Ok(data_container
             .resolve_property(property_path.path())?
@@ -426,7 +426,7 @@ impl BooleanFieldAccessor {
 
     fn do_set(
         property_path: &PropertyPath,
-        data_container: &mut DataContainerMut,
+        data_container: &mut DataContainerRefMut,
         value: bool,
     ) -> DataSetResult<Option<Value>> {
         data_container.set_property_override(property_path.path(), Some(Value::Boolean(value)))
@@ -434,26 +434,26 @@ impl BooleanFieldAccessor {
 
     pub fn get(
         &self,
-        data_container: DataContainer,
+        data_container: DataContainerRef,
     ) -> DataSetResult<bool> {
         Self::do_get(&self.0, data_container)
     }
 
     pub fn set(
         &self,
-        data_container: &mut DataContainerMut,
+        data_container: &mut DataContainerRefMut,
         value: bool,
     ) -> DataSetResult<Option<Value>> {
         Self::do_set(&self.0, data_container, value)
     }
 }
 
-pub struct BooleanFieldReader<'a>(pub PropertyPath, DataContainer<'a>);
+pub struct BooleanFieldReader<'a>(pub PropertyPath, DataContainerRef<'a>);
 
 impl<'a> FieldReader<'a> for BooleanFieldReader<'a> {
     fn new(
         property_path: PropertyPath,
-        data_container: DataContainer<'a>,
+        data_container: DataContainerRef<'a>,
     ) -> Self {
         BooleanFieldReader(property_path, data_container)
     }
@@ -465,12 +465,12 @@ impl<'a> BooleanFieldReader<'a> {
     }
 }
 
-pub struct BooleanFieldWriter<'a>(pub PropertyPath, Rc<RefCell<DataContainerMut<'a>>>);
+pub struct BooleanFieldWriter<'a>(pub PropertyPath, Rc<RefCell<DataContainerRefMut<'a>>>);
 
 impl<'a> FieldWriter<'a> for BooleanFieldWriter<'a> {
     fn new(
         property_path: PropertyPath,
-        data_container: &'a Rc<RefCell<DataContainerMut<'a>>>,
+        data_container: &'a Rc<RefCell<DataContainerRefMut<'a>>>,
     ) -> Self {
         BooleanFieldWriter(property_path, data_container.clone())
     }
@@ -524,7 +524,7 @@ impl FieldAccessor for I32FieldAccessor {
 impl I32FieldAccessor {
     fn do_get(
         property_path: &PropertyPath,
-        data_container: DataContainer,
+        data_container: DataContainerRef,
     ) -> DataSetResult<i32> {
         Ok(data_container
             .resolve_property(property_path.path())?
@@ -534,7 +534,7 @@ impl I32FieldAccessor {
 
     fn do_set(
         property_path: &PropertyPath,
-        data_container: &mut DataContainerMut,
+        data_container: &mut DataContainerRefMut,
         value: i32,
     ) -> DataSetResult<Option<Value>> {
         data_container.set_property_override(property_path.path(), Some(Value::I32(value)))
@@ -542,26 +542,26 @@ impl I32FieldAccessor {
 
     pub fn get(
         &self,
-        data_container: DataContainer,
+        data_container: DataContainerRef,
     ) -> DataSetResult<i32> {
         Self::do_get(&self.0, data_container)
     }
 
     pub fn set(
         &self,
-        data_container: &mut DataContainerMut,
+        data_container: &mut DataContainerRefMut,
         value: i32,
     ) -> DataSetResult<Option<Value>> {
         Self::do_set(&self.0, data_container, value)
     }
 }
 
-pub struct I32FieldReader<'a>(pub PropertyPath, DataContainer<'a>);
+pub struct I32FieldReader<'a>(pub PropertyPath, DataContainerRef<'a>);
 
 impl<'a> FieldReader<'a> for I32FieldReader<'a> {
     fn new(
         property_path: PropertyPath,
-        data_container: DataContainer<'a>,
+        data_container: DataContainerRef<'a>,
     ) -> Self {
         I32FieldReader(property_path, data_container)
     }
@@ -573,12 +573,12 @@ impl<'a> I32FieldReader<'a> {
     }
 }
 
-pub struct I32FieldWriter<'a>(pub PropertyPath, Rc<RefCell<DataContainerMut<'a>>>);
+pub struct I32FieldWriter<'a>(pub PropertyPath, Rc<RefCell<DataContainerRefMut<'a>>>);
 
 impl<'a> FieldWriter<'a> for I32FieldWriter<'a> {
     fn new(
         property_path: PropertyPath,
-        data_container: &'a Rc<RefCell<DataContainerMut<'a>>>,
+        data_container: &'a Rc<RefCell<DataContainerRefMut<'a>>>,
     ) -> Self {
         I32FieldWriter(property_path, data_container.clone())
     }
@@ -633,7 +633,7 @@ impl FieldAccessor for I64FieldAccessor {
 impl I64FieldAccessor {
     fn do_get(
         property_path: &PropertyPath,
-        data_container: DataContainer,
+        data_container: DataContainerRef,
     ) -> DataSetResult<i64> {
         Ok(data_container
             .resolve_property(property_path.path())?
@@ -643,7 +643,7 @@ impl I64FieldAccessor {
 
     fn do_set(
         property_path: &PropertyPath,
-        data_container: &mut DataContainerMut,
+        data_container: &mut DataContainerRefMut,
         value: i64,
     ) -> DataSetResult<Option<Value>> {
         data_container.set_property_override(property_path.path(), Some(Value::I64(value)))
@@ -651,26 +651,26 @@ impl I64FieldAccessor {
 
     pub fn get(
         &self,
-        data_container: DataContainer,
+        data_container: DataContainerRef,
     ) -> DataSetResult<i64> {
         Self::do_get(&self.0, data_container)
     }
 
     pub fn set(
         &self,
-        data_container: &mut DataContainerMut,
+        data_container: &mut DataContainerRefMut,
         value: i64,
     ) -> DataSetResult<Option<Value>> {
         Self::do_set(&self.0, data_container, value)
     }
 }
 
-pub struct I64FieldReader<'a>(pub PropertyPath, DataContainer<'a>);
+pub struct I64FieldReader<'a>(pub PropertyPath, DataContainerRef<'a>);
 
 impl<'a> FieldReader<'a> for I64FieldReader<'a> {
     fn new(
         property_path: PropertyPath,
-        data_container: DataContainer<'a>,
+        data_container: DataContainerRef<'a>,
     ) -> Self {
         I64FieldReader(property_path, data_container)
     }
@@ -682,12 +682,12 @@ impl<'a> I64FieldReader<'a> {
     }
 }
 
-pub struct I64FieldWriter<'a>(pub PropertyPath, Rc<RefCell<DataContainerMut<'a>>>);
+pub struct I64FieldWriter<'a>(pub PropertyPath, Rc<RefCell<DataContainerRefMut<'a>>>);
 
 impl<'a> FieldWriter<'a> for I64FieldWriter<'a> {
     fn new(
         property_path: PropertyPath,
-        data_container: &'a Rc<RefCell<DataContainerMut<'a>>>,
+        data_container: &'a Rc<RefCell<DataContainerRefMut<'a>>>,
     ) -> Self {
         I64FieldWriter(property_path, data_container.clone())
     }
@@ -741,7 +741,7 @@ impl FieldAccessor for U32FieldAccessor {
 impl U32FieldAccessor {
     fn do_get(
         property_path: &PropertyPath,
-        data_container: DataContainer,
+        data_container: DataContainerRef,
     ) -> DataSetResult<u32> {
         Ok(data_container
             .resolve_property(property_path.path())?
@@ -751,7 +751,7 @@ impl U32FieldAccessor {
 
     fn do_set(
         property_path: &PropertyPath,
-        data_container: &mut DataContainerMut,
+        data_container: &mut DataContainerRefMut,
         value: u32,
     ) -> DataSetResult<Option<Value>> {
         data_container.set_property_override(property_path.path(), Some(Value::U32(value)))
@@ -759,26 +759,26 @@ impl U32FieldAccessor {
 
     pub fn get(
         &self,
-        data_container: DataContainer,
+        data_container: DataContainerRef,
     ) -> DataSetResult<u32> {
         Self::do_get(&self.0, data_container)
     }
 
     pub fn set(
         &self,
-        data_container: &mut DataContainerMut,
+        data_container: &mut DataContainerRefMut,
         value: u32,
     ) -> DataSetResult<Option<Value>> {
         Self::do_set(&self.0, data_container, value)
     }
 }
 
-pub struct U32FieldReader<'a>(pub PropertyPath, DataContainer<'a>);
+pub struct U32FieldReader<'a>(pub PropertyPath, DataContainerRef<'a>);
 
 impl<'a> FieldReader<'a> for U32FieldReader<'a> {
     fn new(
         property_path: PropertyPath,
-        data_container: DataContainer<'a>,
+        data_container: DataContainerRef<'a>,
     ) -> Self {
         U32FieldReader(property_path, data_container)
     }
@@ -790,12 +790,12 @@ impl<'a> U32FieldReader<'a> {
     }
 }
 
-pub struct U32FieldWriter<'a>(pub PropertyPath, Rc<RefCell<DataContainerMut<'a>>>);
+pub struct U32FieldWriter<'a>(pub PropertyPath, Rc<RefCell<DataContainerRefMut<'a>>>);
 
 impl<'a> FieldWriter<'a> for U32FieldWriter<'a> {
     fn new(
         property_path: PropertyPath,
-        data_container: &'a Rc<RefCell<DataContainerMut<'a>>>,
+        data_container: &'a Rc<RefCell<DataContainerRefMut<'a>>>,
     ) -> Self {
         U32FieldWriter(property_path, data_container.clone())
     }
@@ -849,7 +849,7 @@ impl FieldAccessor for U64FieldAccessor {
 impl U64FieldAccessor {
     fn do_get(
         property_path: &PropertyPath,
-        data_container: DataContainer,
+        data_container: DataContainerRef,
     ) -> DataSetResult<u64> {
         Ok(data_container
             .resolve_property(property_path.path())?
@@ -859,7 +859,7 @@ impl U64FieldAccessor {
 
     fn do_set(
         property_path: &PropertyPath,
-        data_container: &mut DataContainerMut,
+        data_container: &mut DataContainerRefMut,
         value: u64,
     ) -> DataSetResult<Option<Value>> {
         data_container.set_property_override(property_path.path(), Some(Value::U64(value)))
@@ -867,26 +867,26 @@ impl U64FieldAccessor {
 
     pub fn get(
         &self,
-        data_container: DataContainer,
+        data_container: DataContainerRef,
     ) -> DataSetResult<u64> {
         Self::do_get(&self.0, data_container)
     }
 
     pub fn set(
         &self,
-        data_container: &mut DataContainerMut,
+        data_container: &mut DataContainerRefMut,
         value: u64,
     ) -> DataSetResult<Option<Value>> {
         Self::do_set(&self.0, data_container, value)
     }
 }
 
-pub struct U64FieldReader<'a>(pub PropertyPath, DataContainer<'a>);
+pub struct U64FieldReader<'a>(pub PropertyPath, DataContainerRef<'a>);
 
 impl<'a> FieldReader<'a> for U64FieldReader<'a> {
     fn new(
         property_path: PropertyPath,
-        data_container: DataContainer<'a>,
+        data_container: DataContainerRef<'a>,
     ) -> Self {
         U64FieldReader(property_path, data_container)
     }
@@ -898,12 +898,12 @@ impl<'a> U64FieldReader<'a> {
     }
 }
 
-pub struct U64FieldWriter<'a>(pub PropertyPath, Rc<RefCell<DataContainerMut<'a>>>);
+pub struct U64FieldWriter<'a>(pub PropertyPath, Rc<RefCell<DataContainerRefMut<'a>>>);
 
 impl<'a> FieldWriter<'a> for U64FieldWriter<'a> {
     fn new(
         property_path: PropertyPath,
-        data_container: &'a Rc<RefCell<DataContainerMut<'a>>>,
+        data_container: &'a Rc<RefCell<DataContainerRefMut<'a>>>,
     ) -> Self {
         U64FieldWriter(property_path, data_container.clone())
     }
@@ -957,7 +957,7 @@ impl FieldAccessor for F32FieldAccessor {
 impl F32FieldAccessor {
     fn do_get(
         property_path: &PropertyPath,
-        data_container: DataContainer,
+        data_container: DataContainerRef,
     ) -> DataSetResult<f32> {
         Ok(data_container
             .resolve_property(property_path.path())?
@@ -967,7 +967,7 @@ impl F32FieldAccessor {
 
     fn do_set(
         property_path: &PropertyPath,
-        data_container: &mut DataContainerMut,
+        data_container: &mut DataContainerRefMut,
         value: f32,
     ) -> DataSetResult<Option<Value>> {
         data_container.set_property_override(property_path.path(), Some(Value::F32(value)))
@@ -975,26 +975,26 @@ impl F32FieldAccessor {
 
     pub fn get(
         &self,
-        data_container: DataContainer,
+        data_container: DataContainerRef,
     ) -> DataSetResult<f32> {
         Self::do_get(&self.0, data_container)
     }
 
     pub fn set(
         &self,
-        data_container: &mut DataContainerMut,
+        data_container: &mut DataContainerRefMut,
         value: f32,
     ) -> DataSetResult<Option<Value>> {
         Self::do_set(&self.0, data_container, value)
     }
 }
 
-pub struct F32FieldReader<'a>(pub PropertyPath, DataContainer<'a>);
+pub struct F32FieldReader<'a>(pub PropertyPath, DataContainerRef<'a>);
 
 impl<'a> FieldReader<'a> for F32FieldReader<'a> {
     fn new(
         property_path: PropertyPath,
-        data_container: DataContainer<'a>,
+        data_container: DataContainerRef<'a>,
     ) -> Self {
         F32FieldReader(property_path, data_container)
     }
@@ -1006,12 +1006,12 @@ impl<'a> F32FieldReader<'a> {
     }
 }
 
-pub struct F32FieldWriter<'a>(pub PropertyPath, Rc<RefCell<DataContainerMut<'a>>>);
+pub struct F32FieldWriter<'a>(pub PropertyPath, Rc<RefCell<DataContainerRefMut<'a>>>);
 
 impl<'a> FieldWriter<'a> for F32FieldWriter<'a> {
     fn new(
         property_path: PropertyPath,
-        data_container: &'a Rc<RefCell<DataContainerMut<'a>>>,
+        data_container: &'a Rc<RefCell<DataContainerRefMut<'a>>>,
     ) -> Self {
         F32FieldWriter(property_path, data_container.clone())
     }
@@ -1065,7 +1065,7 @@ impl FieldAccessor for F64FieldAccessor {
 impl F64FieldAccessor {
     fn do_get(
         property_path: &PropertyPath,
-        data_container: DataContainer,
+        data_container: DataContainerRef,
     ) -> DataSetResult<f64> {
         Ok(data_container
             .resolve_property(property_path.path())?
@@ -1075,7 +1075,7 @@ impl F64FieldAccessor {
 
     fn do_set(
         property_path: &PropertyPath,
-        data_container: &mut DataContainerMut,
+        data_container: &mut DataContainerRefMut,
         value: f64,
     ) -> DataSetResult<Option<Value>> {
         data_container.set_property_override(property_path.path(), Some(Value::F64(value)))
@@ -1083,26 +1083,26 @@ impl F64FieldAccessor {
 
     pub fn get(
         &self,
-        data_container: DataContainer,
+        data_container: DataContainerRef,
     ) -> DataSetResult<f64> {
         Self::do_get(&self.0, data_container)
     }
 
     pub fn set(
         &self,
-        data_container: &mut DataContainerMut,
+        data_container: &mut DataContainerRefMut,
         value: f64,
     ) -> DataSetResult<Option<Value>> {
         Self::do_set(&self.0, data_container, value)
     }
 }
 
-pub struct F64FieldReader<'a>(pub PropertyPath, DataContainer<'a>);
+pub struct F64FieldReader<'a>(pub PropertyPath, DataContainerRef<'a>);
 
 impl<'a> FieldReader<'a> for F64FieldReader<'a> {
     fn new(
         property_path: PropertyPath,
-        data_container: DataContainer<'a>,
+        data_container: DataContainerRef<'a>,
     ) -> Self {
         F64FieldReader(property_path, data_container)
     }
@@ -1114,12 +1114,12 @@ impl<'a> F64FieldReader<'a> {
     }
 }
 
-pub struct F64FieldWriter<'a>(pub PropertyPath, Rc<RefCell<DataContainerMut<'a>>>);
+pub struct F64FieldWriter<'a>(pub PropertyPath, Rc<RefCell<DataContainerRefMut<'a>>>);
 
 impl<'a> FieldWriter<'a> for F64FieldWriter<'a> {
     fn new(
         property_path: PropertyPath,
-        data_container: &'a Rc<RefCell<DataContainerMut<'a>>>,
+        data_container: &'a Rc<RefCell<DataContainerRefMut<'a>>>,
     ) -> Self {
         F64FieldWriter(property_path, data_container.clone())
     }
@@ -1173,7 +1173,7 @@ impl FieldAccessor for BytesFieldAccessor {
 impl BytesFieldAccessor {
     fn do_get<'a>(
         property_path: &PropertyPath,
-        data_container: &'a DataContainer<'a>,
+        data_container: &'a DataContainerRef<'a>,
     ) -> DataSetResult<&'a Vec<u8>> {
         Ok(data_container
             .resolve_property(property_path.path())?
@@ -1183,7 +1183,7 @@ impl BytesFieldAccessor {
 
     fn do_set(
         property_path: &PropertyPath,
-        data_container: &mut DataContainerMut,
+        data_container: &mut DataContainerRefMut,
         value: Vec<u8>,
     ) -> DataSetResult<Option<Value>> {
         data_container.set_property_override(property_path.path(), Some(Value::Bytes(value)))
@@ -1191,26 +1191,26 @@ impl BytesFieldAccessor {
 
     pub fn get<'a, 'b>(
         &'a self,
-        data_container: &'b DataContainer<'b>,
+        data_container: &'b DataContainerRef<'b>,
     ) -> DataSetResult<&'b Vec<u8>> {
         Self::do_get(&self.0, &data_container)
     }
 
     pub fn set(
         &self,
-        data_container: &mut DataContainerMut,
+        data_container: &mut DataContainerRefMut,
         value: Vec<u8>,
     ) -> DataSetResult<Option<Value>> {
         Self::do_set(&self.0, data_container, value)
     }
 }
 
-pub struct BytesFieldReader<'a>(pub PropertyPath, DataContainer<'a>);
+pub struct BytesFieldReader<'a>(pub PropertyPath, DataContainerRef<'a>);
 
 impl<'a> FieldReader<'a> for BytesFieldReader<'a> {
     fn new(
         property_path: PropertyPath,
-        data_container: DataContainer<'a>,
+        data_container: DataContainerRef<'a>,
     ) -> Self {
         BytesFieldReader(property_path, data_container)
     }
@@ -1222,12 +1222,12 @@ impl<'a> BytesFieldReader<'a> {
     }
 }
 
-pub struct BytesFieldWriter<'a>(pub PropertyPath, Rc<RefCell<DataContainerMut<'a>>>);
+pub struct BytesFieldWriter<'a>(pub PropertyPath, Rc<RefCell<DataContainerRefMut<'a>>>);
 
 impl<'a> FieldWriter<'a> for BytesFieldWriter<'a> {
     fn new(
         property_path: PropertyPath,
-        data_container: &'a Rc<RefCell<DataContainerMut<'a>>>,
+        data_container: &'a Rc<RefCell<DataContainerRefMut<'a>>>,
     ) -> Self {
         BytesFieldWriter(property_path, data_container.clone())
     }
@@ -1299,7 +1299,7 @@ impl FieldAccessor for StringFieldAccessor {
 impl StringFieldAccessor {
     fn do_get(
         property_path: &PropertyPath,
-        data_container: DataContainer,
+        data_container: DataContainerRef,
     ) -> DataSetResult<String> {
         Ok(data_container
             .resolve_property(property_path.path())?
@@ -1310,7 +1310,7 @@ impl StringFieldAccessor {
 
     fn do_set(
         property_path: &PropertyPath,
-        data_container: &mut DataContainerMut,
+        data_container: &mut DataContainerRefMut,
         value: String,
     ) -> DataSetResult<Option<Value>> {
         data_container.set_property_override(property_path.path(), Some(Value::String(value)))
@@ -1318,26 +1318,26 @@ impl StringFieldAccessor {
 
     pub fn get(
         &self,
-        data_container: DataContainer,
+        data_container: DataContainerRef,
     ) -> DataSetResult<String> {
         Self::do_get(&self.0, data_container)
     }
 
     pub fn set(
         &self,
-        data_container: &mut DataContainerMut,
+        data_container: &mut DataContainerRefMut,
         value: String,
     ) -> DataSetResult<Option<Value>> {
         Self::do_set(&self.0, data_container, value)
     }
 }
 
-pub struct StringFieldReader<'a>(pub PropertyPath, DataContainer<'a>);
+pub struct StringFieldReader<'a>(pub PropertyPath, DataContainerRef<'a>);
 
 impl<'a> FieldReader<'a> for StringFieldReader<'a> {
     fn new(
         property_path: PropertyPath,
-        data_container: DataContainer<'a>,
+        data_container: DataContainerRef<'a>,
     ) -> Self {
         StringFieldReader(property_path, data_container)
     }
@@ -1349,12 +1349,12 @@ impl<'a> StringFieldReader<'a> {
     }
 }
 
-pub struct StringFieldWriter<'a>(pub PropertyPath, Rc<RefCell<DataContainerMut<'a>>>);
+pub struct StringFieldWriter<'a>(pub PropertyPath, Rc<RefCell<DataContainerRefMut<'a>>>);
 
 impl<'a> FieldWriter<'a> for StringFieldWriter<'a> {
     fn new(
         property_path: PropertyPath,
-        data_container: &'a Rc<RefCell<DataContainerMut<'a>>>,
+        data_container: &'a Rc<RefCell<DataContainerRefMut<'a>>>,
     ) -> Self {
         StringFieldWriter(property_path, data_container.clone())
     }
@@ -1408,7 +1408,7 @@ impl<T: FieldAccessor> FieldAccessor for DynamicArrayFieldAccessor<T> {
 impl<T: FieldAccessor> DynamicArrayFieldAccessor<T> {
     pub fn resolve_entries(
         &self,
-        data_container: DataContainer,
+        data_container: DataContainerRef,
     ) -> DataSetResult<Box<[Uuid]>> {
         data_container.resolve_dynamic_array(self.0.path())
     }
@@ -1422,7 +1422,7 @@ impl<T: FieldAccessor> DynamicArrayFieldAccessor<T> {
 
     pub fn add_entry(
         &self,
-        data_container: &mut DataContainerMut,
+        data_container: &mut DataContainerRefMut,
     ) -> DataSetResult<Uuid> {
         data_container.add_dynamic_array_override(self.0.path())
     }
@@ -1430,14 +1430,14 @@ impl<T: FieldAccessor> DynamicArrayFieldAccessor<T> {
 
 pub struct DynamicArrayFieldReader<'a, T: FieldReader<'a>>(
     pub PropertyPath,
-    DataContainer<'a>,
+    DataContainerRef<'a>,
     PhantomData<T>,
 );
 
 impl<'a, T: FieldReader<'a>> FieldReader<'a> for DynamicArrayFieldReader<'a, T> {
     fn new(
         property_path: PropertyPath,
-        data_container: DataContainer<'a>,
+        data_container: DataContainerRef<'a>,
     ) -> Self {
         DynamicArrayFieldReader(property_path, data_container, PhantomData)
     }
@@ -1458,14 +1458,14 @@ impl<'a, T: FieldReader<'a>> DynamicArrayFieldReader<'a, T> {
 
 pub struct DynamicArrayFieldWriter<'a, T: FieldWriter<'a>>(
     pub PropertyPath,
-    Rc<RefCell<DataContainerMut<'a>>>,
+    Rc<RefCell<DataContainerRefMut<'a>>>,
     PhantomData<T>,
 );
 
 impl<'a, T: FieldWriter<'a>> FieldWriter<'a> for DynamicArrayFieldWriter<'a, T> {
     fn new(
         property_path: PropertyPath,
-        data_container: &'a Rc<RefCell<DataContainerMut<'a>>>,
+        data_container: &'a Rc<RefCell<DataContainerRefMut<'a>>>,
     ) -> Self {
         DynamicArrayFieldWriter(property_path, data_container.clone(), PhantomData)
     }
@@ -1541,7 +1541,7 @@ impl FieldAccessor for AssetRefFieldAccessor {
 impl AssetRefFieldAccessor {
     fn do_get(
         property_path: &PropertyPath,
-        data_container: DataContainer,
+        data_container: DataContainerRef,
     ) -> DataSetResult<AssetId> {
         Ok(data_container
             .resolve_property(property_path.path())?
@@ -1551,7 +1551,7 @@ impl AssetRefFieldAccessor {
 
     fn do_set(
         property_path: &PropertyPath,
-        data_container: &mut DataContainerMut,
+        data_container: &mut DataContainerRefMut,
         value: AssetId,
     ) -> DataSetResult<Option<Value>> {
         data_container.set_property_override(property_path.path(), Some(Value::AssetRef(value)))
@@ -1559,26 +1559,26 @@ impl AssetRefFieldAccessor {
 
     pub fn get(
         &self,
-        data_container: DataContainer,
+        data_container: DataContainerRef,
     ) -> DataSetResult<AssetId> {
         Self::do_get(&self.0, data_container)
     }
 
     pub fn set(
         &self,
-        data_container: &mut DataContainerMut,
+        data_container: &mut DataContainerRefMut,
         value: AssetId,
     ) -> DataSetResult<Option<Value>> {
         Self::do_set(&self.0, data_container, value)
     }
 }
 
-pub struct AssetRefFieldReader<'a>(pub PropertyPath, DataContainer<'a>);
+pub struct AssetRefFieldReader<'a>(pub PropertyPath, DataContainerRef<'a>);
 
 impl<'a> FieldReader<'a> for AssetRefFieldReader<'a> {
     fn new(
         property_path: PropertyPath,
-        data_container: DataContainer<'a>,
+        data_container: DataContainerRef<'a>,
     ) -> Self {
         AssetRefFieldReader(property_path, data_container)
     }
@@ -1590,12 +1590,12 @@ impl<'a> AssetRefFieldReader<'a> {
     }
 }
 
-pub struct AssetRefFieldWriter<'a>(pub PropertyPath, Rc<RefCell<DataContainerMut<'a>>>);
+pub struct AssetRefFieldWriter<'a>(pub PropertyPath, Rc<RefCell<DataContainerRefMut<'a>>>);
 
 impl<'a> FieldWriter<'a> for AssetRefFieldWriter<'a> {
     fn new(
         property_path: PropertyPath,
-        data_container: &'a Rc<RefCell<DataContainerMut<'a>>>,
+        data_container: &'a Rc<RefCell<DataContainerRefMut<'a>>>,
     ) -> Self {
         AssetRefFieldWriter(property_path, data_container.clone())
     }

@@ -2,7 +2,7 @@ use super::generated::{AllFieldsAccessor, TransformAccessor, TransformRefAccesso
 use demo_types::simple_data::*;
 use hydrate_model::pipeline::AssetPlugin;
 use hydrate_pipeline::{
-    job_system, BuilderRegistryBuilder, DataContainer, HandleFactory, ImporterRegistryBuilder,
+    job_system, BuilderRegistryBuilder, DataContainerRef, HandleFactory, ImporterRegistryBuilder,
     JobApi, JobProcessorRegistryBuilder, SchemaLinker,
 };
 
@@ -14,7 +14,7 @@ use bincode_data_builder::{SimpleBincodeDataBuilder, SimpleBincodeDataJobProcess
 
 impl SimpleData for TransformRef {
     fn from_data_container(
-        data_set_view: DataContainer,
+        data_set_view: DataContainerRef,
         handle_context: HandleFactory,
     ) -> Self {
         let x = TransformRefAccessor::default();
@@ -29,7 +29,7 @@ impl SimpleData for TransformRef {
 
 impl SimpleData for Transform {
     fn from_data_container(
-        data_container: DataContainer,
+        data_container: DataContainerRef,
         _handle_context: HandleFactory,
     ) -> Self {
         let x = TransformAccessor::default();
@@ -47,7 +47,7 @@ impl SimpleData for Transform {
 
 impl SimpleData for AllFields {
     fn from_data_container(
-        data_container: DataContainer,
+        data_container: DataContainerRef,
         _handle_context: HandleFactory,
     ) -> Self {
         let x = AllFieldsAccessor::default();

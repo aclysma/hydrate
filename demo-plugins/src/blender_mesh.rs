@@ -7,7 +7,7 @@ use hydrate_base::b3f::B3FReader;
 use hydrate_model::pipeline::{AssetPlugin, ImportContext, ScanContext};
 use hydrate_model::pipeline::{ImportedImportable, Importer, ScannedImportable};
 use hydrate_pipeline::{
-    BuilderRegistryBuilder, DataContainerMut, HashMap, ImportableAsset, ImporterId,
+    BuilderRegistryBuilder, DataContainerRefMut, HashMap, ImportableAsset, ImporterId,
     ImporterRegistry, ImporterRegistryBuilder, JobProcessorRegistryBuilder, RecordAccessor,
     ReferencedSourceFile, SchemaLinker, SchemaSet,
 };
@@ -142,7 +142,7 @@ impl Importer for BlenderMeshImporter {
         let mut import_data =
             MeshAdvMeshImportedDataAccessor::new_single_object(context.schema_set).unwrap();
         let mut import_data_container =
-            DataContainerMut::from_single_object(&mut import_data, context.schema_set);
+            DataContainerRefMut::from_single_object(&mut import_data, context.schema_set);
         let x = MeshAdvMeshImportedDataAccessor::default();
 
         //
@@ -240,7 +240,7 @@ impl Importer for BlenderMeshImporter {
             let mut default_asset_object =
                 MeshAdvMeshAssetAccessor::new_single_object(context.schema_set).unwrap();
             let mut default_asset_data_container =
-                DataContainerMut::from_single_object(&mut default_asset_object, context.schema_set);
+                DataContainerRefMut::from_single_object(&mut default_asset_object, context.schema_set);
             let x = MeshAdvMeshAssetAccessor::default();
 
             //

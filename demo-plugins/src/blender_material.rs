@@ -4,7 +4,7 @@ use std::path::{Path, PathBuf};
 use hydrate_model::pipeline::{AssetPlugin, ImportContext, ScanContext};
 use hydrate_model::pipeline::{ImportedImportable, Importer, ScannedImportable};
 use hydrate_pipeline::{
-    AssetRefFieldAccessor, BuilderRegistryBuilder, DataContainerMut, Enum, HashMap, ImportableAsset,
+    AssetRefFieldAccessor, BuilderRegistryBuilder, DataContainerRefMut, Enum, HashMap, ImportableAsset,
     ImporterId, ImporterRegistry, ImporterRegistryBuilder, JobProcessorRegistryBuilder, RecordAccessor,
     ReferencedSourceFile, SchemaLinker, SchemaSet,
 };
@@ -144,7 +144,7 @@ impl Importer for BlenderMaterialImporter {
             let mut default_asset_object =
                 MeshAdvMaterialAssetAccessor::new_single_object(context.schema_set).unwrap();
             let mut default_asset_data_container =
-                DataContainerMut::from_single_object(&mut default_asset_object, context.schema_set);
+                DataContainerRefMut::from_single_object(&mut default_asset_object, context.schema_set);
             let x = MeshAdvMaterialAssetAccessor::default();
             x.base_color_factor()
                 .set_vec4(
@@ -173,7 +173,7 @@ impl Importer for BlenderMaterialImporter {
 
             fn try_find_file_reference(
                 importable_assets: &HashMap<Option<String>, ImportableAsset>,
-                data_container: &mut DataContainerMut,
+                data_container: &mut DataContainerRefMut,
                 ref_field: AssetRefFieldAccessor,
                 path_as_string: &Option<PathBuf>,
             ) {

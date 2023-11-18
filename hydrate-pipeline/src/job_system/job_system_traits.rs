@@ -4,7 +4,7 @@ use crate::{AssetArtifactIdPair, BuiltArtifact, ImportData, ImportJobs};
 use hydrate_base::handle::DummySerdeContextHandle;
 use hydrate_base::hashing::HashMap;
 use hydrate_base::{ArtifactId, AssetId, BuiltArtifactMetadata, Handle};
-use hydrate_data::{DataContainer, DataSet, DataSetError, DataSetResult, FieldReader, PropertyPath, RecordReader, SchemaSet, SingleObject};
+use hydrate_data::{DataContainerRef, DataSet, DataSetError, DataSetResult, FieldReader, PropertyPath, RecordReader, SchemaSet, SingleObject};
 use serde::{Deserialize, Serialize};
 use siphasher::sip128::Hasher128;
 use std::hash::Hash;
@@ -151,7 +151,7 @@ impl<'a, InputT> RunContext<'a, InputT> {
 
         Ok(T::new(
             PropertyPath::default(),
-            DataContainer::from_dataset(
+            DataContainerRef::from_dataset(
                 self.data_set,
                 self.schema_set,
                 asset_id
@@ -170,7 +170,7 @@ impl<'a, InputT> RunContext<'a, InputT> {
 
         Ok(T::new(
             PropertyPath::default(),
-            DataContainer::from_single_object(
+            DataContainerRef::from_single_object(
                 import_data,
                 self.schema_set,
             ),

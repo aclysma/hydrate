@@ -4,7 +4,7 @@ use crate::{AssetArtifactIdPair, BuiltArtifact, ImportData, ImportJobs};
 use hydrate_base::handle::DummySerdeContextHandle;
 use hydrate_base::hashing::HashMap;
 use hydrate_base::{ArtifactId, AssetId, BuiltArtifactMetadata, Handle};
-use hydrate_data::{DataContainer, DataSet, FieldReader, PropertyPath, SchemaSet, SingleObject};
+use hydrate_data::{DataContainer, DataSet, DataSetError, DataSetResult, FieldReader, PropertyPath, RecordReader, SchemaSet, SingleObject};
 use serde::{Deserialize, Serialize};
 use siphasher::sip128::Hasher128;
 use std::hash::Hash;
@@ -141,14 +141,37 @@ pub struct RunContext<'a, InputT> {
 }
 
 impl<'a, InputT> RunContext<'a, InputT> {
-    pub fn imported_data<T: FieldReader<'a>>(
+    pub fn asset<T: FieldReader<'a> + RecordReader>(
         &'a self,
         asset_id: AssetId,
-    ) -> Option<T> {
-        Some(T::new(
+    ) -> DataSetResult<T> {
+        if self.data_set.asset_schema(asset_id).ok_or(DataSetError::AssetNotFound)?.name() != T::schema_name() {
+            return Err(DataSetError::InvalidSchema);
+        }
+
+        Ok(T::new(
+            PropertyPath::default(),
+            DataContainer::from_dataset(
+                self.data_set,
+                self.schema_set,
+                asset_id
+            ),
+        ))
+    }
+
+    pub fn imported_data<T: FieldReader<'a> + RecordReader>(
+        &'a self,
+        asset_id: AssetId,
+    ) -> DataSetResult<T> {
+        let import_data = self.dependency_data.get(&asset_id).ok_or(DataSetError::ImportDataNotFound)?;
+        if import_data.schema().name() != T::schema_name() {
+            return Err(DataSetError::InvalidSchema);
+        }
+
+        Ok(T::new(
             PropertyPath::default(),
             DataContainer::from_single_object(
-                self.dependency_data.get(&asset_id)?,
+                import_data,
                 self.schema_set,
             ),
         ))

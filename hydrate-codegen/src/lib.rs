@@ -313,7 +313,7 @@ fn generate_reader(
     let record_impl = scope
         .new_impl(record_name.as_str())
         .generic("'a")
-        .impl_trait("Record");
+        .impl_trait("RecordReader");
     let schema_name_fn = record_impl.new_fn("schema_name");
     schema_name_fn.ret("&'static str");
     schema_name_fn.line(format!("\"{}\"", schema.name()));
@@ -407,7 +407,7 @@ fn generate_writer(
     let record_impl = scope
         .new_impl(record_name.as_str())
         .generic("'a")
-        .impl_trait("Record");
+        .impl_trait("RecordWriter");
     let schema_name_fn = record_impl.new_fn("schema_name");
     schema_name_fn.ret("&'static str");
     schema_name_fn.line(format!("\"{}\"", schema.name()));

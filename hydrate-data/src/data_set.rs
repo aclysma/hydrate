@@ -17,6 +17,7 @@ pub enum DataSetError {
     UnexpectedEnumSymbol,
     DuplicateAssetId,
     AssetNotFound,
+    ImportDataNotFound,
     SingleObjectDoesNotMatchSchema,
     LocationCycleDetected,
     LocationParentNotFound,

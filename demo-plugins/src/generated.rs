@@ -75,7 +75,7 @@ impl<'a> FieldReader<'a> for AllFieldsReader<'a> {
     }
 }
 
-impl<'a> Record for AllFieldsReader<'a> {
+impl<'a> RecordReader for AllFieldsReader<'a> {
     fn schema_name() -> &'static str {
         "AllFields"
     }
@@ -142,7 +142,7 @@ impl<'a> FieldWriter<'a> for AllFieldsWriter<'a> {
     }
 }
 
-impl<'a> Record for AllFieldsWriter<'a> {
+impl<'a> RecordWriter for AllFieldsWriter<'a> {
     fn schema_name() -> &'static str {
         "AllFields"
     }
@@ -233,7 +233,7 @@ impl<'a> FieldReader<'a> for GlslBuildTargetAssetReader<'a> {
     }
 }
 
-impl<'a> Record for GlslBuildTargetAssetReader<'a> {
+impl<'a> RecordReader for GlslBuildTargetAssetReader<'a> {
     fn schema_name() -> &'static str {
         "GlslBuildTargetAsset"
     }
@@ -256,7 +256,7 @@ impl<'a> FieldWriter<'a> for GlslBuildTargetAssetWriter<'a> {
     }
 }
 
-impl<'a> Record for GlslBuildTargetAssetWriter<'a> {
+impl<'a> RecordWriter for GlslBuildTargetAssetWriter<'a> {
     fn schema_name() -> &'static str {
         "GlslBuildTargetAsset"
     }
@@ -296,7 +296,7 @@ impl<'a> FieldReader<'a> for GlslSourceFileAssetReader<'a> {
     }
 }
 
-impl<'a> Record for GlslSourceFileAssetReader<'a> {
+impl<'a> RecordReader for GlslSourceFileAssetReader<'a> {
     fn schema_name() -> &'static str {
         "GlslSourceFileAsset"
     }
@@ -312,7 +312,7 @@ impl<'a> FieldWriter<'a> for GlslSourceFileAssetWriter<'a> {
     }
 }
 
-impl<'a> Record for GlslSourceFileAssetWriter<'a> {
+impl<'a> RecordWriter for GlslSourceFileAssetWriter<'a> {
     fn schema_name() -> &'static str {
         "GlslSourceFileAsset"
     }
@@ -348,7 +348,7 @@ impl<'a> FieldReader<'a> for GlslSourceFileImportedDataReader<'a> {
     }
 }
 
-impl<'a> Record for GlslSourceFileImportedDataReader<'a> {
+impl<'a> RecordReader for GlslSourceFileImportedDataReader<'a> {
     fn schema_name() -> &'static str {
         "GlslSourceFileImportedData"
     }
@@ -367,7 +367,7 @@ impl<'a> FieldWriter<'a> for GlslSourceFileImportedDataWriter<'a> {
     }
 }
 
-impl<'a> Record for GlslSourceFileImportedDataWriter<'a> {
+impl<'a> RecordWriter for GlslSourceFileImportedDataWriter<'a> {
     fn schema_name() -> &'static str {
         "GlslSourceFileImportedData"
     }
@@ -403,7 +403,7 @@ impl<'a> FieldReader<'a> for GpuBufferAssetReader<'a> {
     }
 }
 
-impl<'a> Record for GpuBufferAssetReader<'a> {
+impl<'a> RecordReader for GpuBufferAssetReader<'a> {
     fn schema_name() -> &'static str {
         "GpuBufferAsset"
     }
@@ -419,7 +419,7 @@ impl<'a> FieldWriter<'a> for GpuBufferAssetWriter<'a> {
     }
 }
 
-impl<'a> Record for GpuBufferAssetWriter<'a> {
+impl<'a> RecordWriter for GpuBufferAssetWriter<'a> {
     fn schema_name() -> &'static str {
         "GpuBufferAsset"
     }
@@ -463,7 +463,7 @@ impl<'a> FieldReader<'a> for GpuBufferImportedDataReader<'a> {
     }
 }
 
-impl<'a> Record for GpuBufferImportedDataReader<'a> {
+impl<'a> RecordReader for GpuBufferImportedDataReader<'a> {
     fn schema_name() -> &'static str {
         "GpuBufferImportedData"
     }
@@ -490,7 +490,7 @@ impl<'a> FieldWriter<'a> for GpuBufferImportedDataWriter<'a> {
     }
 }
 
-impl<'a> Record for GpuBufferImportedDataWriter<'a> {
+impl<'a> RecordWriter for GpuBufferImportedDataWriter<'a> {
     fn schema_name() -> &'static str {
         "GpuBufferImportedData"
     }
@@ -537,7 +537,7 @@ impl<'a> FieldReader<'a> for GpuImageAssetReader<'a> {
     }
 }
 
-impl<'a> Record for GpuImageAssetReader<'a> {
+impl<'a> RecordReader for GpuImageAssetReader<'a> {
     fn schema_name() -> &'static str {
         "GpuImageAsset"
     }
@@ -556,7 +556,7 @@ impl<'a> FieldWriter<'a> for GpuImageAssetWriter<'a> {
     }
 }
 
-impl<'a> Record for GpuImageAssetWriter<'a> {
+impl<'a> RecordWriter for GpuImageAssetWriter<'a> {
     fn schema_name() -> &'static str {
         "GpuImageAsset"
     }
@@ -603,7 +603,7 @@ impl<'a> FieldReader<'a> for GpuImageImportedDataReader<'a> {
     }
 }
 
-impl<'a> Record for GpuImageImportedDataReader<'a> {
+impl<'a> RecordReader for GpuImageImportedDataReader<'a> {
     fn schema_name() -> &'static str {
         "GpuImageImportedData"
     }
@@ -630,7 +630,7 @@ impl<'a> FieldWriter<'a> for GpuImageImportedDataWriter<'a> {
     }
 }
 
-impl<'a> Record for GpuImageImportedDataWriter<'a> {
+impl<'a> RecordWriter for GpuImageImportedDataWriter<'a> {
     fn schema_name() -> &'static str {
         "GpuImageImportedData"
     }
@@ -792,7 +792,7 @@ impl<'a> FieldReader<'a> for MeshAdvMaterialAssetReader<'a> {
     }
 }
 
-impl<'a> Record for MeshAdvMaterialAssetReader<'a> {
+impl<'a> RecordReader for MeshAdvMaterialAssetReader<'a> {
     fn schema_name() -> &'static str {
         "MeshAdvMaterialAsset"
     }
@@ -863,7 +863,7 @@ impl<'a> FieldWriter<'a> for MeshAdvMaterialAssetWriter<'a> {
     }
 }
 
-impl<'a> Record for MeshAdvMaterialAssetWriter<'a> {
+impl<'a> RecordWriter for MeshAdvMaterialAssetWriter<'a> {
     fn schema_name() -> &'static str {
         "MeshAdvMaterialAsset"
     }
@@ -951,7 +951,7 @@ impl<'a> FieldReader<'a> for MeshAdvMaterialImportedDataReader<'a> {
     }
 }
 
-impl<'a> Record for MeshAdvMaterialImportedDataReader<'a> {
+impl<'a> RecordReader for MeshAdvMaterialImportedDataReader<'a> {
     fn schema_name() -> &'static str {
         "MeshAdvMaterialImportedData"
     }
@@ -967,7 +967,7 @@ impl<'a> FieldWriter<'a> for MeshAdvMaterialImportedDataWriter<'a> {
     }
 }
 
-impl<'a> Record for MeshAdvMaterialImportedDataWriter<'a> {
+impl<'a> RecordWriter for MeshAdvMaterialImportedDataWriter<'a> {
     fn schema_name() -> &'static str {
         "MeshAdvMaterialImportedData"
     }
@@ -1003,7 +1003,7 @@ impl<'a> FieldReader<'a> for MeshAdvMeshAssetReader<'a> {
     }
 }
 
-impl<'a> Record for MeshAdvMeshAssetReader<'a> {
+impl<'a> RecordReader for MeshAdvMeshAssetReader<'a> {
     fn schema_name() -> &'static str {
         "MeshAdvMeshAsset"
     }
@@ -1022,7 +1022,7 @@ impl<'a> FieldWriter<'a> for MeshAdvMeshAssetWriter<'a> {
     }
 }
 
-impl<'a> Record for MeshAdvMeshAssetWriter<'a> {
+impl<'a> RecordWriter for MeshAdvMeshAssetWriter<'a> {
     fn schema_name() -> &'static str {
         "MeshAdvMeshAsset"
     }
@@ -1061,7 +1061,7 @@ impl<'a> FieldReader<'a> for MeshAdvMeshImportedDataReader<'a> {
     }
 }
 
-impl<'a> Record for MeshAdvMeshImportedDataReader<'a> {
+impl<'a> RecordReader for MeshAdvMeshImportedDataReader<'a> {
     fn schema_name() -> &'static str {
         "MeshAdvMeshImportedData"
     }
@@ -1080,7 +1080,7 @@ impl<'a> FieldWriter<'a> for MeshAdvMeshImportedDataWriter<'a> {
     }
 }
 
-impl<'a> Record for MeshAdvMeshImportedDataWriter<'a> {
+impl<'a> RecordWriter for MeshAdvMeshImportedDataWriter<'a> {
     fn schema_name() -> &'static str {
         "MeshAdvMeshImportedData"
     }
@@ -1135,7 +1135,7 @@ impl<'a> FieldReader<'a> for MeshAdvMeshImportedDataMeshPartReader<'a> {
     }
 }
 
-impl<'a> Record for MeshAdvMeshImportedDataMeshPartReader<'a> {
+impl<'a> RecordReader for MeshAdvMeshImportedDataMeshPartReader<'a> {
     fn schema_name() -> &'static str {
         "MeshAdvMeshImportedDataMeshPart"
     }
@@ -1170,7 +1170,7 @@ impl<'a> FieldWriter<'a> for MeshAdvMeshImportedDataMeshPartWriter<'a> {
     }
 }
 
-impl<'a> Record for MeshAdvMeshImportedDataMeshPartWriter<'a> {
+impl<'a> RecordWriter for MeshAdvMeshImportedDataMeshPartWriter<'a> {
     fn schema_name() -> &'static str {
         "MeshAdvMeshImportedDataMeshPart"
     }
@@ -1267,7 +1267,7 @@ impl<'a> FieldReader<'a> for TransformReader<'a> {
     }
 }
 
-impl<'a> Record for TransformReader<'a> {
+impl<'a> RecordReader for TransformReader<'a> {
     fn schema_name() -> &'static str {
         "Transform"
     }
@@ -1298,7 +1298,7 @@ impl<'a> FieldWriter<'a> for TransformWriter<'a> {
     }
 }
 
-impl<'a> Record for TransformWriter<'a> {
+impl<'a> RecordWriter for TransformWriter<'a> {
     fn schema_name() -> &'static str {
         "Transform"
     }
@@ -1349,7 +1349,7 @@ impl<'a> FieldReader<'a> for TransformRefReader<'a> {
     }
 }
 
-impl<'a> Record for TransformRefReader<'a> {
+impl<'a> RecordReader for TransformRefReader<'a> {
     fn schema_name() -> &'static str {
         "TransformRef"
     }
@@ -1368,7 +1368,7 @@ impl<'a> FieldWriter<'a> for TransformRefWriter<'a> {
     }
 }
 
-impl<'a> Record for TransformRefWriter<'a> {
+impl<'a> RecordWriter for TransformRefWriter<'a> {
     fn schema_name() -> &'static str {
         "TransformRef"
     }
@@ -1415,7 +1415,7 @@ impl<'a> FieldReader<'a> for Vec3Reader<'a> {
     }
 }
 
-impl<'a> Record for Vec3Reader<'a> {
+impl<'a> RecordReader for Vec3Reader<'a> {
     fn schema_name() -> &'static str {
         "Vec3"
     }
@@ -1442,7 +1442,7 @@ impl<'a> FieldWriter<'a> for Vec3Writer<'a> {
     }
 }
 
-impl<'a> Record for Vec3Writer<'a> {
+impl<'a> RecordWriter for Vec3Writer<'a> {
     fn schema_name() -> &'static str {
         "Vec3"
     }
@@ -1501,7 +1501,7 @@ impl<'a> FieldReader<'a> for Vec4Reader<'a> {
     }
 }
 
-impl<'a> Record for Vec4Reader<'a> {
+impl<'a> RecordReader for Vec4Reader<'a> {
     fn schema_name() -> &'static str {
         "Vec4"
     }
@@ -1532,7 +1532,7 @@ impl<'a> FieldWriter<'a> for Vec4Writer<'a> {
     }
 }
 
-impl<'a> Record for Vec4Writer<'a> {
+impl<'a> RecordWriter for Vec4Writer<'a> {
     fn schema_name() -> &'static str {
         "Vec4"
     }

@@ -2,10 +2,7 @@ pub use super::*;
 use ::image::GenericImageView;
 use std::path::Path;
 
-use super::generated::{
-    GpuImageAssetRecord, GpuImageImportedDataReader, GpuImageImportedDataRecord,
-    GpuImageImportedDataWriter,
-};
+use super::generated::{GpuImageAssetReader, GpuImageAssetRecord, GpuImageImportedDataReader, GpuImageImportedDataRecord, GpuImageImportedDataWriter};
 use demo_types::image::*;
 use hydrate_model::pipeline::{ImportContext, ScanContext};
 use hydrate_pipeline::{
@@ -148,13 +145,8 @@ impl JobProcessor for GpuImageJobProcessor {
         //
         // Read asset properties
         //
-        let data_container = DataContainer::from_dataset(
-            context.data_set,
-            context.schema_set,
-            context.input.asset_id,
-        );
-        let x = GpuImageAssetRecord::default();
-        let compressed = x.compress().get(data_container).unwrap();
+        let asset = context.asset::<GpuImageAssetReader>(context.input.asset_id).unwrap();
+        let compressed = asset.compress().get().unwrap();
 
         //
         // Read imported data

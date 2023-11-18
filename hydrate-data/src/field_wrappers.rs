@@ -66,6 +66,14 @@ pub trait Record {
     }
 }
 
+pub trait RecordReader {
+    fn schema_name() -> &'static str;
+}
+
+pub trait RecordWriter {
+    fn schema_name() -> &'static str;
+}
+
 pub struct EnumField<T: Enum>(PropertyPath, PhantomData<T>);
 
 impl<T: Enum> Field for EnumField<T> {

@@ -4,7 +4,7 @@ use crate::{AssetArtifactIdPair, BuiltArtifact, ImportData, ImportJobs};
 use hydrate_base::handle::DummySerdeContextHandle;
 use hydrate_base::hashing::HashMap;
 use hydrate_base::{ArtifactId, AssetId, BuiltArtifactMetadata, Handle};
-use hydrate_data::{DataSet, SchemaSet, SingleObject};
+use hydrate_data::{DataContainer, DataSet, FieldReader, PropertyPath, SchemaSet, SingleObject};
 use serde::{Deserialize, Serialize};
 use siphasher::sip128::Hasher128;
 use std::hash::Hash;
@@ -141,6 +141,10 @@ pub struct RunContext<'a, InputT> {
 }
 
 impl<'a, InputT> RunContext<'a, InputT> {
+    pub fn imported_data<T: FieldReader<'a>>(&'a self, asset_id: AssetId) -> Option<T> {
+        Some(T::new(PropertyPath::default(), DataContainer::from_single_object(self.dependency_data.get(&asset_id)?, self.schema_set)))
+    }
+
     pub fn enqueue_job<JobProcessorT: JobProcessor>(
         &self,
         input: <JobProcessorT as JobProcessor>::InputT,

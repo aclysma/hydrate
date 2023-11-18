@@ -40,6 +40,7 @@ mod schema_set;
 pub use schema_set::{SchemaSet, SchemaSetBuilder};
 
 mod ordered_set;
+
 pub use ordered_set::OrderedSet;
 
 #[derive(Debug, Copy, Clone, PartialEq, Hash)]

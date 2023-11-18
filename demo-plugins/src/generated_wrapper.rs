@@ -1,6 +1,8 @@
 use demo_types::mesh_adv::{MeshAdvBlendMethod, MeshAdvShadowMethod};
 use hydrate_data::*;
 use hydrate_model::{DataContainer, DataContainerMut, DataSetResult};
+use std::rc::Rc;
+use std::cell::RefCell;
 
 include!("generated.rs");
 
@@ -18,7 +20,7 @@ impl Vec3Record {
 
     pub fn get_vec3(
         &self,
-        data_container: &DataContainer,
+        data_container: DataContainer,
     ) -> DataSetResult<[f32; 3]> {
         let x = self.x().get(data_container)?;
         let y = self.y().get(data_container)?;
@@ -42,7 +44,7 @@ impl Vec4Record {
 
     pub fn get_vec4(
         &self,
-        data_container: &DataContainer,
+        data_container: DataContainer,
     ) -> DataSetResult<[f32; 4]> {
         let x = self.x().get(data_container)?;
         let y = self.y().get(data_container)?;

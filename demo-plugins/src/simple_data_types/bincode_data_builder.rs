@@ -61,7 +61,7 @@ impl<T: SimpleData + Sized + Serialize + for<'a> Deserialize<'a> + TypeUuid> Job
         // Serialize and return
         //
         context.produce_default_artifact_with_handles(context.input.asset_id, |handle_factory| {
-            T::from_data_container(&mut data_set_view, handle_factory)
+            T::from_data_container(data_set_view, handle_factory)
         });
         SimpleBincodeDataJobOutput {}
     }

@@ -4,7 +4,7 @@ use hydrate_pipeline::{DataContainer, HandleFactory, JobApi};
 /// accessing import data. Assets must also implement serialize/deserialize
 pub trait SimpleData {
     fn from_data_container(
-        data_container: &DataContainer,
+        data_container: DataContainer,
         handle_context: HandleFactory,
     ) -> Self;
 }

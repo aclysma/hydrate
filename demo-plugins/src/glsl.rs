@@ -623,7 +623,7 @@ impl JobProcessor for GlslBuildTargetJobProcessor {
         let x = GlslBuildTargetAssetRecord::default();
 
         // The source file is the "top level" file where the GLSL entry point is defined
-        let source_file = x.source_file().get(&data_container).unwrap();
+        let source_file = x.source_file().get(data_container).unwrap();
 
         //TODO: Error?
         if source_file.is_null() {
@@ -668,8 +668,8 @@ impl JobProcessor for GlslBuildTargetJobProcessor {
         let data_container = DataContainer::from_dataset(context.data_set, context.schema_set, context.input.asset_id);
         let x = GlslBuildTargetAssetRecord::default();
 
-        let source_file = x.source_file().get(&data_container).unwrap();
-        let entry_point = x.entry_point().get(&data_container).unwrap();
+        let source_file = x.source_file().get(data_container).unwrap();
+        let entry_point = x.entry_point().get(data_container).unwrap();
 
         //
         // Build a lookup of source file AssetID to PathBuf that it was imported from

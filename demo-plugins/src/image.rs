@@ -2,7 +2,7 @@ pub use super::*;
 use ::image::GenericImageView;
 use std::path::Path;
 
-use super::generated::{GpuImageAssetRecord, GpuImageImportedDataRecord};
+use super::generated::{GpuImageAssetRecord, GpuImageImportedDataReader, GpuImageImportedDataRecord, GpuImageImportedDataWriter};
 use demo_types::image::*;
 use hydrate_model::pipeline::{ImportContext, ScanContext};
 use hydrate_pipeline::{job_system, AssetId, BuilderRegistryBuilder, DataContainer, DataContainerMut, DataSet, Field, HashMap, ImportableAsset, ImporterRegistry, ImporterRegistryBuilder, JobApi, JobEnumeratedDependencies, JobInput, JobOutput, JobProcessor, JobProcessorRegistryBuilder, PropertyPath, Record, SchemaLinker, SchemaSet, SingleObject, BuilderContext, EnumerateDependenciesContext, RunContext};
@@ -141,18 +141,16 @@ impl JobProcessor for GpuImageJobProcessor {
         //
         let data_container = DataContainer::from_dataset(context.data_set, context.schema_set, context.input.asset_id);
         let x = GpuImageAssetRecord::default();
-        let compressed = x.compress().get(&data_container).unwrap();
+        let compressed = x.compress().get(data_container).unwrap();
 
         //
         // Read imported data
         //
-        let imported_data = &context.dependency_data[&context.input.asset_id];
-        let data_container = DataContainer::from_single_object(&imported_data, context.schema_set);
-        let x = GpuImageImportedDataRecord::new(PropertyPath::default());
-
-        let image_bytes = x.image_bytes().get(&data_container).unwrap().clone();
-        let width = x.width().get(&data_container).unwrap();
-        let height = x.height().get(&data_container).unwrap();
+        let imported_data = context.imported_data::<GpuImageImportedDataReader>(context.input.asset_id).unwrap();
+        let image_bytes_reader = imported_data.image_bytes();
+        let image_bytes = image_bytes_reader.get().unwrap();
+        let width = imported_data.width().get().unwrap();
+        let height = imported_data.height().get().unwrap();
 
         //
         // Compress the image, or just return the raw image bytes
@@ -179,7 +177,7 @@ impl JobProcessor for GpuImageJobProcessor {
             compressed_basis_data
         } else {
             log::debug!("Not compressing texture");
-            image_bytes
+            image_bytes.clone()
         };
 
         //
@@ -215,7 +213,7 @@ impl Builder for GpuImageBuilder {
     ) {
         let data_container = DataContainer::from_dataset(context.data_set, context.schema_set, context.asset_id);
         let x = GpuImageAssetRecord::default();
-        let compressed = x.compress().get(&data_container).unwrap();
+        let compressed = x.compress().get(data_container).unwrap();
 
         //Future: Might produce jobs per-platform
         context.enqueue_job::<GpuImageJobProcessor>(

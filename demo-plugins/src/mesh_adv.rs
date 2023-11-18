@@ -53,26 +53,26 @@ impl JobProcessor for MeshAdvMaterialJobProcessor {
         let data_container = DataContainer::from_dataset(context.data_set, context.schema_set, context.input.asset_id);
         let x = MeshAdvMaterialAssetRecord::default();
 
-        let base_color_factor = x.base_color_factor().get_vec4(&data_container).unwrap();
-        let emissive_factor = x.emissive_factor().get_vec3(&data_container).unwrap();
+        let base_color_factor = x.base_color_factor().get_vec4(data_container).unwrap();
+        let emissive_factor = x.emissive_factor().get_vec3(data_container).unwrap();
 
-        let metallic_factor = x.metallic_factor().get(&data_container).unwrap();
-        let roughness_factor = x.roughness_factor().get(&data_container).unwrap();
-        let normal_texture_scale = x.normal_texture_scale().get(&data_container).unwrap();
+        let metallic_factor = x.metallic_factor().get(data_container).unwrap();
+        let roughness_factor = x.roughness_factor().get(data_container).unwrap();
+        let normal_texture_scale = x.normal_texture_scale().get(data_container).unwrap();
 
-        let color_texture = x.color_texture().get(&data_container).unwrap();
+        let color_texture = x.color_texture().get(data_container).unwrap();
         let metallic_roughness_texture =
-            x.metallic_roughness_texture().get(&data_container).unwrap();
-        let normal_texture = x.normal_texture().get(&data_container).unwrap();
-        let emissive_texture = x.emissive_texture().get(&data_container).unwrap();
-        let shadow_method = x.shadow_method().get(&data_container).unwrap();
-        let blend_method = x.blend_method().get(&data_container).unwrap();
+            x.metallic_roughness_texture().get(data_container).unwrap();
+        let normal_texture = x.normal_texture().get(data_container).unwrap();
+        let emissive_texture = x.emissive_texture().get(data_container).unwrap();
+        let shadow_method = x.shadow_method().get(data_container).unwrap();
+        let blend_method = x.blend_method().get(data_container).unwrap();
 
-        let alpha_threshold = x.alpha_threshold().get(&data_container).unwrap();
-        let backface_culling = x.backface_culling().get(&data_container).unwrap();
+        let alpha_threshold = x.alpha_threshold().get(data_container).unwrap();
+        let backface_culling = x.backface_culling().get(data_container).unwrap();
         let color_texture_has_alpha_channel = x
             .color_texture_has_alpha_channel()
-            .get(&data_container)
+            .get(data_container)
             .unwrap();
 
         //
@@ -188,14 +188,14 @@ impl JobProcessor for MeshAdvMeshPreprocessJobProcessor {
         let mut materials = Vec::default();
         for entry in x
             .material_slots()
-            .resolve_entries(&data_container)
+            .resolve_entries(data_container)
             .unwrap()
             .into_iter()
         {
             let entry = x
                 .material_slots()
                 .entry(*entry)
-                .get(&data_container)
+                .get(data_container)
                 .unwrap();
             materials.push(entry);
         }
@@ -217,7 +217,7 @@ impl JobProcessor for MeshAdvMeshPreprocessJobProcessor {
         let mut mesh_part_data = Vec::default();
         for entry in x
             .mesh_parts()
-            .resolve_entries(&data_container)
+            .resolve_entries(data_container)
             .unwrap()
             .into_iter()
         {
@@ -322,14 +322,14 @@ impl JobProcessor for MeshAdvMeshPreprocessJobProcessor {
             let mut mesh_parts = Vec::default();
             for (entry, part_data) in x
                 .mesh_parts()
-                .resolve_entries(&data_container)
+                .resolve_entries(data_container)
                 .unwrap()
                 .into_iter()
                 .zip(mesh_part_data)
             {
                 let entry = x.mesh_parts().entry(*entry);
 
-                let material_slot_index = entry.material_index().get(&data_container).unwrap();
+                let material_slot_index = entry.material_index().get(data_container).unwrap();
                 let material_asset_id = materials[material_slot_index as usize];
                 let material_handle =
                     handle_factory.make_handle_to_default_artifact(material_asset_id);

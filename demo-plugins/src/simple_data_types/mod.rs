@@ -11,7 +11,7 @@ use bincode_data_builder::{SimpleBincodeDataBuilder, SimpleBincodeDataJobProcess
 
 impl SimpleData for TransformRef {
     fn from_data_container(
-        data_set_view: &DataContainer,
+        data_set_view: DataContainer,
         handle_context: HandleFactory,
     ) -> Self {
         let x = TransformRefRecord::default();
@@ -26,7 +26,7 @@ impl SimpleData for TransformRef {
 
 impl SimpleData for Transform {
     fn from_data_container(
-        data_container: &DataContainer,
+        data_container: DataContainer,
         _handle_context: HandleFactory,
     ) -> Self {
         let x = TransformRecord::default();
@@ -44,7 +44,7 @@ impl SimpleData for Transform {
 
 impl SimpleData for AllFields {
     fn from_data_container(
-        data_container: &DataContainer,
+        data_container: DataContainer,
         _handle_context: HandleFactory
     ) -> Self {
         let x = AllFieldsRecord::default();

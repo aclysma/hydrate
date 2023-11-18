@@ -22,6 +22,7 @@ pub use data_set::OverrideBehavior;
 mod data_set_view;
 pub use data_set_view::DataContainer;
 pub use data_set_view::DataContainerMut;
+pub use data_set_view::DataContainerOwned;
 
 mod single_object;
 pub use single_object::SingleObject;

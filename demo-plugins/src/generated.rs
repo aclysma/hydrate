@@ -201,6 +201,73 @@ impl<'a> AllFieldsWriter<'a> {
         U64FieldWriter::new(self.0.push("u64"), &self.1)
     }
 }
+pub struct AllFieldsOwned(PropertyPath, Rc<RefCell<Option<DataContainerOwned>>>);
+
+impl FieldOwned for AllFieldsOwned {
+    fn new(property_path: PropertyPath, data_container: &Rc<RefCell<Option<DataContainerOwned>>>) -> Self {
+        AllFieldsOwned(property_path, data_container.clone())
+    }
+}
+
+impl RecordOwned for AllFieldsOwned {
+    fn schema_name() -> &'static str {
+        "AllFields"
+    }
+}
+
+impl AllFieldsOwned {
+    pub fn boolean(self: &Self) -> BooleanFieldOwned {
+        BooleanFieldOwned::new(self.0.push("boolean"), &self.1)
+    }
+
+    pub fn dynamic_array_i32(self: &Self) -> DynamicArrayFieldOwned::<I32FieldOwned> {
+        DynamicArrayFieldOwned::<I32FieldOwned>::new(self.0.push("dynamic_array_i32"), &self.1)
+    }
+
+    pub fn dynamic_array_vec3(self: &Self) -> DynamicArrayFieldOwned::<Vec3Owned> {
+        DynamicArrayFieldOwned::<Vec3Owned>::new(self.0.push("dynamic_array_vec3"), &self.1)
+    }
+
+    pub fn f32(self: &Self) -> F32FieldOwned {
+        F32FieldOwned::new(self.0.push("f32"), &self.1)
+    }
+
+    pub fn f64(self: &Self) -> F64FieldOwned {
+        F64FieldOwned::new(self.0.push("f64"), &self.1)
+    }
+
+    pub fn i32(self: &Self) -> I32FieldOwned {
+        I32FieldOwned::new(self.0.push("i32"), &self.1)
+    }
+
+    pub fn i64(self: &Self) -> I64FieldOwned {
+        I64FieldOwned::new(self.0.push("i64"), &self.1)
+    }
+
+    pub fn nullable_bool(self: &Self) -> NullableFieldOwned::<BooleanFieldOwned> {
+        NullableFieldOwned::<BooleanFieldOwned>::new(self.0.push("nullable_bool"), &self.1)
+    }
+
+    pub fn nullable_vec3(self: &Self) -> NullableFieldOwned::<Vec3Owned> {
+        NullableFieldOwned::<Vec3Owned>::new(self.0.push("nullable_vec3"), &self.1)
+    }
+
+    pub fn reference(self: &Self) -> AssetRefFieldOwned {
+        AssetRefFieldOwned::new(self.0.push("reference"), &self.1)
+    }
+
+    pub fn string(self: &Self) -> StringFieldOwned {
+        StringFieldOwned::new(self.0.push("string"), &self.1)
+    }
+
+    pub fn u32(self: &Self) -> U32FieldOwned {
+        U32FieldOwned::new(self.0.push("u32"), &self.1)
+    }
+
+    pub fn u64(self: &Self) -> U64FieldOwned {
+        U64FieldOwned::new(self.0.push("u64"), &self.1)
+    }
+}
 #[derive(Default)]
 pub struct GlslBuildTargetAssetRecord(PropertyPath);
 
@@ -271,6 +338,29 @@ impl<'a> GlslBuildTargetAssetWriter<'a> {
         AssetRefFieldWriter::new(self.0.push("source_file"), &self.1)
     }
 }
+pub struct GlslBuildTargetAssetOwned(PropertyPath, Rc<RefCell<Option<DataContainerOwned>>>);
+
+impl FieldOwned for GlslBuildTargetAssetOwned {
+    fn new(property_path: PropertyPath, data_container: &Rc<RefCell<Option<DataContainerOwned>>>) -> Self {
+        GlslBuildTargetAssetOwned(property_path, data_container.clone())
+    }
+}
+
+impl RecordOwned for GlslBuildTargetAssetOwned {
+    fn schema_name() -> &'static str {
+        "GlslBuildTargetAsset"
+    }
+}
+
+impl GlslBuildTargetAssetOwned {
+    pub fn entry_point(self: &Self) -> StringFieldOwned {
+        StringFieldOwned::new(self.0.push("entry_point"), &self.1)
+    }
+
+    pub fn source_file(self: &Self) -> AssetRefFieldOwned {
+        AssetRefFieldOwned::new(self.0.push("source_file"), &self.1)
+    }
+}
 #[derive(Default)]
 pub struct GlslSourceFileAssetRecord(PropertyPath);
 
@@ -319,6 +409,22 @@ impl<'a> RecordWriter for GlslSourceFileAssetWriter<'a> {
 }
 
 impl<'a> GlslSourceFileAssetWriter<'a> {
+}
+pub struct GlslSourceFileAssetOwned(PropertyPath, Rc<RefCell<Option<DataContainerOwned>>>);
+
+impl FieldOwned for GlslSourceFileAssetOwned {
+    fn new(property_path: PropertyPath, data_container: &Rc<RefCell<Option<DataContainerOwned>>>) -> Self {
+        GlslSourceFileAssetOwned(property_path, data_container.clone())
+    }
+}
+
+impl RecordOwned for GlslSourceFileAssetOwned {
+    fn schema_name() -> &'static str {
+        "GlslSourceFileAsset"
+    }
+}
+
+impl GlslSourceFileAssetOwned {
 }
 #[derive(Default)]
 pub struct GlslSourceFileImportedDataRecord(PropertyPath);
@@ -378,6 +484,25 @@ impl<'a> GlslSourceFileImportedDataWriter<'a> {
         StringFieldWriter::new(self.0.push("code"), &self.1)
     }
 }
+pub struct GlslSourceFileImportedDataOwned(PropertyPath, Rc<RefCell<Option<DataContainerOwned>>>);
+
+impl FieldOwned for GlslSourceFileImportedDataOwned {
+    fn new(property_path: PropertyPath, data_container: &Rc<RefCell<Option<DataContainerOwned>>>) -> Self {
+        GlslSourceFileImportedDataOwned(property_path, data_container.clone())
+    }
+}
+
+impl RecordOwned for GlslSourceFileImportedDataOwned {
+    fn schema_name() -> &'static str {
+        "GlslSourceFileImportedData"
+    }
+}
+
+impl GlslSourceFileImportedDataOwned {
+    pub fn code(self: &Self) -> StringFieldOwned {
+        StringFieldOwned::new(self.0.push("code"), &self.1)
+    }
+}
 #[derive(Default)]
 pub struct GpuBufferAssetRecord(PropertyPath);
 
@@ -426,6 +551,22 @@ impl<'a> RecordWriter for GpuBufferAssetWriter<'a> {
 }
 
 impl<'a> GpuBufferAssetWriter<'a> {
+}
+pub struct GpuBufferAssetOwned(PropertyPath, Rc<RefCell<Option<DataContainerOwned>>>);
+
+impl FieldOwned for GpuBufferAssetOwned {
+    fn new(property_path: PropertyPath, data_container: &Rc<RefCell<Option<DataContainerOwned>>>) -> Self {
+        GpuBufferAssetOwned(property_path, data_container.clone())
+    }
+}
+
+impl RecordOwned for GpuBufferAssetOwned {
+    fn schema_name() -> &'static str {
+        "GpuBufferAsset"
+    }
+}
+
+impl GpuBufferAssetOwned {
 }
 #[derive(Default)]
 pub struct GpuBufferImportedDataRecord(PropertyPath);
@@ -509,6 +650,33 @@ impl<'a> GpuBufferImportedDataWriter<'a> {
         U32FieldWriter::new(self.0.push("resource_type"), &self.1)
     }
 }
+pub struct GpuBufferImportedDataOwned(PropertyPath, Rc<RefCell<Option<DataContainerOwned>>>);
+
+impl FieldOwned for GpuBufferImportedDataOwned {
+    fn new(property_path: PropertyPath, data_container: &Rc<RefCell<Option<DataContainerOwned>>>) -> Self {
+        GpuBufferImportedDataOwned(property_path, data_container.clone())
+    }
+}
+
+impl RecordOwned for GpuBufferImportedDataOwned {
+    fn schema_name() -> &'static str {
+        "GpuBufferImportedData"
+    }
+}
+
+impl GpuBufferImportedDataOwned {
+    pub fn alignment(self: &Self) -> U32FieldOwned {
+        U32FieldOwned::new(self.0.push("alignment"), &self.1)
+    }
+
+    pub fn data(self: &Self) -> BytesFieldOwned {
+        BytesFieldOwned::new(self.0.push("data"), &self.1)
+    }
+
+    pub fn resource_type(self: &Self) -> U32FieldOwned {
+        U32FieldOwned::new(self.0.push("resource_type"), &self.1)
+    }
+}
 #[derive(Default)]
 pub struct GpuImageAssetRecord(PropertyPath);
 
@@ -565,6 +733,25 @@ impl<'a> RecordWriter for GpuImageAssetWriter<'a> {
 impl<'a> GpuImageAssetWriter<'a> {
     pub fn compress(self: &'a Self) -> BooleanFieldWriter {
         BooleanFieldWriter::new(self.0.push("compress"), &self.1)
+    }
+}
+pub struct GpuImageAssetOwned(PropertyPath, Rc<RefCell<Option<DataContainerOwned>>>);
+
+impl FieldOwned for GpuImageAssetOwned {
+    fn new(property_path: PropertyPath, data_container: &Rc<RefCell<Option<DataContainerOwned>>>) -> Self {
+        GpuImageAssetOwned(property_path, data_container.clone())
+    }
+}
+
+impl RecordOwned for GpuImageAssetOwned {
+    fn schema_name() -> &'static str {
+        "GpuImageAsset"
+    }
+}
+
+impl GpuImageAssetOwned {
+    pub fn compress(self: &Self) -> BooleanFieldOwned {
+        BooleanFieldOwned::new(self.0.push("compress"), &self.1)
     }
 }
 #[derive(Default)]
@@ -647,6 +834,33 @@ impl<'a> GpuImageImportedDataWriter<'a> {
 
     pub fn width(self: &'a Self) -> U32FieldWriter {
         U32FieldWriter::new(self.0.push("width"), &self.1)
+    }
+}
+pub struct GpuImageImportedDataOwned(PropertyPath, Rc<RefCell<Option<DataContainerOwned>>>);
+
+impl FieldOwned for GpuImageImportedDataOwned {
+    fn new(property_path: PropertyPath, data_container: &Rc<RefCell<Option<DataContainerOwned>>>) -> Self {
+        GpuImageImportedDataOwned(property_path, data_container.clone())
+    }
+}
+
+impl RecordOwned for GpuImageImportedDataOwned {
+    fn schema_name() -> &'static str {
+        "GpuImageImportedData"
+    }
+}
+
+impl GpuImageImportedDataOwned {
+    pub fn height(self: &Self) -> U32FieldOwned {
+        U32FieldOwned::new(self.0.push("height"), &self.1)
+    }
+
+    pub fn image_bytes(self: &Self) -> BytesFieldOwned {
+        BytesFieldOwned::new(self.0.push("image_bytes"), &self.1)
+    }
+
+    pub fn width(self: &Self) -> U32FieldOwned {
+        U32FieldOwned::new(self.0.push("width"), &self.1)
     }
 }
 #[derive(Copy, Clone)]
@@ -926,6 +1140,77 @@ impl<'a> MeshAdvMaterialAssetWriter<'a> {
         EnumFieldWriter::<MeshAdvShadowMethodEnum>::new(self.0.push("shadow_method"), &self.1)
     }
 }
+pub struct MeshAdvMaterialAssetOwned(PropertyPath, Rc<RefCell<Option<DataContainerOwned>>>);
+
+impl FieldOwned for MeshAdvMaterialAssetOwned {
+    fn new(property_path: PropertyPath, data_container: &Rc<RefCell<Option<DataContainerOwned>>>) -> Self {
+        MeshAdvMaterialAssetOwned(property_path, data_container.clone())
+    }
+}
+
+impl RecordOwned for MeshAdvMaterialAssetOwned {
+    fn schema_name() -> &'static str {
+        "MeshAdvMaterialAsset"
+    }
+}
+
+impl MeshAdvMaterialAssetOwned {
+    pub fn alpha_threshold(self: &Self) -> F32FieldOwned {
+        F32FieldOwned::new(self.0.push("alpha_threshold"), &self.1)
+    }
+
+    pub fn backface_culling(self: &Self) -> BooleanFieldOwned {
+        BooleanFieldOwned::new(self.0.push("backface_culling"), &self.1)
+    }
+
+    pub fn base_color_factor(self: &Self) -> Vec4Owned {
+        Vec4Owned::new(self.0.push("base_color_factor"), &self.1)
+    }
+
+    pub fn blend_method(self: &Self) -> EnumFieldOwned::<MeshAdvBlendMethodEnum> {
+        EnumFieldOwned::<MeshAdvBlendMethodEnum>::new(self.0.push("blend_method"), &self.1)
+    }
+
+    pub fn color_texture(self: &Self) -> AssetRefFieldOwned {
+        AssetRefFieldOwned::new(self.0.push("color_texture"), &self.1)
+    }
+
+    pub fn color_texture_has_alpha_channel(self: &Self) -> BooleanFieldOwned {
+        BooleanFieldOwned::new(self.0.push("color_texture_has_alpha_channel"), &self.1)
+    }
+
+    pub fn emissive_factor(self: &Self) -> Vec3Owned {
+        Vec3Owned::new(self.0.push("emissive_factor"), &self.1)
+    }
+
+    pub fn emissive_texture(self: &Self) -> AssetRefFieldOwned {
+        AssetRefFieldOwned::new(self.0.push("emissive_texture"), &self.1)
+    }
+
+    pub fn metallic_factor(self: &Self) -> F32FieldOwned {
+        F32FieldOwned::new(self.0.push("metallic_factor"), &self.1)
+    }
+
+    pub fn metallic_roughness_texture(self: &Self) -> AssetRefFieldOwned {
+        AssetRefFieldOwned::new(self.0.push("metallic_roughness_texture"), &self.1)
+    }
+
+    pub fn normal_texture(self: &Self) -> AssetRefFieldOwned {
+        AssetRefFieldOwned::new(self.0.push("normal_texture"), &self.1)
+    }
+
+    pub fn normal_texture_scale(self: &Self) -> F32FieldOwned {
+        F32FieldOwned::new(self.0.push("normal_texture_scale"), &self.1)
+    }
+
+    pub fn roughness_factor(self: &Self) -> F32FieldOwned {
+        F32FieldOwned::new(self.0.push("roughness_factor"), &self.1)
+    }
+
+    pub fn shadow_method(self: &Self) -> EnumFieldOwned::<MeshAdvShadowMethodEnum> {
+        EnumFieldOwned::<MeshAdvShadowMethodEnum>::new(self.0.push("shadow_method"), &self.1)
+    }
+}
 #[derive(Default)]
 pub struct MeshAdvMaterialImportedDataRecord(PropertyPath);
 
@@ -974,6 +1259,22 @@ impl<'a> RecordWriter for MeshAdvMaterialImportedDataWriter<'a> {
 }
 
 impl<'a> MeshAdvMaterialImportedDataWriter<'a> {
+}
+pub struct MeshAdvMaterialImportedDataOwned(PropertyPath, Rc<RefCell<Option<DataContainerOwned>>>);
+
+impl FieldOwned for MeshAdvMaterialImportedDataOwned {
+    fn new(property_path: PropertyPath, data_container: &Rc<RefCell<Option<DataContainerOwned>>>) -> Self {
+        MeshAdvMaterialImportedDataOwned(property_path, data_container.clone())
+    }
+}
+
+impl RecordOwned for MeshAdvMaterialImportedDataOwned {
+    fn schema_name() -> &'static str {
+        "MeshAdvMaterialImportedData"
+    }
+}
+
+impl MeshAdvMaterialImportedDataOwned {
 }
 #[derive(Default)]
 pub struct MeshAdvMeshAssetRecord(PropertyPath);
@@ -1033,6 +1334,25 @@ impl<'a> MeshAdvMeshAssetWriter<'a> {
         DynamicArrayFieldWriter::<AssetRefFieldWriter>::new(self.0.push("material_slots"), &self.1)
     }
 }
+pub struct MeshAdvMeshAssetOwned(PropertyPath, Rc<RefCell<Option<DataContainerOwned>>>);
+
+impl FieldOwned for MeshAdvMeshAssetOwned {
+    fn new(property_path: PropertyPath, data_container: &Rc<RefCell<Option<DataContainerOwned>>>) -> Self {
+        MeshAdvMeshAssetOwned(property_path, data_container.clone())
+    }
+}
+
+impl RecordOwned for MeshAdvMeshAssetOwned {
+    fn schema_name() -> &'static str {
+        "MeshAdvMeshAsset"
+    }
+}
+
+impl MeshAdvMeshAssetOwned {
+    pub fn material_slots(self: &Self) -> DynamicArrayFieldOwned::<AssetRefFieldOwned> {
+        DynamicArrayFieldOwned::<AssetRefFieldOwned>::new(self.0.push("material_slots"), &self.1)
+    }
+}
 #[derive(Default)]
 pub struct MeshAdvMeshImportedDataRecord(PropertyPath);
 
@@ -1089,6 +1409,25 @@ impl<'a> RecordWriter for MeshAdvMeshImportedDataWriter<'a> {
 impl<'a> MeshAdvMeshImportedDataWriter<'a> {
     pub fn mesh_parts(self: &'a Self) -> DynamicArrayFieldWriter::<MeshAdvMeshImportedDataMeshPartWriter> {
         DynamicArrayFieldWriter::<MeshAdvMeshImportedDataMeshPartWriter>::new(self.0.push("mesh_parts"), &self.1)
+    }
+}
+pub struct MeshAdvMeshImportedDataOwned(PropertyPath, Rc<RefCell<Option<DataContainerOwned>>>);
+
+impl FieldOwned for MeshAdvMeshImportedDataOwned {
+    fn new(property_path: PropertyPath, data_container: &Rc<RefCell<Option<DataContainerOwned>>>) -> Self {
+        MeshAdvMeshImportedDataOwned(property_path, data_container.clone())
+    }
+}
+
+impl RecordOwned for MeshAdvMeshImportedDataOwned {
+    fn schema_name() -> &'static str {
+        "MeshAdvMeshImportedData"
+    }
+}
+
+impl MeshAdvMeshImportedDataOwned {
+    pub fn mesh_parts(self: &Self) -> DynamicArrayFieldOwned::<MeshAdvMeshImportedDataMeshPartOwned> {
+        DynamicArrayFieldOwned::<MeshAdvMeshImportedDataMeshPartOwned>::new(self.0.push("mesh_parts"), &self.1)
     }
 }
 #[derive(Default)]
@@ -1195,6 +1534,41 @@ impl<'a> MeshAdvMeshImportedDataMeshPartWriter<'a> {
 
     pub fn texture_coordinates(self: &'a Self) -> BytesFieldWriter {
         BytesFieldWriter::new(self.0.push("texture_coordinates"), &self.1)
+    }
+}
+pub struct MeshAdvMeshImportedDataMeshPartOwned(PropertyPath, Rc<RefCell<Option<DataContainerOwned>>>);
+
+impl FieldOwned for MeshAdvMeshImportedDataMeshPartOwned {
+    fn new(property_path: PropertyPath, data_container: &Rc<RefCell<Option<DataContainerOwned>>>) -> Self {
+        MeshAdvMeshImportedDataMeshPartOwned(property_path, data_container.clone())
+    }
+}
+
+impl RecordOwned for MeshAdvMeshImportedDataMeshPartOwned {
+    fn schema_name() -> &'static str {
+        "MeshAdvMeshImportedDataMeshPart"
+    }
+}
+
+impl MeshAdvMeshImportedDataMeshPartOwned {
+    pub fn indices(self: &Self) -> BytesFieldOwned {
+        BytesFieldOwned::new(self.0.push("indices"), &self.1)
+    }
+
+    pub fn material_index(self: &Self) -> U32FieldOwned {
+        U32FieldOwned::new(self.0.push("material_index"), &self.1)
+    }
+
+    pub fn normals(self: &Self) -> BytesFieldOwned {
+        BytesFieldOwned::new(self.0.push("normals"), &self.1)
+    }
+
+    pub fn positions(self: &Self) -> BytesFieldOwned {
+        BytesFieldOwned::new(self.0.push("positions"), &self.1)
+    }
+
+    pub fn texture_coordinates(self: &Self) -> BytesFieldOwned {
+        BytesFieldOwned::new(self.0.push("texture_coordinates"), &self.1)
     }
 }
 #[derive(Copy, Clone)]
@@ -1321,6 +1695,37 @@ impl<'a> TransformWriter<'a> {
         Vec3Writer::new(self.0.push("scale"), &self.1)
     }
 }
+pub struct TransformOwned(PropertyPath, Rc<RefCell<Option<DataContainerOwned>>>);
+
+impl FieldOwned for TransformOwned {
+    fn new(property_path: PropertyPath, data_container: &Rc<RefCell<Option<DataContainerOwned>>>) -> Self {
+        TransformOwned(property_path, data_container.clone())
+    }
+}
+
+impl RecordOwned for TransformOwned {
+    fn schema_name() -> &'static str {
+        "Transform"
+    }
+}
+
+impl TransformOwned {
+    pub fn all_fields(self: &Self) -> AllFieldsOwned {
+        AllFieldsOwned::new(self.0.push("all_fields"), &self.1)
+    }
+
+    pub fn position(self: &Self) -> Vec3Owned {
+        Vec3Owned::new(self.0.push("position"), &self.1)
+    }
+
+    pub fn rotation(self: &Self) -> Vec4Owned {
+        Vec4Owned::new(self.0.push("rotation"), &self.1)
+    }
+
+    pub fn scale(self: &Self) -> Vec3Owned {
+        Vec3Owned::new(self.0.push("scale"), &self.1)
+    }
+}
 #[derive(Default)]
 pub struct TransformRefRecord(PropertyPath);
 
@@ -1377,6 +1782,25 @@ impl<'a> RecordWriter for TransformRefWriter<'a> {
 impl<'a> TransformRefWriter<'a> {
     pub fn transform(self: &'a Self) -> AssetRefFieldWriter {
         AssetRefFieldWriter::new(self.0.push("transform"), &self.1)
+    }
+}
+pub struct TransformRefOwned(PropertyPath, Rc<RefCell<Option<DataContainerOwned>>>);
+
+impl FieldOwned for TransformRefOwned {
+    fn new(property_path: PropertyPath, data_container: &Rc<RefCell<Option<DataContainerOwned>>>) -> Self {
+        TransformRefOwned(property_path, data_container.clone())
+    }
+}
+
+impl RecordOwned for TransformRefOwned {
+    fn schema_name() -> &'static str {
+        "TransformRef"
+    }
+}
+
+impl TransformRefOwned {
+    pub fn transform(self: &Self) -> AssetRefFieldOwned {
+        AssetRefFieldOwned::new(self.0.push("transform"), &self.1)
     }
 }
 #[derive(Default)]
@@ -1459,6 +1883,33 @@ impl<'a> Vec3Writer<'a> {
 
     pub fn z(self: &'a Self) -> F32FieldWriter {
         F32FieldWriter::new(self.0.push("z"), &self.1)
+    }
+}
+pub struct Vec3Owned(PropertyPath, Rc<RefCell<Option<DataContainerOwned>>>);
+
+impl FieldOwned for Vec3Owned {
+    fn new(property_path: PropertyPath, data_container: &Rc<RefCell<Option<DataContainerOwned>>>) -> Self {
+        Vec3Owned(property_path, data_container.clone())
+    }
+}
+
+impl RecordOwned for Vec3Owned {
+    fn schema_name() -> &'static str {
+        "Vec3"
+    }
+}
+
+impl Vec3Owned {
+    pub fn x(self: &Self) -> F32FieldOwned {
+        F32FieldOwned::new(self.0.push("x"), &self.1)
+    }
+
+    pub fn y(self: &Self) -> F32FieldOwned {
+        F32FieldOwned::new(self.0.push("y"), &self.1)
+    }
+
+    pub fn z(self: &Self) -> F32FieldOwned {
+        F32FieldOwned::new(self.0.push("z"), &self.1)
     }
 }
 #[derive(Default)]
@@ -1553,5 +2004,36 @@ impl<'a> Vec4Writer<'a> {
 
     pub fn z(self: &'a Self) -> F32FieldWriter {
         F32FieldWriter::new(self.0.push("z"), &self.1)
+    }
+}
+pub struct Vec4Owned(PropertyPath, Rc<RefCell<Option<DataContainerOwned>>>);
+
+impl FieldOwned for Vec4Owned {
+    fn new(property_path: PropertyPath, data_container: &Rc<RefCell<Option<DataContainerOwned>>>) -> Self {
+        Vec4Owned(property_path, data_container.clone())
+    }
+}
+
+impl RecordOwned for Vec4Owned {
+    fn schema_name() -> &'static str {
+        "Vec4"
+    }
+}
+
+impl Vec4Owned {
+    pub fn w(self: &Self) -> F32FieldOwned {
+        F32FieldOwned::new(self.0.push("w"), &self.1)
+    }
+
+    pub fn x(self: &Self) -> F32FieldOwned {
+        F32FieldOwned::new(self.0.push("x"), &self.1)
+    }
+
+    pub fn y(self: &Self) -> F32FieldOwned {
+        F32FieldOwned::new(self.0.push("y"), &self.1)
+    }
+
+    pub fn z(self: &Self) -> F32FieldOwned {
+        F32FieldOwned::new(self.0.push("z"), &self.1)
     }
 }

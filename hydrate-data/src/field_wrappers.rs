@@ -5,8 +5,10 @@ use crate::{
 };
 use std::cell::RefCell;
 use std::marker::PhantomData;
+use std::ops::{Deref, DerefMut};
 use std::rc::Rc;
 use uuid::Uuid;
+use crate::data_set_view::DataContainerOwned;
 
 #[derive(Default)]
 pub struct PropertyPath(String);
@@ -48,6 +50,13 @@ pub trait FieldWriter<'a> {
     ) -> Self;
 }
 
+pub trait FieldOwned {
+    fn new(
+        property_path: PropertyPath,
+        data_container: &Rc<RefCell<Option<DataContainerOwned>>>,
+    ) -> Self;
+}
+
 pub trait Enum: Sized {
     fn to_symbol_name(&self) -> &'static str;
     fn from_symbol_name(str: &str) -> Option<Self>;
@@ -72,6 +81,53 @@ pub trait RecordReader {
 
 pub trait RecordWriter {
     fn schema_name() -> &'static str;
+}
+
+pub trait RecordOwned {
+    fn schema_name() -> &'static str;
+
+    fn new_single_object(schema_set: &SchemaSet) -> Option<SingleObject> {
+        let schema = schema_set
+            .find_named_type(Self::schema_name())
+            .unwrap()
+            .as_record()?;
+
+        Some(SingleObject::new(schema))
+    }
+}
+
+
+pub struct RecordBuilder<T: RecordOwned + FieldOwned>(Rc<RefCell<Option<DataContainerOwned>>>, T, PhantomData<T>);
+
+impl<T: RecordOwned + FieldOwned> RecordBuilder<T> {
+    pub fn new(schema_set: &SchemaSet) -> Self {
+        let single_object =
+            T::new_single_object(schema_set).unwrap();
+        let data_container =
+            DataContainerOwned::from_single_object(single_object, schema_set.clone());
+        let data_container = Rc::new(RefCell::new(Some(data_container)));
+        let owned = T::new(Default::default(), &data_container);
+        Self(data_container, owned, Default::default())
+    }
+
+    pub fn into_inner(self) -> DataSetResult<SingleObject> {
+        // We are unwrapping an Rc, the RefCell, Option, and the DataContainer
+        Ok(self.0.borrow_mut().take().ok_or(DataSetError::DataTaken)?.into_inner())
+    }
+}
+
+impl<T: RecordOwned + FieldOwned> Deref for RecordBuilder<T> {
+    type Target = T;
+
+    fn deref(&self) -> &Self::Target {
+        &self.1
+    }
+}
+
+impl<T: RecordOwned + FieldOwned> DerefMut for RecordBuilder<T> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.1
+    }
 }
 
 pub struct EnumField<T: Enum>(PropertyPath, PhantomData<T>);
@@ -163,6 +219,34 @@ impl<'a, T: Enum> EnumFieldWriter<'a, T> {
         value: T,
     ) -> DataSetResult<Option<Value>> {
         EnumField::<T>::do_set(&self.0, &mut *self.1.borrow_mut(), value)
+    }
+}
+
+pub struct EnumFieldOwned<T: Enum>(
+    pub PropertyPath,
+    Rc<RefCell<Option<DataContainerOwned>>>,
+    PhantomData<T>,
+);
+
+impl<T: Enum> FieldOwned for EnumFieldOwned<T> {
+    fn new(
+        property_path: PropertyPath,
+        data_container: &Rc<RefCell<Option<DataContainerOwned>>>,
+    ) -> Self {
+        EnumFieldOwned(property_path, data_container.clone(), PhantomData)
+    }
+}
+
+impl<T: Enum> EnumFieldOwned<T> {
+    pub fn get(&self) -> DataSetResult<T> {
+        EnumField::<T>::do_get(&self.0, self.1.borrow().as_ref().ok_or(DataSetError::DataTaken)?.read())
+    }
+
+    pub fn set(
+        &self,
+        value: T,
+    ) -> DataSetResult<Option<Value>> {
+        EnumField::<T>::do_set(&self.0, &mut self.1.borrow_mut().as_mut().ok_or(DataSetError::DataTaken)?.to_mut(), value)
     }
 }
 
@@ -263,18 +347,63 @@ impl<'a, T: FieldWriter<'a>> NullableFieldWriter<'a, T> {
 
     pub fn set_null_override(
         &'a self,
-        data_container: &mut DataContainerMut,
         null_override: NullOverride,
     ) -> DataSetResult<Option<T>> {
         let path = self.0.path();
-        data_container.set_null_override(path, null_override)?;
-        if data_container.resolve_null_override(path)? == NullOverride::SetNonNull {
+        self.1.borrow_mut().set_null_override(path, null_override)?;
+        if self.1.borrow_mut().resolve_null_override(path)? == NullOverride::SetNonNull {
             Ok(Some(T::new(self.0.push("value"), &self.1)))
         } else {
             Ok(None)
         }
     }
 }
+
+
+pub struct NullableFieldOwned<T: FieldOwned>(
+    pub PropertyPath,
+    Rc<RefCell<Option<DataContainerOwned>>>,
+    PhantomData<T>,
+);
+
+impl<T: FieldOwned> FieldOwned for NullableFieldOwned<T> {
+    fn new(
+        property_path: PropertyPath,
+        data_container: &Rc<RefCell<Option<DataContainerOwned>>>,
+    ) -> Self {
+        NullableFieldOwned(property_path, data_container.clone(), PhantomData)
+    }
+}
+
+impl<T: FieldOwned> NullableFieldOwned<T> {
+    pub fn resolve_null(self) -> DataSetResult<Option<T>> {
+        if self.resolve_null_override()? == NullOverride::SetNonNull {
+            Ok(Some(T::new(self.0.push("value"), &self.1)))
+        } else {
+            Ok(None)
+        }
+    }
+
+    pub fn resolve_null_override(&self) -> DataSetResult<NullOverride> {
+        self.1.borrow_mut().as_ref().ok_or(DataSetError::DataTaken)?.resolve_null_override(self.0.path())
+    }
+
+    pub fn set_null_override(
+        &self,
+        null_override: NullOverride,
+    ) -> DataSetResult<Option<T>> {
+        let path = self.0.path();
+        self.1.borrow_mut().as_mut().ok_or(DataSetError::DataTaken)?.set_null_override(path, null_override)?;
+        if self.1.borrow_mut().as_mut().ok_or(DataSetError::DataTaken)?.resolve_null_override(path)? == NullOverride::SetNonNull {
+            Ok(Some(T::new(self.0.push("value"), &self.1)))
+        } else {
+            Ok(None)
+        }
+    }
+}
+
+
+
 
 pub struct BooleanField(pub PropertyPath);
 
@@ -357,6 +486,30 @@ impl<'a> BooleanFieldWriter<'a> {
         value: bool,
     ) -> DataSetResult<Option<Value>> {
         BooleanField::do_set(&self.0, &mut *self.1.borrow_mut(), value)
+    }
+}
+
+pub struct BooleanFieldOwned(pub PropertyPath, Rc<RefCell<Option<DataContainerOwned>>>);
+
+impl FieldOwned for BooleanFieldOwned {
+    fn new(
+        property_path: PropertyPath,
+        data_container: &Rc<RefCell<Option<DataContainerOwned>>>,
+    ) -> Self {
+        BooleanFieldOwned(property_path, data_container.clone())
+    }
+}
+
+impl BooleanFieldOwned {
+    pub fn get(&self) -> DataSetResult<bool> {
+        BooleanField::do_get(&self.0, self.1.borrow_mut().as_mut().ok_or(DataSetError::DataTaken)?.read())
+    }
+
+    pub fn set(
+        &self,
+        value: bool,
+    ) -> DataSetResult<Option<Value>> {
+        BooleanField::do_set(&self.0, &mut self.1.borrow_mut().as_mut().ok_or(DataSetError::DataTaken)?.to_mut(), value)
     }
 }
 
@@ -444,6 +597,31 @@ impl<'a> I32FieldWriter<'a> {
     }
 }
 
+pub struct I32FieldOwned(pub PropertyPath, Rc<RefCell<Option<DataContainerOwned>>>);
+
+impl FieldOwned for I32FieldOwned {
+    fn new(
+        property_path: PropertyPath,
+        data_container: &Rc<RefCell<Option<DataContainerOwned>>>,
+    ) -> Self {
+        I32FieldOwned(property_path, data_container.clone())
+    }
+}
+
+impl I32FieldOwned {
+    pub fn get(&self) -> DataSetResult<i32> {
+        I32Field::do_get(&self.0, self.1.borrow_mut().as_mut().ok_or(DataSetError::DataTaken)?.read())
+    }
+
+    pub fn set(
+        &self,
+        value: i32,
+    ) -> DataSetResult<Option<Value>> {
+        I32Field::do_set(&self.0, &mut self.1.borrow_mut().as_mut().ok_or(DataSetError::DataTaken)?.to_mut(), value)
+    }
+}
+
+
 pub struct I64Field(pub PropertyPath);
 
 impl Field for I64Field {
@@ -525,6 +703,30 @@ impl<'a> I64FieldWriter<'a> {
         value: i64,
     ) -> DataSetResult<Option<Value>> {
         I64Field::do_set(&self.0, &mut *self.1.borrow_mut(), value)
+    }
+}
+
+pub struct I64FieldOwned(pub PropertyPath, Rc<RefCell<Option<DataContainerOwned>>>);
+
+impl FieldOwned for I64FieldOwned {
+    fn new(
+        property_path: PropertyPath,
+        data_container: &Rc<RefCell<Option<DataContainerOwned>>>,
+    ) -> Self {
+        I64FieldOwned(property_path, data_container.clone())
+    }
+}
+
+impl I64FieldOwned {
+    pub fn get(&self) -> DataSetResult<i64> {
+        I64Field::do_get(&self.0, self.1.borrow_mut().as_mut().ok_or(DataSetError::DataTaken)?.read())
+    }
+
+    pub fn set(
+        &self,
+        value: i64,
+    ) -> DataSetResult<Option<Value>> {
+        I64Field::do_set(&self.0, &mut self.1.borrow_mut().as_mut().ok_or(DataSetError::DataTaken)?.to_mut(), value)
     }
 }
 
@@ -612,6 +814,30 @@ impl<'a> U32FieldWriter<'a> {
     }
 }
 
+pub struct U32FieldOwned(pub PropertyPath, Rc<RefCell<Option<DataContainerOwned>>>);
+
+impl FieldOwned for U32FieldOwned {
+    fn new(
+        property_path: PropertyPath,
+        data_container: &Rc<RefCell<Option<DataContainerOwned>>>,
+    ) -> Self {
+        U32FieldOwned(property_path, data_container.clone())
+    }
+}
+
+impl U32FieldOwned {
+    pub fn get(&self) -> DataSetResult<u32> {
+        U32Field::do_get(&self.0, self.1.borrow_mut().as_mut().ok_or(DataSetError::DataTaken)?.read())
+    }
+
+    pub fn set(
+        &self,
+        value: u32,
+    ) -> DataSetResult<Option<Value>> {
+        U32Field::do_set(&self.0, &mut self.1.borrow_mut().as_mut().ok_or(DataSetError::DataTaken)?.to_mut(), value)
+    }
+}
+
 pub struct U64Field(pub PropertyPath);
 
 impl Field for U64Field {
@@ -693,6 +919,30 @@ impl<'a> U64FieldWriter<'a> {
         value: u64,
     ) -> DataSetResult<Option<Value>> {
         U64Field::do_set(&self.0, &mut *self.1.borrow_mut(), value)
+    }
+}
+
+pub struct U64FieldOwned(pub PropertyPath, Rc<RefCell<Option<DataContainerOwned>>>);
+
+impl FieldOwned for U64FieldOwned {
+    fn new(
+        property_path: PropertyPath,
+        data_container: &Rc<RefCell<Option<DataContainerOwned>>>,
+    ) -> Self {
+        U64FieldOwned(property_path, data_container.clone())
+    }
+}
+
+impl U64FieldOwned {
+    pub fn get(&self) -> DataSetResult<u64> {
+        U64Field::do_get(&self.0, self.1.borrow_mut().as_mut().ok_or(DataSetError::DataTaken)?.read())
+    }
+
+    pub fn set(
+        &self,
+        value: u64,
+    ) -> DataSetResult<Option<Value>> {
+        U64Field::do_set(&self.0, &mut self.1.borrow_mut().as_mut().ok_or(DataSetError::DataTaken)?.to_mut(), value)
     }
 }
 
@@ -780,6 +1030,30 @@ impl<'a> F32FieldWriter<'a> {
     }
 }
 
+pub struct F32FieldOwned(pub PropertyPath, Rc<RefCell<Option<DataContainerOwned>>>);
+
+impl FieldOwned for F32FieldOwned {
+    fn new(
+        property_path: PropertyPath,
+        data_container: &Rc<RefCell<Option<DataContainerOwned>>>,
+    ) -> Self {
+        F32FieldOwned(property_path, data_container.clone())
+    }
+}
+
+impl F32FieldOwned {
+    pub fn get(&self) -> DataSetResult<f32> {
+        F32Field::do_get(&self.0, self.1.borrow_mut().as_mut().ok_or(DataSetError::DataTaken)?.read())
+    }
+
+    pub fn set(
+        &self,
+        value: f32,
+    ) -> DataSetResult<Option<Value>> {
+        F32Field::do_set(&self.0, &mut self.1.borrow_mut().as_mut().ok_or(DataSetError::DataTaken)?.to_mut(), value)
+    }
+}
+
 pub struct F64Field(pub PropertyPath);
 
 impl Field for F64Field {
@@ -861,6 +1135,30 @@ impl<'a> F64FieldWriter<'a> {
         value: f64,
     ) -> DataSetResult<Option<Value>> {
         F64Field::do_set(&self.0, &mut *self.1.borrow_mut(), value)
+    }
+}
+
+pub struct F64FieldOwned(pub PropertyPath, Rc<RefCell<Option<DataContainerOwned>>>);
+
+impl FieldOwned for F64FieldOwned {
+    fn new(
+        property_path: PropertyPath,
+        data_container: &Rc<RefCell<Option<DataContainerOwned>>>,
+    ) -> Self {
+        F64FieldOwned(property_path, data_container.clone())
+    }
+}
+
+impl F64FieldOwned {
+    pub fn get(&self) -> DataSetResult<f64> {
+        F64Field::do_get(&self.0, self.1.borrow_mut().as_mut().ok_or(DataSetError::DataTaken)?.read())
+    }
+
+    pub fn set(
+        &self,
+        value: f64,
+    ) -> DataSetResult<Option<Value>> {
+        F64Field::do_set(&self.0, &mut self.1.borrow_mut().as_mut().ok_or(DataSetError::DataTaken)?.to_mut(), value)
     }
 }
 
@@ -956,6 +1254,40 @@ impl<'a> BytesFieldWriter<'a> {
     }
 }
 
+pub struct BytesFieldOwned(pub PropertyPath, Rc<RefCell<Option<DataContainerOwned>>>);
+
+impl FieldOwned for BytesFieldOwned {
+    fn new(
+        property_path: PropertyPath,
+        data_container: &Rc<RefCell<Option<DataContainerOwned>>>,
+    ) -> Self {
+        BytesFieldOwned(property_path, data_container.clone())
+    }
+}
+
+impl BytesFieldOwned {
+    pub fn get(&self) -> DataSetResult<Vec<u8>> {
+        // The writer has to clone because we can't return a reference to the interior of the Rc<RefCell<T>>
+        // We could fix this by making the bytes type be an Arc<[u8]>
+        Ok(self
+            .1
+            .borrow_mut()
+            .as_mut()
+            .ok_or(DataSetError::DataTaken)?
+            .resolve_property(self.0.path())?
+            .as_bytes()
+            .unwrap()
+            .clone())
+    }
+
+    pub fn set(
+        &self,
+        value: Vec<u8>,
+    ) -> DataSetResult<Option<Value>> {
+        BytesField::do_set(&self.0, &mut self.1.borrow_mut().as_mut().ok_or(DataSetError::DataTaken)?.to_mut(), value)
+    }
+}
+
 pub struct StringField(pub PropertyPath);
 
 impl Field for StringField {
@@ -1041,6 +1373,30 @@ impl<'a> StringFieldWriter<'a> {
     }
 }
 
+pub struct StringFieldOwned(pub PropertyPath, Rc<RefCell<Option<DataContainerOwned>>>);
+
+impl FieldOwned for StringFieldOwned {
+    fn new(
+        property_path: PropertyPath,
+        data_container: &Rc<RefCell<Option<DataContainerOwned>>>,
+    ) -> Self {
+        StringFieldOwned(property_path, data_container.clone())
+    }
+}
+
+impl StringFieldOwned {
+    pub fn get(&self) -> DataSetResult<String> {
+        StringField::do_get(&self.0, self.1.borrow_mut().as_mut().ok_or(DataSetError::DataTaken)?.read())
+    }
+
+    pub fn set(
+        &self,
+        value: String,
+    ) -> DataSetResult<Option<Value>> {
+        StringField::do_set(&self.0, &mut self.1.borrow_mut().as_mut().ok_or(DataSetError::DataTaken)?.to_mut(), value)
+    }
+}
+
 pub struct DynamicArrayField<T: Field>(pub PropertyPath, PhantomData<T>);
 
 impl<T: Field> Field for DynamicArrayField<T> {
@@ -1118,7 +1474,6 @@ impl<'a, T: FieldWriter<'a>> FieldWriter<'a> for DynamicArrayFieldWriter<'a, T> 
 impl<'a, T: FieldWriter<'a>> DynamicArrayFieldWriter<'a, T> {
     pub fn resolve_entries(
         &self,
-        data_container: DataContainer,
     ) -> DataSetResult<Box<[Uuid]>> {
         self.1.borrow_mut().resolve_dynamic_array(self.0.path())
     }
@@ -1133,6 +1488,44 @@ impl<'a, T: FieldWriter<'a>> DynamicArrayFieldWriter<'a, T> {
     pub fn add_entry(&self) -> DataSetResult<Uuid> {
         self.1
             .borrow_mut()
+            .add_dynamic_array_override(self.0.path())
+    }
+}
+
+pub struct DynamicArrayFieldOwned<T: FieldOwned>(
+    pub PropertyPath,
+    Rc<RefCell<Option<DataContainerOwned>>>,
+    PhantomData<T>,
+);
+
+impl<'a, T: FieldOwned> FieldOwned for DynamicArrayFieldOwned<T> {
+    fn new(
+        property_path: PropertyPath,
+        data_container: &Rc<RefCell<Option<DataContainerOwned>>>,
+    ) -> Self {
+        DynamicArrayFieldOwned(property_path, data_container.clone(), PhantomData)
+    }
+}
+
+impl<'a, T: FieldOwned> DynamicArrayFieldOwned<T> {
+    pub fn resolve_entries(
+        &self,
+    ) -> DataSetResult<Box<[Uuid]>> {
+        self.1.borrow_mut().as_mut().ok_or(DataSetError::DataTaken)?.resolve_dynamic_array(self.0.path())
+    }
+
+    pub fn entry(
+        &'a self,
+        entry_uuid: Uuid,
+    ) -> T {
+        T::new(self.0.push(&entry_uuid.to_string()), &self.1)
+    }
+
+    pub fn add_entry(&self) -> DataSetResult<Uuid> {
+        self.1
+            .borrow_mut()
+            .as_mut()
+            .ok_or(DataSetError::DataTaken)?
             .add_dynamic_array_override(self.0.path())
     }
 }
@@ -1218,5 +1611,29 @@ impl<'a> AssetRefFieldWriter<'a> {
         value: AssetId,
     ) -> DataSetResult<Option<Value>> {
         AssetRefField::do_set(&self.0, &mut *self.1.borrow_mut(), value)
+    }
+}
+
+pub struct AssetRefFieldOwned(pub PropertyPath, Rc<RefCell<Option<DataContainerOwned>>>);
+
+impl FieldOwned for AssetRefFieldOwned {
+    fn new(
+        property_path: PropertyPath,
+        data_container: &Rc<RefCell<Option<DataContainerOwned>>>,
+    ) -> Self {
+        AssetRefFieldOwned(property_path, data_container.clone())
+    }
+}
+
+impl AssetRefFieldOwned {
+    pub fn get(&self) -> DataSetResult<AssetId> {
+        AssetRefField::do_get(&self.0, self.1.borrow_mut().as_mut().ok_or(DataSetError::DataTaken)?.read())
+    }
+
+    pub fn set(
+        &self,
+        value: AssetId,
+    ) -> DataSetResult<Option<Value>> {
+        AssetRefField::do_set(&self.0, &mut self.1.borrow_mut().as_mut().ok_or(DataSetError::DataTaken)?.to_mut(), value)
     }
 }

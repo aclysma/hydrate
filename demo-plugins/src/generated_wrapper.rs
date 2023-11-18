@@ -1,6 +1,6 @@
 use demo_types::mesh_adv::{MeshAdvBlendMethod, MeshAdvShadowMethod};
 use hydrate_data::*;
-use hydrate_model::{DataContainer, DataContainerMut, DataSetResult};
+use hydrate_model::{DataContainer, DataContainerMut, DataContainerOwned, DataSetResult};
 use std::cell::RefCell;
 use std::rc::Rc;
 

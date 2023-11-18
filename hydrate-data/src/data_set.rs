@@ -24,6 +24,8 @@ pub enum DataSetError {
     SchemaNotFound,
     InvalidSchema,
     UuidParseError,
+    // the data was in a container, but moved out of it (i.e. Option::take())
+    DataTaken
 }
 
 pub type DataSetResult<T> = Result<T, DataSetError>;

@@ -391,3 +391,192 @@ impl<'a> DataContainerWrite for DataContainerMut<'a> {
         self.add_dynamic_array_override(path)
     }
 }
+
+
+/// Provides a read/write view into a DataSet or SingleObject. A schema can be used to write into
+/// both forms.
+pub enum DataContainerOwned {
+    SingleObject(SingleObject, SchemaSet),
+}
+
+impl DataContainerOwned {
+    pub fn into_inner(self) -> SingleObject {
+        match self {
+            DataContainerOwned::SingleObject(a, b) => a
+        }
+    }
+
+    pub fn from_single_object(
+        single_object: SingleObject,
+        schema_set: SchemaSet,
+    ) -> Self {
+        DataContainerOwned::SingleObject(single_object, schema_set)
+    }
+
+    pub fn read<'a>(&'a self) -> DataContainer<'a> {
+        match self {
+            DataContainerOwned::SingleObject(a, b) => DataContainer::SingleObject(&a, &b),
+        }
+    }
+
+    pub fn to_mut(&mut self) -> DataContainerMut {
+        match self {
+            DataContainerOwned::SingleObject(a, b) => DataContainerMut::SingleObject(a, b)
+        }
+    }
+
+    pub fn resolve_property(
+        &self,
+        path: impl AsRef<str>,
+    ) -> DataSetResult<&Value> {
+        // We can't simply call read().resolve_property() because rust can't prove the borrowing safety
+        match self {
+            DataContainerOwned::SingleObject(single_object, schema_set) => {
+                single_object.resolve_property(schema_set, path)
+            }
+        }
+    }
+
+    pub fn get_null_override(
+        &self,
+        path: impl AsRef<str>,
+    ) -> DataSetResult<NullOverride> {
+        self.read().get_null_override(path)
+    }
+
+    pub fn set_null_override(
+        &mut self,
+        path: impl AsRef<str>,
+        null_override: NullOverride,
+    ) -> DataSetResult<()> {
+        match self {
+            DataContainerOwned::SingleObject(single_object, schema_set) => {
+                single_object.set_null_override(schema_set, path, null_override)
+            }
+        }
+    }
+
+    pub fn resolve_null_override(
+        &self,
+        path: impl AsRef<str>,
+    ) -> DataSetResult<NullOverride> {
+        self.read().resolve_null_override(path)
+    }
+
+    pub fn resolve_dynamic_array(
+        &self,
+        path: impl AsRef<str>,
+    ) -> DataSetResult<Box<[Uuid]>> {
+        self.read().resolve_dynamic_array(path)
+    }
+
+    pub fn get_override_behavior(
+        &self,
+        path: impl AsRef<str>,
+    ) -> DataSetResult<OverrideBehavior> {
+        self.read().get_override_behavior(path)
+    }
+
+    pub fn set_property_override(
+        &mut self,
+        path: impl AsRef<str>,
+        value: Option<Value>,
+    ) -> DataSetResult<Option<Value>> {
+        match self {
+            DataContainerOwned::SingleObject(single_object, schema_set) => {
+                single_object.set_property_override(schema_set, path, value)
+            }
+        }
+    }
+
+    pub fn set_override_behavior(
+        &mut self,
+        path: impl AsRef<str>,
+        behavior: OverrideBehavior,
+    ) -> DataSetResult<()> {
+        match self {
+            DataContainerOwned::SingleObject(_, _) => Ok(()),
+        }
+    }
+
+    pub fn add_dynamic_array_override(
+        &mut self,
+        path: impl AsRef<str>,
+    ) -> DataSetResult<Uuid> {
+        match self {
+            DataContainerOwned::SingleObject(single_object, schema_set) => {
+                single_object.add_dynamic_array_override(schema_set, path)
+            }
+        }
+    }
+}
+
+impl DataContainerRead for DataContainerOwned {
+    fn resolve_property(
+        &self,
+        path: impl AsRef<str>,
+    ) -> DataSetResult<&Value> {
+        self.resolve_property(path)
+    }
+
+    fn get_null_override(
+        &self,
+        path: impl AsRef<str>,
+    ) -> DataSetResult<NullOverride> {
+        self.get_null_override(path)
+    }
+
+    fn resolve_null_override(
+        &self,
+        path: impl AsRef<str>,
+    ) -> DataSetResult<NullOverride> {
+        self.resolve_null_override(path)
+    }
+
+    fn resolve_dynamic_array(
+        &self,
+        path: impl AsRef<str>,
+    ) -> DataSetResult<Box<[Uuid]>> {
+        self.resolve_dynamic_array(path)
+    }
+
+    fn get_override_behavior(
+        &self,
+        path: impl AsRef<str>,
+    ) -> DataSetResult<OverrideBehavior> {
+        self.get_override_behavior(path)
+    }
+}
+
+impl DataContainerWrite for DataContainerOwned {
+    fn set_null_override(
+        &mut self,
+        path: impl AsRef<str>,
+        null_override: NullOverride,
+    ) -> DataSetResult<()> {
+        self.set_null_override(path, null_override)
+    }
+
+    fn set_property_override(
+        &mut self,
+        path: impl AsRef<str>,
+        value: Option<Value>,
+    ) -> DataSetResult<Option<Value>> {
+        self.set_property_override(path, value)
+    }
+
+    fn set_override_behavior(
+        &mut self,
+        path: impl AsRef<str>,
+        behavior: OverrideBehavior,
+    ) -> DataSetResult<()> {
+        self.set_override_behavior(path, behavior)
+    }
+
+    fn add_dynamic_array_override(
+        &mut self,
+        path: impl AsRef<str>,
+    ) -> DataSetResult<Uuid> {
+        self.add_dynamic_array_override(path)
+    }
+}

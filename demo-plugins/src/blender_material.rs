@@ -7,7 +7,7 @@ use hydrate_model::pipeline::{ImportedImportable, Importer, ScannedImportable};
 use hydrate_pipeline::{
     BuilderRegistryBuilder, Enum, HashMap, ImportableAsset, ImporterId, ImporterRegistryBuilder,
     JobProcessorRegistryBuilder, PipelineResult, RecordAccessor, ReferencedSourceFile,
-    SchemaLinker,
+    ScanContextImportable, SchemaLinker,
 };
 use serde::{Deserialize, Serialize};
 use type_uuid::TypeUuid;
@@ -59,50 +59,32 @@ impl Importer for BlenderMaterialImporter {
     fn scan_file(
         &self,
         context: ScanContext,
-    ) -> PipelineResult<Vec<ScannedImportable>> {
-        let asset_type = context
-            .schema_set
-            .find_named_type(MeshAdvMaterialAssetAccessor::schema_name())?
-            .as_record()?
-            .clone();
-
+    ) -> PipelineResult<()> {
         let json_str = std::fs::read_to_string(context.path)?;
         let json_data: MaterialJsonFileFormat = {
             profiling::scope!("serde_json::from_str");
             serde_json::from_str(&json_str)?
         };
 
-        let mut file_references: Vec<ReferencedSourceFile> = Default::default();
+        let importable = context.add_importable::<MeshAdvMaterialAssetOwned>(None)?;
 
-        fn try_add_file_reference<T: TypeUuid>(
-            file_references: &mut Vec<ReferencedSourceFile>,
-            path_as_string: &Option<PathBuf>,
-        ) {
-            let importer_image_id = ImporterId(Uuid::from_bytes(T::UUID));
-            if let Some(path_as_string) = path_as_string {
-                file_references.push(ReferencedSourceFile {
-                    importer_id: importer_image_id,
-                    path: path_as_string.clone(),
-                })
-            }
+        if let Some(path) = &json_data.color_texture {
+            importable.add_file_reference(path)?;
         }
 
-        try_add_file_reference::<GpuImageImporter>(&mut file_references, &json_data.color_texture);
-        try_add_file_reference::<GpuImageImporter>(
-            &mut file_references,
-            &json_data.metallic_roughness_texture,
-        );
-        try_add_file_reference::<GpuImageImporter>(&mut file_references, &json_data.normal_texture);
-        try_add_file_reference::<GpuImageImporter>(
-            &mut file_references,
-            &json_data.emissive_texture,
-        );
+        if let Some(path) = &json_data.metallic_roughness_texture {
+            importable.add_file_reference(path)?;
+        }
 
-        Ok(vec![ScannedImportable {
-            name: None,
-            asset_type,
-            file_references,
-        }])
+        if let Some(path) = &json_data.normal_texture {
+            importable.add_file_reference(path)?;
+        }
+
+        if let Some(path) = &json_data.emissive_texture {
+            importable.add_file_reference(path)?;
+        }
+
+        Ok(())
     }
 
     fn import_file(

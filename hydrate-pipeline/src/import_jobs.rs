@@ -191,12 +191,15 @@ impl ImportJobs {
         //
         // Create the thread pool
         //
+        let thread_count = num_cpus::get();
+        //let thread_count = 1;
+
         let (result_tx, result_rx) = crossbeam_channel::unbounded();
         let thread_pool = ImportWorkerThreadPool::new(
             importer_registry,
             editor_model.schema_set(),
             &self.import_data_root_path,
-            num_cpus::get(),
+            thread_count,
             result_tx,
         );
 

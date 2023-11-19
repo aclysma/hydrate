@@ -513,31 +513,19 @@ impl Importer for GlslSourceFileImporter {
 
     fn scan_file(
         &self,
-        context: ScanContext,
-    ) -> PipelineResult<Vec<ScannedImportable>> {
+        mut context: ScanContext,
+    ) -> PipelineResult<()> {
         log::debug!("GlslSourceFileImporter reading file {:?}", context.path);
         let code = std::fs::read_to_string(context.path)?;
         let code_chars: Vec<_> = code.chars().collect();
 
-        let referenced_source_files: Vec<_> = find_included_paths(&code_chars)
-            .unwrap()
-            .into_iter()
-            .map(|path| ReferencedSourceFile {
-                importer_id: self.importer_id(),
-                path,
-            })
-            .collect();
+        let importable = context.add_importable::<GlslSourceFileAssetOwned>(None)?;
 
-        let asset_type = context
-            .schema_set
-            .find_named_type(GlslSourceFileAssetAccessor::schema_name())?
-            .as_record()?
-            .clone();
-        Ok(vec![ScannedImportable {
-            name: None,
-            asset_type,
-            file_references: referenced_source_files,
-        }])
+        for include_path in find_included_paths(&code_chars)? {
+            importable.add_file_reference_with_importer::<Self, _>(include_path)?;
+        }
+
+        Ok(())
     }
 
     fn import_file(

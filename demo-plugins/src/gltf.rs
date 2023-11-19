@@ -1,8 +1,9 @@
 pub use super::*;
 
 use super::generated::{
-    MeshAdvMaterialAssetAccessor, MeshAdvMaterialAssetOwned, MeshAdvMeshAssetAccessor,
-    MeshAdvMeshAssetOwned, MeshAdvMeshImportedDataOwned,
+    GpuImageAssetOwned, GpuImageImportedDataOwned, MeshAdvMaterialAssetAccessor,
+    MeshAdvMaterialAssetOwned, MeshAdvMeshAssetAccessor, MeshAdvMeshAssetOwned,
+    MeshAdvMeshImportedDataOwned,
 };
 use hydrate_data::RecordOwned;
 use hydrate_model::pipeline::{AssetPlugin, ImportContext, ScanContext};
@@ -37,45 +38,21 @@ impl Importer for GltfImporter {
     fn scan_file(
         &self,
         context: ScanContext,
-    ) -> PipelineResult<Vec<ScannedImportable>> {
-        let mesh_asset_type = context
-            .schema_set
-            .find_named_type(MeshAdvMeshAssetAccessor::schema_name())?
-            .as_record()?
-            .clone();
-
-        let material_asset_type = context
-            .schema_set
-            .find_named_type(MeshAdvMaterialAssetAccessor::schema_name())?
-            .as_record()?
-            .clone();
-
+    ) -> PipelineResult<()> {
         let (doc, _buffers, _images) =
             ::gltf::import(context.path).map_err(|e| format!("gltf_import() failed: {}", e))?;
 
-        let mut importables = Vec::default();
-
         for (i, mesh) in doc.meshes().enumerate() {
             let name = name_or_index("mesh", mesh.name(), i);
-
-            importables.push(ScannedImportable {
-                name: Some(name),
-                asset_type: mesh_asset_type.clone(),
-                file_references: Default::default(),
-            });
+            context.add_importable::<MeshAdvMeshAssetOwned>(Some(name))?;
         }
 
         for (i, material) in doc.materials().enumerate() {
             let name = name_or_index("material", material.name(), i);
-
-            importables.push(ScannedImportable {
-                name: Some(name),
-                asset_type: material_asset_type.clone(),
-                file_references: Default::default(),
-            });
+            context.add_importable::<MeshAdvMaterialAssetOwned>(Some(name))?;
         }
 
-        Ok(importables)
+        Ok(())
     }
 
     fn import_file(
@@ -89,6 +66,35 @@ impl Importer for GltfImporter {
             ::gltf::import(context.path).map_err(|e| format!("gltf_import() failed: {}", e))?;
 
         let mut imported_assets = HashMap::default();
+
+        let mut image_index_to_object_id = HashMap::default();
+
+        for (i, image) in doc.images().enumerate() {
+            let name = Some(name_or_index("image", image.name(), i));
+            if let Some(importable_object) = context.importable_assets.get(&name) {
+                //
+                // Create import data
+                //
+                let import_data = GpuImageAssetOwned::new_builder(context.schema_set);
+                // omitted for brevity
+
+                //
+                // Create the default asset
+                //
+                let asset_data = GpuImageImportedDataOwned::new_builder(context.schema_set);
+                //omitted for brevity
+
+                image_index_to_object_id.insert(image.index(), importable_object.id);
+                let id = imported_assets.insert(
+                    name,
+                    ImportedImportable {
+                        file_references: Default::default(),
+                        import_data: Some(import_data.into_inner()?),
+                        default_asset: Some(asset_data.into_inner()?),
+                    },
+                );
+            }
+        }
 
         for (i, mesh) in doc.meshes().enumerate() {
             let name = Some(name_or_index("mesh", mesh.name(), i));
@@ -140,7 +146,34 @@ impl Importer for GltfImporter {
                     .normal_texture_scale()
                     .set(material.normal_texture().map_or(1.0, |x| x.scale()))?;
 
-                //TODO: This needs to be updated to handle images in the GLTF or referenced externally
+                if let Some(texture) = material.pbr_metallic_roughness().base_color_texture() {
+                    let texture_index = texture.texture().index();
+                    let texture_object_id = image_index_to_object_id[&texture_index];
+                    default_asset.color_texture().set(texture_object_id)?;
+                }
+
+                if let Some(texture) = material
+                    .pbr_metallic_roughness()
+                    .metallic_roughness_texture()
+                {
+                    let texture_index = texture.texture().index();
+                    let texture_object_id = image_index_to_object_id[&texture_index];
+                    default_asset
+                        .metallic_roughness_texture()
+                        .set(texture_object_id)?;
+                }
+
+                if let Some(texture) = material.normal_texture() {
+                    let texture_index = texture.texture().index();
+                    let texture_object_id = image_index_to_object_id[&texture_index];
+                    default_asset.normal_texture().set(texture_object_id)?;
+                }
+
+                if let Some(texture) = material.emissive_texture() {
+                    let texture_index = texture.texture().index();
+                    let texture_object_id = image_index_to_object_id[&texture_index];
+                    default_asset.emissive_texture().set(texture_object_id)?;
+                }
 
                 // x.color_texture().set(&mut default_asset_data_container, material.color_texture().unwrap_or_default())?
                 // x.metallic_roughness_texture().set(&mut default_asset_data_container, material.metallic_roughness_texture().unwrap_or_default())?

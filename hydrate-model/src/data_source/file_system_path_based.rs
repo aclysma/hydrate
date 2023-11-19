@@ -688,17 +688,19 @@ impl DataSource for FileSystemPathBasedDataSource {
                 } else {
                     let importer = self.importer_registry.importer(importers[0]).unwrap();
 
-                    let scanned_importables = {
+                    let mut scanned_importables = HashMap::default();
+                    {
                         profiling::scope!(&format!(
                             "Importer::scan_file {}",
                             source_file.to_string_lossy()
                         ));
                         importer
-                            .scan_file(ScanContext {
-                                path: &source_file,
-                                schema_set: edit_context.schema_set(),
-                                importer_registry: &self.importer_registry,
-                            })
+                            .scan_file(ScanContext::new(
+                                &source_file,
+                                edit_context.schema_set(),
+                                &self.importer_registry,
+                                &mut scanned_importables,
+                            ))
                             .unwrap()
                     };
 
@@ -707,7 +709,7 @@ impl DataSource for FileSystemPathBasedDataSource {
                         .get(&source_file)
                         .cloned()
                         .unwrap_or_default();
-                    for scanned_importable in &scanned_importables {
+                    for (_, scanned_importable) in &scanned_importables {
                         // Does it exist in the meta file? If so, we need to reuse the ID
                         meta_file
                             .past_id_assignments
@@ -727,7 +729,7 @@ impl DataSource for FileSystemPathBasedDataSource {
                     //let source_file_metadata = FileMetadata::new(&std::fs::metadata(&source_file).unwrap());
 
                     let mut importables = HashMap::<Option<String>, AssetId>::default();
-                    for scanned_importable in &scanned_importables {
+                    for (_, scanned_importable) in &scanned_importables {
                         let empty_string = String::default();
                         let imporable_asset_id = meta_file.past_id_assignments.get(
                             scanned_importable
@@ -760,7 +762,7 @@ impl DataSource for FileSystemPathBasedDataSource {
                         ScannedSourceFile {
                             meta_file,
                             importer,
-                            scanned_importables,
+                            scanned_importables: scanned_importables.into_values().collect(),
                         },
                     );
                 }
@@ -872,7 +874,7 @@ impl DataSource for FileSystemPathBasedDataSource {
 
                         //println!("referenced {:?} {:?}", file_reference_absolute_path, scanned_source_files.keys());
                         //println!("pull from {:?}", scanned_source_files.keys());
-                        //println!("referenced {:?}", file_reference_absolute_path);
+                        println!("referenced {:?}", file_reference_absolute_path);
                         let referenced_scanned_source_file = scanned_source_files
                             .get(&file_reference_absolute_path)
                             .unwrap();

@@ -359,6 +359,9 @@ impl JobExecutor {
             }),
         };
 
+        let thread_count = num_cpus::get();
+        //let thread_count = 1;
+
         let (thread_pool_result_tx, thread_pool_result_rx) = crossbeam_channel::unbounded();
         let thread_pool = JobExecutorThreadPool::new(
             job_processor_registry.clone(),
@@ -366,7 +369,7 @@ impl JobExecutor {
             &import_data_root_path,
             &job_data_root_path,
             job_api_impl.clone(),
-            num_cpus::get(),
+            thread_count,
             thread_pool_result_tx,
         );
 

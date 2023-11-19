@@ -1,6 +1,12 @@
+use crate::PipelineError::DataSetError;
 use crate::{ImporterRegistry, PipelineResult};
-use hydrate_data::{AssetId, HashMap, ImporterId, SchemaRecord, SchemaSet, SingleObject};
+use hydrate_data::{
+    AssetId, HashMap, ImporterId, RecordOwned, SchemaRecord, SchemaSet, SingleObject,
+};
+use hydrate_schema::DataSetResult;
+use std::cell::RefCell;
 use std::path::{Path, PathBuf};
+use std::rc::Rc;
 use type_uuid::{TypeUuid, TypeUuidDynamic};
 use uuid::Uuid;
 
@@ -46,10 +52,167 @@ pub struct ImportableAsset {
     pub referenced_paths: HashMap<PathBuf, AssetId>,
 }
 
+#[derive(Clone)]
 pub struct ScanContext<'a> {
     pub path: &'a Path,
     pub schema_set: &'a SchemaSet,
     pub importer_registry: &'a ImporterRegistry,
+    pub(crate) scanned_importables: Rc<RefCell<&'a mut HashMap<Option<String>, ScannedImportable>>>,
+}
+
+pub struct ScanContextImportable<'a> {
+    context: ScanContext<'a>,
+    importable_name: Option<String>,
+}
+
+impl<'a> ScanContext<'a> {
+    pub fn new(
+        path: &'a Path,
+        schema_set: &'a SchemaSet,
+        importer_registry: &'a ImporterRegistry,
+        scanned_importables: &'a mut HashMap<Option<String>, ScannedImportable>,
+    ) -> ScanContext<'a> {
+        ScanContext {
+            path,
+            schema_set,
+            importer_registry,
+            scanned_importables: Rc::new(RefCell::new(scanned_importables)),
+        }
+    }
+
+    pub fn add_importable<T: RecordOwned>(
+        &self,
+        name: Option<String>,
+    ) -> PipelineResult<ScanContextImportable<'a>> {
+        let asset_type = self
+            .schema_set
+            .find_named_type(T::schema_name())?
+            .as_record()?
+            .clone();
+
+        self.add_importable_with_record(name, asset_type)
+    }
+
+    pub fn add_importable_with_record(
+        &self,
+        name: Option<String>,
+        schema_record: SchemaRecord,
+    ) -> PipelineResult<ScanContextImportable<'a>> {
+        let scanned_importable = ScannedImportable {
+            name: name.clone(),
+            asset_type: schema_record,
+            file_references: Default::default(),
+        };
+        if self.scanned_importables.borrow().contains_key(&name) {
+            Err(format!("The importable {:?} was added twice", name))?;
+        }
+        let old = self
+            .scanned_importables
+            .borrow_mut()
+            .insert(name.clone(), scanned_importable);
+        assert!(old.is_none());
+        Ok(ScanContextImportable {
+            context: self.clone(),
+            importable_name: name.clone(),
+        })
+    }
+
+    pub fn add_file_reference_with_importer_id<PathT: Into<PathBuf>>(
+        &self,
+        name: Option<String>,
+        path: PathT,
+        importer_id: ImporterId,
+    ) -> PipelineResult<()> {
+        let file_reference = ReferencedSourceFile {
+            importer_id,
+            path: path.into(),
+        };
+
+        self.scanned_importables
+            .borrow_mut()
+            .get_mut(&name)
+            .ok_or(format!("Trying to add file reference for importable named '{:?}'. The importable must be added before adding path references", name))?
+            .file_references.push(file_reference);
+
+        Ok(())
+    }
+
+    pub fn add_file_reference<PathT: Into<PathBuf>>(
+        &self,
+        name: Option<String>,
+        path: PathT,
+    ) -> PipelineResult<()> {
+        let path = path.into();
+        let importer = self.importer_registry.importers_for_file_extension(
+            path.extension()
+                .ok_or("File has no extension, cannot determine importer to use")?
+                .to_str()
+                .ok_or("File extension cannot be converted to string")?,
+        );
+
+        if importer.len() == 0 {
+            Err(format!(
+                "No importer found for file extension {:?} in path {:?}",
+                path.extension(),
+                path
+            ))?;
+        }
+
+        if importer.len() > 1 {
+            Err(format!(
+                "Multiple importers found for file extension {:?} in path {:?}",
+                path.extension(),
+                path
+            ))?;
+        }
+
+        self.add_file_reference_with_importer_id(name, path, importer[0])
+    }
+
+    pub fn add_file_reference_with_importer<ImporterT: TypeUuid, PathT: Into<PathBuf>>(
+        &self,
+        name: Option<String>,
+        path: PathT,
+    ) -> PipelineResult<()> {
+        self.add_file_reference_with_importer_id(
+            name,
+            path,
+            ImporterId(Uuid::from_bytes(ImporterT::UUID)),
+        )
+    }
+}
+
+impl<'a> ScanContextImportable<'a> {
+    pub fn add_file_reference_with_importer_id<PathT: Into<PathBuf>>(
+        &self,
+        path: PathT,
+        importer_id: ImporterId,
+    ) -> PipelineResult<&Self> {
+        self.context.add_file_reference_with_importer_id(
+            self.importable_name.clone(),
+            path,
+            importer_id,
+        )?;
+        Ok(self)
+    }
+
+    pub fn add_file_reference<PathT: Into<PathBuf>>(
+        &self,
+        path: PathT,
+    ) -> PipelineResult<&Self> {
+        self.context
+            .add_file_reference(self.importable_name.clone(), path)?;
+        Ok(self)
+    }
+
+    pub fn add_file_reference_with_importer<ImporterT: TypeUuid, PathT: Into<PathBuf>>(
+        &self,
+        path: PathT,
+    ) -> PipelineResult<&Self> {
+        self.context
+            .add_file_reference_with_importer::<ImporterT, _>(self.importable_name.clone(), path)?;
+        Ok(self)
+    }
 }
 
 pub struct ImportContext<'a> {
@@ -71,7 +234,7 @@ pub trait Importer: TypeUuidDynamic + Sync + Send + 'static {
     fn scan_file(
         &self,
         context: ScanContext,
-    ) -> PipelineResult<Vec<ScannedImportable>>;
+    ) -> PipelineResult<()>;
 
     // Open the file and extract all the data from it required for the build step, or for build
     // steps for assets referencing this asset

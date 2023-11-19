@@ -74,12 +74,16 @@ pub fn recursively_gather_import_operations_and_create_assets(
     let mut default_importable_asset_id = None;
     let mut assets_to_regenerate = HashSet::default();
 
-    let scanned_importables = importer.scan_file(ScanContext {
-        path: source_file_path,
-        schema_set: editor_context.schema_set(),
+    let mut scanned_importables = HashMap::default();
+
+    importer.scan_file(ScanContext::new(
+        source_file_path,
+        editor_context.schema_set(),
         importer_registry,
-    })?;
-    for scanned_importable in &scanned_importables {
+        &mut scanned_importables,
+    ))?;
+
+    for (_, scanned_importable) in &scanned_importables {
         // let mut file_references = Vec::default();
         // for file_reference in &scanned_importable.file_references {
         //     file_references.push(file_reference.path.clone());

@@ -73,13 +73,7 @@ impl Importer for BlenderMeshImporter {
     fn scan_file(
         &self,
         context: ScanContext,
-    ) -> PipelineResult<Vec<ScannedImportable>> {
-        let mesh_adv_asset_type = context
-            .schema_set
-            .find_named_type(MeshAdvMeshAssetAccessor::schema_name())?
-            .as_record()?
-            .clone();
-
+    ) -> PipelineResult<()> {
         let bytes = std::fs::read(context.path)?;
 
         let b3f_reader = B3FReader::new(&bytes)
@@ -89,33 +83,16 @@ impl Importer for BlenderMeshImporter {
             serde_json::from_slice(b3f_reader.get_block(0)).map_err(|e| e.to_string())?
         };
 
-        fn try_add_file_reference<T: TypeUuid>(
-            file_references: &mut Vec<ReferencedSourceFile>,
-            path: PathBuf,
-        ) {
-            let importer_image_id = ImporterId(Uuid::from_bytes(T::UUID));
-            file_references.push(ReferencedSourceFile {
-                importer_id: importer_image_id,
-                path,
-            })
-        }
+        context.add_importable::<MeshAdvMeshAssetOwned>(None)?;
 
-        let mut mesh_file_references = Vec::default();
         for mesh_part in &mesh_as_json.mesh_parts {
-            try_add_file_reference::<BlenderMaterialImporter>(
-                &mut mesh_file_references,
-                mesh_part.material.clone(),
-            );
+            context.add_file_reference_with_importer::<BlenderMaterialImporter, _>(
+                None,
+                &mesh_part.material,
+            )?;
         }
 
-        let mut scanned_importables = Vec::default();
-        scanned_importables.push(ScannedImportable {
-            name: None,
-            asset_type: mesh_adv_asset_type,
-            file_references: mesh_file_references,
-        });
-
-        Ok(scanned_importables)
+        Ok(())
     }
 
     fn import_file(

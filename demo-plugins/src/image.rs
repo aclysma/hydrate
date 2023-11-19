@@ -32,17 +32,9 @@ impl Importer for GpuImageImporter {
     fn scan_file(
         &self,
         context: ScanContext,
-    ) -> PipelineResult<Vec<ScannedImportable>> {
-        let asset_type = context
-            .schema_set
-            .find_named_type(GpuImageAssetAccessor::schema_name())?
-            .as_record()?
-            .clone();
-        Ok(vec![ScannedImportable {
-            name: None,
-            asset_type,
-            file_references: Default::default(),
-        }])
+    ) -> PipelineResult<()> {
+        context.add_importable::<GpuImageAssetOwned>(None)?;
+        Ok(())
     }
 
     fn import_file(
@@ -167,7 +159,7 @@ impl JobProcessor for GpuImageJobProcessor {
             let compressed_basis_data = Arc::new(compressor.basis_file().to_vec());
             compressed_basis_data
         } else {
-            log::debug!("Not compressing texture");
+            //log::debug!("Not compressing texture");
             (*image_bytes).clone()
         };
 

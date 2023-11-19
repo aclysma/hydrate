@@ -58,14 +58,12 @@ impl Importer for GltfImporter {
     fn import_file(
         &self,
         context: ImportContext,
-    ) -> PipelineResult<HashMap<Option<String>, ImportedImportable>> {
+    ) -> PipelineResult<()> {
         //
         // Read the file
         //
         let (doc, _buffers, _images) =
             ::gltf::import(context.path).map_err(|e| format!("gltf_import() failed: {}", e))?;
-
-        let mut imported_assets = HashMap::default();
 
         let mut image_index_to_object_id = HashMap::default();
 
@@ -85,14 +83,7 @@ impl Importer for GltfImporter {
                 //omitted for brevity
 
                 image_index_to_object_id.insert(image.index(), importable_object.id);
-                let id = imported_assets.insert(
-                    name,
-                    ImportedImportable {
-                        file_references: Default::default(),
-                        import_data: Some(import_data.into_inner()?),
-                        default_asset: Some(asset_data.into_inner()?),
-                    },
-                );
+                context.add_importable(name, asset_data.into_inner()?, Some(import_data.into_inner()?));
             }
         }
 
@@ -112,14 +103,7 @@ impl Importer for GltfImporter {
                 //
                 // Return the created assets
                 //
-                imported_assets.insert(
-                    name,
-                    ImportedImportable {
-                        file_references: Default::default(),
-                        import_data: Some(import_data.into_inner()?),
-                        default_asset: Some(asset_data.into_inner()?),
-                    },
-                );
+                context.add_importable(name, asset_data.into_inner()?, Some(import_data.into_inner()?));
             }
         }
 
@@ -216,18 +200,11 @@ impl Importer for GltfImporter {
                 //
                 // Return the created assets
                 //
-                imported_assets.insert(
-                    name,
-                    ImportedImportable {
-                        file_references: Default::default(),
-                        import_data: None,
-                        default_asset: Some(default_asset.into_inner()?),
-                    },
-                );
+                context.add_importable(name, default_asset.into_inner()?, None);
             }
         }
 
-        Ok(imported_assets)
+        Ok(())
     }
 }
 

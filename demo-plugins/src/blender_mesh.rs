@@ -98,7 +98,7 @@ impl Importer for BlenderMeshImporter {
     fn import_file(
         &self,
         context: ImportContext,
-    ) -> PipelineResult<HashMap<Option<String>, ImportedImportable>> {
+    ) -> PipelineResult<()> {
         //
         // Read the file
         //
@@ -201,16 +201,8 @@ impl Importer for BlenderMeshImporter {
         //
         // Return the created assets
         //
-        let mut imported_assets = HashMap::default();
-        imported_assets.insert(
-            None,
-            ImportedImportable {
-                file_references: Default::default(),
-                import_data: Some(import_data.into_inner()?),
-                default_asset: Some(default_asset.into_inner()?),
-            },
-        );
-        Ok(imported_assets)
+        context.add_importable(None, default_asset.into_inner()?, Some(import_data.into_inner()?));
+        Ok(())
     }
 }
 

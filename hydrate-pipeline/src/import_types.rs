@@ -28,8 +28,7 @@ pub struct ScannedImportable {
 }
 
 pub struct ImportedImportable {
-    pub file_references: Vec<ReferencedSourceFile>,
-    pub default_asset: Option<SingleObject>,
+    pub default_asset: SingleObject,
     pub import_data: Option<SingleObject>,
 }
 
@@ -38,14 +37,6 @@ pub trait ImporterStatic: TypeUuid {
         ImporterId(Uuid::from_bytes(Self::UUID))
     }
 }
-
-// #[derive(PartialEq, Eq, Hash, Debug, Clone)]
-// pub struct FileReferenceKey {
-//     // The asset ID that is referencing something by path
-//     pub importable_name: String,
-//     // The path used to reference some other asset
-//     pub referenced_path: PathBuf,
-// }
 
 pub struct ImportableAsset {
     pub id: AssetId,
@@ -219,6 +210,37 @@ pub struct ImportContext<'a> {
     pub path: &'a Path,
     pub importable_assets: &'a HashMap<Option<String>, ImportableAsset>,
     pub schema_set: &'a SchemaSet,
+
+    pub(crate) imported_importables: Rc<RefCell<&'a mut HashMap<Option<String>, ImportedImportable>>>,
+    //TODO: Have an Rc<RefCell<&mut T>> to a hashmap of created assets
+    //TODO: Helper to get asset ID for path reference for an importable
+
+    // Should I create an importer for each imported file? Maybe scan produces an object that is
+    // passed into import? Or it produces a closure?
+}
+
+impl<'a> ImportContext<'a> {
+    pub fn new(
+        path: &'a Path,
+        importable_assets: &'a HashMap<Option<String>, ImportableAsset>,
+        schema_set: &'a SchemaSet,
+        imported_importables: &'a mut HashMap<Option<String>, ImportedImportable>,
+    ) -> ImportContext<'a> {
+        ImportContext {
+            path,
+            importable_assets,
+            schema_set,
+            imported_importables: Rc::new(RefCell::new(imported_importables)),
+        }
+    }
+
+    pub fn add_importable(&self, name: Option<String>, asset: SingleObject, import_data: Option<SingleObject>) {
+        let old = self.imported_importables.borrow_mut().insert(name, ImportedImportable {
+            import_data,
+            default_asset: asset,
+        });
+        assert!(old.is_none());
+    }
 }
 
 // Interface all importers must implement
@@ -241,5 +263,5 @@ pub trait Importer: TypeUuidDynamic + Sync + Send + 'static {
     fn import_file(
         &self,
         context: ImportContext,
-    ) -> PipelineResult<HashMap<Option<String>, ImportedImportable>>;
+    ) -> PipelineResult<()>;
 }

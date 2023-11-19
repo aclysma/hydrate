@@ -28,7 +28,7 @@ pub enum ImportThreadRequest {
 
 // ImportedImportable with anything not needed for main thread to commit the work removed
 pub struct ImportThreadImportedImportable {
-    pub default_asset: Option<SingleObject>,
+    pub default_asset: SingleObject,
 }
 
 // Results from successful import
@@ -57,21 +57,18 @@ fn do_import(
 ) -> PipelineResult<HashMap<Option<String>, ImportThreadImportedImportable>> {
     let importer_id = msg.import_op.importer_id;
     let importer = importer_registry.importer(importer_id).unwrap();
+    let mut imported_importables = HashMap::default();
 
     let imported_assets = {
         profiling::scope!("Importer::import_file");
-        importer.import_file(ImportContext {
-            path: &msg.import_op.path,
-            importable_assets: &msg.importable_assets,
-            schema_set,
-        })?
+        importer.import_file(ImportContext::new(&msg.import_op.path, &msg.importable_assets, schema_set, &mut imported_importables))?
     };
 
-    let mut imported_importables = HashMap::default();
+    let mut written_importables = HashMap::default();
 
-    for (name, imported_asset) in imported_assets {
+    for (name, imported_asset) in imported_importables {
         if let Some(asset_id) = msg.import_op.asset_ids.get(&name) {
-            let default_asset = imported_asset.default_asset.as_ref().unwrap();
+            let default_asset = &imported_asset.default_asset;
             let type_name = default_asset.schema().name();
 
             profiling::scope!(&format!("Importable {:?} {}", name, type_name));
@@ -120,7 +117,7 @@ fn do_import(
             }
         }
 
-        imported_importables.insert(
+        written_importables.insert(
             name,
             ImportThreadImportedImportable {
                 default_asset: imported_asset.default_asset,
@@ -128,7 +125,7 @@ fn do_import(
         );
     }
 
-    Ok(imported_importables)
+    Ok(written_importables)
 }
 
 impl ImportWorkerThread {

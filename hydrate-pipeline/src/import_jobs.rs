@@ -273,11 +273,9 @@ impl ImportJobs {
                                 .assets_to_regenerate
                                 .contains(asset_id)
                             {
-                                if let Some(default_asset) = &imported_asset.default_asset {
-                                    editor_model
-                                        .init_from_single_object(*asset_id, default_asset)
-                                        .unwrap();
-                                }
+                                editor_model
+                                    .init_from_single_object(*asset_id, &imported_asset.default_asset)
+                                    .unwrap();
                             }
                         }
                     }

@@ -241,28 +241,24 @@ impl JobProcessor for MeshAdvMeshPreprocessJobProcessor {
             // Get strongly typed slices of all input data for this mesh part
             //
             let positions_field_reader = entry.positions();
-            let positions_bytes = positions_field_reader.get().unwrap();
+            let positions_bytes = positions_field_reader.get()?;
             let positions = try_cast_u8_slice::<[f32; 3]>(positions_bytes)
-                .ok_or("Could not cast due to alignment")
-                .unwrap();
+                .ok_or("Could not cast due to alignment")?;
 
             let normal_field_reader = entry.normals();
-            let normals_bytes = normal_field_reader.get().unwrap();
+            let normals_bytes = normal_field_reader.get()?;
             let normals = try_cast_u8_slice::<[f32; 3]>(normals_bytes)
-                .ok_or("Could not cast due to alignment")
-                .unwrap();
+                .ok_or("Could not cast due to alignment")?;
 
             let tex_coords_field_reader = entry.texture_coordinates();
-            let tex_coords_bytes = tex_coords_field_reader.get().unwrap();
+            let tex_coords_bytes = tex_coords_field_reader.get()?;
             let tex_coords = try_cast_u8_slice::<[f32; 2]>(tex_coords_bytes)
-                .ok_or("Could not cast due to alignment")
-                .unwrap();
+                .ok_or("Could not cast due to alignment")?;
 
             let indices_field_reader = entry.indices();
-            let indices_bytes = indices_field_reader.get().unwrap();
-            let part_indices = try_cast_u8_slice::<u32>(indices_bytes)
-                .ok_or("Could not cast due to alignment")
-                .unwrap();
+            let indices_bytes = indices_field_reader.get()?;
+            let part_indices =
+                try_cast_u8_slice::<u32>(indices_bytes).ok_or("Could not cast due to alignment")?;
 
             //
             // Part data which mostly contains offsets in the buffers for this part

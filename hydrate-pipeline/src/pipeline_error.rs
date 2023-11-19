@@ -10,6 +10,7 @@ pub enum PipelineError {
     IoError(Arc<std::io::Error>),
     BincodeError(Arc<bincode::Error>),
     JsonError(Arc<serde_json::Error>),
+    UuidError(uuid::Error),
 }
 
 impl std::error::Error for PipelineError {
@@ -20,6 +21,7 @@ impl std::error::Error for PipelineError {
             PipelineError::IoError(ref e) => Some(&**e),
             PipelineError::BincodeError(ref e) => Some(&**e),
             PipelineError::JsonError(ref e) => Some(&**e),
+            PipelineError::UuidError(ref e) => Some(e),
         }
     }
 }
@@ -38,6 +40,7 @@ impl core::fmt::Display for PipelineError {
             PipelineError::IoError(ref e) => e.fmt(fmt),
             PipelineError::BincodeError(ref e) => e.fmt(fmt),
             PipelineError::JsonError(ref e) => e.fmt(fmt),
+            PipelineError::UuidError(ref e) => e.fmt(fmt),
         }
     }
 }
@@ -75,5 +78,11 @@ impl From<bincode::Error> for PipelineError {
 impl From<serde_json::Error> for PipelineError {
     fn from(error: serde_json::Error) -> Self {
         PipelineError::JsonError(Arc::new(error))
+    }
+}
+
+impl From<uuid::Error> for PipelineError {
+    fn from(error: uuid::Error) -> Self {
+        PipelineError::UuidError(error)
     }
 }

@@ -16,6 +16,10 @@ mod schema_def;
 pub use schema_def::*;
 
 mod schema_cache;
+
+mod error;
+pub use error::{DataSetError, DataSetResult};
+
 pub use schema_cache::SchemaCacheSingleFile;
 
 #[derive(Copy, Clone, PartialEq, Eq, Hash)]

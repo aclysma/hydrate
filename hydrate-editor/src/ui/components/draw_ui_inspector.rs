@@ -1,4 +1,3 @@
-use std::sync::Arc;
 use crate::app_state::AppState;
 use crate::ui::asset_browser_grid_drag_drop::AssetBrowserGridPayload;
 use crate::ui::ImguiDisableHelper;
@@ -7,6 +6,7 @@ use hydrate_model::edit_context::EditContext;
 use hydrate_model::value::ValueEnum;
 use hydrate_model::{EndContextBehavior, Schema, SchemaEnum, Value};
 use imgui::im_str;
+use std::sync::Arc;
 
 fn draw_property_style<F: FnOnce(&imgui::Ui)>(
     ui: &imgui::Ui,
@@ -653,27 +653,25 @@ fn draw_inspector_nexdb_property(
 
                 if null_override != NullOverride::SetNonNull {
                     if ui.button(im_str!("Set Non-Null")) {
-                        edit_context.set_null_override(
-                            asset_id,
-                            property_path,
-                            NullOverride::SetNonNull,
-                        );
+                        edit_context
+                            .set_null_override(asset_id, property_path, NullOverride::SetNonNull)
+                            .unwrap();
                         null_override = NullOverride::SetNonNull;
                     }
                 } else {
                     if ui.button(im_str!("Set Null")) {
-                        edit_context.set_null_override(
-                            asset_id,
-                            property_path,
-                            NullOverride::SetNull,
-                        );
+                        edit_context
+                            .set_null_override(asset_id, property_path, NullOverride::SetNull)
+                            .unwrap();
                         null_override = NullOverride::SetNull;
                     }
                 }
 
                 ui.same_line();
                 if ui.button(im_str!("Inherit Null Status")) {
-                    edit_context.set_null_override(asset_id, property_path, NullOverride::Unset);
+                    edit_context
+                        .set_null_override(asset_id, property_path, NullOverride::Unset)
+                        .unwrap();
                 }
 
                 drop(disable_helper);

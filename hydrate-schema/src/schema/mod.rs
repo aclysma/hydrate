@@ -22,8 +22,8 @@ pub use ref_constraint::*;
 mod static_array;
 pub use static_array::*;
 
-use crate::HashMap;
 use crate::SchemaFingerprint;
+use crate::{DataSetError, DataSetResult, HashMap};
 use std::hash::{Hash, Hasher};
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
@@ -87,21 +87,33 @@ impl SchemaNamedType {
         }
     }
 
-    pub fn as_record(&self) -> Option<&SchemaRecord> {
+    pub fn as_record(&self) -> DataSetResult<&SchemaRecord> {
+        self.try_as_record().ok_or(DataSetError::InvalidSchema)
+    }
+
+    pub fn try_as_record(&self) -> Option<&SchemaRecord> {
         match self {
             SchemaNamedType::Record(x) => Some(x),
             _ => None,
         }
     }
 
-    pub fn as_enum(&self) -> Option<&SchemaEnum> {
+    pub fn as_enum(&self) -> DataSetResult<&SchemaEnum> {
+        self.try_as_enum().ok_or(DataSetError::InvalidSchema)
+    }
+
+    pub fn try_as_enum(&self) -> Option<&SchemaEnum> {
         match self {
             SchemaNamedType::Enum(x) => Some(x),
             _ => None,
         }
     }
 
-    pub fn as_fixed(&self) -> Option<&SchemaFixed> {
+    pub fn as_fixed(&self) -> DataSetResult<&SchemaFixed> {
+        self.try_as_fixed().ok_or(DataSetError::InvalidSchema)
+    }
+
+    pub fn try_as_fixed(&self) -> Option<&SchemaFixed> {
         match self {
             SchemaNamedType::Fixed(x) => Some(x),
             _ => None,
@@ -130,16 +142,6 @@ impl SchemaNamedType {
 
         Some(schema)
     }
-
-    // pub fn create_from_def(&self, &schema_def: SchemaDefNamedType, schemas_by_name: &HashMap<SchemaFingerprint, SchemaNamedType>) -> SchemaNamedType {
-    //     match schema_def {
-    //         SchemaDefNamedType::Record(def) => {
-    //             Schema::NamedType(SchemaRecord::create_from_def(def))
-    //         }
-    //         SchemaDefNamedType::Enum(_) => {}
-    //         SchemaDefNamedType::Fixed(_) => {}
-    //     }
-    // }
 }
 
 /// Describes format of data, either a single primitive value or complex layout comprised of

@@ -2,8 +2,8 @@ use crate::app_state::{ActionQueueSender, ModalAction, ModalActionControlFlow};
 use crate::db_state::DbState;
 use crate::ui_state::UiState;
 use hydrate_model::pipeline::import_util::ImportToQueue;
-use hydrate_model::pipeline::Importer;
 use hydrate_model::pipeline::{AssetEngine, ImporterRegistry};
+use hydrate_model::pipeline::{Importer, PipelineResult};
 use hydrate_model::{AssetId, AssetLocation, HashSet, LocationTreeNode};
 use imgui::sys::ImVec2;
 use imgui::{im_str, PopupModal, TreeNodeFlags};
@@ -159,7 +159,7 @@ fn recursively_gather_import_operations_and_create_assets(
     asset_engine: &AssetEngine,
     selected_import_location: &AssetLocation,
     imports_to_queue: &mut Vec<ImportToQueue>,
-) -> Option<AssetId> {
+) -> PipelineResult<Option<AssetId>> {
     hydrate_model::pipeline::import_util::recursively_gather_import_operations_and_create_assets(
         file,
         importer,
@@ -393,7 +393,8 @@ impl ModalAction for ImportFilesModal {
                                 asset_engine,
                                 &self.selected_import_location,
                                 &mut imports_to_queue,
-                            );
+                            )
+                            .unwrap();
 
                             for import_to_queue in imports_to_queue {
                                 asset_engine.queue_import_operation(

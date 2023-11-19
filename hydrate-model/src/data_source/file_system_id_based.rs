@@ -5,7 +5,6 @@ use hydrate_data::AssetLocation;
 use hydrate_pipeline::import_util::ImportToQueue;
 use hydrate_schema::SchemaNamedType;
 use std::path::{Path, PathBuf};
-use uuid::Uuid;
 
 fn load_asset_files(
     edit_context: &mut EditContext,

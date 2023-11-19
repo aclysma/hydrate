@@ -194,7 +194,10 @@ impl DbState {
             "all_fields.dynamic_array_vec3",
         );
 
-        edit_model.root_edit_context_mut().restore_assets_from(db);
+        edit_model
+            .root_edit_context_mut()
+            .restore_assets_from(db)
+            .unwrap();
         edit_model
     }
 

@@ -4,10 +4,9 @@ use crate::generated::GpuBufferAssetAccessor;
 use demo_types::gpu_buffer::GpuBufferBuiltData;
 use hydrate_model::pipeline::{AssetPlugin, Builder};
 use hydrate_pipeline::{
-    job_system, AssetId, BuilderContext, BuilderRegistryBuilder, DataSet,
-    EnumerateDependenciesContext, HashMap, ImporterRegistryBuilder, JobApi,
-    JobEnumeratedDependencies, JobInput, JobOutput, JobProcessor, JobProcessorRegistryBuilder,
-    RecordAccessor, RunContext, SchemaLinker, SchemaSet, SingleObject,
+    AssetId, BuilderContext, BuilderRegistryBuilder, EnumerateDependenciesContext,
+    ImporterRegistryBuilder, JobEnumeratedDependencies, JobInput, JobOutput, JobProcessor,
+    JobProcessorRegistryBuilder, PipelineResult, RecordAccessor, RunContext, SchemaLinker,
 };
 use serde::{Deserialize, Serialize};
 use type_uuid::TypeUuid;
@@ -37,31 +36,22 @@ impl JobProcessor for GpuBufferJobProcessor {
     fn enumerate_dependencies(
         &self,
         context: EnumerateDependenciesContext<Self::InputT>,
-    ) -> JobEnumeratedDependencies {
+    ) -> PipelineResult<JobEnumeratedDependencies> {
         // No dependencies
-        JobEnumeratedDependencies {
+        Ok(JobEnumeratedDependencies {
             import_data: vec![context.input.asset_id],
             upstream_jobs: Vec::default(),
-        }
+        })
     }
 
     fn run(
         &self,
         context: RunContext<Self::InputT>,
-    ) -> GpuBufferJobOutput {
-        //
-        // Read asset data
-        //
-        // let data_container = DataContainer::new_dataset(data_set, schema_set, input.asset_id);
-        // let x = GpuBufferAssetAccessor::default();
-
-        //let base_color_factor = x.base_color_factor().get_vec4(&data_container).unwrap();
-
+    ) -> PipelineResult<GpuBufferJobOutput> {
         //
         // Create the processed data
         //
         let processed_data = GpuBufferBuiltData {
-            //base_color_factor,
             resource_type: 0,
             alignment: 0,
             data: vec![],
@@ -70,9 +60,9 @@ impl JobProcessor for GpuBufferJobProcessor {
         //
         // Serialize and return
         //
-        context.produce_default_artifact(context.input.asset_id, processed_data);
+        context.produce_default_artifact(context.input.asset_id, processed_data)?;
 
-        GpuBufferJobOutput {}
+        Ok(GpuBufferJobOutput {})
     }
 }
 
@@ -88,7 +78,7 @@ impl Builder for GpuBufferBuilder {
     fn start_jobs(
         &self,
         context: BuilderContext,
-    ) {
+    ) -> PipelineResult<()> {
         context.enqueue_job::<GpuBufferJobProcessor>(
             context.data_set,
             context.schema_set,
@@ -96,7 +86,8 @@ impl Builder for GpuBufferBuilder {
             GpuBufferJobInput {
                 asset_id: context.asset_id,
             },
-        );
+        )?;
+        Ok(())
     }
 }
 

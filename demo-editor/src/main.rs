@@ -117,7 +117,7 @@ fn main() {
 
         //Headless
         profiling::scope!("First asset engine update");
-        asset_engine.update(&mut db_state.editor_model);
+        asset_engine.update(&mut db_state.editor_model).unwrap();
         (db_state, asset_engine)
     };
 

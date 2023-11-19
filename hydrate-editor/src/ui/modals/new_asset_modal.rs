@@ -60,7 +60,7 @@ impl ModalAction for NewAssetModal {
                 .size([0.0, 100.0])
                 .build(ui, || {
                     for (fingerprint, named_type) in db_state.editor_model.schema_set().schemas() {
-                        if named_type.as_record().is_some() {
+                        if named_type.try_as_record().is_some() {
                             let is_selected = self.selected_type == Some(*fingerprint);
                             println!("{:?} is selected: {:?}", fingerprint, is_selected);
                             if imgui::Selectable::new(&im_str!("{}", named_type.name()))

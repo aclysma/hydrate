@@ -2,24 +2,22 @@ pub use super::*;
 use std::collections::VecDeque;
 use std::ops::Range;
 use std::path::{Path, PathBuf};
-use std::sync::Arc;
 
 use super::generated::{
-    GlslBuildTargetAssetAccessor, GlslSourceFileAssetAccessor, GlslSourceFileImportedDataAccessor,
-    GlslSourceFileImportedDataOwned,
+    GlslBuildTargetAssetAccessor, GlslSourceFileAssetAccessor, GlslSourceFileImportedDataOwned,
 };
 use crate::generated_wrapper::{GlslBuildTargetAssetReader, GlslSourceFileAssetOwned};
 use demo_types::glsl::*;
 use hydrate_data::RecordOwned;
-use hydrate_model::pipeline::{AssetPlugin, Builder, ImportContext, ImporterRegistry, ScanContext};
+use hydrate_model::pipeline::{AssetPlugin, Builder, ImportContext, ScanContext};
 use hydrate_model::pipeline::{
     ImportedImportable, Importer, ReferencedSourceFile, ScannedImportable,
 };
 use hydrate_pipeline::{
-    job_system, AssetId, BuilderContext, BuilderRegistryBuilder, DataContainerRef,
-    DataContainerRefMut, DataSet, EnumerateDependenciesContext, HashMap, HashSet, ImportableAsset,
-    ImporterRegistryBuilder, JobApi, JobEnumeratedDependencies, JobInput, JobOutput, JobProcessor,
-    JobProcessorRegistryBuilder, RecordAccessor, RunContext, SchemaLinker, SchemaSet, SingleObject,
+    AssetId, BuilderContext, BuilderRegistryBuilder, DataContainerRef,
+    EnumerateDependenciesContext, HashMap, HashSet, ImporterRegistryBuilder,
+    JobEnumeratedDependencies, JobInput, JobOutput, JobProcessor, JobProcessorRegistryBuilder,
+    PipelineResult, RecordAccessor, RunContext, SchemaLinker, SchemaSet, SingleObject,
 };
 use serde::{Deserialize, Serialize};
 use shaderc::IncludeType;
@@ -516,9 +514,9 @@ impl Importer for GlslSourceFileImporter {
     fn scan_file(
         &self,
         context: ScanContext,
-    ) -> Vec<ScannedImportable> {
+    ) -> PipelineResult<Vec<ScannedImportable>> {
         log::debug!("GlslSourceFileImporter reading file {:?}", context.path);
-        let code = std::fs::read_to_string(context.path).unwrap();
+        let code = std::fs::read_to_string(context.path)?;
         let code_chars: Vec<_> = code.chars().collect();
 
         let referenced_source_files: Vec<_> = find_included_paths(&code_chars)
@@ -532,30 +530,27 @@ impl Importer for GlslSourceFileImporter {
 
         let asset_type = context
             .schema_set
-            .find_named_type(GlslSourceFileAssetAccessor::schema_name())
-            .unwrap()
-            .as_record()
-            .unwrap()
+            .find_named_type(GlslSourceFileAssetAccessor::schema_name())?
+            .as_record()?
             .clone();
-        vec![ScannedImportable {
+        Ok(vec![ScannedImportable {
             name: None,
             asset_type,
             file_references: referenced_source_files,
-        }]
+        }])
     }
 
     fn import_file(
         &self,
         context: ImportContext,
-    ) -> HashMap<Option<String>, ImportedImportable> {
+    ) -> PipelineResult<HashMap<Option<String>, ImportedImportable>> {
         //
         // Read the file
         //
-        let code = std::fs::read_to_string(context.path).unwrap();
+        let code = std::fs::read_to_string(context.path)?;
         let code_chars: Vec<_> = code.chars().collect();
 
-        let referenced_source_files: Vec<_> = find_included_paths(&code_chars)
-            .unwrap()
+        let referenced_source_files: Vec<_> = find_included_paths(&code_chars)?
             .into_iter()
             .map(|path| ReferencedSourceFile {
                 importer_id: self.importer_id(),
@@ -567,7 +562,7 @@ impl Importer for GlslSourceFileImporter {
         // Create import data
         //
         let import_data = GlslSourceFileImportedDataOwned::new_builder(context.schema_set);
-        import_data.code().set(code).unwrap();
+        import_data.code().set(code)?;
 
         let default_asset = GlslSourceFileAssetOwned::new_builder(context.schema_set);
         // Nothing to set
@@ -580,11 +575,11 @@ impl Importer for GlslSourceFileImporter {
             None,
             ImportedImportable {
                 file_references: referenced_source_files,
-                import_data: Some(import_data.into_inner().unwrap()),
-                default_asset: Some(default_asset.into_inner().unwrap()),
+                import_data: Some(import_data.into_inner()?),
+                default_asset: Some(default_asset.into_inner()?),
             },
         );
-        imported_assets
+        Ok(imported_assets)
     }
 }
 
@@ -613,7 +608,7 @@ impl JobProcessor for GlslBuildTargetJobProcessor {
     fn enumerate_dependencies(
         &self,
         context: EnumerateDependenciesContext<Self::InputT>,
-    ) -> JobEnumeratedDependencies {
+    ) -> PipelineResult<JobEnumeratedDependencies> {
         let data_container = DataContainerRef::from_dataset(
             context.data_set,
             context.schema_set,
@@ -622,11 +617,11 @@ impl JobProcessor for GlslBuildTargetJobProcessor {
         let x = GlslBuildTargetAssetAccessor::default();
 
         // The source file is the "top level" file where the GLSL entry point is defined
-        let source_file = x.source_file().get(data_container).unwrap();
+        let source_file = x.source_file().get(data_container)?;
 
         //TODO: Error?
         if source_file.is_null() {
-            return JobEnumeratedDependencies::default();
+            Err("GlslBuildTargetAsset has a null source file")?;
         }
 
         // We walk through the source file and any files that it includes directly or indirectly
@@ -641,8 +636,7 @@ impl JobProcessor for GlslBuildTargetJobProcessor {
         while let Some(next_reference) = visit_queue.pop_front() {
             let references = context
                 .data_set
-                .resolve_all_file_references(next_reference)
-                .unwrap();
+                .resolve_all_file_references(next_reference)?;
 
             for (_, &v) in &references {
                 if !queued.contains(&v) {
@@ -652,25 +646,23 @@ impl JobProcessor for GlslBuildTargetJobProcessor {
             }
         }
 
-        JobEnumeratedDependencies {
+        Ok(JobEnumeratedDependencies {
             import_data: queued.into_iter().collect(),
             upstream_jobs: Vec::default(),
-        }
+        })
     }
 
     fn run(
         &self,
         context: RunContext<Self::InputT>,
-    ) -> GlslBuildTargetJobOutput {
+    ) -> PipelineResult<GlslBuildTargetJobOutput> {
         //
         // Read asset properties
         //
-        let asset_data = context
-            .asset::<GlslBuildTargetAssetReader>(context.input.asset_id)
-            .unwrap();
+        let asset_data = context.asset::<GlslBuildTargetAssetReader>(context.input.asset_id)?;
 
-        let source_file = asset_data.source_file().get().unwrap();
-        let entry_point = asset_data.entry_point().get().unwrap();
+        let source_file = asset_data.source_file().get()?;
+        let entry_point = asset_data.entry_point().get()?;
 
         //
         // Build a lookup of source file AssetID to PathBuf that it was imported from
@@ -679,14 +671,13 @@ impl JobProcessor for GlslBuildTargetJobProcessor {
         for (&dependency_asset_id, _) in context.dependency_data {
             let all_references = context
                 .data_set
-                .resolve_all_file_references(dependency_asset_id)
-                .unwrap();
-            let this_path = context
+                .resolve_all_file_references(dependency_asset_id)?;
+
+            let import_info = context
                 .data_set
                 .import_info(dependency_asset_id)
-                .unwrap()
-                .source_file_path();
-
+                .ok_or("Imported GLSL source file had no import info")?;
+            let this_path = import_info.source_file_path();
             for (ref_path, ref_obj) in all_references {
                 dependency_lookup.insert((this_path.to_path_buf(), ref_path), ref_obj);
             }
@@ -699,13 +690,14 @@ impl JobProcessor for GlslBuildTargetJobProcessor {
 
         //TODO: Return error if source file not found
         if !source_file.is_null() {
-            let source_file_import_info = context.data_set.import_info(source_file).unwrap();
+            let source_file_import_info = context
+                .data_set
+                .import_info(source_file)
+                .ok_or("Imported GLSL source file had no import info")?;
             let source_file_import_data = &context.dependency_data[&source_file];
             let code = source_file_import_data
-                .resolve_property(context.schema_set, "code")
-                .unwrap()
-                .as_string()
-                .unwrap()
+                .resolve_property(context.schema_set, "code")?
+                .as_string()?
                 .to_string();
 
             let shaderc_include_callback = |requested_path: &str,
@@ -753,8 +745,8 @@ impl JobProcessor for GlslBuildTargetJobProcessor {
         // Create the processed data
         //
         let processed_data = GlslBuildTargetBuiltData { spv: compiled_spv };
-        context.produce_default_artifact(context.input.asset_id, processed_data);
-        GlslBuildTargetJobOutput {}
+        context.produce_default_artifact(context.input.asset_id, processed_data)?;
+        Ok(GlslBuildTargetJobOutput {})
     }
 }
 
@@ -770,7 +762,7 @@ impl Builder for GlslBuildTargetBuilder {
     fn start_jobs(
         &self,
         context: BuilderContext,
-    ) {
+    ) -> PipelineResult<()> {
         context.enqueue_job::<GlslBuildTargetJobProcessor>(
             context.data_set,
             context.schema_set,
@@ -778,7 +770,8 @@ impl Builder for GlslBuildTargetBuilder {
             GlslBuildTargetJobInput {
                 asset_id: context.asset_id,
             },
-        );
+        )?;
+        Ok(())
     }
 }
 

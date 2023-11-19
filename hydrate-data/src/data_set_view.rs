@@ -401,7 +401,7 @@ pub enum DataContainerOwned {
 impl DataContainerOwned {
     pub fn into_inner(self) -> SingleObject {
         match self {
-            DataContainerOwned::SingleObject(a, b) => a,
+            DataContainerOwned::SingleObject(a, _b) => a,
         }
     }
 
@@ -490,8 +490,8 @@ impl DataContainerOwned {
 
     pub fn set_override_behavior(
         &mut self,
-        path: impl AsRef<str>,
-        behavior: OverrideBehavior,
+        _path: impl AsRef<str>,
+        _behavior: OverrideBehavior,
     ) -> DataSetResult<()> {
         match self {
             DataContainerOwned::SingleObject(_, _) => Ok(()),

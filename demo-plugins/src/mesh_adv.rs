@@ -3,15 +3,14 @@ use glam::Vec3;
 use rafx_api::RafxResourceType;
 
 use crate::generated::{MeshAdvMeshAssetAccessor, MeshAdvMeshImportedDataReader};
-use crate::generated_wrapper::MeshAdvMeshImportedDataAccessor;
 use crate::push_buffer::PushBuffer;
 use demo_types::mesh_adv::*;
 use hydrate_model::pipeline::{AssetPlugin, Builder};
 use hydrate_pipeline::{
-    job_system, AssetId, BuilderContext, BuilderRegistryBuilder, DataContainerRef, DataSet,
-    EnumerateDependenciesContext, HashMap, ImporterRegistryBuilder, JobApi,
-    JobEnumeratedDependencies, JobInput, JobOutput, JobProcessor, JobProcessorRegistryBuilder,
-    RecordAccessor, RunContext, SchemaLinker, SchemaSet, SingleObject,
+    AssetId, BuilderContext, BuilderRegistryBuilder, DataContainerRef,
+    EnumerateDependenciesContext, ImporterRegistryBuilder, JobEnumeratedDependencies, JobInput,
+    JobOutput, JobProcessor, JobProcessorRegistryBuilder, PipelineResult, RecordAccessor,
+    RunContext, SchemaLinker,
 };
 use serde::{Deserialize, Serialize};
 use type_uuid::TypeUuid;
@@ -42,16 +41,16 @@ impl JobProcessor for MeshAdvMaterialJobProcessor {
 
     fn enumerate_dependencies(
         &self,
-        context: EnumerateDependenciesContext<Self::InputT>,
-    ) -> JobEnumeratedDependencies {
+        _context: EnumerateDependenciesContext<Self::InputT>,
+    ) -> PipelineResult<JobEnumeratedDependencies> {
         // No dependencies
-        JobEnumeratedDependencies::default()
+        Ok(JobEnumeratedDependencies::default())
     }
 
     fn run(
         &self,
         context: RunContext<Self::InputT>,
-    ) -> MeshAdvMaterialJobOutput {
+    ) -> PipelineResult<MeshAdvMaterialJobOutput> {
         //
         // Read asset data
         //
@@ -62,23 +61,22 @@ impl JobProcessor for MeshAdvMaterialJobProcessor {
         );
         let x = MeshAdvMaterialAssetAccessor::default();
 
-        let base_color_factor = x.base_color_factor().get_vec4(data_container).unwrap();
-        let emissive_factor = x.emissive_factor().get_vec3(data_container).unwrap();
+        let base_color_factor = x.base_color_factor().get_vec4(data_container)?;
+        let emissive_factor = x.emissive_factor().get_vec3(data_container)?;
 
-        let metallic_factor = x.metallic_factor().get(data_container).unwrap();
-        let roughness_factor = x.roughness_factor().get(data_container).unwrap();
-        let normal_texture_scale = x.normal_texture_scale().get(data_container).unwrap();
+        let metallic_factor = x.metallic_factor().get(data_container)?;
+        let roughness_factor = x.roughness_factor().get(data_container)?;
+        let normal_texture_scale = x.normal_texture_scale().get(data_container)?;
 
-        let color_texture = x.color_texture().get(data_container).unwrap();
-        let metallic_roughness_texture =
-            x.metallic_roughness_texture().get(data_container).unwrap();
-        let normal_texture = x.normal_texture().get(data_container).unwrap();
-        let emissive_texture = x.emissive_texture().get(data_container).unwrap();
-        let shadow_method = x.shadow_method().get(data_container).unwrap();
-        let blend_method = x.blend_method().get(data_container).unwrap();
+        let color_texture = x.color_texture().get(data_container)?;
+        let metallic_roughness_texture = x.metallic_roughness_texture().get(data_container)?;
+        let normal_texture = x.normal_texture().get(data_container)?;
+        let emissive_texture = x.emissive_texture().get(data_container)?;
+        let shadow_method = x.shadow_method().get(data_container)?;
+        let blend_method = x.blend_method().get(data_container)?;
 
-        let alpha_threshold = x.alpha_threshold().get(data_container).unwrap();
-        let backface_culling = x.backface_culling().get(data_container).unwrap();
+        let alpha_threshold = x.alpha_threshold().get(data_container)?;
+        let backface_culling = x.backface_culling().get(data_container)?;
         let color_texture_has_alpha_channel = x
             .color_texture_has_alpha_channel()
             .get(data_container)
@@ -107,9 +105,9 @@ impl JobProcessor for MeshAdvMaterialJobProcessor {
         //
         // Serialize and return
         //
-        context.produce_default_artifact(context.input.asset_id, processed_data);
+        context.produce_default_artifact(context.input.asset_id, processed_data)?;
 
-        MeshAdvMaterialJobOutput {}
+        Ok(MeshAdvMaterialJobOutput {})
     }
 }
 
@@ -125,7 +123,7 @@ impl Builder for MeshAdvMaterialBuilder {
     fn start_jobs(
         &self,
         context: BuilderContext,
-    ) {
+    ) -> PipelineResult<()> {
         //Future: Might produce jobs per-platform
         context.enqueue_job::<MeshAdvMaterialJobProcessor>(
             context.data_set,
@@ -134,7 +132,8 @@ impl Builder for MeshAdvMaterialBuilder {
             MeshAdvMaterialJobInput {
                 asset_id: context.asset_id,
             },
-        );
+        )?;
+        Ok(())
     }
 }
 
@@ -179,18 +178,18 @@ impl JobProcessor for MeshAdvMeshPreprocessJobProcessor {
     fn enumerate_dependencies(
         &self,
         context: EnumerateDependenciesContext<Self::InputT>,
-    ) -> JobEnumeratedDependencies {
+    ) -> PipelineResult<JobEnumeratedDependencies> {
         // No dependencies
-        JobEnumeratedDependencies {
+        Ok(JobEnumeratedDependencies {
             import_data: vec![context.input.asset_id],
             upstream_jobs: Vec::default(),
-        }
+        })
     }
 
     fn run(
         &self,
         context: RunContext<Self::InputT>,
-    ) -> MeshAdvMeshPreprocessJobOutput {
+    ) -> PipelineResult<MeshAdvMeshPreprocessJobOutput> {
         //
         // Read asset data
         //
@@ -329,50 +328,67 @@ impl JobProcessor for MeshAdvMeshPreprocessJobProcessor {
         //
         // Mesh asset
         //
-        context.produce_default_artifact_with_handles(context.input.asset_id, |handle_factory| {
-            let mut mesh_parts = Vec::default();
-            for (entry, part_data) in imported_data
-                .mesh_parts()
-                .resolve_entries()
-                .unwrap()
-                .into_iter()
-                .zip(mesh_part_data)
-            {
-                let entry = imported_data.mesh_parts().entry(*entry);
+        context.produce_default_artifact_with_handles(
+            context.input.asset_id,
+            |handle_factory| {
+                let mut mesh_parts = Vec::default();
+                for (entry, part_data) in imported_data
+                    .mesh_parts()
+                    .resolve_entries()
+                    .unwrap()
+                    .into_iter()
+                    .zip(mesh_part_data)
+                {
+                    let entry = imported_data.mesh_parts().entry(*entry);
 
-                let material_slot_index = entry.material_index().get().unwrap();
-                let material_asset_id = materials[material_slot_index as usize];
-                let material_handle =
-                    handle_factory.make_handle_to_default_artifact(material_asset_id);
+                    let material_slot_index = entry.material_index().get().unwrap();
+                    let material_asset_id = materials[material_slot_index as usize];
+                    let material_handle =
+                        handle_factory.make_handle_to_default_artifact(material_asset_id);
 
-                mesh_parts.push(MeshAdvPartAssetData {
-                    vertex_full_buffer_offset_in_bytes: part_data
-                        .vertex_full_buffer_offset_in_bytes,
-                    vertex_full_buffer_size_in_bytes: part_data.vertex_full_buffer_size_in_bytes,
-                    vertex_position_buffer_offset_in_bytes: part_data
-                        .vertex_position_buffer_offset_in_bytes,
-                    vertex_position_buffer_size_in_bytes: part_data
-                        .vertex_position_buffer_size_in_bytes,
-                    index_buffer_offset_in_bytes: part_data.index_buffer_offset_in_bytes,
-                    index_buffer_size_in_bytes: part_data.index_buffer_size_in_bytes,
-                    mesh_material: material_handle,
-                    index_type: part_data.index_type,
+                    mesh_parts.push(MeshAdvPartAssetData {
+                        vertex_full_buffer_offset_in_bytes: part_data
+                            .vertex_full_buffer_offset_in_bytes,
+                        vertex_full_buffer_size_in_bytes: part_data
+                            .vertex_full_buffer_size_in_bytes,
+                        vertex_position_buffer_offset_in_bytes: part_data
+                            .vertex_position_buffer_offset_in_bytes,
+                        vertex_position_buffer_size_in_bytes: part_data
+                            .vertex_position_buffer_size_in_bytes,
+                        index_buffer_offset_in_bytes: part_data.index_buffer_offset_in_bytes,
+                        index_buffer_size_in_bytes: part_data.index_buffer_size_in_bytes,
+                        mesh_material: material_handle,
+                        index_type: part_data.index_type,
+                    })
+                }
+
+                let vertex_full_buffer = if let Some(vertex_buffer_full_artifact_id) =
+                    vertex_buffer_full_artifact_id
+                {
+                    Some(handle_factory.make_handle_to_artifact(vertex_buffer_full_artifact_id?))
+                } else {
+                    None
+                };
+
+                let vertex_position_buffer = if let Some(vertex_buffer_position_artifact_id) =
+                    vertex_buffer_position_artifact_id
+                {
+                    Some(
+                        handle_factory.make_handle_to_artifact(vertex_buffer_position_artifact_id?),
+                    )
+                } else {
+                    None
+                };
+
+                Ok(MeshAdvMeshAssetData {
+                    mesh_parts,
+                    vertex_full_buffer,
+                    vertex_position_buffer,
                 })
-            }
+            },
+        )?;
 
-            let vertex_full_buffer =
-                vertex_buffer_full_artifact_id.map(|x| handle_factory.make_handle_to_artifact(x));
-            let vertex_position_buffer = vertex_buffer_position_artifact_id
-                .map(|x| handle_factory.make_handle_to_artifact(x));
-
-            MeshAdvMeshAssetData {
-                mesh_parts,
-                vertex_full_buffer,
-                vertex_position_buffer,
-            }
-        });
-
-        MeshAdvMeshPreprocessJobOutput {}
+        Ok(MeshAdvMeshPreprocessJobOutput {})
     }
 }
 
@@ -388,19 +404,20 @@ impl Builder for MeshAdvMeshBuilder {
     fn start_jobs(
         &self,
         context: BuilderContext,
-    ) {
+    ) -> PipelineResult<()> {
         // Produce an intermediate with all data
         // Produce buffers for various vertex types
         // Some day I might want to look at the materials to decide what vertex buffers should exist
 
-        let _preprocess_job_id = context.enqueue_job::<MeshAdvMeshPreprocessJobProcessor>(
+        context.enqueue_job::<MeshAdvMeshPreprocessJobProcessor>(
             context.data_set,
             context.schema_set,
             context.job_api,
             MeshAdvMeshPreprocessJobInput {
                 asset_id: context.asset_id,
             },
-        );
+        )?;
+        Ok(())
     }
 }
 

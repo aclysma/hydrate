@@ -1,5 +1,5 @@
 use super::{JobId, JobTypeId};
-use crate::import_jobs;
+use crate::{import_jobs, PipelineResult};
 use crate::{AssetArtifactIdPair, BuiltArtifact, ImportData, ImportJobs};
 use hydrate_base::handle::DummySerdeContextHandle;
 use hydrate_base::hashing::HashMap;
@@ -11,6 +11,7 @@ use hydrate_data::{
 use serde::{Deserialize, Serialize};
 use siphasher::sip128::Hasher128;
 use std::hash::Hash;
+use std::sync::Arc;
 use type_uuid::{TypeUuid, TypeUuidDynamic};
 
 pub trait ImportDataProvider {
@@ -68,7 +69,7 @@ pub trait JobApi: Send + Sync {
         schema_set: &SchemaSet,
         job: NewJob,
         debug_name: String,
-    ) -> JobId;
+    ) -> PipelineResult<JobId>;
 
     fn artifact_handle_created(
         &self,
@@ -117,7 +118,7 @@ pub trait JobProcessorAbstract: Send + Sync {
         input: &Vec<u8>,
         data_set: &DataSet,
         schema_set: &SchemaSet,
-    ) -> JobEnumeratedDependencies;
+    ) -> PipelineResult<JobEnumeratedDependencies>;
 
     fn run_inner(
         &self,
@@ -126,7 +127,7 @@ pub trait JobProcessorAbstract: Send + Sync {
         schema_set: &SchemaSet,
         dependency_data: &HashMap<AssetId, SingleObject>,
         job_api: &dyn JobApi,
-    ) -> Vec<u8>;
+    ) -> PipelineResult<Arc<Vec<u8>>>;
 }
 
 pub struct EnumerateDependenciesContext<'a, InputT> {
@@ -185,7 +186,7 @@ impl<'a, InputT> RunContext<'a, InputT> {
     pub fn enqueue_job<JobProcessorT: JobProcessor>(
         &self,
         input: <JobProcessorT as JobProcessor>::InputT,
-    ) -> JobId {
+    ) -> PipelineResult<JobId> {
         enqueue_job::<JobProcessorT>(self.data_set, self.schema_set, self.job_api, input)
     }
 
@@ -194,20 +195,20 @@ impl<'a, InputT> RunContext<'a, InputT> {
         asset_id: AssetId,
         artifact_key: Option<KeyT>,
         asset: ArtifactT,
-    ) -> AssetArtifactIdPair {
+    ) -> PipelineResult<AssetArtifactIdPair> {
         produce_artifact(self.job_api, asset_id, artifact_key, asset)
     }
 
     pub fn produce_artifact_with_handles<
         KeyT: Hash + std::fmt::Display,
         ArtifactT: TypeUuid + Serialize,
-        F: FnOnce(HandleFactory) -> ArtifactT,
+        F: FnOnce(HandleFactory) -> PipelineResult<ArtifactT>,
     >(
         &self,
         asset_id: AssetId,
         artifact_key: Option<KeyT>,
         asset_fn: F,
-    ) -> ArtifactId {
+    ) -> PipelineResult<ArtifactId> {
         produce_artifact_with_handles(self.job_api, asset_id, artifact_key, asset_fn)
     }
 
@@ -215,18 +216,18 @@ impl<'a, InputT> RunContext<'a, InputT> {
         &self,
         asset_id: AssetId,
         asset: AssetT,
-    ) {
+    ) -> PipelineResult<ArtifactId> {
         produce_default_artifact(self.job_api, asset_id, asset)
     }
 
     pub fn produce_default_artifact_with_handles<
         AssetT: TypeUuid + Serialize,
-        F: FnOnce(HandleFactory) -> AssetT,
+        F: FnOnce(HandleFactory) -> PipelineResult<AssetT>,
     >(
         &self,
         asset_id: AssetId,
         asset_fn: F,
-    ) {
+    ) -> PipelineResult<ArtifactId> {
         produce_default_artifact_with_handles(self.job_api, asset_id, asset_fn)
     }
 }
@@ -240,12 +241,12 @@ pub trait JobProcessor: TypeUuid {
     fn enumerate_dependencies(
         &self,
         context: EnumerateDependenciesContext<Self::InputT>,
-    ) -> JobEnumeratedDependencies;
+    ) -> PipelineResult<JobEnumeratedDependencies>;
 
     fn run(
         &self,
         context: RunContext<Self::InputT>,
-    ) -> Self::OutputT;
+    ) -> PipelineResult<Self::OutputT>;
 }
 
 pub(crate) fn enqueue_job<T: JobProcessor>(
@@ -253,7 +254,7 @@ pub(crate) fn enqueue_job<T: JobProcessor>(
     schema_set: &SchemaSet,
     job_api: &dyn JobApi,
     input: <T as JobProcessor>::InputT,
-) -> JobId {
+) -> PipelineResult<JobId> {
     let mut hasher = siphasher::sip128::SipHasher::default();
     input.hash(&mut hasher);
     let input_hash = hasher.finish128().as_u128();
@@ -274,17 +275,20 @@ fn produce_default_artifact<T: TypeUuid + Serialize>(
     job_api: &dyn JobApi,
     asset_id: AssetId,
     asset: T,
-) {
+) -> PipelineResult<ArtifactId> {
     //produce_asset_with_handles(job_api, asset_id, || asset);
-    produce_artifact_with_handles(job_api, asset_id, None::<u32>, |handle_factory| asset);
+    produce_artifact_with_handles(job_api, asset_id, None::<u32>, |_handle_factory| Ok(asset))
 }
 
-fn produce_default_artifact_with_handles<T: TypeUuid + Serialize, F: FnOnce(HandleFactory) -> T>(
+fn produce_default_artifact_with_handles<
+    T: TypeUuid + Serialize,
+    F: FnOnce(HandleFactory) -> PipelineResult<T>,
+>(
     job_api: &dyn JobApi,
     asset_id: AssetId,
     asset_fn: F,
-) {
-    produce_artifact_with_handles(job_api, asset_id, None::<u32>, asset_fn);
+) -> PipelineResult<ArtifactId> {
+    produce_artifact_with_handles(job_api, asset_id, None::<u32>, asset_fn)
     // let mut ctx = DummySerdeContextHandle::default();
     // ctx.begin_serialize_asset(AssetId(*asset_id.as_uuid().as_bytes()));
     //
@@ -312,25 +316,27 @@ fn produce_artifact<T: TypeUuid + Serialize, U: Hash + std::fmt::Display>(
     asset_id: AssetId,
     artifact_key: Option<U>,
     asset: T,
-) -> AssetArtifactIdPair {
+) -> PipelineResult<AssetArtifactIdPair> {
     let artifact_id =
-        produce_artifact_with_handles(job_api, asset_id, artifact_key, |handle_factory| asset);
-    AssetArtifactIdPair {
+        produce_artifact_with_handles(job_api, asset_id, artifact_key, |_handle_factory| {
+            Ok(asset)
+        })?;
+    Ok(AssetArtifactIdPair {
         asset_id,
         artifact_id,
-    }
+    })
 }
 
 fn produce_artifact_with_handles<
     T: TypeUuid + Serialize,
     U: Hash + std::fmt::Display,
-    F: FnOnce(HandleFactory) -> T,
+    F: FnOnce(HandleFactory) -> PipelineResult<T>,
 >(
     job_api: &dyn JobApi,
     asset_id: AssetId,
     artifact_key: Option<U>,
     asset_fn: F,
-) -> ArtifactId {
+) -> PipelineResult<ArtifactId> {
     let artifact_key_debug_name = artifact_key.as_ref().map(|x| format!("{}", x));
     let artifact_id = create_artifact_id(asset_id, artifact_key);
 
@@ -339,9 +345,8 @@ fn produce_artifact_with_handles<
 
     let (built_data, asset_type) = ctx.scope(|| {
         let asset = (asset_fn)(HandleFactory { job_api });
-        let built_data = bincode::serialize(&asset).unwrap();
-        (built_data, asset.uuid())
-    });
+        asset.map(|x| (bincode::serialize(&x), x.uuid()))
+    })?;
 
     let referenced_assets = ctx.end_serialize_artifact(artifact_id);
 
@@ -361,11 +366,11 @@ fn produce_artifact_with_handles<
                 .collect(),
             asset_type: uuid::Uuid::from_bytes(asset_type),
         },
-        data: built_data,
+        data: built_data?,
         artifact_key_debug_name,
     });
 
-    artifact_id
+    Ok(artifact_id)
 }
 
 #[derive(Copy, Clone)]

@@ -6,7 +6,7 @@ use std::path::{Path, PathBuf};
 use crate::import_thread_pool::{
     ImportThreadOutcome, ImportThreadRequest, ImportThreadRequestImport, ImportWorkerThreadPool,
 };
-use crate::DynEditorModel;
+use crate::{DynEditorModel, PipelineResult};
 use hydrate_base::uuid_path::{path_to_uuid, uuid_to_path};
 use hydrate_data::json_storage::SingleObjectJson;
 use hydrate_data::{ImporterId, SchemaSet, SingleObject};
@@ -176,10 +176,10 @@ impl ImportJobs {
         &mut self,
         importer_registry: &ImporterRegistry,
         editor_model: &mut dyn DynEditorModel,
-    ) {
+    ) -> PipelineResult<()> {
         profiling::scope!("Process Import Operations");
         if self.import_operations.is_empty() {
-            return;
+            return Ok(());
         }
 
         //
@@ -245,10 +245,13 @@ impl ImportJobs {
             }
 
             if print_progress {
-                log::info!("Import jobs: {}/{}", total_jobs - thread_pool.active_request_count(), total_jobs);
+                log::info!(
+                    "Import jobs: {}/{}",
+                    total_jobs - thread_pool.active_request_count(),
+                    total_jobs
+                );
                 last_job_print_time = Some(now);
             }
-
         }
 
         thread_pool.finish();
@@ -259,7 +262,7 @@ impl ImportJobs {
         for outcome in result_rx.try_iter() {
             match outcome {
                 ImportThreadOutcome::Complete(msg) => {
-                    for (name, imported_asset) in msg.imported_importables {
+                    for (name, imported_asset) in msg.result? {
                         if let Some(asset_id) = msg.request.import_op.asset_ids.get(&name) {
                             if msg
                                 .request
@@ -276,11 +279,10 @@ impl ImportJobs {
                         }
                     }
                 }
-                ImportThreadOutcome::Failed(_failed) => {
-                    unimplemented!()
-                }
             }
         }
+
+        Ok(())
         /*
         for import_op in &self.import_operations {
             profiling::scope!(&format!("Import {:?}", import_op.path.to_string_lossy()));

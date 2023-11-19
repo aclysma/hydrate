@@ -1,5 +1,6 @@
 use crate::{
     JobApi, JobApiImpl, JobEnumeratedDependencies, JobId, JobProcessorRegistry, JobTypeId,
+    PipelineResult,
 };
 use crossbeam_channel::{Receiver, Sender};
 use hydrate_base::hashing::HashMap;
@@ -26,19 +27,13 @@ pub enum JobExecutorThreadPoolRequest {
 // Results from successful build
 pub struct JobExecutorThreadPoolOutcomeRunJobComplete {
     pub request: JobExecutorThreadPoolRequestRunJob,
-    pub output_data: Arc<Vec<u8>>,
+    pub result: PipelineResult<Arc<Vec<u8>>>,
     //asset: SingleObject,
     //import_data: SingleObject,
 }
 
-// Results from failed build
-pub struct JobExecutorThreadPoolOutcomeRunJobFailure {
-    pub failure: String,
-}
-
 pub enum JobExecutorThreadPoolOutcome {
     RunJobComplete(JobExecutorThreadPoolOutcomeRunJobComplete),
-    RunJobFailed(JobExecutorThreadPoolOutcomeRunJobFailure),
 }
 
 // Thread that tries to take jobs out of the request channel and ends when the finish channel is signalled
@@ -76,7 +71,7 @@ fn do_build(
     let job_processor = job_processor_registry
         .get_processor(request.job_type)
         .unwrap();
-    let output_data = {
+    let result = {
         profiling::scope!(&format!("JobProcessor::run_inner"));
         job_processor.run_inner(
             &request.input_data,
@@ -89,7 +84,7 @@ fn do_build(
 
     JobExecutorThreadPoolOutcome::RunJobComplete(JobExecutorThreadPoolOutcomeRunJobComplete {
         request,
-        output_data: Arc::new(output_data),
+        result,
     })
 
     //TODO: Write to file

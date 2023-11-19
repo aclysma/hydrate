@@ -28,9 +28,11 @@ mod builder_registry;
 pub use builder_registry::*;
 
 mod import_thread_pool;
+
 pub mod import_util;
 
-use hydrate_schema::SchemaRecord;
+mod pipeline_error;
+pub use pipeline_error::*;
 
 pub trait AssetPlugin {
     fn setup(
@@ -187,7 +189,7 @@ impl AssetEngine {
     pub fn update(
         &mut self,
         editor_model: &mut dyn DynEditorModel,
-    ) {
+    ) -> PipelineResult<()> {
         //
         // If user changes any asset data, cancel the in-flight build
         // If user initiates any import jobs, cancel the in-flight build
@@ -198,7 +200,7 @@ impl AssetEngine {
         // If there are import jobs pending, cancel the in-flight build and execute them
         //
         self.import_jobs
-            .update(&self.importer_registry, editor_model);
+            .update(&self.importer_registry, editor_model)?;
 
         //
         // If we don't have any pending import jobs, and we don't have a build in-flight, and
@@ -236,7 +238,7 @@ impl AssetEngine {
             };
 
         if !needs_rebuild {
-            return;
+            return Ok(());
         }
 
         //
@@ -252,8 +254,9 @@ impl AssetEngine {
             &object_hashes,
             &import_data_metadata_hashes,
             combined_build_hash,
-        );
+        )?;
         self.previous_combined_build_hash = Some(combined_build_hash);
+        Ok(())
     }
 
     pub fn importers_for_file_extension(

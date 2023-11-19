@@ -693,11 +693,13 @@ impl DataSource for FileSystemPathBasedDataSource {
                             "Importer::scan_file {}",
                             source_file.to_string_lossy()
                         ));
-                        importer.scan_file(ScanContext {
-                            path: &source_file,
-                            schema_set: edit_context.schema_set(),
-                            importer_registry: &self.importer_registry,
-                        })
+                        importer
+                            .scan_file(ScanContext {
+                                path: &source_file,
+                                schema_set: edit_context.schema_set(),
+                                importer_registry: &self.importer_registry,
+                            })
+                            .unwrap()
                     };
 
                     //println!("  find meta file {:?}", source_file);

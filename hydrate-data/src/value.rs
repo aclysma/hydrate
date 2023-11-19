@@ -3,7 +3,7 @@ use crate::{HashMap, Schema, SchemaFingerprint, SchemaNamedType, SchemaSet};
 use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 
-use hydrate_schema::SchemaEnum;
+use hydrate_schema::{DataSetError, DataSetResult, SchemaEnum};
 
 /// All the possible value types that can exist that do not potentially contain values within them.
 /// So excludes containers, nullable, records, etc.
@@ -422,7 +422,11 @@ impl Value {
         }
     }
 
-    pub fn as_nullable(&self) -> Option<Option<&Value>> {
+    pub fn as_nullable(&self) -> DataSetResult<Option<&Value>> {
+        self.try_as_nullable().ok_or(DataSetError::InvalidSchema)
+    }
+
+    pub fn try_as_nullable(&self) -> Option<Option<&Value>> {
         match self {
             Value::Nullable(x) => Some(x.as_ref().map(|x| x.as_ref())),
             _ => None,
@@ -446,7 +450,11 @@ impl Value {
         }
     }
 
-    pub fn as_boolean(&self) -> Option<bool> {
+    pub fn as_boolean(&self) -> DataSetResult<bool> {
+        self.try_as_boolean().ok_or(DataSetError::InvalidSchema)
+    }
+
+    pub fn try_as_boolean(&self) -> Option<bool> {
         match self {
             Value::Boolean(x) => Some(*x),
             _ => None,
@@ -470,7 +478,11 @@ impl Value {
         }
     }
 
-    pub fn as_i32(&self) -> Option<i32> {
+    pub fn as_i32(&self) -> DataSetResult<i32> {
+        self.try_as_i32().ok_or(DataSetError::InvalidSchema)
+    }
+
+    pub fn try_as_i32(&self) -> Option<i32> {
         match self {
             Value::I32(x) => Some(*x as i32),
             Value::U32(x) => Some(*x as i32),
@@ -499,7 +511,11 @@ impl Value {
         }
     }
 
-    pub fn as_u32(&self) -> Option<u32> {
+    pub fn as_u32(&self) -> DataSetResult<u32> {
+        self.try_as_u32().ok_or(DataSetError::InvalidSchema)
+    }
+
+    pub fn try_as_u32(&self) -> Option<u32> {
         match self {
             Value::I32(x) => Some(*x as u32),
             Value::U32(x) => Some(*x as u32),
@@ -528,7 +544,11 @@ impl Value {
         }
     }
 
-    pub fn as_i64(&self) -> Option<i64> {
+    pub fn as_i64(&self) -> DataSetResult<i64> {
+        self.try_as_i64().ok_or(DataSetError::InvalidSchema)
+    }
+
+    pub fn try_as_i64(&self) -> Option<i64> {
         match self {
             Value::I32(x) => Some(*x as i64),
             Value::U32(x) => Some(*x as i64),
@@ -557,7 +577,11 @@ impl Value {
         }
     }
 
-    pub fn as_u64(&self) -> Option<u64> {
+    pub fn as_u64(&self) -> DataSetResult<u64> {
+        self.try_as_u64().ok_or(DataSetError::InvalidSchema)
+    }
+
+    pub fn try_as_u64(&self) -> Option<u64> {
         match self {
             Value::I32(x) => Some(*x as u64),
             Value::U32(x) => Some(*x as u64),
@@ -586,7 +610,11 @@ impl Value {
         }
     }
 
-    pub fn as_f32(&self) -> Option<f32> {
+    pub fn as_f32(&self) -> DataSetResult<f32> {
+        self.try_as_f32().ok_or(DataSetError::InvalidSchema)
+    }
+
+    pub fn try_as_f32(&self) -> Option<f32> {
         match self {
             Value::I32(x) => Some(*x as f32),
             Value::U32(x) => Some(*x as f32),
@@ -615,7 +643,11 @@ impl Value {
         }
     }
 
-    pub fn as_f64(&self) -> Option<f64> {
+    pub fn as_f64(&self) -> DataSetResult<f64> {
+        self.try_as_f64().ok_or(DataSetError::InvalidSchema)
+    }
+
+    pub fn try_as_f64(&self) -> Option<f64> {
         match self {
             Value::I32(x) => Some(*x as f64),
             Value::U32(x) => Some(*x as f64),
@@ -644,7 +676,11 @@ impl Value {
         }
     }
 
-    pub fn as_bytes(&self) -> Option<&Arc<Vec<u8>>> {
+    pub fn as_bytes(&self) -> DataSetResult<&Arc<Vec<u8>>> {
+        self.try_as_bytes().ok_or(DataSetError::InvalidSchema)
+    }
+
+    pub fn try_as_bytes(&self) -> Option<&Arc<Vec<u8>>> {
         match self {
             Value::Bytes(x) => Some(x),
             _ => None,
@@ -667,7 +703,11 @@ impl Value {
         }
     }
 
-    pub fn as_string(&self) -> Option<&Arc<String>> {
+    pub fn as_string(&self) -> DataSetResult<&Arc<String>> {
+        self.try_as_string().ok_or(DataSetError::InvalidSchema)
+    }
+
+    pub fn try_as_string(&self) -> Option<&Arc<String>> {
         match self {
             Value::String(x) => Some(x),
             _ => None,
@@ -703,7 +743,11 @@ impl Value {
         }
     }
 
-    pub fn as_asset_ref(&self) -> Option<AssetId> {
+    pub fn as_asset_ref(&self) -> DataSetResult<AssetId> {
+        self.try_as_asset_ref().ok_or(DataSetError::InvalidSchema)
+    }
+
+    pub fn try_as_asset_ref(&self) -> Option<AssetId> {
         match self {
             Value::AssetRef(x) => Some(*x),
             _ => None,
@@ -727,7 +771,11 @@ impl Value {
         }
     }
 
-    pub fn as_record(&self) -> Option<&ValueRecord> {
+    pub fn as_record(&self) -> DataSetResult<&ValueRecord> {
+        self.try_as_record().ok_or(DataSetError::InvalidSchema)
+    }
+
+    pub fn try_as_record(&self) -> Option<&ValueRecord> {
         match self {
             Value::Record(x) => Some(&*x),
             _ => None,
@@ -751,7 +799,11 @@ impl Value {
         }
     }
 
-    pub fn as_enum(&self) -> Option<&ValueEnum> {
+    pub fn as_enum(&self) -> DataSetResult<&ValueEnum> {
+        self.try_as_enum().ok_or(DataSetError::InvalidSchema)
+    }
+
+    pub fn try_as_enum(&self) -> Option<&ValueEnum> {
         match self {
             Value::Enum(x) => Some(&*x),
             _ => None,

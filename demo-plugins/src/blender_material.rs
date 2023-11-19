@@ -1,13 +1,13 @@
 pub use super::*;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
-use hydrate_data::{AssetRefFieldOwned, RecordBuilder, RecordOwned};
+use hydrate_data::{AssetRefFieldOwned, DataSetError, RecordOwned};
 use hydrate_model::pipeline::{AssetPlugin, ImportContext, ScanContext};
 use hydrate_model::pipeline::{ImportedImportable, Importer, ScannedImportable};
 use hydrate_pipeline::{
-    AssetRefFieldAccessor, BuilderRegistryBuilder, DataContainerRefMut, Enum, HashMap,
-    ImportableAsset, ImporterId, ImporterRegistry, ImporterRegistryBuilder,
-    JobProcessorRegistryBuilder, RecordAccessor, ReferencedSourceFile, SchemaLinker, SchemaSet,
+    BuilderRegistryBuilder, Enum, HashMap, ImportableAsset, ImporterId, ImporterRegistryBuilder,
+    JobProcessorRegistryBuilder, PipelineResult, RecordAccessor, ReferencedSourceFile,
+    SchemaLinker,
 };
 use serde::{Deserialize, Serialize};
 use type_uuid::TypeUuid;
@@ -59,19 +59,17 @@ impl Importer for BlenderMaterialImporter {
     fn scan_file(
         &self,
         context: ScanContext,
-    ) -> Vec<ScannedImportable> {
+    ) -> PipelineResult<Vec<ScannedImportable>> {
         let asset_type = context
             .schema_set
-            .find_named_type(MeshAdvMaterialAssetAccessor::schema_name())
-            .unwrap()
-            .as_record()
-            .unwrap()
+            .find_named_type(MeshAdvMaterialAssetAccessor::schema_name())?
+            .as_record()?
             .clone();
 
-        let json_str = std::fs::read_to_string(context.path).unwrap();
+        let json_str = std::fs::read_to_string(context.path)?;
         let json_data: MaterialJsonFileFormat = {
             profiling::scope!("serde_json::from_str");
-            serde_json::from_str(&json_str).unwrap()
+            serde_json::from_str(&json_str)?
         };
 
         let mut file_references: Vec<ReferencedSourceFile> = Default::default();
@@ -100,24 +98,24 @@ impl Importer for BlenderMaterialImporter {
             &json_data.emissive_texture,
         );
 
-        vec![ScannedImportable {
+        Ok(vec![ScannedImportable {
             name: None,
             asset_type,
             file_references,
-        }]
+        }])
     }
 
     fn import_file(
         &self,
         context: ImportContext,
-    ) -> HashMap<Option<String>, ImportedImportable> {
+    ) -> PipelineResult<HashMap<Option<String>, ImportedImportable>> {
         //
         // Read the file
         //
-        let json_str = std::fs::read_to_string(context.path).unwrap();
+        let json_str = std::fs::read_to_string(context.path)?;
         let json_data: MaterialJsonFileFormat = {
             profiling::scope!("serde_json::from_str");
-            serde_json::from_str(&json_str).unwrap()
+            serde_json::from_str(&json_str)?
         };
 
         //
@@ -126,7 +124,8 @@ impl Importer for BlenderMaterialImporter {
         let shadow_method = if let Some(shadow_method_string) = &json_data.shadow_method {
             //TODO: This relies on input json and code matching perfectly, ideally we would search schema type for aliases
             //println!("find MeshAdvShadowMethodEnum {:?}", shadow_method_string);
-            MeshAdvShadowMethodEnum::from_symbol_name(shadow_method_string.as_str()).unwrap()
+            MeshAdvShadowMethodEnum::from_symbol_name(shadow_method_string.as_str())
+                .ok_or(DataSetError::UnexpectedEnumSymbol)?
         } else {
             MeshAdvShadowMethodEnum::None
         };
@@ -134,7 +133,8 @@ impl Importer for BlenderMaterialImporter {
         let blend_method = if let Some(blend_method_string) = &json_data.blend_method {
             //TODO: This relies on input json and code matching perfectly, ideally we would search schema type for alias
             //println!("find MeshAdvBlendMethodEnum {:?}", blend_method_string);
-            MeshAdvBlendMethodEnum::from_symbol_name(blend_method_string.as_str()).unwrap()
+            MeshAdvBlendMethodEnum::from_symbol_name(blend_method_string.as_str())
+                .ok_or(DataSetError::UnexpectedEnumSymbol)?
         } else {
             MeshAdvBlendMethodEnum::Opaque
         };
@@ -146,78 +146,72 @@ impl Importer for BlenderMaterialImporter {
 
         default_asset
             .base_color_factor()
-            .set_vec4(json_data.base_color_factor)
-            .unwrap();
+            .set_vec4(json_data.base_color_factor)?;
         default_asset
             .emissive_factor()
-            .set_vec3(json_data.emissive_factor)
-            .unwrap();
+            .set_vec3(json_data.emissive_factor)?;
         default_asset
             .metallic_factor()
-            .set(json_data.metallic_factor)
-            .unwrap();
+            .set(json_data.metallic_factor)?;
         default_asset
             .roughness_factor()
-            .set(json_data.roughness_factor)
-            .unwrap();
+            .set(json_data.roughness_factor)?;
         default_asset
             .normal_texture_scale()
-            .set(json_data.normal_texture_scale)
-            .unwrap();
+            .set(json_data.normal_texture_scale)?;
 
         fn try_find_file_reference(
             importable_assets: &HashMap<Option<String>, ImportableAsset>,
             ref_field: AssetRefFieldOwned,
             path_as_string: &Option<PathBuf>,
-        ) {
+        ) -> PipelineResult<()> {
             if let Some(path_as_string) = path_as_string {
                 if let Some(referenced_asset_id) = importable_assets
                     .get(&None)
-                    .unwrap()
+                    .ok_or("Path not found in import data")?
                     .referenced_paths
                     .get(path_as_string)
                 {
-                    ref_field.set(*referenced_asset_id).unwrap();
+                    ref_field.set(*referenced_asset_id)?;
                 }
             }
+
+            Ok(())
         }
 
         try_find_file_reference(
             &context.importable_assets,
             default_asset.color_texture(),
             &json_data.color_texture,
-        );
+        )?;
         try_find_file_reference(
             &context.importable_assets,
             default_asset.metallic_roughness_texture(),
             &json_data.metallic_roughness_texture,
-        );
+        )?;
         try_find_file_reference(
             &context.importable_assets,
             default_asset.normal_texture(),
             &json_data.normal_texture,
-        );
+        )?;
         try_find_file_reference(
             &context.importable_assets,
             default_asset.emissive_texture(),
             &json_data.emissive_texture,
-        );
+        )?;
 
-        default_asset.shadow_method().set(shadow_method).unwrap();
-        default_asset.blend_method().set(blend_method).unwrap();
+        default_asset.shadow_method().set(shadow_method)?;
+        default_asset.blend_method().set(blend_method)?;
         default_asset
             .alpha_threshold()
-            .set(json_data.alpha_threshold.unwrap_or(0.5))
-            .unwrap();
+            .set(json_data.alpha_threshold.unwrap_or(0.5))?;
         default_asset
             .backface_culling()
-            .set(json_data.backface_culling.unwrap_or(true))
-            .unwrap();
+            .set(json_data.backface_culling.unwrap_or(true))?;
         //TODO: Does this incorrectly write older enum string names when code is older than schema file?
         default_asset
             .color_texture_has_alpha_channel()
-            .set(json_data.color_texture_has_alpha_channel)
-            .unwrap();
+            .set(json_data.color_texture_has_alpha_channel)?;
 
         //
         // Return the created assets
@@ -228,10 +222,10 @@ impl Importer for BlenderMaterialImporter {
             ImportedImportable {
                 file_references: Default::default(),
                 import_data: None,
-                default_asset: Some(default_asset.into_inner().unwrap()),
+                default_asset: Some(default_asset.into_inner()?),
             },
         );
-        imported_assets
+        Ok(imported_assets)
     }
 }
 

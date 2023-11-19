@@ -1,4 +1,4 @@
-use crate::ImporterRegistry;
+use crate::{ImporterRegistry, PipelineResult};
 use hydrate_data::{AssetId, HashMap, ImporterId, SchemaRecord, SchemaSet, SingleObject};
 use std::path::{Path, PathBuf};
 use type_uuid::{TypeUuid, TypeUuidDynamic};
@@ -71,12 +71,12 @@ pub trait Importer: TypeUuidDynamic + Sync + Send + 'static {
     fn scan_file(
         &self,
         context: ScanContext,
-    ) -> Vec<ScannedImportable>;
+    ) -> PipelineResult<Vec<ScannedImportable>>;
 
     // Open the file and extract all the data from it required for the build step, or for build
     // steps for assets referencing this asset
     fn import_file(
         &self,
         context: ImportContext,
-    ) -> HashMap<Option<String>, ImportedImportable>;
+    ) -> PipelineResult<HashMap<Option<String>, ImportedImportable>>;
 }

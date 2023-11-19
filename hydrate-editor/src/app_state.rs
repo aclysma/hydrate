@@ -215,7 +215,9 @@ impl AppState {
                         .root_edit_context_mut()
                         .with_undo_context("MoveAssets", |edit_context| {
                             for asset in assets {
-                                edit_context.set_asset_location(asset, destination.clone());
+                                edit_context
+                                    .set_asset_location(asset, destination.clone())
+                                    .unwrap();
                             }
 
                             EndContextBehavior::Finish

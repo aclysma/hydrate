@@ -1,8 +1,6 @@
-use hydrate_base::hashing::HashMap;
 use hydrate_base::AssetId;
-use hydrate_data::{DataSet, SchemaSet, SingleObject};
-use hydrate_model::pipeline::job_system;
 use hydrate_model::pipeline::job_system::*;
+use hydrate_pipeline::PipelineResult;
 use serde::{Deserialize, Serialize};
 use std::hash::Hash;
 use type_uuid::TypeUuid;
@@ -37,36 +35,40 @@ impl JobProcessor for ExampleBuildJobTopLevel {
 
     fn enumerate_dependencies(
         &self,
-        context: EnumerateDependenciesContext<Self::InputT>,
-    ) -> JobEnumeratedDependencies {
+        _context: EnumerateDependenciesContext<Self::InputT>,
+    ) -> PipelineResult<JobEnumeratedDependencies> {
         // No dependencies
-        JobEnumeratedDependencies::default()
+        Ok(JobEnumeratedDependencies::default())
     }
 
     fn run(
         &self,
         context: RunContext<Self::InputT>,
-    ) -> Self::OutputT {
-        let task_id1 = context.enqueue_job::<ExampleBuildJobScatter>(ExampleBuildJobScatterInput {
-            asset_id: context.input.asset_id,
-            some_other_parameter: "Test1".to_string(),
-        });
-        let task_id2 = context.enqueue_job::<ExampleBuildJobScatter>(ExampleBuildJobScatterInput {
-            asset_id: context.input.asset_id,
-            some_other_parameter: "Test2".to_string(),
-        });
-        let task_id3 = context.enqueue_job::<ExampleBuildJobScatter>(ExampleBuildJobScatterInput {
-            asset_id: context.input.asset_id,
-            some_other_parameter: "Test3".to_string(),
-        });
+    ) -> PipelineResult<Self::OutputT> {
+        let task_id1 =
+            context.enqueue_job::<ExampleBuildJobScatter>(ExampleBuildJobScatterInput {
+                asset_id: context.input.asset_id,
+                some_other_parameter: "Test1".to_string(),
+            })?;
+        let task_id2 =
+            context.enqueue_job::<ExampleBuildJobScatter>(ExampleBuildJobScatterInput {
+                asset_id: context.input.asset_id,
+                some_other_parameter: "Test2".to_string(),
+            })?;
+        let task_id3 =
+            context.enqueue_job::<ExampleBuildJobScatter>(ExampleBuildJobScatterInput {
+                asset_id: context.input.asset_id,
+                some_other_parameter: "Test3".to_string(),
+            })?;
 
-        let final_task = context.enqueue_job::<ExampleBuildJobGather>(ExampleBuildJobGatherInput {
-            asset_id: context.input.asset_id,
-            scatter_tasks: vec![task_id1, task_id2, task_id3],
-        });
+        let final_task =
+            context.enqueue_job::<ExampleBuildJobGather>(ExampleBuildJobGatherInput {
+                asset_id: context.input.asset_id,
+                scatter_tasks: vec![task_id1, task_id2, task_id3],
+            })?;
 
         println!("ExampleBuildJobTopLevel");
-        ExampleBuildJobTopLevelOutput { final_task }
+        Ok(ExampleBuildJobTopLevelOutput { final_task })
     }
 }
 
@@ -99,21 +101,21 @@ impl JobProcessor for ExampleBuildJobScatter {
 
     fn enumerate_dependencies(
         &self,
-        context: EnumerateDependenciesContext<Self::InputT>,
-    ) -> JobEnumeratedDependencies {
+        _context: EnumerateDependenciesContext<Self::InputT>,
+    ) -> PipelineResult<JobEnumeratedDependencies> {
         // No dependencies
-        JobEnumeratedDependencies::default()
+        Ok(JobEnumeratedDependencies::default())
     }
 
     fn run(
         &self,
-        context: RunContext<Self::InputT>,
-    ) -> Self::OutputT {
+        _context: RunContext<Self::InputT>,
+    ) -> PipelineResult<Self::OutputT> {
         //Do stuff
         // We could return the result
         // job_api.publish_intermediate_data(...);
         println!("ExampleBuildJobScatter");
-        ExampleBuildJobScatterOutput {}
+        Ok(ExampleBuildJobScatterOutput {})
     }
 }
 
@@ -147,21 +149,21 @@ impl JobProcessor for ExampleBuildJobGather {
     fn enumerate_dependencies(
         &self,
         context: EnumerateDependenciesContext<Self::InputT>,
-    ) -> JobEnumeratedDependencies {
-        JobEnumeratedDependencies {
+    ) -> PipelineResult<JobEnumeratedDependencies> {
+        Ok(JobEnumeratedDependencies {
             import_data: Default::default(),
             upstream_jobs: context.input.scatter_tasks.clone(),
-        }
+        })
     }
 
     fn run(
         &self,
-        context: RunContext<Self::InputT>,
-    ) -> Self::OutputT {
+        _context: RunContext<Self::InputT>,
+    ) -> PipelineResult<Self::OutputT> {
         // Now use inputs from other jobs to produce an output
         //job_api.publish_built_asset(...);
 
         println!("ExampleBuildJobGather");
-        ExampleBuildJobGatherOutput {}
+        Ok(ExampleBuildJobGatherOutput {})
     }
 }

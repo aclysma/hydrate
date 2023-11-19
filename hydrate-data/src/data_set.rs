@@ -2,33 +2,13 @@ use crate::{
     AssetId, HashMap, HashSet, OrderedSet, Schema, SchemaFingerprint, SchemaRecord, SingleObject,
     Value,
 };
+pub use crate::{DataSetError, DataSetResult};
 use crate::{NullOverride, SchemaSet};
 use std::hash::{Hash, Hasher};
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
 use std::string::ToString;
 use uuid::Uuid;
-
-#[derive(Debug)]
-pub enum DataSetError {
-    ValueDoesNotMatchSchema,
-    PathParentIsNull,
-    PathDynamicArrayEntryDoesNotExist,
-    UnexpectedEnumSymbol,
-    DuplicateAssetId,
-    AssetNotFound,
-    ImportDataNotFound,
-    SingleObjectDoesNotMatchSchema,
-    LocationCycleDetected,
-    LocationParentNotFound,
-    SchemaNotFound,
-    InvalidSchema,
-    UuidParseError,
-    // the data was in a container, but moved out of it (i.e. Option::take())
-    DataTaken,
-}
-
-pub type DataSetResult<T> = Result<T, DataSetError>;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct AssetName(String);
@@ -309,10 +289,7 @@ impl DataSet {
             .schemas()
             .get(&schema)
             .ok_or(DataSetError::SchemaNotFound)?;
-        let schema_record = schema
-            .as_record()
-            .cloned()
-            .ok_or(DataSetError::InvalidSchema)?;
+        let schema_record = schema.as_record().cloned()?;
         let obj = DataSetAssetInfo {
             schema: schema_record,
             asset_name,

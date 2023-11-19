@@ -2,8 +2,8 @@ use super::generated::{AllFieldsAccessor, TransformAccessor, TransformRefAccesso
 use demo_types::simple_data::*;
 use hydrate_model::pipeline::AssetPlugin;
 use hydrate_pipeline::{
-    job_system, BuilderRegistryBuilder, DataContainerRef, HandleFactory, ImporterRegistryBuilder,
-    JobApi, JobProcessorRegistryBuilder, SchemaLinker,
+    BuilderRegistryBuilder, DataContainerRef, HandleFactory, ImporterRegistryBuilder,
+    JobProcessorRegistryBuilder, PipelineResult, SchemaLinker,
 };
 
 mod simple_data_trait;
@@ -16,14 +16,14 @@ impl SimpleData for TransformRef {
     fn from_data_container(
         data_set_view: DataContainerRef,
         handle_context: HandleFactory,
-    ) -> Self {
+    ) -> PipelineResult<Self> {
         let x = TransformRefAccessor::default();
-        let transform = x.transform().get(data_set_view).unwrap();
+        let transform = x.transform().get(data_set_view)?;
 
         //TODO: Verify type?
         let handle = handle_context.make_handle_to_default_artifact(transform);
 
-        TransformRef { transform: handle }
+        Ok(TransformRef { transform: handle })
     }
 }
 
@@ -31,17 +31,17 @@ impl SimpleData for Transform {
     fn from_data_container(
         data_container: DataContainerRef,
         _handle_context: HandleFactory,
-    ) -> Self {
+    ) -> PipelineResult<Self> {
         let x = TransformAccessor::default();
-        let position = x.position().get_vec3(data_container).unwrap();
-        let rotation = x.rotation().get_vec4(data_container).unwrap();
-        let scale = x.scale().get_vec3(data_container).unwrap();
+        let position = x.position().get_vec3(data_container)?;
+        let rotation = x.rotation().get_vec4(data_container)?;
+        let scale = x.scale().get_vec3(data_container)?;
 
-        Transform {
+        Ok(Transform {
             position,
             rotation,
             scale,
-        }
+        })
     }
 }
 
@@ -49,17 +49,17 @@ impl SimpleData for AllFields {
     fn from_data_container(
         data_container: DataContainerRef,
         _handle_context: HandleFactory,
-    ) -> Self {
+    ) -> PipelineResult<Self> {
         let x = AllFieldsAccessor::default();
-        let boolean = x.boolean().get(data_container).unwrap();
-        let int32 = x.i32().get(data_container).unwrap();
-        let int64 = x.i64().get(data_container).unwrap();
+        let boolean = x.boolean().get(data_container)?;
+        let int32 = x.i32().get(data_container)?;
+        let int64 = x.i64().get(data_container)?;
 
-        AllFields {
+        Ok(AllFields {
             boolean,
             int32,
             int64,
-        }
+        })
     }
 }
 

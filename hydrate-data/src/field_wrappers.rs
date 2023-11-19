@@ -66,13 +66,13 @@ pub trait Enum: Sized {
 pub trait RecordAccessor {
     fn schema_name() -> &'static str;
 
-    fn new_single_object(schema_set: &SchemaSet) -> Option<SingleObject> {
+    fn new_single_object(schema_set: &SchemaSet) -> DataSetResult<SingleObject> {
         let schema = schema_set
             .find_named_type(Self::schema_name())
             .unwrap()
             .as_record()?;
 
-        Some(SingleObject::new(schema))
+        Ok(SingleObject::new(schema))
     }
 }
 
@@ -87,13 +87,12 @@ pub trait RecordWriter {
 pub trait RecordOwned: Sized + FieldOwned {
     fn schema_name() -> &'static str;
 
-    fn new_single_object(schema_set: &SchemaSet) -> Option<SingleObject> {
+    fn new_single_object(schema_set: &SchemaSet) -> DataSetResult<SingleObject> {
         let schema = schema_set
-            .find_named_type(Self::schema_name())
-            .unwrap()
+            .find_named_type(Self::schema_name())?
             .as_record()?;
 
-        Some(SingleObject::new(schema))
+        Ok(SingleObject::new(schema))
     }
 
     fn new_builder(schema_set: &SchemaSet) -> RecordBuilder<Self> {
@@ -1324,7 +1323,7 @@ impl BytesFieldAccessor {
     fn do_get<'a>(
         property_path: &PropertyPath,
         data_container: &'a DataContainerRef<'a>,
-    ) -> DataSetResult<&'a Vec<u8>> {
+    ) -> DataSetResult<&'a Arc<Vec<u8>>> {
         Ok(data_container
             .resolve_property(property_path.path())?
             .as_bytes()
@@ -1342,7 +1341,7 @@ impl BytesFieldAccessor {
     pub fn get<'a, 'b>(
         &'a self,
         data_container: &'b DataContainerRef<'b>,
-    ) -> DataSetResult<&'b Vec<u8>> {
+    ) -> DataSetResult<&'b Arc<Vec<u8>>> {
         Self::do_get(&self.0, &data_container)
     }
 
@@ -1367,7 +1366,7 @@ impl<'a> FieldReader<'a> for BytesFieldReader<'a> {
 }
 
 impl<'a> BytesFieldReader<'a> {
-    pub fn get(&self) -> DataSetResult<&Vec<u8>> {
+    pub fn get(&self) -> DataSetResult<&Arc<Vec<u8>>> {
         BytesFieldAccessor::do_get(&self.0, &self.1)
     }
 }
@@ -1472,7 +1471,10 @@ impl StringFieldAccessor {
         data_container: &mut DataContainerRefMut,
         value: T,
     ) -> DataSetResult<Option<Value>> {
-        data_container.set_property_override(property_path.path(), Some(Value::String(value.into().clone())))
+        data_container.set_property_override(
+            property_path.path(),
+            Some(Value::String(value.into().clone())),
+        )
     }
 
     pub fn get(

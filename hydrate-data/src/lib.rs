@@ -1,4 +1,5 @@
 pub use hydrate_schema::*;
+pub use hydrate_schema::{DataSetError, DataSetResult};
 
 pub mod value;
 pub use value::Value;
@@ -12,8 +13,6 @@ pub use data_set::BuildInfo;
 pub use data_set::BuilderId;
 pub use data_set::DataSet;
 pub use data_set::DataSetAssetInfo;
-pub use data_set::DataSetError;
-pub use data_set::DataSetResult;
 pub use data_set::ImportInfo;
 pub use data_set::ImportableName;
 pub use data_set::ImporterId;

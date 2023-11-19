@@ -494,7 +494,8 @@ pub fn draw_asset(
                 .db_state
                 .editor_model
                 .root_edit_context_mut()
-                .delete_asset(id);
+                .delete_asset(id)
+                .unwrap();
         }
     });
 }

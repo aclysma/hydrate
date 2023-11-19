@@ -90,7 +90,7 @@ impl BuildJobs {
         asset_hashes: &HashMap<AssetId, u64>,
         _import_data_metadata_hashes: &HashMap<AssetId, u64>,
         combined_build_hash: u64,
-    ) {
+    ) -> PipelineResult<()> {
         profiling::scope!("Process Build Operations");
         editor_model.refresh_tree_node_cache();
 
@@ -163,7 +163,7 @@ impl BuildJobs {
                         data_set: &data_set,
                         schema_set,
                         job_api: self.job_executor.job_api(),
-                    });
+                    })?;
                 }
             }
 
@@ -371,6 +371,7 @@ impl BuildJobs {
         toc_path.push(format!("{:0>16x}.toc", timestamp));
 
         std::fs::write(toc_path, format!("{:0>16x}", combined_build_hash)).unwrap();
+        Ok(())
 
         //std::fs::write(self.root_path.join("latest.txt"), format!("{:x}", combined_build_hash)).unwrap();
     }

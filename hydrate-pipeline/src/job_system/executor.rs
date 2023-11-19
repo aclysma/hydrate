@@ -1,4 +1,4 @@
-use crate::{BuiltArtifact, WrittenArtifact};
+use crate::{BuiltArtifact, PipelineResult, WrittenArtifact};
 use crossbeam_channel::{Receiver, Sender};
 use hydrate_base::hashing::HashMap;
 use hydrate_base::uuid_path::uuid_and_hash_to_path;
@@ -9,7 +9,6 @@ use std::hash::Hasher;
 use std::io::Write;
 use std::path::PathBuf;
 use std::sync::Arc;
-use std::sync::atomic::AtomicU32;
 
 use super::*;
 
@@ -29,7 +28,7 @@ where
         input: &Vec<u8>,
         data_set: &DataSet,
         schema_set: &SchemaSet,
-    ) -> JobEnumeratedDependencies {
+    ) -> PipelineResult<JobEnumeratedDependencies> {
         let data: <T as JobProcessor>::InputT = bincode::deserialize(input.as_slice()).unwrap();
         self.0.enumerate_dependencies(EnumerateDependenciesContext {
             input: &data,
@@ -45,7 +44,7 @@ where
         schema_set: &SchemaSet,
         dependency_data: &HashMap<AssetId, SingleObject>,
         job_api: &dyn JobApi,
-    ) -> Vec<u8> {
+    ) -> PipelineResult<Arc<Vec<u8>>> {
         let data: <T as JobProcessor>::InputT = bincode::deserialize(input.as_slice()).unwrap();
         let output = {
             profiling::scope!(&format!("{:?}::run", std::any::type_name::<T>()));
@@ -56,8 +55,8 @@ where
                 dependency_data,
                 job_api,
             })
-        };
-        bincode::serialize(&output).unwrap()
+        }?;
+        Ok(Arc::new(bincode::serialize(&output)?))
     }
 }
 
@@ -84,7 +83,7 @@ struct JobState {
     // When we send the job to the thread pool, this is set to true
     has_been_scheduled: bool,
     // This would eventually be stored on file system
-    output_data: Option<Arc<Vec<u8>>>,
+    output_data: Option<PipelineResult<Arc<Vec<u8>>>>,
 }
 
 //TODO: Future optimization, we clone this and it could be big, especially when we re-run jobs. We
@@ -96,11 +95,6 @@ struct QueuedJob {
     input_data: Arc<Vec<u8>>,
     dependencies: Arc<JobEnumeratedDependencies>,
     debug_name: Arc<String>,
-}
-
-struct CompletedJob {
-    job_id: JobId,
-    output_data: Vec<u8>,
 }
 
 #[derive(Default)]
@@ -204,7 +198,7 @@ impl JobApi for JobApiImpl {
         schema_set: &SchemaSet,
         new_job: NewJob,
         debug_name: String,
-    ) -> JobId {
+    ) -> PipelineResult<JobId> {
         // Dependencies:
         // - Job Versioning - so if logic changes we can bump version of the processor and kick jobs to rerun
         // - Asset (we need to know hash of data in it)
@@ -219,7 +213,7 @@ impl JobApi for JobApiImpl {
             .get(new_job.job_type)
             .unwrap();
         let dependencies =
-            processor.enumerate_dependencies_inner(&new_job.input_data, data_set, schema_set);
+            processor.enumerate_dependencies_inner(&new_job.input_data, data_set, schema_set)?;
         self.inner
             .job_create_queue_tx
             .send(QueuedJob {
@@ -230,7 +224,7 @@ impl JobApi for JobApiImpl {
                 debug_name: Arc::new(debug_name),
             })
             .unwrap();
-        job_id
+        Ok(job_id)
     }
 
     // fn produce_asset(&self, asset: BuiltAsset) {
@@ -314,27 +308,15 @@ pub struct JobExecutor {
 
     job_processor_registry: JobProcessorRegistry,
 
-    // Represents all known previous executions of a job
-    //job_history: HashMap<JobId, JobHistory>,
     // All the jobs that we have run or will run in this job batch
     current_jobs: HashMap<JobId, JobState>,
 
     // Queue for jobs to request additional jobs to run
-    //job_create_queue_tx: Sender<QueuedJob>,
     job_create_queue_rx: Receiver<QueuedJob>,
 
     //TODO: We will have additional deques for jobs that are in a ready state to avoid O(n) iteration
-
-    // Queue for jobs to notify that they have completed
-    //job_completed_queue_tx: Sender<CompletedJob>,
-    //job_completed_queue_rx: Receiver<CompletedJob>,
-
-    //artifact_handle_created_tx: Sender<AssetArtifactIdPair>,
     artifact_handle_created_rx: Receiver<AssetArtifactIdPair>,
 
-    // built_asset_queue_tx: Sender<BuiltAsset>,
-    // built_asset_queue_rx: Receiver<BuiltAsset>,
-    //built_artifact_queue_tx: Sender<BuiltArtifact>,
     written_artifact_queue_rx: Receiver<WrittenArtifact>,
 
     thread_pool_result_rx: Receiver<JobExecutorThreadPoolOutcome>,
@@ -491,14 +473,9 @@ impl JobExecutor {
         while let Ok(result) = self.thread_pool_result_rx.try_recv() {
             match result {
                 JobExecutorThreadPoolOutcome::RunJobComplete(msg) => {
-                    let job = self.current_jobs
-                        .get_mut(&msg.request.job_id)
-                        .unwrap();
-                    job.output_data = Some(msg.output_data);
+                    let job = self.current_jobs.get_mut(&msg.request.job_id).unwrap();
+                    job.output_data = Some(msg.result);
                     self.completed_job_count += 1;
-                }
-                JobExecutorThreadPoolOutcome::RunJobFailed(msg) => {
-                    unimplemented!()
                 }
             }
         }
@@ -626,7 +603,11 @@ impl JobExecutor {
         }
 
         if print_progress {
-            log::info!("Jobs: {}/{}", self.completed_job_count, self.current_jobs.len());
+            log::info!(
+                "Jobs: {}/{}",
+                self.completed_job_count,
+                self.current_jobs.len()
+            );
             self.last_job_print_time = Some(now);
         }
     }

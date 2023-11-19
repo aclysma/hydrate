@@ -1,21 +1,19 @@
 pub use super::*;
 use ::image::GenericImageView;
-use std::path::Path;
 use std::sync::Arc;
 
 use super::generated::{
-    GpuImageAssetAccessor, GpuImageAssetOwned, GpuImageAssetReader, GpuImageImportedDataAccessor,
-    GpuImageImportedDataOwned, GpuImageImportedDataReader, GpuImageImportedDataWriter,
+    GpuImageAssetAccessor, GpuImageAssetOwned, GpuImageAssetReader, GpuImageImportedDataOwned,
+    GpuImageImportedDataReader,
 };
 use demo_types::image::*;
-use hydrate_data::{RecordBuilder, RecordOwned};
+use hydrate_data::RecordOwned;
 use hydrate_model::pipeline::{ImportContext, ScanContext};
 use hydrate_pipeline::{
-    job_system, AssetId, BuilderContext, BuilderRegistryBuilder, DataContainerRef,
-    DataContainerRefMut, DataSet, EnumerateDependenciesContext, FieldAccessor, HashMap,
-    ImportableAsset, ImporterRegistry, ImporterRegistryBuilder, JobApi, JobEnumeratedDependencies,
-    JobInput, JobOutput, JobProcessor, JobProcessorRegistryBuilder, PropertyPath, RecordAccessor,
-    RunContext, SchemaLinker, SchemaSet, SingleObject,
+    AssetId, BuilderContext, BuilderRegistryBuilder, DataContainerRef,
+    EnumerateDependenciesContext, HashMap, ImporterRegistryBuilder, JobEnumeratedDependencies,
+    JobInput, JobOutput, JobProcessor, JobProcessorRegistryBuilder, PipelineResult, RecordAccessor,
+    RunContext, SchemaLinker,
 };
 use hydrate_pipeline::{AssetPlugin, Builder};
 use hydrate_pipeline::{ImportedImportable, Importer, ScannedImportable};
@@ -34,29 +32,27 @@ impl Importer for GpuImageImporter {
     fn scan_file(
         &self,
         context: ScanContext,
-    ) -> Vec<ScannedImportable> {
+    ) -> PipelineResult<Vec<ScannedImportable>> {
         let asset_type = context
             .schema_set
-            .find_named_type(GpuImageAssetAccessor::schema_name())
-            .unwrap()
-            .as_record()
-            .unwrap()
+            .find_named_type(GpuImageAssetAccessor::schema_name())?
+            .as_record()?
             .clone();
-        vec![ScannedImportable {
+        Ok(vec![ScannedImportable {
             name: None,
             asset_type,
             file_references: Default::default(),
-        }]
+        }])
     }
 
     fn import_file(
         &self,
         context: ImportContext,
-    ) -> HashMap<Option<String>, ImportedImportable> {
+    ) -> PipelineResult<HashMap<Option<String>, ImportedImportable>> {
         //
         // Read the file
         //
-        let decoded_image = ::image::open(context.path).unwrap();
+        let decoded_image = ::image::open(context.path).map_err(|x| x.to_string())?;
 
         let (width, height) = decoded_image.dimensions();
         let image_bytes = decoded_image.into_rgba8().to_vec();
@@ -65,15 +61,15 @@ impl Importer for GpuImageImporter {
         // Create import data
         //
         let import_data = GpuImageImportedDataOwned::new_builder(context.schema_set);
-        import_data.image_bytes().set(image_bytes).unwrap();
-        import_data.width().set(width).unwrap();
-        import_data.height().set(height).unwrap();
+        import_data.image_bytes().set(image_bytes)?;
+        import_data.width().set(width)?;
+        import_data.height().set(height)?;
 
         //
         // Create the default asset
         //
         let default_asset = GpuImageAssetOwned::new_builder(context.schema_set);
-        default_asset.compress().set(false).unwrap();
+        default_asset.compress().set(false)?;
 
         //
         // Return the created assets
@@ -83,11 +79,11 @@ impl Importer for GpuImageImporter {
             None,
             ImportedImportable {
                 file_references: Default::default(),
-                import_data: Some(import_data.into_inner().unwrap()),
-                default_asset: Some(default_asset.into_inner().unwrap()),
+                import_data: Some(import_data.into_inner()?),
+                default_asset: Some(default_asset.into_inner()?),
             },
         );
-        imported_assets
+        Ok(imported_assets)
     }
 }
 
@@ -117,36 +113,33 @@ impl JobProcessor for GpuImageJobProcessor {
     fn enumerate_dependencies(
         &self,
         context: EnumerateDependenciesContext<Self::InputT>,
-    ) -> JobEnumeratedDependencies {
+    ) -> PipelineResult<JobEnumeratedDependencies> {
         // No dependencies
-        JobEnumeratedDependencies {
+        Ok(JobEnumeratedDependencies {
             import_data: vec![context.input.asset_id],
             upstream_jobs: Vec::default(),
-        }
+        })
     }
 
     fn run(
         &self,
         context: RunContext<Self::InputT>,
-    ) -> GpuImageJobOutput {
+    ) -> PipelineResult<GpuImageJobOutput> {
         //
         // Read asset properties
         //
-        let asset = context
-            .asset::<GpuImageAssetReader>(context.input.asset_id)
-            .unwrap();
-        let compressed = asset.compress().get().unwrap();
+        let asset = context.asset::<GpuImageAssetReader>(context.input.asset_id)?;
+        let compressed = asset.compress().get()?;
 
         //
         // Read imported data
         //
-        let imported_data = context
-            .imported_data::<GpuImageImportedDataReader>(context.input.asset_id)
-            .unwrap();
+        let imported_data =
+            context.imported_data::<GpuImageImportedDataReader>(context.input.asset_id)?;
         let image_bytes_reader = imported_data.image_bytes();
-        let image_bytes = image_bytes_reader.get().unwrap();
-        let width = imported_data.width().get().unwrap();
-        let height = imported_data.height().get().unwrap();
+        let image_bytes = image_bytes_reader.get()?;
+        let width = imported_data.width().get()?;
+        let height = imported_data.height().get()?;
 
         //
         // Compress the image, or just return the raw image bytes
@@ -166,21 +159,23 @@ impl JobProcessor for GpuImageJobProcessor {
             unsafe {
                 compressor.init(&compressor_params);
                 log::debug!("Compressing texture");
-                compressor.process().unwrap();
+                compressor
+                    .process()
+                    .map_err(|e| format!("Compressor process() failed {:?}", e))?;
                 log::debug!("Compressed texture");
             }
-            let compressed_basis_data = compressor.basis_file().to_vec();
+            let compressed_basis_data = Arc::new(compressor.basis_file().to_vec());
             compressed_basis_data
         } else {
             log::debug!("Not compressing texture");
-            image_bytes.clone()
+            (*image_bytes).clone()
         };
 
         //
         // Create the processed data
         //
         let processed_data = GpuImageAssetData {
-            image_bytes,
+            image_bytes: (*image_bytes).clone(),
             width,
             height,
         };
@@ -188,9 +183,9 @@ impl JobProcessor for GpuImageJobProcessor {
         //
         // Serialize and return
         //
-        context.produce_default_artifact(context.input.asset_id, processed_data);
+        context.produce_default_artifact(context.input.asset_id, processed_data)?;
 
-        GpuImageJobOutput {}
+        Ok(GpuImageJobOutput {})
     }
 }
 
@@ -206,11 +201,11 @@ impl Builder for GpuImageBuilder {
     fn start_jobs(
         &self,
         context: BuilderContext,
-    ) {
+    ) -> PipelineResult<()> {
         let data_container =
             DataContainerRef::from_dataset(context.data_set, context.schema_set, context.asset_id);
         let x = GpuImageAssetAccessor::default();
-        let compressed = x.compress().get(data_container).unwrap();
+        let compressed = x.compress().get(data_container)?;
 
         //Future: Might produce jobs per-platform
         context.enqueue_job::<GpuImageJobProcessor>(
@@ -221,7 +216,9 @@ impl Builder for GpuImageBuilder {
                 asset_id: context.asset_id,
                 compressed,
             },
-        );
+        )?;
+
+        Ok(())
     }
 }
 

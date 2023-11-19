@@ -22,7 +22,7 @@ pub fn draw_menu_bar(
         });
         ui.menu(im_str!("Edit"), || {
             if imgui::MenuItem::new(im_str!("Undo")).build(ui) {
-                app_state.db_state.editor_model.undo(); //undo_stack.undo(&mut app_state.db_state.db);
+                app_state.db_state.editor_model.undo().unwrap(); //undo_stack.undo(&mut app_state.db_state.db);
                 app_state.action_queue.queue_action(QueuedActions::Undo);
             }
             if imgui::MenuItem::new(im_str!("Redo")).build(ui) {

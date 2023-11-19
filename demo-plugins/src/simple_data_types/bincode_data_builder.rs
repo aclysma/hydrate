@@ -1,8 +1,7 @@
 use hydrate_model::pipeline::Builder;
 use hydrate_pipeline::{
-    job_system, AssetId, BuilderContext, DataContainerRef, DataSet, EnumerateDependenciesContext,
-    HashMap, JobApi, JobEnumeratedDependencies, JobInput, JobOutput, JobProcessor, RunContext,
-    SchemaSet, SingleObject,
+    AssetId, BuilderContext, DataContainerRef, EnumerateDependenciesContext,
+    JobEnumeratedDependencies, JobInput, JobOutput, JobProcessor, PipelineResult, RunContext,
 };
 use serde::{Deserialize, Serialize};
 use std::marker::PhantomData;
@@ -49,17 +48,17 @@ impl<T: SimpleData + Sized + Serialize + for<'a> Deserialize<'a> + TypeUuid> Job
 
     fn enumerate_dependencies(
         &self,
-        context: EnumerateDependenciesContext<Self::InputT>,
-    ) -> JobEnumeratedDependencies {
+        _context: EnumerateDependenciesContext<Self::InputT>,
+    ) -> PipelineResult<JobEnumeratedDependencies> {
         // No dependencies
-        JobEnumeratedDependencies::default()
+        Ok(JobEnumeratedDependencies::default())
     }
 
     fn run(
         &self,
         context: RunContext<Self::InputT>,
-    ) -> SimpleBincodeDataJobOutput {
-        let mut data_set_view = DataContainerRef::from_dataset(
+    ) -> PipelineResult<SimpleBincodeDataJobOutput> {
+        let data_set_view = DataContainerRef::from_dataset(
             &context.data_set,
             context.schema_set,
             context.input.asset_id,
@@ -68,10 +67,11 @@ impl<T: SimpleData + Sized + Serialize + for<'a> Deserialize<'a> + TypeUuid> Job
         //
         // Serialize and return
         //
-        context.produce_default_artifact_with_handles(context.input.asset_id, |handle_factory| {
-            T::from_data_container(data_set_view, handle_factory)
-        });
-        SimpleBincodeDataJobOutput {}
+        context
+            .produce_default_artifact_with_handles(context.input.asset_id, |handle_factory| {
+                T::from_data_container(data_set_view, handle_factory)
+            })?;
+        Ok(SimpleBincodeDataJobOutput {})
     }
 }
 
@@ -106,7 +106,7 @@ impl<T: SimpleData + Sized + Serialize + for<'a> Deserialize<'a> + TypeUuid> Bui
     fn start_jobs(
         &self,
         context: BuilderContext,
-    ) {
+    ) -> PipelineResult<()> {
         context.enqueue_job::<SimpleBincodeDataJobProcessor<T>>(
             context.data_set,
             context.schema_set,
@@ -114,6 +114,7 @@ impl<T: SimpleData + Sized + Serialize + for<'a> Deserialize<'a> + TypeUuid> Bui
             SimpleBincodeDataJobInput {
                 asset_id: context.asset_id,
             },
-        );
+        )?;
+        Ok(())
     }
 }

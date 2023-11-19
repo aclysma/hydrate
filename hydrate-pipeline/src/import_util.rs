@@ -1,5 +1,5 @@
-use crate::DynEditContext;
 use crate::ImporterRegistry;
+use crate::{DynEditContext, PipelineResult};
 use crate::{Importer, ScanContext, ScannedImportable};
 use hydrate_base::hashing::HashSet;
 use hydrate_data::ImportableName;
@@ -63,7 +63,7 @@ pub fn recursively_gather_import_operations_and_create_assets(
     // In addition to being the imports that need to be queued, this is also the assets that were
     // created. Pre-existing but referenced assets won't be in this list
     imports_to_queue: &mut Vec<ImportToQueue>,
-) -> Option<AssetId> {
+) -> PipelineResult<Option<AssetId>> {
     //
     // We now build a list of things we will be importing from the file.
     // 1. Scan the file to see what's available
@@ -78,7 +78,7 @@ pub fn recursively_gather_import_operations_and_create_assets(
         path: source_file_path,
         schema_set: editor_context.schema_set(),
         importer_registry,
-    });
+    })?;
     for scanned_importable in &scanned_importables {
         // let mut file_references = Vec::default();
         // for file_reference in &scanned_importable.file_references {
@@ -140,7 +140,7 @@ pub fn recursively_gather_import_operations_and_create_assets(
                     importer_registry,
                     selected_import_location,
                     imports_to_queue,
-                );
+                )?;
             }
 
             referenced_source_file_asset_ids.push(found);
@@ -196,5 +196,5 @@ pub fn recursively_gather_import_operations_and_create_assets(
         assets_to_regenerate,
     });
 
-    default_importable_asset_id
+    Ok(default_importable_asset_id)
 }

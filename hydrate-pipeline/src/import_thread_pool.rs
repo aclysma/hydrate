@@ -1,5 +1,5 @@
 use crate::import_jobs::ImportOp;
-use crate::{ImportContext, ImportableAsset, ImporterRegistry};
+use crate::{ImportContext, ImportableAsset, ImporterRegistry, PipelineResult};
 use crossbeam_channel::{Receiver, Sender};
 use hydrate_base::hashing::HashMap;
 use hydrate_base::uuid_path::uuid_to_path;
@@ -34,19 +34,13 @@ pub struct ImportThreadImportedImportable {
 // Results from successful import
 pub struct ImportThreadOutcomeComplete {
     pub request: ImportThreadRequestImport,
-    pub imported_importables: HashMap<Option<String>, ImportThreadImportedImportable>,
+    pub result: PipelineResult<HashMap<Option<String>, ImportThreadImportedImportable>>,
     //asset: SingleObject,
     //import_data: SingleObject,
 }
 
-// Results from failed import
-pub struct ImportThreadOutcomeFailed {
-    pub failure: String,
-}
-
 pub enum ImportThreadOutcome {
     Complete(ImportThreadOutcomeComplete),
-    Failed(ImportThreadOutcomeFailed),
 }
 
 // Thread that tries to take jobs out of the request channel and ends when the finish channel is signalled
@@ -59,8 +53,8 @@ fn do_import(
     importer_registry: &ImporterRegistry,
     schema_set: &SchemaSet,
     import_data_root_path: &Path,
-    msg: ImportThreadRequestImport,
-) -> ImportThreadOutcome {
+    msg: &ImportThreadRequestImport,
+) -> PipelineResult<HashMap<Option<String>, ImportThreadImportedImportable>> {
     let importer_id = msg.import_op.importer_id;
     let importer = importer_registry.importer(importer_id).unwrap();
 
@@ -70,7 +64,7 @@ fn do_import(
             path: &msg.import_op.path,
             importable_assets: &msg.importable_assets,
             schema_set,
-        })
+        })?
     };
 
     let mut imported_importables = HashMap::default();
@@ -134,10 +128,7 @@ fn do_import(
         );
     }
 
-    ImportThreadOutcome::Complete(ImportThreadOutcomeComplete {
-        request: msg,
-        imported_importables,
-    })
+    Ok(imported_importables)
 }
 
 impl ImportWorkerThread {
@@ -165,10 +156,13 @@ impl ImportWorkerThread {
                                         &importer_registry,
                                         &schema_set,
                                         &*import_data_root_path,
-                                        msg,
+                                        &msg,
                                     );
 
-                                    outcome_tx.send(result).unwrap();
+                                    outcome_tx.send(ImportThreadOutcome::Complete(ImportThreadOutcomeComplete {
+                                        request: msg,
+                                        result,
+                                    })).unwrap();
                                     active_request_count.fetch_sub(1, Ordering::Release);
                                 },
                             }

@@ -1,5 +1,8 @@
 use crate::value::ValueEnum;
-use crate::{HashMap, SchemaFingerprint, SchemaLinker, SchemaLinkerResult, SchemaNamedType, Value};
+use crate::{
+    DataSetError, DataSetResult, HashMap, SchemaFingerprint, SchemaLinker, SchemaLinkerResult,
+    SchemaNamedType, Value,
+};
 use std::sync::Arc;
 
 /// Accumulates linked types and can be used to create a schema. This allows validation of types
@@ -34,7 +37,7 @@ impl SchemaSetBuilder {
         //TODO: check no name collisions and merge with DB
 
         for (k, v) in linked.schemas {
-            if let Some(enum_schema) = v.as_enum() {
+            if let Some(enum_schema) = v.try_as_enum() {
                 let default_value = Value::Enum(ValueEnum::new(
                     enum_schema.default_value().name().to_string(),
                 ));
@@ -92,6 +95,14 @@ impl SchemaSet {
     }
 
     pub fn find_named_type(
+        &self,
+        name: impl AsRef<str>,
+    ) -> DataSetResult<&SchemaNamedType> {
+        self.try_find_named_type(name)
+            .ok_or(DataSetError::SchemaNotFound)
+    }
+
+    pub fn try_find_named_type(
         &self,
         name: impl AsRef<str>,
     ) -> Option<&SchemaNamedType> {

@@ -1,4 +1,4 @@
-use crate::{JobApi, JobId, JobProcessor};
+use crate::{JobApi, JobId, JobProcessor, PipelineResult};
 use hydrate_base::{ArtifactId, BuiltArtifactMetadata};
 use hydrate_data::{AssetId, DataSet, SchemaSet};
 
@@ -38,7 +38,7 @@ impl<'a> BuilderContext<'a> {
         schema_set: &SchemaSet,
         job_api: &dyn JobApi,
         input: <JobProcessorT as JobProcessor>::InputT,
-    ) -> JobId {
+    ) -> PipelineResult<JobId> {
         super::job_system::enqueue_job::<JobProcessorT>(data_set, schema_set, job_api, input)
     }
 }
@@ -51,7 +51,7 @@ pub trait Builder {
     fn start_jobs(
         &self,
         context: BuilderContext,
-    );
+    ) -> PipelineResult<()>;
 
     // Returns the assets that this build job needs to be available to complete
     // fn enumerate_dependencies(

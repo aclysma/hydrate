@@ -2,7 +2,7 @@ pub use super::*;
 use ::image::GenericImageView;
 use std::sync::Arc;
 
-use super::generated::{GpuImageAssetAccessor, GpuImageAssetRecord, GpuImageImportedDataRecord};
+use super::generated::{GpuImageAssetRecord, GpuImageImportedDataRecord};
 use demo_types::image::*;
 use hydrate_data::Record;
 use hydrate_model::pipeline::{ImportContext, ScanContext};
@@ -175,7 +175,7 @@ pub struct GpuImageBuilder {}
 
 impl Builder for GpuImageBuilder {
     fn asset_type(&self) -> &'static str {
-        GpuImageAssetAccessor::schema_name()
+        GpuImageAssetRecord::schema_name()
     }
 
     fn start_jobs(

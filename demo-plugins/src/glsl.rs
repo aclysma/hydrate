@@ -727,7 +727,7 @@ pub struct GlslBuildTargetBuilder {}
 
 impl Builder for GlslBuildTargetBuilder {
     fn asset_type(&self) -> &'static str {
-        GlslBuildTargetAssetAccessor::schema_name()
+        GlslBuildTargetAssetRecord::schema_name()
     }
 
     fn start_jobs(

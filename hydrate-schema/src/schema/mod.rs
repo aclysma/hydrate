@@ -263,29 +263,6 @@ impl Schema {
         }
     }
 
-    // pub fn find_property_schema_by_path(
-    //     schema: &SchemaNamedType,
-    //     path: impl AsRef<str>,
-    //     named_types: &HashMap<SchemaFingerprint, SchemaNamedType>,
-    // ) -> Option<Schema> {
-    //     let mut schema = Schema::NamedType(schema.fingerprint());
-    //
-    //     //TODO: Escape map keys (and probably avoid path strings anyways)
-    //     let split_path = path.as_ref().split(".");
-    //
-    //     // Iterate the path segments to find
-    //     for path_segment in split_path {
-    //         let s = schema.find_property_schema(path_segment, named_types);
-    //         if let Some(s) = s {
-    //             schema = s.clone();
-    //         } else {
-    //             return None;
-    //         }
-    //     }
-    //
-    //     Some(schema)
-    // }
-
     // This recursively finds the schema through a full path
     pub fn find_property_schema(
         &self,
@@ -309,7 +286,7 @@ impl Schema {
         Some(schema.clone())
     }
 
-    // This looks for direct decendent field with given name
+    // This looks for direct descendent field with given name
     pub fn find_field_schema<'a>(
         &'a self,
         name: impl AsRef<str>,

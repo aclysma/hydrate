@@ -1,6 +1,3 @@
-#![allow(dead_code)]
-// extern crate core;
-
 pub type HashMap<K, V> = std::collections::HashMap<K, V, ahash::RandomState>;
 pub type HashMapValues<'a, K, V> = std::collections::hash_map::Values<'a, K, V>;
 pub type HashSet<T> = std::collections::HashSet<T, ahash::RandomState>;

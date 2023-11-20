@@ -91,26 +91,11 @@ fn parse_json_schema_type_ref(
             }
         }
         // StaticArray(SchemaDefStaticArray),
-        // DynamicArray(SchemaDefDynamicArray),
         // Map(SchemaDefMap),
-        // RecordRef(String),
-        // Record(SchemaDefRecord),
-        // Enum(SchemaDefEnum),
         // Fixed(SchemaDefFixed),
         _ => SchemaDefType::NamedType(name.to_string()),
     })
 }
-
-// fn parse_alias_list(json_value: &serde_json::Value, error_prefix: &str) -> SchemaDefParserResult<Vec<String>> {
-//     let values = json_value.as_array().ok_or_else(|| SchemaDefParserError::String(format!("{}Aliases must be an array of strings", error_prefix)))?;
-//
-//     let mut strings = Vec::with_capacity(values.len());
-//     for value in values {
-//         strings.push(value.as_str().ok_or_else(|| SchemaDefParserError::String(format!("{}Aliases must be an array of strings", error_prefix)))?.to_string());
-//     }
-//
-//     Ok(strings)
-// }
 
 fn parse_json_schema_def_record_field(
     json_object: &serde_json::Value,

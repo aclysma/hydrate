@@ -51,42 +51,6 @@ impl AssetPath {
         }
     }
 
-    // pub fn strip_prefix(
-    //     &self,
-    //     prefix: &AssetPath,
-    // ) -> Option<AssetPath> {
-    //     match self.0 {
-    //         Some(x) => {
-    //             x.strip_prefix(&prefix.0).ma
-    //         }
-    //     }
-    //
-    //
-    //     self.0.as_ref().unwrap_or(ROOT_PATH_STR)
-    //         .strip_prefix(&prefix.0)
-    //         .map(|x| AssetPath(x.to_string()))
-    // }
-
-    // pub fn parent_path(&self) -> Option<Self> {
-    //     match &self.0 {
-    //         None => None, // Parent of root path does not exist
-    //         Some(path) => {
-    //             if let Some(index) = path.rfind("/") {
-    //                 if index >= ROOT_PATH_STR.len() {
-    //                     // We have a parent path that isn't root
-    //                     Some(AssetPath(Some(path[0..index].to_string())))
-    //                 } else {
-    //                     // Parent path is root
-    //                     Some(AssetPath(None))
-    //                 }
-    //             } else {
-    //                 // Path with no slash should not exist
-    //                 unimplemented!()
-    //             }
-    //         }
-    //     }
-    // }
-
     pub fn parent_path_and_name(&self) -> Option<(Self, String)> {
         match &self.0 {
             None => None, // Parent of root path does not exist

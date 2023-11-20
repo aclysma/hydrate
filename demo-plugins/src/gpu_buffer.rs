@@ -1,6 +1,5 @@
 pub use super::*;
 
-use crate::generated::GpuBufferAssetAccessor;
 use demo_types::gpu_buffer::GpuBufferBuiltData;
 use hydrate_model::pipeline::{AssetPlugin, Builder};
 use hydrate_pipeline::{
@@ -10,6 +9,8 @@ use hydrate_pipeline::{
 };
 use serde::{Deserialize, Serialize};
 use type_uuid::TypeUuid;
+use hydrate_data::Record;
+use crate::generated::GpuBufferAssetRecord;
 
 #[derive(Hash, Serialize, Deserialize)]
 pub struct GpuBufferJobInput {
@@ -72,7 +73,7 @@ pub struct GpuBufferBuilder {}
 
 impl Builder for GpuBufferBuilder {
     fn asset_type(&self) -> &'static str {
-        GpuBufferAssetAccessor::schema_name()
+        GpuBufferAssetRecord::schema_name()
     }
 
     fn start_jobs(

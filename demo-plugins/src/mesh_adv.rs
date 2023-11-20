@@ -3,7 +3,7 @@ use glam::Vec3;
 use rafx_api::RafxResourceType;
 
 use crate::generated::{
-    MeshAdvMaterialAssetRecord, MeshAdvMeshAssetAccessor, MeshAdvMeshAssetRecord,
+    MeshAdvMaterialAssetRecord, MeshAdvMeshAssetRecord,
     MeshAdvMeshImportedDataRecord,
 };
 use crate::push_buffer::PushBuffer;
@@ -12,12 +12,11 @@ use hydrate_model::pipeline::{AssetPlugin, Builder};
 use hydrate_pipeline::{
     AssetId, BuilderContext, BuilderRegistryBuilder, EnumerateDependenciesContext,
     ImporterRegistryBuilder, JobEnumeratedDependencies, JobInput, JobOutput, JobProcessor,
-    JobProcessorRegistryBuilder, PipelineResult, RecordAccessor, RunContext, SchemaLinker,
+    JobProcessorRegistryBuilder, PipelineResult, RunContext, SchemaLinker,
 };
 use serde::{Deserialize, Serialize};
 use type_uuid::TypeUuid;
-
-use super::generated::MeshAdvMaterialAssetAccessor;
+use hydrate_data::Record;
 
 #[derive(Hash, Serialize, Deserialize)]
 pub struct MeshAdvMaterialJobInput {
@@ -112,7 +111,7 @@ pub struct MeshAdvMaterialBuilder {}
 
 impl Builder for MeshAdvMaterialBuilder {
     fn asset_type(&self) -> &'static str {
-        MeshAdvMaterialAssetAccessor::schema_name()
+        MeshAdvMaterialAssetRecord::schema_name()
     }
 
     fn start_jobs(
@@ -381,7 +380,7 @@ pub struct MeshAdvMeshBuilder {}
 
 impl Builder for MeshAdvMeshBuilder {
     fn asset_type(&self) -> &'static str {
-        MeshAdvMeshAssetAccessor::schema_name()
+        MeshAdvMeshAssetRecord::schema_name()
     }
 
     fn start_jobs(

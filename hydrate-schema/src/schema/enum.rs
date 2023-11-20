@@ -8,7 +8,6 @@ use std::sync::Arc;
 pub struct SchemaEnumSymbol {
     name: String,
     aliases: Box<[String]>,
-    //value: i32,
 }
 
 impl SchemaEnumSymbol {
@@ -17,7 +16,6 @@ impl SchemaEnumSymbol {
         hasher: &mut T,
     ) {
         self.name.hash(hasher);
-        //self.value.hash(hasher);
     }
 }
 
@@ -25,12 +23,10 @@ impl SchemaEnumSymbol {
     pub fn new(
         name: String,
         aliases: Box<[String]>,
-        //value: i32,
     ) -> Self {
         SchemaEnumSymbol {
             name,
             aliases,
-            //value,
         }
     }
 
@@ -41,10 +37,6 @@ impl SchemaEnumSymbol {
     pub fn aliases(&self) -> &[String] {
         &self.aliases
     }
-
-    // pub fn value(&self) -> i32 {
-    //     self.value
-    // }
 }
 
 #[derive(Debug)]
@@ -75,11 +67,6 @@ impl SchemaEnum {
         aliases: Box<[String]>,
         symbols: Box<[SchemaEnumSymbol]>,
     ) -> Self {
-        // Check symbols are sorted
-        // for i in 0..symbols.len() - 1 {
-        //     assert!(symbols[i].value < symbols[i + 1].value);
-        // }
-
         assert!(!symbols.is_empty());
 
         // Check names are unique

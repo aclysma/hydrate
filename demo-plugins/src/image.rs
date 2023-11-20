@@ -2,9 +2,7 @@ pub use super::*;
 use ::image::GenericImageView;
 use std::sync::Arc;
 
-use super::generated::{
-    GpuImageAssetAccessor, GpuImageAssetRecord, GpuImageImportedDataRecord,
-};
+use super::generated::{GpuImageAssetAccessor, GpuImageAssetRecord, GpuImageImportedDataRecord};
 use demo_types::image::*;
 use hydrate_data::Record;
 use hydrate_model::pipeline::{ImportContext, ScanContext};

@@ -106,17 +106,12 @@ pub trait Record: Sized + Field {
     }
 }
 
-pub struct RecordBuilder<T: Record + Field>(
-    Rc<RefCell<Option<DataContainer>>>,
-    T,
-    PhantomData<T>,
-);
+pub struct RecordBuilder<T: Record + Field>(Rc<RefCell<Option<DataContainer>>>, T, PhantomData<T>);
 
 impl<T: Record + Field> RecordBuilder<T> {
     pub fn new(schema_set: &SchemaSet) -> Self {
         let single_object = T::new_single_object(schema_set).unwrap();
-        let data_container =
-            DataContainer::from_single_object(single_object, schema_set.clone());
+        let data_container = DataContainer::from_single_object(single_object, schema_set.clone());
         let data_container = Rc::new(RefCell::new(Some(data_container)));
         let owned = T::new(Default::default(), &data_container);
         Self(data_container, owned, Default::default())

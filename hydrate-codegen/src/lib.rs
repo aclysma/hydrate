@@ -490,9 +490,7 @@ fn generate_owned(
         .tuple_field("Rc<RefCell<Option<DataContainer>>>");
     s.vis("pub");
 
-    let field_impl = scope
-        .new_impl(record_name.as_str())
-        .impl_trait("Field");
+    let field_impl = scope.new_impl(record_name.as_str()).impl_trait("Field");
     let new_fn = field_impl
         .new_fn("new")
         .arg("property_path", "PropertyPath")
@@ -503,9 +501,7 @@ fn generate_owned(
         record_name_without_generic
     ));
 
-    let record_impl = scope
-        .new_impl(record_name.as_str())
-        .impl_trait("Record");
+    let record_impl = scope.new_impl(record_name.as_str()).impl_trait("Record");
 
     record_impl.associate_type("Reader<'a>", format!("{}Ref<'a>", schema.name()));
     record_impl.associate_type("Writer<'a>", format!("{}RefMut<'a>", schema.name()));

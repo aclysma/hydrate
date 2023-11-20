@@ -1,7 +1,7 @@
 use crate::{ImporterRegistry, PipelineResult};
 use hydrate_data::{
-    AssetId, HashMap, ImportableName, ImporterId, PathReference, Record, SchemaRecord,
-    SchemaSet, SingleObject,
+    AssetId, HashMap, ImportableName, ImporterId, PathReference, Record, SchemaRecord, SchemaSet,
+    SingleObject,
 };
 use std::cell::RefCell;
 use std::path::{Path, PathBuf};
@@ -83,9 +83,7 @@ impl<'a> ScanContext<'a> {
         self.add_importable_with_record(name, asset_type)
     }
 
-    pub fn add_default_importable<T: Record>(
-        &self
-    ) -> PipelineResult<ScanContextImportable<'a>> {
+    pub fn add_default_importable<T: Record>(&self) -> PipelineResult<ScanContextImportable<'a>> {
         self.add_importable::<T>(ImportableName::default())
     }
 

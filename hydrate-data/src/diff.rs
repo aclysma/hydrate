@@ -1,10 +1,9 @@
 use crate::value::PropertyValue;
 use crate::{
     AssetId, AssetLocation, AssetName, DataSet, DataSetAssetInfo, DataSetResult, HashSet,
-    NullOverride, SchemaSet,
+    NullOverride, PathReference, SchemaSet,
 };
 use uuid::Uuid;
-use crate::data_set::PathReference;
 
 #[derive(Debug)]
 pub struct DynamicArrayEntryDelta {

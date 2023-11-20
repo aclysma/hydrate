@@ -711,11 +711,7 @@ impl DataSource for FileSystemPathBasedDataSource {
                         // Does it exist in the meta file? If so, we need to reuse the ID
                         meta_file
                             .past_id_assignments
-                            .entry(
-                                scanned_importable
-                                    .name
-                                    .clone(),
-                            )
+                            .entry(scanned_importable.name.clone())
                             .or_insert_with(|| AssetId::from_uuid(Uuid::new_v4()));
                     }
 
@@ -726,10 +722,8 @@ impl DataSource for FileSystemPathBasedDataSource {
 
                     let mut importables = HashMap::<ImportableName, AssetId>::default();
                     for (_, scanned_importable) in &scanned_importables {
-                        let imporable_asset_id = meta_file.past_id_assignments.get(
-                            &scanned_importable
-                                .name,
-                        );
+                        let imporable_asset_id =
+                            meta_file.past_id_assignments.get(&scanned_importable.name);
                         importables.insert(
                             scanned_importable.name.clone(),
                             *imporable_asset_id.unwrap(),
@@ -850,7 +844,10 @@ impl DataSource for FileSystemPathBasedDataSource {
                     // can't reference asset files by path, for now). So it must exist.
                     let mut referenced_source_file_asset_ids = Vec::default();
                     for file_reference in &scanned_importable.referenced_source_files {
-                        let file_reference_absolute = PathReference::canonicalize_relative(source_file_path, &file_reference.path_reference);
+                        let file_reference_absolute = PathReference::canonicalize_relative(
+                            source_file_path,
+                            &file_reference.path_reference,
+                        );
 
                         //println!("referenced {:?} {:?}", file_reference_absolute_path, scanned_source_files.keys());
                         //println!("pull from {:?}", scanned_source_files.keys());

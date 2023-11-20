@@ -140,25 +140,37 @@ impl Importer for BlenderMaterialImporter {
         if let Some(path) = &json_data.color_texture {
             default_asset
                 .color_texture()
-                .set(context.asset_id_for_referenced_file_path(ImportableName::default(), &PathReference::from(path))?)?;
+                .set(context.asset_id_for_referenced_file_path(
+                    ImportableName::default(),
+                    &PathReference::from(path),
+                )?)?;
         }
 
         if let Some(path) = &json_data.metallic_roughness_texture {
-            default_asset
-                .metallic_roughness_texture()
-                .set(context.asset_id_for_referenced_file_path(ImportableName::default(), &PathReference::from(path))?)?;
+            default_asset.metallic_roughness_texture().set(
+                context.asset_id_for_referenced_file_path(
+                    ImportableName::default(),
+                    &PathReference::from(path),
+                )?,
+            )?;
         }
 
         if let Some(path) = &json_data.normal_texture {
             default_asset
                 .normal_texture()
-                .set(context.asset_id_for_referenced_file_path(ImportableName::default(), &PathReference::from(path))?)?;
+                .set(context.asset_id_for_referenced_file_path(
+                    ImportableName::default(),
+                    &PathReference::from(path),
+                )?)?;
         }
 
         if let Some(path) = &json_data.emissive_texture {
             default_asset
                 .emissive_texture()
-                .set(context.asset_id_for_referenced_file_path(ImportableName::default(), &PathReference::from(path))?)?;
+                .set(context.asset_id_for_referenced_file_path(
+                    ImportableName::default(),
+                    &PathReference::from(path),
+                )?)?;
         }
 
         default_asset.shadow_method().set(shadow_method)?;

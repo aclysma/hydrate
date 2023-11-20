@@ -6,7 +6,7 @@ use std::path::{Path, PathBuf};
 use super::generated::{GlslBuildTargetAssetAccessor, GlslSourceFileImportedDataOwned};
 use crate::generated_wrapper::{GlslBuildTargetAssetReader, GlslSourceFileAssetOwned};
 use demo_types::glsl::*;
-use hydrate_data::{RecordOwned};
+use hydrate_data::RecordOwned;
 use hydrate_model::pipeline::Importer;
 use hydrate_model::pipeline::{AssetPlugin, Builder, ImportContext, ScanContext};
 use hydrate_pipeline::{
@@ -545,10 +545,8 @@ impl Importer for GlslSourceFileImporter {
         //
         // Return the created assets
         //
-        context.add_default_importable(
-            default_asset.into_inner()?,
-            Some(import_data.into_inner()?),
-        );
+        context
+            .add_default_importable(default_asset.into_inner()?, Some(import_data.into_inner()?));
         Ok(())
     }
 }
@@ -649,7 +647,10 @@ impl JobProcessor for GlslBuildTargetJobProcessor {
                 .ok_or("Imported GLSL source file had no import info")?;
             let this_path = import_info.source_file_path();
             for (ref_path, ref_obj) in all_references {
-                dependency_lookup.insert((this_path.to_path_buf(), PathBuf::from(ref_path.path)), ref_obj);
+                dependency_lookup.insert(
+                    (this_path.to_path_buf(), PathBuf::from(ref_path.path)),
+                    ref_obj,
+                );
             }
         }
 

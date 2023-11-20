@@ -7,7 +7,7 @@ use super::generated::{
     GpuImageImportedDataReader,
 };
 use demo_types::image::*;
-use hydrate_data::{RecordOwned};
+use hydrate_data::RecordOwned;
 use hydrate_model::pipeline::{ImportContext, ScanContext};
 use hydrate_pipeline::Importer;
 use hydrate_pipeline::{
@@ -65,10 +65,8 @@ impl Importer for GpuImageImporter {
         //
         // Return the created assets
         //
-        context.add_default_importable(
-            default_asset.into_inner()?,
-            Some(import_data.into_inner()?),
-        );
+        context
+            .add_default_importable(default_asset.into_inner()?, Some(import_data.into_inner()?));
         Ok(())
     }
 }

@@ -1,6 +1,6 @@
 use crate::{
     AssetId, BuildInfo, DataSetAssetInfo, HashMap, HashSet, ImportInfo, ImporterId, NullOverride,
-    Schema, SchemaFingerprint, SchemaNamedType, SchemaSet, SingleObject, Value,
+    PathReference, Schema, SchemaFingerprint, SchemaNamedType, SchemaSet, SingleObject, Value,
 };
 use crate::{AssetLocation, AssetName, DataSetResult, ImportableName, OrderedSet};
 use hydrate_base::b3f;
@@ -9,7 +9,6 @@ use std::hash::{Hash, Hasher};
 use std::str::FromStr;
 use std::sync::Arc;
 use uuid::Uuid;
-use crate::data_set::PathReference;
 
 fn property_value_to_json(
     value: &Value,
@@ -263,7 +262,11 @@ impl AssetImportInfoJson {
                 .name()
                 .map(|x| x.to_string())
                 .unwrap_or_default(),
-            file_references: import_info.file_references().iter().map(|x| x.to_string()).collect(),
+            file_references: import_info
+                .file_references()
+                .iter()
+                .map(|x| x.to_string())
+                .collect(),
         }
     }
 
@@ -278,14 +281,10 @@ impl AssetImportInfoJson {
 
         let source_file = PathReference {
             path: self.source_file_path.clone(),
-            importable_name: ImportableName::new(self.importable_name.clone())
+            importable_name: ImportableName::new(self.importable_name.clone()),
         };
 
-        ImportInfo::new(
-            ImporterId(self.importer_id),
-            source_file,
-            path_references,
-        )
+        ImportInfo::new(ImporterId(self.importer_id), source_file, path_references)
     }
 }
 
@@ -698,8 +697,14 @@ impl MetaFileJson {
     pub fn store_to_string(meta_file: &MetaFile) -> String {
         let mut past_id_assignments = HashMap::default();
         for past_id_assignment in &meta_file.past_id_assignments {
-            past_id_assignments
-                .insert(past_id_assignment.0.name().map(|x| x.to_string()).unwrap_or_default(), past_id_assignment.1.as_uuid());
+            past_id_assignments.insert(
+                past_id_assignment
+                    .0
+                    .name()
+                    .map(|x| x.to_string())
+                    .unwrap_or_default(),
+                past_id_assignment.1.as_uuid(),
+            );
         }
 
         let json_object = MetaFileJson {

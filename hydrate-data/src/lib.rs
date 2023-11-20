@@ -14,7 +14,6 @@ pub use data_set::BuilderId;
 pub use data_set::DataSet;
 pub use data_set::DataSetAssetInfo;
 pub use data_set::ImportInfo;
-pub use data_set::PathReference;
 pub use data_set::ImportableName;
 pub use data_set::ImporterId;
 pub use data_set::OverrideBehavior;
@@ -41,6 +40,9 @@ mod schema_set;
 pub use schema_set::{SchemaSet, SchemaSetBuilder};
 
 mod ordered_set;
+
+mod path_reference;
+pub use path_reference::PathReference;
 
 pub use ordered_set::OrderedSet;
 

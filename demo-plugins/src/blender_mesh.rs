@@ -183,7 +183,10 @@ impl Importer for BlenderMeshImporter {
         // Set up the material slots
         //
         for material_slot in material_slots {
-            let asset_id = context.asset_id_for_referenced_file_path(ImportableName::default(), &material_slot.into())?;
+            let asset_id = context.asset_id_for_referenced_file_path(
+                ImportableName::default(),
+                &material_slot.into(),
+            )?;
             let entry = default_asset.material_slots().add_entry()?;
             default_asset.material_slots().entry(entry).set(asset_id)?;
         }
@@ -191,10 +194,8 @@ impl Importer for BlenderMeshImporter {
         //
         // Return the created assets
         //
-        context.add_default_importable(
-            default_asset.into_inner()?,
-            Some(import_data.into_inner()?),
-        );
+        context
+            .add_default_importable(default_asset.into_inner()?, Some(import_data.into_inner()?));
         Ok(())
     }
 }

@@ -9,8 +9,8 @@ use crate::import_thread_pool::{
 use crate::{DynEditorModel, PipelineResult};
 use hydrate_base::uuid_path::{path_to_uuid, uuid_to_path};
 use hydrate_data::json_storage::SingleObjectJson;
-use hydrate_data::{ImporterId, SchemaSet, SingleObject};
 use hydrate_data::ImportableName;
+use hydrate_data::{ImporterId, SchemaSet, SingleObject};
 
 use super::import_types::*;
 use super::importer_registry::*;

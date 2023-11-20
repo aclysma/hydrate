@@ -2,8 +2,8 @@ use crate::ImporterRegistry;
 use crate::{DynEditContext, PipelineResult};
 use crate::{Importer, ScanContext, ScannedImportable};
 use hydrate_base::hashing::HashSet;
-use hydrate_data::{ImportableName, PathReference};
 use hydrate_data::{AssetId, AssetLocation, AssetName, HashMap, ImportInfo, ImporterId};
+use hydrate_data::{ImportableName, PathReference};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
@@ -27,17 +27,13 @@ pub fn create_import_info(
 
     let source_file = PathReference {
         path: source_file_path.to_string_lossy().to_string(),
-        importable_name: scanned_importable.name.clone()
+        importable_name: scanned_importable.name.clone(),
     };
 
     //
     // When we import, set the import info so we track where the import comes from
     //
-    ImportInfo::new(
-        importer.importer_id(),
-        source_file,
-        file_references,
-    )
+    ImportInfo::new(importer.importer_id(), source_file, file_references)
 }
 
 pub fn create_asset_name(
@@ -113,14 +109,16 @@ pub fn recursively_gather_import_operations_and_create_assets(
 
         //TODO: Check referenced source files to find existing imported assets or import referenced files
         for referenced_source_file in &scanned_importable.referenced_source_files {
-            let referenced_file_absolute = PathReference::canonicalize_relative(source_file_path, &referenced_source_file.path_reference);
+            let referenced_file_absolute = PathReference::canonicalize_relative(
+                source_file_path,
+                &referenced_source_file.path_reference,
+            );
 
             // Does it already exist?
             let mut found = None;
             for (asset_id, _) in editor_context.data_set().assets() {
                 if let Some(import_info) = editor_context.data_set().import_info(*asset_id) {
-                    if *import_info.source_file() == referenced_source_file.path_reference
-                    {
+                    if *import_info.source_file() == referenced_source_file.path_reference {
                         found = Some(*asset_id);
                     }
                 }
@@ -138,7 +136,9 @@ pub fn recursively_gather_import_operations_and_create_assets(
                     importer_registry,
                     selected_import_location,
                     imports_to_queue,
-                )?.get(&referenced_file_absolute.importable_name).copied();
+                )?
+                .get(&referenced_file_absolute.importable_name)
+                .copied();
             }
 
             referenced_source_file_asset_ids.push(found);

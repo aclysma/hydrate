@@ -1,5 +1,8 @@
 use crate::{ImporterRegistry, PipelineResult};
-use hydrate_data::{AssetId, PathReference, HashMap, ImportableName, ImporterId, RecordOwned, SchemaRecord, SchemaSet, SingleObject};
+use hydrate_data::{
+    AssetId, HashMap, ImportableName, ImporterId, PathReference, RecordOwned, SchemaRecord,
+    SchemaSet, SingleObject,
+};
 use std::cell::RefCell;
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
@@ -81,7 +84,7 @@ impl<'a> ScanContext<'a> {
     }
 
     pub fn add_default_importable<T: RecordOwned>(
-        &self,
+        &self
     ) -> PipelineResult<ScanContextImportable<'a>> {
         self.add_importable::<T>(ImportableName::default())
     }
@@ -143,21 +146,21 @@ impl<'a> ScanContext<'a> {
             .ok_or("File extension cannot be converted to string")?
             .to_string();
 
-        let importer = self.importer_registry.importers_for_file_extension(&extension);
+        let importer = self
+            .importer_registry
+            .importers_for_file_extension(&extension);
 
         if importer.len() == 0 {
             Err(format!(
                 "No importer found for file extension {:?} in path {:?}",
-                extension,
-                path
+                extension, path
             ))?;
         }
 
         if importer.len() > 1 {
             Err(format!(
                 "Multiple importers found for file extension {:?} in path {:?}",
-                extension,
-                path
+                extension, path
             ))?;
         }
 

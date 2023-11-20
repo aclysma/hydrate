@@ -1,22 +1,18 @@
 pub use super::*;
 use std::path::PathBuf;
 
-use crate::generated::{
-    MeshAdvMeshAssetAccessor, MeshAdvMeshAssetOwned, MeshAdvMeshImportedDataOwned,
-};
+use crate::generated::{MeshAdvMeshAssetOwned, MeshAdvMeshImportedDataOwned};
 use crate::push_buffer::PushBuffer;
 use hydrate_base::b3f::B3FReader;
 use hydrate_data::RecordOwned;
+use hydrate_model::pipeline::Importer;
 use hydrate_model::pipeline::{AssetPlugin, ImportContext, ScanContext};
-use hydrate_model::pipeline::{ImportedImportable, Importer, ScannedImportable};
 use hydrate_pipeline::{
-    BuilderRegistryBuilder, HashMap, ImporterId, ImporterRegistryBuilder,
-    JobProcessorRegistryBuilder, PipelineResult, RecordAccessor, ReferencedSourceFile,
-    SchemaLinker,
+    BuilderRegistryBuilder, HashMap, ImporterRegistryBuilder, JobProcessorRegistryBuilder,
+    PipelineResult, SchemaLinker,
 };
 use serde::{Deserialize, Serialize};
 use type_uuid::TypeUuid;
-use uuid::Uuid;
 
 #[derive(Serialize, Deserialize, Debug)]
 enum MeshPartJsonIndexType {
@@ -187,21 +183,19 @@ impl Importer for BlenderMeshImporter {
         // Set up the material slots
         //
         for material_slot in material_slots {
-            let asset_id = context
-                .importable_assets
-                .get(&None)
-                .ok_or("Could not find default importable")?
-                .referenced_paths
-                .get(&material_slot)
-                .ok_or("Could not find material referenced by path")?;
+            let asset_id = context.asset_id_for_referenced_file_path(None, &material_slot)?;
             let entry = default_asset.material_slots().add_entry()?;
-            default_asset.material_slots().entry(entry).set(*asset_id)?;
+            default_asset.material_slots().entry(entry).set(asset_id)?;
         }
 
         //
         // Return the created assets
         //
-        context.add_importable(None, default_asset.into_inner()?, Some(import_data.into_inner()?));
+        context.add_importable(
+            None,
+            default_asset.into_inner()?,
+            Some(import_data.into_inner()?),
+        );
         Ok(())
     }
 }

@@ -61,7 +61,12 @@ fn do_import(
 
     let imported_assets = {
         profiling::scope!("Importer::import_file");
-        importer.import_file(ImportContext::new(&msg.import_op.path, &msg.importable_assets, schema_set, &mut imported_importables))?
+        importer.import_file(ImportContext::new(
+            &msg.import_op.path,
+            &msg.importable_assets,
+            schema_set,
+            &mut imported_importables,
+        ))?
     };
 
     let mut written_importables = HashMap::default();

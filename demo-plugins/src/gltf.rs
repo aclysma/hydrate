@@ -1,16 +1,15 @@
 pub use super::*;
 
 use super::generated::{
-    GpuImageAssetOwned, GpuImageImportedDataOwned, MeshAdvMaterialAssetAccessor,
-    MeshAdvMaterialAssetOwned, MeshAdvMeshAssetAccessor, MeshAdvMeshAssetOwned,
-    MeshAdvMeshImportedDataOwned,
+    GpuImageAssetOwned, GpuImageImportedDataOwned, MeshAdvMaterialAssetOwned,
+    MeshAdvMeshAssetOwned, MeshAdvMeshImportedDataOwned,
 };
 use hydrate_data::RecordOwned;
+use hydrate_model::pipeline::Importer;
 use hydrate_model::pipeline::{AssetPlugin, ImportContext, ScanContext};
-use hydrate_model::pipeline::{ImportedImportable, Importer, ScannedImportable};
 use hydrate_pipeline::{
     BuilderRegistryBuilder, HashMap, ImporterRegistryBuilder, JobProcessorRegistryBuilder,
-    PipelineResult, RecordAccessor, SchemaLinker,
+    PipelineResult, SchemaLinker,
 };
 use type_uuid::TypeUuid;
 
@@ -69,7 +68,7 @@ impl Importer for GltfImporter {
 
         for (i, image) in doc.images().enumerate() {
             let name = Some(name_or_index("image", image.name(), i));
-            if let Some(importable_object) = context.importable_assets.get(&name) {
+            if let Some(importable_object) = context.asset_id_for_importable(&name) {
                 //
                 // Create import data
                 //
@@ -82,14 +81,18 @@ impl Importer for GltfImporter {
                 let asset_data = GpuImageImportedDataOwned::new_builder(context.schema_set);
                 //omitted for brevity
 
-                image_index_to_object_id.insert(image.index(), importable_object.id);
-                context.add_importable(name, asset_data.into_inner()?, Some(import_data.into_inner()?));
+                image_index_to_object_id.insert(image.index(), importable_object);
+                context.add_importable(
+                    name,
+                    asset_data.into_inner()?,
+                    Some(import_data.into_inner()?),
+                );
             }
         }
 
         for (i, mesh) in doc.meshes().enumerate() {
             let name = Some(name_or_index("mesh", mesh.name(), i));
-            if context.importable_assets.contains_key(&name) {
+            if context.should_import(&name) {
                 //
                 // Create import data
                 //
@@ -103,13 +106,17 @@ impl Importer for GltfImporter {
                 //
                 // Return the created assets
                 //
-                context.add_importable(name, asset_data.into_inner()?, Some(import_data.into_inner()?));
+                context.add_importable(
+                    name,
+                    asset_data.into_inner()?,
+                    Some(import_data.into_inner()?),
+                );
             }
         }
 
         for (i, material) in doc.materials().enumerate() {
             let name = Some(name_or_index("material", material.name(), i));
-            if context.importable_assets.contains_key(&name) {
+            if context.should_import(&name) {
                 //
                 // Create the default asset
                 //
@@ -158,35 +165,6 @@ impl Importer for GltfImporter {
                     let texture_object_id = image_index_to_object_id[&texture_index];
                     default_asset.emissive_texture().set(texture_object_id)?;
                 }
-
-                // x.color_texture().set(&mut default_asset_data_container, material.color_texture().unwrap_or_default())?
-                // x.metallic_roughness_texture().set(&mut default_asset_data_container, material.metallic_roughness_texture().unwrap_or_default())?
-                // x.normal_texture().set(&mut default_asset_data_container, material.normal_texture().unwrap_or_default())?
-                // x.emissive_texture().set(&mut default_asset_data_container, material.emissive_texture().unwrap_or_default())?
-
-                // if let Some(color_texture) = material.pbr_metallic_roughness().base_color_texture() {
-                //     if let Some(referenced_asset_id) = importable_assets.get(&None)?.referenced_paths.get(&PathBuf::from_str(&color_texture.)?) {
-                //         x.color_texture().set(&mut default_asset_data_container, *referenced_asset_id)?
-                //     }
-                // }
-                //
-                // if let Some(metallic_roughness_texture) = json_data.metallic_roughness_texture {
-                //     if let Some(referenced_asset_id) = importable_assets.get(&None)?.referenced_paths.get(&PathBuf::from_str(&metallic_roughness_texture)?) {
-                //         x.color_texture().set(&mut default_asset_data_container, *referenced_asset_id)?
-                //     }
-                // }
-                //
-                // if let Some(normal_texture) = json_data.normal_texture {
-                //     if let Some(referenced_asset_id) = importable_assets.get(&None)?.referenced_paths.get(&PathBuf::from_str(&normal_texture)?) {
-                //         x.color_texture().set(&mut default_asset_data_container, *referenced_asset_id)?
-                //     }
-                // }
-                //
-                // if let Some(emissive_texture) = json_data.emissive_texture {
-                //     if let Some(referenced_asset_id) = importable_assets.get(&None)?.referenced_paths.get(&PathBuf::from_str(&emissive_texture)?) {
-                //         x.color_texture().set(&mut default_asset_data_container, *referenced_asset_id)?
-                //     }
-                // }
 
                 //x.shadow_method().set(&mut default_asset_data_container, shadow_method)?;
                 //x.blend_method().set(&mut default_asset_data_container, blend_method)?;

@@ -3,16 +3,12 @@ use std::collections::VecDeque;
 use std::ops::Range;
 use std::path::{Path, PathBuf};
 
-use super::generated::{
-    GlslBuildTargetAssetAccessor, GlslSourceFileAssetAccessor, GlslSourceFileImportedDataOwned,
-};
+use super::generated::{GlslBuildTargetAssetAccessor, GlslSourceFileImportedDataOwned};
 use crate::generated_wrapper::{GlslBuildTargetAssetReader, GlslSourceFileAssetOwned};
 use demo_types::glsl::*;
 use hydrate_data::RecordOwned;
+use hydrate_model::pipeline::Importer;
 use hydrate_model::pipeline::{AssetPlugin, Builder, ImportContext, ScanContext};
-use hydrate_model::pipeline::{
-    ImportedImportable, Importer, ReferencedSourceFile, ScannedImportable,
-};
 use hydrate_pipeline::{
     AssetId, BuilderContext, BuilderRegistryBuilder, DataContainerRef,
     EnumerateDependenciesContext, HashMap, HashSet, ImporterRegistryBuilder,
@@ -513,7 +509,7 @@ impl Importer for GlslSourceFileImporter {
 
     fn scan_file(
         &self,
-        mut context: ScanContext,
+        context: ScanContext,
     ) -> PipelineResult<()> {
         log::debug!("GlslSourceFileImporter reading file {:?}", context.path);
         let code = std::fs::read_to_string(context.path)?;
@@ -536,15 +532,6 @@ impl Importer for GlslSourceFileImporter {
         // Read the file
         //
         let code = std::fs::read_to_string(context.path)?;
-        let code_chars: Vec<_> = code.chars().collect();
-
-        let referenced_source_files: Vec<_> = find_included_paths(&code_chars)?
-            .into_iter()
-            .map(|path| ReferencedSourceFile {
-                importer_id: self.importer_id(),
-                path,
-            })
-            .collect();
 
         //
         // Create import data
@@ -558,7 +545,11 @@ impl Importer for GlslSourceFileImporter {
         //
         // Return the created assets
         //
-        context.add_importable(None, default_asset.into_inner()?, Some(import_data.into_inner()?));
+        context.add_importable(
+            None,
+            default_asset.into_inner()?,
+            Some(import_data.into_inner()?),
+        );
         Ok(())
     }
 }

@@ -9,14 +9,13 @@ use super::generated::{
 use demo_types::image::*;
 use hydrate_data::RecordOwned;
 use hydrate_model::pipeline::{ImportContext, ScanContext};
+use hydrate_pipeline::Importer;
 use hydrate_pipeline::{
-    AssetId, BuilderContext, BuilderRegistryBuilder, DataContainerRef,
-    EnumerateDependenciesContext, HashMap, ImporterRegistryBuilder, JobEnumeratedDependencies,
-    JobInput, JobOutput, JobProcessor, JobProcessorRegistryBuilder, PipelineResult, RecordAccessor,
-    RunContext, SchemaLinker,
+    AssetId, BuilderContext, BuilderRegistryBuilder, EnumerateDependenciesContext,
+    ImporterRegistryBuilder, JobEnumeratedDependencies, JobInput, JobOutput, JobProcessor,
+    JobProcessorRegistryBuilder, PipelineResult, RecordAccessor, RunContext, SchemaLinker,
 };
 use hydrate_pipeline::{AssetPlugin, Builder};
-use hydrate_pipeline::{ImportedImportable, Importer, ScannedImportable};
 use serde::{Deserialize, Serialize};
 use type_uuid::TypeUuid;
 
@@ -66,7 +65,11 @@ impl Importer for GpuImageImporter {
         //
         // Return the created assets
         //
-        context.add_importable(None, default_asset.into_inner()?, Some(import_data.into_inner()?));
+        context.add_importable(
+            None,
+            default_asset.into_inner()?,
+            Some(import_data.into_inner()?),
+        );
         Ok(())
     }
 }
@@ -74,7 +77,6 @@ impl Importer for GpuImageImporter {
 #[derive(Hash, Serialize, Deserialize)]
 pub struct GpuImageJobInput {
     pub asset_id: AssetId,
-    pub compressed: bool,
 }
 impl JobInput for GpuImageJobInput {}
 
@@ -186,11 +188,6 @@ impl Builder for GpuImageBuilder {
         &self,
         context: BuilderContext,
     ) -> PipelineResult<()> {
-        let data_container =
-            DataContainerRef::from_dataset(context.data_set, context.schema_set, context.asset_id);
-        let x = GpuImageAssetAccessor::default();
-        let compressed = x.compress().get(data_container)?;
-
         //Future: Might produce jobs per-platform
         context.enqueue_job::<GpuImageJobProcessor>(
             context.data_set,
@@ -198,7 +195,6 @@ impl Builder for GpuImageBuilder {
             context.job_api,
             GpuImageJobInput {
                 asset_id: context.asset_id,
-                compressed,
             },
         )?;
 

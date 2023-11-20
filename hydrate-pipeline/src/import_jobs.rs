@@ -274,7 +274,10 @@ impl ImportJobs {
                                 .contains(asset_id)
                             {
                                 editor_model
-                                    .init_from_single_object(*asset_id, &imported_asset.default_asset)
+                                    .init_from_single_object(
+                                        *asset_id,
+                                        &imported_asset.default_asset,
+                                    )
                                     .unwrap();
                             }
                         }
@@ -284,116 +287,6 @@ impl ImportJobs {
         }
 
         Ok(())
-        /*
-        for import_op in &self.import_operations {
-            profiling::scope!(&format!("Import {:?}", import_op.path.to_string_lossy()));
-            //let importer_id = editor_model.root_edit_context().import_info()
-            let importer_id = import_op.importer_id;
-            //let fingerprint = editor_model.root_edit_context().asset_schema(import_op.import_info).unwrap().fingerprint();
-            //let importer_id = importer_registry.asset_to_importer.get(&fingerprint).unwrap();
-            let importer = importer_registry.importer(importer_id).unwrap();
-
-            let mut importable_assets = HashMap::<Option<String>, ImportableAsset>::default();
-            for (name, asset_id) in &import_op.asset_ids {
-                let referenced_paths = editor_model
-                    .root_edit_context()
-                    .resolve_all_file_references(*asset_id)
-                    .unwrap_or_default();
-                importable_assets.insert(
-                    name.clone(),
-                    ImportableAsset {
-                        id: *asset_id,
-                        referenced_paths,
-                    },
-                );
-            }
-
-            let imported_assets = {
-                profiling::scope!("Importer::import_file");
-                importer.import_file(
-                    &import_op.path,
-                    &importable_assets,
-                    editor_model.schema_set(),
-                )
-            };
-
-            //TODO: Validate that all requested importables exist?
-            for (name, imported_asset) in imported_assets {
-                if let Some(asset_id) = import_op.asset_ids.get(&name) {
-                    let type_name = editor_model
-                        .root_edit_context()
-                        .data_set()
-                        .asset_schema(*asset_id)
-                        .unwrap()
-                        .name();
-
-                    profiling::scope!(&format!("Importable {:?} {}", name, type_name));
-
-                    if import_op.assets_to_regenerate.contains(asset_id) {
-                        if let Some(default_asset) = &imported_asset.default_asset {
-                            editor_model
-                                .root_edit_context_mut()
-                                .init_from_single_object(*asset_id, default_asset)
-                                .unwrap();
-                        }
-                    }
-
-                    if let Some(import_data) = &imported_asset.import_data {
-                        // Json-only format
-                        // let data = SingleObjectJson::save_single_object_to_string(import_data)
-                        //     .into_bytes();
-
-                        // b3f format
-                        let mut buf_writer = BufWriter::new(Vec::default());
-                        SingleObjectJson::save_single_object_to_b3f(&mut buf_writer, import_data);
-                        let data = buf_writer.into_inner().unwrap();
-
-                        let path = uuid_to_path(&self.import_data_root_path, asset_id.as_uuid(), "if");
-
-                        if let Some(parent) = path.parent() {
-                            std::fs::create_dir_all(parent).unwrap();
-                        }
-
-                        let mut file_needs_write = true;
-                        if path.exists() {
-                            let data_on_disk = std::fs::read(&path).unwrap();
-
-                            let mut data_hasher = siphasher::sip::SipHasher::default();
-                            data_on_disk.hash(&mut data_hasher);
-                            let data_on_disk_hash = data_hasher.finish();
-
-                            let mut data_hasher = siphasher::sip::SipHasher::default();
-                            data.hash(&mut data_hasher);
-                            let data_hash = data_hasher.finish();
-
-                            if data_on_disk_hash == data_hash {
-                                file_needs_write = false;
-                            }
-                        }
-
-                        if file_needs_write {
-                            // Avoid unnecessary writes, they mutate the last modified date of the
-                            // file and trigger unnecessary rebuilds
-                            std::fs::write(&path, data).unwrap();
-                        }
-
-                        let metadata = path.metadata().unwrap();
-                        let metadata_hash = hash_file_metadata(&metadata);
-                        let import_job = self
-                            .import_jobs
-                            .entry(*asset_id)
-                            .or_insert_with(|| ImportJob::new());
-                        import_job.import_data_exists = true;
-                        import_job.imported_data_hash = Some(metadata_hash);
-                    }
-                }
-            }
-        }
-        */
-
-        //self.import_operations.clear();
-
-        // Send/mark for processing?
     }
 
     fn find_all_jobs(

@@ -874,7 +874,7 @@ impl DataSource for FileSystemPathBasedDataSource {
 
                         //println!("referenced {:?} {:?}", file_reference_absolute_path, scanned_source_files.keys());
                         //println!("pull from {:?}", scanned_source_files.keys());
-                        println!("referenced {:?}", file_reference_absolute_path);
+                        //println!("referenced {:?}", file_reference_absolute_path);
                         let referenced_scanned_source_file = scanned_source_files
                             .get(&file_reference_absolute_path)
                             .unwrap();

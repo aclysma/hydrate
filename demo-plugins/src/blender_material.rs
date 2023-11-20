@@ -1,21 +1,18 @@
 pub use super::*;
 use std::path::PathBuf;
 
-use hydrate_data::{AssetRefFieldOwned, DataSetError, RecordOwned};
+use hydrate_data::{DataSetError, RecordOwned};
+use hydrate_model::pipeline::Importer;
 use hydrate_model::pipeline::{AssetPlugin, ImportContext, ScanContext};
-use hydrate_model::pipeline::{ImportedImportable, Importer, ScannedImportable};
 use hydrate_pipeline::{
-    BuilderRegistryBuilder, Enum, HashMap, ImportableAsset, ImporterId, ImporterRegistryBuilder,
-    JobProcessorRegistryBuilder, PipelineResult, RecordAccessor, ReferencedSourceFile,
-    ScanContextImportable, SchemaLinker,
+    BuilderRegistryBuilder, Enum, ImporterRegistryBuilder, JobProcessorRegistryBuilder,
+    PipelineResult, SchemaLinker,
 };
 use serde::{Deserialize, Serialize};
 use type_uuid::TypeUuid;
-use uuid::Uuid;
 
 use super::generated::{
-    MeshAdvBlendMethodEnum, MeshAdvMaterialAssetAccessor, MeshAdvMaterialAssetOwned,
-    MeshAdvShadowMethodEnum,
+    MeshAdvBlendMethodEnum, MeshAdvMaterialAssetOwned, MeshAdvShadowMethodEnum,
 };
 
 #[derive(Serialize, Deserialize)]
@@ -140,45 +137,29 @@ impl Importer for BlenderMaterialImporter {
             .normal_texture_scale()
             .set(json_data.normal_texture_scale)?;
 
-        fn try_find_file_reference(
-            importable_assets: &HashMap<Option<String>, ImportableAsset>,
-            ref_field: AssetRefFieldOwned,
-            path_as_string: &Option<PathBuf>,
-        ) -> PipelineResult<()> {
-            if let Some(path_as_string) = path_as_string {
-                if let Some(referenced_asset_id) = importable_assets
-                    .get(&None)
-                    .ok_or("Path not found in import data")?
-                    .referenced_paths
-                    .get(path_as_string)
-                {
-                    ref_field.set(*referenced_asset_id)?;
-                }
-            }
-
-            Ok(())
+        if let Some(path) = &json_data.color_texture {
+            default_asset
+                .color_texture()
+                .set(context.asset_id_for_referenced_file_path(None, path)?)?;
         }
 
-        try_find_file_reference(
-            &context.importable_assets,
-            default_asset.color_texture(),
-            &json_data.color_texture,
-        )?;
-        try_find_file_reference(
-            &context.importable_assets,
-            default_asset.metallic_roughness_texture(),
-            &json_data.metallic_roughness_texture,
-        )?;
-        try_find_file_reference(
-            &context.importable_assets,
-            default_asset.normal_texture(),
-            &json_data.normal_texture,
-        )?;
-        try_find_file_reference(
-            &context.importable_assets,
-            default_asset.emissive_texture(),
-            &json_data.emissive_texture,
-        )?;
+        if let Some(path) = &json_data.metallic_roughness_texture {
+            default_asset
+                .metallic_roughness_texture()
+                .set(context.asset_id_for_referenced_file_path(None, path)?)?;
+        }
+
+        if let Some(path) = &json_data.normal_texture {
+            default_asset
+                .normal_texture()
+                .set(context.asset_id_for_referenced_file_path(None, path)?)?;
+        }
+
+        if let Some(path) = &json_data.emissive_texture {
+            default_asset
+                .emissive_texture()
+                .set(context.asset_id_for_referenced_file_path(None, path)?)?;
+        }
 
         default_asset.shadow_method().set(shadow_method)?;
         default_asset.blend_method().set(blend_method)?;

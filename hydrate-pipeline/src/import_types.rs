@@ -1,9 +1,7 @@
-use crate::PipelineError::DataSetError;
 use crate::{ImporterRegistry, PipelineResult};
 use hydrate_data::{
     AssetId, HashMap, ImporterId, RecordOwned, SchemaRecord, SchemaSet, SingleObject,
 };
-use hydrate_schema::DataSetResult;
 use std::cell::RefCell;
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
@@ -122,7 +120,7 @@ impl<'a> ScanContext<'a> {
         self.scanned_importables
             .borrow_mut()
             .get_mut(&name)
-            .ok_or(format!("Trying to add file reference for importable named '{:?}'. The importable must be added before adding path references", name))?
+            .ok_or_else(|| format!("Trying to add file reference for importable named '{:?}'. The importable must be added before adding path references", name))?
             .file_references.push(file_reference);
 
         Ok(())
@@ -206,17 +204,12 @@ impl<'a> ScanContextImportable<'a> {
     }
 }
 
+#[derive(Clone)]
 pub struct ImportContext<'a> {
     pub path: &'a Path,
-    pub importable_assets: &'a HashMap<Option<String>, ImportableAsset>,
+    importable_assets: &'a HashMap<Option<String>, ImportableAsset>,
     pub schema_set: &'a SchemaSet,
-
-    pub(crate) imported_importables: Rc<RefCell<&'a mut HashMap<Option<String>, ImportedImportable>>>,
-    //TODO: Have an Rc<RefCell<&mut T>> to a hashmap of created assets
-    //TODO: Helper to get asset ID for path reference for an importable
-
-    // Should I create an importer for each imported file? Maybe scan produces an object that is
-    // passed into import? Or it produces a closure?
+    imported_importables: Rc<RefCell<&'a mut HashMap<Option<String>, ImportedImportable>>>,
 }
 
 impl<'a> ImportContext<'a> {
@@ -234,12 +227,49 @@ impl<'a> ImportContext<'a> {
         }
     }
 
-    pub fn add_importable(&self, name: Option<String>, asset: SingleObject, import_data: Option<SingleObject>) {
-        let old = self.imported_importables.borrow_mut().insert(name, ImportedImportable {
-            import_data,
-            default_asset: asset,
-        });
+    pub fn add_importable(
+        &self,
+        name: Option<String>,
+        asset: SingleObject,
+        import_data: Option<SingleObject>,
+    ) {
+        let old = self.imported_importables.borrow_mut().insert(
+            name,
+            ImportedImportable {
+                import_data,
+                default_asset: asset,
+            },
+        );
         assert!(old.is_none());
+    }
+
+    pub fn should_import(
+        &self,
+        name: &Option<String>,
+    ) -> bool {
+        self.importable_assets.contains_key(name)
+    }
+
+    // This is for assets by this import job
+    pub fn asset_id_for_importable(
+        &self,
+        name: &Option<String>,
+    ) -> Option<AssetId> {
+        self.importable_assets.get(name).map(|x| x.id)
+    }
+
+    // This is for assets produced by importing other files
+    pub fn asset_id_for_referenced_file_path(
+        &self,
+        name: Option<String>,
+        path: &Path,
+    ) -> PipelineResult<AssetId> {
+        Ok(*self.importable_assets
+            .get(&name)
+            .ok_or_else(|| format!("Default importable not found when trying to resolve path {:?} referenced by importable {:?}", path, name))?
+            .referenced_paths
+            .get(path)
+            .ok_or_else(|| format!("No asset ID found for default importable when trying to resolve path {:?} referenced by importable {:?}", path, name))?)
     }
 }
 

@@ -1,7 +1,7 @@
 pub use super::*;
 use std::path::PathBuf;
 
-use hydrate_data::{DataSetError, ImportableName, PathReference, RecordOwned};
+use hydrate_data::{DataSetError, ImportableName, PathReference, Record};
 use hydrate_model::pipeline::Importer;
 use hydrate_model::pipeline::{AssetPlugin, ImportContext, ScanContext};
 use hydrate_pipeline::{
@@ -12,7 +12,7 @@ use serde::{Deserialize, Serialize};
 use type_uuid::TypeUuid;
 
 use super::generated::{
-    MeshAdvBlendMethodEnum, MeshAdvMaterialAssetOwned, MeshAdvShadowMethodEnum,
+    MeshAdvBlendMethodEnum, MeshAdvMaterialAssetRecord, MeshAdvShadowMethodEnum,
 };
 
 #[derive(Serialize, Deserialize)]
@@ -63,7 +63,7 @@ impl Importer for BlenderMaterialImporter {
             serde_json::from_str(&json_str)?
         };
 
-        let importable = context.add_default_importable::<MeshAdvMaterialAssetOwned>()?;
+        let importable = context.add_default_importable::<MeshAdvMaterialAssetRecord>()?;
 
         if let Some(path) = &json_data.color_texture {
             importable.add_file_reference(PathReference::from(path))?;
@@ -119,7 +119,7 @@ impl Importer for BlenderMaterialImporter {
         //
         // Create the default asset
         //
-        let default_asset = MeshAdvMaterialAssetOwned::new_builder(context.schema_set);
+        let default_asset = MeshAdvMaterialAssetRecord::new_builder(context.schema_set);
 
         default_asset
             .base_color_factor()

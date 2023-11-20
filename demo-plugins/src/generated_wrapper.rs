@@ -1,6 +1,6 @@
 use demo_types::mesh_adv::{MeshAdvBlendMethod, MeshAdvShadowMethod};
 use hydrate_data::*;
-use hydrate_model::{DataContainerOwned, DataContainerRef, DataContainerRefMut, DataSetResult};
+use hydrate_model::{DataContainer, DataContainerRef, DataContainerRefMut, DataSetResult};
 use std::cell::RefCell;
 use std::rc::Rc;
 
@@ -73,7 +73,7 @@ impl<'a> Vec3Reader<'a> {
     }
 }
 
-impl Vec4Owned {
+impl Vec4Record {
     pub fn set_vec4(
         &self,
         value: [f32; 4],
@@ -94,7 +94,7 @@ impl Vec4Owned {
     }
 }
 
-impl Vec3Owned {
+impl Vec3Record {
     pub fn set_vec3(
         &self,
         value: [f32; 3],

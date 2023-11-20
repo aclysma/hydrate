@@ -3,10 +3,10 @@ use std::collections::VecDeque;
 use std::ops::Range;
 use std::path::{Path, PathBuf};
 
-use super::generated::{GlslBuildTargetAssetAccessor, GlslSourceFileImportedDataOwned};
-use crate::generated_wrapper::{GlslBuildTargetAssetReader, GlslSourceFileAssetOwned};
+use super::generated::{GlslBuildTargetAssetAccessor, GlslSourceFileImportedDataRecord};
+use crate::generated_wrapper::{GlslBuildTargetAssetRecord, GlslSourceFileAssetRecord};
 use demo_types::glsl::*;
-use hydrate_data::RecordOwned;
+use hydrate_data::Record;
 use hydrate_model::pipeline::Importer;
 use hydrate_model::pipeline::{AssetPlugin, Builder, ImportContext, ScanContext};
 use hydrate_pipeline::{
@@ -515,7 +515,7 @@ impl Importer for GlslSourceFileImporter {
         let code = std::fs::read_to_string(context.path)?;
         let code_chars: Vec<_> = code.chars().collect();
 
-        let importable = context.add_default_importable::<GlslSourceFileAssetOwned>()?;
+        let importable = context.add_default_importable::<GlslSourceFileAssetRecord>()?;
 
         for include_path in find_included_paths(&code_chars)? {
             importable.add_file_reference_with_importer::<Self, _>(include_path)?;
@@ -536,10 +536,10 @@ impl Importer for GlslSourceFileImporter {
         //
         // Create import data
         //
-        let import_data = GlslSourceFileImportedDataOwned::new_builder(context.schema_set);
+        let import_data = GlslSourceFileImportedDataRecord::new_builder(context.schema_set);
         import_data.code().set(code)?;
 
-        let default_asset = GlslSourceFileAssetOwned::new_builder(context.schema_set);
+        let default_asset = GlslSourceFileAssetRecord::new_builder(context.schema_set);
         // Nothing to set
 
         //
@@ -627,7 +627,7 @@ impl JobProcessor for GlslBuildTargetJobProcessor {
         //
         // Read asset properties
         //
-        let asset_data = context.asset::<GlslBuildTargetAssetReader>(context.input.asset_id)?;
+        let asset_data = context.asset::<GlslBuildTargetAssetRecord>(context.input.asset_id)?;
 
         let source_file = asset_data.source_file().get()?;
         let entry_point = asset_data.entry_point().get()?;

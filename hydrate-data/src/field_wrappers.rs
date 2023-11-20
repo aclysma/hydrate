@@ -1,4 +1,4 @@
-use crate::data_set_view::DataContainerOwned;
+use crate::data_set_view::DataContainer;
 use crate::value::ValueEnum;
 use crate::{
     AssetId, DataContainerRef, DataContainerRefMut, DataSetError, DataSetResult, NullOverride,
@@ -51,10 +51,10 @@ pub trait FieldWriter<'a> {
     ) -> Self;
 }
 
-pub trait FieldOwned {
+pub trait Field {
     fn new(
         property_path: PropertyPath,
-        data_container: &Rc<RefCell<Option<DataContainerOwned>>>,
+        data_container: &Rc<RefCell<Option<DataContainer>>>,
     ) -> Self;
 }
 
@@ -78,13 +78,17 @@ pub trait RecordAccessor {
 
 pub trait RecordReader {
     fn schema_name() -> &'static str;
+
+    //fn new(property_path: PropertyPath, data_container: DataContainerRef) -> Self;
 }
 
 pub trait RecordWriter {
     fn schema_name() -> &'static str;
 }
 
-pub trait RecordOwned: Sized + FieldOwned {
+pub trait Record: Sized + Field {
+    type Reader<'a>: RecordReader + FieldReader<'a>;
+
     fn schema_name() -> &'static str;
 
     fn new_single_object(schema_set: &SchemaSet) -> DataSetResult<SingleObject> {
@@ -100,17 +104,17 @@ pub trait RecordOwned: Sized + FieldOwned {
     }
 }
 
-pub struct RecordBuilder<T: RecordOwned + FieldOwned>(
-    Rc<RefCell<Option<DataContainerOwned>>>,
+pub struct RecordBuilder<T: Record + Field>(
+    Rc<RefCell<Option<DataContainer>>>,
     T,
     PhantomData<T>,
 );
 
-impl<T: RecordOwned + FieldOwned> RecordBuilder<T> {
+impl<T: Record + Field> RecordBuilder<T> {
     pub fn new(schema_set: &SchemaSet) -> Self {
         let single_object = T::new_single_object(schema_set).unwrap();
         let data_container =
-            DataContainerOwned::from_single_object(single_object, schema_set.clone());
+            DataContainer::from_single_object(single_object, schema_set.clone());
         let data_container = Rc::new(RefCell::new(Some(data_container)));
         let owned = T::new(Default::default(), &data_container);
         Self(data_container, owned, Default::default())
@@ -127,7 +131,7 @@ impl<T: RecordOwned + FieldOwned> RecordBuilder<T> {
     }
 }
 
-impl<T: RecordOwned + FieldOwned> Deref for RecordBuilder<T> {
+impl<T: Record + Field> Deref for RecordBuilder<T> {
     type Target = T;
 
     fn deref(&self) -> &Self::Target {
@@ -135,7 +139,7 @@ impl<T: RecordOwned + FieldOwned> Deref for RecordBuilder<T> {
     }
 }
 
-impl<T: RecordOwned + FieldOwned> DerefMut for RecordBuilder<T> {
+impl<T: Record + Field> DerefMut for RecordBuilder<T> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.1
     }
@@ -233,22 +237,22 @@ impl<'a, T: Enum> EnumFieldWriter<'a, T> {
     }
 }
 
-pub struct EnumFieldOwned<T: Enum>(
+pub struct EnumField<T: Enum>(
     pub PropertyPath,
-    Rc<RefCell<Option<DataContainerOwned>>>,
+    Rc<RefCell<Option<DataContainer>>>,
     PhantomData<T>,
 );
 
-impl<T: Enum> FieldOwned for EnumFieldOwned<T> {
+impl<T: Enum> Field for EnumField<T> {
     fn new(
         property_path: PropertyPath,
-        data_container: &Rc<RefCell<Option<DataContainerOwned>>>,
+        data_container: &Rc<RefCell<Option<DataContainer>>>,
     ) -> Self {
-        EnumFieldOwned(property_path, data_container.clone(), PhantomData)
+        EnumField(property_path, data_container.clone(), PhantomData)
     }
 }
 
-impl<T: Enum> EnumFieldOwned<T> {
+impl<T: Enum> EnumField<T> {
     pub fn get(&self) -> DataSetResult<T> {
         EnumFieldAccessor::<T>::do_get(
             &self.0,
@@ -386,22 +390,22 @@ impl<'a, T: FieldWriter<'a>> NullableFieldWriter<'a, T> {
     }
 }
 
-pub struct NullableFieldOwned<T: FieldOwned>(
+pub struct NullableField<T: Field>(
     pub PropertyPath,
-    Rc<RefCell<Option<DataContainerOwned>>>,
+    Rc<RefCell<Option<DataContainer>>>,
     PhantomData<T>,
 );
 
-impl<T: FieldOwned> FieldOwned for NullableFieldOwned<T> {
+impl<T: Field> Field for NullableField<T> {
     fn new(
         property_path: PropertyPath,
-        data_container: &Rc<RefCell<Option<DataContainerOwned>>>,
+        data_container: &Rc<RefCell<Option<DataContainer>>>,
     ) -> Self {
-        NullableFieldOwned(property_path, data_container.clone(), PhantomData)
+        NullableField(property_path, data_container.clone(), PhantomData)
     }
 }
 
-impl<T: FieldOwned> NullableFieldOwned<T> {
+impl<T: Field> NullableField<T> {
     pub fn resolve_null(self) -> DataSetResult<Option<T>> {
         if self.resolve_null_override()? == NullOverride::SetNonNull {
             Ok(Some(T::new(self.0.push("value"), &self.1)))
@@ -527,18 +531,18 @@ impl<'a> BooleanFieldWriter<'a> {
     }
 }
 
-pub struct BooleanFieldOwned(pub PropertyPath, Rc<RefCell<Option<DataContainerOwned>>>);
+pub struct BooleanField(pub PropertyPath, Rc<RefCell<Option<DataContainer>>>);
 
-impl FieldOwned for BooleanFieldOwned {
+impl Field for BooleanField {
     fn new(
         property_path: PropertyPath,
-        data_container: &Rc<RefCell<Option<DataContainerOwned>>>,
+        data_container: &Rc<RefCell<Option<DataContainer>>>,
     ) -> Self {
-        BooleanFieldOwned(property_path, data_container.clone())
+        BooleanField(property_path, data_container.clone())
     }
 }
 
-impl BooleanFieldOwned {
+impl BooleanField {
     pub fn get(&self) -> DataSetResult<bool> {
         BooleanFieldAccessor::do_get(
             &self.0,
@@ -651,18 +655,18 @@ impl<'a> I32FieldWriter<'a> {
     }
 }
 
-pub struct I32FieldOwned(pub PropertyPath, Rc<RefCell<Option<DataContainerOwned>>>);
+pub struct I32Field(pub PropertyPath, Rc<RefCell<Option<DataContainer>>>);
 
-impl FieldOwned for I32FieldOwned {
+impl Field for I32Field {
     fn new(
         property_path: PropertyPath,
-        data_container: &Rc<RefCell<Option<DataContainerOwned>>>,
+        data_container: &Rc<RefCell<Option<DataContainer>>>,
     ) -> Self {
-        I32FieldOwned(property_path, data_container.clone())
+        I32Field(property_path, data_container.clone())
     }
 }
 
-impl I32FieldOwned {
+impl I32Field {
     pub fn get(&self) -> DataSetResult<i32> {
         I32FieldAccessor::do_get(
             &self.0,
@@ -775,18 +779,18 @@ impl<'a> I64FieldWriter<'a> {
     }
 }
 
-pub struct I64FieldOwned(pub PropertyPath, Rc<RefCell<Option<DataContainerOwned>>>);
+pub struct I64Field(pub PropertyPath, Rc<RefCell<Option<DataContainer>>>);
 
-impl FieldOwned for I64FieldOwned {
+impl Field for I64Field {
     fn new(
         property_path: PropertyPath,
-        data_container: &Rc<RefCell<Option<DataContainerOwned>>>,
+        data_container: &Rc<RefCell<Option<DataContainer>>>,
     ) -> Self {
-        I64FieldOwned(property_path, data_container.clone())
+        I64Field(property_path, data_container.clone())
     }
 }
 
-impl I64FieldOwned {
+impl I64Field {
     pub fn get(&self) -> DataSetResult<i64> {
         I64FieldAccessor::do_get(
             &self.0,
@@ -899,18 +903,18 @@ impl<'a> U32FieldWriter<'a> {
     }
 }
 
-pub struct U32FieldOwned(pub PropertyPath, Rc<RefCell<Option<DataContainerOwned>>>);
+pub struct U32Field(pub PropertyPath, Rc<RefCell<Option<DataContainer>>>);
 
-impl FieldOwned for U32FieldOwned {
+impl Field for U32Field {
     fn new(
         property_path: PropertyPath,
-        data_container: &Rc<RefCell<Option<DataContainerOwned>>>,
+        data_container: &Rc<RefCell<Option<DataContainer>>>,
     ) -> Self {
-        U32FieldOwned(property_path, data_container.clone())
+        U32Field(property_path, data_container.clone())
     }
 }
 
-impl U32FieldOwned {
+impl U32Field {
     pub fn get(&self) -> DataSetResult<u32> {
         U32FieldAccessor::do_get(
             &self.0,
@@ -1023,18 +1027,18 @@ impl<'a> U64FieldWriter<'a> {
     }
 }
 
-pub struct U64FieldOwned(pub PropertyPath, Rc<RefCell<Option<DataContainerOwned>>>);
+pub struct U64Field(pub PropertyPath, Rc<RefCell<Option<DataContainer>>>);
 
-impl FieldOwned for U64FieldOwned {
+impl Field for U64Field {
     fn new(
         property_path: PropertyPath,
-        data_container: &Rc<RefCell<Option<DataContainerOwned>>>,
+        data_container: &Rc<RefCell<Option<DataContainer>>>,
     ) -> Self {
-        U64FieldOwned(property_path, data_container.clone())
+        U64Field(property_path, data_container.clone())
     }
 }
 
-impl U64FieldOwned {
+impl U64Field {
     pub fn get(&self) -> DataSetResult<u64> {
         U64FieldAccessor::do_get(
             &self.0,
@@ -1147,18 +1151,18 @@ impl<'a> F32FieldWriter<'a> {
     }
 }
 
-pub struct F32FieldOwned(pub PropertyPath, Rc<RefCell<Option<DataContainerOwned>>>);
+pub struct F32Field(pub PropertyPath, Rc<RefCell<Option<DataContainer>>>);
 
-impl FieldOwned for F32FieldOwned {
+impl Field for F32Field {
     fn new(
         property_path: PropertyPath,
-        data_container: &Rc<RefCell<Option<DataContainerOwned>>>,
+        data_container: &Rc<RefCell<Option<DataContainer>>>,
     ) -> Self {
-        F32FieldOwned(property_path, data_container.clone())
+        F32Field(property_path, data_container.clone())
     }
 }
 
-impl F32FieldOwned {
+impl F32Field {
     pub fn get(&self) -> DataSetResult<f32> {
         F32FieldAccessor::do_get(
             &self.0,
@@ -1271,18 +1275,18 @@ impl<'a> F64FieldWriter<'a> {
     }
 }
 
-pub struct F64FieldOwned(pub PropertyPath, Rc<RefCell<Option<DataContainerOwned>>>);
+pub struct F64Field(pub PropertyPath, Rc<RefCell<Option<DataContainer>>>);
 
-impl FieldOwned for F64FieldOwned {
+impl Field for F64Field {
     fn new(
         property_path: PropertyPath,
-        data_container: &Rc<RefCell<Option<DataContainerOwned>>>,
+        data_container: &Rc<RefCell<Option<DataContainer>>>,
     ) -> Self {
-        F64FieldOwned(property_path, data_container.clone())
+        F64Field(property_path, data_container.clone())
     }
 }
 
-impl F64FieldOwned {
+impl F64Field {
     pub fn get(&self) -> DataSetResult<f64> {
         F64FieldAccessor::do_get(
             &self.0,
@@ -1403,18 +1407,18 @@ impl<'a> BytesFieldWriter<'a> {
     }
 }
 
-pub struct BytesFieldOwned(pub PropertyPath, Rc<RefCell<Option<DataContainerOwned>>>);
+pub struct BytesField(pub PropertyPath, Rc<RefCell<Option<DataContainer>>>);
 
-impl FieldOwned for BytesFieldOwned {
+impl Field for BytesField {
     fn new(
         property_path: PropertyPath,
-        data_container: &Rc<RefCell<Option<DataContainerOwned>>>,
+        data_container: &Rc<RefCell<Option<DataContainer>>>,
     ) -> Self {
-        BytesFieldOwned(property_path, data_container.clone())
+        BytesField(property_path, data_container.clone())
     }
 }
 
-impl BytesFieldOwned {
+impl BytesField {
     pub fn get(&self) -> DataSetResult<Arc<Vec<u8>>> {
         // The writer has to clone because we can't return a reference to the interior of the Rc<RefCell<T>>
         // We could fix this by making the bytes type be an Arc<[u8]>
@@ -1534,18 +1538,18 @@ impl<'a> StringFieldWriter<'a> {
     }
 }
 
-pub struct StringFieldOwned(pub PropertyPath, Rc<RefCell<Option<DataContainerOwned>>>);
+pub struct StringField(pub PropertyPath, Rc<RefCell<Option<DataContainer>>>);
 
-impl FieldOwned for StringFieldOwned {
+impl Field for StringField {
     fn new(
         property_path: PropertyPath,
-        data_container: &Rc<RefCell<Option<DataContainerOwned>>>,
+        data_container: &Rc<RefCell<Option<DataContainer>>>,
     ) -> Self {
-        StringFieldOwned(property_path, data_container.clone())
+        StringField(property_path, data_container.clone())
     }
 }
 
-impl StringFieldOwned {
+impl StringField {
     pub fn get(&self) -> DataSetResult<Arc<String>> {
         StringFieldAccessor::do_get(
             &self.0,
@@ -1667,22 +1671,22 @@ impl<'a, T: FieldWriter<'a>> DynamicArrayFieldWriter<'a, T> {
     }
 }
 
-pub struct DynamicArrayFieldOwned<T: FieldOwned>(
+pub struct DynamicArrayField<T: Field>(
     pub PropertyPath,
-    Rc<RefCell<Option<DataContainerOwned>>>,
+    Rc<RefCell<Option<DataContainer>>>,
     PhantomData<T>,
 );
 
-impl<'a, T: FieldOwned> FieldOwned for DynamicArrayFieldOwned<T> {
+impl<'a, T: Field> Field for DynamicArrayField<T> {
     fn new(
         property_path: PropertyPath,
-        data_container: &Rc<RefCell<Option<DataContainerOwned>>>,
+        data_container: &Rc<RefCell<Option<DataContainer>>>,
     ) -> Self {
-        DynamicArrayFieldOwned(property_path, data_container.clone(), PhantomData)
+        DynamicArrayField(property_path, data_container.clone(), PhantomData)
     }
 }
 
-impl<'a, T: FieldOwned> DynamicArrayFieldOwned<T> {
+impl<'a, T: Field> DynamicArrayField<T> {
     pub fn resolve_entries(&self) -> DataSetResult<Box<[Uuid]>> {
         self.1
             .borrow_mut()
@@ -1791,18 +1795,18 @@ impl<'a> AssetRefFieldWriter<'a> {
     }
 }
 
-pub struct AssetRefFieldOwned(pub PropertyPath, Rc<RefCell<Option<DataContainerOwned>>>);
+pub struct AssetRefField(pub PropertyPath, Rc<RefCell<Option<DataContainer>>>);
 
-impl FieldOwned for AssetRefFieldOwned {
+impl Field for AssetRefField {
     fn new(
         property_path: PropertyPath,
-        data_container: &Rc<RefCell<Option<DataContainerOwned>>>,
+        data_container: &Rc<RefCell<Option<DataContainer>>>,
     ) -> Self {
-        AssetRefFieldOwned(property_path, data_container.clone())
+        AssetRefField(property_path, data_container.clone())
     }
 }
 
-impl AssetRefFieldOwned {
+impl AssetRefField {
     pub fn get(&self) -> DataSetResult<AssetId> {
         AssetRefFieldAccessor::do_get(
             &self.0,

@@ -3,8 +3,8 @@ use glam::Vec3;
 use rafx_api::RafxResourceType;
 
 use crate::generated::{
-    MeshAdvMaterialAssetReader, MeshAdvMeshAssetAccessor, MeshAdvMeshAssetReader,
-    MeshAdvMeshImportedDataReader,
+    MeshAdvMaterialAssetRecord, MeshAdvMeshAssetAccessor, MeshAdvMeshAssetRecord,
+    MeshAdvMeshImportedDataRecord,
 };
 use crate::push_buffer::PushBuffer;
 use demo_types::mesh_adv::*;
@@ -56,7 +56,7 @@ impl JobProcessor for MeshAdvMaterialJobProcessor {
         //
         // Read asset data
         //
-        let asset_data = context.asset::<MeshAdvMaterialAssetReader>(context.input.asset_id)?;
+        let asset_data = context.asset::<MeshAdvMaterialAssetRecord>(context.input.asset_id)?;
 
         let base_color_factor = asset_data.base_color_factor().get_vec4()?;
         let emissive_factor = asset_data.emissive_factor().get_vec3()?;
@@ -188,7 +188,7 @@ impl JobProcessor for MeshAdvMeshPreprocessJobProcessor {
         //
         // Read asset data
         //
-        let asset_data = context.asset::<MeshAdvMeshAssetReader>(context.input.asset_id)?;
+        let asset_data = context.asset::<MeshAdvMeshAssetRecord>(context.input.asset_id)?;
 
         let mut materials = Vec::default();
         for entry in asset_data
@@ -205,7 +205,7 @@ impl JobProcessor for MeshAdvMeshPreprocessJobProcessor {
         // Read import data
         //
         let imported_data = context
-            .imported_data::<MeshAdvMeshImportedDataReader>(context.input.asset_id)
+            .imported_data::<MeshAdvMeshImportedDataRecord>(context.input.asset_id)
             .unwrap();
 
         let mut all_positions = Vec::<glam::Vec3>::with_capacity(1024);

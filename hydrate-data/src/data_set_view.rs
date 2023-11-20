@@ -394,14 +394,14 @@ impl<'a> DataContainerWrite for DataContainerRefMut<'a> {
 
 /// Provides a read/write view into a DataSet or SingleObject. A schema can be used to write into
 /// both forms.
-pub enum DataContainerOwned {
+pub enum DataContainer {
     SingleObject(SingleObject, SchemaSet),
 }
 
-impl DataContainerOwned {
+impl DataContainer {
     pub fn into_inner(self) -> SingleObject {
         match self {
-            DataContainerOwned::SingleObject(a, _b) => a,
+            DataContainer::SingleObject(a, _b) => a,
         }
     }
 
@@ -409,18 +409,18 @@ impl DataContainerOwned {
         single_object: SingleObject,
         schema_set: SchemaSet,
     ) -> Self {
-        DataContainerOwned::SingleObject(single_object, schema_set)
+        DataContainer::SingleObject(single_object, schema_set)
     }
 
     pub fn read<'a>(&'a self) -> DataContainerRef<'a> {
         match self {
-            DataContainerOwned::SingleObject(a, b) => DataContainerRef::SingleObject(&a, &b),
+            DataContainer::SingleObject(a, b) => DataContainerRef::SingleObject(&a, &b),
         }
     }
 
     pub fn to_mut(&mut self) -> DataContainerRefMut {
         match self {
-            DataContainerOwned::SingleObject(a, b) => DataContainerRefMut::SingleObject(a, b),
+            DataContainer::SingleObject(a, b) => DataContainerRefMut::SingleObject(a, b),
         }
     }
 
@@ -430,7 +430,7 @@ impl DataContainerOwned {
     ) -> DataSetResult<&Value> {
         // We can't simply call read().resolve_property() because rust can't prove the borrowing safety
         match self {
-            DataContainerOwned::SingleObject(single_object, schema_set) => {
+            DataContainer::SingleObject(single_object, schema_set) => {
                 single_object.resolve_property(schema_set, path)
             }
         }
@@ -449,7 +449,7 @@ impl DataContainerOwned {
         null_override: NullOverride,
     ) -> DataSetResult<()> {
         match self {
-            DataContainerOwned::SingleObject(single_object, schema_set) => {
+            DataContainer::SingleObject(single_object, schema_set) => {
                 single_object.set_null_override(schema_set, path, null_override)
             }
         }
@@ -482,7 +482,7 @@ impl DataContainerOwned {
         value: Option<Value>,
     ) -> DataSetResult<Option<Value>> {
         match self {
-            DataContainerOwned::SingleObject(single_object, schema_set) => {
+            DataContainer::SingleObject(single_object, schema_set) => {
                 single_object.set_property_override(schema_set, path, value)
             }
         }
@@ -494,7 +494,7 @@ impl DataContainerOwned {
         _behavior: OverrideBehavior,
     ) -> DataSetResult<()> {
         match self {
-            DataContainerOwned::SingleObject(_, _) => Ok(()),
+            DataContainer::SingleObject(_, _) => Ok(()),
         }
     }
 
@@ -503,14 +503,14 @@ impl DataContainerOwned {
         path: impl AsRef<str>,
     ) -> DataSetResult<Uuid> {
         match self {
-            DataContainerOwned::SingleObject(single_object, schema_set) => {
+            DataContainer::SingleObject(single_object, schema_set) => {
                 single_object.add_dynamic_array_override(schema_set, path)
             }
         }
     }
 }
 
-impl DataContainerRead for DataContainerOwned {
+impl DataContainerRead for DataContainer {
     fn resolve_property(
         &self,
         path: impl AsRef<str>,
@@ -547,7 +547,7 @@ impl DataContainerRead for DataContainerOwned {
     }
 }
 
-impl DataContainerWrite for DataContainerOwned {
+impl DataContainerWrite for DataContainer {
     fn set_null_override(
         &mut self,
         path: impl AsRef<str>,

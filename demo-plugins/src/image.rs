@@ -3,11 +3,10 @@ use ::image::GenericImageView;
 use std::sync::Arc;
 
 use super::generated::{
-    GpuImageAssetAccessor, GpuImageAssetOwned, GpuImageAssetReader, GpuImageImportedDataOwned,
-    GpuImageImportedDataReader,
+    GpuImageAssetAccessor, GpuImageAssetRecord, GpuImageImportedDataRecord,
 };
 use demo_types::image::*;
-use hydrate_data::RecordOwned;
+use hydrate_data::Record;
 use hydrate_model::pipeline::{ImportContext, ScanContext};
 use hydrate_pipeline::Importer;
 use hydrate_pipeline::{
@@ -32,7 +31,7 @@ impl Importer for GpuImageImporter {
         &self,
         context: ScanContext,
     ) -> PipelineResult<()> {
-        context.add_default_importable::<GpuImageAssetOwned>()?;
+        context.add_default_importable::<GpuImageAssetRecord>()?;
         Ok(())
     }
 
@@ -51,7 +50,7 @@ impl Importer for GpuImageImporter {
         //
         // Create import data
         //
-        let import_data = GpuImageImportedDataOwned::new_builder(context.schema_set);
+        let import_data = GpuImageImportedDataRecord::new_builder(context.schema_set);
         import_data.image_bytes().set(image_bytes)?;
         import_data.width().set(width)?;
         import_data.height().set(height)?;
@@ -59,7 +58,7 @@ impl Importer for GpuImageImporter {
         //
         // Create the default asset
         //
-        let default_asset = GpuImageAssetOwned::new_builder(context.schema_set);
+        let default_asset = GpuImageAssetRecord::new_builder(context.schema_set);
         default_asset.compress().set(false)?;
 
         //
@@ -111,14 +110,14 @@ impl JobProcessor for GpuImageJobProcessor {
         //
         // Read asset properties
         //
-        let asset = context.asset::<GpuImageAssetReader>(context.input.asset_id)?;
+        let asset = context.asset::<GpuImageAssetRecord>(context.input.asset_id)?;
         let compressed = asset.compress().get()?;
 
         //
         // Read imported data
         //
         let imported_data =
-            context.imported_data::<GpuImageImportedDataReader>(context.input.asset_id)?;
+            context.imported_data::<GpuImageImportedDataRecord>(context.input.asset_id)?;
         let image_bytes_reader = imported_data.image_bytes();
         let image_bytes = image_bytes_reader.get()?;
         let width = imported_data.width().get()?;

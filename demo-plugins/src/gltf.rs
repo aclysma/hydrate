@@ -1,10 +1,10 @@
 pub use super::*;
 
 use super::generated::{
-    GpuImageAssetOwned, GpuImageImportedDataOwned, MeshAdvMaterialAssetOwned,
-    MeshAdvMeshAssetOwned, MeshAdvMeshImportedDataOwned,
+    GpuImageAssetRecord, GpuImageImportedDataRecord, MeshAdvMaterialAssetRecord,
+    MeshAdvMeshAssetRecord, MeshAdvMeshImportedDataRecord,
 };
-use hydrate_data::{ImportableName, RecordOwned};
+use hydrate_data::{ImportableName, Record};
 use hydrate_model::pipeline::Importer;
 use hydrate_model::pipeline::{AssetPlugin, ImportContext, ScanContext};
 use hydrate_pipeline::{
@@ -43,12 +43,12 @@ impl Importer for GltfImporter {
 
         for (i, mesh) in doc.meshes().enumerate() {
             let name = name_or_index("mesh", mesh.name(), i);
-            context.add_importable::<MeshAdvMeshAssetOwned>(name)?;
+            context.add_importable::<MeshAdvMeshAssetRecord>(name)?;
         }
 
         for (i, material) in doc.materials().enumerate() {
             let name = name_or_index("material", material.name(), i);
-            context.add_importable::<MeshAdvMaterialAssetOwned>(name)?;
+            context.add_importable::<MeshAdvMaterialAssetRecord>(name)?;
         }
 
         Ok(())
@@ -72,13 +72,13 @@ impl Importer for GltfImporter {
                 //
                 // Create import data
                 //
-                let import_data = GpuImageAssetOwned::new_builder(context.schema_set);
+                let import_data = GpuImageAssetRecord::new_builder(context.schema_set);
                 // omitted for brevity
 
                 //
                 // Create the default asset
                 //
-                let asset_data = GpuImageImportedDataOwned::new_builder(context.schema_set);
+                let asset_data = GpuImageImportedDataRecord::new_builder(context.schema_set);
                 //omitted for brevity
 
                 image_index_to_object_id.insert(image.index(), importable_object);
@@ -96,12 +96,12 @@ impl Importer for GltfImporter {
                 //
                 // Create import data
                 //
-                let import_data = MeshAdvMeshImportedDataOwned::new_builder(context.schema_set);
+                let import_data = MeshAdvMeshImportedDataRecord::new_builder(context.schema_set);
 
                 //
                 // Create the default asset
                 //
-                let asset_data = MeshAdvMeshAssetOwned::new_builder(context.schema_set);
+                let asset_data = MeshAdvMeshAssetRecord::new_builder(context.schema_set);
 
                 //
                 // Return the created assets
@@ -120,7 +120,7 @@ impl Importer for GltfImporter {
                 //
                 // Create the default asset
                 //
-                let default_asset = MeshAdvMaterialAssetOwned::new_builder(context.schema_set);
+                let default_asset = MeshAdvMaterialAssetRecord::new_builder(context.schema_set);
                 default_asset
                     .base_color_factor()
                     .set_vec4(material.pbr_metallic_roughness().base_color_factor())?;

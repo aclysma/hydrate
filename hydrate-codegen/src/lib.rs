@@ -443,32 +443,32 @@ fn field_schema_to_owned_type(
 ) -> Option<String> {
     Some(match field_schema {
         Schema::Nullable(x) => format!(
-            "NullableFieldOwned::<{}>",
+            "NullableField::<{}>",
             field_schema_to_owned_type(schema_set, &*x)?
         ),
-        Schema::Boolean => "BooleanFieldOwned".to_string(),
-        Schema::I32 => "I32FieldOwned".to_string(),
-        Schema::I64 => "I64FieldOwned".to_string(),
-        Schema::U32 => "U32FieldOwned".to_string(),
-        Schema::U64 => "U64FieldOwned".to_string(),
-        Schema::F32 => "F32FieldOwned".to_string(),
-        Schema::F64 => "F64FieldOwned".to_string(),
-        Schema::Bytes => "BytesFieldOwned".to_string(), //return None,//"Vec<u8>".to_string(),
-        Schema::String => "StringFieldOwned".to_string(),
+        Schema::Boolean => "BooleanField".to_string(),
+        Schema::I32 => "I32Field".to_string(),
+        Schema::I64 => "I64Field".to_string(),
+        Schema::U32 => "U32Field".to_string(),
+        Schema::U64 => "U64Field".to_string(),
+        Schema::F32 => "F32Field".to_string(),
+        Schema::F64 => "F64Field".to_string(),
+        Schema::Bytes => "BytesField".to_string(), //return None,//"Vec<u8>".to_string(),
+        Schema::String => "StringField".to_string(),
         Schema::StaticArray(_x) => unimplemented!(), //return None,//format!("[{}; {}]", field_schema_to_rust_type(schema_set, x.item_type()), x.length()),
         Schema::DynamicArray(x) => format!(
-            "DynamicArrayFieldOwned::<{}>",
+            "DynamicArrayField::<{}>",
             field_schema_to_owned_type(schema_set, x.item_type())?
         ), //return None,//format!("Vec<{}>", field_schema_to_rust_type(schema_set, x.item_type())),
         Schema::Map(_x) => unimplemented!(), // return None,//format!("HashMap<{}, {}>", field_schema_to_rust_type(schema_set, x.key_type()), field_schema_to_rust_type(schema_set, x.value_type())),
-        Schema::AssetRef(_x) => "AssetRefFieldOwned".to_string(),
+        Schema::AssetRef(_x) => "AssetRefField".to_string(),
         Schema::NamedType(x) => {
             let inner_type = schema_set.find_named_type_by_fingerprint(*x).unwrap();
 
             match inner_type {
-                SchemaNamedType::Record(_) => format!("{}Owned", inner_type.name().to_string()),
+                SchemaNamedType::Record(_) => format!("{}Record", inner_type.name().to_string()),
                 SchemaNamedType::Enum(_) => {
-                    format!("EnumFieldOwned::<{}Enum>", inner_type.name().to_string())
+                    format!("EnumField::<{}Enum>", inner_type.name().to_string())
                 }
                 SchemaNamedType::Fixed(_) => unimplemented!(),
             }
@@ -482,21 +482,21 @@ fn generate_owned(
 ) -> codegen::Scope {
     let mut scope = codegen::Scope::new();
 
-    let record_name = format!("{}Owned", schema.name());
-    let record_name_without_generic = format!("{}Owned", schema.name());
+    let record_name = format!("{}Record", schema.name());
+    let record_name_without_generic = format!("{}Record", schema.name());
     let s = scope
         .new_struct(record_name.as_str())
         .tuple_field("PropertyPath")
-        .tuple_field("Rc<RefCell<Option<DataContainerOwned>>>");
+        .tuple_field("Rc<RefCell<Option<DataContainer>>>");
     s.vis("pub");
 
     let field_impl = scope
         .new_impl(record_name.as_str())
-        .impl_trait("FieldOwned");
+        .impl_trait("Field");
     let new_fn = field_impl
         .new_fn("new")
         .arg("property_path", "PropertyPath")
-        .arg("data_container", "&Rc<RefCell<Option<DataContainerOwned>>>");
+        .arg("data_container", "&Rc<RefCell<Option<DataContainer>>>");
     new_fn.ret("Self");
     new_fn.line(format!(
         "{}(property_path, data_container.clone())",
@@ -505,7 +505,12 @@ fn generate_owned(
 
     let record_impl = scope
         .new_impl(record_name.as_str())
-        .impl_trait("RecordOwned");
+        .impl_trait("Record");
+
+    record_impl.associate_type("Reader<'a>", format!("{}Reader<'a>", schema.name()));
+    // record_impl.associate_type("Writer", format!("{}Writer", schema.name()));
+    // record_impl.associate_type("Accessor", format!("{}Accessor", schema.name()));
+
     let schema_name_fn = record_impl.new_fn("schema_name");
     schema_name_fn.ret("&'static str");
     schema_name_fn.line(format!("\"{}\"", schema.name()));

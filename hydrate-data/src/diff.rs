@@ -3,8 +3,8 @@ use crate::{
     AssetId, AssetLocation, AssetName, DataSet, DataSetAssetInfo, DataSetResult, HashSet,
     NullOverride, SchemaSet,
 };
-use std::path::PathBuf;
 use uuid::Uuid;
+use crate::data_set::PathReference;
 
 #[derive(Debug)]
 pub struct DynamicArrayEntryDelta {
@@ -25,8 +25,8 @@ pub struct AssetDiff {
     add_properties_in_replace_mode: Vec<String>,
     remove_properties_in_replace_mode: Vec<String>,
     dynamic_array_entry_deltas: Vec<DynamicArrayEntryDelta>,
-    set_file_references: Vec<(PathBuf, AssetId)>,
-    remove_file_references: Vec<PathBuf>,
+    set_file_references: Vec<(PathReference, AssetId)>,
+    remove_file_references: Vec<PathReference>,
 }
 
 impl AssetDiff {

@@ -26,9 +26,7 @@ pub fn draw_properties_window_single_select(
             "Imported From: {}",
             import_info.source_file_path().to_string_lossy()
         ));
-        if let Some(importable_name) = import_info.importable_name() {
-            ui.text(im_str!("Importable Name: {}", importable_name));
-        }
+        ui.text(im_str!("Importable Name: {:?}", import_info.importable_name().name()));
     }
 
     let is_generated = app_state.db_state.editor_model.is_generated_asset(asset_id);

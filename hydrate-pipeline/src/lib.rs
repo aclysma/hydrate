@@ -128,7 +128,7 @@ pub trait DynEditContext {
     fn set_file_reference_override(
         &mut self,
         asset_id: AssetId,
-        path: PathBuf,
+        path: PathReference,
         referenced_asset_id: AssetId,
     ) -> DataSetResult<()>;
 }

@@ -2,7 +2,7 @@ use crate::ImporterRegistry;
 use crate::{DynEditContext, PipelineResult};
 use crate::{Importer, ScanContext, ScannedImportable};
 use hydrate_base::hashing::HashSet;
-use hydrate_data::ImportableName;
+use hydrate_data::{ImportableName, PathReference};
 use hydrate_data::{AssetId, AssetLocation, AssetName, HashMap, ImportInfo, ImporterId};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -21,17 +21,21 @@ pub fn create_import_info(
     scanned_importable: &ScannedImportable,
 ) -> ImportInfo {
     let mut file_references = Vec::default();
-    for file_reference in &scanned_importable.file_references {
-        file_references.push(file_reference.path.clone());
+    for file_reference in &scanned_importable.referenced_source_files {
+        file_references.push(file_reference.path_reference.clone());
     }
+
+    let source_file = PathReference {
+        path: source_file_path.to_string_lossy().to_string(),
+        importable_name: scanned_importable.name.clone()
+    };
 
     //
     // When we import, set the import info so we track where the import comes from
     //
     ImportInfo::new(
         importer.importer_id(),
-        source_file_path.to_path_buf(),
-        scanned_importable.name.clone(),
+        source_file,
         file_references,
     )
 }
@@ -63,7 +67,7 @@ pub fn recursively_gather_import_operations_and_create_assets(
     // In addition to being the imports that need to be queued, this is also the assets that were
     // created. Pre-existing but referenced assets won't be in this list
     imports_to_queue: &mut Vec<ImportToQueue>,
-) -> PipelineResult<Option<AssetId>> {
+) -> PipelineResult<HashMap<ImportableName, AssetId>> {
     //
     // We now build a list of things we will be importing from the file.
     // 1. Scan the file to see what's available
@@ -71,7 +75,7 @@ pub fn recursively_gather_import_operations_and_create_assets(
     // 3. Enqueue the import operation
     //
     let mut requested_importables = HashMap::default();
-    let mut default_importable_asset_id = None;
+    let mut imported_asset_ids = HashMap::default();
     let mut assets_to_regenerate = HashSet::default();
 
     let mut scanned_importables = HashMap::default();
@@ -108,24 +112,14 @@ pub fn recursively_gather_import_operations_and_create_assets(
         let mut referenced_source_file_asset_ids = Vec::default();
 
         //TODO: Check referenced source files to find existing imported assets or import referenced files
-        for referenced_source_file in &scanned_importable.file_references {
-            let referenced_file_absolute_path = if referenced_source_file.path.is_relative() {
-                source_file_path
-                    .parent()
-                    .unwrap()
-                    .join(&referenced_source_file.path)
-                    .canonicalize()
-                    .unwrap()
-            } else {
-                referenced_source_file.path.clone()
-            };
+        for referenced_source_file in &scanned_importable.referenced_source_files {
+            let referenced_file_absolute = PathReference::canonicalize_relative(source_file_path, &referenced_source_file.path_reference);
 
             // Does it already exist?
             let mut found = None;
             for (asset_id, _) in editor_context.data_set().assets() {
                 if let Some(import_info) = editor_context.data_set().import_info(*asset_id) {
-                    if import_info.importable_name().is_none()
-                        && import_info.source_file_path() == referenced_file_absolute_path
+                    if *import_info.source_file() == referenced_source_file.path_reference
                     {
                         found = Some(*asset_id);
                     }
@@ -138,13 +132,13 @@ pub fn recursively_gather_import_operations_and_create_assets(
                     .importer(referenced_source_file.importer_id)
                     .unwrap();
                 found = recursively_gather_import_operations_and_create_assets(
-                    &referenced_file_absolute_path,
+                    &Path::new(&referenced_file_absolute.path),
                     importer,
                     editor_context,
                     importer_registry,
                     selected_import_location,
                     imports_to_queue,
-                )?;
+                )?.get(&referenced_file_absolute.importable_name).copied();
             }
 
             referenced_source_file_asset_ids.push(found);
@@ -153,27 +147,28 @@ pub fn recursively_gather_import_operations_and_create_assets(
         // At this point all referenced files have either been found or imported
         assert_eq!(
             referenced_source_file_asset_ids.len(),
-            scanned_importable.file_references.len()
+            scanned_importable.referenced_source_files.len()
         );
 
+        //TODO: We should avoid writing into the dataset here, instead it should occur when we actually
+        // do the import so assets don't end up in a half-initialized state
         let asset_id = editor_context.new_asset(
             &object_name,
             selected_import_location,
             &scanned_importable.asset_type,
         );
-        //TODO: Do this when we actually import to avoid potential race conditions
         editor_context
             .set_import_info(asset_id, import_info.clone())
             .unwrap();
 
         for (k, v) in scanned_importable
-            .file_references
+            .referenced_source_files
             .iter()
             .zip(referenced_source_file_asset_ids)
         {
             if let Some(v) = v {
                 editor_context
-                    .set_file_reference_override(asset_id, k.path.clone(), v)
+                    .set_file_reference_override(asset_id, k.path_reference.clone(), v)
                     .unwrap();
             }
         }
@@ -186,9 +181,8 @@ pub fn recursively_gather_import_operations_and_create_assets(
 
         //editor_context.build_info_mut().
 
-        if scanned_importable.name.is_default() {
-            default_importable_asset_id = Some(asset_id);
-        }
+        let old = imported_asset_ids.insert(scanned_importable.name.clone(), asset_id);
+        assert!(old.is_none());
     }
 
     //asset_engine.queue_import_operation(asset_ids, importer.importer_id(), file.to_path_buf());
@@ -200,5 +194,5 @@ pub fn recursively_gather_import_operations_and_create_assets(
         assets_to_regenerate,
     });
 
-    Ok(default_importable_asset_id)
+    Ok(imported_asset_ids)
 }

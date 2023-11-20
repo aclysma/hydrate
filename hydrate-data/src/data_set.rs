@@ -1,3 +1,4 @@
+use std::fmt::Display;
 use crate::{
     AssetId, HashMap, HashSet, OrderedSet, Schema, SchemaFingerprint, SchemaRecord, SingleObject,
     Value,
@@ -107,6 +108,108 @@ impl ImportableName {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct PathReference {
+    pub path: String,
+    pub importable_name: ImportableName,
+}
+
+impl PathReference {
+    pub fn is_relative(&self) -> bool {
+        Path::new(&self.path).is_relative()
+    }
+
+    pub fn canonicalize_relative(source_file_path: &Path, referenced: &PathReference) -> PathReference {
+        let referenced_file_absolute_path = if Path::new(&referenced.path).is_relative() {
+            source_file_path
+                .parent()
+                .unwrap()
+                .join(Path::new(&referenced.path))
+                .canonicalize()
+                .unwrap()
+        } else {
+            PathBuf::from(&referenced.path)
+        };
+
+        PathReference {
+            path: referenced_file_absolute_path.to_string_lossy().to_string(),
+            importable_name: referenced.importable_name.clone(),
+        }
+    }
+}
+
+impl From<&str> for PathReference {
+    fn from(s: &str) -> PathReference {
+        let delimeter_position = s.rfind('#');
+        if let Some(delimeter_position) = delimeter_position {
+            let path = s[..delimeter_position].to_string();
+            let name = &s[delimeter_position+1..];
+            let importable_name = if !name.is_empty() {
+                ImportableName::new(name.to_string())
+            } else {
+                ImportableName::default()
+            };
+
+            PathReference {
+                path,
+                importable_name,
+            }
+        } else {
+            PathReference {
+                path: s.to_string(),
+                importable_name: ImportableName::default(),
+            }
+        }
+    }
+}
+
+impl From<String> for PathReference {
+    fn from(path: String) -> PathReference {
+        let str: &str = &path;
+        PathReference::from(str)
+    }
+}
+
+impl From<&String> for PathReference {
+    fn from(path: &String) -> PathReference {
+        let str: &str = &path;
+        PathReference::from(str)
+    }
+}
+
+impl From<&Path> for PathReference {
+    fn from(path: &Path) -> PathReference {
+        let str: &str = path.to_str().unwrap();
+        PathReference::from(str)
+    }
+}
+
+impl From<&PathBuf> for PathReference {
+    fn from(path: &PathBuf) -> PathReference {
+        let str: &str = path.to_str().unwrap();
+        PathReference::from(str)
+    }
+}
+
+impl From<PathBuf> for PathReference {
+    fn from(path: PathBuf) -> PathReference {
+        let str: &str = path.to_str().unwrap();
+        PathReference::from(str)
+    }
+}
+
+
+impl Display for PathReference {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let str = if let Some(importable_name) = &self.importable_name.name() {
+            format!("{}#{}", self.path, importable_name)
+        } else {
+            self.path.clone()
+        };
+        write!(f, "{}", str)
+    }
+}
+
 /// Describes the conditions that we imported the file
 #[derive(Clone, Debug)]
 pub struct ImportInfo {
@@ -123,28 +226,22 @@ pub struct ImportInfo {
     // Set on initial import, or re-import. Used to monitor to detect stale imported data and
     // automaticlaly re-import, and as a heuristic when importing other files that reference this
     // file to link to this asset rather than importing another copy.
-    source_file_path: PathBuf,
-
-    // If the asset comes from a file with more than one importable thing, we require a string key
-    // to specify which importable this asset represents.
-    importable_name: ImportableName,
+    source_file: PathReference,
 
     // All the file references that need to be resolved in order to build the asset (this represents
     // file references encountered in the input data, and only changes when data is re-imported)
-    file_references: Vec<PathBuf>,
+    file_references: Vec<PathReference>,
 }
 
 impl ImportInfo {
     pub fn new(
         importer_id: ImporterId,
-        source_file_path: PathBuf,
-        importable_name: ImportableName,
-        file_references: Vec<PathBuf>,
+        source_file: PathReference,
+        file_references: Vec<PathReference>,
     ) -> Self {
         ImportInfo {
             importer_id,
-            source_file_path,
-            importable_name,
+            source_file,
             file_references,
         }
     }
@@ -153,15 +250,19 @@ impl ImportInfo {
         self.importer_id
     }
 
+    pub fn source_file(&self) -> &PathReference {
+        &self.source_file
+    }
+
     pub fn source_file_path(&self) -> &Path {
-        &self.source_file_path
+        Path::new(&self.source_file.path)
     }
 
-    pub fn importable_name(&self) -> Option<&str> {
-        self.importable_name.name()
+    pub fn importable_name(&self) -> &ImportableName {
+        &self.source_file.importable_name
     }
 
-    pub fn file_references(&self) -> &[PathBuf] {
+    pub fn file_references(&self) -> &[PathReference] {
         &self.file_references
     }
 }
@@ -173,7 +274,7 @@ pub struct BuildInfo {
     // Imported files often reference other files. During import, referenced files will also be
     // imported. We maintain the correlation between paths and imported asset ID here for use when
     // processing the imported data.
-    pub file_reference_overrides: HashMap<PathBuf, AssetId>,
+    pub file_reference_overrides: HashMap<PathReference, AssetId>,
 }
 
 /// The full state of a single asset in a dataset
@@ -563,7 +664,7 @@ impl DataSet {
     fn do_resolve_all_file_references(
         &self,
         asset_id: AssetId,
-        all_references: &mut HashMap<PathBuf, AssetId>,
+        all_references: &mut HashMap<PathReference, AssetId>,
     ) -> DataSetResult<()> {
         let asset = self.assets.get(&asset_id);
         if let Some(asset) = asset {
@@ -584,7 +685,7 @@ impl DataSet {
     pub fn resolve_all_file_references(
         &self,
         asset_id: AssetId,
-    ) -> DataSetResult<HashMap<PathBuf, AssetId>> {
+    ) -> DataSetResult<HashMap<PathReference, AssetId>> {
         let mut all_references = HashMap::default();
         self.do_resolve_all_file_references(asset_id, &mut all_references)?;
         Ok(all_references)
@@ -593,7 +694,7 @@ impl DataSet {
     pub fn get_all_file_reference_overrides(
         &mut self,
         asset_id: AssetId,
-    ) -> Option<&HashMap<PathBuf, AssetId>> {
+    ) -> Option<&HashMap<PathReference, AssetId>> {
         self.assets
             .get(&asset_id)
             .map(|x| &x.build_info.file_reference_overrides)
@@ -602,7 +703,7 @@ impl DataSet {
     pub fn set_file_reference_override(
         &mut self,
         asset_id: AssetId,
-        path: PathBuf,
+        path: PathReference,
         referenced_asset_id: AssetId,
     ) -> DataSetResult<()> {
         let asset = self

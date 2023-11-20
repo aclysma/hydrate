@@ -649,7 +649,7 @@ impl JobProcessor for GlslBuildTargetJobProcessor {
                 .ok_or("Imported GLSL source file had no import info")?;
             let this_path = import_info.source_file_path();
             for (ref_path, ref_obj) in all_references {
-                dependency_lookup.insert((this_path.to_path_buf(), ref_path), ref_obj);
+                dependency_lookup.insert((this_path.to_path_buf(), PathBuf::from(ref_path.path)), ref_obj);
             }
         }
 

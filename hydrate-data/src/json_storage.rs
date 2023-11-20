@@ -6,10 +6,10 @@ use crate::{AssetLocation, AssetName, DataSetResult, ImportableName, OrderedSet}
 use hydrate_base::b3f;
 use serde::{Deserialize, Serialize};
 use std::hash::{Hash, Hasher};
-use std::path::PathBuf;
 use std::str::FromStr;
 use std::sync::Arc;
 use uuid::Uuid;
+use crate::data_set::PathReference;
 
 fn property_value_to_json(
     value: &Value,
@@ -248,7 +248,7 @@ pub struct AssetImportInfoJson {
     importer_id: Uuid,
     source_file_path: String,
     importable_name: String,
-    file_references: Vec<PathBuf>,
+    file_references: Vec<String>,
 }
 
 impl AssetImportInfoJson {
@@ -260,9 +260,10 @@ impl AssetImportInfoJson {
             source_file_path,
             importable_name: import_info
                 .importable_name()
+                .name()
                 .map(|x| x.to_string())
                 .unwrap_or_default(),
-            file_references: import_info.file_references().iter().cloned().collect(),
+            file_references: import_info.file_references().iter().map(|x| x.to_string()).collect(),
         }
     }
 
@@ -270,11 +271,20 @@ impl AssetImportInfoJson {
         &self,
         _schema_set: &SchemaSet,
     ) -> ImportInfo {
+        let mut path_references = Vec::with_capacity(self.file_references.len());
+        for reference in &self.file_references {
+            path_references.push(reference.into());
+        }
+
+        let source_file = PathReference {
+            path: self.source_file_path.clone(),
+            importable_name: ImportableName::new(self.importable_name.clone())
+        };
+
         ImportInfo::new(
             ImporterId(self.importer_id),
-            PathBuf::from_str(&self.source_file_path).unwrap(),
-            ImportableName::new(self.importable_name.clone()),
-            self.file_references.clone(),
+            source_file,
+            path_references,
         )
     }
 }
@@ -290,7 +300,7 @@ impl AssetBuildInfoJson {
     pub fn new(import_info: &BuildInfo) -> Self {
         let mut file_reference_overrides = HashMap::default();
         for (k, v) in &import_info.file_reference_overrides {
-            file_reference_overrides.insert(k.to_string_lossy().to_string(), v.as_uuid());
+            file_reference_overrides.insert(k.to_string(), v.as_uuid());
         }
 
         AssetBuildInfoJson {
@@ -304,7 +314,7 @@ impl AssetBuildInfoJson {
     ) -> BuildInfo {
         let mut file_reference_overrides = HashMap::default();
         for (k, v) in &self.file_reference_overrides {
-            file_reference_overrides.insert(PathBuf::from_str(k).unwrap(), AssetId::from_uuid(*v));
+            file_reference_overrides.insert(k.into(), AssetId::from_uuid(*v));
         }
 
         BuildInfo {

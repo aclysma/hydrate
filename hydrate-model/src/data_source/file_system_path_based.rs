@@ -3,7 +3,7 @@ use crate::{AssetSourceId, DataSource};
 use crate::{PathNode, PathNodeRoot};
 use hydrate_base::hashing::HashSet;
 use hydrate_data::json_storage::{MetaFile, MetaFileJson};
-use hydrate_data::{AssetId, AssetLocation, AssetName, ImportableName, ImporterId};
+use hydrate_data::{AssetId, AssetLocation, AssetName, ImportableName, ImporterId, PathReference};
 use hydrate_pipeline::import_util::ImportToQueue;
 use hydrate_pipeline::{import_util, Importer, ImporterRegistry, ScanContext, ScannedImportable};
 use hydrate_schema::{HashMap, SchemaNamedType};
@@ -849,26 +849,14 @@ impl DataSource for FileSystemPathBasedDataSource {
                     // and for now we only support referencing the default importable out of source files (so
                     // can't reference asset files by path, for now). So it must exist.
                     let mut referenced_source_file_asset_ids = Vec::default();
-                    for file_reference in &scanned_importable.file_references {
-                        let file_reference_absolute_path = if file_reference.path.is_relative() {
-                            dunce::canonicalize(
-                                source_file_path
-                                    .parent()
-                                    .unwrap()
-                                    .join(&file_reference.path),
-                            )
-                            .unwrap()
-                            //.canonicalize()
-                            //.unwrap()
-                        } else {
-                            file_reference.path.clone()
-                        };
+                    for file_reference in &scanned_importable.referenced_source_files {
+                        let file_reference_absolute = PathReference::canonicalize_relative(source_file_path, &file_reference.path_reference);
 
                         //println!("referenced {:?} {:?}", file_reference_absolute_path, scanned_source_files.keys());
                         //println!("pull from {:?}", scanned_source_files.keys());
                         //println!("referenced {:?}", file_reference_absolute_path);
                         let referenced_scanned_source_file = scanned_source_files
-                            .get(&file_reference_absolute_path)
+                            .get(&PathBuf::from(file_reference_absolute.path))
                             .unwrap();
                         assert_eq!(
                             file_reference.importer_id,
@@ -878,29 +866,29 @@ impl DataSource for FileSystemPathBasedDataSource {
                             referenced_scanned_source_file
                                 .meta_file
                                 .past_id_assignments
-                                .get(&ImportableName::default()),
+                                .get(&file_reference.path_reference.importable_name)
+                                .ok_or_else(|| format!("{:?} is referencing importable {:?} in {:?} but it was not found when the file was scanned", source_file_path, file_reference.path_reference.path, file_reference.path_reference.importable_name))
+                                .unwrap()
                         );
                     }
 
                     assert_eq!(
                         referenced_source_file_asset_ids.len(),
-                        scanned_importable.file_references.len()
+                        scanned_importable.referenced_source_files.len()
                     );
 
                     for (k, v) in scanned_importable
-                        .file_references
+                        .referenced_source_files
                         .iter()
                         .zip(referenced_source_file_asset_ids)
                     {
-                        if let Some(v) = v {
-                            edit_context
-                                .set_file_reference_override(
-                                    importable_asset_id,
-                                    k.path.clone(),
-                                    *v,
-                                )
-                                .unwrap();
-                        }
+                        edit_context
+                            .set_file_reference_override(
+                                importable_asset_id,
+                                k.path_reference.clone(),
+                                *v,
+                            )
+                            .unwrap();
                     }
 
                     requested_importables

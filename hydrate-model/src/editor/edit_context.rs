@@ -1,7 +1,6 @@
 use hydrate_data::json_storage::RestoreAssetFromStorageImpl;
-use hydrate_data::{OrderedSet, SingleObject};
+use hydrate_data::{OrderedSet, PathReference, SingleObject};
 use hydrate_pipeline::DynEditContext;
-use std::path::PathBuf;
 use uuid::Uuid;
 
 use crate::editor::undo::{UndoContext, UndoStack};
@@ -109,7 +108,7 @@ impl DynEditContext for EditContext {
     fn set_file_reference_override(
         &mut self,
         asset_id: AssetId,
-        path: PathBuf,
+        path: PathReference,
         referenced_asset_id: AssetId,
     ) -> DataSetResult<()> {
         self.set_file_reference_override(asset_id, path, referenced_asset_id)
@@ -547,21 +546,21 @@ impl EditContext {
     pub fn resolve_all_file_references(
         &self,
         asset_id: AssetId,
-    ) -> DataSetResult<HashMap<PathBuf, AssetId>> {
+    ) -> DataSetResult<HashMap<PathReference, AssetId>> {
         self.data_set.resolve_all_file_references(asset_id)
     }
 
     pub fn get_all_file_reference_overrides(
         &mut self,
         asset_id: AssetId,
-    ) -> Option<&HashMap<PathBuf, AssetId>> {
+    ) -> Option<&HashMap<PathReference, AssetId>> {
         self.data_set.get_all_file_reference_overrides(asset_id)
     }
 
     pub fn set_file_reference_override(
         &mut self,
         asset_id: AssetId,
-        path: PathBuf,
+        path: PathReference,
         referenced_asset_id: AssetId,
     ) -> DataSetResult<()> {
         self.track_existing_asset(asset_id)?;

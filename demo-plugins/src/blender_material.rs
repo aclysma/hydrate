@@ -1,7 +1,7 @@
 pub use super::*;
 use std::path::PathBuf;
 
-use hydrate_data::{DataSetError, ImportableName, RecordOwned};
+use hydrate_data::{DataSetError, ImportableName, PathReference, RecordOwned};
 use hydrate_model::pipeline::Importer;
 use hydrate_model::pipeline::{AssetPlugin, ImportContext, ScanContext};
 use hydrate_pipeline::{
@@ -66,7 +66,7 @@ impl Importer for BlenderMaterialImporter {
         let importable = context.add_default_importable::<MeshAdvMaterialAssetOwned>()?;
 
         if let Some(path) = &json_data.color_texture {
-            importable.add_file_reference(path)?;
+            importable.add_file_reference(PathReference::from(path))?;
         }
 
         if let Some(path) = &json_data.metallic_roughness_texture {
@@ -140,25 +140,25 @@ impl Importer for BlenderMaterialImporter {
         if let Some(path) = &json_data.color_texture {
             default_asset
                 .color_texture()
-                .set(context.asset_id_for_referenced_file_path(ImportableName::default(), path)?)?;
+                .set(context.asset_id_for_referenced_file_path(ImportableName::default(), &PathReference::from(path))?)?;
         }
 
         if let Some(path) = &json_data.metallic_roughness_texture {
             default_asset
                 .metallic_roughness_texture()
-                .set(context.asset_id_for_referenced_file_path(ImportableName::default(), path)?)?;
+                .set(context.asset_id_for_referenced_file_path(ImportableName::default(), &PathReference::from(path))?)?;
         }
 
         if let Some(path) = &json_data.normal_texture {
             default_asset
                 .normal_texture()
-                .set(context.asset_id_for_referenced_file_path(ImportableName::default(), path)?)?;
+                .set(context.asset_id_for_referenced_file_path(ImportableName::default(), &PathReference::from(path))?)?;
         }
 
         if let Some(path) = &json_data.emissive_texture {
             default_asset
                 .emissive_texture()
-                .set(context.asset_id_for_referenced_file_path(ImportableName::default(), path)?)?;
+                .set(context.asset_id_for_referenced_file_path(ImportableName::default(), &PathReference::from(path))?)?;
         }
 
         default_asset.shadow_method().set(shadow_method)?;

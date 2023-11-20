@@ -11,7 +11,7 @@ use std::sync::Arc;
 pub struct ImportToQueue {
     pub source_file_path: PathBuf,
     pub importer_id: ImporterId,
-    pub requested_importables: HashMap<Option<String>, AssetId>,
+    pub requested_importables: HashMap<ImportableName, AssetId>,
     pub assets_to_regenerate: HashSet<AssetId>,
 }
 
@@ -31,7 +31,7 @@ pub fn create_import_info(
     ImportInfo::new(
         importer.importer_id(),
         source_file_path.to_path_buf(),
-        ImportableName::new_optional(scanned_importable.name.clone()),
+        scanned_importable.name.clone(),
         file_references,
     )
 }
@@ -42,7 +42,7 @@ pub fn create_asset_name(
 ) -> AssetName {
     if let Some(file_name) = source_file_path.file_name() {
         let file_name = file_name.to_string_lossy();
-        if let Some(importable_name) = &scanned_importable.name {
+        if let Some(importable_name) = &scanned_importable.name.name() {
             AssetName::new(format!("{}.{}", file_name, importable_name))
         } else {
             AssetName::new(file_name.to_string())
@@ -186,7 +186,7 @@ pub fn recursively_gather_import_operations_and_create_assets(
 
         //editor_context.build_info_mut().
 
-        if scanned_importable.name.is_none() {
+        if scanned_importable.name.is_default() {
             default_importable_asset_id = Some(asset_id);
         }
     }

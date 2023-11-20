@@ -1,7 +1,5 @@
 use crate::{ImporterRegistry, PipelineResult};
-use hydrate_data::{
-    AssetId, HashMap, ImporterId, RecordOwned, SchemaRecord, SchemaSet, SingleObject,
-};
+use hydrate_data::{AssetId, HashMap, ImportableName, ImporterId, RecordOwned, SchemaRecord, SchemaSet, SingleObject};
 use std::cell::RefCell;
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
@@ -20,7 +18,7 @@ pub struct ReferencedSourceFile {
 // materials, etc.
 #[derive(Debug)]
 pub struct ScannedImportable {
-    pub name: Option<String>,
+    pub name: ImportableName,
     pub asset_type: SchemaRecord,
     pub file_references: Vec<ReferencedSourceFile>,
 }
@@ -46,12 +44,12 @@ pub struct ScanContext<'a> {
     pub path: &'a Path,
     pub schema_set: &'a SchemaSet,
     pub importer_registry: &'a ImporterRegistry,
-    pub(crate) scanned_importables: Rc<RefCell<&'a mut HashMap<Option<String>, ScannedImportable>>>,
+    pub(crate) scanned_importables: Rc<RefCell<&'a mut HashMap<ImportableName, ScannedImportable>>>,
 }
 
 pub struct ScanContextImportable<'a> {
     context: ScanContext<'a>,
-    importable_name: Option<String>,
+    importable_name: ImportableName,
 }
 
 impl<'a> ScanContext<'a> {
@@ -59,7 +57,7 @@ impl<'a> ScanContext<'a> {
         path: &'a Path,
         schema_set: &'a SchemaSet,
         importer_registry: &'a ImporterRegistry,
-        scanned_importables: &'a mut HashMap<Option<String>, ScannedImportable>,
+        scanned_importables: &'a mut HashMap<ImportableName, ScannedImportable>,
     ) -> ScanContext<'a> {
         ScanContext {
             path,
@@ -71,7 +69,7 @@ impl<'a> ScanContext<'a> {
 
     pub fn add_importable<T: RecordOwned>(
         &self,
-        name: Option<String>,
+        name: ImportableName,
     ) -> PipelineResult<ScanContextImportable<'a>> {
         let asset_type = self
             .schema_set
@@ -82,9 +80,15 @@ impl<'a> ScanContext<'a> {
         self.add_importable_with_record(name, asset_type)
     }
 
+    pub fn add_default_importable<T: RecordOwned>(
+        &self,
+    ) -> PipelineResult<ScanContextImportable<'a>> {
+        self.add_importable::<T>(ImportableName::default())
+    }
+
     pub fn add_importable_with_record(
         &self,
-        name: Option<String>,
+        name: ImportableName,
         schema_record: SchemaRecord,
     ) -> PipelineResult<ScanContextImportable<'a>> {
         let scanned_importable = ScannedImportable {
@@ -108,7 +112,7 @@ impl<'a> ScanContext<'a> {
 
     pub fn add_file_reference_with_importer_id<PathT: Into<PathBuf>>(
         &self,
-        name: Option<String>,
+        name: ImportableName,
         path: PathT,
         importer_id: ImporterId,
     ) -> PipelineResult<()> {
@@ -128,7 +132,7 @@ impl<'a> ScanContext<'a> {
 
     pub fn add_file_reference<PathT: Into<PathBuf>>(
         &self,
-        name: Option<String>,
+        name: ImportableName,
         path: PathT,
     ) -> PipelineResult<()> {
         let path = path.into();
@@ -160,7 +164,7 @@ impl<'a> ScanContext<'a> {
 
     pub fn add_file_reference_with_importer<ImporterT: TypeUuid, PathT: Into<PathBuf>>(
         &self,
-        name: Option<String>,
+        name: ImportableName,
         path: PathT,
     ) -> PipelineResult<()> {
         self.add_file_reference_with_importer_id(
@@ -207,17 +211,17 @@ impl<'a> ScanContextImportable<'a> {
 #[derive(Clone)]
 pub struct ImportContext<'a> {
     pub path: &'a Path,
-    importable_assets: &'a HashMap<Option<String>, ImportableAsset>,
+    importable_assets: &'a HashMap<ImportableName, ImportableAsset>,
     pub schema_set: &'a SchemaSet,
-    imported_importables: Rc<RefCell<&'a mut HashMap<Option<String>, ImportedImportable>>>,
+    imported_importables: Rc<RefCell<&'a mut HashMap<ImportableName, ImportedImportable>>>,
 }
 
 impl<'a> ImportContext<'a> {
     pub fn new(
         path: &'a Path,
-        importable_assets: &'a HashMap<Option<String>, ImportableAsset>,
+        importable_assets: &'a HashMap<ImportableName, ImportableAsset>,
         schema_set: &'a SchemaSet,
-        imported_importables: &'a mut HashMap<Option<String>, ImportedImportable>,
+        imported_importables: &'a mut HashMap<ImportableName, ImportedImportable>,
     ) -> ImportContext<'a> {
         ImportContext {
             path,
@@ -229,7 +233,7 @@ impl<'a> ImportContext<'a> {
 
     pub fn add_importable(
         &self,
-        name: Option<String>,
+        name: ImportableName,
         asset: SingleObject,
         import_data: Option<SingleObject>,
     ) {
@@ -243,9 +247,17 @@ impl<'a> ImportContext<'a> {
         assert!(old.is_none());
     }
 
+    pub fn add_default_importable(
+        &self,
+        asset: SingleObject,
+        import_data: Option<SingleObject>,
+    ) {
+        self.add_importable(ImportableName::default(), asset, import_data);
+    }
+
     pub fn should_import(
         &self,
-        name: &Option<String>,
+        name: &ImportableName,
     ) -> bool {
         self.importable_assets.contains_key(name)
     }
@@ -253,7 +265,7 @@ impl<'a> ImportContext<'a> {
     // This is for assets by this import job
     pub fn asset_id_for_importable(
         &self,
-        name: &Option<String>,
+        name: &ImportableName,
     ) -> Option<AssetId> {
         self.importable_assets.get(name).map(|x| x.id)
     }
@@ -261,7 +273,7 @@ impl<'a> ImportContext<'a> {
     // This is for assets produced by importing other files
     pub fn asset_id_for_referenced_file_path(
         &self,
-        name: Option<String>,
+        name: ImportableName,
         path: &Path,
     ) -> PipelineResult<AssetId> {
         Ok(*self.importable_assets

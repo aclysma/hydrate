@@ -4,7 +4,7 @@ use std::path::PathBuf;
 use crate::generated::{MeshAdvMeshAssetOwned, MeshAdvMeshImportedDataOwned};
 use crate::push_buffer::PushBuffer;
 use hydrate_base::b3f::B3FReader;
-use hydrate_data::RecordOwned;
+use hydrate_data::{ImportableName, RecordOwned};
 use hydrate_model::pipeline::Importer;
 use hydrate_model::pipeline::{AssetPlugin, ImportContext, ScanContext};
 use hydrate_pipeline::{
@@ -79,11 +79,11 @@ impl Importer for BlenderMeshImporter {
             serde_json::from_slice(b3f_reader.get_block(0)).map_err(|e| e.to_string())?
         };
 
-        context.add_importable::<MeshAdvMeshAssetOwned>(None)?;
+        context.add_default_importable::<MeshAdvMeshAssetOwned>()?;
 
         for mesh_part in &mesh_as_json.mesh_parts {
             context.add_file_reference_with_importer::<BlenderMaterialImporter, _>(
-                None,
+                ImportableName::default(),
                 &mesh_part.material,
             )?;
         }
@@ -183,7 +183,7 @@ impl Importer for BlenderMeshImporter {
         // Set up the material slots
         //
         for material_slot in material_slots {
-            let asset_id = context.asset_id_for_referenced_file_path(None, &material_slot)?;
+            let asset_id = context.asset_id_for_referenced_file_path(ImportableName::default(), &material_slot)?;
             let entry = default_asset.material_slots().add_entry()?;
             default_asset.material_slots().entry(entry).set(asset_id)?;
         }
@@ -191,8 +191,7 @@ impl Importer for BlenderMeshImporter {
         //
         // Return the created assets
         //
-        context.add_importable(
-            None,
+        context.add_default_importable(
             default_asset.into_inner()?,
             Some(import_data.into_inner()?),
         );

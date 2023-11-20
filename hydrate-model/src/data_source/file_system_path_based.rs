@@ -3,7 +3,7 @@ use crate::{AssetSourceId, DataSource};
 use crate::{PathNode, PathNodeRoot};
 use hydrate_base::hashing::HashSet;
 use hydrate_data::json_storage::{MetaFile, MetaFileJson};
-use hydrate_data::{AssetId, AssetLocation, AssetName, ImporterId};
+use hydrate_data::{AssetId, AssetLocation, AssetName, ImportableName, ImporterId};
 use hydrate_pipeline::import_util::ImportToQueue;
 use hydrate_pipeline::{import_util, Importer, ImporterRegistry, ScanContext, ScannedImportable};
 use hydrate_schema::{HashMap, SchemaNamedType};
@@ -68,7 +68,7 @@ struct SourceFileDiskState {
     persisted_assets: HashSet<AssetId>,
     //source_file_metadata: FileMetadata,
     _importer_id: ImporterId,
-    _importables: HashMap<Option<String>, AssetId>,
+    _importables: HashMap<ImportableName, AssetId>,
 }
 
 // Key: AssetId
@@ -660,8 +660,6 @@ impl DataSource for FileSystemPathBasedDataSource {
         }
         let mut scanned_source_files = HashMap::<PathBuf, ScannedSourceFile>::default();
 
-        let empty_string = "".to_string();
-
         {
             profiling::scope!("Scan Source Files");
 
@@ -716,9 +714,7 @@ impl DataSource for FileSystemPathBasedDataSource {
                             .entry(
                                 scanned_importable
                                     .name
-                                    .as_ref()
-                                    .cloned()
-                                    .unwrap_or_default(),
+                                    .clone(),
                             )
                             .or_insert_with(|| AssetId::from_uuid(Uuid::new_v4()));
                     }
@@ -728,15 +724,11 @@ impl DataSource for FileSystemPathBasedDataSource {
 
                     //let source_file_metadata = FileMetadata::new(&std::fs::metadata(&source_file).unwrap());
 
-                    let mut importables = HashMap::<Option<String>, AssetId>::default();
+                    let mut importables = HashMap::<ImportableName, AssetId>::default();
                     for (_, scanned_importable) in &scanned_importables {
-                        let empty_string = String::default();
                         let imporable_asset_id = meta_file.past_id_assignments.get(
-                            scanned_importable
-                                .name
-                                .as_ref()
-                                .unwrap_or(&empty_string)
-                                .as_str(),
+                            &scanned_importable
+                                .name,
                         );
                         importables.insert(
                             scanned_importable.name.clone(),
@@ -793,7 +785,7 @@ impl DataSource for FileSystemPathBasedDataSource {
                         .unwrap()
                         .meta_file
                         .past_id_assignments
-                        .get(scanned_importable.name.as_ref().unwrap_or(&empty_string))
+                        .get(&scanned_importable.name)
                         .unwrap();
 
                     // Create an asset name for this asset
@@ -886,7 +878,7 @@ impl DataSource for FileSystemPathBasedDataSource {
                             referenced_scanned_source_file
                                 .meta_file
                                 .past_id_assignments
-                                .get(""),
+                                .get(&ImportableName::default()),
                         );
                     }
 

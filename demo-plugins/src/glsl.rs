@@ -6,7 +6,7 @@ use std::path::{Path, PathBuf};
 use super::generated::{GlslBuildTargetAssetAccessor, GlslSourceFileImportedDataOwned};
 use crate::generated_wrapper::{GlslBuildTargetAssetReader, GlslSourceFileAssetOwned};
 use demo_types::glsl::*;
-use hydrate_data::RecordOwned;
+use hydrate_data::{RecordOwned};
 use hydrate_model::pipeline::Importer;
 use hydrate_model::pipeline::{AssetPlugin, Builder, ImportContext, ScanContext};
 use hydrate_pipeline::{
@@ -515,7 +515,7 @@ impl Importer for GlslSourceFileImporter {
         let code = std::fs::read_to_string(context.path)?;
         let code_chars: Vec<_> = code.chars().collect();
 
-        let importable = context.add_importable::<GlslSourceFileAssetOwned>(None)?;
+        let importable = context.add_default_importable::<GlslSourceFileAssetOwned>()?;
 
         for include_path in find_included_paths(&code_chars)? {
             importable.add_file_reference_with_importer::<Self, _>(include_path)?;
@@ -545,8 +545,7 @@ impl Importer for GlslSourceFileImporter {
         //
         // Return the created assets
         //
-        context.add_importable(
-            None,
+        context.add_default_importable(
             default_asset.into_inner()?,
             Some(import_data.into_inner()?),
         );

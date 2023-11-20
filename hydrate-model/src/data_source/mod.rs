@@ -9,24 +9,6 @@ mod file_system_path_based;
 pub use file_system_path_based::*;
 use hydrate_pipeline::import_util::ImportToQueue;
 
-trait SourceFileHandler {
-    fn supported_file_extensions(&self) -> &[&'static str];
-
-    fn generate_default_asset(
-        &self,
-        importable_name: Option<String>,
-        edit_context: &EditContext,
-    ) -> Vec<AssetId>;
-
-    // importer also implements scan file
-}
-
-// impl SourceFileHandler {
-//     fn handles_file(path: &Path) -> bool {
-//
-//     }
-// }
-
 pub trait DataSource {
     // Replace memory with storage state
     // Reset memory to storage

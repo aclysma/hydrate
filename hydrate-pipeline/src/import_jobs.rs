@@ -10,6 +10,7 @@ use crate::{DynEditorModel, PipelineResult};
 use hydrate_base::uuid_path::{path_to_uuid, uuid_to_path};
 use hydrate_data::json_storage::SingleObjectJson;
 use hydrate_data::{ImporterId, SchemaSet, SingleObject};
+use hydrate_data::ImportableName;
 
 use super::import_types::*;
 use super::importer_registry::*;
@@ -61,7 +62,7 @@ pub struct ImportData {
 #[derive(Clone)]
 pub struct ImportOp {
     // The string is a key is an importable name
-    pub asset_ids: HashMap<Option<String>, AssetId>,
+    pub asset_ids: HashMap<ImportableName, AssetId>,
     pub importer_id: ImporterId,
     pub path: PathBuf,
     pub assets_to_regenerate: HashSet<AssetId>,
@@ -122,7 +123,7 @@ impl ImportJobs {
 
     pub fn queue_import_operation(
         &mut self,
-        asset_ids: HashMap<Option<String>, AssetId>,
+        asset_ids: HashMap<ImportableName, AssetId>,
         importer_id: ImporterId,
         path: PathBuf,
         assets_to_regenerate: HashSet<AssetId>,
@@ -208,7 +209,7 @@ impl ImportJobs {
         //
         let mut total_jobs = 0;
         for import_op in import_operations {
-            let mut importable_assets = HashMap::<Option<String>, ImportableAsset>::default();
+            let mut importable_assets = HashMap::<ImportableName, ImportableAsset>::default();
             for (name, asset_id) in &import_op.asset_ids {
                 let referenced_paths = editor_model
                     .data_set()

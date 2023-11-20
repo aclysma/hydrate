@@ -4,7 +4,7 @@ use super::generated::{
     GpuImageAssetOwned, GpuImageImportedDataOwned, MeshAdvMaterialAssetOwned,
     MeshAdvMeshAssetOwned, MeshAdvMeshImportedDataOwned,
 };
-use hydrate_data::RecordOwned;
+use hydrate_data::{ImportableName, RecordOwned};
 use hydrate_model::pipeline::Importer;
 use hydrate_model::pipeline::{AssetPlugin, ImportContext, ScanContext};
 use hydrate_pipeline::{
@@ -17,11 +17,11 @@ fn name_or_index(
     prefix: &str,
     name: Option<&str>,
     index: usize,
-) -> String {
+) -> ImportableName {
     if let Some(name) = name {
-        format!("{}_{}", prefix, name)
+        ImportableName::new(format!("{}_{}", prefix, name))
     } else {
-        format!("{}_{}", prefix, index)
+        ImportableName::new(format!("{}_{}", prefix, index))
     }
 }
 
@@ -43,12 +43,12 @@ impl Importer for GltfImporter {
 
         for (i, mesh) in doc.meshes().enumerate() {
             let name = name_or_index("mesh", mesh.name(), i);
-            context.add_importable::<MeshAdvMeshAssetOwned>(Some(name))?;
+            context.add_importable::<MeshAdvMeshAssetOwned>(name)?;
         }
 
         for (i, material) in doc.materials().enumerate() {
             let name = name_or_index("material", material.name(), i);
-            context.add_importable::<MeshAdvMaterialAssetOwned>(Some(name))?;
+            context.add_importable::<MeshAdvMaterialAssetOwned>(name)?;
         }
 
         Ok(())
@@ -67,7 +67,7 @@ impl Importer for GltfImporter {
         let mut image_index_to_object_id = HashMap::default();
 
         for (i, image) in doc.images().enumerate() {
-            let name = Some(name_or_index("image", image.name(), i));
+            let name = name_or_index("image", image.name(), i);
             if let Some(importable_object) = context.asset_id_for_importable(&name) {
                 //
                 // Create import data
@@ -91,7 +91,7 @@ impl Importer for GltfImporter {
         }
 
         for (i, mesh) in doc.meshes().enumerate() {
-            let name = Some(name_or_index("mesh", mesh.name(), i));
+            let name = name_or_index("mesh", mesh.name(), i);
             if context.should_import(&name) {
                 //
                 // Create import data
@@ -115,7 +115,7 @@ impl Importer for GltfImporter {
         }
 
         for (i, material) in doc.materials().enumerate() {
-            let name = Some(name_or_index("material", material.name(), i));
+            let name = name_or_index("material", material.name(), i);
             if context.should_import(&name) {
                 //
                 // Create the default asset

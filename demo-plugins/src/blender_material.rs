@@ -1,7 +1,7 @@
 pub use super::*;
 use std::path::PathBuf;
 
-use hydrate_data::{DataSetError, RecordOwned};
+use hydrate_data::{DataSetError, ImportableName, RecordOwned};
 use hydrate_model::pipeline::Importer;
 use hydrate_model::pipeline::{AssetPlugin, ImportContext, ScanContext};
 use hydrate_pipeline::{
@@ -63,7 +63,7 @@ impl Importer for BlenderMaterialImporter {
             serde_json::from_str(&json_str)?
         };
 
-        let importable = context.add_importable::<MeshAdvMaterialAssetOwned>(None)?;
+        let importable = context.add_default_importable::<MeshAdvMaterialAssetOwned>()?;
 
         if let Some(path) = &json_data.color_texture {
             importable.add_file_reference(path)?;
@@ -140,25 +140,25 @@ impl Importer for BlenderMaterialImporter {
         if let Some(path) = &json_data.color_texture {
             default_asset
                 .color_texture()
-                .set(context.asset_id_for_referenced_file_path(None, path)?)?;
+                .set(context.asset_id_for_referenced_file_path(ImportableName::default(), path)?)?;
         }
 
         if let Some(path) = &json_data.metallic_roughness_texture {
             default_asset
                 .metallic_roughness_texture()
-                .set(context.asset_id_for_referenced_file_path(None, path)?)?;
+                .set(context.asset_id_for_referenced_file_path(ImportableName::default(), path)?)?;
         }
 
         if let Some(path) = &json_data.normal_texture {
             default_asset
                 .normal_texture()
-                .set(context.asset_id_for_referenced_file_path(None, path)?)?;
+                .set(context.asset_id_for_referenced_file_path(ImportableName::default(), path)?)?;
         }
 
         if let Some(path) = &json_data.emissive_texture {
             default_asset
                 .emissive_texture()
-                .set(context.asset_id_for_referenced_file_path(None, path)?)?;
+                .set(context.asset_id_for_referenced_file_path(ImportableName::default(), path)?)?;
         }
 
         default_asset.shadow_method().set(shadow_method)?;
@@ -177,7 +177,7 @@ impl Importer for BlenderMaterialImporter {
         //
         // Return the created assets
         //
-        context.add_importable(None, default_asset.into_inner()?, None);
+        context.add_default_importable(default_asset.into_inner()?, None);
         Ok(())
     }
 }

@@ -73,7 +73,7 @@ pub struct ImporterId(pub Uuid);
 pub struct BuilderId(pub usize);
 
 // This newtype ensures we do not allow both a None and a Some("") importable name
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, Default)]
 pub struct ImportableName(String);
 
 impl ImportableName {
@@ -100,6 +100,10 @@ impl ImportableName {
         } else {
             Some(&self.0)
         }
+    }
+
+    pub fn is_default(&self) -> bool {
+        self.0.is_empty()
     }
 }
 

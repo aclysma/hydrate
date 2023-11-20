@@ -287,7 +287,7 @@ impl AssetEngine {
 
     pub fn queue_import_operation(
         &mut self,
-        asset_ids: HashMap<Option<String>, AssetId>,
+        asset_ids: HashMap<ImportableName, AssetId>,
         importer_id: ImporterId,
         path: PathBuf,
         assets_to_regenerate: HashSet<AssetId>,

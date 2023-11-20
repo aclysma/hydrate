@@ -655,7 +655,7 @@ impl SingleObjectJson {
 
 #[derive(Default, Clone)]
 pub struct MetaFile {
-    pub past_id_assignments: HashMap<String, AssetId>,
+    pub past_id_assignments: HashMap<ImportableName, AssetId>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -674,7 +674,7 @@ impl MetaFileJson {
         let mut past_id_assignments = HashMap::default();
         for past_id_assignment in meta_file.past_id_assignments {
             past_id_assignments.insert(
-                past_id_assignment.0,
+                ImportableName::new(past_id_assignment.0),
                 AssetId::from_uuid(past_id_assignment.1),
             );
         }
@@ -689,7 +689,7 @@ impl MetaFileJson {
         let mut past_id_assignments = HashMap::default();
         for past_id_assignment in &meta_file.past_id_assignments {
             past_id_assignments
-                .insert(past_id_assignment.0.clone(), past_id_assignment.1.as_uuid());
+                .insert(past_id_assignment.0.name().map(|x| x.to_string()).unwrap_or_default(), past_id_assignment.1.as_uuid());
         }
 
         let json_object = MetaFileJson {

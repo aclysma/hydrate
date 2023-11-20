@@ -4,7 +4,7 @@ use crossbeam_channel::{Receiver, Sender};
 use hydrate_base::hashing::HashMap;
 use hydrate_base::uuid_path::uuid_to_path;
 use hydrate_data::json_storage::SingleObjectJson;
-use hydrate_data::{SchemaSet, SingleObject};
+use hydrate_data::{ImportableName, SchemaSet, SingleObject};
 use std::hash::{Hash, Hasher};
 use std::io::BufWriter;
 use std::path::{Path, PathBuf};
@@ -14,12 +14,12 @@ use std::thread::JoinHandle;
 
 // Ask the thread to gather import data from the asset
 pub struct ImportThreadRequestImport {
-    // pub asset_ids: HashMap<Option<String>, AssetId>,
+    // pub asset_ids: HashMap<ImportableName, AssetId>,
     // pub importer_id: ImporterId,
     // pub path: PathBuf,
     // pub assets_to_regenerate: HashSet<AssetId>,
     pub import_op: ImportOp,
-    pub importable_assets: HashMap<Option<String>, ImportableAsset>,
+    pub importable_assets: HashMap<ImportableName, ImportableAsset>,
 }
 
 pub enum ImportThreadRequest {
@@ -34,7 +34,7 @@ pub struct ImportThreadImportedImportable {
 // Results from successful import
 pub struct ImportThreadOutcomeComplete {
     pub request: ImportThreadRequestImport,
-    pub result: PipelineResult<HashMap<Option<String>, ImportThreadImportedImportable>>,
+    pub result: PipelineResult<HashMap<ImportableName, ImportThreadImportedImportable>>,
     //asset: SingleObject,
     //import_data: SingleObject,
 }
@@ -54,7 +54,7 @@ fn do_import(
     schema_set: &SchemaSet,
     import_data_root_path: &Path,
     msg: &ImportThreadRequestImport,
-) -> PipelineResult<HashMap<Option<String>, ImportThreadImportedImportable>> {
+) -> PipelineResult<HashMap<ImportableName, ImportThreadImportedImportable>> {
     let importer_id = msg.import_op.importer_id;
     let importer = importer_registry.importer(importer_id).unwrap();
     let mut imported_importables = HashMap::default();

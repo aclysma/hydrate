@@ -54,7 +54,7 @@ impl Vec4Accessor {
     }
 }
 
-impl<'a> Vec4Reader<'a> {
+impl<'a> Vec4Ref<'a> {
     pub fn get_vec4(&self) -> DataSetResult<[f32; 4]> {
         let x = self.x().get()?;
         let y = self.y().get()?;
@@ -64,7 +64,7 @@ impl<'a> Vec4Reader<'a> {
     }
 }
 
-impl<'a> Vec3Reader<'a> {
+impl<'a> Vec3Ref<'a> {
     pub fn get_vec3(&self) -> DataSetResult<[f32; 3]> {
         let x = self.x().get()?;
         let y = self.y().get()?;

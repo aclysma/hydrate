@@ -254,32 +254,32 @@ fn field_schema_to_reader_type(
 ) -> Option<String> {
     Some(match field_schema {
         Schema::Nullable(x) => format!(
-            "NullableFieldReader::<{}>",
+            "NullableFieldRef::<{}>",
             field_schema_to_reader_type(schema_set, &*x)?
         ),
-        Schema::Boolean => "BooleanFieldReader".to_string(),
-        Schema::I32 => "I32FieldReader".to_string(),
-        Schema::I64 => "I64FieldReader".to_string(),
-        Schema::U32 => "U32FieldReader".to_string(),
-        Schema::U64 => "U64FieldReader".to_string(),
-        Schema::F32 => "F32FieldReader".to_string(),
-        Schema::F64 => "F64FieldReader".to_string(),
-        Schema::Bytes => "BytesFieldReader".to_string(), //return None,//"Vec<u8>".to_string(),
-        Schema::String => "StringFieldReader".to_string(),
+        Schema::Boolean => "BooleanFieldRef".to_string(),
+        Schema::I32 => "I32FieldRef".to_string(),
+        Schema::I64 => "I64FieldRef".to_string(),
+        Schema::U32 => "U32FieldRef".to_string(),
+        Schema::U64 => "U64FieldRef".to_string(),
+        Schema::F32 => "F32FieldRef".to_string(),
+        Schema::F64 => "F64FieldRef".to_string(),
+        Schema::Bytes => "BytesFieldRef".to_string(), //return None,//"Vec<u8>".to_string(),
+        Schema::String => "StringFieldRef".to_string(),
         Schema::StaticArray(_x) => unimplemented!(), //return None,//format!("[{}; {}]", field_schema_to_rust_type(schema_set, x.item_type()), x.length()),
         Schema::DynamicArray(x) => format!(
-            "DynamicArrayFieldReader::<{}>",
+            "DynamicArrayFieldRef::<{}>",
             field_schema_to_reader_type(schema_set, x.item_type())?
         ), //return None,//format!("Vec<{}>", field_schema_to_rust_type(schema_set, x.item_type())),
         Schema::Map(_x) => unimplemented!(), // return None,//format!("HashMap<{}, {}>", field_schema_to_rust_type(schema_set, x.key_type()), field_schema_to_rust_type(schema_set, x.value_type())),
-        Schema::AssetRef(_x) => "AssetRefFieldReader".to_string(),
+        Schema::AssetRef(_x) => "AssetRefFieldRef".to_string(),
         Schema::NamedType(x) => {
             let inner_type = schema_set.find_named_type_by_fingerprint(*x).unwrap();
 
             match inner_type {
-                SchemaNamedType::Record(_) => format!("{}Reader", inner_type.name().to_string()),
+                SchemaNamedType::Record(_) => format!("{}Ref", inner_type.name().to_string()),
                 SchemaNamedType::Enum(_) => {
-                    format!("EnumFieldReader::<{}Enum>", inner_type.name().to_string())
+                    format!("EnumFieldRef::<{}Enum>", inner_type.name().to_string())
                 }
                 SchemaNamedType::Fixed(_) => unimplemented!(),
             }
@@ -293,8 +293,8 @@ fn generate_reader(
 ) -> codegen::Scope {
     let mut scope = codegen::Scope::new();
 
-    let record_name = format!("{}Reader<'a>", schema.name());
-    let record_name_without_generic = format!("{}Reader", schema.name());
+    let record_name = format!("{}Ref<'a>", schema.name());
+    let record_name_without_generic = format!("{}Ref", schema.name());
     let s = scope
         .new_struct(record_name.as_str())
         .tuple_field("PropertyPath")
@@ -304,7 +304,7 @@ fn generate_reader(
     let field_impl = scope
         .new_impl(record_name.as_str())
         .generic("'a")
-        .impl_trait("FieldReader<'a>");
+        .impl_trait("FieldRef<'a>");
     let new_fn = field_impl
         .new_fn("new")
         .arg("property_path", "PropertyPath")
@@ -318,7 +318,7 @@ fn generate_reader(
     let record_impl = scope
         .new_impl(record_name.as_str())
         .generic("'a")
-        .impl_trait("RecordReader");
+        .impl_trait("RecordRef");
     let schema_name_fn = record_impl.new_fn("schema_name");
     schema_name_fn.ret("&'static str");
     schema_name_fn.line(format!("\"{}\"", schema.name()));
@@ -348,32 +348,32 @@ fn field_schema_to_writer_type(
 ) -> Option<String> {
     Some(match field_schema {
         Schema::Nullable(x) => format!(
-            "NullableFieldWriter::<{}>",
+            "NullableFieldRefMut::<{}>",
             field_schema_to_writer_type(schema_set, &*x)?
         ),
-        Schema::Boolean => "BooleanFieldWriter".to_string(),
-        Schema::I32 => "I32FieldWriter".to_string(),
-        Schema::I64 => "I64FieldWriter".to_string(),
-        Schema::U32 => "U32FieldWriter".to_string(),
-        Schema::U64 => "U64FieldWriter".to_string(),
-        Schema::F32 => "F32FieldWriter".to_string(),
-        Schema::F64 => "F64FieldWriter".to_string(),
-        Schema::Bytes => "BytesFieldWriter".to_string(), //return None,//"Vec<u8>".to_string(),
-        Schema::String => "StringFieldWriter".to_string(),
+        Schema::Boolean => "BooleanFieldRefMut".to_string(),
+        Schema::I32 => "I32FieldRefMut".to_string(),
+        Schema::I64 => "I64FieldRefMut".to_string(),
+        Schema::U32 => "U32FieldRefMut".to_string(),
+        Schema::U64 => "U64FieldRefMut".to_string(),
+        Schema::F32 => "F32FieldRefMut".to_string(),
+        Schema::F64 => "F64FieldRefMut".to_string(),
+        Schema::Bytes => "BytesFieldRefMut".to_string(), //return None,//"Vec<u8>".to_string(),
+        Schema::String => "StringFieldRefMut".to_string(),
         Schema::StaticArray(_x) => unimplemented!(), //return None,//format!("[{}; {}]", field_schema_to_rust_type(schema_set, x.item_type()), x.length()),
         Schema::DynamicArray(x) => format!(
-            "DynamicArrayFieldWriter::<{}>",
+            "DynamicArrayFieldRefMut::<{}>",
             field_schema_to_writer_type(schema_set, x.item_type())?
         ), //return None,//format!("Vec<{}>", field_schema_to_rust_type(schema_set, x.item_type())),
         Schema::Map(_x) => unimplemented!(), // return None,//format!("HashMap<{}, {}>", field_schema_to_rust_type(schema_set, x.key_type()), field_schema_to_rust_type(schema_set, x.value_type())),
-        Schema::AssetRef(_x) => "AssetRefFieldWriter".to_string(),
+        Schema::AssetRef(_x) => "AssetRefFieldRefMut".to_string(),
         Schema::NamedType(x) => {
             let inner_type = schema_set.find_named_type_by_fingerprint(*x).unwrap();
 
             match inner_type {
-                SchemaNamedType::Record(_) => format!("{}Writer", inner_type.name().to_string()),
+                SchemaNamedType::Record(_) => format!("{}RefMut", inner_type.name().to_string()),
                 SchemaNamedType::Enum(_) => {
-                    format!("EnumFieldWriter::<{}Enum>", inner_type.name().to_string())
+                    format!("EnumFieldRefMut::<{}Enum>", inner_type.name().to_string())
                 }
                 SchemaNamedType::Fixed(_) => unimplemented!(),
             }
@@ -387,8 +387,8 @@ fn generate_writer(
 ) -> codegen::Scope {
     let mut scope = codegen::Scope::new();
 
-    let record_name = format!("{}Writer<'a>", schema.name());
-    let record_name_without_generic = format!("{}Writer", schema.name());
+    let record_name = format!("{}RefMut<'a>", schema.name());
+    let record_name_without_generic = format!("{}RefMut", schema.name());
     let s = scope
         .new_struct(record_name.as_str())
         .tuple_field("PropertyPath")
@@ -398,7 +398,7 @@ fn generate_writer(
     let field_impl = scope
         .new_impl(record_name.as_str())
         .generic("'a")
-        .impl_trait("FieldWriter<'a>");
+        .impl_trait("FieldRefMut<'a>");
     let new_fn = field_impl
         .new_fn("new")
         .arg("property_path", "PropertyPath")
@@ -412,7 +412,7 @@ fn generate_writer(
     let record_impl = scope
         .new_impl(record_name.as_str())
         .generic("'a")
-        .impl_trait("RecordWriter");
+        .impl_trait("RecordRefMut");
     let schema_name_fn = record_impl.new_fn("schema_name");
     schema_name_fn.ret("&'static str");
     schema_name_fn.line(format!("\"{}\"", schema.name()));
@@ -507,9 +507,9 @@ fn generate_owned(
         .new_impl(record_name.as_str())
         .impl_trait("Record");
 
-    record_impl.associate_type("Reader<'a>", format!("{}Reader<'a>", schema.name()));
-    // record_impl.associate_type("Writer", format!("{}Writer", schema.name()));
-    // record_impl.associate_type("Accessor", format!("{}Accessor", schema.name()));
+    record_impl.associate_type("Reader<'a>", format!("{}Ref<'a>", schema.name()));
+    record_impl.associate_type("Writer<'a>", format!("{}RefMut<'a>", schema.name()));
+    record_impl.associate_type("Accessor", format!("{}Accessor", schema.name()));
 
     let schema_name_fn = record_impl.new_fn("schema_name");
     schema_name_fn.ret("&'static str");

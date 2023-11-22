@@ -71,41 +71,103 @@ fn do_import(
         .as_secs();
 
     //
-    // Check if any of the import data is stale
+    // Compare the existing import data to the source file and see if we can skip importing this file
     //
     if msg.import_op.import_type == ImportType::ImportIfImportDataStale {
-        let mut import_data_is_stale = false;
+        let mut any_asset_has_stale_import_data = false;
+        let mut any_asset_has_stale_asset_data = false;
+
+        //
+        // Determine if any asset has stale asset or import data.
+        //
         for (_, asset) in &msg.importable_assets {
             let import_data_path = uuid_to_path(import_data_root_path, asset.id.as_uuid(), "if");
-            if import_data_path.exists() {
-                let mut import_data_file = std::fs::File::open(import_data_path)?;
-                let metadata = super::import_storage::load_import_metadata_from_b3f(&mut import_data_file)?;
-                if metadata.source_file_size != source_file_size || metadata.source_file_modified_timestamp != source_file_modified_timestamp {
-                    // Force re-import if the import data does not match the source file size/timestamp
-                    import_data_is_stale = true;
-                    break;
-                }
-
-                let Some(asset_import_state) = existing_asset_import_state.get(&asset.id) else {
-                    // Force re-import if the asset doesn't exist or doesn't have import data
-                    import_data_is_stale = true;
-                    break;
-                };
-
-                if asset_import_state.import_data_contents_hash != metadata.import_data_contents_hash || asset_import_state.source_file_size != metadata.source_file_size || asset_import_state.source_file_modified_timestamp != metadata.source_file_modified_timestamp {
-                    // Force re-import if the asset data does not match the source file size/timestamp
-                    import_data_is_stale = true;
-                    break;
-                }
-            } else {
-                // Import data is missing, we cannot reuse the data. We have to run the import.
-                import_data_is_stale = true;
+            if !import_data_path.exists() {
+                //
+                // Import data file is missing, we cannot reuse the data. We have to run the full import.
+                //
+                any_asset_has_stale_import_data = true;
+                any_asset_has_stale_asset_data = true;
                 break;
             }
+
+            let mut import_data_file = std::fs::File::open(import_data_path)?;
+            let metadata = super::import_storage::load_import_metadata_from_b3f(&mut import_data_file)?;
+            if metadata.source_file_size != source_file_size || metadata.source_file_modified_timestamp != source_file_modified_timestamp {
+                //
+                // Force re-import if the import data does not match the source file size/timestamp. We can stop
+                // as soon as we find stale import data because we will have to import.
+                //
+                any_asset_has_stale_import_data = true;
+                any_asset_has_stale_asset_data = true;
+                break;
+            }
+
+            // let Some(asset_import_state) = existing_asset_import_state.get(&asset.id) else {
+            //     //
+            //     // The asset doesn't exist or has never been imported. (Eventually we want to avoid
+            //     // creating assets until the import runs so that the asset doesn't exist but that's
+            //     // needs addressing.)
+            //     //
+            //     any_asset_has_stale_asset_data = true;
+            // };
+            //
+            // if asset_import_state.import_data_contents_hash != metadata.import_data_contents_hash ||
+            //     asset_import_state.source_file_size != metadata.source_file_size ||
+            //     asset_import_state.source_file_modified_timestamp != metadata.source_file_modified_timestamp {
+            //     //
+            //     // The asset data does not match the source file size/timestamp. Even if import data is not
+            //     // stale we still at least need to update the asset metadata.
+            //     //
+            //     // This is not really an expected case, like the user copies an asset file, re-imports,
+            //     // then overwrites the asset file with the old asset file from before the import
+            //     //
+            //     any_asset_has_stale_asset_data = true;
+            // }
         }
 
-        if !import_data_is_stale {
-            return Ok(Default::default())
+        // any stale import data = full re-import
+        if !any_asset_has_stale_import_data {
+            // depending on if we have stale asset data
+            /*if !any_asset_has_stale_asset_data {
+                //
+                // Our state matches source file state, do nothing
+                //
+                return Ok(Default::default())
+            } else*/ {
+                //
+                // Just the asset data is stale, we can recover it from the import data that isn't stale
+                //
+                let mut cached_importables = HashMap::default();
+
+                for (name, asset) in &msg.importable_assets {
+                    //
+                    // Load the metadata and default asset from disk
+                    //
+                    let import_data_path = uuid_to_path(import_data_root_path, asset.id.as_uuid(), "if");
+                    let mut import_data_file = std::fs::File::open(import_data_path)?;
+                    let metadata = super::import_storage::load_import_metadata_from_b3f(&mut import_data_file)?;
+                    let default_asset = super::import_storage::load_default_asset_from_b3f(schema_set, &mut import_data_file)?;
+
+                    let metadata = ImportDataMetadata {
+                        source_file_modified_timestamp,
+                        source_file_size,
+                        import_data_contents_hash: metadata.import_data_contents_hash,
+                    };
+                    let import_info = create_import_info(msg, &name, metadata);
+
+                    let old = cached_importables.insert(
+                        name.clone(),
+                        ImportThreadImportedImportable {
+                            default_asset,
+                            import_info,
+                        },
+                    );
+                    assert!(old.is_none());
+                }
+
+                return Ok(cached_importables);
+            }
         }
     }
 
@@ -138,24 +200,31 @@ fn do_import(
 
             profiling::scope!(&format!("Importable {:?} {}", name, type_name));
 
+            let mut import_data_metadata = ImportDataMetadata {
+                source_file_modified_timestamp,
+                source_file_size,
+                import_data_contents_hash: 0,
+            };
+
             //
-            // If the asset has import data, write it to disk
+            // Write the import file to disk
             //
-            let mut import_data_contents_hash = 0u64;
-            if let Some(import_data) = &imported_asset.import_data {
+            {
                 let mut buf_writer = BufWriter::new(Vec::default());
 
-                let mut contents_hasher = siphasher::sip::SipHasher::default();
-                import_data.hash(&mut contents_hasher);
-                import_data_contents_hash = contents_hasher.finish();
+                if let Some(import_data) = &imported_asset.import_data {
+                    let mut contents_hasher = siphasher::sip::SipHasher::default();
+                    import_data.hash(&mut contents_hasher);
+                    import_data_metadata.import_data_contents_hash = contents_hasher.finish();
+                }
 
-                let metadata = ImportDataMetadata {
-                    source_file_modified_timestamp,
-                    source_file_size,
-                    import_data_contents_hash,
-                };
+                super::import_storage::save_single_object_to_b3f(
+                    &mut buf_writer,
+                    imported_asset.import_data.as_ref(),
+                    &import_data_metadata,
+                    &imported_asset.default_asset
+                );
 
-                super::import_storage::save_single_object_to_b3f(&mut buf_writer, import_data, &metadata);
                 let data_to_write = buf_writer
                     .into_inner()
                     .map_err(|e| format!("Error converting bufwriter to Vec<u8>: {:?}", e))?;
@@ -190,16 +259,7 @@ fn do_import(
                 }
             }
 
-            let source_file = PathReference::new(msg.import_op.path.to_string_lossy().to_string(), name.clone());
-            let import_info = ImportInfo::new(
-                importer_id,
-                source_file,
-                msg.importable_assets[&name].referenced_paths.keys().cloned().collect(),
-                source_file_modified_timestamp,
-                source_file_size,
-                import_data_contents_hash
-            );
-
+            let import_info = create_import_info(msg, &name, import_data_metadata);
             let old = written_importables.insert(
                 name,
                 ImportThreadImportedImportable {
@@ -214,6 +274,19 @@ fn do_import(
     }
 
     Ok(written_importables)
+}
+
+fn create_import_info(msg: &ImportThreadRequestImport, name: &ImportableName, import_data_metadata: ImportDataMetadata) -> ImportInfo {
+    let source_file = PathReference::new(msg.import_op.path.to_string_lossy().to_string(), name.clone());
+    let import_info = ImportInfo::new(
+        msg.import_op.importer_id,
+        source_file,
+        msg.importable_assets[&name].referenced_paths.keys().cloned().collect(),
+        import_data_metadata.source_file_modified_timestamp,
+        import_data_metadata.source_file_size,
+        import_data_metadata.import_data_contents_hash
+    );
+    import_info
 }
 
 impl ImportWorkerThread {

@@ -62,11 +62,11 @@ impl DiskAssetIOWorkerThread {
                                 log::trace!("Start metadata read {:?}", msg.artifact_id);
                                 let path = hydrate_base::uuid_path::uuid_and_hash_to_path(&*root_path, msg.artifact_id.as_uuid(), msg.hash, "bf");
                                 let mut reader = std::fs::File::open(path).unwrap();
-                                let metadata = hydrate_base::BuiltArtifactMetadata::read_header(&mut reader).unwrap();
+                                let header_data = hydrate_base::BuiltArtifactHeaderData::read_header(&mut reader).unwrap();
 
                                 let metadata = ArtifactMetadata {
-                                    dependencies: metadata.dependencies,
-                                    asset_type: ArtifactTypeId::from_uuid(metadata.asset_type), //AssetTypeId(*uuid::Uuid::parse_str("1a4dde10-5e60-483d-88fa-4f59752e4524").unwrap().as_bytes()),
+                                    dependencies: header_data.dependencies,
+                                    asset_type: ArtifactTypeId::from_uuid(header_data.asset_type), //AssetTypeId(*uuid::Uuid::parse_str("1a4dde10-5e60-483d-88fa-4f59752e4524").unwrap().as_bytes()),
                                     hash: msg.hash,
                                 };
 
@@ -86,7 +86,7 @@ impl DiskAssetIOWorkerThread {
 
                                 let path = hydrate_base::uuid_path::uuid_and_hash_to_path(&*root_path, msg.artifact_id.as_uuid(), msg.hash, "bf");
                                 let mut reader = std::fs::File::open(&path).unwrap();
-                                let _metadata = hydrate_base::BuiltArtifactMetadata::read_header(&mut reader).unwrap();
+                                let _header_data = hydrate_base::BuiltArtifactHeaderData::read_header(&mut reader).unwrap();
 
                                 let mut bytes = Vec::new();
                                 use std::io::Read;

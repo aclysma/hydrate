@@ -5,7 +5,7 @@ use crate::{
     FileSystemPathBasedDataSource, HashMap, HashSet, LocationTree, PathNode, PathNodeRoot,
     SchemaNamedType, SchemaSet,
 };
-use hydrate_data::{AssetLocation, AssetName, DataSetError, DataSetResult, SingleObject};
+use hydrate_data::{AssetLocation, AssetName, DataSetError, DataSetResult, ImportInfo, SingleObject};
 use hydrate_pipeline::{import_util::ImportToQueue, DynEditorModel, ImporterRegistry};
 use hydrate_schema::{SchemaFingerprint, SchemaRecord};
 use slotmap::DenseSlotMap;
@@ -39,6 +39,15 @@ impl DynEditorModel for EditorModel {
     ) -> DataSetResult<()> {
         self.root_edit_context_mut()
             .init_from_single_object(asset_id, single_object)
+    }
+
+    fn set_import_info(
+        &mut self,
+        asset_id: AssetId,
+        import_info: ImportInfo,
+    ) -> DataSetResult<()> {
+        self.root_edit_context_mut()
+            .set_import_info(asset_id, import_info)
     }
 
     fn refresh_tree_node_cache(&mut self) {
@@ -369,7 +378,6 @@ impl EditorModel {
         root_edit_context.clear_change_tracking();
         //root_edit_context.cancel_pending_undo_context();
 
-        println!("stuff");
         //self.refresh_asset_path_lookups();
         //self.refresh_location_tree();
     }

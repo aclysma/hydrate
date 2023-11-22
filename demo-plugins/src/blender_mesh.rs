@@ -1,3 +1,4 @@
+use std::io::BufReader;
 pub use super::*;
 use std::path::PathBuf;
 
@@ -70,13 +71,14 @@ impl Importer for BlenderMeshImporter {
         &self,
         context: ScanContext,
     ) -> PipelineResult<()> {
-        let bytes = std::fs::read(context.path)?;
-
-        let b3f_reader = B3FReader::new(&bytes)
+        let file = std::fs::File::open(context.path)?;
+        let mut buf_reader = BufReader::new(file);
+        let b3f_reader = B3FReader::new(&mut buf_reader)?
             .ok_or("Blender Mesh Import error, mesh file format not recognized")?;
+        let json_block = b3f_reader.read_block(&mut buf_reader, 0)?;
         let mesh_as_json: MeshJson = {
             profiling::scope!("serde_json::from_slice");
-            serde_json::from_slice(b3f_reader.get_block(0)).map_err(|e| e.to_string())?
+            serde_json::from_slice(&json_block).map_err(|e| e.to_string())?
         };
 
         context.add_default_importable::<MeshAdvMeshAssetRecord>()?;
@@ -98,13 +100,14 @@ impl Importer for BlenderMeshImporter {
         //
         // Read the file
         //
-        let bytes = std::fs::read(context.path)?;
-
-        let b3f_reader = B3FReader::new(&bytes)
+        let file = std::fs::File::open(context.path)?;
+        let mut buf_reader = BufReader::new(file);
+        let b3f_reader = B3FReader::new(&mut buf_reader)?
             .ok_or("Blender Mesh Import error, mesh file format not recognized")?;
+        let json_block = b3f_reader.read_block(&mut buf_reader, 0)?;
         let mesh_as_json: MeshJson = {
             profiling::scope!("serde_json::from_slice");
-            serde_json::from_slice(b3f_reader.get_block(0)).map_err(|e| e.to_string())?
+            serde_json::from_slice(&json_block).map_err(|e| e.to_string())?
         };
 
         let import_data = MeshAdvMeshImportedDataRecord::new_builder(context.schema_set);
@@ -127,12 +130,12 @@ impl Importer for BlenderMeshImporter {
             // Get byte slices of all input data for this mesh part
             //
             let positions_bytes =
-                b3f_reader.get_block(mesh_part.position.ok_or("No position data")? as usize);
+                b3f_reader.read_block(&mut buf_reader, mesh_part.position.ok_or("No position data")? as usize)?;
             let normals_bytes =
-                b3f_reader.get_block(mesh_part.normal.ok_or("No normal data")? as usize);
+                b3f_reader.read_block(&mut buf_reader, mesh_part.normal.ok_or("No normal data")? as usize)?;
             let tex_coords_bytes = b3f_reader
-                .get_block(*mesh_part.uv.get(0).ok_or("No texture coordinate data")? as usize);
-            let part_indices_bytes = b3f_reader.get_block(mesh_part.indices as usize);
+                .read_block(&mut buf_reader, *mesh_part.uv.get(0).ok_or("No texture coordinate data")? as usize)?;
+            let part_indices_bytes = b3f_reader.read_block(&mut buf_reader, mesh_part.indices as usize)?;
 
             //
             // Get strongly typed slices of all input data for this mesh part
@@ -142,7 +145,7 @@ impl Importer for BlenderMeshImporter {
             let mut part_indices_u32 = Vec::<u32>::default();
             match mesh_part.index_type {
                 MeshPartJsonIndexType::U16 => {
-                    let part_indices_u16_ref = try_cast_u8_slice::<u16>(part_indices_bytes)
+                    let part_indices_u16_ref = try_cast_u8_slice::<u16>(&part_indices_bytes)
                         .ok_or("Could not cast due to alignment")?;
                     part_indices_u32.reserve(part_indices_u16_ref.len());
                     for &part_index in part_indices_u16_ref {
@@ -150,7 +153,7 @@ impl Importer for BlenderMeshImporter {
                     }
                 }
                 MeshPartJsonIndexType::U32 => {
-                    let part_indices_u32_ref = try_cast_u8_slice::<u32>(part_indices_bytes)
+                    let part_indices_u32_ref = try_cast_u8_slice::<u32>(&part_indices_bytes)
                         .ok_or("Could not cast due to alignment")?;
                     part_indices_u32.reserve(part_indices_u32_ref.len());
                     for &part_index in part_indices_u32_ref {

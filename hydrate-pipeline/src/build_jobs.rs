@@ -1,7 +1,7 @@
 use crate::DynEditorModel;
 use hydrate_base::{hashing::HashMap, AssetId};
 use hydrate_base::{
-    ArtifactId, BuiltArtifactMetadata, DebugArtifactManifestDataJson, DebugManifestFileJson,
+    ArtifactId, BuiltArtifactHeaderData, DebugArtifactManifestDataJson, DebugManifestFileJson,
     StringHash,
 };
 use std::collections::VecDeque;
@@ -124,7 +124,7 @@ impl BuildJobs {
         struct BuiltArtifactInfo {
             asset_id: AssetId,
             artifact_key_debug_name: Option<String>,
-            metadata: BuiltArtifactMetadata,
+            metadata: BuiltArtifactHeaderData,
         }
 
         let mut built_artifact_info = HashMap::default();

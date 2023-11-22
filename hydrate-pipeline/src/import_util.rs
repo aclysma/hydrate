@@ -1,4 +1,4 @@
-use crate::ImporterRegistry;
+use crate::{ImporterRegistry, ImportType};
 use crate::{DynEditContext, PipelineResult};
 use crate::{Importer, ScanContext, ScannedImportable};
 use hydrate_base::hashing::HashSet;
@@ -13,6 +13,7 @@ pub struct ImportToQueue {
     pub importer_id: ImporterId,
     pub requested_importables: HashMap<ImportableName, AssetId>,
     pub assets_to_regenerate: HashSet<AssetId>,
+    pub import_type: ImportType,
 }
 
 pub fn create_import_info(
@@ -33,7 +34,7 @@ pub fn create_import_info(
     //
     // When we import, set the import info so we track where the import comes from
     //
-    ImportInfo::new(importer.importer_id(), source_file, file_references)
+    ImportInfo::new(importer.importer_id(), source_file, file_references, 0, 0, 0)
 }
 
 pub fn create_asset_name(
@@ -192,6 +193,7 @@ pub fn recursively_gather_import_operations_and_create_assets(
         importer_id: importer.importer_id(),
         requested_importables,
         assets_to_regenerate,
+        import_type: ImportType::ImportIfImportDataStale
     });
 
     Ok(imported_asset_ids)

@@ -33,9 +33,9 @@ impl SimpleData for Transform {
         _handle_context: HandleFactory,
     ) -> PipelineResult<Self> {
         let x = TransformAccessor::default();
-        let position = x.position().get_vec3(data_container)?;
-        let rotation = x.rotation().get_vec4(data_container)?;
-        let scale = x.scale().get_vec3(data_container)?;
+        let position = x.position().get_vec3(data_container.clone())?;
+        let rotation = x.rotation().get_vec4(data_container.clone())?;
+        let scale = x.scale().get_vec3(data_container.clone())?;
 
         Ok(Transform {
             position,
@@ -51,9 +51,9 @@ impl SimpleData for AllFields {
         _handle_context: HandleFactory,
     ) -> PipelineResult<Self> {
         let x = AllFieldsAccessor::default();
-        let boolean = x.boolean().get(data_container)?;
-        let int32 = x.i32().get(data_container)?;
-        let int64 = x.i64().get(data_container)?;
+        let boolean = x.boolean().get(data_container.clone())?;
+        let int32 = x.i32().get(data_container.clone())?;
+        let int64 = x.i64().get(data_container.clone())?;
 
         Ok(AllFields {
             boolean,

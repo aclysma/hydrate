@@ -5,7 +5,7 @@ use hydrate_base::hashing::HashSet;
 use hydrate_data::json_storage::{MetaFile, MetaFileJson};
 use hydrate_data::{AssetId, AssetLocation, AssetName, ImportableName, ImporterId, PathReference};
 use hydrate_pipeline::import_util::ImportToQueue;
-use hydrate_pipeline::{import_util, Importer, ImporterRegistry, ScanContext, ScannedImportable};
+use hydrate_pipeline::{import_util, Importer, ImporterRegistry, ImportType, ScanContext, ScannedImportable};
 use hydrate_schema::{HashMap, SchemaNamedType};
 use std::ffi::OsStr;
 use std::path::{Path, PathBuf};
@@ -900,6 +900,7 @@ impl DataSource for FileSystemPathBasedDataSource {
                     importer_id: scanned_source_file.importer.importer_id(),
                     requested_importables,
                     assets_to_regenerate,
+                    import_type: ImportType::ImportIfImportDataStale,
                 });
             }
         }
@@ -934,6 +935,7 @@ impl DataSource for FileSystemPathBasedDataSource {
             "flush_to_storage {:?}",
             self.file_system_root_path
         ));
+
         // Delete files for assets that were deleted
         // for asset_id in edit_context.modified_assets() {
         //     if self.all_asset_ids_on_disk_with_original_path.contains_key(asset_id)

@@ -32,6 +32,8 @@ mod import_thread_pool;
 pub mod import_util;
 
 mod pipeline_error;
+mod import_storage;
+
 pub use pipeline_error::*;
 
 pub trait AssetPlugin {
@@ -90,6 +92,12 @@ pub trait DynEditorModel {
         &mut self,
         asset_id: AssetId,
         single_object: &SingleObject,
+    ) -> DataSetResult<()>;
+
+    fn set_import_info(
+        &mut self,
+        asset_id: AssetId,
+        import_info: ImportInfo,
     ) -> DataSetResult<()>;
 
     fn refresh_tree_node_cache(&mut self);
@@ -291,9 +299,10 @@ impl AssetEngine {
         importer_id: ImporterId,
         path: PathBuf,
         assets_to_regenerate: HashSet<AssetId>,
+        import_type: ImportType,
     ) {
         self.import_jobs
-            .queue_import_operation(asset_ids, importer_id, path, assets_to_regenerate);
+            .queue_import_operation(asset_ids, importer_id, path, assets_to_regenerate, import_type);
     }
 
     pub fn queue_build_operation(

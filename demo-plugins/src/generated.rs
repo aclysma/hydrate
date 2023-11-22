@@ -83,55 +83,55 @@ impl<'a> RecordRef for AllFieldsRef<'a> {
 
 impl<'a> AllFieldsRef<'a> {
     pub fn boolean(&self) -> BooleanFieldRef {
-        BooleanFieldRef::new(self.0.push("boolean"), self.1)
+        BooleanFieldRef::new(self.0.push("boolean"), self.1.clone())
     }
 
     pub fn dynamic_array_i32(&self) -> DynamicArrayFieldRef::<I32FieldRef> {
-        DynamicArrayFieldRef::<I32FieldRef>::new(self.0.push("dynamic_array_i32"), self.1)
+        DynamicArrayFieldRef::<I32FieldRef>::new(self.0.push("dynamic_array_i32"), self.1.clone())
     }
 
     pub fn dynamic_array_vec3(&self) -> DynamicArrayFieldRef::<Vec3Ref> {
-        DynamicArrayFieldRef::<Vec3Ref>::new(self.0.push("dynamic_array_vec3"), self.1)
+        DynamicArrayFieldRef::<Vec3Ref>::new(self.0.push("dynamic_array_vec3"), self.1.clone())
     }
 
     pub fn f32(&self) -> F32FieldRef {
-        F32FieldRef::new(self.0.push("f32"), self.1)
+        F32FieldRef::new(self.0.push("f32"), self.1.clone())
     }
 
     pub fn f64(&self) -> F64FieldRef {
-        F64FieldRef::new(self.0.push("f64"), self.1)
+        F64FieldRef::new(self.0.push("f64"), self.1.clone())
     }
 
     pub fn i32(&self) -> I32FieldRef {
-        I32FieldRef::new(self.0.push("i32"), self.1)
+        I32FieldRef::new(self.0.push("i32"), self.1.clone())
     }
 
     pub fn i64(&self) -> I64FieldRef {
-        I64FieldRef::new(self.0.push("i64"), self.1)
+        I64FieldRef::new(self.0.push("i64"), self.1.clone())
     }
 
     pub fn nullable_bool(&self) -> NullableFieldRef::<BooleanFieldRef> {
-        NullableFieldRef::<BooleanFieldRef>::new(self.0.push("nullable_bool"), self.1)
+        NullableFieldRef::<BooleanFieldRef>::new(self.0.push("nullable_bool"), self.1.clone())
     }
 
     pub fn nullable_vec3(&self) -> NullableFieldRef::<Vec3Ref> {
-        NullableFieldRef::<Vec3Ref>::new(self.0.push("nullable_vec3"), self.1)
+        NullableFieldRef::<Vec3Ref>::new(self.0.push("nullable_vec3"), self.1.clone())
     }
 
     pub fn reference(&self) -> AssetRefFieldRef {
-        AssetRefFieldRef::new(self.0.push("reference"), self.1)
+        AssetRefFieldRef::new(self.0.push("reference"), self.1.clone())
     }
 
     pub fn string(&self) -> StringFieldRef {
-        StringFieldRef::new(self.0.push("string"), self.1)
+        StringFieldRef::new(self.0.push("string"), self.1.clone())
     }
 
     pub fn u32(&self) -> U32FieldRef {
-        U32FieldRef::new(self.0.push("u32"), self.1)
+        U32FieldRef::new(self.0.push("u32"), self.1.clone())
     }
 
     pub fn u64(&self) -> U64FieldRef {
-        U64FieldRef::new(self.0.push("u64"), self.1)
+        U64FieldRef::new(self.0.push("u64"), self.1.clone())
     }
 }
 pub struct AllFieldsRefMut<'a>(PropertyPath, Rc<RefCell<DataContainerRefMut<'a>>>);
@@ -312,11 +312,11 @@ impl<'a> RecordRef for GlslBuildTargetAssetRef<'a> {
 
 impl<'a> GlslBuildTargetAssetRef<'a> {
     pub fn entry_point(&self) -> StringFieldRef {
-        StringFieldRef::new(self.0.push("entry_point"), self.1)
+        StringFieldRef::new(self.0.push("entry_point"), self.1.clone())
     }
 
     pub fn source_file(&self) -> AssetRefFieldRef {
-        AssetRefFieldRef::new(self.0.push("source_file"), self.1)
+        AssetRefFieldRef::new(self.0.push("source_file"), self.1.clone())
     }
 }
 pub struct GlslBuildTargetAssetRefMut<'a>(PropertyPath, Rc<RefCell<DataContainerRefMut<'a>>>);
@@ -474,7 +474,7 @@ impl<'a> RecordRef for GlslSourceFileImportedDataRef<'a> {
 
 impl<'a> GlslSourceFileImportedDataRef<'a> {
     pub fn code(&self) -> StringFieldRef {
-        StringFieldRef::new(self.0.push("code"), self.1)
+        StringFieldRef::new(self.0.push("code"), self.1.clone())
     }
 }
 pub struct GlslSourceFileImportedDataRefMut<'a>(PropertyPath, Rc<RefCell<DataContainerRefMut<'a>>>);
@@ -632,15 +632,15 @@ impl<'a> RecordRef for GpuBufferImportedDataRef<'a> {
 
 impl<'a> GpuBufferImportedDataRef<'a> {
     pub fn alignment(&self) -> U32FieldRef {
-        U32FieldRef::new(self.0.push("alignment"), self.1)
+        U32FieldRef::new(self.0.push("alignment"), self.1.clone())
     }
 
     pub fn data(&self) -> BytesFieldRef {
-        BytesFieldRef::new(self.0.push("data"), self.1)
+        BytesFieldRef::new(self.0.push("data"), self.1.clone())
     }
 
     pub fn resource_type(&self) -> U32FieldRef {
-        U32FieldRef::new(self.0.push("resource_type"), self.1)
+        U32FieldRef::new(self.0.push("resource_type"), self.1.clone())
     }
 }
 pub struct GpuBufferImportedDataRefMut<'a>(PropertyPath, Rc<RefCell<DataContainerRefMut<'a>>>);
@@ -737,7 +737,7 @@ impl<'a> RecordRef for GpuImageAssetRef<'a> {
 
 impl<'a> GpuImageAssetRef<'a> {
     pub fn compress(&self) -> BooleanFieldRef {
-        BooleanFieldRef::new(self.0.push("compress"), self.1)
+        BooleanFieldRef::new(self.0.push("compress"), self.1.clone())
     }
 }
 pub struct GpuImageAssetRefMut<'a>(PropertyPath, Rc<RefCell<DataContainerRefMut<'a>>>);
@@ -826,15 +826,15 @@ impl<'a> RecordRef for GpuImageImportedDataRef<'a> {
 
 impl<'a> GpuImageImportedDataRef<'a> {
     pub fn height(&self) -> U32FieldRef {
-        U32FieldRef::new(self.0.push("height"), self.1)
+        U32FieldRef::new(self.0.push("height"), self.1.clone())
     }
 
     pub fn image_bytes(&self) -> BytesFieldRef {
-        BytesFieldRef::new(self.0.push("image_bytes"), self.1)
+        BytesFieldRef::new(self.0.push("image_bytes"), self.1.clone())
     }
 
     pub fn width(&self) -> U32FieldRef {
-        U32FieldRef::new(self.0.push("width"), self.1)
+        U32FieldRef::new(self.0.push("width"), self.1.clone())
     }
 }
 pub struct GpuImageImportedDataRefMut<'a>(PropertyPath, Rc<RefCell<DataContainerRefMut<'a>>>);
@@ -1046,59 +1046,59 @@ impl<'a> RecordRef for MeshAdvMaterialAssetRef<'a> {
 
 impl<'a> MeshAdvMaterialAssetRef<'a> {
     pub fn alpha_threshold(&self) -> F32FieldRef {
-        F32FieldRef::new(self.0.push("alpha_threshold"), self.1)
+        F32FieldRef::new(self.0.push("alpha_threshold"), self.1.clone())
     }
 
     pub fn backface_culling(&self) -> BooleanFieldRef {
-        BooleanFieldRef::new(self.0.push("backface_culling"), self.1)
+        BooleanFieldRef::new(self.0.push("backface_culling"), self.1.clone())
     }
 
     pub fn base_color_factor(&self) -> Vec4Ref {
-        Vec4Ref::new(self.0.push("base_color_factor"), self.1)
+        Vec4Ref::new(self.0.push("base_color_factor"), self.1.clone())
     }
 
     pub fn blend_method(&self) -> EnumFieldRef::<MeshAdvBlendMethodEnum> {
-        EnumFieldRef::<MeshAdvBlendMethodEnum>::new(self.0.push("blend_method"), self.1)
+        EnumFieldRef::<MeshAdvBlendMethodEnum>::new(self.0.push("blend_method"), self.1.clone())
     }
 
     pub fn color_texture(&self) -> AssetRefFieldRef {
-        AssetRefFieldRef::new(self.0.push("color_texture"), self.1)
+        AssetRefFieldRef::new(self.0.push("color_texture"), self.1.clone())
     }
 
     pub fn color_texture_has_alpha_channel(&self) -> BooleanFieldRef {
-        BooleanFieldRef::new(self.0.push("color_texture_has_alpha_channel"), self.1)
+        BooleanFieldRef::new(self.0.push("color_texture_has_alpha_channel"), self.1.clone())
     }
 
     pub fn emissive_factor(&self) -> Vec3Ref {
-        Vec3Ref::new(self.0.push("emissive_factor"), self.1)
+        Vec3Ref::new(self.0.push("emissive_factor"), self.1.clone())
     }
 
     pub fn emissive_texture(&self) -> AssetRefFieldRef {
-        AssetRefFieldRef::new(self.0.push("emissive_texture"), self.1)
+        AssetRefFieldRef::new(self.0.push("emissive_texture"), self.1.clone())
     }
 
     pub fn metallic_factor(&self) -> F32FieldRef {
-        F32FieldRef::new(self.0.push("metallic_factor"), self.1)
+        F32FieldRef::new(self.0.push("metallic_factor"), self.1.clone())
     }
 
     pub fn metallic_roughness_texture(&self) -> AssetRefFieldRef {
-        AssetRefFieldRef::new(self.0.push("metallic_roughness_texture"), self.1)
+        AssetRefFieldRef::new(self.0.push("metallic_roughness_texture"), self.1.clone())
     }
 
     pub fn normal_texture(&self) -> AssetRefFieldRef {
-        AssetRefFieldRef::new(self.0.push("normal_texture"), self.1)
+        AssetRefFieldRef::new(self.0.push("normal_texture"), self.1.clone())
     }
 
     pub fn normal_texture_scale(&self) -> F32FieldRef {
-        F32FieldRef::new(self.0.push("normal_texture_scale"), self.1)
+        F32FieldRef::new(self.0.push("normal_texture_scale"), self.1.clone())
     }
 
     pub fn roughness_factor(&self) -> F32FieldRef {
-        F32FieldRef::new(self.0.push("roughness_factor"), self.1)
+        F32FieldRef::new(self.0.push("roughness_factor"), self.1.clone())
     }
 
     pub fn shadow_method(&self) -> EnumFieldRef::<MeshAdvShadowMethodEnum> {
-        EnumFieldRef::<MeshAdvShadowMethodEnum>::new(self.0.push("shadow_method"), self.1)
+        EnumFieldRef::<MeshAdvShadowMethodEnum>::new(self.0.push("shadow_method"), self.1.clone())
     }
 }
 pub struct MeshAdvMaterialAssetRefMut<'a>(PropertyPath, Rc<RefCell<DataContainerRefMut<'a>>>);
@@ -1352,7 +1352,7 @@ impl<'a> RecordRef for MeshAdvMeshAssetRef<'a> {
 
 impl<'a> MeshAdvMeshAssetRef<'a> {
     pub fn material_slots(&self) -> DynamicArrayFieldRef::<AssetRefFieldRef> {
-        DynamicArrayFieldRef::<AssetRefFieldRef>::new(self.0.push("material_slots"), self.1)
+        DynamicArrayFieldRef::<AssetRefFieldRef>::new(self.0.push("material_slots"), self.1.clone())
     }
 }
 pub struct MeshAdvMeshAssetRefMut<'a>(PropertyPath, Rc<RefCell<DataContainerRefMut<'a>>>);
@@ -1433,7 +1433,7 @@ impl<'a> RecordRef for MeshAdvMeshImportedDataRef<'a> {
 
 impl<'a> MeshAdvMeshImportedDataRef<'a> {
     pub fn mesh_parts(&self) -> DynamicArrayFieldRef::<MeshAdvMeshImportedDataMeshPartRef> {
-        DynamicArrayFieldRef::<MeshAdvMeshImportedDataMeshPartRef>::new(self.0.push("mesh_parts"), self.1)
+        DynamicArrayFieldRef::<MeshAdvMeshImportedDataMeshPartRef>::new(self.0.push("mesh_parts"), self.1.clone())
     }
 }
 pub struct MeshAdvMeshImportedDataRefMut<'a>(PropertyPath, Rc<RefCell<DataContainerRefMut<'a>>>);
@@ -1530,23 +1530,23 @@ impl<'a> RecordRef for MeshAdvMeshImportedDataMeshPartRef<'a> {
 
 impl<'a> MeshAdvMeshImportedDataMeshPartRef<'a> {
     pub fn indices(&self) -> BytesFieldRef {
-        BytesFieldRef::new(self.0.push("indices"), self.1)
+        BytesFieldRef::new(self.0.push("indices"), self.1.clone())
     }
 
     pub fn material_index(&self) -> U32FieldRef {
-        U32FieldRef::new(self.0.push("material_index"), self.1)
+        U32FieldRef::new(self.0.push("material_index"), self.1.clone())
     }
 
     pub fn normals(&self) -> BytesFieldRef {
-        BytesFieldRef::new(self.0.push("normals"), self.1)
+        BytesFieldRef::new(self.0.push("normals"), self.1.clone())
     }
 
     pub fn positions(&self) -> BytesFieldRef {
-        BytesFieldRef::new(self.0.push("positions"), self.1)
+        BytesFieldRef::new(self.0.push("positions"), self.1.clone())
     }
 
     pub fn texture_coordinates(&self) -> BytesFieldRef {
-        BytesFieldRef::new(self.0.push("texture_coordinates"), self.1)
+        BytesFieldRef::new(self.0.push("texture_coordinates"), self.1.clone())
     }
 }
 pub struct MeshAdvMeshImportedDataMeshPartRefMut<'a>(PropertyPath, Rc<RefCell<DataContainerRefMut<'a>>>);
@@ -1701,19 +1701,19 @@ impl<'a> RecordRef for TransformRef<'a> {
 
 impl<'a> TransformRef<'a> {
     pub fn all_fields(&self) -> AllFieldsRef {
-        AllFieldsRef::new(self.0.push("all_fields"), self.1)
+        AllFieldsRef::new(self.0.push("all_fields"), self.1.clone())
     }
 
     pub fn position(&self) -> Vec3Ref {
-        Vec3Ref::new(self.0.push("position"), self.1)
+        Vec3Ref::new(self.0.push("position"), self.1.clone())
     }
 
     pub fn rotation(&self) -> Vec4Ref {
-        Vec4Ref::new(self.0.push("rotation"), self.1)
+        Vec4Ref::new(self.0.push("rotation"), self.1.clone())
     }
 
     pub fn scale(&self) -> Vec3Ref {
-        Vec3Ref::new(self.0.push("scale"), self.1)
+        Vec3Ref::new(self.0.push("scale"), self.1.clone())
     }
 }
 pub struct TransformRefMut<'a>(PropertyPath, Rc<RefCell<DataContainerRefMut<'a>>>);
@@ -1818,7 +1818,7 @@ impl<'a> RecordRef for TransformRefRef<'a> {
 
 impl<'a> TransformRefRef<'a> {
     pub fn transform(&self) -> AssetRefFieldRef {
-        AssetRefFieldRef::new(self.0.push("transform"), self.1)
+        AssetRefFieldRef::new(self.0.push("transform"), self.1.clone())
     }
 }
 pub struct TransformRefRefMut<'a>(PropertyPath, Rc<RefCell<DataContainerRefMut<'a>>>);
@@ -1907,15 +1907,15 @@ impl<'a> RecordRef for Vec3Ref<'a> {
 
 impl<'a> Vec3Ref<'a> {
     pub fn x(&self) -> F32FieldRef {
-        F32FieldRef::new(self.0.push("x"), self.1)
+        F32FieldRef::new(self.0.push("x"), self.1.clone())
     }
 
     pub fn y(&self) -> F32FieldRef {
-        F32FieldRef::new(self.0.push("y"), self.1)
+        F32FieldRef::new(self.0.push("y"), self.1.clone())
     }
 
     pub fn z(&self) -> F32FieldRef {
-        F32FieldRef::new(self.0.push("z"), self.1)
+        F32FieldRef::new(self.0.push("z"), self.1.clone())
     }
 }
 pub struct Vec3RefMut<'a>(PropertyPath, Rc<RefCell<DataContainerRefMut<'a>>>);
@@ -2024,19 +2024,19 @@ impl<'a> RecordRef for Vec4Ref<'a> {
 
 impl<'a> Vec4Ref<'a> {
     pub fn w(&self) -> F32FieldRef {
-        F32FieldRef::new(self.0.push("w"), self.1)
+        F32FieldRef::new(self.0.push("w"), self.1.clone())
     }
 
     pub fn x(&self) -> F32FieldRef {
-        F32FieldRef::new(self.0.push("x"), self.1)
+        F32FieldRef::new(self.0.push("x"), self.1.clone())
     }
 
     pub fn y(&self) -> F32FieldRef {
-        F32FieldRef::new(self.0.push("y"), self.1)
+        F32FieldRef::new(self.0.push("y"), self.1.clone())
     }
 
     pub fn z(&self) -> F32FieldRef {
-        F32FieldRef::new(self.0.push("z"), self.1)
+        F32FieldRef::new(self.0.push("z"), self.1.clone())
     }
 }
 pub struct Vec4RefMut<'a>(PropertyPath, Rc<RefCell<DataContainerRefMut<'a>>>);

@@ -1,16 +1,19 @@
+
 use crate::import_jobs::ImportOp;
-use crate::{ImportContext, ImportableAsset, ImporterRegistry, PipelineResult};
+use crate::{ImportContext, ImportableAsset, ImporterRegistry, PipelineResult, ImportType};
 use crossbeam_channel::{Receiver, Sender};
 use hydrate_base::hashing::HashMap;
 use hydrate_base::uuid_path::uuid_to_path;
-use hydrate_data::json_storage::SingleObjectJson;
-use hydrate_data::{ImportableName, SchemaSet, SingleObject};
+use hydrate_data::{ImportableName, ImportInfo, PathReference, SchemaSet, SingleObject};
 use std::hash::{Hash, Hasher};
 use std::io::BufWriter;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 use std::thread::JoinHandle;
+use std::time::SystemTime;
+use hydrate_base::AssetId;
+use crate::import_storage::{ImportDataMetadata};
 
 // Ask the thread to gather import data from the asset
 pub struct ImportThreadRequestImport {
@@ -29,6 +32,7 @@ pub enum ImportThreadRequest {
 // ImportedImportable with anything not needed for main thread to commit the work removed
 pub struct ImportThreadImportedImportable {
     pub default_asset: SingleObject,
+    pub import_info: ImportInfo,
 }
 
 // Results from successful import
@@ -52,14 +56,67 @@ struct ImportWorkerThread {
 fn do_import(
     importer_registry: &ImporterRegistry,
     schema_set: &SchemaSet,
+    existing_asset_import_state: &HashMap<AssetId, ImportDataMetadata>,
     import_data_root_path: &Path,
     msg: &ImportThreadRequestImport,
 ) -> PipelineResult<HashMap<ImportableName, ImportThreadImportedImportable>> {
+    //
+    // Get metadata for the source file (i.e. length, last modified time)
+    //
+    let source_file_metadata = msg.import_op.path.metadata()?;
+    let source_file_size = source_file_metadata.len();
+    let source_file_modified_timestamp = source_file_metadata.modified()?
+        .duration_since(SystemTime::UNIX_EPOCH)
+        .map_err(|e| format!("Error getting duration since unix epoch: {:?}", e))?
+        .as_secs();
+
+    //
+    // Check if any of the import data is stale
+    //
+    if msg.import_op.import_type == ImportType::ImportIfImportDataStale {
+        let mut import_data_is_stale = false;
+        for (_, asset) in &msg.importable_assets {
+            let import_data_path = uuid_to_path(import_data_root_path, asset.id.as_uuid(), "if");
+            if import_data_path.exists() {
+                let mut import_data_file = std::fs::File::open(import_data_path)?;
+                let metadata = super::import_storage::load_import_metadata_from_b3f(&mut import_data_file)?;
+                if metadata.source_file_size != source_file_size || metadata.source_file_modified_timestamp != source_file_modified_timestamp {
+                    // Force re-import if the import data does not match the source file size/timestamp
+                    import_data_is_stale = true;
+                    break;
+                }
+
+                let Some(asset_import_state) = existing_asset_import_state.get(&asset.id) else {
+                    // Force re-import if the asset doesn't exist or doesn't have import data
+                    import_data_is_stale = true;
+                    break;
+                };
+
+                if asset_import_state.import_data_contents_hash != metadata.import_data_contents_hash || asset_import_state.source_file_size != metadata.source_file_size || asset_import_state.source_file_modified_timestamp != metadata.source_file_modified_timestamp {
+                    // Force re-import if the asset data does not match the source file size/timestamp
+                    import_data_is_stale = true;
+                    break;
+                }
+            } else {
+                // Import data is missing, we cannot reuse the data. We have to run the import.
+                import_data_is_stale = true;
+                break;
+            }
+        }
+
+        if !import_data_is_stale {
+            return Ok(Default::default())
+        }
+    }
+
     let importer_id = msg.import_op.importer_id;
     let importer = importer_registry.importer(importer_id).unwrap();
     let mut imported_importables = HashMap::default();
 
-    let imported_assets = {
+    //
+    // Do the import
+    //
+    {
         profiling::scope!("Importer::import_file");
         importer.import_file(ImportContext::new(
             &msg.import_op.path,
@@ -67,8 +124,11 @@ fn do_import(
             schema_set,
             &mut imported_importables,
         ))?
-    };
+    }
 
+    //
+    // Write import data for each imported asset to disk
+    //
     let mut written_importables = HashMap::default();
 
     for (name, imported_asset) in imported_importables {
@@ -78,15 +138,27 @@ fn do_import(
 
             profiling::scope!(&format!("Importable {:?} {}", name, type_name));
 
+            //
+            // If the asset has import data, write it to disk
+            //
+            let mut import_data_contents_hash = 0u64;
             if let Some(import_data) = &imported_asset.import_data {
-                // Json-only format
-                // let data = SingleObjectJson::save_single_object_to_string(import_data)
-                //     .into_bytes();
-
-                // b3f format
                 let mut buf_writer = BufWriter::new(Vec::default());
-                SingleObjectJson::save_single_object_to_b3f(&mut buf_writer, import_data);
-                let data = buf_writer.into_inner().unwrap();
+
+                let mut contents_hasher = siphasher::sip::SipHasher::default();
+                import_data.hash(&mut contents_hasher);
+                import_data_contents_hash = contents_hasher.finish();
+
+                let metadata = ImportDataMetadata {
+                    source_file_modified_timestamp,
+                    source_file_size,
+                    import_data_contents_hash,
+                };
+
+                super::import_storage::save_single_object_to_b3f(&mut buf_writer, import_data, &metadata);
+                let data_to_write = buf_writer
+                    .into_inner()
+                    .map_err(|e| format!("Error converting bufwriter to Vec<u8>: {:?}", e))?;
 
                 let path = uuid_to_path(import_data_root_path, asset_id.as_uuid(), "if");
 
@@ -103,7 +175,7 @@ fn do_import(
                     let data_on_disk_hash = data_hasher.finish();
 
                     let mut data_hasher = siphasher::sip::SipHasher::default();
-                    data.hash(&mut data_hasher);
+                    data_to_write.hash(&mut data_hasher);
                     let data_hash = data_hasher.finish();
 
                     if data_on_disk_hash == data_hash {
@@ -114,20 +186,31 @@ fn do_import(
                 if file_needs_write {
                     // Avoid unnecessary writes, they mutate the last modified date of the
                     // file and trigger unnecessary rebuilds
-                    std::fs::write(&path, data).unwrap();
+                    std::fs::write(&path, data_to_write).unwrap();
                 }
-
-                let metadata = path.metadata().unwrap();
-                let metadata_hash = super::import_jobs::hash_file_metadata(&metadata);
             }
-        }
 
-        written_importables.insert(
-            name,
-            ImportThreadImportedImportable {
-                default_asset: imported_asset.default_asset,
-            },
-        );
+            let source_file = PathReference::new(msg.import_op.path.to_string_lossy().to_string(), name.clone());
+            let import_info = ImportInfo::new(
+                importer_id,
+                source_file,
+                msg.importable_assets[&name].referenced_paths.keys().cloned().collect(),
+                source_file_modified_timestamp,
+                source_file_size,
+                import_data_contents_hash
+            );
+
+            let old = written_importables.insert(
+                name,
+                ImportThreadImportedImportable {
+                    default_asset: imported_asset.default_asset,
+                    import_info,
+                },
+            );
+            assert!(old.is_none());
+        } else {
+            unimplemented!()
+        }
     }
 
     Ok(written_importables)
@@ -137,6 +220,7 @@ impl ImportWorkerThread {
     fn new(
         importer_registry: ImporterRegistry,
         schema_set: SchemaSet,
+        existing_asset_import_state: Arc<HashMap<AssetId, ImportDataMetadata>>,
         import_data_root_path: Arc<PathBuf>,
         request_rx: Receiver<ImportThreadRequest>,
         outcome_tx: Sender<ImportThreadOutcome>,
@@ -157,6 +241,7 @@ impl ImportWorkerThread {
                                     let result = do_import(
                                         &importer_registry,
                                         &schema_set,
+                                        &*existing_asset_import_state,
                                         &*import_data_root_path,
                                         &msg,
                                     );
@@ -195,6 +280,7 @@ impl ImportWorkerThreadPool {
     pub fn new(
         importer_registry: &ImporterRegistry,
         schema_set: &SchemaSet,
+        existing_asset_import_state: &Arc<HashMap<AssetId, ImportDataMetadata>>,
         import_data_root_path: &Path,
         max_requests_in_flight: usize,
         result_tx: Sender<ImportThreadOutcome>,
@@ -208,6 +294,7 @@ impl ImportWorkerThreadPool {
             let worker = ImportWorkerThread::new(
                 importer_registry.clone(),
                 schema_set.clone(),
+                existing_asset_import_state.clone(),
                 import_data_root_path.clone(),
                 request_rx.clone(),
                 result_tx.clone(),

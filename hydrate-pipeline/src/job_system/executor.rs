@@ -1,13 +1,15 @@
-use crate::{BuiltArtifact, PipelineResult, WrittenArtifact};
+use std::cell::RefCell;
+use crate::{BuiltArtifact, ImportData, PipelineResult, WrittenArtifact};
 use crossbeam_channel::{Receiver, Sender};
 use hydrate_base::hashing::HashMap;
 use hydrate_base::uuid_path::uuid_and_hash_to_path;
 use hydrate_base::{ArtifactId, AssetId};
-use hydrate_data::{DataSet, SchemaSet, SingleObject};
+use hydrate_data::{DataSet, SchemaSet};
 use serde::{Deserialize, Serialize};
 use std::hash::Hasher;
-use std::io::Write;
+use std::io::{BufWriter, Write};
 use std::path::PathBuf;
+use std::rc::Rc;
 use std::sync::Arc;
 
 use super::*;
@@ -42,17 +44,19 @@ where
         input: &Vec<u8>,
         data_set: &DataSet,
         schema_set: &SchemaSet,
-        dependency_data: &HashMap<AssetId, SingleObject>,
         job_api: &dyn JobApi,
+        fetched_asset_data: &mut HashMap<AssetId, FetchedAssetData>,
+        fetched_import_data: &mut HashMap<AssetId, FetchedImportData>,
     ) -> PipelineResult<Arc<Vec<u8>>> {
         let data: <T as JobProcessor>::InputT = bincode::deserialize(input.as_slice()).unwrap();
         let output = {
             profiling::scope!(&format!("{:?}::run", std::any::type_name::<T>()));
-            self.0.run(RunContext {
+            self.0.run(&RunContext {
                 input: &data,
                 data_set,
                 schema_set,
-                dependency_data,
+                fetched_asset_data: &Rc::new(RefCell::new(fetched_asset_data)),
+                fetched_import_data: &Rc::new(RefCell::new(fetched_import_data)),
                 job_api,
             })
         }?;
@@ -83,7 +87,13 @@ struct JobState {
     // When we send the job to the thread pool, this is set to true
     has_been_scheduled: bool,
     // This would eventually be stored on file system
-    output_data: Option<PipelineResult<Arc<Vec<u8>>>>,
+    output_data: Option<JobStateOuput>,
+}
+
+struct JobStateOuput {
+    output_data: PipelineResult<Arc<Vec<u8>>>,
+    fetched_asset_data: HashMap<AssetId, FetchedAssetData>,
+    fetched_import_data: HashMap<AssetId, FetchedImportData>,
 }
 
 //TODO: Future optimization, we clone this and it could be big, especially when we re-run jobs. We
@@ -179,6 +189,8 @@ impl JobProcessorRegistry {
 }
 
 struct JobApiImplInner {
+    schema_set: SchemaSet,
+    import_data_root_path: PathBuf,
     build_data_root_path: PathBuf,
     job_processor_registry: JobProcessorRegistry,
     job_create_queue_tx: Sender<QueuedJob>,
@@ -227,15 +239,12 @@ impl JobApi for JobApiImpl {
         Ok(job_id)
     }
 
-    // fn produce_asset(&self, asset: BuiltAsset) {
-    //     self.built_asset_queue_tx.send(asset).unwrap();
-    // }
-
     fn artifact_handle_created(
         &self,
         asset_id: AssetId,
         artifact_id: ArtifactId,
     ) {
+        //TODO: Is this necessary, can we handle it when the job result is returned?
         self.inner
             .artifact_handle_created_tx
             .send(AssetArtifactIdPair {
@@ -275,13 +284,15 @@ impl JobApi for JobApiImpl {
         //
         // Serialize the artifacts to disk
         //
-        let mut file = std::fs::File::create(&path).unwrap();
-        artifact.metadata.write_header(&mut file).unwrap();
-        file.write(&artifact.data).unwrap();
+        let file = std::fs::File::create(&path).unwrap();
+        let mut buf_writer = BufWriter::new(file);
+        artifact.metadata.write_header(&mut buf_writer).unwrap();
+        buf_writer.write(&artifact.data).unwrap();
 
         //
         // Send info about the written asset back to main thread for inclusion in the manifest
         //
+        //TODO: Is this necessary, can we handle it when the job result is returned?
         self.inner
             .written_artifact_queue_tx
             .send(WrittenArtifact {
@@ -292,6 +303,14 @@ impl JobApi for JobApiImpl {
                 artifact_key_debug_name: artifact.artifact_key_debug_name,
             })
             .unwrap();
+    }
+
+    fn fetch_import_data(&self, asset_id: AssetId) -> PipelineResult<ImportData> {
+        super::super::import_jobs::load_import_data(
+            &self.inner.import_data_root_path,
+            &self.inner.schema_set,
+            asset_id,
+        )
     }
 }
 
@@ -351,6 +370,8 @@ impl JobExecutor {
 
         let job_api_impl = JobApiImpl {
             inner: Arc::new(JobApiImplInner {
+                schema_set: schema_set.clone(),
+                import_data_root_path: import_data_root_path.clone(),
                 build_data_root_path,
                 job_processor_registry: job_processor_registry.clone(),
                 job_create_queue_tx,
@@ -366,7 +387,6 @@ impl JobExecutor {
         let thread_pool = JobExecutorThreadPool::new(
             job_processor_registry.clone(),
             schema_set.clone(),
-            &import_data_root_path,
             &job_data_root_path,
             job_api_impl.clone(),
             thread_count,
@@ -477,18 +497,18 @@ impl JobExecutor {
             match result {
                 JobExecutorThreadPoolOutcome::RunJobComplete(msg) => {
                     let job = self.current_jobs.get_mut(&msg.request.job_id).unwrap();
-                    job.output_data = Some(msg.result);
+                    job.output_data = Some(JobStateOuput {
+                        output_data: msg.result,
+                        fetched_asset_data:  msg.fetched_asset_data,
+                        fetched_import_data:  msg.fetched_import_data,
+                    });
                     self.completed_job_count += 1;
+
+                    // When we a
+                    //TODO: do we hash stuff here and do anything with it?
                 }
             }
         }
-
-        // while let Ok(completed_job) = self.job_completed_queue_rx.try_recv() {
-        //     self.current_jobs
-        //         .get_mut(&completed_job.job_id)
-        //         .unwrap()
-        //         .output_data = Some(completed_job.output_data);
-        // }
     }
 
     #[profiling::function]

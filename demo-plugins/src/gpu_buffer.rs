@@ -3,9 +3,9 @@ pub use super::*;
 use demo_types::gpu_buffer::GpuBufferBuiltData;
 use hydrate_model::pipeline::{AssetPlugin, Builder};
 use hydrate_pipeline::{
-    AssetId, BuilderContext, BuilderRegistryBuilder, EnumerateDependenciesContext,
-    ImporterRegistryBuilder, JobEnumeratedDependencies, JobInput, JobOutput, JobProcessor,
-    JobProcessorRegistryBuilder, PipelineResult, RecordAccessor, RunContext, SchemaLinker,
+    AssetId, BuilderContext, BuilderRegistryBuilder,
+    ImporterRegistryBuilder, JobInput, JobOutput, JobProcessor,
+    JobProcessorRegistryBuilder, PipelineResult, RunContext, SchemaLinker,
 };
 use serde::{Deserialize, Serialize};
 use type_uuid::TypeUuid;
@@ -34,20 +34,9 @@ impl JobProcessor for GpuBufferJobProcessor {
         1
     }
 
-    fn enumerate_dependencies(
-        &self,
-        context: EnumerateDependenciesContext<Self::InputT>,
-    ) -> PipelineResult<JobEnumeratedDependencies> {
-        // No dependencies
-        Ok(JobEnumeratedDependencies {
-            import_data: vec![context.input.asset_id],
-            upstream_jobs: Vec::default(),
-        })
-    }
-
     fn run(
         &self,
-        context: RunContext<Self::InputT>,
+        context: &RunContext<Self::InputT>,
     ) -> PipelineResult<GpuBufferJobOutput> {
         //
         // Create the processed data

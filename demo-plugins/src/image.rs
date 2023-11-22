@@ -8,9 +8,9 @@ use hydrate_data::Record;
 use hydrate_model::pipeline::{ImportContext, ScanContext};
 use hydrate_pipeline::Importer;
 use hydrate_pipeline::{
-    AssetId, BuilderContext, BuilderRegistryBuilder, EnumerateDependenciesContext,
-    ImporterRegistryBuilder, JobEnumeratedDependencies, JobInput, JobOutput, JobProcessor,
-    JobProcessorRegistryBuilder, PipelineResult, RecordAccessor, RunContext, SchemaLinker,
+    AssetId, BuilderContext, BuilderRegistryBuilder,
+    ImporterRegistryBuilder, JobInput, JobOutput, JobProcessor,
+    JobProcessorRegistryBuilder, PipelineResult, RunContext, SchemaLinker,
 };
 use hydrate_pipeline::{AssetPlugin, Builder};
 use serde::{Deserialize, Serialize};
@@ -90,20 +90,9 @@ impl JobProcessor for GpuImageJobProcessor {
         1
     }
 
-    fn enumerate_dependencies(
-        &self,
-        context: EnumerateDependenciesContext<Self::InputT>,
-    ) -> PipelineResult<JobEnumeratedDependencies> {
-        // No dependencies
-        Ok(JobEnumeratedDependencies {
-            import_data: vec![context.input.asset_id],
-            upstream_jobs: Vec::default(),
-        })
-    }
-
-    fn run(
-        &self,
-        context: RunContext<Self::InputT>,
+    fn run<'a>(
+        &'a self,
+        context: &'a RunContext<'a, Self::InputT>,
     ) -> PipelineResult<GpuImageJobOutput> {
         //
         // Read asset properties

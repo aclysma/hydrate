@@ -202,7 +202,7 @@ impl<'a, T: Enum> FieldRef<'a> for EnumFieldRef<'a, T> {
 
 impl<'a, T: Enum> EnumFieldRef<'a, T> {
     pub fn get(&self) -> DataSetResult<T> {
-        EnumFieldAccessor::<T>::do_get(&self.0, self.1)
+        EnumFieldAccessor::<T>::do_get(&self.0, self.1.clone())
     }
 }
 
@@ -334,7 +334,7 @@ impl<'a, T: FieldRef<'a>> FieldRef<'a> for NullableFieldRef<'a, T> {
 impl<'a, T: FieldRef<'a>> NullableFieldRef<'a, T> {
     pub fn resolve_null(&self) -> DataSetResult<Option<T>> {
         if self.resolve_null_override()? == NullOverride::SetNonNull {
-            Ok(Some(T::new(self.0.push("value"), self.1)))
+            Ok(Some(T::new(self.0.push("value"), self.1.clone())))
         } else {
             Ok(None)
         }
@@ -500,7 +500,7 @@ impl<'a> FieldRef<'a> for BooleanFieldRef<'a> {
 
 impl<'a> BooleanFieldRef<'a> {
     pub fn get(&self) -> DataSetResult<bool> {
-        BooleanFieldAccessor::do_get(&self.0, self.1)
+        BooleanFieldAccessor::do_get(&self.0, self.1.clone())
     }
 }
 
@@ -624,7 +624,7 @@ impl<'a> FieldRef<'a> for I32FieldRef<'a> {
 
 impl<'a> I32FieldRef<'a> {
     pub fn get(&self) -> DataSetResult<i32> {
-        I32FieldAccessor::do_get(&self.0, self.1)
+        I32FieldAccessor::do_get(&self.0, self.1.clone())
     }
 }
 
@@ -748,7 +748,7 @@ impl<'a> FieldRef<'a> for I64FieldRef<'a> {
 
 impl<'a> I64FieldRef<'a> {
     pub fn get(&self) -> DataSetResult<i64> {
-        I64FieldAccessor::do_get(&self.0, self.1)
+        I64FieldAccessor::do_get(&self.0, self.1.clone())
     }
 }
 
@@ -872,7 +872,7 @@ impl<'a> FieldRef<'a> for U32FieldRef<'a> {
 
 impl<'a> U32FieldRef<'a> {
     pub fn get(&self) -> DataSetResult<u32> {
-        U32FieldAccessor::do_get(&self.0, self.1)
+        U32FieldAccessor::do_get(&self.0, self.1.clone())
     }
 }
 
@@ -996,7 +996,7 @@ impl<'a> FieldRef<'a> for U64FieldRef<'a> {
 
 impl<'a> U64FieldRef<'a> {
     pub fn get(&self) -> DataSetResult<u64> {
-        U64FieldAccessor::do_get(&self.0, self.1)
+        U64FieldAccessor::do_get(&self.0, self.1.clone())
     }
 }
 
@@ -1120,7 +1120,7 @@ impl<'a> FieldRef<'a> for F32FieldRef<'a> {
 
 impl<'a> F32FieldRef<'a> {
     pub fn get(&self) -> DataSetResult<f32> {
-        F32FieldAccessor::do_get(&self.0, self.1)
+        F32FieldAccessor::do_get(&self.0, self.1.clone())
     }
 }
 
@@ -1244,7 +1244,7 @@ impl<'a> FieldRef<'a> for F64FieldRef<'a> {
 
 impl<'a> F64FieldRef<'a> {
     pub fn get(&self) -> DataSetResult<f64> {
-        F64FieldAccessor::do_get(&self.0, self.1)
+        F64FieldAccessor::do_get(&self.0, self.1.clone())
     }
 }
 
@@ -1507,7 +1507,7 @@ impl<'a> FieldRef<'a> for StringFieldRef<'a> {
 
 impl<'a> StringFieldRef<'a> {
     pub fn get(&'a self) -> DataSetResult<Arc<String>> {
-        StringFieldAccessor::do_get(&self.0, self.1)
+        StringFieldAccessor::do_get(&self.0, self.1.clone())
     }
 }
 
@@ -1630,7 +1630,7 @@ impl<'a, T: FieldRef<'a>> DynamicArrayFieldRef<'a, T> {
         &self,
         entry_uuid: Uuid,
     ) -> T {
-        T::new(self.0.push(&entry_uuid.to_string()), self.1)
+        T::new(self.0.push(&entry_uuid.to_string()), self.1.clone())
     }
 }
 
@@ -1764,7 +1764,7 @@ impl<'a> FieldRef<'a> for AssetRefFieldRef<'a> {
 
 impl<'a> AssetRefFieldRef<'a> {
     pub fn get(&self) -> DataSetResult<AssetId> {
-        AssetRefFieldAccessor::do_get(&self.0, self.1)
+        AssetRefFieldAccessor::do_get(&self.0, self.1.clone())
     }
 }
 

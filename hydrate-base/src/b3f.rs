@@ -26,6 +26,8 @@
 //! tripping over undefined behavior
 
 use std::convert::TryInto;
+use std::io::{Cursor, SeekFrom};
+use std::ops::Range;
 
 const HEADER_SIZE_IN_BYTES: usize = 16;
 const BLOCK_LENGTH_SIZE_IN_BYTES: usize = 8;
@@ -125,6 +127,109 @@ impl<'a> B3FWriter<'a> {
     }
 }
 
+pub struct B3FReader {
+    file_tag: [u8; 4],
+    version: u32,
+    block_count: u32,
+}
+
+impl B3FReader {
+    pub fn file_tag_as_u32(&self) -> u32 {
+        u32::from_ne_bytes(self.file_tag.try_into().unwrap())
+    }
+
+    pub fn file_tag_as_u8(&self) -> &[u8] {
+        &self.file_tag
+    }
+
+    pub fn version(&self) -> u32 {
+        self.version
+    }
+
+    pub fn block_count(&self) -> usize {
+        self.block_count as usize
+    }
+
+    pub fn new<T: std::io::Read + std::io::Seek>(reader: &mut T) -> std::io::Result<Option<Self>> {
+        reader.seek(SeekFrom::Start(0))?;
+        let mut bytes = [0u8; 4];
+        reader.read(&mut bytes)?;
+        let magic_number = u32::from_ne_bytes(bytes);
+        if magic_number != 0xBB33FF00 {
+            return Ok(None);
+        }
+
+        reader.read(&mut bytes)?;
+        let file_tag = bytes;
+
+        reader.read(&mut bytes)?;
+        let version = u32::from_ne_bytes(bytes);
+
+        reader.read(&mut bytes)?;
+        let block_count = u32::from_ne_bytes(bytes);
+
+        Ok(Some(B3FReader {
+            file_tag,
+            version,
+            block_count
+        }))
+    }
+
+    pub fn get_block_location<T: std::io::Read + std::io::Seek>(&self, reader: &mut T, index: usize) -> std::io::Result<Range<usize>> {
+        // assumed by some implementation details here
+        debug_assert_eq!(BLOCK_LENGTH_SIZE_IN_BYTES, 8);
+        let begin_size_offset = HEADER_SIZE_IN_BYTES + (index * BLOCK_LENGTH_SIZE_IN_BYTES);
+        reader.seek(SeekFrom::Start(begin_size_offset as u64))?;
+
+        let mut bytes = [0u8; 8];
+        reader.read(&mut bytes)?;
+        let mut begin = u64::from_ne_bytes(bytes.try_into().unwrap()) as usize;
+        reader.read(&mut bytes)?;
+        let end = u64::from_ne_bytes(bytes.try_into().unwrap()) as usize;
+
+        // Begin position needs to be rounded up to 16-byte offset
+        begin = ((begin + BLOCK_ALIGNMENT_IN_BYTES - 1) / BLOCK_ALIGNMENT_IN_BYTES)
+            * BLOCK_ALIGNMENT_IN_BYTES;
+
+        let mut data_offset =
+            HEADER_SIZE_IN_BYTES + ((self.block_count as usize + 1) * BLOCK_LENGTH_SIZE_IN_BYTES);
+        data_offset = ((data_offset + BLOCK_ALIGNMENT_IN_BYTES - 1) / BLOCK_ALIGNMENT_IN_BYTES)
+            * BLOCK_ALIGNMENT_IN_BYTES;
+
+        Ok((data_offset + begin)..(data_offset + end))
+    }
+
+    pub fn read_block<T: std::io::Read + std::io::Seek>(&self, reader: &mut T, index: usize) -> std::io::Result<Vec<u8>> {
+        let block_location = self.get_block_location(reader, index)?;
+        reader.seek(SeekFrom::Start(block_location.start as u64))?;
+        let mut bytes = vec![0u8; block_location.end - block_location.start];
+        reader.read(bytes.as_mut_slice())?;
+        Ok(bytes)
+    }
+
+    pub fn read_block_from_slice<'a>(&self, data: &'a [u8], index: usize) -> std::io::Result<&'a [u8]> {
+        let mut cursor = Cursor::new(data);
+        //let buf_reader = BufReader::new(data);
+        let block_location = self.get_block_location(&mut cursor, index)?;
+        Ok(&data[block_location])
+    }
+}
+
+
+/*
+pub fn read_b3f_file_tag_as_u32<T: std::io::Read + std::io::Seek>(mut reader: T) -> std::io::Result<u32> {
+    let bytes = read_b3f_file_tag_as_u8(reader)?;
+    Ok(u32::from_ne_bytes(bytes.try_into().unwrap()))
+}
+
+pub fn read_b3f_file_tag_as_u8<T: std::io::Read + std::io::Seek>(mut reader: T) -> std::io::Result<[u8; 4]> {
+    reader.seek(SeekFrom::Start(0))?;
+    let mut bytes = [0u8; 4];
+    reader.read(&mut bytes)?;
+    Ok(bytes)
+}
+
+
 /// Used decode data from B3F format
 //TODO: Modify to use Read + Seek
 pub struct B3FReader<'a> {
@@ -185,3 +290,4 @@ impl<'a> B3FReader<'a> {
         &self.data[data_offset..][begin..end]
     }
 }
+*/

@@ -33,17 +33,9 @@ impl JobProcessor for ExampleBuildJobTopLevel {
         1
     }
 
-    fn enumerate_dependencies(
-        &self,
-        _context: EnumerateDependenciesContext<Self::InputT>,
-    ) -> PipelineResult<JobEnumeratedDependencies> {
-        // No dependencies
-        Ok(JobEnumeratedDependencies::default())
-    }
-
     fn run(
         &self,
-        context: RunContext<Self::InputT>,
+        context: &RunContext<Self::InputT>,
     ) -> PipelineResult<Self::OutputT> {
         let task_id1 =
             context.enqueue_job::<ExampleBuildJobScatter>(ExampleBuildJobScatterInput {
@@ -99,17 +91,9 @@ impl JobProcessor for ExampleBuildJobScatter {
         1
     }
 
-    fn enumerate_dependencies(
-        &self,
-        _context: EnumerateDependenciesContext<Self::InputT>,
-    ) -> PipelineResult<JobEnumeratedDependencies> {
-        // No dependencies
-        Ok(JobEnumeratedDependencies::default())
-    }
-
     fn run(
         &self,
-        _context: RunContext<Self::InputT>,
+        _context: &RunContext<Self::InputT>,
     ) -> PipelineResult<Self::OutputT> {
         //Do stuff
         // We could return the result
@@ -151,14 +135,13 @@ impl JobProcessor for ExampleBuildJobGather {
         context: EnumerateDependenciesContext<Self::InputT>,
     ) -> PipelineResult<JobEnumeratedDependencies> {
         Ok(JobEnumeratedDependencies {
-            import_data: Default::default(),
             upstream_jobs: context.input.scatter_tasks.clone(),
         })
     }
 
     fn run(
         &self,
-        _context: RunContext<Self::InputT>,
+        _context: &RunContext<Self::InputT>,
     ) -> PipelineResult<Self::OutputT> {
         // Now use inputs from other jobs to produce an output
         //job_api.publish_built_asset(...);

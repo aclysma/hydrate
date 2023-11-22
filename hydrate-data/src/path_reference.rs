@@ -9,6 +9,13 @@ pub struct PathReference {
 }
 
 impl PathReference {
+    pub fn new(path: String, importable_name: ImportableName) -> Self {
+        PathReference {
+            path,
+            importable_name
+        }
+    }
+
     pub fn is_relative(&self) -> bool {
         Path::new(&self.path).is_relative()
     }

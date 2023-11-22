@@ -1,7 +1,7 @@
 use hydrate_model::pipeline::Builder;
 use hydrate_pipeline::{
-    AssetId, BuilderContext, DataContainerRef, EnumerateDependenciesContext,
-    JobEnumeratedDependencies, JobInput, JobOutput, JobProcessor, PipelineResult, RunContext,
+    AssetId, BuilderContext, DataContainerRef,
+    JobInput, JobOutput, JobProcessor, PipelineResult, RunContext,
 };
 use serde::{Deserialize, Serialize};
 use std::marker::PhantomData;
@@ -46,17 +46,9 @@ impl<T: SimpleData + Sized + Serialize + for<'a> Deserialize<'a> + TypeUuid> Job
         1
     }
 
-    fn enumerate_dependencies(
-        &self,
-        _context: EnumerateDependenciesContext<Self::InputT>,
-    ) -> PipelineResult<JobEnumeratedDependencies> {
-        // No dependencies
-        Ok(JobEnumeratedDependencies::default())
-    }
-
     fn run(
         &self,
-        context: RunContext<Self::InputT>,
+        context: &RunContext<Self::InputT>,
     ) -> PipelineResult<SimpleBincodeDataJobOutput> {
         let data_set_view = DataContainerRef::from_dataset(
             &context.data_set,

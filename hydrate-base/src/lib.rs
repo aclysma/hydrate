@@ -4,7 +4,7 @@ pub mod uuid_path;
 
 pub mod built_artifact_metadata;
 pub use built_artifact_metadata::{
-    ArtifactManifestData, BuiltArtifactMetadata, DebugArtifactManifestDataJson,
+    ArtifactManifestData, BuiltArtifactHeaderData, DebugArtifactManifestDataJson,
     DebugManifestFileJson,
 };
 

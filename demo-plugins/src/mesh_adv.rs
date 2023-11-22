@@ -10,8 +10,8 @@ use crate::push_buffer::PushBuffer;
 use demo_types::mesh_adv::*;
 use hydrate_model::pipeline::{AssetPlugin, Builder};
 use hydrate_pipeline::{
-    AssetId, BuilderContext, BuilderRegistryBuilder, EnumerateDependenciesContext,
-    ImporterRegistryBuilder, JobEnumeratedDependencies, JobInput, JobOutput, JobProcessor,
+    AssetId, BuilderContext, BuilderRegistryBuilder,
+    ImporterRegistryBuilder, JobInput, JobOutput, JobProcessor,
     JobProcessorRegistryBuilder, PipelineResult, RunContext, SchemaLinker,
 };
 use serde::{Deserialize, Serialize};
@@ -40,17 +40,9 @@ impl JobProcessor for MeshAdvMaterialJobProcessor {
         1
     }
 
-    fn enumerate_dependencies(
+    fn run<'a>(
         &self,
-        _context: EnumerateDependenciesContext<Self::InputT>,
-    ) -> PipelineResult<JobEnumeratedDependencies> {
-        // No dependencies
-        Ok(JobEnumeratedDependencies::default())
-    }
-
-    fn run(
-        &self,
-        context: RunContext<Self::InputT>,
+        context: &'a RunContext<'a, Self::InputT>,
     ) -> PipelineResult<MeshAdvMaterialJobOutput> {
         //
         // Read asset data
@@ -169,20 +161,9 @@ impl JobProcessor for MeshAdvMeshPreprocessJobProcessor {
         1
     }
 
-    fn enumerate_dependencies(
+    fn run<'a>(
         &self,
-        context: EnumerateDependenciesContext<Self::InputT>,
-    ) -> PipelineResult<JobEnumeratedDependencies> {
-        // No dependencies
-        Ok(JobEnumeratedDependencies {
-            import_data: vec![context.input.asset_id],
-            upstream_jobs: Vec::default(),
-        })
-    }
-
-    fn run(
-        &self,
-        context: RunContext<Self::InputT>,
+        context: &'a RunContext<'a, Self::InputT>,
     ) -> PipelineResult<MeshAdvMeshPreprocessJobOutput> {
         //
         // Read asset data

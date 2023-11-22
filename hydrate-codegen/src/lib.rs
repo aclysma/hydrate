@@ -332,7 +332,7 @@ fn generate_reader(
             field_access_fn.ret(&field_type);
             field_access_fn.vis("pub");
             field_access_fn.line(format!(
-                "{}::new(self.0.push(\"{}\"), self.1)",
+                "{}::new(self.0.push(\"{}\"), self.1.clone())",
                 field_type,
                 field.name()
             ));

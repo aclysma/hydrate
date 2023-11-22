@@ -1,16 +1,18 @@
 use hydrate_base::hashing::{HashMap, HashSet};
 use hydrate_base::AssetId;
 use std::hash::{Hash, Hasher};
+use std::io::BufReader;
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 
 use crate::import_thread_pool::{
     ImportThreadOutcome, ImportThreadRequest, ImportThreadRequestImport, ImportWorkerThreadPool,
 };
 use crate::{DynEditorModel, PipelineResult};
 use hydrate_base::uuid_path::{path_to_uuid, uuid_to_path};
-use hydrate_data::json_storage::SingleObjectJson;
-use hydrate_data::ImportableName;
+use hydrate_data::{ImportableName};
 use hydrate_data::{ImporterId, SchemaSet, SingleObject};
+use crate::import_storage::ImportDataMetadata;
 
 use super::import_types::*;
 use super::importer_registry::*;
@@ -19,26 +21,23 @@ pub fn load_import_data(
     import_data_root_path: &Path,
     schema_set: &SchemaSet,
     asset_id: AssetId,
-) -> ImportData {
+) -> PipelineResult<ImportData> {
     profiling::scope!(&format!("Load asset import data {:?}", asset_id));
     let path = uuid_to_path(import_data_root_path, asset_id.as_uuid(), "if");
 
-    // json format
-    //let str = std::fs::read_to_string(&path).unwrap();
-    //let import_data = SingleObjectJson::load_single_object_from_string(schema_set, &str);
-
     // b3f format
-    let bytes = std::fs::read(&path).unwrap();
-    let import_data = SingleObjectJson::load_single_object_from_b3f(schema_set, &bytes);
+    let file = std::fs::File::open(&path)?;
+    let mut buf_reader = BufReader::new(file);
+    let import_data = super::import_storage::load_import_data_from_b3f(schema_set, &mut buf_reader)?;
 
-    let metadata = path.metadata().unwrap();
+    let metadata = path.metadata()?;
     let metadata_hash = hash_file_metadata(&metadata);
 
-    ImportData {
+    Ok(ImportData {
         import_data: import_data.single_object,
-        contents_hash: import_data.contents_hash,
+        contents_hash: import_data.metadata.import_data_contents_hash,
         metadata_hash,
-    }
+    })
 }
 
 pub(super) fn hash_file_metadata(metadata: &std::fs::Metadata) -> u64 {
@@ -58,6 +57,14 @@ pub struct ImportData {
     pub metadata_hash: u64,
 }
 
+#[derive(Debug, Copy, Clone, PartialEq)]
+pub enum ImportType {
+    // Used when the asset doesn't exist
+    ImportAlways,
+    // Used if the asset already exists
+    ImportIfImportDataStale,
+}
+
 // An in-flight import operation we want to perform
 #[derive(Clone)]
 pub struct ImportOp {
@@ -66,6 +73,7 @@ pub struct ImportOp {
     pub importer_id: ImporterId,
     pub path: PathBuf,
     pub assets_to_regenerate: HashSet<AssetId>,
+    pub import_type: ImportType,
     //pub(crate) import_info: ImportInfo,
 }
 
@@ -127,12 +135,14 @@ impl ImportJobs {
         importer_id: ImporterId,
         path: PathBuf,
         assets_to_regenerate: HashSet<AssetId>,
+        import_type: ImportType,
     ) {
         self.import_operations.push(ImportOp {
             asset_ids,
             importer_id,
             path,
             assets_to_regenerate,
+            import_type,
             //import_info
         })
     }
@@ -190,6 +200,22 @@ impl ImportJobs {
         std::mem::swap(&mut self.import_operations, &mut import_operations);
 
         //
+        // Cache the import info for all assets
+        //
+        let mut existing_asset_import_state = HashMap::default();
+        for (asset_id, asset_info) in editor_model.data_set().assets() {
+            if let Some(import_info) = asset_info.import_info() {
+                let import_metadata = ImportDataMetadata {
+                    source_file_size: import_info.source_file_size(),
+                    source_file_modified_timestamp: import_info.source_file_modified_timestamp(),
+                    import_data_contents_hash: import_info.import_data_contents_hash(),
+                };
+                existing_asset_import_state.insert(*asset_id, import_metadata);
+            }
+        }
+        let existing_asset_import_state = Arc::new(existing_asset_import_state);
+
+        //
         // Create the thread pool
         //
         let thread_count = num_cpus::get();
@@ -199,6 +225,7 @@ impl ImportJobs {
         let thread_pool = ImportWorkerThreadPool::new(
             importer_registry,
             editor_model.schema_set(),
+            &existing_asset_import_state,
             &self.import_data_root_path,
             thread_count,
             result_tx,
@@ -268,6 +295,9 @@ impl ImportJobs {
                 ImportThreadOutcome::Complete(msg) => {
                     for (name, imported_asset) in msg.result? {
                         if let Some(asset_id) = msg.request.import_op.asset_ids.get(&name) {
+                            //
+                            // If the asset is supposed to be regenerated, stomp the existing asset
+                            //
                             if msg
                                 .request
                                 .import_op
@@ -278,9 +308,13 @@ impl ImportJobs {
                                     .init_from_single_object(
                                         *asset_id,
                                         &imported_asset.default_asset,
-                                    )
-                                    .unwrap();
+                                    )?;
                             }
+
+                            //
+                            // Whether it is regenerated or not, update import data
+                            //
+                            editor_model.set_import_info(*asset_id, imported_asset.import_info)?;
                         }
                     }
                 }

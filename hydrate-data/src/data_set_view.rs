@@ -1,3 +1,4 @@
+use std::sync::Arc;
 use crate::data_set::DataSetResult;
 use crate::{AssetId, DataSet, NullOverride, OverrideBehavior, SchemaSet, SingleObject, Value};
 use uuid::Uuid;
@@ -56,10 +57,11 @@ trait DataContainerWrite {
 
 /// Provides a read-only view into a DataSet or SingleObject. A schema can be used to write into
 /// both forms.
-#[derive(Copy, Clone)]
+#[derive(Clone)]
 pub enum DataContainerRef<'a> {
     DataSet(&'a DataSet, &'a SchemaSet, AssetId),
-    SingleObject(&'a SingleObject, &'a SchemaSet),
+    SingleObjectRef(&'a SingleObject, &'a SchemaSet),
+    SingleObjectArc(Arc<SingleObject>, &'a SchemaSet)
 }
 
 impl<'a> DataContainerRef<'a> {
@@ -67,7 +69,14 @@ impl<'a> DataContainerRef<'a> {
         single_object: &'a SingleObject,
         schema_set: &'a SchemaSet,
     ) -> Self {
-        DataContainerRef::SingleObject(single_object, schema_set)
+        DataContainerRef::SingleObjectRef(single_object, schema_set)
+    }
+
+    pub fn from_single_object_arc(
+        single_object: Arc<SingleObject>,
+        schema_set: &'a SchemaSet,
+    ) -> Self {
+        DataContainerRef::SingleObjectArc(single_object, schema_set)
     }
 
     pub fn from_dataset(
@@ -81,7 +90,8 @@ impl<'a> DataContainerRef<'a> {
     pub fn schema_set(&self) -> &SchemaSet {
         match *self {
             DataContainerRef::DataSet(_, schema_set, _) => schema_set,
-            DataContainerRef::SingleObject(_, schema_set) => schema_set,
+            DataContainerRef::SingleObjectRef(_, schema_set) => schema_set,
+            DataContainerRef::SingleObjectArc(_, schema_set) => schema_set,
         }
     }
 
@@ -89,11 +99,14 @@ impl<'a> DataContainerRef<'a> {
         &self,
         path: impl AsRef<str>,
     ) -> DataSetResult<&Value> {
-        match *self {
+        match self {
             DataContainerRef::DataSet(data_set, schema_set, asset_id) => {
-                data_set.resolve_property(schema_set, asset_id, path)
+                data_set.resolve_property(schema_set, *asset_id, path)
             }
-            DataContainerRef::SingleObject(single_object, schema_set) => {
+            DataContainerRef::SingleObjectRef(single_object, schema_set) => {
+                single_object.resolve_property(schema_set, path)
+            }
+            DataContainerRef::SingleObjectArc(single_object, schema_set) => {
                 single_object.resolve_property(schema_set, path)
             }
         }
@@ -103,11 +116,14 @@ impl<'a> DataContainerRef<'a> {
         &self,
         path: impl AsRef<str>,
     ) -> DataSetResult<NullOverride> {
-        match *self {
+        match self {
             DataContainerRef::DataSet(data_set, schema_set, asset_id) => {
-                data_set.get_null_override(schema_set, asset_id, path)
+                data_set.get_null_override(schema_set, *asset_id, path)
             }
-            DataContainerRef::SingleObject(single_object, schema_set) => {
+            DataContainerRef::SingleObjectRef(single_object, schema_set) => {
+                single_object.get_null_override(schema_set, path)
+            }
+            DataContainerRef::SingleObjectArc(single_object, schema_set) => {
                 single_object.get_null_override(schema_set, path)
             }
         }
@@ -117,11 +133,14 @@ impl<'a> DataContainerRef<'a> {
         &self,
         path: impl AsRef<str>,
     ) -> DataSetResult<NullOverride> {
-        match *self {
+        match self {
             DataContainerRef::DataSet(data_set, schema_set, asset_id) => {
-                data_set.resolve_null_override(schema_set, asset_id, path)
+                data_set.resolve_null_override(schema_set, *asset_id, path)
             }
-            DataContainerRef::SingleObject(single_object, schema_set) => {
+            DataContainerRef::SingleObjectRef(single_object, schema_set) => {
+                single_object.resolve_null_override(schema_set, path)
+            }
+            DataContainerRef::SingleObjectArc(single_object, schema_set) => {
                 single_object.resolve_null_override(schema_set, path)
             }
         }
@@ -131,11 +150,14 @@ impl<'a> DataContainerRef<'a> {
         &self,
         path: impl AsRef<str>,
     ) -> DataSetResult<Box<[Uuid]>> {
-        match *self {
+        match self {
             DataContainerRef::DataSet(data_set, schema_set, asset_id) => {
-                data_set.resolve_dynamic_array(schema_set, asset_id, path)
+                data_set.resolve_dynamic_array(schema_set, *asset_id, path)
             }
-            DataContainerRef::SingleObject(single_object, schema_set) => {
+            DataContainerRef::SingleObjectRef(single_object, schema_set) => {
+                single_object.resolve_dynamic_array(schema_set, path)
+            }
+            DataContainerRef::SingleObjectArc(single_object, schema_set) => {
                 single_object.resolve_dynamic_array(schema_set, path)
             }
         }
@@ -145,11 +167,12 @@ impl<'a> DataContainerRef<'a> {
         &self,
         path: impl AsRef<str>,
     ) -> DataSetResult<OverrideBehavior> {
-        match *self {
+        match self {
             DataContainerRef::DataSet(data_set, schema_set, asset_id) => {
-                data_set.get_override_behavior(schema_set, asset_id, path)
+                data_set.get_override_behavior(schema_set, *asset_id, path)
             }
-            DataContainerRef::SingleObject(_, _) => Ok(OverrideBehavior::Replace),
+            DataContainerRef::SingleObjectRef(_, _) => Ok(OverrideBehavior::Replace),
+            DataContainerRef::SingleObjectArc(_, _) => Ok(OverrideBehavior::Replace),
         }
     }
 }
@@ -217,7 +240,7 @@ impl<'a> DataContainerRefMut<'a> {
     pub fn read(&'a self) -> DataContainerRef<'a> {
         match &*self {
             DataContainerRefMut::DataSet(a, b, c) => DataContainerRef::DataSet(a, b, *c),
-            DataContainerRefMut::SingleObject(a, b) => DataContainerRef::SingleObject(a, b),
+            DataContainerRefMut::SingleObject(a, b) => DataContainerRef::SingleObjectRef(a, b),
         }
     }
 
@@ -414,7 +437,7 @@ impl DataContainer {
 
     pub fn read<'a>(&'a self) -> DataContainerRef<'a> {
         match self {
-            DataContainer::SingleObject(a, b) => DataContainerRef::SingleObject(&a, &b),
+            DataContainer::SingleObject(a, b) => DataContainerRef::SingleObjectRef(&a, &b),
         }
     }
 

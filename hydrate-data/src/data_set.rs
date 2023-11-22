@@ -128,6 +128,13 @@ pub struct ImportInfo {
     // All the file references that need to be resolved in order to build the asset (this represents
     // file references encountered in the input data, and only changes when data is re-imported)
     file_references: Vec<PathReference>,
+
+    // State of the source file when the asset was imported
+    source_file_modified_timestamp: u64,
+    source_file_size: u64,
+
+    // Hash of the import data
+    import_data_contents_hash: u64,
 }
 
 impl ImportInfo {
@@ -135,11 +142,17 @@ impl ImportInfo {
         importer_id: ImporterId,
         source_file: PathReference,
         file_references: Vec<PathReference>,
+        source_file_modified_timestamp: u64,
+        source_file_size: u64,
+        import_data_contents_hash: u64,
     ) -> Self {
         ImportInfo {
             importer_id,
             source_file,
             file_references,
+            source_file_modified_timestamp,
+            source_file_size,
+            import_data_contents_hash,
         }
     }
 
@@ -161,6 +174,18 @@ impl ImportInfo {
 
     pub fn file_references(&self) -> &[PathReference] {
         &self.file_references
+    }
+
+    pub fn source_file_modified_timestamp(&self) -> u64 {
+        self.source_file_modified_timestamp
+    }
+
+    pub fn source_file_size(&self) -> u64 {
+        self.source_file_size
+    }
+
+    pub fn import_data_contents_hash(&self) -> u64 {
+        self.import_data_contents_hash
     }
 }
 

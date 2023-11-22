@@ -2,7 +2,7 @@ use crate::app_state::{ActionQueueSender, ModalAction, ModalActionControlFlow};
 use crate::db_state::DbState;
 use crate::ui_state::UiState;
 use hydrate_model::pipeline::import_util::ImportToQueue;
-use hydrate_model::pipeline::{AssetEngine, ImporterRegistry};
+use hydrate_model::pipeline::{AssetEngine, ImporterRegistry, ImportType};
 use hydrate_model::pipeline::{Importer, PipelineResult};
 use hydrate_model::{AssetId, AssetLocation, HashMap, HashSet, ImportableName, LocationTreeNode};
 use imgui::sys::ImVec2;
@@ -272,6 +272,7 @@ impl ModalAction for ImportFilesModal {
                                     import_to_queue.importer_id,
                                     import_to_queue.source_file_path,
                                     import_to_queue.assets_to_regenerate,
+                                    ImportType::ImportIfImportDataStale,
                                 );
                             }
 

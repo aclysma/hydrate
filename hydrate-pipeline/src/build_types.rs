@@ -1,17 +1,17 @@
 use crate::{JobApi, JobId, JobProcessor, PipelineResult};
-use hydrate_base::{ArtifactId, BuiltArtifactMetadata};
+use hydrate_base::{ArtifactId, BuiltArtifactHeaderData};
 use hydrate_data::{AssetId, DataSet, SchemaSet};
 
 pub struct BuiltAsset {
     pub asset_id: AssetId,
-    pub metadata: BuiltArtifactMetadata,
+    pub metadata: BuiltArtifactHeaderData,
     pub data: Vec<u8>,
 }
 
 pub struct BuiltArtifact {
     pub asset_id: AssetId,
     pub artifact_id: ArtifactId,
-    pub metadata: BuiltArtifactMetadata,
+    pub metadata: BuiltArtifactHeaderData,
     pub data: Vec<u8>,
     pub artifact_key_debug_name: Option<String>,
 }
@@ -19,7 +19,7 @@ pub struct BuiltArtifact {
 pub struct WrittenArtifact {
     pub asset_id: AssetId,
     pub artifact_id: ArtifactId,
-    pub metadata: BuiltArtifactMetadata,
+    pub metadata: BuiltArtifactHeaderData,
     pub build_hash: u64,
     pub artifact_key_debug_name: Option<String>,
 }
@@ -52,20 +52,4 @@ pub trait Builder {
         &self,
         context: BuilderContext,
     ) -> PipelineResult<()>;
-
-    // Returns the assets that this build job needs to be available to complete
-    // fn enumerate_dependencies(
-    //     &self,
-    //     asset_id: AssetId,
-    //     data_set: &DataSet,
-    //     schema_set: &SchemaSet,
-    // ) -> Vec<AssetId>;
-
-    // fn build_asset(
-    //     &self,
-    //     asset_id: AssetId,
-    //     data_set: &DataSet,
-    //     schema_set: &SchemaSet,
-    //     dependency_data: &HashMap<AssetId, SingleObject>,
-    // ) -> BuiltAsset;
 }

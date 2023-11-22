@@ -48,13 +48,17 @@ const MAX_HEADER_SIZE: usize = 1024 * 1024;
 
 /// Data encoded into the asset. This is necessary for loading but is not available in memory at
 /// all times. The load process will fetch this from the top of the built artifact data.
+/// This is specifically designed to read the minimum amount of info out of the file.
+
+//TODO: Could use B3F here, but this is working fine for now.
+//TODO: Probably don't strictly need bincode either
 #[derive(Debug, Serialize, Deserialize, Hash)]
-pub struct BuiltArtifactMetadata {
+pub struct BuiltArtifactHeaderData {
     pub dependencies: Vec<ArtifactId>,
     pub asset_type: Uuid, // size?
 }
 
-impl BuiltArtifactMetadata {
+impl BuiltArtifactHeaderData {
     pub fn write_header<T: std::io::Write>(
         &self,
         writer: &mut T,
@@ -62,18 +66,18 @@ impl BuiltArtifactMetadata {
         let serialized = bincode::serialize(self).unwrap();
         let bytes = serialized.len();
         // Just
-        assert!(bytes < MAX_HEADER_SIZE);
+        assert!(bytes <= MAX_HEADER_SIZE);
         writer.write(&bytes.to_le_bytes())?;
         writer.write(&serialized)?;
 
         Ok(())
     }
 
-    pub fn read_header<T: std::io::Read>(reader: &mut T) -> std::io::Result<BuiltArtifactMetadata> {
+    pub fn read_header<T: std::io::Read>(reader: &mut T) -> std::io::Result<BuiltArtifactHeaderData> {
         let mut length_bytes = [0u8; 8];
         reader.read(&mut length_bytes)?;
         let length = usize::from_le_bytes(length_bytes);
-        assert!(length < MAX_HEADER_SIZE);
+        assert!(length <= MAX_HEADER_SIZE);
 
         let mut read_buffer = vec![0u8; length];
         reader.read_exact(&mut read_buffer).unwrap();

@@ -9,9 +9,11 @@ use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 use std::thread::JoinHandle;
+use hydrate_base::AssetId;
+use crate::job_system::job_system_traits::{FetchedAssetData, FetchedImportData};
 
 // Ask the thread to gather build data from the asset
-pub struct JobExecutorThreadPoolRequestRunJob {
+pub(crate) struct JobExecutorThreadPoolRequestRunJob {
     pub job_id: JobId,
     pub job_type: JobTypeId,
     pub debug_name: Arc<String>,
@@ -20,19 +22,21 @@ pub struct JobExecutorThreadPoolRequestRunJob {
     pub data_set: Arc<DataSet>,
 }
 
-pub enum JobExecutorThreadPoolRequest {
+pub(crate) enum JobExecutorThreadPoolRequest {
     RunJob(JobExecutorThreadPoolRequestRunJob),
 }
 
 // Results from successful build
-pub struct JobExecutorThreadPoolOutcomeRunJobComplete {
+pub(crate) struct JobExecutorThreadPoolOutcomeRunJobComplete {
     pub request: JobExecutorThreadPoolRequestRunJob,
     pub result: PipelineResult<Arc<Vec<u8>>>,
+    pub fetched_asset_data: HashMap<AssetId, FetchedAssetData>,
+    pub fetched_import_data: HashMap<AssetId, FetchedImportData>,
     //asset: SingleObject,
     //import_data: SingleObject,
 }
 
-pub enum JobExecutorThreadPoolOutcome {
+pub(crate) enum JobExecutorThreadPoolOutcome {
     RunJobComplete(JobExecutorThreadPoolOutcomeRunJobComplete),
 }
 
@@ -43,7 +47,6 @@ struct JobExecutorWorkerThread {
 }
 
 fn do_build(
-    import_data_root_path: &Path,
     job_processor_registry: &JobProcessorRegistry,
     schema_set: &SchemaSet,
     job_api: &dyn JobApi,
@@ -51,21 +54,8 @@ fn do_build(
 ) -> JobExecutorThreadPoolOutcome {
     profiling::scope!(&format!("Handle Job {}", request.debug_name));
 
-    // Load the import data
-    let mut required_import_data = HashMap::default();
-    {
-        for &import_data_id in &request.dependencies.import_data {
-            profiling::scope!(&format!("Load Import Data {:?}", import_data_id));
-            let import_data = super::super::import_jobs::load_import_data(
-                import_data_root_path,
-                schema_set,
-                import_data_id,
-            );
-            required_import_data.insert(import_data_id, import_data.import_data);
-        }
-    }
-
-    // Load the upstream job result data
+    let mut fetched_asset_data = HashMap::<AssetId, FetchedAssetData>::default();
+    let mut fetched_import_data = HashMap::<AssetId, FetchedImportData>::default();
 
     // Execute the job
     let job_processor = job_processor_registry
@@ -77,14 +67,17 @@ fn do_build(
             &request.input_data,
             &*request.data_set,
             schema_set,
-            &required_import_data,
             job_api,
+            &mut fetched_asset_data,
+            &mut fetched_import_data
         )
     };
 
     JobExecutorThreadPoolOutcome::RunJobComplete(JobExecutorThreadPoolOutcomeRunJobComplete {
         request,
         result,
+        fetched_asset_data,
+        fetched_import_data
     })
 
     //TODO: Write to file
@@ -95,7 +88,6 @@ impl JobExecutorWorkerThread {
     fn new(
         job_processor_registry: JobProcessorRegistry,
         schema_set: SchemaSet,
-        import_data_root_path: Arc<PathBuf>,
         job_data_root_path: Arc<PathBuf>,
         job_api: JobApiImpl,
         request_rx: Receiver<JobExecutorThreadPoolRequest>,
@@ -116,7 +108,6 @@ impl JobExecutorWorkerThread {
                                     profiling::scope!("JobExecutorThreadPoolRequest::RequestBuild");
 
                                     let result = do_build(
-                                        &*import_data_root_path,
                                         &job_processor_registry,
                                         &schema_set,
                                         &job_api,
@@ -151,16 +142,14 @@ pub struct JobExecutorThreadPool {
 }
 
 impl JobExecutorThreadPool {
-    pub fn new(
+    pub(crate) fn new(
         job_processor_registry: JobProcessorRegistry,
         schema_set: SchemaSet,
-        import_data_root_path: &Path,
         job_data_root_path: &Path,
         job_api: JobApiImpl,
         max_requests_in_flight: usize,
         result_tx: Sender<JobExecutorThreadPoolOutcome>,
     ) -> Self {
-        let import_data_root_path = Arc::new(import_data_root_path.to_path_buf());
         let job_data_root_path = Arc::new(job_data_root_path.to_path_buf());
         let (request_tx, request_rx) =
             crossbeam_channel::unbounded::<JobExecutorThreadPoolRequest>();
@@ -171,7 +160,6 @@ impl JobExecutorThreadPool {
             let worker = JobExecutorWorkerThread::new(
                 job_processor_registry.clone(),
                 schema_set.clone(),
-                import_data_root_path.clone(),
                 job_data_root_path.clone(),
                 job_api.clone(),
                 request_rx.clone(),
@@ -197,7 +185,7 @@ impl JobExecutorThreadPool {
         self.active_request_count.load(Ordering::Relaxed)
     }
 
-    pub fn add_request(
+    pub(crate) fn add_request(
         &self,
         request: JobExecutorThreadPoolRequest,
     ) {
@@ -205,7 +193,7 @@ impl JobExecutorThreadPool {
         self.request_tx.send(request).unwrap();
     }
 
-    pub fn finish(self) {
+    pub(crate) fn finish(self) {
         for worker_thread in &self.worker_threads {
             worker_thread.finish_tx.send(()).unwrap();
         }

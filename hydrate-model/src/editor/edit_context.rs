@@ -503,7 +503,9 @@ impl EditContext {
         asset_id: AssetId,
         import_info: ImportInfo,
     ) -> DataSetResult<()> {
-        self.data_set.set_import_info(asset_id, import_info)
+        self.data_set.set_import_info(asset_id, import_info)?;
+        self.track_existing_asset(asset_id)?;
+        Ok(())
     }
 
     pub fn asset_name(

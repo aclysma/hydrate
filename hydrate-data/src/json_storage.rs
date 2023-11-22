@@ -3,12 +3,12 @@ use crate::{
     PathReference, Schema, SchemaFingerprint, SchemaNamedType, SchemaSet, SingleObject, Value,
 };
 use crate::{AssetLocation, AssetName, DataSetResult, ImportableName, OrderedSet};
-use hydrate_base::b3f;
 use serde::{Deserialize, Serialize};
-use std::hash::{Hash, Hasher};
+use std::hash::Hash;
 use std::str::FromStr;
 use std::sync::Arc;
 use uuid::Uuid;
+use hydrate_schema::DataSetError;
 
 fn property_value_to_json(
     value: &Value,
@@ -248,6 +248,11 @@ pub struct AssetImportInfoJson {
     source_file_path: String,
     importable_name: String,
     file_references: Vec<String>,
+
+    // These are all encoded as hex to avoid json/u64 weirdness
+    source_file_modified_timestamp: String,
+    source_file_size: String,
+    import_data_contents_hash: String,
 }
 
 impl AssetImportInfoJson {
@@ -267,13 +272,16 @@ impl AssetImportInfoJson {
                 .iter()
                 .map(|x| x.to_string())
                 .collect(),
+            source_file_modified_timestamp: format!("{:0>16x}", import_info.source_file_modified_timestamp()),
+            source_file_size: format!("{:0>16x}", import_info.source_file_size()),
+            import_data_contents_hash: format!("{:0>16x}", import_info.import_data_contents_hash()),
         }
     }
 
     pub fn to_import_info(
         &self,
         _schema_set: &SchemaSet,
-    ) -> ImportInfo {
+    ) -> DataSetResult<ImportInfo> {
         let mut path_references = Vec::with_capacity(self.file_references.len());
         for reference in &self.file_references {
             path_references.push(reference.into());
@@ -284,7 +292,18 @@ impl AssetImportInfoJson {
             importable_name: ImportableName::new(self.importable_name.clone()),
         };
 
-        ImportInfo::new(ImporterId(self.importer_id), source_file, path_references)
+        let source_file_modified_timestamp = u64::from_str_radix(&self.source_file_modified_timestamp, 16).map_err(|e| (DataSetError::StorageFormatError))?;
+        let source_file_size = u64::from_str_radix(&self.source_file_size, 16).map_err(|e| (DataSetError::StorageFormatError))?;
+        let import_data_contents_hash = u64::from_str_radix(&self.import_data_contents_hash, 16).map_err(|e| (DataSetError::StorageFormatError))?;
+
+        Ok(ImportInfo::new(
+            ImporterId(self.importer_id),
+            source_file,
+            path_references,
+            source_file_modified_timestamp,
+            source_file_size,
+            import_data_contents_hash
+        ))
     }
 }
 
@@ -424,9 +443,12 @@ impl AssetJson {
             &mut buffers,
         );
 
-        let import_info = stored_asset
-            .import_info
-            .map(|x| x.to_import_info(schema_set));
+        let import_info = if let Some(import_info) = stored_asset.import_info {
+            Some(import_info.to_import_info(schema_set)?)
+        } else {
+            None
+        };
+
         let build_info = stored_asset.build_info.to_build_info(schema_set);
 
         restore_asset_impl.restore_asset(
@@ -494,14 +516,11 @@ impl AssetJson {
     }
 }
 
-pub struct SingleObjectWithContentsHash {
-    pub single_object: SingleObject,
-    pub contents_hash: u64,
-}
-
+// You can create this with SingleObjectJson::new and serialize it to disk to save
+// You can deserialize this and read using SingleObjectJson::to_single_object
 #[derive(Debug, Serialize, Deserialize)]
 pub struct SingleObjectJson {
-    contents_hash: u64,
+    //contents_hash: u64,
     schema: Uuid,
     schema_name: String,
     #[serde(serialize_with = "ordered_map_json_value")]
@@ -509,8 +528,9 @@ pub struct SingleObjectJson {
 }
 
 impl SingleObjectJson {
-    fn new(
+    pub fn new(
         object: &SingleObject,
+        // If buffers are provided, the bulk data is stored here instead of inline with the rest of the properties
         buffers: &mut Option<Vec<Arc<Vec<u8>>>>,
     ) -> SingleObjectJson {
         let json_properties = store_json_properties(
@@ -526,16 +546,17 @@ impl SingleObjectJson {
         object.hash(&mut hasher);
 
         SingleObjectJson {
-            contents_hash: hasher.finish().into(),
+            //contents_hash: hasher.finish().into(),
             schema: object.schema().fingerprint().as_uuid(),
             schema_name: object.schema().name().to_string(),
             properties: json_properties,
         }
     }
 
-    fn to_single_object(
+    pub fn to_single_object(
         &self,
         schema_set: &SchemaSet,
+        // If buffers are provided, then we read bulk data from here instead from inline
         buffers: &mut Option<Vec<Arc<Vec<u8>>>>,
     ) -> SingleObject {
         let schema_fingerprint = SchemaFingerprint::from_uuid(self.schema);
@@ -567,98 +588,6 @@ impl SingleObjectJson {
             property_null_overrides,
             dynamic_array_entries,
         )
-    }
-
-    // pub fn try_load_contents_hash_from_string(
-    //     json: &str,
-    // ) -> Option<u64> {
-    //     let value: serde_json::Value = serde_json::from_str(json).unwrap();
-    //     value.as_asset()?.get("contents_hash")?.as_u64()
-    // }
-
-    #[profiling::function]
-    pub fn load_single_object_from_string(
-        schema_set: &SchemaSet,
-        json: &str,
-    ) -> SingleObjectWithContentsHash {
-        let stored_object: SingleObjectJson = {
-            profiling::scope!("serde_json::from_str");
-            serde_json::from_str(json).unwrap()
-        };
-        let contents_hash = stored_object.contents_hash;
-        let mut buffers = None;
-        SingleObjectWithContentsHash {
-            single_object: stored_object.to_single_object(schema_set, &mut buffers),
-            contents_hash,
-        }
-    }
-
-    #[profiling::function]
-    pub fn save_single_object_to_string(object: &SingleObject) -> String {
-        let mut buffers = None;
-        let stored_object = SingleObjectJson::new(object, &mut buffers);
-        profiling::scope!("serde_json::to_string_pretty");
-        serde_json::to_string_pretty(&stored_object).unwrap()
-    }
-
-    #[profiling::function]
-    pub fn load_single_object_from_b3f(
-        schema_set: &SchemaSet,
-        data: &[u8],
-    ) -> SingleObjectWithContentsHash {
-        // First check that the file has the expected headers
-        let b3f = hydrate_base::b3f::B3FReader::new(data).unwrap();
-        assert_eq!(b3f.file_tag_as_u8(), b"HYIF");
-        assert_eq!(b3f.version(), 1);
-
-        // The first block is UTF-8 json
-        let json = std::str::from_utf8(b3f.get_block(0)).unwrap();
-
-        // Append remaining blocks to the buffers list. Put a placeholder buffer in for index 0
-        // as that is where the json was stored
-        let mut buffers = vec![Arc::new(Vec::default())];
-        for i in 1..b3f.block_count() {
-            buffers.push(Arc::new(b3f.get_block(i).to_vec()));
-        }
-
-        // Parse the json to reconstruct the property data
-        let stored_object: SingleObjectJson = {
-            profiling::scope!("serde_json::from_str");
-            serde_json::from_str(json).unwrap()
-        };
-        let contents_hash = stored_object.contents_hash;
-        SingleObjectWithContentsHash {
-            single_object: stored_object.to_single_object(schema_set, &mut Some(buffers)),
-            contents_hash,
-        }
-    }
-
-    #[profiling::function]
-    pub fn save_single_object_to_b3f<W: std::io::Write>(
-        write: W,
-        object: &SingleObject,
-    ) {
-        // Start with a single empty buffer. It will be a placeholder for the actual json data
-        let mut buffers = Some(vec![Arc::new(Vec::default())]);
-        let single_object = SingleObjectJson::new(object, &mut buffers);
-
-        // Encode the object to json
-        let single_object_json = {
-            profiling::scope!("serde_json::to_string_pretty");
-            serde_json::to_string_pretty(&single_object).unwrap()
-        };
-
-        // Store the json in the first buffer
-        let mut buffers = buffers.unwrap();
-        buffers[0] = Arc::new(single_object_json.into_bytes());
-
-        // Write it to a file
-        let mut b3f_writer = b3f::B3FWriter::new_from_u8_tag(*b"HYIF", 1);
-        for buffer in &buffers {
-            b3f_writer.add_block(buffer);
-        }
-
-        b3f_writer.write(write)
     }
 }
 

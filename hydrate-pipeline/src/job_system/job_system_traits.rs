@@ -1,16 +1,18 @@
+use std::cell::RefCell;
 use super::{JobId, JobTypeId};
 use crate::{import_jobs, PipelineResult};
 use crate::{AssetArtifactIdPair, BuiltArtifact, ImportData, ImportJobs};
 use hydrate_base::handle::DummySerdeContextHandle;
 use hydrate_base::hashing::HashMap;
-use hydrate_base::{ArtifactId, AssetId, BuiltArtifactMetadata, Handle};
+use hydrate_base::{ArtifactId, AssetId, BuiltArtifactHeaderData, Handle};
 use hydrate_data::{
-    DataContainerRef, DataSet, DataSetError, DataSetResult, FieldRef, PropertyPath, Record,
+    DataContainerRef, DataSet, DataSetError, FieldRef, PropertyPath, Record,
     SchemaSet, SingleObject,
 };
 use serde::{Deserialize, Serialize};
 use siphasher::sip128::Hasher128;
 use std::hash::Hash;
+use std::rc::Rc;
 use std::sync::Arc;
 use type_uuid::{TypeUuid, TypeUuidDynamic};
 
@@ -21,7 +23,7 @@ pub trait ImportDataProvider {
         &self,
         schema_set: &SchemaSet,
         asset_id: AssetId,
-    ) -> ImportData;
+    ) -> PipelineResult<ImportData>;
 }
 
 impl ImportDataProvider for ImportJobs {
@@ -33,7 +35,7 @@ impl ImportDataProvider for ImportJobs {
         &self,
         schema_set: &SchemaSet,
         asset_id: AssetId,
-    ) -> ImportData {
+    ) -> PipelineResult<ImportData> {
         import_jobs::load_import_data(self.import_data_root_path(), schema_set, asset_id)
     }
 }
@@ -81,6 +83,11 @@ pub trait JobApi: Send + Sync {
         &self,
         artifact: BuiltArtifact,
     );
+
+    fn fetch_import_data(
+        &self,
+        asset_id: AssetId
+    ) -> PipelineResult<ImportData>;
 }
 
 //
@@ -105,12 +112,12 @@ pub struct JobEnumeratedDependencies {
     //
     // Alternatively, jobs that read assets must always copy data out of the data set into a hashable
     // form and pass it as input to a job.
-    pub import_data: Vec<AssetId>,
+    //pub import_data: Vec<AssetId>,
     //pub built_data: Vec<ArtifactId>,
     pub upstream_jobs: Vec<JobId>,
 }
 
-pub trait JobProcessorAbstract: Send + Sync {
+    pub(crate) trait JobProcessorAbstract: Send + Sync {
     fn version_inner(&self) -> u32;
 
     fn enumerate_dependencies_inner(
@@ -125,8 +132,9 @@ pub trait JobProcessorAbstract: Send + Sync {
         input: &Vec<u8>,
         data_set: &DataSet,
         schema_set: &SchemaSet,
-        dependency_data: &HashMap<AssetId, SingleObject>,
         job_api: &dyn JobApi,
+        fetched_asset_data: &mut HashMap<AssetId, FetchedAssetData>,
+        fetched_import_data: &mut HashMap<AssetId, FetchedImportData>,
     ) -> PipelineResult<Arc<Vec<u8>>>;
 }
 
@@ -136,19 +144,36 @@ pub struct EnumerateDependenciesContext<'a, InputT> {
     pub schema_set: &'a SchemaSet,
 }
 
+pub(crate) struct FetchedAssetData {
+    pub(crate) contents_hash: u64
+}
+
+pub(crate) struct FetchedImportDataInfo {
+    contents_hash: u64,
+    metadata_hash: u64,
+}
+
+pub(crate) struct FetchedImportData {
+    pub(crate) info: FetchedImportDataInfo,
+    pub(crate) import_data: Arc<SingleObject>,
+}
+
+
+#[derive(Copy, Clone)]
 pub struct RunContext<'a, InputT> {
     pub input: &'a InputT,
     pub data_set: &'a DataSet,
     pub schema_set: &'a SchemaSet,
-    pub dependency_data: &'a HashMap<AssetId, SingleObject>,
-    pub(super) job_api: &'a dyn JobApi,
+    pub(crate) fetched_asset_data: &'a Rc<RefCell<&'a mut HashMap<AssetId, FetchedAssetData>>>,
+    pub(crate) fetched_import_data: &'a Rc<RefCell<&'a mut HashMap<AssetId, FetchedImportData>>>,
+    pub(crate) job_api: &'a dyn JobApi,
 }
 
 impl<'a, InputT> RunContext<'a, InputT> {
     pub fn asset<T: Record>(
         &'a self,
         asset_id: AssetId,
-    ) -> DataSetResult<T::Reader<'a>> {
+    ) -> PipelineResult<T::Reader<'a>> {
         if self
             .data_set
             .asset_schema(asset_id)
@@ -156,8 +181,13 @@ impl<'a, InputT> RunContext<'a, InputT> {
             .name()
             != T::schema_name()
         {
-            return Err(DataSetError::InvalidSchema);
+            Err(DataSetError::InvalidSchema)?;
         }
+
+        let mut fetched_asset_data = self.fetched_asset_data.borrow_mut();
+        fetched_asset_data.entry(asset_id).or_insert_with(|| FetchedAssetData {
+            contents_hash: self.data_set.hash_properties(asset_id).unwrap()
+        });
 
         Ok(<T as Record>::Reader::new(
             PropertyPath::default(),
@@ -168,18 +198,32 @@ impl<'a, InputT> RunContext<'a, InputT> {
     pub fn imported_data<T: Record>(
         &'a self,
         asset_id: AssetId,
-    ) -> DataSetResult<T::Reader<'a>> {
-        let import_data = self
-            .dependency_data
-            .get(&asset_id)
-            .ok_or(DataSetError::ImportDataNotFound)?;
+    ) -> PipelineResult<T::Reader<'a>> {
+        let mut fetched_import_data = self.fetched_import_data.borrow_mut();
+        let import_data = if let Some(fetched_import_data) = fetched_import_data.get(&asset_id) {
+            fetched_import_data.import_data.clone()
+        } else {
+            let newly_fetched_import_data = self.job_api.fetch_import_data(asset_id)?;
+            let import_data = Arc::new(newly_fetched_import_data.import_data);
+
+            let old = fetched_import_data.insert(asset_id, FetchedImportData {
+                import_data: import_data.clone(),
+                info: FetchedImportDataInfo {
+                    contents_hash: newly_fetched_import_data.contents_hash,
+                    metadata_hash: newly_fetched_import_data.metadata_hash,
+                }
+            });
+            assert!(old.is_none());
+            import_data
+        };
+
         if import_data.schema().name() != T::schema_name() {
-            return Err(DataSetError::InvalidSchema);
+            Err(DataSetError::InvalidSchema)?;
         }
 
-        Ok(<T as Record>::Reader::new(
+        return Ok(<T as Record>::Reader::new(
             PropertyPath::default(),
-            DataContainerRef::from_single_object(import_data, self.schema_set),
+            DataContainerRef::from_single_object_arc(import_data.clone(), self.schema_set),
         ))
     }
 
@@ -240,12 +284,14 @@ pub trait JobProcessor: TypeUuid {
 
     fn enumerate_dependencies(
         &self,
-        context: EnumerateDependenciesContext<Self::InputT>,
-    ) -> PipelineResult<JobEnumeratedDependencies>;
+        _context: EnumerateDependenciesContext<Self::InputT>,
+    ) -> PipelineResult<JobEnumeratedDependencies> {
+        Ok(JobEnumeratedDependencies::default())
+    }
 
-    fn run(
-        &self,
-        context: RunContext<Self::InputT>,
+    fn run<'a>(
+        &'a self,
+        context: &'a RunContext<'a, Self::InputT>,
     ) -> PipelineResult<Self::OutputT>;
 }
 
@@ -276,7 +322,6 @@ fn produce_default_artifact<T: TypeUuid + Serialize>(
     asset_id: AssetId,
     asset: T,
 ) -> PipelineResult<ArtifactId> {
-    //produce_asset_with_handles(job_api, asset_id, || asset);
     produce_artifact_with_handles(job_api, asset_id, None::<u32>, |_handle_factory| Ok(asset))
 }
 
@@ -289,26 +334,6 @@ fn produce_default_artifact_with_handles<
     asset_fn: F,
 ) -> PipelineResult<ArtifactId> {
     produce_artifact_with_handles(job_api, asset_id, None::<u32>, asset_fn)
-    // let mut ctx = DummySerdeContextHandle::default();
-    // ctx.begin_serialize_asset(AssetId(*asset_id.as_uuid().as_bytes()));
-    //
-    // let (built_data, asset_type) = ctx.scope(|| {
-    //     let asset = (asset_fn)();
-    //     let built_data = bincode::serialize(&asset).unwrap();
-    //     (built_data, asset.uuid())
-    // });
-    //
-    // let referenced_assets = ctx.end_serialize_asset(AssetId(*asset_id.as_uuid().as_bytes()));
-    //
-    // job_api.produce_asset(BuiltAsset {
-    //     asset_id,
-    //     metadata: BuiltArtifactMetadata {
-    //         dependencies: referenced_assets.into_iter().map(|x| ArtifactId::from_uuid(Uuid::from_bytes(x.0.0))).collect(),
-    //         subresource_count: 0,
-    //         asset_type: uuid::Uuid::from_bytes(asset_type)
-    //     },
-    //     data: built_data
-    // });
 }
 
 fn produce_artifact<T: TypeUuid + Serialize, U: Hash + std::fmt::Display>(
@@ -359,7 +384,7 @@ fn produce_artifact_with_handles<
     job_api.produce_artifact(BuiltArtifact {
         asset_id,
         artifact_id,
-        metadata: BuiltArtifactMetadata {
+        metadata: BuiltArtifactHeaderData {
             dependencies: referenced_assets
                 .into_iter()
                 .map(|x| ArtifactId::from_uuid(x.0.as_uuid()))

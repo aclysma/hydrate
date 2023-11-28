@@ -10,6 +10,7 @@ mod ui;
 
 mod app_state;
 use app_state::AppState;
+use hydrate_model::EditorModelWithCache;
 
 mod ui_state;
 use crate::app_state::QueuedActions;
@@ -133,9 +134,15 @@ pub fn run(
             //
             winit::event::Event::RedrawRequested(_window_id) => {
                 imgui_manager.begin_frame(&window);
+
+                let mut editor_model_with_cache = EditorModelWithCache {
+                    editor_model: &mut app_state.db_state.editor_model,
+                    asset_path_cache: &app_state.db_state.asset_path_cache,
+                };
+
                 app_state
                     .asset_engine
-                    .update(&mut app_state.db_state.editor_model)
+                    .update(&mut editor_model_with_cache)
                     .unwrap();
                 draw_ui::draw_imgui(&imgui_manager, &mut imnodes_example_editor, &mut app_state);
                 imgui_manager.render(&window);

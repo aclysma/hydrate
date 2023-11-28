@@ -1,4 +1,4 @@
-use crate::{AssetId, AssetLocation, AssetPath, AssetSourceId, DataSet, DataSource, HashMap};
+use crate::{AssetId, AssetLocation, AssetPath, AssetPathCache, AssetSourceId, DataSet, DataSource, EditorModel, HashMap};
 use std::cmp::Ordering;
 use std::collections::BTreeMap;
 
@@ -133,15 +133,17 @@ impl LocationTree {
     }
 
     pub fn build(
-        data_sources: &HashMap<AssetSourceId, Box<dyn DataSource>>,
-        data_set: &DataSet,
-        paths: &HashMap<AssetId, AssetPath>,
+        editor_model: &EditorModel,
+        asset_path_cache: &AssetPathCache
     ) -> Self {
+        let data_sources = editor_model.data_sources();
+        let root_data_set = editor_model.root_edit_context().data_set();
+
         // Create root nodes for all the data sources
         let mut root_nodes: BTreeMap<LocationTreeNodeKey, LocationTreeNode> = Default::default();
-        for (source_id, _data_source) in data_sources {
+        for (source_id, data_source) in data_sources {
             let location = AssetLocation::new(AssetId::from_uuid(*source_id.uuid()));
-            let name = data_set.asset_name(location.path_node_id()).unwrap();
+            let name = root_data_set.asset_name(location.path_node_id()).unwrap();
             root_nodes.insert(
                 LocationTreeNodeKey {
                     location: location.clone(),
@@ -159,9 +161,9 @@ impl LocationTree {
         let mut tree = LocationTree { root_nodes };
 
         // Iterate all known paths and ensure a node exists in the tree for each segment of each path
-        for (tree_node_id, _path) in paths {
+        for (tree_node_id, _path) in asset_path_cache.path_to_id_lookup() {
             // Skip the root component since it is our root node
-            tree.create_node(data_set, *tree_node_id);
+            tree.create_node(root_data_set, *tree_node_id);
         }
 
         tree

@@ -50,7 +50,7 @@ pub fn draw_properties_window_single_select(
         app_state
             .db_state
             .editor_model
-            .asset_display_name_long(location.path_node_id())
+            .asset_display_name_long(location.path_node_id(), &app_state.db_state.asset_path_cache)
     ));
 
     if ui.button(im_str!("Force Rebuild")) {
@@ -70,7 +70,7 @@ pub fn draw_properties_window_single_select(
         let prototype_display_name = app_state
             .db_state
             .editor_model
-            .asset_display_name_long(prototype);
+            .asset_display_name_long(prototype, &app_state.db_state.asset_path_cache);
 
         ui.text(format!("Prototype: {}", prototype_display_name));
     }

@@ -1,10 +1,6 @@
 use crate::edit_context::EditContext;
 use crate::editor::undo::UndoStack;
-use crate::{
-    AssetId, AssetPath, AssetSourceId, DataSet, DataSource, FileSystemIdBasedDataSource,
-    FileSystemPathBasedDataSource, HashMap, HashSet, LocationTree, PathNode, PathNodeRoot,
-    SchemaNamedType, SchemaSet,
-};
+use crate::{AssetId, AssetPath, AssetPathCache, AssetSourceId, DataSet, DataSource, FileSystemIdBasedDataSource, FileSystemPathBasedDataSource, HashMap, HashSet, LocationTree, PathNode, PathNodeRoot, SchemaNamedType, SchemaSet};
 use hydrate_data::{AssetLocation, AssetName, DataSetError, DataSetResult, ImportInfo, SingleObject};
 use hydrate_pipeline::{import_util::ImportToQueue, DynEditorModel, ImporterRegistry};
 use hydrate_schema::{SchemaFingerprint, SchemaRecord};
@@ -20,16 +16,21 @@ pub struct EditorModel {
     //TODO: slot_map?
     data_sources: HashMap<AssetSourceId, Box<dyn DataSource>>,
 
-    path_node_id_to_path: HashMap<AssetId, AssetPath>,
-    location_tree: LocationTree,
+    //asset_path_cache: AssetPathCache,
+    //location_tree: LocationTree,
 
     path_node_schema: SchemaNamedType,
     path_node_root_schema: SchemaNamedType,
 }
 
-impl DynEditorModel for EditorModel {
+pub struct EditorModelWithCache<'a> {
+    pub asset_path_cache: &'a AssetPathCache,
+    pub editor_model: &'a mut EditorModel,
+}
+
+impl<'a> DynEditorModel for EditorModelWithCache<'a> {
     fn schema_set(&self) -> &SchemaSet {
-        &self.schema_set
+        self.editor_model.schema_set()
     }
 
     fn init_from_single_object(
@@ -37,7 +38,7 @@ impl DynEditorModel for EditorModel {
         asset_id: AssetId,
         single_object: &SingleObject,
     ) -> DataSetResult<()> {
-        self.root_edit_context_mut()
+        self.editor_model.root_edit_context_mut()
             .init_from_single_object(asset_id, single_object)
     }
 
@@ -46,30 +47,26 @@ impl DynEditorModel for EditorModel {
         asset_id: AssetId,
         import_info: ImportInfo,
     ) -> DataSetResult<()> {
-        self.root_edit_context_mut()
+        self.editor_model.root_edit_context_mut()
             .set_import_info(asset_id, import_info)
     }
 
-    fn refresh_tree_node_cache(&mut self) {
-        self.refresh_tree_node_cache();
-    }
-
     fn data_set(&self) -> &DataSet {
-        self.root_edit_context().data_set()
+        self.editor_model.root_edit_context().data_set()
     }
 
     fn is_path_node_or_root(
         &self,
         schema_record: &SchemaRecord,
     ) -> bool {
-        self.is_path_node_or_root(schema_record.fingerprint())
+        self.editor_model.is_path_node_or_root(schema_record.fingerprint())
     }
 
     fn asset_display_name_long(
         &self,
         asset_id: AssetId,
     ) -> String {
-        self.asset_display_name_long(asset_id)
+        self.editor_model.asset_display_name_long(asset_id, &self.asset_path_cache)
     }
 }
 
@@ -97,11 +94,23 @@ impl EditorModel {
             root_edit_context_key,
             edit_contexts,
             data_sources: Default::default(),
-            location_tree: Default::default(),
-            path_node_id_to_path: Default::default(),
+            //location_tree: Default::default(),
+            //asset_path_cache: AssetPathCache::empty(),
             path_node_root_schema,
             path_node_schema,
         }
+    }
+
+    pub fn path_node_schema(&self) -> &SchemaNamedType {
+        &self.path_node_schema
+    }
+
+    pub fn path_node_root_schema(&self) -> &SchemaNamedType {
+        &self.path_node_root_schema
+    }
+
+    pub fn data_sources(&self) -> &HashMap<AssetSourceId, Box<dyn DataSource>> {
+        &self.data_sources
     }
 
     pub fn is_path_node_or_root(
@@ -179,36 +188,36 @@ impl EditorModel {
             .unwrap()
     }
 
-    pub fn path_node_id_to_path(
+    pub fn asset_path(
         &self,
         asset_id: AssetId,
-    ) -> Option<&AssetPath> {
-        self.path_node_id_to_path.get(&asset_id)
-    }
-
-    pub fn asset_display_name_long(
-        &self,
-        asset_id: AssetId,
-    ) -> String {
+        asset_path_cache: &AssetPathCache,
+    ) -> AssetPath {
         let root_data_set = &self.root_edit_context().data_set;
         let location = root_data_set.asset_location(asset_id);
 
         // Look up the location, if we don't find it just assume the asset is at the root. This
         // allows some degree of robustness even when data is in a bad state (like cyclical references)
         let path = location
-            .map(|x| self.path_node_id_to_path(x.path_node_id()))
+            .map(|x| asset_path_cache.path_to_id_lookup().get(&x.path_node_id()))
             .flatten()
             .cloned()
             .unwrap_or_else(AssetPath::root);
 
         let name = root_data_set.asset_name(asset_id).unwrap();
         if let Some(name) = name.as_string() {
-            path.join(name).as_str().to_string()
+            path.join(name)
         } else {
             path.join(&format!("{}", asset_id.as_uuid()))
-                .as_str()
-                .to_string()
         }
+    }
+
+    pub fn asset_display_name_long(
+        &self,
+        asset_id: AssetId,
+        asset_path_cache: &AssetPathCache,
+    ) -> String {
+        self.asset_path(asset_id, asset_path_cache).as_str().to_string()
     }
 
     pub fn data_source(
@@ -474,109 +483,19 @@ impl EditorModel {
         self.undo_stack.redo(&mut self.edit_contexts)
     }
 
-    fn do_populate_path(
-        data_set: &DataSet,
-        path_stack: &mut HashSet<AssetId>,
-        paths: &mut HashMap<AssetId, AssetPath>,
-        path_node: AssetId,
-    ) -> AssetPath {
-        if path_node.is_null() {
-            return AssetPath::root();
-        }
-
-        // If we already know the path for the tree node, just return it
-        if let Some(parent_path) = paths.get(&path_node) {
-            return parent_path.clone();
-        }
-
-        // To detect cyclical references, we accumulate visited assets into a set
-        let is_cyclical_reference = !path_stack.insert(path_node);
-        let source_id_and_path = if is_cyclical_reference {
-            // If we detect a cycle, bail and return root path
-            AssetPath::root()
-        } else {
-            if let Some(asset) = data_set.assets().get(&path_node) {
-                if let Some(name) = asset.asset_name().as_string() {
-                    // Parent is found, named, and not a cyclical reference
-                    let parent = Self::do_populate_path(
-                        data_set,
-                        path_stack,
-                        paths,
-                        asset.asset_location().path_node_id(),
-                    );
-                    let path = parent.join(name);
-                    path
-                } else {
-                    // Parent is unnamed, just treat as being at root path
-                    AssetPath::root()
-                }
-            } else {
-                // Can't find parent, just treat as being at root path
-                AssetPath::root()
-            }
-        };
-
-        paths.insert(path_node, source_id_and_path.clone());
-
-        if !is_cyclical_reference {
-            path_stack.remove(&path_node);
-        }
-
-        source_id_and_path
-    }
-
-    fn populate_paths(
-        data_set: &DataSet,
-        path_node_type: &SchemaNamedType,
-        path_node_root_type: &SchemaNamedType,
-    ) -> HashMap<AssetId, AssetPath> {
-        let mut path_stack = HashSet::default();
-        let mut paths = HashMap::<AssetId, AssetPath>::default();
-        for (asset_id, info) in data_set.assets() {
-            // For assets that *are* path nodes, use their ID directly. For assets that aren't
-            // path nodes, use their location asset ID
-            let path_node_id = if info.schema().fingerprint() == path_node_type.fingerprint()
-                || info.schema().fingerprint() == path_node_root_type.fingerprint()
-            {
-                *asset_id
-            } else {
-                // We could process assets so that if for some reason the parent nodes don't exist, we can still
-                // generate path lookups for them. Instead we will consider a parent not being found as
-                // the asset being at the root level. We could also have a "lost and found" UI.
-                //info.asset_location().path_node_id()
-                continue;
-            };
-
-            // We will walk up the location chain and cache the path_node_id/path pairs. (We resolve
-            // the parents recursively going all the way up to the root, and then appending the
-            // current node to it's parent's resolved path.)
-            Self::do_populate_path(data_set, &mut path_stack, &mut paths, path_node_id);
-        }
-
-        paths
-    }
-
-    pub fn refresh_tree_node_cache(&mut self) {
-        // Build lookup of asset ID to paths. This should only include assets of type
-        // PathNode or PathNodeRoot
-        let root_edit_context = self.edit_contexts.get(self.root_edit_context_key).unwrap();
-        let path_node_id_to_path = Self::populate_paths(
-            &root_edit_context.data_set,
-            &self.path_node_schema,
-            &self.path_node_root_schema,
-        );
-
-        self.path_node_id_to_path = path_node_id_to_path;
-
-        // Build a tree structure of all paths
-        self.location_tree = LocationTree::build(
-            &self.data_sources,
-            &root_edit_context.data_set,
-            &self.path_node_id_to_path,
-        );
-    }
-
-    pub fn cached_location_tree(&self) -> &LocationTree {
-        &self.location_tree
-    }
+    // pub fn refresh_tree_node_cache(&mut self) {
+    //     let asset_path_cache = AssetPathCache::new(self);
+    //
+    //     let location_tree = LocationTree::build(
+    //         &self,
+    //         &asset_path_cache
+    //     );
+    //
+    //     self.asset_path_cache = asset_path_cache;
+    //     self.location_tree = location_tree;
+    // }
+    //
+    // pub fn cached_location_tree(&self) -> &LocationTree {
+    //     &self.location_tree
+    // }
 }

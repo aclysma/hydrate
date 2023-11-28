@@ -4,49 +4,50 @@ use demo_plugins::{
 };
 use hydrate::pipeline::AssetEngine;
 use std::path::PathBuf;
-use hydrate::model::EditorModelWithCache;
+use hydrate::model::{AssetPathCache, EditorModelWithCache};
 
 fn schema_def_path() -> PathBuf {
-    PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/data/schema"))
+    PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/../demo-editor/data/schema"))
 }
 
 fn schema_cache_file_path() -> PathBuf {
     PathBuf::from(concat!(
-        env!("CARGO_MANIFEST_DIR"),
-        "/data/schema_cache_file.json"
+    env!("CARGO_MANIFEST_DIR"),
+    "/../demo-editor/data/schema_cache_file.json"
     ))
 }
 
 fn asset_id_based_asset_source_path() -> PathBuf {
-    PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/data/assets_id_based"))
+    PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/../demo-editor/data/assets_id_based"))
 }
 
 fn asset_path_based_data_source_path() -> PathBuf {
     PathBuf::from(concat!(
-        env!("CARGO_MANIFEST_DIR"),
-        "/data/assets_path_based"
+    env!("CARGO_MANIFEST_DIR"),
+    "/../demo-editor/data/assets_path_based"
     ))
 }
 
 pub fn import_data_path() -> PathBuf {
-    PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/data/import_data"))
+    PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/../demo-editor/data/import_data"))
 }
 
 pub fn build_data_path() -> PathBuf {
-    PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/data/build_data"))
+    PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/../demo-editor/data/build_data"))
 }
 
 pub fn job_data_path() -> PathBuf {
-    PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/data/job_data"))
+    PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/../demo-editor/data/job_data"))
 }
 
-fn main() {
+fn main() -> eframe::Result<()> {
     profiling::tracy_client::Client::start();
     profiling::register_thread!("main");
 
     // Setup logging
     env_logger::Builder::default()
         .write_style(env_logger::WriteStyle::Always)
+        .filter_module("wgpu_core", log::LevelFilter::Info)
         .filter_level(log::LevelFilter::Debug)
         .init();
 
@@ -69,7 +70,7 @@ fn main() {
         //TODO: Support N sources using path nodes
         let schema_set = {
             profiling::scope!("Load Schema");
-            hydrate::editor::DbState::load_schema(
+            hydrate::editor2::DbState::load_schema(
                 linker,
                 &[&schema_def_path()],
                 &schema_cache_file_path(),
@@ -80,7 +81,7 @@ fn main() {
             asset_plugin_registration_helper.finish(&schema_set);
 
         let mut imports_to_queue = Vec::default();
-        let mut db_state = hydrate::editor::DbState::load_or_init_empty(
+        let mut db_state = hydrate::editor2::DbState::load(
             &schema_set,
             &importer_registry,
             &asset_id_based_asset_source_path(),
@@ -89,9 +90,10 @@ fn main() {
             &mut imports_to_queue,
         );
 
+        let asset_path_cache = AssetPathCache::build(&db_state.editor_model);
         let mut editor_model_with_cache = EditorModelWithCache {
             editor_model: &mut db_state.editor_model,
-            asset_path_cache: &db_state.asset_path_cache
+            asset_path_cache: &asset_path_cache
         };
 
         let mut asset_engine = {
@@ -128,5 +130,5 @@ fn main() {
         (db_state, asset_engine)
     };
 
-    hydrate::editor::run(db_state, asset_engine);
+    hydrate::editor2::run(db_state, asset_engine)
 }

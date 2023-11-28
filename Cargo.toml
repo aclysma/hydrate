@@ -1,6 +1,7 @@
 [workspace]
 members = [
     "demo-editor",
+    "demo-editor2",
     "demo-game",
     "demo-plugins",
     "demo-types",
@@ -10,6 +11,7 @@ members = [
     "hydrate-pipeline",
     "hydrate-model",
     "hydrate-editor",
+    "hydrate-editor2",
     "hydrate-loader",
     "hydrate-codegen"
     #"distill-core",

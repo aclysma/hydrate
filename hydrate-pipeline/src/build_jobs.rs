@@ -92,7 +92,7 @@ impl BuildJobs {
         combined_build_hash: u64,
     ) -> PipelineResult<()> {
         profiling::scope!("Process Build Operations");
-        editor_model.refresh_tree_node_cache();
+        //editor_model.refresh_tree_node_cache();
 
         let data_set = {
             profiling::scope!("Clone Dataset");

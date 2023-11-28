@@ -100,8 +100,6 @@ pub trait DynEditorModel {
         import_info: ImportInfo,
     ) -> DataSetResult<()>;
 
-    fn refresh_tree_node_cache(&mut self);
-
     fn data_set(&self) -> &DataSet;
 
     fn is_path_node_or_root(

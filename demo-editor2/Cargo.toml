@@ -1,0 +1,23 @@
+[package]
+name = "demo-editor2"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+hydrate = { path = "../hydrate" }
+demo-plugins = { path = "../demo-plugins" }
+
+egui = "0.24.0"
+# wgpu also works fine here
+eframe = { version = "0.24.0", default-features = false, features = ["default_fonts", "wgpu", "persistence"] }
+
+log = "0.4.14"
+env_logger = "0.9.0"
+
+profiling = "1.0"
+serde = { version = "1.0.192", features = ["derive"] }
+
+[features]
+default = ["profiling/profile-with-tracy"]

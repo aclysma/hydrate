@@ -232,8 +232,7 @@ pub fn assets_tree(
     ui: &imgui::Ui,
     app_state: &mut AppState,
 ) {
-    app_state.db_state.editor_model.refresh_tree_node_cache();
-    let tree = app_state.db_state.editor_model.cached_location_tree();
+    let tree = &app_state.db_state.location_tree;
     let action_sender = app_state.action_queue.sender();
     for (child_name, child) in &tree.root_nodes {
         assets_tree_node(
@@ -465,8 +464,9 @@ pub fn draw_asset(
     if ui.is_item_hovered() && !ui.is_mouse_dragging(imgui::MouseButton::Left) {
         let path = app_state
             .db_state
-            .editor_model
-            .path_node_id_to_path(location.path_node_id());
+            .asset_path_cache
+            .path_to_id_lookup()
+            .get(&location.path_node_id());
         ui.tooltip(|| {
             if let Some(path) = path {
                 ui.text(im_str!("Path: {}", path.as_str()));

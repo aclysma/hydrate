@@ -1,14 +1,15 @@
 use std::fmt::Formatter;
 use std::sync::Arc;
 use crossbeam_channel::{Receiver, Sender};
-use hydrate_model::EditorModel;
+use hydrate_model::edit_context::EditContext;
+use hydrate_model::{AssetId, DataSetResult, EditorModel, EndContextBehavior};
 use hydrate_model::pipeline::AssetEngine;
 use crate::modal_action::ModalAction;
 use crate::ui_state::EditorModelUiState;
 
-#[derive(Debug)]
 pub enum UIAction {
     TryBeginModalAction(Box<dyn ModalAction>),
+    EditContext(&'static str, Vec<AssetId>, Box<dyn FnOnce(&mut EditContext) -> DataSetResult<EndContextBehavior>>)
 }
 
 impl UIAction {
@@ -42,6 +43,15 @@ impl UIActionQueueSender {
         action: T,
     ) {
         self.queue_action(UIAction::TryBeginModalAction(Box::new(action)))
+    }
+
+    pub fn queue_edit<F: 'static + FnOnce(&mut EditContext) -> DataSetResult<EndContextBehavior>>(
+        &self,
+        undo_context_name: &'static str,
+        assets: Vec<AssetId>,
+        f: F
+    ) {
+        self.queue_action(UIAction::EditContext(undo_context_name, assets, Box::new(f)))
     }
 }
 
@@ -96,6 +106,11 @@ impl UIActionQueueReceiver {
                     if modal_action.is_none() {
                         *modal_action = Some(modal);
                     }
+                },
+                UIAction::EditContext(undo_context_name, assets_to_edit, f) => {
+                    editor_model.root_edit_context_mut().with_undo_context(&undo_context_name, |x| {
+                        f(x).unwrap()
+                    })
                 }
             }
         }

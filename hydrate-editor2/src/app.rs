@@ -31,7 +31,12 @@ impl HydrateEditorApp {
 
         cc.egui_ctx.style_mut(|style| {
             style.spacing.item_spacing = egui::vec2(8.0, 8.0);
+            // style.text_styles.insert("CustomStyle", egui::FontId {
+            //
+            // })
         });
+
+
 
         HydrateEditorApp {
             db_state,
@@ -95,7 +100,13 @@ impl eframe::App for HydrateEditorApp {
             if !self.asset_gallery_ui_state.selected_assets.is_empty() {
                 for selected in &self.asset_gallery_ui_state.selected_assets {
                     //TODO: Temp hack
-                    crate::ui::components::draw_inspector(ui, &self.editor_model_ui_state, *selected, self.db_state.editor_model.schema_set());
+                    crate::ui::components::draw_inspector(
+                        ui,
+                        &self.db_state.editor_model,
+                        &action_queue_sender,
+                        &self.editor_model_ui_state,
+                        *selected,
+                    );
                     break;
                 }
             }

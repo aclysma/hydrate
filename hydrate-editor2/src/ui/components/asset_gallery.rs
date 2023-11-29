@@ -4,6 +4,7 @@ use egui::epaint::text::FontsImpl;
 use egui::{FontDefinitions, FontId, Layout, SelectableLabel};
 use hydrate_model::{AssetId, HashSet};
 use crate::action_queue::UIActionQueueSender;
+use crate::ui::drag_drop::DragDropPayload;
 use crate::ui::modals::TestModal;
 use crate::ui_state::{AssetInfo, EditorModelUiState};
 
@@ -99,58 +100,57 @@ fn draw_asset_gallery_tile(
     asset_gallery_ui_state: &mut AssetGalleryUiState,
     asset_info: &AssetInfo
 ) {
-    let mut is_on = false;
+    crate::ui::drag_drop::drag_source(ui, egui::Id::new(asset_info.id), DragDropPayload::AssetReference(asset_info.id), |ui| {
+        let mut is_on = false;
 
-    let desired_size = egui::vec2(150.0, 190.0);
-    let thumbnail_size = egui::vec2(150.0, 150.0);
+        let desired_size = egui::vec2(150.0, 190.0);
+        let thumbnail_size = egui::vec2(150.0, 150.0);
 
-    let (rect, mut response) = ui.allocate_exact_size(desired_size, egui::Sense::click_and_drag());
-    // ui.allocate_ui(desired_size, |ui| {
-    //     ui.painter().rect_stroke(thumbnail_size, 3.0, egui::Stroke::new(2.0, egui::Color32::from_gray(50)));
-    //     ui.label("hi");
-    // });
+        let (rect, mut response) = ui.allocate_exact_size(desired_size, egui::Sense::click());
+        // ui.allocate_ui(desired_size, |ui| {
+        //     ui.painter().rect_stroke(thumbnail_size, 3.0, egui::Stroke::new(2.0, egui::Color32::from_gray(50)));
+        //     ui.label("hi");
+        // });
 
-    let mut thumbnail_rect = rect;
-    thumbnail_rect.max.y = thumbnail_rect.max.y.min(thumbnail_rect.min.y + thumbnail_size.y);
-    let mut text_rect = rect;
-    text_rect.min.y = thumbnail_rect.max.y;
+        let mut thumbnail_rect = rect;
+        thumbnail_rect.max.y = thumbnail_rect.max.y.min(thumbnail_rect.min.y + thumbnail_size.y);
+        let mut text_rect = rect;
+        text_rect.min.y = thumbnail_rect.max.y;
 
-    if response.clicked() {
-        println!("CLICK");
-        asset_gallery_ui_state.selected_assets.clear();
-        asset_gallery_ui_state.selected_assets.insert(asset_info.id);
-    }
-
-    if response.drag_released() {
-        println!("DRAG RELEASE");
-    }
-
-    if ui.is_visible() {
-        let how_on = ui.ctx().animate_bool(response.id, is_on);
-        let visuals = ui.style().interact_selectable(&response, is_on);
-        let radius = 3.0;
-
-        if asset_gallery_ui_state.selected_assets.contains(&asset_info.id) {
-            ui.painter().rect_filled(rect, radius, egui::Color32::from_rgb(50, 76, 115));
+        if response.clicked() {
+            asset_gallery_ui_state.selected_assets.clear();
+            asset_gallery_ui_state.selected_assets.insert(asset_info.id);
         }
-        ui.painter()
-            .rect_stroke(thumbnail_rect, radius, egui::Stroke::new(2.0, egui::Color32::from_gray(50)));
 
-        let anchor = egui::Pos2::new((text_rect.min.x + text_rect.max.x) / 2.0, text_rect.min.y);
+        if ui.is_visible() {
+            let how_on = ui.ctx().animate_bool(response.id, is_on);
+            let visuals = ui.style().interact_selectable(&response, is_on);
+            let radius = 3.0;
 
-        let text_color = egui::Color32::from_gray(200);
-        let mut layout_job = egui::epaint::text::LayoutJob::single_section(
-            asset_info.name.as_string().cloned().unwrap_or_else(|| "<UNNAMED>".to_string()),
-            egui::epaint::text::TextFormat::simple(font_id.clone(), text_color)
-        );
-        layout_job.wrap.max_width = text_rect.max.x - text_rect.min.x;
-        layout_job.wrap.max_rows = 1;
-        layout_job.wrap.break_anywhere = false;
-        let galley = egui::epaint::text::layout(fonts_impl, Arc::new(layout_job));
-        let text = galley.rows[0].text();
+            if asset_gallery_ui_state.selected_assets.contains(&asset_info.id) {
+                ui.painter().rect_filled(rect, radius, egui::Color32::from_rgb(50, 76, 115));
+            }
+            ui.painter()
+                .rect_stroke(thumbnail_rect, radius, egui::Stroke::new(2.0, egui::Color32::from_gray(50)));
 
-        ui.painter().text(anchor, egui::Align2::CENTER_TOP, text, font_id.clone(), text_color);
-    } else {
-        println!("not visible");
-    }
+            let anchor = egui::Pos2::new((text_rect.min.x + text_rect.max.x) / 2.0, text_rect.min.y);
+
+            let text_color = egui::Color32::from_gray(200);
+            let mut layout_job = egui::epaint::text::LayoutJob::single_section(
+                asset_info.name.as_string().cloned().unwrap_or_else(|| "<UNNAMED>".to_string()),
+                egui::epaint::text::TextFormat::simple(font_id.clone(), text_color)
+            );
+            layout_job.wrap.max_width = text_rect.max.x - text_rect.min.x;
+            layout_job.wrap.max_rows = 1;
+            layout_job.wrap.break_anywhere = false;
+            let galley = egui::epaint::text::layout(fonts_impl, Arc::new(layout_job));
+            let text = galley.rows[0].text();
+
+            ui.painter().text(anchor, egui::Align2::CENTER_TOP, text, font_id.clone(), text_color);
+        } else {
+            println!("not visible");
+        }
+
+        response
+    });
 }

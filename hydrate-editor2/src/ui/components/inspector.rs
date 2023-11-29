@@ -4,6 +4,7 @@ use egui::{Response, TextStyle, Widget};
 use hydrate_model::{AssetId, EditorModel, EndContextBehavior, HashSet, NullOverride, PropertyPath, Schema, SchemaNamedType, SchemaSet, Value};
 use hydrate_model::value::ValueEnum;
 use crate::action_queue::UIActionQueueSender;
+use crate::ui::drag_drop::DragDropPayload;
 use crate::ui_state::EditorModelUiState;
 
 fn join_field_path(lhs: &str, rhs: &str) -> String {
@@ -281,9 +282,28 @@ fn draw_inspector_property(
                     asset_ref.to_string()
                 };
                 ui.label(ctx.property_name);
-                ui.add_enabled_ui(false, |ui| {
-                    ui.text_edit_singleline(&mut label_string);
-                })
+
+                let can_accept_what_is_being_dragged = true;
+                let response = crate::ui::drag_drop::drop_target(ui, can_accept_what_is_being_dragged, |ui| {
+                    ui.add_enabled_ui(false, |ui| {
+                        ui.text_edit_singleline(&mut label_string);
+                    })
+                }).response;
+
+                if let Some(payload) = crate::ui::drag_drop::try_take_dropped_payload(ui, &response) {
+                    match payload {
+                        DragDropPayload::AssetReference(payload_asset_id) => {
+                            //println!("Dropped {:?} over {:?}", asset_id, ctx.property_path);
+                            let captured_property_path = ctx.property_path.to_string();
+                            let asset_id = ctx.asset_id;
+                            ctx.action_sender.queue_edit("property_editor", vec![ctx.asset_id], move |edit_context| {
+                                edit_context.set_property_override(asset_id, captured_property_path, Some(Value::AssetRef(payload_asset_id))).unwrap();
+                                Ok(EndContextBehavior::Finish)
+                            });
+                        },
+                        _ => unimplemented!()
+                    }
+                }
             });
 
         }

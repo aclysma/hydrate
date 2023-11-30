@@ -21,21 +21,30 @@ fn draw_tree_node(
 
     let mut is_selected = asset_tree_ui_state.selected_tree_node == Some(path_node_asset_id);
 
-    //if tree_node.children.len() > 0 {
-    ui.push_id(tree_node.location.path_node_id(), |ui| {
+    crate::ui::drag_drop::drag_source(ui, egui::Id::new(path_node_asset_id), DragDropPayload::AssetReference(path_node_asset_id), |ui| {
+        //if tree_node.children.len() > 0 {
+        //ui.push_id(tree_node.location.path_node_id(), |ui| {
+
+        //Reject drop if asset is dropped on itself
+        //TODO: Make this also reject if dragged is already a child of this node
+        let can_accept = match crate::ui::drag_drop::peek_payload() {
+            None => false,
+            Some(DragDropPayload::AssetReference(payload_asset_id)) => payload_asset_id != path_node_asset_id
+        };
+
         let response = if tree_node.children.len() > 0 {
             let id = ui.make_persistent_id(tree_node.location.path_node_id());
             let (toggle_button_response, header_response, body_response) =
                 egui::collapsing_header::CollapsingState::load_with_default_open(ui.ctx(), id, false)
-                .show_header(ui, |ui| {
-                    ui.push_id("collapsing header inner", |ui| {
-                        ui.toggle_value(&mut is_selected, &name)//.context_menu(|ui| {ui.label("test2");})
-                    }).inner
-                }).body(|ui| {
-                for (key, child_tree_node) in &tree_node.children {
-                    draw_tree_node(ui, editor_model, action_sender, asset_tree_ui_state, child_tree_node);
-                }
-            });
+                    .show_header(ui, |ui| {
+                        crate::ui::drag_drop::drop_target(ui, can_accept, |ui| {
+                            ui.toggle_value(&mut is_selected, &name)
+                        }).inner
+                    }).body(|ui| {
+                    for (key, child_tree_node) in &tree_node.children {
+                        draw_tree_node(ui, editor_model, action_sender, asset_tree_ui_state, child_tree_node);
+                    }
+                });
 
             header_response.inner
         } else {
@@ -46,8 +55,9 @@ fn draw_tree_node(
                 ui.allocate_space(egui::vec2(ui.spacing().indent, ui.spacing().icon_width));
                 ui.spacing_mut().item_spacing = prev_item_spacing;
 
-                let response = ui.selectable_label(is_selected, &name);
-                response
+                crate::ui::drag_drop::drop_target(ui, can_accept, |ui| {
+                    ui.selectable_label(is_selected, &name)
+                }).inner
             }).inner
         };
 
@@ -55,13 +65,15 @@ fn draw_tree_node(
             asset_tree_ui_state.selected_tree_node = Some(path_node_asset_id);
         }
 
-        // crate::ui::drag_drop::drag_source(ui, path_node_asset_id, DragDropPayload::AssetReference(path_node_asset_id), |ui| {
-        //
-        // })
-
         response.context_menu(|ui| {
             ui.label("hi");
-        });
+            if ui.button("test").clicked() {
+                ui.close_menu();
+            }
+        })
+
+
+        //});
     });
 }
 
@@ -73,16 +85,18 @@ pub fn draw_asset_tree(
     asset_tree_ui_state: &mut AssetTreeUiState,
 ) {
     ui.label("ASSET TREE");
+    ui.push_id("asset tree", |ui| {
+        ui.style_mut().visuals.indent_has_left_vline = false;
 
-    ui.style_mut().visuals.indent_has_left_vline = false;
+        for (_, tree_node) in &editor_model_ui_state.location_tree.root_nodes {
+            draw_tree_node(
+                ui,
+                editor_model,
+                action_sender,
+                asset_tree_ui_state,
+                tree_node
+            );
+        }
+    });
 
-    for (_, tree_node) in &editor_model_ui_state.location_tree.root_nodes {
-        draw_tree_node(
-            ui,
-            editor_model,
-            action_sender,
-            asset_tree_ui_state,
-            tree_node
-        );
-    }
 }

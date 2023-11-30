@@ -80,10 +80,13 @@ pub fn drag_source(ui: &mut Ui, id: Id, payload: DragDropPayload, body: impl FnO
             // A bit of a hack, but moving what we draw to be offset to the right from the cursor avoids the
             // cursor from hovering the drag source area rather than the intended drop target
             pointer_pos.x += 10.0;
-            egui::Area::new("dragged_source").movable(false).fixed_pos(pointer_pos).show(ui.ctx(), |ui| {
-                //ui.label("dragged")
-                render_payload(ui, &payload);
-                //body(ui);
+            ui.push_id("drag payload", |ui| {
+                egui::Area::new("dragged_source").movable(false).fixed_pos(pointer_pos).show(ui.ctx(), |ui| {
+                    //ui.label("dragged")
+                        render_payload(ui, &payload);
+
+                    //body(ui);
+                });
             });
         }
 
@@ -108,7 +111,7 @@ pub fn drop_target<R>(
 ) -> InnerResponse<R> {
     let is_being_dragged = ui.memory(|mem| mem.is_anything_being_dragged());
 
-    let margin = Vec2::splat(4.0);
+    let margin = Vec2::splat(0.0);
 
     let outer_rect_bounds = ui.available_rect_before_wrap();
     let inner_rect = outer_rect_bounds.shrink2(margin);
@@ -124,17 +127,26 @@ pub fn drop_target<R>(
         ui.visuals().widgets.inactive
     };
 
-    let mut fill = style.bg_fill;
-    let mut stroke = style.bg_stroke;
-    if is_being_dragged && !can_accept_what_is_being_dragged {
-        fill = ui.visuals().gray_out(fill);
-        stroke.color = ui.visuals().gray_out(stroke.color);
+    if is_being_dragged {
+        let mut fill = Some(style.bg_fill);
+        let mut stroke = style.bg_stroke;
+        if !can_accept_what_is_being_dragged {
+            //fill = ui.visuals().gray_out(fill);
+            fill = None;
+            stroke.color = ui.visuals().gray_out(stroke.color);
+        }
+
+        ui.painter().set(
+            where_to_put_background,
+            if let Some(fill) = fill {
+                epaint::RectShape::new(rect, style.rounding, fill, stroke)
+            } else {
+                epaint::RectShape::stroke(rect, style.rounding, stroke)
+            }
+        );
     }
 
-    ui.painter().set(
-        where_to_put_background,
-        epaint::RectShape::new(rect, style.rounding, fill, stroke),
-    );
+
 
     InnerResponse::new(ret, response)
 }

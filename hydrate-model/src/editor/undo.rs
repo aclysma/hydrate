@@ -67,18 +67,23 @@ impl UndoStack {
         &mut self,
         edit_contexts: &mut DenseSlotMap<EditContextKey, EditContext>,
     ) -> DataSetResult<()> {
-        // If we have any incoming steps, consume them now
+        //Commit any undo context that might be open
+        for (_, edit_context) in edit_contexts.iter_mut() {
+            edit_context.commit_pending_undo_context();
+        }
+
+        // Flush any pending incoming steps
         self.drain_rx();
 
+        // Now undo one step, if there is a step to undo
         // if we undo the first step in the chain (i.e. our undo index is currently 1), we want to
         // use the revert diff in the 0th index of the chain
         if self.current_undo_index > 0 {
-            if let Some(current_step) = self.undo_chain.get(self.current_undo_index) {
+            if let Some(current_step) = self.undo_chain.get(self.current_undo_index - 1) {
                 let edit_context = edit_contexts
                     .get_mut(current_step.edit_context_key)
                     .unwrap();
-                // We don't want anything being written to the undo context at this point, since we're using it
-                edit_context.cancel_pending_undo_context()?;
+
                 let result = edit_context.apply_diff(
                     &current_step.diff_set.revert_diff,
                     &current_step.diff_set.modified_assets,

@@ -72,7 +72,7 @@ impl AssetDiff {
             asset.property_null_overrides.insert(k.clone(), *v);
         }
 
-        for k in &self.remove_properties {
+        for k in &self.remove_null_overrides {
             asset.property_null_overrides.remove(k);
         }
 

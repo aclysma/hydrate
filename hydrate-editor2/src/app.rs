@@ -1,5 +1,6 @@
 use egui::{FontDefinitions, Frame};
 use egui::epaint::text::FontsImpl;
+use egui::scroll_area::ScrollBarVisibility;
 use hydrate_model::{AssetId, HashSet};
 use hydrate_model::pipeline::AssetEngine;
 use crate::action_queue::UIActionQueueReceiver;
@@ -36,8 +37,6 @@ impl HydrateEditorApp {
             // })
         });
 
-
-
         HydrateEditorApp {
             db_state,
             asset_engine,
@@ -65,6 +64,18 @@ impl eframe::App for HydrateEditorApp {
         // Generate some profiling info
         profiling::scope!("Main Thread");
 
+
+        ctx.input(|input| {
+            //println!("hovered files {:?}", input.raw.hovered_files);
+            if !input.raw.dropped_files.is_empty() {
+                println!("dropped files {:?}", input.raw.dropped_files);
+            }
+
+        });
+        // ctx.input(|input| {
+        //     input.filtered_events()
+        // })
+
         let action_queue_sender = self.action_queue.sender();
 
         self.editor_model_ui_state.update(&self.db_state.editor_model);
@@ -89,34 +100,41 @@ impl eframe::App for HydrateEditorApp {
             ui.set_enabled(self.modal_action.is_none());
 
             // The top panel is often a good place for a menu bar:
-            crate::ui::components::draw_main_menu_bar(ctx, ui);
+            crate::ui::components::draw_main_menu_bar(ctx, ui, &action_queue_sender);
 
         });
 
         egui::SidePanel::right("right_panel").resizable(true).show(ctx, |ui| {
             ui.set_enabled(self.modal_action.is_none());
-            ui.separator();
-            ui.label("detail panel");
-            if !self.asset_gallery_ui_state.selected_assets.is_empty() {
-                for selected in &self.asset_gallery_ui_state.selected_assets {
-                    //TODO: Temp hack
-                    crate::ui::components::draw_inspector(
-                        ui,
-                        &self.db_state.editor_model,
-                        &action_queue_sender,
-                        &self.editor_model_ui_state,
-                        *selected,
-                    );
-                    break;
+
+            egui::ScrollArea::vertical()
+                .max_width(f32::INFINITY)
+                .auto_shrink([false, false])
+                .show(ui, |ui| {
+                if !self.asset_gallery_ui_state.selected_assets.is_empty() {
+                    for selected in &self.asset_gallery_ui_state.selected_assets {
+                        //TODO: Temp hack
+                        crate::ui::components::draw_inspector(
+                            ui,
+                            &self.db_state.editor_model,
+                            &action_queue_sender,
+                            &self.editor_model_ui_state,
+                            *selected,
+                        );
+                        break;
+                    }
                 }
-            }
+            });
 
         });
 
         egui::SidePanel::left("left_panel").resizable(true).show(ctx, |ui| {
-            ui.set_enabled(self.modal_action.is_none());
-            ui.separator();
-            ui.label("Asset tree");
+            egui::ScrollArea::vertical()
+                .max_width(f32::INFINITY)
+                .auto_shrink([false, false])
+                .show(ui, |ui| {
+
+            });
         });
 
         //let mut frame = Frame::central_panel(&*ctx.style());
@@ -133,7 +151,7 @@ impl eframe::App for HydrateEditorApp {
             );
         });
 
-        self.action_queue.process(&mut self.db_state.editor_model, &mut self.asset_engine, &self.editor_model_ui_state, &mut self.modal_action);
+        self.action_queue.process(&mut self.db_state.editor_model, &mut self.asset_engine, &mut self.editor_model_ui_state, &mut self.modal_action, ctx);
 
         // Finish the frame.
         profiling::finish_frame!();

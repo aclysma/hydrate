@@ -3,7 +3,7 @@ use eframe::epaint::Color32;
 use egui::{Response, TextStyle, Widget};
 use hydrate_model::{AssetId, EditorModel, EndContextBehavior, HashSet, NullOverride, PropertyPath, Schema, SchemaNamedType, SchemaSet, Value};
 use hydrate_model::value::ValueEnum;
-use crate::action_queue::UIActionQueueSender;
+use crate::action_queue::{UIAction, UIActionQueueSender};
 use crate::ui::drag_drop::DragDropPayload;
 use crate::ui_state::EditorModelUiState;
 
@@ -27,7 +27,7 @@ struct InspectorContext<'a> {
     read_only: bool,
 }
 
-fn simple_value_property<F: FnOnce(&mut egui::Ui, InspectorContext) -> (Option<Value>, egui::Response)>(
+fn simple_value_property<F: FnOnce(&mut egui::Ui, InspectorContext) -> Option<(Value, EndContextBehavior)>> (
     ui: &mut egui::Ui,
     ctx: InspectorContext,
     f: F
@@ -43,7 +43,7 @@ fn simple_value_property<F: FnOnce(&mut egui::Ui, InspectorContext) -> (Option<V
         }
         egui::Label::new(ctx.property_name).ui(ui);
 
-        let (new_value, response) = f(ui, InspectorContext {
+        if let Some((new_value, end_context_behavior)) = f(ui, InspectorContext {
             editor_model: ctx.editor_model,
             action_sender: ctx.action_sender,
             asset_id: ctx.asset_id,
@@ -51,8 +51,15 @@ fn simple_value_property<F: FnOnce(&mut egui::Ui, InspectorContext) -> (Option<V
             property_name: ctx.property_name,
             schema: ctx.schema,
             read_only: ctx.read_only,
-        });
+        }) {
+            let property_path_moved = ctx.property_path.to_string();
+            ctx.action_sender.queue_edit("property_editor", assets_to_edit, move |edit_context| {
+                edit_context.set_property_override(ctx.asset_id, property_path_moved, Some(new_value)).unwrap();
+                Ok(end_context_behavior)
+            });
+        }
 
+        /*
         let committed = response.lost_focus() || response.drag_released();
         if response.changed() || committed {
             let end_context_behavior = if committed {
@@ -69,7 +76,34 @@ fn simple_value_property<F: FnOnce(&mut egui::Ui, InspectorContext) -> (Option<V
                 Ok(end_context_behavior)
             });
         }
+
+         */
     });
+}
+
+fn end_context_behavior_for_drag_value(response: &egui::Response, new_value: Value) -> Option<(Value, EndContextBehavior)> {
+    let behavior = if response.lost_focus() || response.drag_released() {
+        EndContextBehavior::Finish
+    } else {
+        EndContextBehavior::AllowResume
+    };
+
+    Some((new_value, behavior))
+}
+
+fn end_context_behavior_for_text_field(response: &egui::Response, new_value: Value) -> Option<(Value, EndContextBehavior)> {
+    let behavior = if response.lost_focus() || response.drag_released() {
+        EndContextBehavior::Finish
+    } else {
+        EndContextBehavior::AllowResume
+    };
+
+    Some((new_value, behavior))
+}
+
+fn end_context_behavior_for_checkbox(response: &egui::Response, new_value: Value) -> Option<(Value, EndContextBehavior)> {
+    let behavior = EndContextBehavior::Finish;
+    Some((new_value, behavior))
 }
 
 fn draw_inspector_property(
@@ -127,8 +161,11 @@ fn draw_inspector_property(
                 |ui, ctx| {
                     let mut value = ctx.editor_model.root_edit_context().resolve_property(ctx.asset_id, ctx.property_path).unwrap().as_boolean().unwrap();
                     let response = egui::Checkbox::new(&mut value, "").ui(ui);
-                    let new_value = Some(Value::Boolean(value));
-                    (new_value, response)
+                    if response.changed() {
+                        end_context_behavior_for_checkbox(&response, Value::Boolean(value))
+                    } else {
+                        None
+                    }
                 }
             )
         },
@@ -139,8 +176,11 @@ fn draw_inspector_property(
                 |ui, ctx| {
                     let mut value = ctx.editor_model.root_edit_context().resolve_property(ctx.asset_id, ctx.property_path).unwrap().as_i32().unwrap();
                     let response = egui::DragValue::new(&mut value).ui(ui);
-                    let new_value = Some(Value::I32(value));
-                    (new_value, response)
+                    if response.changed() {
+                        end_context_behavior_for_drag_value(&response, Value::I32(value))
+                    } else {
+                        None
+                    }
                 }
             )
         },
@@ -151,8 +191,11 @@ fn draw_inspector_property(
                 |ui, ctx| {
                     let mut value = ctx.editor_model.root_edit_context().resolve_property(ctx.asset_id, ctx.property_path).unwrap().as_i64().unwrap();
                     let response = egui::DragValue::new(&mut value).ui(ui);
-                    let new_value = Some(Value::I64(value));
-                    (new_value, response)
+                    if response.changed() {
+                        end_context_behavior_for_drag_value(&response, Value::I64(value))
+                    } else {
+                        None
+                    }
                 }
             )
         },
@@ -163,8 +206,11 @@ fn draw_inspector_property(
                 |ui, ctx| {
                     let mut value = ctx.editor_model.root_edit_context().resolve_property(ctx.asset_id, ctx.property_path).unwrap().as_u32().unwrap();
                     let response = egui::DragValue::new(&mut value).ui(ui);
-                    let new_value = Some(Value::U32(value));
-                    (new_value, response)
+                    if response.changed() {
+                        end_context_behavior_for_drag_value(&response, Value::U32(value))
+                    } else {
+                        None
+                    }
                 }
             )
         },
@@ -175,8 +221,11 @@ fn draw_inspector_property(
                 |ui, ctx| {
                     let mut value = ctx.editor_model.root_edit_context().resolve_property(ctx.asset_id, ctx.property_path).unwrap().as_u64().unwrap();
                     let response = egui::DragValue::new(&mut value).ui(ui);
-                    let new_value = Some(Value::U64(value));
-                    (new_value, response)
+                    if response.changed() {
+                        end_context_behavior_for_drag_value(&response, Value::U64(value))
+                    } else {
+                        None
+                    }
                 }
             )
         },
@@ -187,8 +236,11 @@ fn draw_inspector_property(
                 |ui, ctx| {
                     let mut value = ctx.editor_model.root_edit_context().resolve_property(ctx.asset_id, ctx.property_path).unwrap().as_f32().unwrap();
                     let response = egui::DragValue::new(&mut value).ui(ui);
-                    let new_value = Some(Value::F32(value));
-                    (new_value, response)
+                    if response.changed() {
+                        end_context_behavior_for_drag_value(&response, Value::F32(value))
+                    } else {
+                        None
+                    }
                 }
             )
         },
@@ -199,8 +251,11 @@ fn draw_inspector_property(
                 |ui, ctx| {
                     let mut value = ctx.editor_model.root_edit_context().resolve_property(ctx.asset_id, ctx.property_path).unwrap().as_f64().unwrap();
                     let response = egui::DragValue::new(&mut value).ui(ui);
-                    let new_value = Some(Value::F64(value));
-                    (new_value, response)
+                    if response.changed() {
+                        end_context_behavior_for_drag_value(&response, Value::F64(value))
+                    } else {
+                        None
+                    }
                 }
             )
         },
@@ -214,8 +269,11 @@ fn draw_inspector_property(
                 |ui, ctx| {
                     let mut value = ctx.editor_model.root_edit_context().resolve_property(ctx.asset_id, ctx.property_path).unwrap().as_string().unwrap().to_string();
                     let response = egui::TextEdit::singleline(&mut value).ui(ui);
-                    let new_value = Some(Value::String(Arc::new(value)));
-                    (new_value, response)
+                    if response.changed() {
+                        end_context_behavior_for_text_field(&response, Value::String(Arc::new(value)))
+                    } else {
+                        None
+                    }
                 }
             )
         }
@@ -372,6 +430,71 @@ pub fn draw_inspector(
     editor_model_ui_state: &EditorModelUiState,
     asset_id: AssetId,
 ) {
+    ui.label(format!("ID: {:?}", asset_id));
+
+    let edit_context = editor_model.root_edit_context();
+
+    let name = edit_context.asset_name(asset_id);
+    let location = edit_context.asset_location(asset_id).unwrap();
+
+    ui.label(format!(
+        "Name: {}",
+        name.unwrap().as_string().cloned().unwrap_or_default()
+    ));
+    let import_info = edit_context.import_info(asset_id);
+    if let Some(import_info) = import_info {
+        ui.label(format!(
+            "Imported From: {}",
+            import_info.source_file_path().to_string_lossy()
+        ));
+        ui.label(format!(
+            "Importable Name: {:?}",
+            import_info.importable_name().name()
+        ));
+    }
+
+    let is_generated = editor_model.is_generated_asset(asset_id);
+    if is_generated {
+        ui.label(format!("This asset is generated from a source file and can't be modified unless it is persisted to disk. A new asset file will be created and source file changes will no longer affect it."));
+    }
+
+    if is_generated {
+        if ui.button("Persist Asset").clicked() {
+            action_sender.queue_action(UIAction::PersistAssets(vec![asset_id]));
+        }
+    }
+
+    ui.label(format!(
+        "Path Node: {}",
+        editor_model
+            .asset_display_name_long(location.path_node_id(), &editor_model_ui_state.path_lookup)
+    ));
+
+    if ui.button("Force Rebuild").clicked() {
+        //app_state.asset_engine.queue_build_operation(asset_id);
+        action_sender.queue_action(UIAction::ForceRebuild(vec![asset_id]));
+
+    }
+
+    if let Some(prototype) = edit_context.asset_prototype(asset_id) {
+        ui.horizontal(|ui| {
+            if ui.button(">>").clicked() {
+                // let grid_state = &mut app_state.ui_state.asset_browser_state.grid_state;
+                // grid_state.first_selected = Some(prototype);
+                // grid_state.last_selected = Some(prototype);
+                // grid_state.selected_items.clear();
+                // grid_state.selected_items.insert(prototype);
+                action_sender.queue_action(UIAction::GoToAsset(asset_id));
+            }
+
+            let prototype_display_name = editor_model
+                .asset_display_name_long(prototype, &editor_model_ui_state.path_lookup);
+
+            ui.label(format!("Prototype: {}", prototype_display_name));
+        });
+    }
+
+    let read_only = is_generated;
     draw_inspector_property(
         ui,
         InspectorContext {
@@ -381,7 +504,7 @@ pub fn draw_inspector(
             property_name: "",
             property_path: "",
             schema: &Schema::NamedType(editor_model_ui_state.all_asset_info.get(&asset_id).unwrap().schema.fingerprint()),
-            read_only: false,
+            read_only,
         }
     )
 }

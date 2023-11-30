@@ -80,13 +80,10 @@ pub fn drag_source(ui: &mut Ui, id: Id, payload: DragDropPayload, body: impl FnO
             // A bit of a hack, but moving what we draw to be offset to the right from the cursor avoids the
             // cursor from hovering the drag source area rather than the intended drop target
             pointer_pos.x += 10.0;
-            ui.push_id("drag payload", |ui| {
-                egui::Area::new("dragged_source").movable(false).fixed_pos(pointer_pos).show(ui.ctx(), |ui| {
-                    //ui.label("dragged")
-                        render_payload(ui, &payload);
-
-                    //body(ui);
-                });
+            egui::Area::new("dragged_source").movable(false).fixed_pos(pointer_pos).show(ui.ctx(), |ui| {
+                //ui.label("dragged")
+                render_payload(ui, &payload);
+                //body(ui);
             });
         }
 

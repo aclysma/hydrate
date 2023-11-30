@@ -1,8 +1,10 @@
 use crate::action_queue::{UIAction, UIActionQueueSender};
+use crate::egui_debug_ui::EguiDebugUiState;
 
 pub fn draw_main_menu_bar(
     ctx: &egui::Context,
     ui: &mut egui::Ui,
+    egui_debug_ui_state: &mut EguiDebugUiState,
     action_sender: &UIActionQueueSender,
 ) {
     egui::menu::bar(ui, |ui| {
@@ -28,6 +30,24 @@ pub fn draw_main_menu_bar(
             }
             if ui.button("Redo").clicked() {
                 action_sender.queue_action(UIAction::Redo);
+                ui.close_menu();
+            }
+        });
+
+        ui.menu_button("Egui Debug", |ui| {
+            if ui.checkbox(&mut egui_debug_ui_state.show_settings_ui, "Settings UI").changed() {
+                ui.close_menu();
+            }
+            if ui.checkbox(&mut egui_debug_ui_state.show_memory_ui, "Memory UI").changed() {
+                ui.close_menu();
+            }
+            if ui.checkbox(&mut egui_debug_ui_state.show_style_ui, "Style UI").changed() {
+                ui.close_menu();
+            }
+            if ui.checkbox(&mut egui_debug_ui_state.show_inspection_ui, "Inspection UI").changed() {
+                ui.close_menu();
+            }
+            if ui.checkbox(&mut egui_debug_ui_state.show_texture_ui, "Texture UI").changed() {
                 ui.close_menu();
             }
         });

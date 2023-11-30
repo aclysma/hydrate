@@ -32,9 +32,9 @@ impl Ord for LocationTreeNodeKey {
         &self,
         other: &Self,
     ) -> Ordering {
-        match self.location.cmp(&other.location) {
+        match self.name.cmp(&other.name) {
             Ordering::Less => Ordering::Less,
-            Ordering::Equal => self.name.cmp(&other.name),
+            Ordering::Equal => self.location.cmp(&other.location),
             Ordering::Greater => Ordering::Greater,
         }
     }

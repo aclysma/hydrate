@@ -5,18 +5,28 @@ use hydrate_model::{AssetId, HashSet};
 use hydrate_model::pipeline::AssetEngine;
 use crate::action_queue::UIActionQueueReceiver;
 use crate::db_state::DbState;
+use crate::egui_debug_ui::EguiDebugUiState;
 use crate::modal_action::{ModalAction, ModalActionControlFlow};
 use crate::ui_state::EditorModelUiState;
 use crate::persistent_app_state::PersistentAppState;
-use crate::ui::components::AssetGalleryUiState;
+use crate::ui::components::{AssetGalleryUiState, AssetTreeUiState, InspectorUiState};
+
+#[derive(Default)]
+pub struct UiState {
+    asset_tree_ui_state: AssetTreeUiState,
+    asset_gallery_ui_state: AssetGalleryUiState,
+    inspector_ui_state: InspectorUiState,
+    editor_model_ui_state: EditorModelUiState,
+    egui_debug_ui_state: EguiDebugUiState,
+}
+
 
 /// We derive Deserialize/Serialize so we can persist app state on shutdown.
 pub struct HydrateEditorApp {
     db_state: DbState,
     asset_engine: AssetEngine,
     persistent_state: PersistentAppState,
-    asset_gallery_ui_state: AssetGalleryUiState,
-    editor_model_ui_state: EditorModelUiState,
+    ui_state: UiState,
     action_queue: UIActionQueueReceiver,
     modal_action: Option<Box<dyn ModalAction>>,
 }
@@ -41,8 +51,7 @@ impl HydrateEditorApp {
             db_state,
             asset_engine,
             persistent_state,
-            asset_gallery_ui_state: Default::default(),
-            editor_model_ui_state: EditorModelUiState::default(),
+            ui_state: Default::default(),
             action_queue: UIActionQueueReceiver::default(),
             modal_action: None,
         }
@@ -66,22 +75,17 @@ impl eframe::App for HydrateEditorApp {
 
 
         ctx.input(|input| {
-            //println!("hovered files {:?}", input.raw.hovered_files);
             if !input.raw.dropped_files.is_empty() {
                 println!("dropped files {:?}", input.raw.dropped_files);
             }
-
         });
-        // ctx.input(|input| {
-        //     input.filtered_events()
-        // })
 
         let action_queue_sender = self.action_queue.sender();
 
-        self.editor_model_ui_state.update(&self.db_state.editor_model);
+        self.ui_state.editor_model_ui_state.update(&self.db_state.editor_model);
 
         let clear_modal_action = if let Some(modal_action) = &mut self.modal_action {
-            let control_flow = modal_action.draw(ctx, &self.editor_model_ui_state, &mut self.asset_engine, &action_queue_sender);
+            let control_flow = modal_action.draw(ctx, &self.ui_state.editor_model_ui_state, &mut self.asset_engine, &action_queue_sender);
             match control_flow {
                 ModalActionControlFlow::Continue => false,
                 ModalActionControlFlow::End => true,
@@ -100,7 +104,7 @@ impl eframe::App for HydrateEditorApp {
             ui.set_enabled(self.modal_action.is_none());
 
             // The top panel is often a good place for a menu bar:
-            crate::ui::components::draw_main_menu_bar(ctx, ui, &action_queue_sender);
+            crate::ui::components::draw_main_menu_bar(ctx, ui, &mut self.ui_state.egui_debug_ui_state, &action_queue_sender);
 
         });
 
@@ -111,14 +115,14 @@ impl eframe::App for HydrateEditorApp {
                 .max_width(f32::INFINITY)
                 .auto_shrink([false, false])
                 .show(ui, |ui| {
-                if !self.asset_gallery_ui_state.selected_assets.is_empty() {
-                    for selected in &self.asset_gallery_ui_state.selected_assets {
+                if !self.ui_state.asset_gallery_ui_state.selected_assets.is_empty() {
+                    for selected in &self.ui_state.asset_gallery_ui_state.selected_assets {
                         //TODO: Temp hack
                         crate::ui::components::draw_inspector(
                             ui,
                             &self.db_state.editor_model,
                             &action_queue_sender,
-                            &self.editor_model_ui_state,
+                            &self.ui_state.editor_model_ui_state,
                             *selected,
                         );
                         break;
@@ -133,7 +137,13 @@ impl eframe::App for HydrateEditorApp {
                 .max_width(f32::INFINITY)
                 .auto_shrink([false, false])
                 .show(ui, |ui| {
-
+                crate::ui::components::draw_asset_tree(
+                    ui,
+                    &self.db_state.editor_model,
+                    &action_queue_sender,
+                    &self.ui_state.editor_model_ui_state,
+                    &mut self.ui_state.asset_tree_ui_state,
+                );
             });
         });
 
@@ -145,13 +155,15 @@ impl eframe::App for HydrateEditorApp {
                 ui,
                 &mut fonts,
                 &default_font,
-                &self.editor_model_ui_state,
-                &mut self.asset_gallery_ui_state,
+                &self.ui_state.editor_model_ui_state,
+                &mut self.ui_state.asset_gallery_ui_state,
                 &action_queue_sender
             );
         });
 
-        self.action_queue.process(&mut self.db_state.editor_model, &mut self.asset_engine, &mut self.editor_model_ui_state, &mut self.modal_action, ctx);
+        self.action_queue.process(&mut self.db_state.editor_model, &mut self.asset_engine, &mut self.ui_state.editor_model_ui_state, &mut self.modal_action, ctx);
+
+        super::egui_debug_ui::show_egui_debug_ui(ctx, &mut self.ui_state.egui_debug_ui_state);
 
         // Finish the frame.
         profiling::finish_frame!();

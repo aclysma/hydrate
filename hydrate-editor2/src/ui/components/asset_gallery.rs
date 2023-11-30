@@ -2,8 +2,8 @@
 use std::sync::Arc;
 use egui::epaint::text::FontsImpl;
 use egui::{FontDefinitions, FontId, Layout, SelectableLabel};
-use hydrate_model::{AssetId, HashSet};
-use crate::action_queue::UIActionQueueSender;
+use hydrate_model::{AssetId, EndContextBehavior, HashSet};
+use crate::action_queue::{UIAction, UIActionQueueSender};
 use crate::ui::drag_drop::DragDropPayload;
 use crate::ui::modals::TestModal;
 use crate::ui_state::{AssetInfo, EditorModelUiState};
@@ -75,7 +75,7 @@ pub fn draw_asset_gallery(
         .max_width(f32::INFINITY)
         .auto_shrink([false, false])
         .show(ui, |ui| {
-            draw_asset_gallery_tile_grid(ui, fonts_impl, font_id, ui_state, asset_gallery_ui_state);
+            draw_asset_gallery_tile_grid(ui, fonts_impl, font_id, ui_state, asset_gallery_ui_state, action_queue);
         });
 }
 
@@ -85,10 +85,11 @@ fn draw_asset_gallery_tile_grid(
     font_id: &FontId,
     ui_state: &EditorModelUiState,
     asset_gallery_ui_state: &mut AssetGalleryUiState,
+    action_queue: &UIActionQueueSender,
 ) {
     ui.with_layout(Layout::left_to_right(egui::Align::TOP).with_main_wrap(true), |ui| {
         for (_, asset_info) in &ui_state.all_asset_info {
-            draw_asset_gallery_tile(ui, fonts_impl, font_id, asset_gallery_ui_state, asset_info);
+            draw_asset_gallery_tile(ui, fonts_impl, font_id, asset_gallery_ui_state, asset_info, action_queue);
         }
     });
 }
@@ -98,7 +99,8 @@ fn draw_asset_gallery_tile(
     fonts_impl: &mut FontsImpl,
     font_id: &FontId,
     asset_gallery_ui_state: &mut AssetGalleryUiState,
-    asset_info: &AssetInfo
+    asset_info: &AssetInfo,
+    action_queue: &UIActionQueueSender,
 ) {
     crate::ui::drag_drop::drag_source(ui, egui::Id::new(asset_info.id), DragDropPayload::AssetReference(asset_info.id), |ui| {
         let mut is_on = false;
@@ -150,6 +152,25 @@ fn draw_asset_gallery_tile(
         } else {
             println!("not visible");
         }
+
+        let response = response.context_menu(|ui| {
+            if asset_info.is_generated {
+                ui.label("This asset is generated and cannot be edited directly");
+            } else {
+                if ui.button("Delete Asset").clicked() {
+                    let asset_id = asset_info.id;
+                    if asset_info.is_generated {
+
+                    }
+
+                    action_queue.queue_edit("delete asset", vec![asset_id], move |edit_context| {
+                        edit_context.delete_asset(asset_id).unwrap();
+                        Ok(EndContextBehavior::Finish)
+                    });
+                    ui.close_menu();
+                }
+            }
+        });
 
         response
     });

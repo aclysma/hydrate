@@ -10,6 +10,7 @@ mod action_queue;
 
 mod ui_state;
 mod modal_action;
+mod egui_debug_ui;
 
 use hydrate_model::pipeline::AssetEngine;
 use crate::app::HydrateEditorApp;

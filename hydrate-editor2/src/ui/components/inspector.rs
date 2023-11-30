@@ -35,8 +35,6 @@ fn simple_value_property<F: FnOnce(&mut egui::Ui, InspectorContext) -> Option<(V
     let has_override = ctx.editor_model.root_edit_context().has_property_override(ctx.asset_id, ctx.property_path).unwrap();
     let assets_to_edit = vec![ctx.asset_id];
 
-    //ui.style_mut().drag_value_text_style = TextStyle::Name(Arc::new("CustomStyle".to_string()))
-    //ui.style_mut().visuals/. = Color32::from_rgb(255, 0, 0);
     ui.horizontal(|ui| {
         if has_override {
             ui.style_mut().visuals.override_text_color = Some(Color32::from_rgb(255, 255, 0));
@@ -58,26 +56,6 @@ fn simple_value_property<F: FnOnce(&mut egui::Ui, InspectorContext) -> Option<(V
                 Ok(end_context_behavior)
             });
         }
-
-        /*
-        let committed = response.lost_focus() || response.drag_released();
-        if response.changed() || committed {
-            let end_context_behavior = if committed {
-                println!("finish");
-                EndContextBehavior::Finish
-            } else {
-                println!("allow resume");
-                EndContextBehavior::AllowResume
-            };
-
-            let property_path_moved = ctx.property_path.to_string();
-            ctx.action_sender.queue_edit("property_editor", assets_to_edit, move |edit_context| {
-                edit_context.set_property_override(ctx.asset_id, property_path_moved, new_value).unwrap();
-                Ok(end_context_behavior)
-            });
-        }
-
-         */
     });
 }
 
@@ -423,6 +401,11 @@ fn draw_inspector_property(
     }
 }
 
+#[derive(Default)]
+pub struct InspectorUiState {
+
+}
+
 pub fn draw_inspector(
     ui: &mut egui::Ui,
     editor_model: &EditorModel,
@@ -430,9 +413,12 @@ pub fn draw_inspector(
     editor_model_ui_state: &EditorModelUiState,
     asset_id: AssetId,
 ) {
-    ui.label(format!("ID: {:?}", asset_id));
-
     let edit_context = editor_model.root_edit_context();
+    if !edit_context.has_asset(asset_id) {
+        return;
+    }
+
+    ui.label(format!("ID: {:?}", asset_id));
 
     let name = edit_context.asset_name(asset_id);
     let location = edit_context.asset_location(asset_id).unwrap();

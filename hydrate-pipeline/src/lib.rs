@@ -35,6 +35,7 @@ mod pipeline_error;
 mod import_storage;
 
 pub use pipeline_error::*;
+use crate::import_util::RequestedImportable;
 
 pub trait AssetPlugin {
     fn setup(
@@ -88,17 +89,36 @@ impl AssetPluginRegistrationHelper {
 pub trait DynEditorModel {
     fn schema_set(&self) -> &SchemaSet;
 
-    fn init_from_single_object(
+    fn handle_import_complete(
         &mut self,
         asset_id: AssetId,
-        single_object: &SingleObject,
+        asset_name: AssetName,
+        asset_location: AssetLocation,
+        default_asset: &SingleObject,
+        replace_with_default_asset: bool,
+        import_info: ImportInfo,
+        path_references: &HashMap<PathReference, AssetId>
     ) -> DataSetResult<()>;
 
-    fn set_import_info(
-        &mut self,
-        asset_id: AssetId,
-        import_info: ImportInfo,
-    ) -> DataSetResult<()>;
+    // fn init_from_single_object(
+    //     &mut self,
+    //     asset_id: AssetId,
+    //     asset_name: &AssetName,
+    //     asset_location: &AssetLocation,
+    //     single_object: &SingleObject,
+    // ) -> DataSetResult<()>;
+    //
+    // fn set_import_info(
+    //     &mut self,
+    //     asset_id: AssetId,
+    //     import_info: ImportInfo,
+    // ) -> DataSetResult<()>;
+    //
+    // fn set_file_references(
+    //     &mut self,
+    //     asset_id: AssetId,
+    //     import_info: ImportInfo,
+    // ) -> DataSetResult<()>;
 
     fn data_set(&self) -> &DataSet;
 
@@ -118,25 +138,25 @@ pub trait DynEditContext {
 
     fn schema_set(&self) -> &SchemaSet;
 
-    fn new_asset(
-        &mut self,
-        asset_name: &AssetName,
-        asset_location: &AssetLocation,
-        schema: &SchemaRecord,
-    ) -> AssetId;
+    // fn new_asset(
+    //     &mut self,
+    //     asset_name: &AssetName,
+    //     asset_location: &AssetLocation,
+    //     schema: &SchemaRecord,
+    // ) -> AssetId;
 
-    fn set_import_info(
-        &mut self,
-        asset_id: AssetId,
-        import_info: ImportInfo,
-    ) -> DataSetResult<()>;
+    // fn set_import_info(
+    //     &mut self,
+    //     asset_id: AssetId,
+    //     import_info: ImportInfo,
+    // ) -> DataSetResult<()>;
 
-    fn set_file_reference_override(
-        &mut self,
-        asset_id: AssetId,
-        path: PathReference,
-        referenced_asset_id: AssetId,
-    ) -> DataSetResult<()>;
+    // fn set_file_reference_override(
+    //     &mut self,
+    //     asset_id: AssetId,
+    //     path: PathReference,
+    //     referenced_asset_id: AssetId,
+    // ) -> DataSetResult<()>;
 }
 
 pub struct AssetEngine {
@@ -293,14 +313,13 @@ impl AssetEngine {
 
     pub fn queue_import_operation(
         &mut self,
-        asset_ids: HashMap<ImportableName, AssetId>,
+        asset_ids: HashMap<ImportableName, RequestedImportable>,
         importer_id: ImporterId,
         path: PathBuf,
-        assets_to_regenerate: HashSet<AssetId>,
         import_type: ImportType,
     ) {
         self.import_jobs
-            .queue_import_operation(asset_ids, importer_id, path, assets_to_regenerate, import_type);
+            .queue_import_operation(asset_ids, importer_id, path, import_type);
     }
 
     pub fn queue_build_operation(

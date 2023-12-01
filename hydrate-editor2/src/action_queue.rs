@@ -116,7 +116,7 @@ impl UIActionQueueReceiver {
         ctx: &egui::Context,
     ) {
         let mut imports_to_queue = Vec::<ImportToQueue>::default();
-        for action in self.action_queue_rx.try_recv() {
+        while let Ok(action) = self.action_queue_rx.try_recv() {
             match action {
                 // UIAction::NewAsset(location) => {
                 //     //*modal_action = Some(Box::new(NewAssetModal::new(location)));
@@ -205,7 +205,6 @@ impl UIActionQueueReceiver {
                 import_to_queue.requested_importables,
                 import_to_queue.importer_id,
                 import_to_queue.source_file_path,
-                import_to_queue.assets_to_regenerate,
                 import_to_queue.import_type,
             );
         }

@@ -1,7 +1,7 @@
 use crate::edit_context::EditContext;
 use crate::editor::undo::UndoStack;
 use crate::{AssetId, AssetPath, AssetPathCache, AssetSourceId, DataSet, DataSource, FileSystemIdBasedDataSource, FileSystemPathBasedDataSource, HashMap, HashSet, LocationTree, PathNode, PathNodeRoot, SchemaNamedType, SchemaSet};
-use hydrate_data::{AssetLocation, AssetName, DataSetError, DataSetResult, ImportInfo, SingleObject};
+use hydrate_data::{AssetLocation, AssetName, DataSetError, DataSetResult, ImportInfo, PathReference, SingleObject};
 use hydrate_pipeline::{import_util::ImportToQueue, DynEditorModel, ImporterRegistry};
 use hydrate_schema::{SchemaFingerprint, SchemaRecord};
 use slotmap::DenseSlotMap;
@@ -33,23 +33,60 @@ impl<'a> DynEditorModel for EditorModelWithCache<'a> {
         self.editor_model.schema_set()
     }
 
-    fn init_from_single_object(
+    fn handle_import_complete(
         &mut self,
         asset_id: AssetId,
-        single_object: &SingleObject,
+        asset_name: AssetName,
+        asset_location: AssetLocation,
+        default_asset: &SingleObject,
+        replace_with_default_asset: bool,
+        import_info: ImportInfo,
+        path_references: &HashMap<PathReference, AssetId>
     ) -> DataSetResult<()> {
-        self.editor_model.root_edit_context_mut()
-            .init_from_single_object(asset_id, single_object)
+        //
+        // If the asset is supposed to be regenerated, stomp the existing asset
+        //
+        let edit_context = self.editor_model.root_edit_context_mut();
+        if replace_with_default_asset
+        {
+            edit_context.init_from_single_object(
+                asset_id,
+                asset_name,
+                asset_location,
+                default_asset,
+            )?;
+        }
+
+        //
+        // Whether it is regenerated or not, update import data
+        //
+        edit_context.set_import_info(asset_id, import_info)?;
+        for (path_reference, referenced_asset_id) in path_references {
+            edit_context.set_file_reference_override(asset_id, path_reference.clone(), *referenced_asset_id)?;
+        }
+
+        Ok(())
     }
 
-    fn set_import_info(
-        &mut self,
-        asset_id: AssetId,
-        import_info: ImportInfo,
-    ) -> DataSetResult<()> {
-        self.editor_model.root_edit_context_mut()
-            .set_import_info(asset_id, import_info)
-    }
+    // fn init_from_single_object(
+    //     &mut self,
+    //     asset_id: AssetId,
+    //     asset_name: &AssetName,
+    //     asset_location: &AssetLocation,
+    //     single_object: &SingleObject,
+    // ) -> DataSetResult<()> {
+    //     self.editor_model.root_edit_context_mut()
+    //         .init_from_single_object(asset_id, asset_name.clone(), asset_location.clone(), single_object)
+    // }
+    //
+    // fn set_import_info(
+    //     &mut self,
+    //     asset_id: AssetId,
+    //     import_info: ImportInfo,
+    // ) -> DataSetResult<()> {
+    //     self.editor_model.root_edit_context_mut()
+    //         .set_import_info(asset_id, import_info)
+    // }
 
     fn data_set(&self) -> &DataSet {
         self.editor_model.root_edit_context().data_set()

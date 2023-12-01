@@ -13,6 +13,7 @@ use hydrate_base::uuid_path::{path_to_uuid, uuid_to_path};
 use hydrate_data::{ImportableName};
 use hydrate_data::{ImporterId, SchemaSet, SingleObject};
 use crate::import_storage::ImportDataMetadata;
+use crate::import_util::RequestedImportable;
 
 use super::import_types::*;
 use super::importer_registry::*;
@@ -69,12 +70,10 @@ pub enum ImportType {
 #[derive(Clone)]
 pub struct ImportOp {
     // The string is a key is an importable name
-    pub asset_ids: HashMap<ImportableName, AssetId>,
+    pub requested_importables: HashMap<ImportableName, RequestedImportable>,
     pub importer_id: ImporterId,
     pub path: PathBuf,
-    pub assets_to_regenerate: HashSet<AssetId>,
     pub import_type: ImportType,
-    //pub(crate) import_info: ImportInfo,
 }
 
 // A known import job, each existing asset that imports data will have an associated import job.
@@ -131,19 +130,16 @@ impl ImportJobs {
 
     pub fn queue_import_operation(
         &mut self,
-        asset_ids: HashMap<ImportableName, AssetId>,
+        asset_ids: HashMap<ImportableName, RequestedImportable>,
         importer_id: ImporterId,
         path: PathBuf,
-        assets_to_regenerate: HashSet<AssetId>,
         import_type: ImportType,
     ) {
         self.import_operations.push(ImportOp {
-            asset_ids,
+            requested_importables: asset_ids,
             importer_id,
             path,
-            assets_to_regenerate,
             import_type,
-            //import_info
         })
     }
 
@@ -237,15 +233,15 @@ impl ImportJobs {
         let mut total_jobs = 0;
         for import_op in import_operations {
             let mut importable_assets = HashMap::<ImportableName, ImportableAsset>::default();
-            for (name, asset_id) in &import_op.asset_ids {
+            for (name, requested_importable) in &import_op.requested_importables {
                 let referenced_paths = editor_model
                     .data_set()
-                    .resolve_all_file_references(*asset_id)
+                    .resolve_all_file_references(requested_importable.asset_id)
                     .unwrap_or_default();
                 importable_assets.insert(
                     name.clone(),
                     ImportableAsset {
-                        id: *asset_id,
+                        id: requested_importable.asset_id,
                         referenced_paths,
                     },
                 );
@@ -294,27 +290,36 @@ impl ImportJobs {
             match outcome {
                 ImportThreadOutcome::Complete(msg) => {
                     for (name, imported_asset) in msg.result? {
-                        if let Some(asset_id) = msg.request.import_op.asset_ids.get(&name) {
-                            //
-                            // If the asset is supposed to be regenerated, stomp the existing asset
-                            //
-                            if msg
-                                .request
-                                .import_op
-                                .assets_to_regenerate
-                                .contains(asset_id)
-                            {
-                                editor_model
-                                    .init_from_single_object(
-                                        *asset_id,
-                                        &imported_asset.default_asset,
-                                    )?;
-                            }
+                        if let Some(requested_importable) = msg.request.import_op.requested_importables.get(&name) {
+                            editor_model.handle_import_complete(
+                                requested_importable.asset_id,
+                                requested_importable.asset_name.clone(),
+                                requested_importable.asset_location.clone(),
+                                &imported_asset.default_asset,
+                                requested_importable.replace_with_default_asset,
+                                imported_asset.import_info,
+                                &requested_importable.path_references
+                            )?;
 
+                            // //
+                            // // If the asset is supposed to be regenerated, stomp the existing asset
+                            // //
+                            // if requested_importable.replace_with_default_asset
+                            // {
+                            //     editor_model
+                            //         .init_from_single_object(
+                            //             requested_importable.asset_id,
+                            //             &requested_importable.asset_name,
+                            //             &requested_importable.asset_location,
+                            //             &imported_asset.default_asset,
+                            //         )?;
+                            // }
                             //
-                            // Whether it is regenerated or not, update import data
-                            //
-                            editor_model.set_import_info(*asset_id, imported_asset.import_info)?;
+                            // //
+                            // // Whether it is regenerated or not, update import data
+                            // //
+                            // editor_model.set_import_info(requested_importable.asset_id, imported_asset.import_info)?;
+                            // editor_model.set_file_references()
                         }
                     }
                 }

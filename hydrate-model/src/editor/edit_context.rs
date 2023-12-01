@@ -88,31 +88,31 @@ impl DynEditContext for EditContext {
         &self.schema_set
     }
 
-    fn new_asset(
-        &mut self,
-        asset_name: &AssetName,
-        asset_location: &AssetLocation,
-        schema: &SchemaRecord,
-    ) -> AssetId {
-        self.new_asset(asset_name, asset_location, schema)
-    }
+    // fn new_asset(
+    //     &mut self,
+    //     asset_name: &AssetName,
+    //     asset_location: &AssetLocation,
+    //     schema: &SchemaRecord,
+    // ) -> AssetId {
+    //     self.new_asset(asset_name, asset_location, schema)
+    // }
+    //
+    // fn set_import_info(
+    //     &mut self,
+    //     asset_id: AssetId,
+    //     import_info: ImportInfo,
+    // ) -> DataSetResult<()> {
+    //     self.set_import_info(asset_id, import_info)
+    // }
 
-    fn set_import_info(
-        &mut self,
-        asset_id: AssetId,
-        import_info: ImportInfo,
-    ) -> DataSetResult<()> {
-        self.set_import_info(asset_id, import_info)
-    }
-
-    fn set_file_reference_override(
-        &mut self,
-        asset_id: AssetId,
-        path: PathReference,
-        referenced_asset_id: AssetId,
-    ) -> DataSetResult<()> {
-        self.set_file_reference_override(asset_id, path, referenced_asset_id)
-    }
+    // fn set_file_reference_override(
+    //     &mut self,
+    //     asset_id: AssetId,
+    //     path: PathReference,
+    //     referenced_asset_id: AssetId,
+    // ) -> DataSetResult<()> {
+    //     self.set_file_reference_override(asset_id, path, referenced_asset_id)
+    // }
 }
 
 impl EditContext {
@@ -417,9 +417,12 @@ impl EditContext {
     pub fn init_from_single_object(
         &mut self,
         asset_id: AssetId,
+        asset_name: AssetName,
+        asset_location: AssetLocation,
         single_object: &SingleObject,
     ) -> DataSetResult<()> {
-        self.track_existing_asset(asset_id)?;
+        self.track_new_asset(asset_id, &asset_location);
+        self.data_set.new_asset_with_id(asset_id, asset_name, asset_location, single_object.schema())?;
         self.data_set
             .copy_from_single_object(asset_id, single_object)
     }

@@ -20,7 +20,6 @@ pub struct ImportThreadRequestImport {
     // pub asset_ids: HashMap<ImportableName, AssetId>,
     // pub importer_id: ImporterId,
     // pub path: PathBuf,
-    // pub assets_to_regenerate: HashSet<AssetId>,
     pub import_op: ImportOp,
     pub importable_assets: HashMap<ImportableName, ImportableAsset>,
 }
@@ -194,7 +193,7 @@ fn do_import(
     let mut written_importables = HashMap::default();
 
     for (name, imported_asset) in imported_importables {
-        if let Some(asset_id) = msg.import_op.asset_ids.get(&name) {
+        if let Some(requested_importable) = msg.import_op.requested_importables.get(&name) {
             let default_asset = &imported_asset.default_asset;
             let type_name = default_asset.schema().name();
 
@@ -229,7 +228,7 @@ fn do_import(
                     .into_inner()
                     .map_err(|e| format!("Error converting bufwriter to Vec<u8>: {:?}", e))?;
 
-                let path = uuid_to_path(import_data_root_path, asset_id.as_uuid(), "if");
+                let path = uuid_to_path(import_data_root_path, requested_importable.asset_id.as_uuid(), "if");
 
                 if let Some(parent) = path.parent() {
                     std::fs::create_dir_all(parent).unwrap();

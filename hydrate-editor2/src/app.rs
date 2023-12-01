@@ -1,3 +1,4 @@
+use std::ops::Deref;
 use egui::{FontDefinitions, Frame, ViewportCommand};
 use egui::epaint::text::FontsImpl;
 use egui::scroll_area::ScrollBarVisibility;
@@ -10,6 +11,7 @@ use crate::modal_action::{ModalAction, ModalActionControlFlow, ModalContext};
 use crate::ui_state::EditorModelUiState;
 use crate::persistent_app_state::PersistentAppState;
 use crate::ui::components::{AssetGalleryUiState, AssetTreeUiState, InspectorUiState};
+use crate::ui::modals::ImportFilesModal;
 
 #[derive(Default)]
 pub struct UiState {
@@ -74,22 +76,23 @@ impl eframe::App for HydrateEditorApp {
         // Generate some profiling info
         profiling::scope!("Main Thread");
 
+        let action_queue_sender = self.action_queue.sender();
+
         if ctx.input(|x| x.viewport().close_requested()) {
             if !self.ui_state.user_confirmed_should_quit {
                 // If we haven't confirmed quit, intercept and send through a "confirm to quit" flow
                 ctx.send_viewport_cmd(ViewportCommand::CancelClose);
-                self.action_queue.queue_action(UIAction::Quit);
+                action_queue_sender.queue_action(UIAction::Quit);
             }
 
         }
 
         ctx.input(|input| {
             if !input.raw.dropped_files.is_empty() {
-                println!("dropped files {:?}", input.raw.dropped_files);
+                let dropped_files: Vec<_> = input.raw.dropped_files.iter().map(|x| x.path.clone().unwrap()).collect();
+                action_queue_sender.try_set_modal_action(ImportFilesModal::new(dropped_files, self.asset_engine.importer_registry()));
             }
         });
-
-        let action_queue_sender = self.action_queue.sender();
 
         self.ui_state.editor_model_ui_state.update(&self.db_state.editor_model);
 

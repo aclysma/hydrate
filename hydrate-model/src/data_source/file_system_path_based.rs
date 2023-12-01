@@ -4,7 +4,7 @@ use crate::{PathNode, PathNodeRoot};
 use hydrate_base::hashing::HashSet;
 use hydrate_data::json_storage::{MetaFile, MetaFileJson};
 use hydrate_data::{AssetId, AssetLocation, AssetName, ImportableName, ImporterId, PathReference};
-use hydrate_pipeline::import_util::ImportToQueue;
+use hydrate_pipeline::import_util::{ImportToQueue, RequestedImportable};
 use hydrate_pipeline::{import_util, Importer, ImporterRegistry, ImportType, ScanContext, ScannedImportable};
 use hydrate_schema::{HashMap, SchemaNamedType};
 use std::ffi::OsStr;
@@ -770,7 +770,6 @@ impl DataSource for FileSystemPathBasedDataSource {
                     source_files_disk_state.get_mut(source_file_path).unwrap();
 
                 let mut requested_importables = HashMap::default();
-                let mut assets_to_regenerate = HashSet::default();
                 for scanned_importable in &scanned_source_file.scanned_importables {
                     // The ID assigned to this importable. We have this now because we previously scanned
                     // all source files and assigned IDs to any importable
@@ -789,24 +788,24 @@ impl DataSource for FileSystemPathBasedDataSource {
                     let asset_file_exists = edit_context.has_asset(importable_asset_id);
 
                     if !asset_file_exists {
-                        edit_context
-                            .new_asset_with_id(
-                                importable_asset_id,
-                                &asset_name,
-                                &import_location,
-                                &scanned_importable.asset_type,
-                            )
-                            .unwrap();
+                        // edit_context
+                        //     .new_asset_with_id(
+                        //         importable_asset_id,
+                        //         &asset_name,
+                        //         &import_location,
+                        //         &scanned_importable.asset_type,
+                        //     )
+                        //     .unwrap();
 
                         // Create the import info for this asset
-                        let import_info = import_util::create_import_info(
-                            source_file_path,
-                            scanned_source_file.importer,
-                            scanned_importable,
-                        );
-                        edit_context
-                            .set_import_info(importable_asset_id, import_info)
-                            .unwrap();
+                        // let import_info = import_util::create_import_info(
+                        //     source_file_path,
+                        //     scanned_source_file.importer,
+                        //     scanned_importable,
+                        // );
+                        // edit_context
+                        //     .set_import_info(importable_asset_id, import_info)
+                        //     .unwrap();
 
                         assets_disk_state.insert(
                             importable_asset_id,
@@ -840,8 +839,7 @@ impl DataSource for FileSystemPathBasedDataSource {
                     }
 
                     // For any referenced file, locate the AssetID at that path. It must be in this data source,
-                    // and for now we only support referencing the default importable out of source files (so
-                    // can't reference asset files by path, for now). So it must exist.
+                    // and at this point must exist in the meta file.
                     let mut referenced_source_file_asset_ids = Vec::default();
                     for file_reference in &scanned_importable.referenced_source_files {
                         let file_reference_absolute = PathReference::canonicalize_relative(
@@ -874,32 +872,46 @@ impl DataSource for FileSystemPathBasedDataSource {
                         scanned_importable.referenced_source_files.len()
                     );
 
+                    let mut file_references = HashMap::default();
                     for (k, v) in scanned_importable
                         .referenced_source_files
                         .iter()
                         .zip(referenced_source_file_asset_ids)
                     {
-                        edit_context
-                            .set_file_reference_override(
-                                importable_asset_id,
-                                k.path_reference.clone(),
-                                *v,
-                            )
-                            .unwrap();
+                        file_references.insert(k.path_reference.clone(), *v);
+                        // edit_context
+                        //     .set_file_reference_override(
+                        //         importable_asset_id,
+                        //         k.path_reference.clone(),
+                        //         *v,
+                        //     )
+                        //     .unwrap();
                     }
 
+                    let source_file = PathReference {
+                        path: source_file_path.to_string_lossy().to_string(),
+                        importable_name: scanned_importable.name.clone(),
+                    };
+
+                    let requested_importable = RequestedImportable {
+                        asset_id: importable_asset_id,
+                        schema: scanned_importable.asset_type.clone(),
+                        asset_name,
+                        asset_location: import_location,
+                        //importer_id: scanned_source_file.importer.importer_id(),
+                        source_file,
+                        path_references: file_references,
+                        replace_with_default_asset: !asset_file_exists
+                    };
+
                     requested_importables
-                        .insert(scanned_importable.name.clone(), importable_asset_id);
-                    if !asset_file_exists {
-                        assets_to_regenerate.insert(importable_asset_id);
-                    }
+                        .insert(scanned_importable.name.clone(), requested_importable);
                 }
 
                 imports_to_queue.push(ImportToQueue {
                     source_file_path: source_file_path.to_path_buf(),
                     importer_id: scanned_source_file.importer.importer_id(),
                     requested_importables,
-                    assets_to_regenerate,
                     import_type: ImportType::ImportIfImportDataStale,
                 });
             }

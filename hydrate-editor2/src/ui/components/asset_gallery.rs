@@ -2,7 +2,7 @@
 use std::sync::Arc;
 use egui::epaint::text::FontsImpl;
 use egui::{FontDefinitions, FontId, Layout, SelectableLabel};
-use hydrate_model::{AssetId, EndContextBehavior, HashSet};
+use hydrate_model::{AssetId, AssetName, EndContextBehavior, HashSet};
 use crate::action_queue::{UIAction, UIActionQueueSender};
 use crate::ui::drag_drop::DragDropPayload;
 use crate::ui::modals::TestModal;
@@ -114,6 +114,8 @@ fn draw_asset_gallery_tile(
         //     ui.label("hi");
         // });
 
+        let asset_name_as_string = asset_info.name.as_string().cloned().unwrap_or_else(|| asset_info.id.to_string());
+
         let mut thumbnail_rect = rect;
         thumbnail_rect.max.y = thumbnail_rect.max.y.min(thumbnail_rect.min.y + thumbnail_size.y);
         let mut text_rect = rect;
@@ -146,7 +148,7 @@ fn draw_asset_gallery_tile(
             };
 
             let mut layout_job = egui::epaint::text::LayoutJob::single_section(
-                asset_info.name.as_string().cloned().unwrap_or_else(|| "<UNNAMED>".to_string()),
+                asset_name_as_string.clone(),
                 egui::epaint::text::TextFormat::simple(font_id.clone(), text_color)
             );
             layout_job.wrap.max_width = text_rect.max.x - text_rect.min.x;
@@ -160,23 +162,43 @@ fn draw_asset_gallery_tile(
             println!("not visible");
         }
 
-        let response = response.context_menu(|ui| {
-            if asset_info.is_generated {
+        let is_generated = asset_info.is_generated;
+        let asset_id = asset_info.id;
+        let response = response.context_menu(move |ui| {
+            if is_generated {
                 ui.label("This asset is generated and cannot be edited directly");
-            } else {
-                if ui.button("Delete Asset").clicked() {
-                    let asset_id = asset_info.id;
-                    if asset_info.is_generated {
-
-                    }
-
-                    action_queue.queue_edit("delete asset", vec![asset_id], move |edit_context| {
-                        edit_context.delete_asset(asset_id).unwrap();
-                        Ok(EndContextBehavior::Finish)
-                    });
-                    ui.close_menu();
-                }
             }
+            if ui.add_enabled(!is_generated, egui::Button::new(format!("Delete {}", &asset_name_as_string))).clicked() {
+                action_queue.queue_edit("delete asset", vec![asset_id], move |edit_context| {
+                    edit_context.delete_asset(asset_id).unwrap();
+                    Ok(EndContextBehavior::Finish)
+                });
+                ui.close_menu();
+            }
+
+            if ui.button("Use as prototype for new asset").clicked() {
+                action_queue.queue_edit("delete asset", vec![asset_id], move |edit_context| {
+                    let old_location = edit_context.asset_location(asset_id).unwrap().clone();
+                    let old_name = edit_context.asset_name(asset_id).unwrap().clone();
+                    let new_name = format!("New from {:?}", asset_id);
+
+                    edit_context.new_asset_from_prototype(&AssetName::new(new_name), &old_location, asset_id).unwrap();
+                    Ok(EndContextBehavior::Finish)
+                });
+                ui.close_menu();
+            }
+
+            // else {
+            //
+            //     // if ui.button().clicked() {
+            //     //     let asset_id = asset_info.id;
+            //     //     if asset_info.is_generated {
+            //     //
+            //     //     } else {
+            //     //     }
+            //     //
+            //     // }
+            // }
         });
 
         response

@@ -18,7 +18,10 @@ pub fn draw_main_menu_bar(
                 ui.close_menu();
             }
             if ui.button("Quit").clicked() {
-                ctx.send_viewport_cmd(egui::ViewportCommand::Close);
+                action_sender.queue_action(UIAction::Quit);
+                ui.close_menu();
+                //ctx.send_viewport_cmd(egui::ViewportCommand::Close);
+
             }
         });
 

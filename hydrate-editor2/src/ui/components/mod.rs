@@ -9,3 +9,6 @@ pub use inspector::{InspectorUiState, draw_inspector};
 
 mod asset_tree;
 pub use asset_tree::{AssetTreeUiState, draw_asset_tree};
+
+mod schema_selector;
+pub use schema_selector::schema_record_selector;

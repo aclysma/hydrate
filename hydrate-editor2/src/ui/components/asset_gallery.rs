@@ -130,14 +130,21 @@ fn draw_asset_gallery_tile(
             let radius = 3.0;
 
             if asset_gallery_ui_state.selected_assets.contains(&asset_info.id) {
-                ui.painter().rect_filled(rect, radius, egui::Color32::from_rgb(50, 76, 115));
+                ui.painter().rect_filled(rect, radius, ui.style().visuals.selection.bg_fill);
             }
             ui.painter()
                 .rect_stroke(thumbnail_rect, radius, egui::Stroke::new(2.0, egui::Color32::from_gray(50)));
 
             let anchor = egui::Pos2::new((text_rect.min.x + text_rect.max.x) / 2.0, text_rect.min.y);
 
-            let text_color = egui::Color32::from_gray(200);
+            let text_color = if asset_info.is_dirty {
+                egui::Color32::from_rgb(255, 255, 0)
+            } else if asset_info.is_generated {
+                egui::Color32::from_rgb(150, 150, 150)
+            } else {
+                egui::Color32::from_rgb(230, 230, 230)
+            };
+
             let mut layout_job = egui::epaint::text::LayoutJob::single_section(
                 asset_info.name.as_string().cloned().unwrap_or_else(|| "<UNNAMED>".to_string()),
                 egui::epaint::text::TextFormat::simple(font_id.clone(), text_color)

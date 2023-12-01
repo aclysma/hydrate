@@ -466,6 +466,15 @@ impl DataSet {
         asset_id: AssetId,
         new_location: AssetLocation,
     ) -> DataSetResult<()> {
+        let mut new_parent_asset_id_iter = Some(new_location.path_node_id());
+        while let Some(new_parent_asset_id) = new_parent_asset_id_iter {
+            if new_parent_asset_id == asset_id {
+                // Cannot make an asset a child of its own children
+                return Err(DataSetError::NewLocationIsChildOfCurrentAsset);
+            }
+            new_parent_asset_id_iter = self.asset_location(new_parent_asset_id).map(|x| x.path_node_id())
+        }
+
         let asset = self
             .assets
             .get_mut(&asset_id)

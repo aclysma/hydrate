@@ -1,6 +1,8 @@
+use egui::{InnerResponse, Response, Ui};
 use hydrate_model::{AssetId, EditorModel, LocationTreeNode};
-use crate::action_queue::UIActionQueueSender;
+use crate::action_queue::{UIAction, UIActionQueueSender};
 use crate::ui::drag_drop::DragDropPayload;
+use crate::ui::modals::NewAssetModal;
 use crate::ui_state::EditorModelUiState;
 
 #[derive(Default)]
@@ -37,9 +39,13 @@ fn draw_tree_node(
             let (toggle_button_response, header_response, body_response) =
                 egui::collapsing_header::CollapsingState::load_with_default_open(ui.ctx(), id, false)
                     .show_header(ui, |ui| {
-                        crate::ui::drag_drop::drop_target(ui, can_accept, |ui| {
+                        let response = crate::ui::drag_drop::drop_target(ui, can_accept, |ui| {
                             ui.toggle_value(&mut is_selected, &name)
-                        }).inner
+                        });
+
+                        handle_drop_on_asset_tree_node(ui, &response, action_sender, tree_node);
+
+                        response.inner
                     }).body(|ui| {
                     for (key, child_tree_node) in &tree_node.children {
                         draw_tree_node(ui, editor_model, action_sender, asset_tree_ui_state, child_tree_node);
@@ -55,9 +61,13 @@ fn draw_tree_node(
                 ui.allocate_space(egui::vec2(ui.spacing().indent, ui.spacing().icon_width));
                 ui.spacing_mut().item_spacing = prev_item_spacing;
 
-                crate::ui::drag_drop::drop_target(ui, can_accept, |ui| {
+                let response = crate::ui::drag_drop::drop_target(ui, can_accept, |ui| {
                     ui.selectable_label(is_selected, &name)
-                }).inner
+                });
+
+                handle_drop_on_asset_tree_node(ui, &response, action_sender, tree_node);
+
+                response.inner
             }).inner
         };
 
@@ -67,7 +77,8 @@ fn draw_tree_node(
 
         response.context_menu(|ui| {
             ui.label("hi");
-            if ui.button("test").clicked() {
+            if ui.button("New Asset").clicked() {
+                action_sender.try_set_modal_action(NewAssetModal::new(tree_node.location));
                 ui.close_menu();
             }
         })
@@ -75,6 +86,18 @@ fn draw_tree_node(
 
         //});
     });
+}
+
+fn handle_drop_on_asset_tree_node(ui: &mut Ui, response: &InnerResponse<Response>, action_sender: &UIActionQueueSender, dropped_on_tree_node: &LocationTreeNode) {
+    if let Some(payload) = crate::ui::drag_drop::try_take_dropped_payload(ui, &response.response) {
+        match payload {
+            DragDropPayload::AssetReference(payload_asset_id) => {
+                println!("DROPPED ASSET {:?} ON {:?}", payload_asset_id, dropped_on_tree_node.location.path_node_id());
+                action_sender.queue_action(UIAction::MoveAsset(payload_asset_id, dropped_on_tree_node.location));
+            },
+            _ => unimplemented!()
+        }
+    }
 }
 
 pub fn draw_asset_tree(

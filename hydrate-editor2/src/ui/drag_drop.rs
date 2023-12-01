@@ -143,8 +143,6 @@ pub fn drop_target<R>(
         );
     }
 
-
-
     InnerResponse::new(ret, response)
 }
 

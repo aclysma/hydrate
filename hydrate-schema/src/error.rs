@@ -14,6 +14,7 @@ pub enum DataSetError {
     InvalidSchema,
     UuidParseError,
     StorageFormatError,
+    NewLocationIsChildOfCurrentAsset,
 
     // the data was in a container, but moved out of it (i.e. Option::take())
     DataTaken,

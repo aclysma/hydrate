@@ -204,8 +204,8 @@ impl EditorModel {
             .cloned()
             .unwrap_or_else(AssetPath::root);
 
-        let name = root_data_set.asset_name(asset_id).unwrap();
-        if let Some(name) = name.as_string() {
+        let name = root_data_set.asset_name(asset_id).map(|x| x.as_string()).flatten();
+        if let Some(name) = name {
             path.join(name)
         } else {
             path.join(&format!("{}", asset_id.as_uuid()))

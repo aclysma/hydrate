@@ -1,23 +1,24 @@
-use egui::{FontDefinitions, Frame};
+use egui::{FontDefinitions, Frame, ViewportCommand};
 use egui::epaint::text::FontsImpl;
 use egui::scroll_area::ScrollBarVisibility;
 use hydrate_model::{AssetId, HashSet};
 use hydrate_model::pipeline::AssetEngine;
-use crate::action_queue::UIActionQueueReceiver;
+use crate::action_queue::{UIAction, UIActionQueueReceiver};
 use crate::db_state::DbState;
 use crate::egui_debug_ui::EguiDebugUiState;
-use crate::modal_action::{ModalAction, ModalActionControlFlow};
+use crate::modal_action::{ModalAction, ModalActionControlFlow, ModalContext};
 use crate::ui_state::EditorModelUiState;
 use crate::persistent_app_state::PersistentAppState;
 use crate::ui::components::{AssetGalleryUiState, AssetTreeUiState, InspectorUiState};
 
 #[derive(Default)]
 pub struct UiState {
-    asset_tree_ui_state: AssetTreeUiState,
-    asset_gallery_ui_state: AssetGalleryUiState,
-    inspector_ui_state: InspectorUiState,
-    editor_model_ui_state: EditorModelUiState,
-    egui_debug_ui_state: EguiDebugUiState,
+    pub asset_tree_ui_state: AssetTreeUiState,
+    pub asset_gallery_ui_state: AssetGalleryUiState,
+    pub inspector_ui_state: InspectorUiState,
+    pub editor_model_ui_state: EditorModelUiState,
+    pub egui_debug_ui_state: EguiDebugUiState,
+    pub user_confirmed_should_quit: bool,
 }
 
 
@@ -73,6 +74,14 @@ impl eframe::App for HydrateEditorApp {
         // Generate some profiling info
         profiling::scope!("Main Thread");
 
+        if ctx.input(|x| x.viewport().close_requested()) {
+            if !self.ui_state.user_confirmed_should_quit {
+                // If we haven't confirmed quit, intercept and send through a "confirm to quit" flow
+                ctx.send_viewport_cmd(ViewportCommand::CancelClose);
+                self.action_queue.queue_action(UIAction::Quit);
+            }
+
+        }
 
         ctx.input(|input| {
             if !input.raw.dropped_files.is_empty() {
@@ -85,7 +94,14 @@ impl eframe::App for HydrateEditorApp {
         self.ui_state.editor_model_ui_state.update(&self.db_state.editor_model);
 
         let clear_modal_action = if let Some(modal_action) = &mut self.modal_action {
-            let control_flow = modal_action.draw(ctx, &self.ui_state.editor_model_ui_state, &mut self.asset_engine, &action_queue_sender);
+            let context = ModalContext {
+                egui_ctx: ctx,
+                ui_state: &self.ui_state.editor_model_ui_state,
+                asset_engine: &mut self.asset_engine,
+                db_state: &self.db_state,
+                action_queue: &action_queue_sender,
+            };
+            let control_flow = modal_action.draw(context);
             match control_flow {
                 ModalActionControlFlow::Continue => false,
                 ModalActionControlFlow::End => true,
@@ -161,7 +177,7 @@ impl eframe::App for HydrateEditorApp {
             );
         });
 
-        self.action_queue.process(&mut self.db_state.editor_model, &mut self.asset_engine, &mut self.ui_state.editor_model_ui_state, &mut self.modal_action, ctx);
+        self.action_queue.process(&mut self.db_state.editor_model, &mut self.asset_engine, &mut self.ui_state, &mut self.modal_action, ctx);
 
         super::egui_debug_ui::show_egui_debug_ui(ctx, &mut self.ui_state.egui_debug_ui_state);
 

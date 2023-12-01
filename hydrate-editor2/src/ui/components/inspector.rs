@@ -36,8 +36,11 @@ fn simple_value_property<F: FnOnce(&mut egui::Ui, InspectorContext) -> Option<(V
     let assets_to_edit = vec![ctx.asset_id];
 
     ui.horizontal(|ui| {
-        if has_override {
-            ui.style_mut().visuals.override_text_color = Some(Color32::from_rgb(255, 255, 0));
+        ui.set_enabled(!ctx.read_only);
+        if !has_override {
+            ui.style_mut().visuals.override_text_color = Some(Color32::from_gray(150));
+        } else {
+            ui.style_mut().visuals.override_text_color = Some(Color32::from_gray(255));
         }
         egui::Label::new(ctx.property_name).ui(ui);
 
@@ -94,6 +97,7 @@ fn draw_inspector_property(
             let resolved_null_override = ctx.editor_model.root_edit_context().resolve_null_override(ctx.asset_id, ctx.property_path).unwrap();
 
             ui.horizontal(|ui| {
+                ui.set_enabled(!ctx.read_only);
                 let mut new_null_override = None;
                 if resolved_null_override != NullOverride::SetNonNull {
                     if ui.button("Set Non-Null").clicked() {
@@ -308,8 +312,12 @@ fn draw_inspector_property(
             let asset_ref = resolved_value.as_asset_ref().unwrap();
 
             ui.horizontal(|ui| {
-                if has_override {
-                    ui.style_mut().visuals.override_text_color = Some(Color32::from_rgb(255, 255, 0));
+                ui.set_enabled(!ctx.read_only);
+
+                if !has_override {
+                    ui.style_mut().visuals.override_text_color = Some(Color32::from_gray(150));
+                } else {
+                    ui.style_mut().visuals.override_text_color = Some(Color32::from_gray(255));
                 }
 
                 let mut label_string = if asset_ref.is_null() {
@@ -319,7 +327,7 @@ fn draw_inspector_property(
                 };
                 ui.label(ctx.property_name);
 
-                let can_accept_what_is_being_dragged = true;
+                let can_accept_what_is_being_dragged = !ctx.read_only;
                 let response = crate::ui::drag_drop::drop_target(ui, can_accept_what_is_being_dragged, |ui| {
                     ui.add_enabled_ui(false, |ui| {
                         ui.text_edit_singleline(&mut label_string);
@@ -369,8 +377,11 @@ fn draw_inspector_property(
                     let asset_id = ctx.asset_id;
 
                     ui.horizontal(|ui| {
-                        if has_override {
-                            ui.style_mut().visuals.override_text_color = Some(Color32::from_rgb(255, 255, 0));
+                        ui.set_enabled(!ctx.read_only);
+                        if !has_override {
+                            ui.style_mut().visuals.override_text_color = Some(Color32::from_gray(150));
+                        } else {
+                            ui.style_mut().visuals.override_text_color = Some(Color32::from_gray(255));
                         }
 
                         ui.label(ctx.property_name);
@@ -470,7 +481,7 @@ pub fn draw_inspector(
                 // grid_state.last_selected = Some(prototype);
                 // grid_state.selected_items.clear();
                 // grid_state.selected_items.insert(prototype);
-                action_sender.queue_action(UIAction::GoToAsset(asset_id));
+                action_sender.queue_action(UIAction::ShowAssetInAssetGallery(asset_id));
             }
 
             let prototype_display_name = editor_model

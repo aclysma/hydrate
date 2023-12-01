@@ -1,7 +1,8 @@
 use egui::Ui;
 use hydrate_model::pipeline::AssetEngine;
 use crate::action_queue::UIActionQueueSender;
-use crate::modal_action::{ModalAction, ModalActionControlFlow};
+use crate::DbState;
+use crate::modal_action::{default_modal_window, ModalAction, ModalActionControlFlow, ModalContext};
 use crate::ui_state::EditorModelUiState;
 
 #[derive(Default)]
@@ -10,22 +11,14 @@ pub struct TestModal {
 }
 
 impl ModalAction for TestModal {
-    fn draw(&mut self, ctx: &egui::Context, ui_state: &EditorModelUiState, asset_engine: &mut AssetEngine, action_queue: &UIActionQueueSender) -> ModalActionControlFlow {
-        let mut close_clicked = false;
-        egui::Window::new("Test Modal")
-            .movable(false)
-            .collapsible(false)
-            .pivot(egui::Align2::CENTER_CENTER).current_pos(ctx.screen_rect().center())
-            .show(ctx, |ui| {
+    fn draw(&mut self, context: ModalContext) -> ModalActionControlFlow {
+        let mut control_flow = ModalActionControlFlow::Continue;
+        default_modal_window("Test Modal", context, |context, ui| {
             if ui.button("close").clicked() {
-                close_clicked = true;
+                control_flow = ModalActionControlFlow::End;
             }
         });
 
-        if close_clicked {
-            ModalActionControlFlow::End
-        } else {
-            ModalActionControlFlow::Continue
-        }
+        control_flow
     }
 }

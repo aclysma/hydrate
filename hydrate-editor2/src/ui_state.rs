@@ -49,7 +49,7 @@ pub struct EditorModelUiState {
     pub location_tree: LocationTree,
     pub all_asset_info: HashMap<AssetId, AssetInfo>,
     pub all_selected_asset_details: Vec<AssetDetails>,
-    pub selected_assets: HashSet<AssetId>,
+    //pub selected_assets: HashSet<AssetId>,
     // any type of caching of paths/PathNode?
     // any kind of dirty state?
     pub errors: Vec<String>,
@@ -63,10 +63,9 @@ impl Default for EditorModelUiState {
             location_tree: Default::default(),
             all_asset_info: Default::default(),
             all_selected_asset_details: vec![],
-            selected_assets: Default::default(),
+            //selected_assets: Default::default(),
             errors: vec![],
             current_operation: PipelineState::Idle,
-
         }
     }
 }

@@ -1,12 +1,13 @@
-use std::fmt::Formatter;
 use std::sync::Arc;
 use crossbeam_channel::{Receiver, Sender};
 use hydrate_model::edit_context::EditContext;
-use hydrate_model::{AssetId, DataSetResult, EditorModel, EndContextBehavior};
+use hydrate_model::{AssetId, AssetLocation, AssetName, DataSetError, DataSetResult, EditorModel, EndContextBehavior, HashSet, SchemaNamedType, SchemaRecord};
 use hydrate_model::pipeline::AssetEngine;
 use hydrate_model::pipeline::import_util::ImportToQueue;
+use crate::app::UiState;
 use crate::modal_action::ModalAction;
-use crate::ui_state::EditorModelUiState;
+use crate::ui::modals::{ConfirmQuitWithoutSaving, NewAssetModal};
+use crate::ui::modals::ConfirmRevertChanges;
 
 pub enum UIAction {
     TryBeginModalAction(Box<dyn ModalAction>),
@@ -15,10 +16,14 @@ pub enum UIAction {
     Redo,
     SaveAll,
     RevertAll,
+    RevertAllNoConfirm,
+    Quit,
     QuitNoConfirm,
     PersistAssets(Vec<AssetId>),
     ForceRebuild(Vec<AssetId>),
-    GoToAsset(AssetId),
+    ShowAssetInAssetGallery(AssetId),
+    MoveAsset(AssetId, AssetLocation),
+    NewAsset(AssetName, AssetLocation, SchemaRecord),
 }
 
 impl UIAction {
@@ -106,18 +111,37 @@ impl UIActionQueueReceiver {
         &self,
         editor_model: &mut EditorModel,
         asset_engine: &mut AssetEngine,
-        ui_state: &mut EditorModelUiState,
+        ui_state: &mut UiState,
         modal_action: &mut Option<Box<dyn ModalAction>>,
         ctx: &egui::Context,
     ) {
         let mut imports_to_queue = Vec::<ImportToQueue>::default();
         for action in self.action_queue_rx.try_recv() {
             match action {
+                // UIAction::NewAsset(location) => {
+                //     //*modal_action = Some(Box::new(NewAssetModal::new(location)));
+                // }
                 UIAction::SaveAll => editor_model.save_root_edit_context(),
-                UIAction::RevertAll => editor_model.revert_root_edit_context(&mut imports_to_queue),
+                UIAction::RevertAll => {
+                    if editor_model.any_edit_context_has_unsaved_changes() {
+                        *modal_action = Some(Box::new(ConfirmRevertChanges {}))
+                    }
+                },
+                UIAction::RevertAllNoConfirm => editor_model.revert_root_edit_context(&mut imports_to_queue),
                 UIAction::Undo => editor_model.undo().unwrap(),
                 UIAction::Redo => editor_model.redo().unwrap(),
-                UIAction::QuitNoConfirm => ctx.send_viewport_cmd(egui::ViewportCommand::Close),
+                UIAction::Quit => {
+                    // Only verify with a modal if there are unsaved changes
+                    if editor_model.any_edit_context_has_unsaved_changes() {
+                        *modal_action = Some(Box::new(ConfirmQuitWithoutSaving {}))
+                    } else {
+                        self.action_queue_tx.send(UIAction::QuitNoConfirm).unwrap();
+                    }
+                }
+                UIAction::QuitNoConfirm => {
+                    ui_state.user_confirmed_should_quit = true;
+                    ctx.send_viewport_cmd(egui::ViewportCommand::Close)
+                },
                 UIAction::TryBeginModalAction(modal) => {
                     if modal_action.is_none() {
                         *modal_action = Some(modal);
@@ -139,9 +163,39 @@ impl UIActionQueueReceiver {
                         asset_engine.queue_build_operation(asset_id)
                     }
                 },
-                UIAction::GoToAsset(asset_id) => {
-                    ui_state.selected_assets.clear();
-                    ui_state.selected_assets.insert(asset_id);
+                UIAction::ShowAssetInAssetGallery(asset_id) => {
+                    //ui_state.editor_model_ui_state.selected_assets.clear();
+                    //ui_state.editor_model_ui_state.selected_assets.insert(asset_id);
+                    ui_state.asset_gallery_ui_state.selected_assets.clear();
+                    ui_state.asset_gallery_ui_state.selected_assets.insert(asset_id);
+                }
+                UIAction::MoveAsset(moving_asset, new_location) => {
+                    editor_model.root_edit_context_mut().with_undo_context("move asset", |edit_context| {
+                        let result = edit_context.set_asset_location(moving_asset, new_location);
+                        match result {
+                            Ok(_) => {
+                                // do nothing
+                            }
+                            Err(DataSetError::NewLocationIsChildOfCurrentAsset) => {
+                                // do nothing
+                            },
+                            _ => {
+                                unimplemented!()
+                            }
+                        }
+
+                        EndContextBehavior::Finish
+                    });
+                },
+                UIAction::NewAsset(asset_name, asset_location, schema_record) => {
+                    editor_model.root_edit_context_mut().with_undo_context("new asset", |edit_context| {
+                        let new_asset_id = edit_context.new_asset(&asset_name, &asset_location, &schema_record);
+                        self.sender.queue_action(UIAction::ShowAssetInAssetGallery(new_asset_id));
+                        // let mut selected_items = HashSet::default();
+                        // selected_items.insert(new_asset_id);
+                        // ui_state.asset_browser_state.grid_state.selected_items = selected_items;
+                        EndContextBehavior::Finish
+                    });
                 }
             }
         }

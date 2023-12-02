@@ -1,5 +1,7 @@
-use hydrate_model::{AssetId, AssetName, AssetPath, AssetPathCache, EditorModel, HashMap, HashSet, LocationTree, SchemaRecord};
-
+use hydrate_model::{
+    AssetId, AssetName, AssetPath, AssetPathCache, EditorModel, HashMap, HashSet, LocationTree,
+    SchemaRecord,
+};
 
 // Keyboard shortcuts? Associate with actions/commands?
 // Action string names and tooltips?
@@ -14,11 +16,9 @@ pub enum UiCommands {
     Quit,
 }
 
-
 trait ModalWindow {
     fn draw(ui: &mut egui::Ui);
 }
-
 
 pub struct AssetInfo {
     // Everything needed to draw in the asset gallery view
@@ -71,25 +71,32 @@ impl Default for EditorModelUiState {
 }
 
 impl EditorModelUiState {
-    pub fn update(&mut self, editor_model: &EditorModel) {
+    pub fn update(
+        &mut self,
+        editor_model: &EditorModel,
+    ) {
         self.path_lookup = AssetPathCache::build(editor_model);
         self.location_tree = LocationTree::build(&editor_model, &self.path_lookup);
 
         let root_edit_context = editor_model.root_edit_context();
 
         self.all_asset_info.clear();
-        self.all_asset_info.reserve(root_edit_context.assets().len());
+        self.all_asset_info
+            .reserve(root_edit_context.assets().len());
         for (asset_id, asset_info) in editor_model.root_edit_context().assets() {
             let path = editor_model.asset_path(*asset_id, &self.path_lookup);
 
-            let old = self.all_asset_info.insert(*asset_id, AssetInfo {
-                id: *asset_id,
-                name: asset_info.asset_name().clone(),
-                path,
-                schema: asset_info.schema().clone(),
-                is_dirty: root_edit_context.is_asset_modified(*asset_id),
-                is_generated: editor_model.is_generated_asset(*asset_id)
-            });
+            let old = self.all_asset_info.insert(
+                *asset_id,
+                AssetInfo {
+                    id: *asset_id,
+                    name: asset_info.asset_name().clone(),
+                    path,
+                    schema: asset_info.schema().clone(),
+                    is_dirty: root_edit_context.is_asset_modified(*asset_id),
+                    is_generated: editor_model.is_generated_asset(*asset_id),
+                },
+            );
             assert!(old.is_none());
         }
     }

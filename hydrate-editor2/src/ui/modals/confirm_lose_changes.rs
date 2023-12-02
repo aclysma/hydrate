@@ -1,14 +1,15 @@
-use hydrate_model::pipeline::AssetEngine;
 use crate::action_queue::{UIAction, UIActionQueueSender};
-use crate::DbState;
-use crate::modal_action::{default_modal_window, ModalAction, ModalActionControlFlow, ModalContext};
+use crate::modal_action::{
+    default_modal_window, ModalAction, ModalActionControlFlow, ModalContext,
+};
 use crate::ui_state::EditorModelUiState;
-
+use crate::DbState;
+use hydrate_model::pipeline::AssetEngine;
 
 // For revert all or quitting without saving
 fn confirm_lose_changes<F: Fn(&mut egui::Ui, &mut ModalActionControlFlow) -> ()>(
     context: ModalContext,
-    bottom_ui: F
+    bottom_ui: F,
 ) -> ModalActionControlFlow {
     let mut control_flow = ModalActionControlFlow::Continue;
     default_modal_window("Save or Discard Changes?", context, |context, ui| {
@@ -21,20 +22,30 @@ fn confirm_lose_changes<F: Fn(&mut egui::Ui, &mut ModalActionControlFlow) -> ()>
             .max_scroll_height(300.0)
             .column(egui_extras::Column::remainder());
 
-        table.header(20.0, |mut header| {
-            header.col(|ui| {ui.strong("Asset Path");});
-        }).body(|mut body| {
-            let modified_assets = context.db_state.editor_model.root_edit_context().modified_assets();
-            for asset_id in modified_assets {
-                body.row(20.0, |mut row| {
-                    row.col(|ui| {
-                        let long_name = context.db_state.editor_model.asset_display_name_long(*asset_id, &context.ui_state.path_lookup);
-                        ui.label(long_name);
-
-                    });
+        table
+            .header(20.0, |mut header| {
+                header.col(|ui| {
+                    ui.strong("Asset Path");
                 });
-            }
-        });
+            })
+            .body(|mut body| {
+                let modified_assets = context
+                    .db_state
+                    .editor_model
+                    .root_edit_context()
+                    .modified_assets();
+                for asset_id in modified_assets {
+                    body.row(20.0, |mut row| {
+                        row.col(|ui| {
+                            let long_name = context
+                                .db_state
+                                .editor_model
+                                .asset_display_name_long(*asset_id, &context.ui_state.path_lookup);
+                            ui.label(long_name);
+                        });
+                    });
+                }
+            });
         ui.separator();
 
         (bottom_ui)(ui, &mut control_flow);
@@ -76,7 +87,6 @@ fn confirm_lose_changes<F: Fn(&mut egui::Ui, &mut ModalActionControlFlow) -> ()>
     control_flow
 }
 
-
 // For revert all or quitting without saving
 #[derive(Default)]
 pub struct ConfirmRevertChanges;
@@ -84,27 +94,23 @@ pub struct ConfirmRevertChanges;
 impl ModalAction for ConfirmRevertChanges {
     fn draw(
         &mut self,
-        context: ModalContext
+        context: ModalContext,
     ) -> ModalActionControlFlow {
         let action_queue = context.action_queue;
-        confirm_lose_changes(
-            context,
-            |ui, control_flow| {
-                ui.horizontal(|ui| {
-                    if ui.button("Revert all Changes").clicked() {
-                        action_queue.queue_action(UIAction::RevertAllNoConfirm);
-                        *control_flow = ModalActionControlFlow::End;
-                    }
+        confirm_lose_changes(context, |ui, control_flow| {
+            ui.horizontal(|ui| {
+                if ui.button("Revert all Changes").clicked() {
+                    action_queue.queue_action(UIAction::RevertAllNoConfirm);
+                    *control_flow = ModalActionControlFlow::End;
+                }
 
-                    if ui.button("Cancel").clicked() {
-                        *control_flow = ModalActionControlFlow::End;
-                    }
-                });
-            }
-        )
+                if ui.button("Cancel").clicked() {
+                    *control_flow = ModalActionControlFlow::End;
+                }
+            });
+        })
     }
 }
-
 
 // For revert all or quitting without saving
 #[derive(Default)]
@@ -113,31 +119,28 @@ pub struct ConfirmQuitWithoutSaving;
 impl ModalAction for ConfirmQuitWithoutSaving {
     fn draw(
         &mut self,
-        context: ModalContext
+        context: ModalContext,
     ) -> ModalActionControlFlow {
         let action_queue = context.action_queue;
-        confirm_lose_changes(
-            context,
-            |ui, control_flow| {
-                ui.horizontal(|ui| {
-                    if ui.button("Save and Quit").clicked() {
-                        action_queue.queue_action(UIAction::SaveAll);
-                        action_queue.queue_action(UIAction::QuitNoConfirm);
+        confirm_lose_changes(context, |ui, control_flow| {
+            ui.horizontal(|ui| {
+                if ui.button("Save and Quit").clicked() {
+                    action_queue.queue_action(UIAction::SaveAll);
+                    action_queue.queue_action(UIAction::QuitNoConfirm);
 
-                        *control_flow = ModalActionControlFlow::End;
-                    }
+                    *control_flow = ModalActionControlFlow::End;
+                }
 
-                    if ui.button("Discard and Quit").clicked() {
-                        action_queue.queue_action(UIAction::QuitNoConfirm);
+                if ui.button("Discard and Quit").clicked() {
+                    action_queue.queue_action(UIAction::QuitNoConfirm);
 
-                        *control_flow = ModalActionControlFlow::End;
-                    }
+                    *control_flow = ModalActionControlFlow::End;
+                }
 
-                    if ui.button("Cancel").clicked() {
-                        *control_flow = ModalActionControlFlow::End;
-                    }
-                });
-            }
-        )
+                if ui.button("Cancel").clicked() {
+                    *control_flow = ModalActionControlFlow::End;
+                }
+            });
+        })
     }
 }

@@ -1,13 +1,13 @@
-use crate::{ImporterRegistry, ImportType};
 use crate::{DynEditContext, PipelineResult};
+use crate::{ImportType, ImporterRegistry};
 use crate::{Importer, ScanContext, ScannedImportable};
 use hydrate_base::hashing::HashSet;
 use hydrate_data::{AssetId, AssetLocation, AssetName, HashMap, ImportInfo, ImporterId};
 use hydrate_data::{ImportableName, PathReference};
+use hydrate_schema::SchemaRecord;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use uuid::Uuid;
-use hydrate_schema::SchemaRecord;
 
 #[derive(Debug, Clone)]
 pub struct RequestedImportable {
@@ -182,7 +182,7 @@ pub fn recursively_gather_import_operations_and_create_assets(
         source_file_path: source_file_path.to_path_buf(),
         importer_id: importer.importer_id(),
         requested_importables,
-        import_type: ImportType::ImportIfImportDataStale
+        import_type: ImportType::ImportIfImportDataStale,
     });
 
     Ok(imported_asset_ids)

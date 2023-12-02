@@ -1,10 +1,11 @@
-
 use crate::import_jobs::ImportOp;
-use crate::{ImportContext, ImportableAsset, ImporterRegistry, PipelineResult, ImportType};
+use crate::import_storage::ImportDataMetadata;
+use crate::{ImportContext, ImportType, ImportableAsset, ImporterRegistry, PipelineResult};
 use crossbeam_channel::{Receiver, Sender};
 use hydrate_base::hashing::HashMap;
 use hydrate_base::uuid_path::uuid_to_path;
-use hydrate_data::{ImportableName, ImportInfo, PathReference, SchemaSet, SingleObject};
+use hydrate_base::AssetId;
+use hydrate_data::{ImportInfo, ImportableName, PathReference, SchemaSet, SingleObject};
 use std::hash::{Hash, Hasher};
 use std::io::BufWriter;
 use std::path::{Path, PathBuf};
@@ -12,8 +13,6 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 use std::thread::JoinHandle;
 use std::time::SystemTime;
-use hydrate_base::AssetId;
-use crate::import_storage::{ImportDataMetadata};
 
 // Ask the thread to gather import data from the asset
 #[derive(Debug)]
@@ -65,7 +64,8 @@ fn do_import(
     //
     let source_file_metadata = msg.import_op.path.metadata()?;
     let source_file_size = source_file_metadata.len();
-    let source_file_modified_timestamp = source_file_metadata.modified()?
+    let source_file_modified_timestamp = source_file_metadata
+        .modified()?
         .duration_since(SystemTime::UNIX_EPOCH)
         .map_err(|e| format!("Error getting duration since unix epoch: {:?}", e))?
         .as_secs();
@@ -92,8 +92,11 @@ fn do_import(
             }
 
             let mut import_data_file = std::fs::File::open(import_data_path)?;
-            let metadata = super::import_storage::load_import_metadata_from_b3f(&mut import_data_file)?;
-            if metadata.source_file_size != source_file_size || metadata.source_file_modified_timestamp != source_file_modified_timestamp {
+            let metadata =
+                super::import_storage::load_import_metadata_from_b3f(&mut import_data_file)?;
+            if metadata.source_file_size != source_file_size
+                || metadata.source_file_modified_timestamp != source_file_modified_timestamp
+            {
                 //
                 // Force re-import if the import data does not match the source file size/timestamp. We can stop
                 // as soon as we find stale import data because we will have to import.
@@ -134,7 +137,8 @@ fn do_import(
                 // Our state matches source file state, do nothing
                 //
                 return Ok(Default::default())
-            } else*/ {
+            } else*/
+            {
                 //
                 // Just the asset data is stale, we can recover it from the import data that isn't stale
                 //
@@ -144,10 +148,16 @@ fn do_import(
                     //
                     // Load the metadata and default asset from disk
                     //
-                    let import_data_path = uuid_to_path(import_data_root_path, asset.id.as_uuid(), "if");
+                    let import_data_path =
+                        uuid_to_path(import_data_root_path, asset.id.as_uuid(), "if");
                     let mut import_data_file = std::fs::File::open(import_data_path)?;
-                    let metadata = super::import_storage::load_import_metadata_from_b3f(&mut import_data_file)?;
-                    let default_asset = super::import_storage::load_default_asset_from_b3f(schema_set, &mut import_data_file)?;
+                    let metadata = super::import_storage::load_import_metadata_from_b3f(
+                        &mut import_data_file,
+                    )?;
+                    let default_asset = super::import_storage::load_default_asset_from_b3f(
+                        schema_set,
+                        &mut import_data_file,
+                    )?;
 
                     let metadata = ImportDataMetadata {
                         source_file_modified_timestamp,
@@ -222,14 +232,18 @@ fn do_import(
                     &mut buf_writer,
                     imported_asset.import_data.as_ref(),
                     &import_data_metadata,
-                    &imported_asset.default_asset
+                    &imported_asset.default_asset,
                 );
 
                 let data_to_write = buf_writer
                     .into_inner()
                     .map_err(|e| format!("Error converting bufwriter to Vec<u8>: {:?}", e))?;
 
-                let path = uuid_to_path(import_data_root_path, requested_importable.asset_id.as_uuid(), "if");
+                let path = uuid_to_path(
+                    import_data_root_path,
+                    requested_importable.asset_id.as_uuid(),
+                    "if",
+                );
 
                 if let Some(parent) = path.parent() {
                     std::fs::create_dir_all(parent).unwrap();
@@ -276,15 +290,26 @@ fn do_import(
     Ok(written_importables)
 }
 
-fn create_import_info(msg: &ImportThreadRequestImport, name: &ImportableName, import_data_metadata: ImportDataMetadata) -> ImportInfo {
-    let source_file = PathReference::new(msg.import_op.path.to_string_lossy().to_string(), name.clone());
+fn create_import_info(
+    msg: &ImportThreadRequestImport,
+    name: &ImportableName,
+    import_data_metadata: ImportDataMetadata,
+) -> ImportInfo {
+    let source_file = PathReference::new(
+        msg.import_op.path.to_string_lossy().to_string(),
+        name.clone(),
+    );
     let import_info = ImportInfo::new(
         msg.import_op.importer_id,
         source_file,
-        msg.importable_assets[&name].referenced_paths.keys().cloned().collect(),
+        msg.importable_assets[&name]
+            .referenced_paths
+            .keys()
+            .cloned()
+            .collect(),
         import_data_metadata.source_file_modified_timestamp,
         import_data_metadata.source_file_size,
-        import_data_metadata.import_data_contents_hash
+        import_data_metadata.import_data_contents_hash,
     );
     import_info
 }

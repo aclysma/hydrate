@@ -47,10 +47,10 @@ pub fn draw_properties_window_single_select(
 
     ui.text(im_str!(
         "Path Node: {}",
-        app_state
-            .db_state
-            .editor_model
-            .asset_display_name_long(location.path_node_id(), &app_state.db_state.asset_path_cache)
+        app_state.db_state.editor_model.asset_display_name_long(
+            location.path_node_id(),
+            &app_state.db_state.asset_path_cache
+        )
     ));
 
     if ui.button(im_str!("Force Rebuild")) {

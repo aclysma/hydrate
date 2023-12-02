@@ -1,17 +1,24 @@
-use std::sync::Arc;
-use crossbeam_channel::{Receiver, Sender};
-use hydrate_model::edit_context::EditContext;
-use hydrate_model::{AssetId, AssetLocation, AssetName, DataSetError, DataSetResult, EditorModel, EndContextBehavior, HashSet, SchemaNamedType, SchemaRecord};
-use hydrate_model::pipeline::AssetEngine;
-use hydrate_model::pipeline::import_util::ImportToQueue;
 use crate::app::UiState;
 use crate::modal_action::ModalAction;
-use crate::ui::modals::{ConfirmQuitWithoutSaving, NewAssetModal};
 use crate::ui::modals::ConfirmRevertChanges;
+use crate::ui::modals::{ConfirmQuitWithoutSaving, NewAssetModal};
+use crossbeam_channel::{Receiver, Sender};
+use hydrate_model::edit_context::EditContext;
+use hydrate_model::pipeline::import_util::ImportToQueue;
+use hydrate_model::pipeline::AssetEngine;
+use hydrate_model::{
+    AssetId, AssetLocation, AssetName, DataSetError, DataSetResult, EditorModel,
+    EndContextBehavior, HashSet, SchemaNamedType, SchemaRecord,
+};
+use std::sync::Arc;
 
 pub enum UIAction {
     TryBeginModalAction(Box<dyn ModalAction>),
-    EditContext(&'static str, Vec<AssetId>, Box<dyn FnOnce(&mut EditContext) -> DataSetResult<EndContextBehavior>>),
+    EditContext(
+        &'static str,
+        Vec<AssetId>,
+        Box<dyn FnOnce(&mut EditContext) -> DataSetResult<EndContextBehavior>>,
+    ),
     Undo,
     Redo,
     SaveAll,
@@ -59,13 +66,19 @@ impl UIActionQueueSender {
         self.queue_action(UIAction::TryBeginModalAction(Box::new(action)))
     }
 
-    pub fn queue_edit<F: 'static + FnOnce(&mut EditContext) -> DataSetResult<EndContextBehavior>>(
+    pub fn queue_edit<
+        F: 'static + FnOnce(&mut EditContext) -> DataSetResult<EndContextBehavior>,
+    >(
         &self,
         undo_context_name: &'static str,
         assets: Vec<AssetId>,
-        f: F
+        f: F,
     ) {
-        self.queue_action(UIAction::EditContext(undo_context_name, assets, Box::new(f)))
+        self.queue_action(UIAction::EditContext(
+            undo_context_name,
+            assets,
+            Box::new(f),
+        ))
     }
 }
 
@@ -126,8 +139,10 @@ impl UIActionQueueReceiver {
                     if editor_model.any_edit_context_has_unsaved_changes() {
                         *modal_action = Some(Box::new(ConfirmRevertChanges {}))
                     }
-                },
-                UIAction::RevertAllNoConfirm => editor_model.revert_root_edit_context(&mut imports_to_queue),
+                }
+                UIAction::RevertAllNoConfirm => {
+                    editor_model.revert_root_edit_context(&mut imports_to_queue)
+                }
                 UIAction::Undo => editor_model.undo().unwrap(),
                 UIAction::Redo => editor_model.redo().unwrap(),
                 UIAction::Quit => {
@@ -141,17 +156,15 @@ impl UIActionQueueReceiver {
                 UIAction::QuitNoConfirm => {
                     ui_state.user_confirmed_should_quit = true;
                     ctx.send_viewport_cmd(egui::ViewportCommand::Close)
-                },
+                }
                 UIAction::TryBeginModalAction(modal) => {
                     if modal_action.is_none() {
                         *modal_action = Some(modal);
                     }
-                },
-                UIAction::EditContext(undo_context_name, assets_to_edit, f) => {
-                    editor_model.root_edit_context_mut().with_undo_context(&undo_context_name, |x| {
-                        f(x).unwrap()
-                    })
-                },
+                }
+                UIAction::EditContext(undo_context_name, assets_to_edit, f) => editor_model
+                    .root_edit_context_mut()
+                    .with_undo_context(&undo_context_name, |x| f(x).unwrap()),
 
                 UIAction::PersistAssets(asset_ids) => {
                     for asset_id in asset_ids {
@@ -162,40 +175,55 @@ impl UIActionQueueReceiver {
                     for asset_id in asset_ids {
                         asset_engine.queue_build_operation(asset_id)
                     }
-                },
+                }
                 UIAction::ShowAssetInAssetGallery(asset_id) => {
                     //ui_state.editor_model_ui_state.selected_assets.clear();
                     //ui_state.editor_model_ui_state.selected_assets.insert(asset_id);
                     ui_state.asset_gallery_ui_state.selected_assets.clear();
-                    ui_state.asset_gallery_ui_state.selected_assets.insert(asset_id);
+                    ui_state
+                        .asset_gallery_ui_state
+                        .selected_assets
+                        .insert(asset_id);
                 }
                 UIAction::MoveAsset(moving_asset, new_location) => {
-                    editor_model.root_edit_context_mut().with_undo_context("move asset", |edit_context| {
-                        let result = edit_context.set_asset_location(moving_asset, new_location);
-                        match result {
-                            Ok(_) => {
-                                // do nothing
+                    editor_model.root_edit_context_mut().with_undo_context(
+                        "move asset",
+                        |edit_context| {
+                            let result =
+                                edit_context.set_asset_location(moving_asset, new_location);
+                            match result {
+                                Ok(_) => {
+                                    // do nothing
+                                }
+                                Err(DataSetError::NewLocationIsChildOfCurrentAsset) => {
+                                    // do nothing
+                                }
+                                _ => {
+                                    unimplemented!()
+                                }
                             }
-                            Err(DataSetError::NewLocationIsChildOfCurrentAsset) => {
-                                // do nothing
-                            },
-                            _ => {
-                                unimplemented!()
-                            }
-                        }
 
-                        EndContextBehavior::Finish
-                    });
-                },
+                            EndContextBehavior::Finish
+                        },
+                    );
+                }
                 UIAction::NewAsset(asset_name, asset_location, schema_record) => {
-                    editor_model.root_edit_context_mut().with_undo_context("new asset", |edit_context| {
-                        let new_asset_id = edit_context.new_asset(&asset_name, &asset_location, &schema_record);
-                        self.sender.queue_action(UIAction::ShowAssetInAssetGallery(new_asset_id));
-                        // let mut selected_items = HashSet::default();
-                        // selected_items.insert(new_asset_id);
-                        // ui_state.asset_browser_state.grid_state.selected_items = selected_items;
-                        EndContextBehavior::Finish
-                    });
+                    editor_model.root_edit_context_mut().with_undo_context(
+                        "new asset",
+                        |edit_context| {
+                            let new_asset_id = edit_context.new_asset(
+                                &asset_name,
+                                &asset_location,
+                                &schema_record,
+                            );
+                            self.sender
+                                .queue_action(UIAction::ShowAssetInAssetGallery(new_asset_id));
+                            // let mut selected_items = HashSet::default();
+                            // selected_items.insert(new_asset_id);
+                            // ui_state.asset_browser_state.grid_state.selected_items = selected_items;
+                            EndContextBehavior::Finish
+                        },
+                    );
                 }
             }
         }

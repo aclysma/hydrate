@@ -1,4 +1,3 @@
-
 #[derive(Default)]
 pub struct EguiDebugUiState {
     pub show_settings_ui: bool,
@@ -8,7 +7,10 @@ pub struct EguiDebugUiState {
     pub show_texture_ui: bool,
 }
 
-pub fn show_egui_debug_ui(ctx: &egui::Context, egui_debug_ui_state: &EguiDebugUiState) {
+pub fn show_egui_debug_ui(
+    ctx: &egui::Context,
+    egui_debug_ui_state: &EguiDebugUiState,
+) {
     if egui_debug_ui_state.show_settings_ui {
         egui::Window::new("Egui Settings").show(ctx, |ui| {
             egui::ScrollArea::vertical().show(ui, |ui| {

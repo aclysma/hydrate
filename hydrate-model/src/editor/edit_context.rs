@@ -396,7 +396,12 @@ impl EditContext {
         single_object: &SingleObject,
     ) -> DataSetResult<()> {
         self.track_new_asset(asset_id, &asset_location);
-        self.data_set.new_asset_with_id(asset_id, asset_name, asset_location, single_object.schema())?;
+        self.data_set.new_asset_with_id(
+            asset_id,
+            asset_name,
+            asset_location,
+            single_object.schema(),
+        )?;
         self.data_set
             .copy_from_single_object(asset_id, single_object)
     }

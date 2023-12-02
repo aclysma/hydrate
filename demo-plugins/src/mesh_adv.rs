@@ -3,20 +3,18 @@ use glam::Vec3;
 use rafx_api::RafxResourceType;
 
 use crate::generated::{
-    MeshAdvMaterialAssetRecord, MeshAdvMeshAssetRecord,
-    MeshAdvMeshImportedDataRecord,
+    MeshAdvMaterialAssetRecord, MeshAdvMeshAssetRecord, MeshAdvMeshImportedDataRecord,
 };
 use crate::push_buffer::PushBuffer;
 use demo_types::mesh_adv::*;
+use hydrate_data::Record;
 use hydrate_model::pipeline::{AssetPlugin, Builder};
 use hydrate_pipeline::{
-    AssetId, BuilderContext, BuilderRegistryBuilder,
-    ImporterRegistryBuilder, JobInput, JobOutput, JobProcessor,
-    JobProcessorRegistryBuilder, PipelineResult, RunContext, SchemaLinker,
+    AssetId, BuilderContext, BuilderRegistryBuilder, ImporterRegistryBuilder, JobInput, JobOutput,
+    JobProcessor, JobProcessorRegistryBuilder, PipelineResult, RunContext, SchemaLinker,
 };
 use serde::{Deserialize, Serialize};
 use type_uuid::TypeUuid;
-use hydrate_data::Record;
 
 #[derive(Hash, Serialize, Deserialize)]
 pub struct MeshAdvMaterialJobInput {

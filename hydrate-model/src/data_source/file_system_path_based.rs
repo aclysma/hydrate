@@ -5,7 +5,9 @@ use hydrate_base::hashing::HashSet;
 use hydrate_data::json_storage::{MetaFile, MetaFileJson};
 use hydrate_data::{AssetId, AssetLocation, AssetName, ImportableName, ImporterId, PathReference};
 use hydrate_pipeline::import_util::{ImportToQueue, RequestedImportable};
-use hydrate_pipeline::{import_util, Importer, ImporterRegistry, ImportType, ScanContext, ScannedImportable};
+use hydrate_pipeline::{
+    import_util, ImportType, Importer, ImporterRegistry, ScanContext, ScannedImportable,
+};
 use hydrate_schema::{HashMap, SchemaNamedType};
 use std::ffi::OsStr;
 use std::path::{Path, PathBuf};
@@ -875,7 +877,7 @@ impl DataSource for FileSystemPathBasedDataSource {
                         //importer_id: scanned_source_file.importer.importer_id(),
                         source_file,
                         path_references: file_references,
-                        replace_with_default_asset: !asset_file_exists
+                        replace_with_default_asset: !asset_file_exists,
                     };
 
                     requested_importables

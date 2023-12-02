@@ -472,7 +472,9 @@ impl DataSet {
                 // Cannot make an asset a child of its own children
                 return Err(DataSetError::NewLocationIsChildOfCurrentAsset);
             }
-            new_parent_asset_id_iter = self.asset_location(new_parent_asset_id).map(|x| x.path_node_id())
+            new_parent_asset_id_iter = self
+                .asset_location(new_parent_asset_id)
+                .map(|x| x.path_node_id())
         }
 
         let asset = self

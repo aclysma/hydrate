@@ -1,4 +1,3 @@
-use std::cell::RefCell;
 use crate::{BuiltArtifact, ImportData, PipelineResult, WrittenArtifact};
 use crossbeam_channel::{Receiver, Sender};
 use hydrate_base::hashing::HashMap;
@@ -6,6 +5,7 @@ use hydrate_base::uuid_path::uuid_and_hash_to_path;
 use hydrate_base::{ArtifactId, AssetId};
 use hydrate_data::{DataSet, SchemaSet};
 use serde::{Deserialize, Serialize};
+use std::cell::RefCell;
 use std::hash::Hasher;
 use std::io::{BufWriter, Write};
 use std::path::PathBuf;
@@ -305,7 +305,10 @@ impl JobApi for JobApiImpl {
             .unwrap();
     }
 
-    fn fetch_import_data(&self, asset_id: AssetId) -> PipelineResult<ImportData> {
+    fn fetch_import_data(
+        &self,
+        asset_id: AssetId,
+    ) -> PipelineResult<ImportData> {
         super::super::import_jobs::load_import_data(
             &self.inner.import_data_root_path,
             &self.inner.schema_set,
@@ -499,8 +502,8 @@ impl JobExecutor {
                     let job = self.current_jobs.get_mut(&msg.request.job_id).unwrap();
                     job.output_data = Some(JobStateOuput {
                         output_data: msg.result,
-                        fetched_asset_data:  msg.fetched_asset_data,
-                        fetched_import_data:  msg.fetched_import_data,
+                        fetched_asset_data: msg.fetched_asset_data,
+                        fetched_import_data: msg.fetched_import_data,
                     });
                     self.completed_job_count += 1;
 

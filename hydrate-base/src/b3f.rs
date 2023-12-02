@@ -171,11 +171,15 @@ impl B3FReader {
         Ok(Some(B3FReader {
             file_tag,
             version,
-            block_count
+            block_count,
         }))
     }
 
-    pub fn get_block_location<T: std::io::Read + std::io::Seek>(&self, reader: &mut T, index: usize) -> std::io::Result<Range<usize>> {
+    pub fn get_block_location<T: std::io::Read + std::io::Seek>(
+        &self,
+        reader: &mut T,
+        index: usize,
+    ) -> std::io::Result<Range<usize>> {
         // assumed by some implementation details here
         debug_assert_eq!(BLOCK_LENGTH_SIZE_IN_BYTES, 8);
         let begin_size_offset = HEADER_SIZE_IN_BYTES + (index * BLOCK_LENGTH_SIZE_IN_BYTES);
@@ -199,7 +203,11 @@ impl B3FReader {
         Ok((data_offset + begin)..(data_offset + end))
     }
 
-    pub fn read_block<T: std::io::Read + std::io::Seek>(&self, reader: &mut T, index: usize) -> std::io::Result<Vec<u8>> {
+    pub fn read_block<T: std::io::Read + std::io::Seek>(
+        &self,
+        reader: &mut T,
+        index: usize,
+    ) -> std::io::Result<Vec<u8>> {
         let block_location = self.get_block_location(reader, index)?;
         reader.seek(SeekFrom::Start(block_location.start as u64))?;
         let mut bytes = vec![0u8; block_location.end - block_location.start];
@@ -207,14 +215,17 @@ impl B3FReader {
         Ok(bytes)
     }
 
-    pub fn read_block_from_slice<'a>(&self, data: &'a [u8], index: usize) -> std::io::Result<&'a [u8]> {
+    pub fn read_block_from_slice<'a>(
+        &self,
+        data: &'a [u8],
+        index: usize,
+    ) -> std::io::Result<&'a [u8]> {
         let mut cursor = Cursor::new(data);
         //let buf_reader = BufReader::new(data);
         let block_location = self.get_block_location(&mut cursor, index)?;
         Ok(&data[block_location])
     }
 }
-
 
 /*
 pub fn read_b3f_file_tag_as_u32<T: std::io::Read + std::io::Seek>(mut reader: T) -> std::io::Result<u32> {

@@ -1,17 +1,17 @@
-use std::ops::Deref;
-use egui::{FontDefinitions, Frame, ViewportCommand};
-use egui::epaint::text::FontsImpl;
-use egui::scroll_area::ScrollBarVisibility;
-use hydrate_model::{AssetId, EditorModelWithCache, HashSet};
-use hydrate_model::pipeline::AssetEngine;
 use crate::action_queue::{UIAction, UIActionQueueReceiver};
 use crate::db_state::DbState;
 use crate::egui_debug_ui::EguiDebugUiState;
 use crate::modal_action::{ModalAction, ModalActionControlFlow, ModalContext};
-use crate::ui_state::EditorModelUiState;
 use crate::persistent_app_state::PersistentAppState;
 use crate::ui::components::{AssetGalleryUiState, AssetTreeUiState, InspectorUiState};
 use crate::ui::modals::ImportFilesModal;
+use crate::ui_state::EditorModelUiState;
+use egui::epaint::text::FontsImpl;
+use egui::scroll_area::ScrollBarVisibility;
+use egui::{FontDefinitions, Frame, ViewportCommand};
+use hydrate_model::pipeline::AssetEngine;
+use hydrate_model::{AssetId, EditorModelWithCache, HashSet};
+use std::ops::Deref;
 
 #[derive(Default)]
 pub struct UiState {
@@ -22,7 +22,6 @@ pub struct UiState {
     pub egui_debug_ui_state: EguiDebugUiState,
     pub user_confirmed_should_quit: bool,
 }
-
 
 /// We derive Deserialize/Serialize so we can persist app state on shutdown.
 pub struct HydrateEditorApp {
@@ -36,7 +35,11 @@ pub struct HydrateEditorApp {
 
 impl HydrateEditorApp {
     /// Called once before the first frame.
-    pub fn new(cc: &eframe::CreationContext<'_>, db_state: DbState, asset_engine: AssetEngine) -> Self {
+    pub fn new(
+        cc: &eframe::CreationContext<'_>,
+        db_state: DbState,
+        asset_engine: AssetEngine,
+    ) -> Self {
         let persistent_state = if let Some(storage) = cc.storage {
             eframe::get_value(storage, eframe::APP_KEY).unwrap_or_default()
         } else {
@@ -63,7 +66,10 @@ impl HydrateEditorApp {
 
 impl eframe::App for HydrateEditorApp {
     /// Called by the frame work to save state before shutdown.
-    fn save(&mut self, storage: &mut dyn eframe::Storage) {
+    fn save(
+        &mut self,
+        storage: &mut dyn eframe::Storage,
+    ) {
         eframe::set_value(storage, eframe::APP_KEY, &self.persistent_state);
     }
 
@@ -76,7 +82,9 @@ impl eframe::App for HydrateEditorApp {
         // Generate some profiling info
         profiling::scope!("Main Thread");
 
-        self.ui_state.editor_model_ui_state.update(&self.db_state.editor_model);
+        self.ui_state
+            .editor_model_ui_state
+            .update(&self.db_state.editor_model);
 
         let action_queue_sender = self.action_queue.sender();
 
@@ -90,11 +98,18 @@ impl eframe::App for HydrateEditorApp {
 
         ctx.input(|input| {
             if !input.raw.dropped_files.is_empty() {
-                let dropped_files: Vec<_> = input.raw.dropped_files.iter().map(|x| x.path.clone().unwrap()).collect();
-                action_queue_sender.try_set_modal_action(ImportFilesModal::new(dropped_files, self.asset_engine.importer_registry()));
+                let dropped_files: Vec<_> = input
+                    .raw
+                    .dropped_files
+                    .iter()
+                    .map(|x| x.path.clone().unwrap())
+                    .collect();
+                action_queue_sender.try_set_modal_action(ImportFilesModal::new(
+                    dropped_files,
+                    self.asset_engine.importer_registry(),
+                ));
             }
         });
-
 
         {
             let mut editor_model_with_cache = EditorModelWithCache {
@@ -128,70 +143,94 @@ impl eframe::App for HydrateEditorApp {
             self.modal_action = None;
         }
 
-        let default_font = ctx.style().text_styles.get(&egui::TextStyle::Body).unwrap().clone();
+        let default_font = ctx
+            .style()
+            .text_styles
+            .get(&egui::TextStyle::Body)
+            .unwrap()
+            .clone();
 
         egui::TopBottomPanel::top("top_panel").show(ctx, |ui| {
             ui.set_enabled(self.modal_action.is_none());
 
             // The top panel is often a good place for a menu bar:
-            crate::ui::components::draw_main_menu_bar(ctx, ui, &mut self.ui_state.egui_debug_ui_state, &action_queue_sender);
-
+            crate::ui::components::draw_main_menu_bar(
+                ctx,
+                ui,
+                &mut self.ui_state.egui_debug_ui_state,
+                &action_queue_sender,
+            );
         });
 
-        egui::SidePanel::right("right_panel").resizable(true).show(ctx, |ui| {
-            ui.set_enabled(self.modal_action.is_none());
+        egui::SidePanel::right("right_panel")
+            .resizable(true)
+            .show(ctx, |ui| {
+                ui.set_enabled(self.modal_action.is_none());
 
-            egui::ScrollArea::vertical()
-                .max_width(f32::INFINITY)
-                .auto_shrink([false, false])
-                .show(ui, |ui| {
-                if !self.ui_state.asset_gallery_ui_state.selected_assets.is_empty() {
-                    for selected in &self.ui_state.asset_gallery_ui_state.selected_assets {
-                        //TODO: Temp hack
-                        crate::ui::components::draw_inspector(
+                egui::ScrollArea::vertical()
+                    .max_width(f32::INFINITY)
+                    .auto_shrink([false, false])
+                    .show(ui, |ui| {
+                        if !self
+                            .ui_state
+                            .asset_gallery_ui_state
+                            .selected_assets
+                            .is_empty()
+                        {
+                            for selected in &self.ui_state.asset_gallery_ui_state.selected_assets {
+                                //TODO: Temp hack
+                                crate::ui::components::draw_inspector(
+                                    ui,
+                                    &self.db_state.editor_model,
+                                    &action_queue_sender,
+                                    &self.ui_state.editor_model_ui_state,
+                                    *selected,
+                                );
+                                break;
+                            }
+                        }
+                    });
+            });
+
+        egui::SidePanel::left("left_panel")
+            .resizable(true)
+            .show(ctx, |ui| {
+                egui::ScrollArea::vertical()
+                    .max_width(f32::INFINITY)
+                    .auto_shrink([false, false])
+                    .show(ui, |ui| {
+                        crate::ui::components::draw_asset_tree(
                             ui,
                             &self.db_state.editor_model,
                             &action_queue_sender,
                             &self.ui_state.editor_model_ui_state,
-                            *selected,
+                            &mut self.ui_state.asset_tree_ui_state,
                         );
-                        break;
-                    }
-                }
+                    });
             });
-
-        });
-
-        egui::SidePanel::left("left_panel").resizable(true).show(ctx, |ui| {
-            egui::ScrollArea::vertical()
-                .max_width(f32::INFINITY)
-                .auto_shrink([false, false])
-                .show(ui, |ui| {
-                crate::ui::components::draw_asset_tree(
-                    ui,
-                    &self.db_state.editor_model,
-                    &action_queue_sender,
-                    &self.ui_state.editor_model_ui_state,
-                    &mut self.ui_state.asset_tree_ui_state,
-                );
-            });
-        });
 
         //let mut frame = Frame::central_panel(&*ctx.style());
-        egui::CentralPanel::default()/*.frame(frame)*/.show(ctx, |ui| {
-            ui.set_enabled(self.modal_action.is_none());
-            let mut fonts = FontsImpl::new(1.0, 1024, FontDefinitions::default());
-            crate::ui::components::draw_asset_gallery(
-                ui,
-                &mut fonts,
-                &default_font,
-                &self.ui_state.editor_model_ui_state,
-                &mut self.ui_state.asset_gallery_ui_state,
-                &action_queue_sender
-            );
-        });
+        egui::CentralPanel::default() /*.frame(frame)*/
+            .show(ctx, |ui| {
+                ui.set_enabled(self.modal_action.is_none());
+                let mut fonts = FontsImpl::new(1.0, 1024, FontDefinitions::default());
+                crate::ui::components::draw_asset_gallery(
+                    ui,
+                    &mut fonts,
+                    &default_font,
+                    &self.ui_state.editor_model_ui_state,
+                    &mut self.ui_state.asset_gallery_ui_state,
+                    &action_queue_sender,
+                );
+            });
 
-        self.action_queue.process(&mut self.db_state.editor_model, &mut self.asset_engine, &mut self.ui_state, &mut self.modal_action, ctx);
+        self.action_queue.process(
+            &mut self.db_state.editor_model,
+            &mut self.asset_engine,
+            &mut self.ui_state,
+            &mut self.modal_action,
+            ctx,
+        );
 
         super::egui_debug_ui::show_egui_debug_ui(ctx, &mut self.ui_state.egui_debug_ui_state);
 

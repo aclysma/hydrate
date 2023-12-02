@@ -8,4 +8,4 @@ mod confirm_lose_changes;
 mod new_asset_modal;
 pub use new_asset_modal::NewAssetModal;
 
-pub use confirm_lose_changes::{ConfirmRevertChanges, ConfirmQuitWithoutSaving};
+pub use confirm_lose_changes::{ConfirmQuitWithoutSaving, ConfirmRevertChanges};

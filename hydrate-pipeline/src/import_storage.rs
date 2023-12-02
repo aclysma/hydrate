@@ -1,11 +1,11 @@
-use std::hash::{Hash, Hasher};
-use std::sync::Arc;
-use serde::{Deserialize, Serialize};
+use crate::PipelineResult;
 use hydrate_base::b3f;
 use hydrate_base::b3f::B3FReader;
-use hydrate_data::json_storage::{SingleObjectJson};
+use hydrate_data::json_storage::SingleObjectJson;
 use hydrate_data::{SchemaSet, SingleObject};
-use crate::PipelineResult;
+use serde::{Deserialize, Serialize};
+use std::hash::{Hash, Hasher};
+use std::sync::Arc;
 
 // No real reason this limit needs to exist, just don't want to read corrupt data and try to
 // allocate or load based on corrupt data. This is larger than a header is actually expected
@@ -61,7 +61,10 @@ pub struct SingleObjectWithMetadata {
 //
 // The first block is import file metadata in binary
 //
-fn read_header<T: std::io::Read + std::io::Seek>(b3f: &B3FReader, data: &mut T) -> PipelineResult<ImportDataHeader> {
+fn read_header<T: std::io::Read + std::io::Seek>(
+    b3f: &B3FReader,
+    data: &mut T,
+) -> PipelineResult<ImportDataHeader> {
     let metadata = b3f.read_block(data, 0)?;
     let mut buf_reader = std::io::BufReader::new(metadata.as_slice());
     let metadata = ImportDataHeader::read_header(&mut buf_reader)?;
@@ -70,7 +73,11 @@ fn read_header<T: std::io::Read + std::io::Seek>(b3f: &B3FReader, data: &mut T) 
 //
 // The second block is the default asset as UTF-8 json
 //
-fn read_default_asset<T: std::io::Read + std::io::Seek>(b3f: &B3FReader, data: &mut T, schema_set: &SchemaSet) -> PipelineResult<SingleObject> {
+fn read_default_asset<T: std::io::Read + std::io::Seek>(
+    b3f: &B3FReader,
+    data: &mut T,
+    schema_set: &SchemaSet,
+) -> PipelineResult<SingleObject> {
     let default_asset_block = &b3f.read_block(data, 1)?;
     let default_asset_str = std::str::from_utf8(&default_asset_block).unwrap();
 
@@ -88,7 +95,7 @@ fn read_default_asset<T: std::io::Read + std::io::Seek>(b3f: &B3FReader, data: &
 
 #[profiling::function]
 pub fn load_import_metadata_from_b3f<T: std::io::Read + std::io::Seek>(
-    data: &mut T,
+    data: &mut T
 ) -> PipelineResult<ImportDataMetadata> {
     // First check that the file has the expected headers
     let b3f = B3FReader::new(data)?.ok_or("Not a B3F file")?;
@@ -182,7 +189,7 @@ pub fn save_single_object_to_b3f<W: std::io::Write>(
     //TODO: Write this + import file size + import file modified time
     let mut data = Vec::default();
     let header = ImportDataHeader {
-        metadata: *metadata
+        metadata: *metadata,
     };
     header.write_header(&mut data).unwrap();
     b3f_writer.add_block(&data);

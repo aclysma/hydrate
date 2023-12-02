@@ -1,5 +1,5 @@
-mod ui;
 mod app;
+mod ui;
 
 mod db_state;
 pub use db_state::DbState;
@@ -8,18 +8,20 @@ mod persistent_app_state;
 
 mod action_queue;
 
-mod ui_state;
-mod modal_action;
 mod egui_debug_ui;
+mod modal_action;
+mod ui_state;
 
-use hydrate_model::pipeline::AssetEngine;
 use crate::app::HydrateEditorApp;
+use hydrate_model::pipeline::AssetEngine;
 
-pub fn run(db_state: DbState, asset_engine: AssetEngine) -> eframe::Result<()> {
+pub fn run(
+    db_state: DbState,
+    asset_engine: AssetEngine,
+) -> eframe::Result<()> {
     let native_options = eframe::NativeOptions {
-        viewport: egui::ViewportBuilder::default()
-            .with_inner_size([450.0, 300.0]),
-            //.with_min_inner_size([900.0, 650.0]),
+        viewport: egui::ViewportBuilder::default().with_inner_size([450.0, 300.0]),
+        //.with_min_inner_size([900.0, 650.0]),
         follow_system_theme: false,
         default_theme: eframe::Theme::Dark,
         centered: true,

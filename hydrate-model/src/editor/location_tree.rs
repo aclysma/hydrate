@@ -1,4 +1,7 @@
-use crate::{AssetId, AssetLocation, AssetPath, AssetPathCache, AssetSourceId, DataSet, DataSource, EditorModel, HashMap};
+use crate::{
+    AssetId, AssetLocation, AssetPath, AssetPathCache, AssetSourceId, DataSet, DataSource,
+    EditorModel, HashMap,
+};
 use std::cmp::Ordering;
 use std::collections::BTreeMap;
 
@@ -134,7 +137,7 @@ impl LocationTree {
 
     pub fn build(
         editor_model: &EditorModel,
-        asset_path_cache: &AssetPathCache
+        asset_path_cache: &AssetPathCache,
     ) -> Self {
         let data_sources = editor_model.data_sources();
         let root_data_set = editor_model.root_edit_context().data_set();

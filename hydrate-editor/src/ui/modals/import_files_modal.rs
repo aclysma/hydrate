@@ -2,9 +2,12 @@ use crate::app_state::{ActionQueueSender, ModalAction, ModalActionControlFlow};
 use crate::db_state::DbState;
 use crate::ui_state::UiState;
 use hydrate_model::pipeline::import_util::ImportToQueue;
-use hydrate_model::pipeline::{AssetEngine, ImporterRegistry, ImportType};
+use hydrate_model::pipeline::{AssetEngine, ImportType, ImporterRegistry};
 use hydrate_model::pipeline::{Importer, PipelineResult};
-use hydrate_model::{AssetId, AssetLocation, AssetPathCache, HashMap, HashSet, ImportableName, LocationTree, LocationTreeNode};
+use hydrate_model::{
+    AssetId, AssetLocation, AssetPathCache, HashMap, HashSet, ImportableName, LocationTree,
+    LocationTreeNode,
+};
 use imgui::sys::ImVec2;
 use imgui::{im_str, PopupModal, TreeNodeFlags};
 use std::path::{Path, PathBuf};
@@ -138,7 +141,8 @@ pub fn path_tree(
     selected_import_location: &mut AssetLocation,
 ) {
     db_state.asset_path_cache = AssetPathCache::build(&db_state.editor_model);
-    db_state.location_tree = LocationTree::build(&db_state.editor_model, &db_state.asset_path_cache);
+    db_state.location_tree =
+        LocationTree::build(&db_state.editor_model, &db_state.asset_path_cache);
 
     for (child_name, child) in &db_state.location_tree.root_nodes {
         path_tree_node(

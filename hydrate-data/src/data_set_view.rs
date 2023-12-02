@@ -1,6 +1,6 @@
-use std::sync::Arc;
 use crate::data_set::DataSetResult;
 use crate::{AssetId, DataSet, NullOverride, OverrideBehavior, SchemaSet, SingleObject, Value};
+use std::sync::Arc;
 use uuid::Uuid;
 
 trait DataContainerRead {
@@ -61,7 +61,7 @@ trait DataContainerWrite {
 pub enum DataContainerRef<'a> {
     DataSet(&'a DataSet, &'a SchemaSet, AssetId),
     SingleObjectRef(&'a SingleObject, &'a SchemaSet),
-    SingleObjectArc(Arc<SingleObject>, &'a SchemaSet)
+    SingleObjectArc(Arc<SingleObject>, &'a SchemaSet),
 }
 
 impl<'a> DataContainerRef<'a> {

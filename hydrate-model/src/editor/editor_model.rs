@@ -1,7 +1,13 @@
 use crate::edit_context::EditContext;
 use crate::editor::undo::UndoStack;
-use crate::{AssetId, AssetPath, AssetPathCache, AssetSourceId, DataSet, DataSource, FileSystemIdBasedDataSource, FileSystemPathBasedDataSource, HashMap, HashSet, LocationTree, PathNode, PathNodeRoot, SchemaNamedType, SchemaSet};
-use hydrate_data::{AssetLocation, AssetName, DataSetError, DataSetResult, ImportInfo, PathReference, SingleObject};
+use crate::{
+    AssetId, AssetPath, AssetPathCache, AssetSourceId, DataSet, DataSource,
+    FileSystemIdBasedDataSource, FileSystemPathBasedDataSource, HashMap, HashSet, LocationTree,
+    PathNode, PathNodeRoot, SchemaNamedType, SchemaSet,
+};
+use hydrate_data::{
+    AssetLocation, AssetName, DataSetError, DataSetResult, ImportInfo, PathReference, SingleObject,
+};
 use hydrate_pipeline::{import_util::ImportToQueue, DynEditorModel, ImporterRegistry};
 use hydrate_schema::{SchemaFingerprint, SchemaRecord};
 use slotmap::DenseSlotMap;
@@ -18,7 +24,6 @@ pub struct EditorModel {
 
     //asset_path_cache: AssetPathCache,
     //location_tree: LocationTree,
-
     path_node_schema: SchemaNamedType,
     path_node_root_schema: SchemaNamedType,
 }
@@ -41,14 +46,13 @@ impl<'a> DynEditorModel for EditorModelWithCache<'a> {
         default_asset: &SingleObject,
         replace_with_default_asset: bool,
         import_info: ImportInfo,
-        path_references: &HashMap<PathReference, AssetId>
+        path_references: &HashMap<PathReference, AssetId>,
     ) -> DataSetResult<()> {
         //
         // If the asset is supposed to be regenerated, stomp the existing asset
         //
         let edit_context = self.editor_model.root_edit_context_mut();
-        if replace_with_default_asset
-        {
+        if replace_with_default_asset {
             edit_context.init_from_single_object(
                 asset_id,
                 asset_name,
@@ -62,7 +66,11 @@ impl<'a> DynEditorModel for EditorModelWithCache<'a> {
         //
         edit_context.set_import_info(asset_id, import_info)?;
         for (path_reference, referenced_asset_id) in path_references {
-            edit_context.set_file_reference_override(asset_id, path_reference.clone(), *referenced_asset_id)?;
+            edit_context.set_file_reference_override(
+                asset_id,
+                path_reference.clone(),
+                *referenced_asset_id,
+            )?;
         }
 
         Ok(())
@@ -76,14 +84,16 @@ impl<'a> DynEditorModel for EditorModelWithCache<'a> {
         &self,
         schema_record: &SchemaRecord,
     ) -> bool {
-        self.editor_model.is_path_node_or_root(schema_record.fingerprint())
+        self.editor_model
+            .is_path_node_or_root(schema_record.fingerprint())
     }
 
     fn asset_display_name_long(
         &self,
         asset_id: AssetId,
     ) -> String {
-        self.editor_model.asset_display_name_long(asset_id, &self.asset_path_cache)
+        self.editor_model
+            .asset_display_name_long(asset_id, &self.asset_path_cache)
     }
 }
 
@@ -221,7 +231,10 @@ impl EditorModel {
             .cloned()
             .unwrap_or_else(AssetPath::root);
 
-        let name = root_data_set.asset_name(asset_id).map(|x| x.as_string()).flatten();
+        let name = root_data_set
+            .asset_name(asset_id)
+            .map(|x| x.as_string())
+            .flatten();
         if let Some(name) = name {
             path.join(name)
         } else {
@@ -234,7 +247,9 @@ impl EditorModel {
         asset_id: AssetId,
         asset_path_cache: &AssetPathCache,
     ) -> String {
-        self.asset_path(asset_id, asset_path_cache).as_str().to_string()
+        self.asset_path(asset_id, asset_path_cache)
+            .as_str()
+            .to_string()
     }
 
     pub fn data_source(

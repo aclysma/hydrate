@@ -1,8 +1,8 @@
-use hydrate_base::AssetId;
+use crate::{AssetPath, EditorModel};
 use hydrate_base::hashing::{HashMap, HashSet};
+use hydrate_base::AssetId;
 use hydrate_data::DataSet;
 use hydrate_schema::SchemaNamedType;
-use crate::{AssetPath, EditorModel};
 
 fn do_populate_path(
     data_set: &DataSet,
@@ -87,13 +87,13 @@ pub fn build_path_lookup(
 }
 
 pub struct AssetPathCache {
-    path_to_id_lookup: HashMap<AssetId, AssetPath>
+    path_to_id_lookup: HashMap<AssetId, AssetPath>,
 }
 
 impl AssetPathCache {
     pub fn empty() -> Self {
         AssetPathCache {
-            path_to_id_lookup: Default::default()
+            path_to_id_lookup: Default::default(),
         }
     }
 
@@ -101,12 +101,10 @@ impl AssetPathCache {
         let path_to_id_lookup = build_path_lookup(
             editor_model.root_edit_context().data_set(),
             editor_model.path_node_schema(),
-            editor_model.path_node_root_schema()
+            editor_model.path_node_root_schema(),
         );
 
-        AssetPathCache {
-            path_to_id_lookup
-        }
+        AssetPathCache { path_to_id_lookup }
     }
 
     pub fn path_to_id_lookup(&self) -> &HashMap<AssetId, AssetPath> {

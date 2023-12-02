@@ -1,7 +1,7 @@
 use hydrate_model::pipeline::Builder;
 use hydrate_pipeline::{
-    AssetId, BuilderContext, DataContainerRef,
-    JobInput, JobOutput, JobProcessor, PipelineResult, RunContext,
+    AssetId, BuilderContext, DataContainerRef, JobInput, JobOutput, JobProcessor, PipelineResult,
+    RunContext,
 };
 use serde::{Deserialize, Serialize};
 use std::marker::PhantomData;

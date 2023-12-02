@@ -2,42 +2,57 @@ use demo_plugins::{
     BlenderMaterialAssetPlugin, BlenderMeshAssetPlugin, GlslAssetPlugin, GltfAssetPlugin,
     GpuBufferAssetPlugin, GpuImageAssetPlugin, MeshAdvAssetPlugin, SimpleDataAssetPlugin,
 };
+use hydrate::model::{AssetPathCache, EditorModelWithCache};
 use hydrate::pipeline::AssetEngine;
 use std::path::PathBuf;
-use hydrate::model::{AssetPathCache, EditorModelWithCache};
 
 fn schema_def_path() -> PathBuf {
-    PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/../demo-editor/data/schema"))
+    PathBuf::from(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../demo-editor/data/schema"
+    ))
 }
 
 fn schema_cache_file_path() -> PathBuf {
     PathBuf::from(concat!(
-    env!("CARGO_MANIFEST_DIR"),
-    "/../demo-editor/data/schema_cache_file.json"
+        env!("CARGO_MANIFEST_DIR"),
+        "/../demo-editor/data/schema_cache_file.json"
     ))
 }
 
 fn asset_id_based_asset_source_path() -> PathBuf {
-    PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/../demo-editor/data/assets_id_based"))
+    PathBuf::from(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../demo-editor/data/assets_id_based"
+    ))
 }
 
 fn asset_path_based_data_source_path() -> PathBuf {
     PathBuf::from(concat!(
-    env!("CARGO_MANIFEST_DIR"),
-    "/../demo-editor/data/assets_path_based"
+        env!("CARGO_MANIFEST_DIR"),
+        "/../demo-editor/data/assets_path_based"
     ))
 }
 
 pub fn import_data_path() -> PathBuf {
-    PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/../demo-editor/data/import_data"))
+    PathBuf::from(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../demo-editor/data/import_data"
+    ))
 }
 
 pub fn build_data_path() -> PathBuf {
-    PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/../demo-editor/data/build_data"))
+    PathBuf::from(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../demo-editor/data/build_data"
+    ))
 }
 
 pub fn job_data_path() -> PathBuf {
-    PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/../demo-editor/data/job_data"))
+    PathBuf::from(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../demo-editor/data/job_data"
+    ))
 }
 
 fn main() -> eframe::Result<()> {
@@ -93,7 +108,7 @@ fn main() -> eframe::Result<()> {
         let asset_path_cache = AssetPathCache::build(&db_state.editor_model);
         let mut editor_model_with_cache = EditorModelWithCache {
             editor_model: &mut db_state.editor_model,
-            asset_path_cache: &asset_path_cache
+            asset_path_cache: &asset_path_cache,
         };
 
         let mut asset_engine = {

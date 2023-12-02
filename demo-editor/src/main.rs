@@ -2,9 +2,9 @@ use demo_plugins::{
     BlenderMaterialAssetPlugin, BlenderMeshAssetPlugin, GlslAssetPlugin, GltfAssetPlugin,
     GpuBufferAssetPlugin, GpuImageAssetPlugin, MeshAdvAssetPlugin, SimpleDataAssetPlugin,
 };
+use hydrate::model::EditorModelWithCache;
 use hydrate::pipeline::AssetEngine;
 use std::path::PathBuf;
-use hydrate::model::EditorModelWithCache;
 
 fn schema_def_path() -> PathBuf {
     PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/data/schema"))
@@ -91,7 +91,7 @@ fn main() {
 
         let mut editor_model_with_cache = EditorModelWithCache {
             editor_model: &mut db_state.editor_model,
-            asset_path_cache: &db_state.asset_path_cache
+            asset_path_cache: &db_state.asset_path_cache,
         };
 
         let mut asset_engine = {

@@ -1,9 +1,9 @@
-use egui::{InnerResponse, Response, Ui};
-use hydrate_model::{AssetId, AssetLocation, EditorModel, LocationTreeNode};
 use crate::action_queue::{UIAction, UIActionQueueSender};
 use crate::ui::drag_drop::DragDropPayload;
 use crate::ui::modals::NewAssetModal;
 use crate::ui_state::EditorModelUiState;
+use egui::{InnerResponse, Response, Ui};
+use hydrate_model::{AssetId, AssetLocation, EditorModel, LocationTreeNode};
 
 fn draw_tree_node(
     ui: &mut egui::Ui,
@@ -13,8 +13,16 @@ fn draw_tree_node(
     tree_node: &LocationTreeNode,
 ) {
     let path_node_asset_id = tree_node.location.path_node_id();
-    let name = editor_model.root_edit_context().asset_name(tree_node.location.path_node_id());
-    let name = name.map(|x| x.as_string().cloned().unwrap_or_else(|| tree_node.location.path_node_id().to_string())).unwrap();
+    let name = editor_model
+        .root_edit_context()
+        .asset_name(tree_node.location.path_node_id());
+    let name = name
+        .map(|x| {
+            x.as_string()
+                .cloned()
+                .unwrap_or_else(|| tree_node.location.path_node_id().to_string())
+        })
+        .unwrap();
 
     let mut is_selected = false;
     if let Some(selected_asset_location) = selected_asset_location {
@@ -25,25 +33,31 @@ fn draw_tree_node(
         let id = ui.make_persistent_id(tree_node.location.path_node_id());
         let (toggle_button_response, header_response, body_response) =
             egui::collapsing_header::CollapsingState::load_with_default_open(ui.ctx(), id, false)
-                .show_header(ui, |ui| {
-                    ui.toggle_value(&mut is_selected, &name)
-                }).body(|ui| {
-                for (key, child_tree_node) in &tree_node.children {
-                    draw_tree_node(ui, editor_model, action_sender, selected_asset_location, child_tree_node);
-                }
-            });
+                .show_header(ui, |ui| ui.toggle_value(&mut is_selected, &name))
+                .body(|ui| {
+                    for (key, child_tree_node) in &tree_node.children {
+                        draw_tree_node(
+                            ui,
+                            editor_model,
+                            action_sender,
+                            selected_asset_location,
+                            child_tree_node,
+                        );
+                    }
+                });
 
         header_response.inner
     } else {
         ui.horizontal(|ui| {
             let prev_item_spacing = ui.spacing_mut().item_spacing;
             ui.spacing_mut().item_spacing.x = 0.0; // the toggler button uses the full indent width
-            // empty space where the collapsing header's icon would be
+                                                   // empty space where the collapsing header's icon would be
             ui.allocate_space(egui::vec2(ui.spacing().indent, ui.spacing().icon_width));
             ui.spacing_mut().item_spacing = prev_item_spacing;
 
             ui.selectable_label(is_selected, &name)
-        }).inner
+        })
+        .inner
     };
 
     if response.clicked() {
@@ -67,7 +81,7 @@ pub fn draw_location_selector(
                 editor_model,
                 action_sender,
                 selected_asset_location,
-                tree_node
+                tree_node,
             );
         }
     });

@@ -21,10 +21,8 @@ pub fn draw_main_menu_bar(
                 action_sender.queue_action(UIAction::Quit);
                 ui.close_menu();
                 //ctx.send_viewport_cmd(egui::ViewportCommand::Close);
-
             }
         });
-
 
         ui.menu_button("Edit", |ui| {
             if ui.button("Undo").clicked() {
@@ -38,19 +36,34 @@ pub fn draw_main_menu_bar(
         });
 
         ui.menu_button("Egui Debug", |ui| {
-            if ui.checkbox(&mut egui_debug_ui_state.show_settings_ui, "Settings UI").changed() {
+            if ui
+                .checkbox(&mut egui_debug_ui_state.show_settings_ui, "Settings UI")
+                .changed()
+            {
                 ui.close_menu();
             }
-            if ui.checkbox(&mut egui_debug_ui_state.show_memory_ui, "Memory UI").changed() {
+            if ui
+                .checkbox(&mut egui_debug_ui_state.show_memory_ui, "Memory UI")
+                .changed()
+            {
                 ui.close_menu();
             }
-            if ui.checkbox(&mut egui_debug_ui_state.show_style_ui, "Style UI").changed() {
+            if ui
+                .checkbox(&mut egui_debug_ui_state.show_style_ui, "Style UI")
+                .changed()
+            {
                 ui.close_menu();
             }
-            if ui.checkbox(&mut egui_debug_ui_state.show_inspection_ui, "Inspection UI").changed() {
+            if ui
+                .checkbox(&mut egui_debug_ui_state.show_inspection_ui, "Inspection UI")
+                .changed()
+            {
                 ui.close_menu();
             }
-            if ui.checkbox(&mut egui_debug_ui_state.show_texture_ui, "Texture UI").changed() {
+            if ui
+                .checkbox(&mut egui_debug_ui_state.show_texture_ui, "Texture UI")
+                .changed()
+            {
                 ui.close_menu();
             }
         });

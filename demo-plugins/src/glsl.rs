@@ -3,17 +3,16 @@ use std::collections::VecDeque;
 use std::ops::Range;
 use std::path::{Path, PathBuf};
 
-use super::generated::{GlslSourceFileImportedDataRecord};
+use super::generated::GlslSourceFileImportedDataRecord;
 use crate::generated_wrapper::{GlslBuildTargetAssetRecord, GlslSourceFileAssetRecord};
 use demo_types::glsl::*;
 use hydrate_data::Record;
 use hydrate_model::pipeline::Importer;
 use hydrate_model::pipeline::{AssetPlugin, Builder, ImportContext, ScanContext};
 use hydrate_pipeline::{
-    AssetId, BuilderContext, BuilderRegistryBuilder,
-    HashMap, HashSet, ImporterRegistryBuilder,
-    JobInput, JobOutput, JobProcessor, JobProcessorRegistryBuilder,
-    PipelineResult, RunContext, SchemaLinker,
+    AssetId, BuilderContext, BuilderRegistryBuilder, HashMap, HashSet, ImporterRegistryBuilder,
+    JobInput, JobOutput, JobProcessor, JobProcessorRegistryBuilder, PipelineResult, RunContext,
+    SchemaLinker,
 };
 use serde::{Deserialize, Serialize};
 use shaderc::IncludeType;
@@ -472,7 +471,8 @@ pub(crate) fn include_impl<'a>(
     let referenced_asset =
         dependency_lookup.get(&(requested_from.to_path_buf(), requested_path.to_path_buf()));
     if let Some(referenced_asset_id) = referenced_asset {
-        let dependency_data = context.imported_data::<GlslSourceFileImportedDataRecord>(*referenced_asset_id)?;
+        let dependency_data =
+            context.imported_data::<GlslSourceFileImportedDataRecord>(*referenced_asset_id)?;
         let content = dependency_data.code().get()?;
         Ok(shaderc::ResolvedInclude {
             resolved_name: resolved_path.to_str().unwrap().to_string(),
@@ -628,10 +628,9 @@ impl JobProcessor for GlslBuildTargetJobProcessor {
                 .data_set
                 .import_info(source_file)
                 .ok_or("Imported GLSL source file had no import info")?;
-            let source_file_import_data = &context.imported_data::<GlslSourceFileImportedDataRecord>(source_file)?;
-            let code = source_file_import_data
-                .code()
-                .get()?;
+            let source_file_import_data =
+                &context.imported_data::<GlslSourceFileImportedDataRecord>(source_file)?;
+            let code = source_file_import_data.code().get()?;
 
             let shaderc_include_callback = |requested_path: &str,
                                             include_type: shaderc::IncludeType,
@@ -647,7 +646,8 @@ impl JobProcessor for GlslBuildTargetJobProcessor {
                     &requested_from,
                     include_depth,
                     &dependency_lookup,
-                ).map_err(|x| x.to_string())
+                )
+                .map_err(|x| x.to_string())
             };
 
             let mut compile_options = shaderc::CompileOptions::new().unwrap();

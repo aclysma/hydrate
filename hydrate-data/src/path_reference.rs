@@ -9,10 +9,13 @@ pub struct PathReference {
 }
 
 impl PathReference {
-    pub fn new(path: String, importable_name: ImportableName) -> Self {
+    pub fn new(
+        path: String,
+        importable_name: ImportableName,
+    ) -> Self {
         PathReference {
             path,
-            importable_name
+            importable_name,
         }
     }
 

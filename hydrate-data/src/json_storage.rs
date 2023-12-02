@@ -3,12 +3,12 @@ use crate::{
     PathReference, Schema, SchemaFingerprint, SchemaNamedType, SchemaSet, SingleObject, Value,
 };
 use crate::{AssetLocation, AssetName, DataSetResult, ImportableName, OrderedSet};
+use hydrate_schema::DataSetError;
 use serde::{Deserialize, Serialize};
 use std::hash::Hash;
 use std::str::FromStr;
 use std::sync::Arc;
 use uuid::Uuid;
-use hydrate_schema::DataSetError;
 
 fn property_value_to_json(
     value: &Value,
@@ -272,7 +272,10 @@ impl AssetImportInfoJson {
                 .iter()
                 .map(|x| x.to_string())
                 .collect(),
-            source_file_modified_timestamp: format!("{:0>16x}", import_info.source_file_modified_timestamp()),
+            source_file_modified_timestamp: format!(
+                "{:0>16x}",
+                import_info.source_file_modified_timestamp()
+            ),
             source_file_size: format!("{:0>16x}", import_info.source_file_size()),
             import_data_contents_hash: format!("{:0>16x}", import_info.import_data_contents_hash()),
         }
@@ -292,9 +295,13 @@ impl AssetImportInfoJson {
             importable_name: ImportableName::new(self.importable_name.clone()),
         };
 
-        let source_file_modified_timestamp = u64::from_str_radix(&self.source_file_modified_timestamp, 16).map_err(|e| (DataSetError::StorageFormatError))?;
-        let source_file_size = u64::from_str_radix(&self.source_file_size, 16).map_err(|e| (DataSetError::StorageFormatError))?;
-        let import_data_contents_hash = u64::from_str_radix(&self.import_data_contents_hash, 16).map_err(|e| (DataSetError::StorageFormatError))?;
+        let source_file_modified_timestamp =
+            u64::from_str_radix(&self.source_file_modified_timestamp, 16)
+                .map_err(|e| (DataSetError::StorageFormatError))?;
+        let source_file_size = u64::from_str_radix(&self.source_file_size, 16)
+            .map_err(|e| (DataSetError::StorageFormatError))?;
+        let import_data_contents_hash = u64::from_str_radix(&self.import_data_contents_hash, 16)
+            .map_err(|e| (DataSetError::StorageFormatError))?;
 
         Ok(ImportInfo::new(
             ImporterId(self.importer_id),
@@ -302,7 +309,7 @@ impl AssetImportInfoJson {
             path_references,
             source_file_modified_timestamp,
             source_file_size,
-            import_data_contents_hash
+            import_data_contents_hash,
         ))
     }
 }

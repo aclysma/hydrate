@@ -13,7 +13,10 @@ lazy_static::lazy_static! {
     };
 }
 
-pub fn render_payload(ui: &mut egui::Ui, payload: &DragDropPayload) {
+pub fn render_payload(
+    ui: &mut egui::Ui,
+    payload: &DragDropPayload,
+) {
     match payload {
         DragDropPayload::AssetReference(asset_id) => {
             ui.label(asset_id.to_string());
@@ -33,7 +36,12 @@ pub fn take_payload() -> Option<DragDropPayload> {
     DRAG_DROP_PAYLOAD.lock().unwrap().take()
 }
 
-pub fn drag_source(ui: &mut Ui, id: Id, payload: DragDropPayload, body: impl FnOnce(&mut Ui) -> Response) {
+pub fn drag_source(
+    ui: &mut Ui,
+    id: Id,
+    payload: DragDropPayload,
+    body: impl FnOnce(&mut Ui) -> Response,
+) {
     let is_being_dragged = ui.memory(|mem| mem.is_being_dragged(id));
 
     if !is_being_dragged {
@@ -80,11 +88,14 @@ pub fn drag_source(ui: &mut Ui, id: Id, payload: DragDropPayload, body: impl FnO
             // A bit of a hack, but moving what we draw to be offset to the right from the cursor avoids the
             // cursor from hovering the drag source area rather than the intended drop target
             pointer_pos.x += 10.0;
-            egui::Area::new("dragged_source").movable(false).fixed_pos(pointer_pos).show(ui.ctx(), |ui| {
-                //ui.label("dragged")
-                render_payload(ui, &payload);
-                //body(ui);
-            });
+            egui::Area::new("dragged_source")
+                .movable(false)
+                .fixed_pos(pointer_pos)
+                .show(ui.ctx(), |ui| {
+                    //ui.label("dragged")
+                    render_payload(ui, &payload);
+                    //body(ui);
+                });
         }
 
         // Now we move the visuals of the body to where the mouse is.
@@ -139,18 +150,19 @@ pub fn drop_target<R>(
                 epaint::RectShape::new(rect, style.rounding, fill, stroke)
             } else {
                 epaint::RectShape::stroke(rect, style.rounding, stroke)
-            }
+            },
         );
     }
 
     InnerResponse::new(ret, response)
 }
 
-pub fn try_take_dropped_payload(ui: &egui::Ui, response: &egui::Response) -> Option<DragDropPayload> {
+pub fn try_take_dropped_payload(
+    ui: &egui::Ui,
+    response: &egui::Response,
+) -> Option<DragDropPayload> {
     let is_being_dragged = ui.memory(|mem| mem.is_anything_being_dragged());
-    let any_released = ui.input(|input| {
-        input.pointer.any_released()
-    });
+    let any_released = ui.input(|input| input.pointer.any_released());
     if is_being_dragged && response.hovered() && any_released {
         take_payload()
     } else {

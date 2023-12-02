@@ -1,9 +1,11 @@
-use std::path::PathBuf;
-use hydrate_model::{AssetLocation, AssetName, EndContextBehavior, HashSet, SchemaFingerprint};
-use hydrate_model::pipeline::{ImporterRegistry, ImportType};
 use crate::action_queue::UIAction;
-use crate::modal_action::{default_modal_window, ModalAction, ModalActionControlFlow, ModalContext};
+use crate::modal_action::{
+    default_modal_window, ModalAction, ModalActionControlFlow, ModalContext,
+};
 use crate::ui::components::draw_location_selector;
+use hydrate_model::pipeline::{ImportType, ImporterRegistry};
+use hydrate_model::{AssetLocation, AssetName, EndContextBehavior, HashSet, SchemaFingerprint};
+use std::path::PathBuf;
 
 pub struct ImportFilesModal {
     files_to_import: HashSet<PathBuf>,
@@ -11,7 +13,10 @@ pub struct ImportFilesModal {
 }
 
 impl ImportFilesModal {
-    pub fn new(files_to_import: Vec<PathBuf>, importer_registry: &ImporterRegistry) -> Self {
+    pub fn new(
+        files_to_import: Vec<PathBuf>,
+        importer_registry: &ImporterRegistry,
+    ) -> Self {
         let mut all_files_to_import = HashSet::default();
         for file in &files_to_import {
             // Recursively look for files
@@ -48,24 +53,40 @@ impl ImportFilesModal {
 }
 
 impl ModalAction for ImportFilesModal {
-    fn draw(&mut self, context: ModalContext) -> ModalActionControlFlow {
+    fn draw(
+        &mut self,
+        context: ModalContext,
+    ) -> ModalActionControlFlow {
         let mut control_flow = ModalActionControlFlow::Continue;
         default_modal_window("Import Files", context, |context, ui| {
-
             ui.label("Files to be imported:");
 
-            egui::ScrollArea::vertical().id_source("files").auto_shrink([false, false]).max_height(200.0).show(ui, |ui| {
-                for file in &self.files_to_import {
-                    ui.label(file.to_string_lossy());
-                }
-            });
+            egui::ScrollArea::vertical()
+                .id_source("files")
+                .auto_shrink([false, false])
+                .max_height(200.0)
+                .show(ui, |ui| {
+                    for file in &self.files_to_import {
+                        ui.label(file.to_string_lossy());
+                    }
+                });
 
             ui.separator();
             ui.label("Where to import the files");
 
-            egui::ScrollArea::vertical().id_source("locations").auto_shrink([false, false]).max_height(200.0).show(ui, |ui| {
-                draw_location_selector(ui, &context.db_state.editor_model, context.action_queue, context.ui_state, &mut self.selected_location);
-            });
+            egui::ScrollArea::vertical()
+                .id_source("locations")
+                .auto_shrink([false, false])
+                .max_height(200.0)
+                .show(ui, |ui| {
+                    draw_location_selector(
+                        ui,
+                        &context.db_state.editor_model,
+                        context.action_queue,
+                        context.ui_state,
+                        &mut self.selected_location,
+                    );
+                });
 
             ui.horizontal(|ui| {
                 if ui.button("Cancel").clicked() {

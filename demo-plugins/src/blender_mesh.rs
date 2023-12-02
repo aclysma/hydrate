@@ -1,5 +1,5 @@
-use std::io::BufReader;
 pub use super::*;
+use std::io::BufReader;
 use std::path::PathBuf;
 
 use crate::generated::{MeshAdvMeshAssetRecord, MeshAdvMeshImportedDataRecord};
@@ -129,13 +129,20 @@ impl Importer for BlenderMeshImporter {
             //
             // Get byte slices of all input data for this mesh part
             //
-            let positions_bytes =
-                b3f_reader.read_block(&mut buf_reader, mesh_part.position.ok_or("No position data")? as usize)?;
-            let normals_bytes =
-                b3f_reader.read_block(&mut buf_reader, mesh_part.normal.ok_or("No normal data")? as usize)?;
-            let tex_coords_bytes = b3f_reader
-                .read_block(&mut buf_reader, *mesh_part.uv.get(0).ok_or("No texture coordinate data")? as usize)?;
-            let part_indices_bytes = b3f_reader.read_block(&mut buf_reader, mesh_part.indices as usize)?;
+            let positions_bytes = b3f_reader.read_block(
+                &mut buf_reader,
+                mesh_part.position.ok_or("No position data")? as usize,
+            )?;
+            let normals_bytes = b3f_reader.read_block(
+                &mut buf_reader,
+                mesh_part.normal.ok_or("No normal data")? as usize,
+            )?;
+            let tex_coords_bytes = b3f_reader.read_block(
+                &mut buf_reader,
+                *mesh_part.uv.get(0).ok_or("No texture coordinate data")? as usize,
+            )?;
+            let part_indices_bytes =
+                b3f_reader.read_block(&mut buf_reader, mesh_part.indices as usize)?;
 
             //
             // Get strongly typed slices of all input data for this mesh part

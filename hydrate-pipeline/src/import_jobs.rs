@@ -5,15 +5,15 @@ use std::io::BufReader;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
+use crate::import_storage::ImportDataMetadata;
 use crate::import_thread_pool::{
     ImportThreadOutcome, ImportThreadRequest, ImportThreadRequestImport, ImportWorkerThreadPool,
 };
+use crate::import_util::RequestedImportable;
 use crate::{DynEditorModel, PipelineResult};
 use hydrate_base::uuid_path::{path_to_uuid, uuid_to_path};
-use hydrate_data::{ImportableName};
+use hydrate_data::ImportableName;
 use hydrate_data::{ImporterId, SchemaSet, SingleObject};
-use crate::import_storage::ImportDataMetadata;
-use crate::import_util::RequestedImportable;
 
 use super::import_types::*;
 use super::importer_registry::*;
@@ -29,7 +29,8 @@ pub fn load_import_data(
     // b3f format
     let file = std::fs::File::open(&path)?;
     let mut buf_reader = BufReader::new(file);
-    let import_data = super::import_storage::load_import_data_from_b3f(schema_set, &mut buf_reader)?;
+    let import_data =
+        super::import_storage::load_import_data_from_b3f(schema_set, &mut buf_reader)?;
 
     let metadata = path.metadata()?;
     let metadata_hash = hash_file_metadata(&metadata);
@@ -250,10 +251,13 @@ impl ImportJobs {
                 //     }
                 // }
 
-                importable_assets.insert(name.clone(), ImportableAsset {
-                    id: requested_importable.asset_id,
-                    referenced_paths
-                });
+                importable_assets.insert(
+                    name.clone(),
+                    ImportableAsset {
+                        id: requested_importable.asset_id,
+                        referenced_paths,
+                    },
+                );
             }
 
             total_jobs += 1;
@@ -299,7 +303,9 @@ impl ImportJobs {
             match outcome {
                 ImportThreadOutcome::Complete(msg) => {
                     for (name, imported_asset) in msg.result? {
-                        if let Some(requested_importable) = msg.request.import_op.requested_importables.get(&name) {
+                        if let Some(requested_importable) =
+                            msg.request.import_op.requested_importables.get(&name)
+                        {
                             editor_model.handle_import_complete(
                                 requested_importable.asset_id,
                                 requested_importable.asset_name.clone(),
@@ -307,7 +313,7 @@ impl ImportJobs {
                                 &imported_asset.default_asset,
                                 requested_importable.replace_with_default_asset,
                                 imported_asset.import_info,
-                                &requested_importable.path_references
+                                &requested_importable.path_references,
                             )?;
                         }
                     }

@@ -41,7 +41,9 @@ impl ModalAction for ConfirmQuitWithoutSavingModal {
                 for asset_id in &self.unsaved_assets {
                     ui.text(im_str!(
                         "{}",
-                        db_state.editor_model.asset_display_name_long(*asset_id, &db_state.asset_path_cache)
+                        db_state
+                            .editor_model
+                            .asset_display_name_long(*asset_id, &db_state.asset_path_cache)
                     ));
                 }
             });

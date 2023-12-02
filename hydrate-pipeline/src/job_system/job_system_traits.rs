@@ -1,4 +1,3 @@
-use std::cell::RefCell;
 use super::{JobId, JobTypeId};
 use crate::{import_jobs, PipelineResult};
 use crate::{AssetArtifactIdPair, BuiltArtifact, ImportData, ImportJobs};
@@ -6,11 +5,12 @@ use hydrate_base::handle::DummySerdeContextHandle;
 use hydrate_base::hashing::HashMap;
 use hydrate_base::{ArtifactId, AssetId, BuiltArtifactHeaderData, Handle};
 use hydrate_data::{
-    DataContainerRef, DataSet, DataSetError, FieldRef, PropertyPath, Record,
-    SchemaSet, SingleObject,
+    DataContainerRef, DataSet, DataSetError, FieldRef, PropertyPath, Record, SchemaSet,
+    SingleObject,
 };
 use serde::{Deserialize, Serialize};
 use siphasher::sip128::Hasher128;
+use std::cell::RefCell;
 use std::hash::Hash;
 use std::rc::Rc;
 use std::sync::Arc;
@@ -86,7 +86,7 @@ pub trait JobApi: Send + Sync {
 
     fn fetch_import_data(
         &self,
-        asset_id: AssetId
+        asset_id: AssetId,
     ) -> PipelineResult<ImportData>;
 }
 
@@ -117,7 +117,7 @@ pub struct JobEnumeratedDependencies {
     pub upstream_jobs: Vec<JobId>,
 }
 
-    pub(crate) trait JobProcessorAbstract: Send + Sync {
+pub(crate) trait JobProcessorAbstract: Send + Sync {
     fn version_inner(&self) -> u32;
 
     fn enumerate_dependencies_inner(
@@ -145,7 +145,7 @@ pub struct EnumerateDependenciesContext<'a, InputT> {
 }
 
 pub(crate) struct FetchedAssetData {
-    pub(crate) contents_hash: u64
+    pub(crate) contents_hash: u64,
 }
 
 pub(crate) struct FetchedImportDataInfo {
@@ -157,7 +157,6 @@ pub(crate) struct FetchedImportData {
     pub(crate) info: FetchedImportDataInfo,
     pub(crate) import_data: Arc<SingleObject>,
 }
-
 
 #[derive(Copy, Clone)]
 pub struct RunContext<'a, InputT> {
@@ -185,9 +184,11 @@ impl<'a, InputT> RunContext<'a, InputT> {
         }
 
         let mut fetched_asset_data = self.fetched_asset_data.borrow_mut();
-        fetched_asset_data.entry(asset_id).or_insert_with(|| FetchedAssetData {
-            contents_hash: self.data_set.hash_properties(asset_id).unwrap()
-        });
+        fetched_asset_data
+            .entry(asset_id)
+            .or_insert_with(|| FetchedAssetData {
+                contents_hash: self.data_set.hash_properties(asset_id).unwrap(),
+            });
 
         Ok(<T as Record>::Reader::new(
             PropertyPath::default(),
@@ -206,13 +207,16 @@ impl<'a, InputT> RunContext<'a, InputT> {
             let newly_fetched_import_data = self.job_api.fetch_import_data(asset_id)?;
             let import_data = Arc::new(newly_fetched_import_data.import_data);
 
-            let old = fetched_import_data.insert(asset_id, FetchedImportData {
-                import_data: import_data.clone(),
-                info: FetchedImportDataInfo {
-                    contents_hash: newly_fetched_import_data.contents_hash,
-                    metadata_hash: newly_fetched_import_data.metadata_hash,
-                }
-            });
+            let old = fetched_import_data.insert(
+                asset_id,
+                FetchedImportData {
+                    import_data: import_data.clone(),
+                    info: FetchedImportDataInfo {
+                        contents_hash: newly_fetched_import_data.contents_hash,
+                        metadata_hash: newly_fetched_import_data.metadata_hash,
+                    },
+                },
+            );
             assert!(old.is_none());
             import_data
         };
@@ -224,7 +228,7 @@ impl<'a, InputT> RunContext<'a, InputT> {
         return Ok(<T as Record>::Reader::new(
             PropertyPath::default(),
             DataContainerRef::from_single_object_arc(import_data.clone(), self.schema_set),
-        ))
+        ));
     }
 
     pub fn enqueue_job<JobProcessorT: JobProcessor>(

@@ -24,10 +24,7 @@ impl SchemaEnumSymbol {
         name: String,
         aliases: Box<[String]>,
     ) -> Self {
-        SchemaEnumSymbol {
-            name,
-            aliases,
-        }
+        SchemaEnumSymbol { name, aliases }
     }
 
     pub fn name(&self) -> &str {

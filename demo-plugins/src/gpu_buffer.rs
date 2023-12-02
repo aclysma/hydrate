@@ -1,16 +1,15 @@
 pub use super::*;
 
+use crate::generated::GpuBufferAssetRecord;
 use demo_types::gpu_buffer::GpuBufferBuiltData;
+use hydrate_data::Record;
 use hydrate_model::pipeline::{AssetPlugin, Builder};
 use hydrate_pipeline::{
-    AssetId, BuilderContext, BuilderRegistryBuilder,
-    ImporterRegistryBuilder, JobInput, JobOutput, JobProcessor,
-    JobProcessorRegistryBuilder, PipelineResult, RunContext, SchemaLinker,
+    AssetId, BuilderContext, BuilderRegistryBuilder, ImporterRegistryBuilder, JobInput, JobOutput,
+    JobProcessor, JobProcessorRegistryBuilder, PipelineResult, RunContext, SchemaLinker,
 };
 use serde::{Deserialize, Serialize};
 use type_uuid::TypeUuid;
-use hydrate_data::Record;
-use crate::generated::GpuBufferAssetRecord;
 
 #[derive(Hash, Serialize, Deserialize)]
 pub struct GpuBufferJobInput {

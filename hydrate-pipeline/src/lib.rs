@@ -31,11 +31,11 @@ mod import_thread_pool;
 
 pub mod import_util;
 
-mod pipeline_error;
 mod import_storage;
+mod pipeline_error;
 
-pub use pipeline_error::*;
 use crate::import_util::RequestedImportable;
+pub use pipeline_error::*;
 
 pub trait AssetPlugin {
     fn setup(
@@ -97,7 +97,7 @@ pub trait DynEditorModel {
         default_asset: &SingleObject,
         replace_with_default_asset: bool,
         import_info: ImportInfo,
-        path_references: &HashMap<PathReference, AssetId>
+        path_references: &HashMap<PathReference, AssetId>,
     ) -> DataSetResult<()>;
 
     fn data_set(&self) -> &DataSet;

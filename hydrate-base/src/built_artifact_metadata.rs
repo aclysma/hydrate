@@ -73,7 +73,9 @@ impl BuiltArtifactHeaderData {
         Ok(())
     }
 
-    pub fn read_header<T: std::io::Read>(reader: &mut T) -> std::io::Result<BuiltArtifactHeaderData> {
+    pub fn read_header<T: std::io::Read>(
+        reader: &mut T
+    ) -> std::io::Result<BuiltArtifactHeaderData> {
         let mut length_bytes = [0u8; 8];
         reader.read(&mut length_bytes)?;
         let length = usize::from_le_bytes(length_bytes);

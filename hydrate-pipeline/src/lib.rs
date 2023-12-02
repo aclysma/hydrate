@@ -100,26 +100,6 @@ pub trait DynEditorModel {
         path_references: &HashMap<PathReference, AssetId>
     ) -> DataSetResult<()>;
 
-    // fn init_from_single_object(
-    //     &mut self,
-    //     asset_id: AssetId,
-    //     asset_name: &AssetName,
-    //     asset_location: &AssetLocation,
-    //     single_object: &SingleObject,
-    // ) -> DataSetResult<()>;
-    //
-    // fn set_import_info(
-    //     &mut self,
-    //     asset_id: AssetId,
-    //     import_info: ImportInfo,
-    // ) -> DataSetResult<()>;
-    //
-    // fn set_file_references(
-    //     &mut self,
-    //     asset_id: AssetId,
-    //     import_info: ImportInfo,
-    // ) -> DataSetResult<()>;
-
     fn data_set(&self) -> &DataSet;
 
     fn is_path_node_or_root(
@@ -137,26 +117,6 @@ pub trait DynEditContext {
     fn data_set(&self) -> &DataSet;
 
     fn schema_set(&self) -> &SchemaSet;
-
-    // fn new_asset(
-    //     &mut self,
-    //     asset_name: &AssetName,
-    //     asset_location: &AssetLocation,
-    //     schema: &SchemaRecord,
-    // ) -> AssetId;
-
-    // fn set_import_info(
-    //     &mut self,
-    //     asset_id: AssetId,
-    //     import_info: ImportInfo,
-    // ) -> DataSetResult<()>;
-
-    // fn set_file_reference_override(
-    //     &mut self,
-    //     asset_id: AssetId,
-    //     path: PathReference,
-    //     referenced_asset_id: AssetId,
-    // ) -> DataSetResult<()>;
 }
 
 pub struct AssetEngine {

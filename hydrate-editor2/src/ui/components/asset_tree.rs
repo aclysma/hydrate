@@ -121,5 +121,4 @@ pub fn draw_asset_tree(
             );
         }
     });
-
 }

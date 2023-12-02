@@ -2,7 +2,7 @@ use std::ops::Deref;
 use egui::{FontDefinitions, Frame, ViewportCommand};
 use egui::epaint::text::FontsImpl;
 use egui::scroll_area::ScrollBarVisibility;
-use hydrate_model::{AssetId, HashSet};
+use hydrate_model::{AssetId, EditorModelWithCache, HashSet};
 use hydrate_model::pipeline::AssetEngine;
 use crate::action_queue::{UIAction, UIActionQueueReceiver};
 use crate::db_state::DbState;
@@ -76,6 +76,8 @@ impl eframe::App for HydrateEditorApp {
         // Generate some profiling info
         profiling::scope!("Main Thread");
 
+        self.ui_state.editor_model_ui_state.update(&self.db_state.editor_model);
+
         let action_queue_sender = self.action_queue.sender();
 
         if ctx.input(|x| x.viewport().close_requested()) {
@@ -84,7 +86,6 @@ impl eframe::App for HydrateEditorApp {
                 ctx.send_viewport_cmd(ViewportCommand::CancelClose);
                 action_queue_sender.queue_action(UIAction::Quit);
             }
-
         }
 
         ctx.input(|input| {
@@ -94,7 +95,17 @@ impl eframe::App for HydrateEditorApp {
             }
         });
 
-        self.ui_state.editor_model_ui_state.update(&self.db_state.editor_model);
+
+        {
+            let mut editor_model_with_cache = EditorModelWithCache {
+                editor_model: &mut self.db_state.editor_model,
+                asset_path_cache: &self.ui_state.editor_model_ui_state.path_lookup,
+            };
+
+            self.asset_engine
+                .update(&mut editor_model_with_cache)
+                .unwrap();
+        }
 
         let clear_modal_action = if let Some(modal_action) = &mut self.modal_action {
             let context = ModalContext {

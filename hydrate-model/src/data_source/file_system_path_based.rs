@@ -788,25 +788,6 @@ impl DataSource for FileSystemPathBasedDataSource {
                     let asset_file_exists = edit_context.has_asset(importable_asset_id);
 
                     if !asset_file_exists {
-                        // edit_context
-                        //     .new_asset_with_id(
-                        //         importable_asset_id,
-                        //         &asset_name,
-                        //         &import_location,
-                        //         &scanned_importable.asset_type,
-                        //     )
-                        //     .unwrap();
-
-                        // Create the import info for this asset
-                        // let import_info = import_util::create_import_info(
-                        //     source_file_path,
-                        //     scanned_source_file.importer,
-                        //     scanned_importable,
-                        // );
-                        // edit_context
-                        //     .set_import_info(importable_asset_id, import_info)
-                        //     .unwrap();
-
                         assets_disk_state.insert(
                             importable_asset_id,
                             AssetDiskState::Generated(GeneratedAssetDiskState {
@@ -879,13 +860,6 @@ impl DataSource for FileSystemPathBasedDataSource {
                         .zip(referenced_source_file_asset_ids)
                     {
                         file_references.insert(k.path_reference.clone(), *v);
-                        // edit_context
-                        //     .set_file_reference_override(
-                        //         importable_asset_id,
-                        //         k.path_reference.clone(),
-                        //         *v,
-                        //     )
-                        //     .unwrap();
                     }
 
                     let source_file = PathReference {

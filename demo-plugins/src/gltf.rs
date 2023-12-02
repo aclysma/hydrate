@@ -41,6 +41,11 @@ impl Importer for GltfImporter {
         let (doc, _buffers, _images) =
             ::gltf::import(context.path).map_err(|e| format!("gltf_import() failed: {}", e))?;
 
+        for (i, image) in doc.images().enumerate() {
+            let name = name_or_index("image", image.name(), i);
+            context.add_importable::<GpuImageAssetRecord>(name)?;
+        }
+
         for (i, mesh) in doc.meshes().enumerate() {
             let name = name_or_index("mesh", mesh.name(), i);
             context.add_importable::<MeshAdvMeshAssetRecord>(name)?;

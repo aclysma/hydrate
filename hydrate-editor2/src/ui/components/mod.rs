@@ -12,3 +12,7 @@ pub use asset_tree::{AssetTreeUiState, draw_asset_tree};
 
 mod schema_selector;
 pub use schema_selector::schema_record_selector;
+
+mod location_selector;
+pub use location_selector::{draw_location_selector};
+

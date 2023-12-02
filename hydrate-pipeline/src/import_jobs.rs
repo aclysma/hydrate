@@ -67,7 +67,7 @@ pub enum ImportType {
 }
 
 // An in-flight import operation we want to perform
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct ImportOp {
     // The string is a key is an importable name
     pub requested_importables: HashMap<ImportableName, RequestedImportable>,
@@ -234,17 +234,26 @@ impl ImportJobs {
         for import_op in import_operations {
             let mut importable_assets = HashMap::<ImportableName, ImportableAsset>::default();
             for (name, requested_importable) in &import_op.requested_importables {
-                let referenced_paths = editor_model
-                    .data_set()
-                    .resolve_all_file_references(requested_importable.asset_id)
-                    .unwrap_or_default();
-                importable_assets.insert(
-                    name.clone(),
-                    ImportableAsset {
-                        id: requested_importable.asset_id,
-                        referenced_paths,
-                    },
-                );
+                let mut referenced_paths = requested_importable.path_references.clone();
+
+                // We could merge in any paths that were already configured in the asset DB. However
+                // for now we rely on the code queueing the update to determine if it wants to do that
+                // or not.
+                // if !requested_importable.replace_with_default_asset {
+                //     let asset_referenced_paths = editor_model
+                //         .data_set()
+                //         .resolve_all_file_references(requested_importable.asset_id)
+                //         .unwrap_or_default();
+                //
+                //     for (k, v) in asset_referenced_paths {
+                //         referenced_paths.insert(k, v);
+                //     }
+                // }
+
+                importable_assets.insert(name.clone(), ImportableAsset {
+                    id: requested_importable.asset_id,
+                    referenced_paths
+                });
             }
 
             total_jobs += 1;
@@ -300,26 +309,6 @@ impl ImportJobs {
                                 imported_asset.import_info,
                                 &requested_importable.path_references
                             )?;
-
-                            // //
-                            // // If the asset is supposed to be regenerated, stomp the existing asset
-                            // //
-                            // if requested_importable.replace_with_default_asset
-                            // {
-                            //     editor_model
-                            //         .init_from_single_object(
-                            //             requested_importable.asset_id,
-                            //             &requested_importable.asset_name,
-                            //             &requested_importable.asset_location,
-                            //             &imported_asset.default_asset,
-                            //         )?;
-                            // }
-                            //
-                            // //
-                            // // Whether it is regenerated or not, update import data
-                            // //
-                            // editor_model.set_import_info(requested_importable.asset_id, imported_asset.import_info)?;
-                            // editor_model.set_file_references()
                         }
                     }
                 }

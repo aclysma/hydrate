@@ -16,6 +16,7 @@ use hydrate_base::AssetId;
 use crate::import_storage::{ImportDataMetadata};
 
 // Ask the thread to gather import data from the asset
+#[derive(Debug)]
 pub struct ImportThreadRequestImport {
     // pub asset_ids: HashMap<ImportableName, AssetId>,
     // pub importer_id: ImporterId,

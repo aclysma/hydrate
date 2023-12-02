@@ -37,6 +37,7 @@ pub trait ImporterStatic: TypeUuid {
     }
 }
 
+#[derive(Debug)]
 pub struct ImportableAsset {
     pub id: AssetId,
     pub referenced_paths: HashMap<PathReference, AssetId>,
@@ -282,8 +283,7 @@ impl<'a> ImportContext<'a> {
         Ok(*self.importable_assets
             .get(&name)
             .ok_or_else(|| format!("Default importable not found when trying to resolve path {:?} referenced by importable {:?}", path, name))?
-            .referenced_paths
-            .get(path)
+            .referenced_paths.get(path)
             .ok_or_else(|| format!("No asset ID found for default importable when trying to resolve path {:?} referenced by importable {:?}", path, name))?)
     }
 }

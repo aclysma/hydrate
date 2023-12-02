@@ -29,27 +29,6 @@ pub struct ImportToQueue {
     pub import_type: ImportType,
 }
 
-// pub fn create_import_info(
-//     source_file_path: &Path,
-//     importer: &Arc<dyn Importer>,
-//     scanned_importable: &ScannedImportable,
-// ) -> ImportInfo {
-//     let mut file_references = Vec::default();
-//     for file_reference in &scanned_importable.referenced_source_files {
-//         file_references.push(file_reference.path_reference.clone());
-//     }
-//
-//     let source_file = PathReference {
-//         path: source_file_path.to_string_lossy().to_string(),
-//         importable_name: scanned_importable.name.clone(),
-//     };
-//
-//     //
-//     // When we import, set the import info so we track where the import comes from
-//     //
-//     ImportInfo::new(importer.importer_id(), source_file, file_references, 0, 0, 0)
-// }
-
 pub fn create_asset_name(
     source_file_path: &Path,
     scanned_importable: &ScannedImportable,
@@ -97,22 +76,6 @@ pub fn recursively_gather_import_operations_and_create_assets(
     ))?;
 
     for (_, scanned_importable) in &scanned_importables {
-        // let mut file_references = Vec::default();
-        // for file_reference in &scanned_importable.file_references {
-        //     file_references.push(file_reference.path.clone());
-        // }
-        //
-        // //
-        // // When we import, set the import info so we track where the import comes from
-        // //
-        // let import_info = ImportInfo::new(
-        //     importer.importer_id(),
-        //     source_file_path.to_path_buf(),
-        //     scanned_importable.name.clone().unwrap_or_default(),
-        //     file_references,
-        // );
-        //let import_info = create_import_info(source_file_path, importer, scanned_importable);
-
         //
         // Pick name for the asset for this file
         //
@@ -174,17 +137,6 @@ pub fn recursively_gather_import_operations_and_create_assets(
             scanned_importable.referenced_source_files.len()
         );
 
-        //TODO: We should avoid writing into the dataset here, instead it should occur when we actually
-        // do the import so assets don't end up in a half-initialized state
-        // let asset_id = editor_context.new_asset(
-        //     &object_name,
-        //     selected_import_location,
-        //     &scanned_importable.asset_type,
-        // );
-        // editor_context
-        //     .set_import_info(asset_id, import_info.clone())
-        //     .unwrap();
-
         // We create a random asset ID now so that other imported files can reference this asset later
         let asset_id = AssetId::from_uuid(Uuid::new_v4());
 
@@ -196,10 +148,6 @@ pub fn recursively_gather_import_operations_and_create_assets(
         {
             if let Some(v) = v {
                 file_references.insert(k.path_reference.clone(), v);
-                //TODO: Update
-                // editor_context
-                //     .set_file_reference_override(asset_id, k.path_reference.clone(), v)
-                //     .unwrap();
             }
         }
 
@@ -207,11 +155,6 @@ pub fn recursively_gather_import_operations_and_create_assets(
             path: source_file_path.to_string_lossy().to_string(),
             importable_name: scanned_importable.name.clone(),
         };
-
-        // let mut file_references = Vec::default();
-        // for file_reference in &scanned_importable.referenced_source_files {
-        //     file_references.push(file_reference.path_reference.clone());
-        // }
 
         // This is everything we will need to create the asset, set the import info, and init
         // the build info with path overrides

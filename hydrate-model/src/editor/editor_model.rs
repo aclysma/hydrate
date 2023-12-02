@@ -68,26 +68,6 @@ impl<'a> DynEditorModel for EditorModelWithCache<'a> {
         Ok(())
     }
 
-    // fn init_from_single_object(
-    //     &mut self,
-    //     asset_id: AssetId,
-    //     asset_name: &AssetName,
-    //     asset_location: &AssetLocation,
-    //     single_object: &SingleObject,
-    // ) -> DataSetResult<()> {
-    //     self.editor_model.root_edit_context_mut()
-    //         .init_from_single_object(asset_id, asset_name.clone(), asset_location.clone(), single_object)
-    // }
-    //
-    // fn set_import_info(
-    //     &mut self,
-    //     asset_id: AssetId,
-    //     import_info: ImportInfo,
-    // ) -> DataSetResult<()> {
-    //     self.editor_model.root_edit_context_mut()
-    //         .set_import_info(asset_id, import_info)
-    // }
-
     fn data_set(&self) -> &DataSet {
         self.editor_model.root_edit_context().data_set()
     }

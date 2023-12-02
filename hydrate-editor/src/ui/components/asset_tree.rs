@@ -7,7 +7,7 @@ use hydrate_model::{AssetId, EditorModel, LocationTreeNode};
 
 #[derive(Default)]
 pub struct AssetTreeUiState {
-    selected_tree_node: Option<AssetId>,
+    pub selected_tree_node: Option<AssetId>,
 }
 
 fn draw_tree_node(

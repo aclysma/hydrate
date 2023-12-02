@@ -67,9 +67,5 @@ pub fn draw_main_menu_bar(
                 ui.close_menu();
             }
         });
-
-        ui.add_space(16.0);
-
-        egui::widgets::global_dark_light_mode_buttons(ui);
     });
 }

@@ -13,14 +13,16 @@ fn confirm_lose_changes<F: Fn(&mut egui::Ui, &mut ModalActionControlFlow) -> ()>
 ) -> ModalActionControlFlow {
     let mut control_flow = ModalActionControlFlow::Continue;
     default_modal_window("Save or Discard Changes?", context, |context, ui| {
-        ui.label("Changes to the following assets will be lost:");
+        ui.label(format!("Changes to the following {} assets will be lost:", context.db_state.editor_model.root_edit_context().modified_assets().len()));
         ui.separator();
         let mut table = egui_extras::TableBuilder::new(ui)
             .striped(true)
             .auto_shrink([false, false])
+            .resizable(false)
+            .cell_layout(egui::Layout::left_to_right(egui::Align::Center))
             .min_scrolled_height(300.0)
             .max_scroll_height(300.0)
-            .column(egui_extras::Column::remainder());
+            .column(egui_extras::Column::remainder().clip(true));
 
         table
             .header(20.0, |mut header| {
@@ -40,8 +42,8 @@ fn confirm_lose_changes<F: Fn(&mut egui::Ui, &mut ModalActionControlFlow) -> ()>
                             let long_name = context
                                 .db_state
                                 .editor_model
-                                .asset_display_name_long(*asset_id, &context.ui_state.path_lookup);
-                            ui.label(long_name);
+                                .asset_path(*asset_id, &context.ui_state.asset_path_cache);
+                            ui.label(long_name.as_str());
                         });
                     });
                 }
@@ -50,39 +52,6 @@ fn confirm_lose_changes<F: Fn(&mut egui::Ui, &mut ModalActionControlFlow) -> ()>
 
         (bottom_ui)(ui, &mut control_flow);
     });
-    // egui::Window::new("Save or Discard Changes?")
-    //     .movable(false)
-    //     .collapsible(false)
-    //     .pivot(egui::Align2::CENTER_CENTER).current_pos(context.egui_ctx.screen_rect().center())
-    //     .default_width(300.0)
-    //     .show(context.egui_ctx, |ui| {
-    //         ui.label("Changes to the following assets will be lost:");
-    //         ui.separator();
-    //         let mut table = egui_extras::TableBuilder::new(ui)
-    //             .striped(true)
-    //             .auto_shrink([false, false])
-    //             .min_scrolled_height(300.0)
-    //             .max_scroll_height(300.0)
-    //             .column(egui_extras::Column::remainder());
-    //
-    //         table.header(20.0, |mut header| {
-    //             header.col(|ui| {ui.strong("Asset Path");});
-    //         }).body(|mut body| {
-    //             let modified_assets = context.db_state.editor_model.root_edit_context().modified_assets();
-    //             for asset_id in modified_assets {
-    //                 body.row(20.0, |mut row| {
-    //                     row.col(|ui| {
-    //                         let long_name = context.db_state.editor_model.asset_display_name_long(*asset_id, &context.ui_state.path_lookup);
-    //                         ui.label(long_name);
-    //
-    //                     });
-    //                 });
-    //             }
-    //         });
-    //         ui.separator();
-    //
-    //         (bottom_ui)(ui, &mut control_flow);
-    //     });
 
     control_flow
 }

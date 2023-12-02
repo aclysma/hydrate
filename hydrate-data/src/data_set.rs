@@ -1,3 +1,4 @@
+use std::cmp::Ordering;
 use crate::{
     AssetId, HashMap, HashSet, OrderedSet, PathReference, Schema, SchemaFingerprint, SchemaRecord,
     SingleObject, Value,
@@ -10,7 +11,7 @@ use std::str::FromStr;
 use std::string::ToString;
 use uuid::Uuid;
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd)]
 pub struct AssetName(String);
 
 impl AssetName {
@@ -32,6 +33,12 @@ impl AssetName {
         } else {
             Some(&self.0)
         }
+    }
+}
+
+impl Ord for AssetName {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.0.to_lowercase().cmp(&other.0.to_lowercase())
     }
 }
 

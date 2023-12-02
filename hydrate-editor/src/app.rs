@@ -114,7 +114,7 @@ impl eframe::App for HydrateEditorApp {
         {
             let mut editor_model_with_cache = EditorModelWithCache {
                 editor_model: &mut self.db_state.editor_model,
-                asset_path_cache: &self.ui_state.editor_model_ui_state.path_lookup,
+                asset_path_cache: &self.ui_state.editor_model_ui_state.asset_path_cache,
             };
 
             self.asset_engine
@@ -218,7 +218,9 @@ impl eframe::App for HydrateEditorApp {
                     ui,
                     &mut fonts,
                     &default_font,
+                    &self.db_state,
                     &self.ui_state.editor_model_ui_state,
+                    &self.ui_state.asset_tree_ui_state,
                     &mut self.ui_state.asset_gallery_ui_state,
                     &action_queue_sender,
                 );

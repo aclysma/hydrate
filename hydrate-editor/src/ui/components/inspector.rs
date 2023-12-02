@@ -650,7 +650,7 @@ pub fn draw_inspector(
     ui.label(format!(
         "Path Node: {}",
         editor_model
-            .asset_display_name_long(location.path_node_id(), &editor_model_ui_state.path_lookup)
+            .asset_display_name_long(location.path_node_id(), &editor_model_ui_state.asset_path_cache)
     ));
 
     if ui.button("Force Rebuild").clicked() {
@@ -670,7 +670,7 @@ pub fn draw_inspector(
             }
 
             let prototype_display_name =
-                editor_model.asset_display_name_long(prototype, &editor_model_ui_state.path_lookup);
+                editor_model.asset_display_name_long(prototype, &editor_model_ui_state.asset_path_cache);
 
             ui.label(format!("Prototype: {}", prototype_display_name));
         });
@@ -686,12 +686,7 @@ pub fn draw_inspector(
             property_name: "",
             property_path: "",
             schema: &Schema::NamedType(
-                editor_model_ui_state
-                    .all_asset_info
-                    .get(&asset_id)
-                    .unwrap()
-                    .schema
-                    .fingerprint(),
+                editor_model.root_edit_context().data_set().asset_schema(asset_id).unwrap().fingerprint()
             ),
             read_only,
         },

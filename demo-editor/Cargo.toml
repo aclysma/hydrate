@@ -1,5 +1,5 @@
 [package]
-name = "demo-editor2"
+name = "demo-editor"
 version = "0.1.0"
 edition = "2021"
 

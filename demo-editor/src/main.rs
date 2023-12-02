@@ -85,7 +85,7 @@ fn main() -> eframe::Result<()> {
         //TODO: Support N sources using path nodes
         let schema_set = {
             profiling::scope!("Load Schema");
-            hydrate::editor2::DbState::load_schema(
+            hydrate::editor::DbState::load_schema(
                 linker,
                 &[&schema_def_path()],
                 &schema_cache_file_path(),
@@ -96,7 +96,7 @@ fn main() -> eframe::Result<()> {
             asset_plugin_registration_helper.finish(&schema_set);
 
         let mut imports_to_queue = Vec::default();
-        let mut db_state = hydrate::editor2::DbState::load(
+        let mut db_state = hydrate::editor::DbState::load(
             &schema_set,
             &importer_registry,
             &asset_id_based_asset_source_path(),
@@ -144,5 +144,5 @@ fn main() -> eframe::Result<()> {
         (db_state, asset_engine)
     };
 
-    hydrate::editor2::run(db_state, asset_engine)
+    hydrate::editor::run(db_state, asset_engine)
 }

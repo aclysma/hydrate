@@ -435,25 +435,7 @@ fn asset_context_menu(ui: &mut egui::Ui, action_queue: &UIActionQueueSender, ass
     }
 
     if ui.button("Use as prototype for new asset").clicked() {
-
         action_queue.try_set_modal_action(NewAssetModal::new_with_prototype(Some(location), asset_id));
-
-        // action_queue.queue_edit("delete asset", vec![asset_id], move |edit_context| {
-        //     let old_location = edit_context.asset_location(asset_id).unwrap().clone();
-        //     let old_name = edit_context.asset_name(asset_id).unwrap().clone();
-        //     let new_name = format!("New from {:?}", asset_id);
-        //
-        //
-        //
-        //     edit_context
-        //         .new_asset_from_prototype(
-        //             &AssetName::new(new_name),
-        //             &old_location,
-        //             asset_id,
-        //         )
-        //         .unwrap();
-        //     Ok(EndContextBehavior::Finish)
-        // });
         ui.close_menu();
     }
 }

@@ -8,7 +8,7 @@ use crate::ui::modals::ImportFilesModal;
 use crate::ui_state::EditorModelUiState;
 use egui::epaint::text::FontsImpl;
 use egui::scroll_area::ScrollBarVisibility;
-use egui::{FontDefinitions, Frame, ViewportCommand};
+use egui::{Color32, FontDefinitions, Frame, ViewportCommand};
 use hydrate_model::pipeline::AssetEngine;
 use hydrate_model::{AssetId, EditorModelWithCache, HashSet};
 use std::ops::Deref;

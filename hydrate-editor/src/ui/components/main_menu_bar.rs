@@ -35,6 +35,8 @@ pub fn draw_main_menu_bar(
             }
         });
 
+        ui.add_space(32.0);
+
         ui.menu_button("Egui Debug", |ui| {
             if ui
                 .checkbox(&mut egui_debug_ui_state.show_settings_ui, "Settings UI")

@@ -3,11 +3,11 @@ use crate::ui::drag_drop::DragDropPayload;
 use crate::ui::modals::NewAssetModal;
 use crate::ui_state::EditorModelUiState;
 use egui::{InnerResponse, Response, Ui};
-use hydrate_model::{AssetId, EditorModel, LocationTreeNode};
+use hydrate_model::{AssetId, AssetLocation, EditorModel, LocationTreeNode};
 
 #[derive(Default)]
 pub struct AssetTreeUiState {
-    pub selected_tree_node: Option<AssetId>,
+    pub selected_tree_node: Option<AssetLocation>,
 }
 
 fn draw_tree_node(
@@ -29,7 +29,7 @@ fn draw_tree_node(
         })
         .unwrap();
 
-    let mut is_selected = asset_tree_ui_state.selected_tree_node == Some(path_node_asset_id);
+    let mut is_selected = asset_tree_ui_state.selected_tree_node == Some(tree_node.location);
 
     crate::ui::drag_drop::drag_source(
         ui,
@@ -50,32 +50,40 @@ fn draw_tree_node(
 
             let response = if tree_node.children.len() > 0 {
                 let id = ui.make_persistent_id(tree_node.location.path_node_id());
-                let (toggle_button_response, header_response, body_response) =
-                    egui::collapsing_header::CollapsingState::load_with_default_open(
-                        ui.ctx(),
-                        id,
-                        false,
-                    )
-                    .show_header(ui, |ui| {
-                        let response = crate::ui::drag_drop::drop_target(ui, can_accept, |ui| {
-                            ui.toggle_value(&mut is_selected, &name)
-                        });
 
-                        handle_drop_on_asset_tree_node(ui, &response, action_sender, tree_node);
+                let mut collapsing_header = egui::collapsing_header::CollapsingState::load_with_default_open(
+                    ui.ctx(),
+                    id,
+                    false,
+                );
 
-                        response.inner
-                    })
-                    .body(|ui| {
-                        for (key, child_tree_node) in &tree_node.children {
-                            draw_tree_node(
-                                ui,
-                                editor_model,
-                                action_sender,
-                                asset_tree_ui_state,
-                                child_tree_node,
-                            );
-                        }
+                if let Some(selected_tree_node) = asset_tree_ui_state.selected_tree_node {
+                    let location_chain = editor_model.root_edit_context().asset_location_chain(selected_tree_node.path_node_id()).unwrap();
+                    if location_chain.contains(&tree_node.location) {
+                        collapsing_header.set_open(true);
+                    }
+                }
+
+                let (toggle_button_response, header_response, body_response) = collapsing_header.show_header(ui, |ui| {
+                    let response = crate::ui::drag_drop::drop_target(ui, can_accept, |ui| {
+                        ui.toggle_value(&mut is_selected, &name)
                     });
+
+                    handle_drop_on_asset_tree_node(ui, &response, action_sender, tree_node);
+
+                    response.inner
+                })
+                .body(|ui| {
+                    for (key, child_tree_node) in &tree_node.children {
+                        draw_tree_node(
+                            ui,
+                            editor_model,
+                            action_sender,
+                            asset_tree_ui_state,
+                            child_tree_node,
+                        );
+                    }
+                });
 
                 header_response.inner
             } else {
@@ -98,13 +106,12 @@ fn draw_tree_node(
             };
 
             if response.clicked() {
-                asset_tree_ui_state.selected_tree_node = Some(path_node_asset_id);
+                asset_tree_ui_state.selected_tree_node = Some(tree_node.location);
             }
 
             response.context_menu(|ui| {
-                ui.label("hi");
                 if ui.button("New Asset").clicked() {
-                    action_sender.try_set_modal_action(NewAssetModal::new(tree_node.location));
+                    action_sender.try_set_modal_action(NewAssetModal::new(Some(tree_node.location)));
                     ui.close_menu();
                 }
             })
@@ -148,6 +155,7 @@ pub fn draw_asset_tree(
     ui.label("ASSET TREE");
     ui.push_id("asset tree", |ui| {
         ui.style_mut().visuals.indent_has_left_vline = false;
+        ui.style_mut().spacing.item_spacing = egui::vec2(2.0, 2.0);
 
         for (_, tree_node) in &editor_model_ui_state.location_tree.root_nodes {
             draw_tree_node(

@@ -234,8 +234,8 @@ impl DataSetAssetInfo {
         &self.asset_name
     }
 
-    pub fn asset_location(&self) -> &AssetLocation {
-        &self.asset_location
+    pub fn asset_location(&self) -> AssetLocation {
+        self.asset_location
     }
 
     pub fn import_info(&self) -> &Option<ImportInfo> {
@@ -552,8 +552,8 @@ impl DataSet {
     pub fn asset_location(
         &self,
         asset_id: AssetId,
-    ) -> Option<&AssetLocation> {
-        self.assets.get(&asset_id).map(|x| &x.asset_location)
+    ) -> Option<AssetLocation> {
+        self.assets.get(&asset_id).map(|x| &x.asset_location).copied()
     }
 
     /// Returns the asset locations from the parent all the way up to the root parent. If a cycle is
@@ -565,7 +565,7 @@ impl DataSet {
         let mut asset_location_chain = Vec::default();
 
         // If this asset's location is none, return an empty list
-        let Some(mut obj_iter) = self.asset_location(asset_id).cloned() else {
+        let Some(mut obj_iter) = self.asset_location(asset_id) else {
             return Ok(asset_location_chain);
         };
 
@@ -577,7 +577,7 @@ impl DataSet {
             }
 
             asset_location_chain.push(obj_iter.clone());
-            obj_iter = if let Some(location) = self.asset_location(obj_iter.path_node_id).cloned() {
+            obj_iter = if let Some(location) = self.asset_location(obj_iter.path_node_id) {
                 // May be null, in which case we will terminate and return this list so far not including the null
                 location
             } else {

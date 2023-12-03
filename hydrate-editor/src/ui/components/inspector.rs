@@ -9,6 +9,7 @@ use hydrate_model::{
     SchemaNamedType, SchemaSet, Value,
 };
 use std::sync::Arc;
+use crate::ui::modals::NewAssetModal;
 
 fn join_field_path(
     lhs: &str,
@@ -25,6 +26,7 @@ fn join_field_path(
 #[derive(Copy, Clone)]
 struct InspectorContext<'a> {
     editor_model: &'a EditorModel,
+    editor_model_ui_state: &'a EditorModelUiState,
     action_sender: &'a UIActionQueueSender,
     asset_id: AssetId,
     property_path: &'a str,
@@ -59,15 +61,7 @@ fn simple_value_property<
 
         if let Some((new_value, end_context_behavior)) = f(
             ui,
-            InspectorContext {
-                editor_model: ctx.editor_model,
-                action_sender: ctx.action_sender,
-                asset_id: ctx.asset_id,
-                property_path: ctx.property_path,
-                property_name: ctx.property_name,
-                schema: ctx.schema,
-                read_only: ctx.read_only,
-            },
+            ctx,
         ) {
             let property_path_moved = ctx.property_path.to_string();
             ctx.action_sender
@@ -395,7 +389,6 @@ fn draw_inspector_property(
                 let asset_ref = resolved_value.as_asset_ref().unwrap();
 
                 ui.horizontal(|ui| {
-                    ui.set_enabled(!ctx.read_only);
                     if !has_override {
                         ui.style_mut().visuals.override_text_color = Some(Color32::from_gray(150));
                     } else {
@@ -407,8 +400,16 @@ fn draw_inspector_property(
                     let mut label_string = if asset_ref.is_null() {
                         "not set".to_string()
                     } else {
-                        asset_ref.to_string()
+                        let asset_path = ctx.editor_model.asset_path(asset_ref, &ctx.editor_model_ui_state.asset_path_cache);
+                        asset_path.as_str().to_string()
                     };
+
+                    if ui.add_enabled(!asset_ref.is_null(), egui::Button::new(">>")).clicked() {
+                        ctx.action_sender.queue_action(UIAction::ShowAssetInAssetGallery(asset_ref));
+                    }
+
+                    // Set enabled after the "go to" button
+                    ui.set_enabled(!ctx.read_only);
 
                     let can_accept_what_is_being_dragged = !ctx.read_only;
                     let response = crate::ui::drag_drop::drop_target(
@@ -450,7 +451,7 @@ fn draw_inspector_property(
                     }
                 });
             }
-            Schema::NamedType(schema_fingerprint) => {
+            Schema::Record(schema_fingerprint) | Schema::Enum(schema_fingerprint) | Schema::Fixed(schema_fingerprint) => {
                 let schema = ctx
                     .editor_model
                     .schema_set()
@@ -458,18 +459,56 @@ fn draw_inspector_property(
                     .unwrap();
                 match schema {
                     SchemaNamedType::Record(record_schema) => {
-                        for field in record_schema.fields() {
-                            let field_path = join_field_path(ctx.property_path, field.name());
+                        let widgets = |ui: &mut egui::Ui| {
+                            for field in record_schema.fields() {
+                                if field.field_schema().is_dynamic_array() || field.field_schema().is_static_array() || field.field_schema().is_nullable() || field.field_schema().is_record() {
+                                    let field_path = join_field_path(ctx.property_path, field.name());
 
-                            draw_inspector_property(
-                                ui,
-                                InspectorContext {
-                                    property_name: field.name(),
-                                    property_path: &field_path,
-                                    schema: field.field_schema(),
-                                    ..ctx
-                                },
-                            );
+                                    ui.label(field.name());
+                                    draw_inspector_property(
+                                        ui,
+                                        InspectorContext {
+                                            property_name: field.name(),
+                                            property_path: &field_path,
+                                            schema: field.field_schema(),
+                                            ..ctx
+                                        },
+                                    );
+
+                                    ui.end_row();
+                                }
+                            }
+
+                            egui::Grid::new("properties").show(ui, |ui| {
+                                for field in record_schema.fields() {
+                                    if field.field_schema().is_dynamic_array() || field.field_schema().is_static_array() || field.field_schema().is_nullable() || field.field_schema().is_record() {
+                                        continue;
+                                    }
+
+                                    let field_path = join_field_path(ctx.property_path, field.name());
+
+                                    ui.label(field.name());
+                                    draw_inspector_property(
+                                        ui,
+                                        InspectorContext {
+                                            property_name: field.name(),
+                                            property_path: &field_path,
+                                            schema: field.field_schema(),
+                                            ..ctx
+                                        },
+                                    );
+
+                                    ui.end_row();
+                                }
+                            });
+                        };
+
+                        if ctx.property_path.is_empty() {
+                            widgets(ui)
+                        } else {
+                            egui::CollapsingHeader::new(record_schema.name()).default_open(true).show(ui, |ui| {
+                                widgets(ui)
+                            });
                         }
                     }
                     SchemaNamedType::Enum(enum_schema) => {
@@ -615,25 +654,32 @@ pub fn draw_inspector(
         return;
     }
 
-    ui.label(format!("ID: {:?}", asset_id));
-
-    let name = edit_context.asset_name(asset_id);
-    let location = edit_context.asset_location(asset_id).unwrap();
+    ui.heading(format!(
+        "{}",
+        edit_context.asset_name_or_id_string(asset_id).unwrap()
+    ));
 
     ui.label(format!(
-        "Name: {}",
-        name.unwrap().as_string().cloned().unwrap_or_default()
+        "{}",
+        editor_model
+            .asset_display_name_long(asset_id, &editor_model_ui_state.asset_path_cache)
     ));
+
+    ui.label(format!("{:?}", asset_id.as_uuid()));
+
+
     let import_info = edit_context.import_info(asset_id);
     if let Some(import_info) = import_info {
-        ui.label(format!(
-            "Imported From: {}",
-            import_info.source_file_path().to_string_lossy()
-        ));
-        ui.label(format!(
-            "Importable Name: {:?}",
-            import_info.importable_name().name()
-        ));
+        ui.collapsing("Import Info", |ui| {
+            ui.label(format!(
+                "Imported From: {}",
+                import_info.source_file_path().to_string_lossy()
+            ));
+            ui.label(format!(
+                "Importable Name: {:?}",
+                import_info.importable_name().name()
+            ));
+        });
     }
 
     let is_generated = editor_model.is_generated_asset(asset_id);
@@ -647,26 +693,14 @@ pub fn draw_inspector(
         }
     }
 
-    ui.label(format!(
-        "Path Node: {}",
-        editor_model
-            .asset_display_name_long(location.path_node_id(), &editor_model_ui_state.asset_path_cache)
-    ));
-
-    if ui.button("Force Rebuild").clicked() {
-        //app_state.asset_engine.queue_build_operation(asset_id);
-        action_sender.queue_action(UIAction::ForceRebuild(vec![asset_id]));
+    if ui.button("Use as prototype").clicked() {
+        action_sender.try_set_modal_action(NewAssetModal::new_with_prototype(Some(editor_model.root_edit_context().asset_location(asset_id).unwrap()), asset_id))
     }
 
     if let Some(prototype) = edit_context.asset_prototype(asset_id) {
         ui.horizontal(|ui| {
             if ui.button(">>").clicked() {
-                // let grid_state = &mut app_state.ui_state.asset_browser_state.grid_state;
-                // grid_state.first_selected = Some(prototype);
-                // grid_state.last_selected = Some(prototype);
-                // grid_state.selected_items.clear();
-                // grid_state.selected_items.insert(prototype);
-                action_sender.queue_action(UIAction::ShowAssetInAssetGallery(asset_id));
+                action_sender.queue_action(UIAction::ShowAssetInAssetGallery(prototype));
             }
 
             let prototype_display_name =
@@ -676,16 +710,24 @@ pub fn draw_inspector(
         });
     }
 
+    if ui.button("Rebuild this Asset").clicked() {
+        //app_state.asset_engine.queue_build_operation(asset_id);
+        action_sender.queue_action(UIAction::ForceRebuild(vec![asset_id]));
+    }
+
+    ui.separator();
+
     let read_only = is_generated;
     draw_inspector_property(
         ui,
         InspectorContext {
             editor_model,
+            editor_model_ui_state,
             action_sender,
             asset_id,
             property_name: "",
             property_path: "",
-            schema: &Schema::NamedType(
+            schema: &Schema::Record(
                 editor_model.root_edit_context().data_set().asset_schema(asset_id).unwrap().fingerprint()
             ),
             read_only,

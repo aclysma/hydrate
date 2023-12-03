@@ -78,16 +78,18 @@ fn json_to_property_value_with_schema(
         Schema::AssetRef(_) => Value::AssetRef(AssetId::from_uuid(
             Uuid::parse_str(value.as_str().unwrap()).unwrap(),
         )),
-        Schema::NamedType(x) => {
+        Schema::Record(_) => unimplemented!(),
+        Schema::Enum(x) => {
             let named_type = named_types.get(x).unwrap();
             match named_type {
-                SchemaNamedType::Record(_) => unimplemented!(),
+                SchemaNamedType::Record(_) => panic!("A Schema::Enum is matching a named type that is not an enum"),
                 SchemaNamedType::Enum(e) => {
                     Value::enum_value_from_string(e, value.as_str().unwrap()).unwrap()
                 }
-                SchemaNamedType::Fixed(_) => unimplemented!(),
+                SchemaNamedType::Fixed(_) => panic!("A Schema::Enum is matching a named type that is not an enum"),
             }
         }
+        Schema::Fixed(_) => unimplemented!(),
     }
 }
 

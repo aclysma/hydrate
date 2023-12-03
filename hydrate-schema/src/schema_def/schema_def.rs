@@ -56,10 +56,11 @@ impl SchemaDefStaticArray {
     }
 
     fn to_schema(
-        self,
-        named_types: &HashMap<String, SchemaFingerprint>,
+        &self,
+        named_types: &HashMap<String, SchemaDefNamedType>,
+        fingerprints: &HashMap<String, SchemaFingerprint>,
     ) -> SchemaStaticArray {
-        SchemaStaticArray::new(Box::new(self.item_type.to_schema(named_types)), self.length)
+        SchemaStaticArray::new(Box::new(self.item_type.to_schema(named_types, fingerprints)), self.length)
     }
 }
 
@@ -95,10 +96,11 @@ impl SchemaDefDynamicArray {
     }
 
     fn to_schema(
-        self,
-        named_types: &HashMap<String, SchemaFingerprint>,
+        &self,
+        named_types: &HashMap<String, SchemaDefNamedType>,
+        fingerprints: &HashMap<String, SchemaFingerprint>,
     ) -> SchemaDynamicArray {
-        SchemaDynamicArray::new(Box::new(self.item_type.to_schema(named_types)))
+        SchemaDynamicArray::new(Box::new(self.item_type.to_schema(named_types, fingerprints)))
     }
 }
 
@@ -134,12 +136,13 @@ impl SchemaDefMap {
     }
 
     fn to_schema(
-        self,
-        named_types: &HashMap<String, SchemaFingerprint>,
+        &self,
+        named_types: &HashMap<String, SchemaDefNamedType>,
+        fingerprints: &HashMap<String, SchemaFingerprint>,
     ) -> SchemaMap {
         SchemaMap::new(
-            Box::new(self.key_type.to_schema(named_types)),
-            Box::new(self.value_type.to_schema(named_types)),
+            Box::new(self.key_type.to_schema(named_types, fingerprints)),
+            Box::new(self.value_type.to_schema(named_types, fingerprints)),
         )
     }
 }
@@ -187,13 +190,14 @@ impl SchemaDefRecordField {
     }
 
     fn to_schema(
-        self,
-        named_types: &HashMap<String, SchemaFingerprint>,
+        &self,
+        named_types: &HashMap<String, SchemaDefNamedType>,
+        fingerprints: &HashMap<String, SchemaFingerprint>,
     ) -> SchemaRecordField {
         SchemaRecordField::new(
-            self.field_name,
-            self.aliases.into_boxed_slice(),
-            self.field_type.to_schema(named_types),
+            self.field_name.clone(),
+            self.aliases.clone().into_boxed_slice(),
+            self.field_type.to_schema(named_types, fingerprints),
         )
     }
 }
@@ -263,20 +267,21 @@ impl SchemaDefRecord {
     }
 
     fn to_schema(
-        self,
-        named_types: &HashMap<String, SchemaFingerprint>,
+        &self,
+        named_types: &HashMap<String, SchemaDefNamedType>,
+        fingerprints: &HashMap<String, SchemaFingerprint>,
     ) -> SchemaRecord {
-        let fingerprint = *named_types.get(&self.type_name).unwrap();
+        let fingerprint = *fingerprints.get(&self.type_name).unwrap();
 
         let mut fields = Vec::with_capacity(self.fields.len());
-        for field in self.fields {
-            fields.push(field.to_schema(named_types));
+        for field in &self.fields {
+            fields.push(field.to_schema(named_types, fingerprints));
         }
 
         SchemaRecord::new(
-            self.type_name,
+            self.type_name.clone(),
             fingerprint,
-            self.aliases.into_boxed_slice(),
+            self.aliases.clone().into_boxed_slice(),
             fields,
         )
     }
@@ -306,8 +311,8 @@ impl SchemaDefEnumSymbol {
         self.symbol_name.hash(hasher);
     }
 
-    fn to_schema(self) -> SchemaEnumSymbol {
-        SchemaEnumSymbol::new(self.symbol_name, self.aliases.into_boxed_slice())
+    fn to_schema(&self) -> SchemaEnumSymbol {
+        SchemaEnumSymbol::new(self.symbol_name.clone(), self.aliases.clone().into_boxed_slice())
     }
 }
 
@@ -360,20 +365,20 @@ impl SchemaDefEnum {
     }
 
     fn to_schema(
-        self,
+        &self,
         named_types: &HashMap<String, SchemaFingerprint>,
     ) -> SchemaEnum {
         let fingerprint = *named_types.get(&self.type_name).unwrap();
 
         let mut symbols = Vec::with_capacity(self.symbols.len());
-        for symbol in self.symbols {
+        for symbol in &self.symbols {
             symbols.push(symbol.to_schema());
         }
 
         SchemaEnum::new(
-            self.type_name,
+            self.type_name.clone(),
             fingerprint,
-            self.aliases.into_boxed_slice(),
+            self.aliases.clone().into_boxed_slice(),
             symbols.into_boxed_slice(),
         )
     }
@@ -421,14 +426,14 @@ impl SchemaDefFixed {
     }
 
     fn to_schema(
-        self,
+        &self,
         named_types: &HashMap<String, SchemaFingerprint>,
     ) -> SchemaFixed {
         let fingerprint = *named_types.get(&self.type_name).unwrap();
         SchemaFixed::new(
-            self.type_name,
+            self.type_name.clone(),
             fingerprint,
-            self.aliases.into_boxed_slice(),
+            self.aliases.clone().into_boxed_slice(),
             self.length,
         )
     }
@@ -557,11 +562,12 @@ impl SchemaDefType {
     }
 
     fn to_schema(
-        self,
-        named_types: &HashMap<String, SchemaFingerprint>,
+        &self,
+        named_types: &HashMap<String, SchemaDefNamedType>,
+        fingerprints: &HashMap<String, SchemaFingerprint>,
     ) -> Schema {
         match self {
-            SchemaDefType::Nullable(x) => Schema::Nullable(Box::new(x.to_schema(named_types))),
+            SchemaDefType::Nullable(x) => Schema::Nullable(Box::new(x.to_schema(named_types, fingerprints))),
             SchemaDefType::Boolean => Schema::Boolean,
             SchemaDefType::I32 => Schema::I32,
             SchemaDefType::I64 => Schema::I64,
@@ -571,11 +577,20 @@ impl SchemaDefType {
             SchemaDefType::F64 => Schema::F64,
             SchemaDefType::Bytes => Schema::Bytes,
             SchemaDefType::String => Schema::String,
-            SchemaDefType::StaticArray(x) => Schema::StaticArray(x.to_schema(named_types)),
-            SchemaDefType::DynamicArray(x) => Schema::DynamicArray(x.to_schema(named_types)),
-            SchemaDefType::Map(x) => Schema::Map(x.to_schema(named_types)),
-            SchemaDefType::AssetRef(x) => Schema::AssetRef(*named_types.get(&x).unwrap()),
-            SchemaDefType::NamedType(x) => Schema::NamedType(*named_types.get(&x).unwrap()),
+            SchemaDefType::StaticArray(x) => Schema::StaticArray(x.to_schema(named_types, fingerprints)),
+            SchemaDefType::DynamicArray(x) => Schema::DynamicArray(x.to_schema(named_types, fingerprints)),
+            SchemaDefType::Map(x) => Schema::Map(x.to_schema(named_types, fingerprints)),
+            SchemaDefType::AssetRef(x) => Schema::AssetRef(*fingerprints.get(x).unwrap()),
+            SchemaDefType::NamedType(x) => {
+                let named_type = named_types.get(x).unwrap();
+                match named_type {
+                    SchemaDefNamedType::Record(_) => Schema::Record(*fingerprints.get(x).unwrap()),
+                    SchemaDefNamedType::Enum(_) => Schema::Enum(*fingerprints.get(x).unwrap()),
+                    SchemaDefNamedType::Fixed(_) => Schema::Fixed(*fingerprints.get(x).unwrap()),
+                }
+
+
+            },
         }
     }
 }
@@ -647,13 +662,14 @@ impl SchemaDefNamedType {
     }
 
     pub(super) fn to_schema(
-        self,
-        named_types: &HashMap<String, SchemaFingerprint>,
+        &self,
+        named_types: &HashMap<String, SchemaDefNamedType>,
+        fingerprints: &HashMap<String, SchemaFingerprint>,
     ) -> SchemaNamedType {
         match self {
-            SchemaDefNamedType::Record(x) => SchemaNamedType::Record(x.to_schema(named_types)),
-            SchemaDefNamedType::Enum(x) => SchemaNamedType::Enum(x.to_schema(named_types)),
-            SchemaDefNamedType::Fixed(x) => SchemaNamedType::Fixed(x.to_schema(named_types)),
+            SchemaDefNamedType::Record(x) => SchemaNamedType::Record(x.to_schema(named_types, fingerprints)),
+            SchemaDefNamedType::Enum(x) => SchemaNamedType::Enum(x.to_schema(fingerprints)),
+            SchemaDefNamedType::Fixed(x) => SchemaNamedType::Fixed(x.to_schema(fingerprints)),
         }
     }
 }

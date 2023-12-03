@@ -275,9 +275,9 @@ impl SchemaLinker {
             schemas_by_name.insert(type_name.to_string(), fingerprint);
         }
 
-        for (_type_name, named_type) in self.types {
+        for (_type_name, named_type) in &self.types {
             let fingerprint = schemas_by_name.get(named_type.type_name()).unwrap();
-            let schema = named_type.to_schema(&schemas_by_name);
+            let schema = named_type.to_schema(&self.types, &schemas_by_name);
             schemas.insert(*fingerprint, schema);
         }
 

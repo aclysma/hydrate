@@ -223,7 +223,7 @@ impl DataSource for FileSystemIdBasedDataSource {
                     {
                         None
                     } else {
-                        Some(*asset_info.asset_location())
+                        Some(asset_info.asset_location())
                     };
 
                     let data = crate::json_storage::AssetJson::save_asset_to_string(

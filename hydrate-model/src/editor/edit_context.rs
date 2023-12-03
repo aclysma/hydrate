@@ -521,7 +521,7 @@ impl EditContext {
     pub fn asset_location(
         &self,
         asset_id: AssetId,
-    ) -> Option<&AssetLocation> {
+    ) -> Option<AssetLocation> {
         self.data_set.asset_location(asset_id)
     }
 

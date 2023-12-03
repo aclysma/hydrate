@@ -222,18 +222,13 @@ impl Value {
             Schema::DynamicArray(_) => &DEFAULT_VALUE_DYNAMIC_ARRAY,
             Schema::Map(_) => &DEFAULT_VALUE_MAP,
             Schema::AssetRef(_) => &DEFAULT_VALUE_ASSET_REF,
-            Schema::NamedType(named_type_id) => {
-                let named_type = schema_set.schemas().get(named_type_id).unwrap();
-                match named_type {
-                    SchemaNamedType::Record(_) => &DEFAULT_VALUE_RECORD,
-                    // Enums can't be created at compile time and returned with a &'static ref, so
-                    // we rely on the schema set to have a cache of the default values
-                    SchemaNamedType::Enum(enum_schema) => schema_set
-                        .default_value_for_enum(enum_schema.fingerprint())
-                        .unwrap(),
-                    SchemaNamedType::Fixed(_) => &DEFAULT_VALUE_FIXED,
-                }
+            Schema::Record(_) => &DEFAULT_VALUE_RECORD,
+            Schema::Enum(named_type_id) => {
+                schema_set
+                    .default_value_for_enum(*named_type_id)
+                    .unwrap()
             }
+            Schema::Fixed(_) => &DEFAULT_VALUE_FIXED,
         }
     }
 
@@ -321,7 +316,7 @@ impl Value {
                 // All value properties must exist and match in the schema. However we allow the
                 // value to be missing properties in the schema
                 match schema {
-                    Schema::NamedType(named_type_id) => {
+                    Schema::Record(named_type_id) => {
                         let named_type = named_types.get(named_type_id).unwrap();
                         match named_type {
                             SchemaNamedType::Record(inner_schema) => {
@@ -346,14 +341,14 @@ impl Value {
 
                                 true
                             }
-                            _ => false,
+                            _ => panic!("A Schema::Record fingerprint is matching a named type that isn't a record"),
                         }
                     }
                     _ => false,
                 }
             }
             Value::Enum(inner_value) => match schema {
-                Schema::NamedType(named_type_id) => {
+                Schema::Enum(named_type_id) => {
                     let named_type = named_types.get(named_type_id).unwrap();
                     match named_type {
                         SchemaNamedType::Enum(inner_schema) => {
@@ -365,19 +360,19 @@ impl Value {
 
                             false
                         }
-                        _ => false,
+                        _ => panic!("A Schema::Enum fingerprint is matching a named type that isn't a enum"),
                     }
                 }
                 _ => false,
             },
             Value::Fixed(value) => match schema {
-                Schema::NamedType(named_type_id) => {
+                Schema::Fixed(named_type_id) => {
                     let named_type = named_types.get(named_type_id).unwrap();
                     match named_type {
                         SchemaNamedType::Fixed(inner_schema) => {
                             value.len() == inner_schema.length()
                         }
-                        _ => false,
+                        _ => panic!("A Schema::Fixed fingerprint is matching a named type that isn't a fixed"),
                     }
                 }
                 _ => false,

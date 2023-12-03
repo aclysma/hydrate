@@ -125,7 +125,7 @@ impl SchemaNamedType {
         path: impl AsRef<str>,
         named_types: &HashMap<SchemaFingerprint, SchemaNamedType>,
     ) -> Option<Schema> {
-        let mut schema = Schema::NamedType(self.fingerprint());
+        let mut schema = Schema::Record(self.fingerprint());
 
         //TODO: Escape map keys (and probably avoid path strings anyways)
         let split_path = path.as_ref().split(".");
@@ -168,7 +168,9 @@ pub enum Schema {
     //RecordRef(SchemaRefConstraint),
     AssetRef(SchemaFingerprint),
     /// Named type, it could be an enum, record, etc.
-    NamedType(SchemaFingerprint),
+    Record(SchemaFingerprint),
+    Enum(SchemaFingerprint),
+    Fixed(SchemaFingerprint),
 }
 
 impl Schema {
@@ -193,16 +195,16 @@ impl Schema {
         }
     }
 
-    pub fn is_u32(&self) -> bool {
+    pub fn is_i64(&self) -> bool {
         match self {
-            Schema::U32 => true,
+            Schema::I64 => true,
             _ => false,
         }
     }
 
-    pub fn is_i64(&self) -> bool {
+    pub fn is_u32(&self) -> bool {
         match self {
-            Schema::I64 => true,
+            Schema::U32 => true,
             _ => false,
         }
     }
@@ -256,9 +258,38 @@ impl Schema {
         }
     }
 
+    pub fn is_map(&self) -> bool {
+        match self {
+            Schema::Map(_) => true,
+            _ => false,
+        }
+    }
+
     pub fn is_asset_ref(&self) -> bool {
         match self {
             Schema::AssetRef(_) => true,
+            _ => false,
+        }
+    }
+
+    pub fn is_record(&self) -> bool {
+        match self {
+            Schema::Record(_) => true,
+            _ => false,
+        }
+    }
+
+
+    pub fn is_enum(&self) -> bool {
+        match self {
+            Schema::Enum(_) => true,
+            _ => false,
+        }
+    }
+
+    pub fn is_fixed(&self) -> bool {
+        match self {
+            Schema::Fixed(_) => true,
             _ => false,
         }
     }
@@ -300,7 +331,7 @@ impl Schema {
                     None
                 }
             }
-            Schema::NamedType(named_type_id) => {
+            Schema::Record(named_type_id) => {
                 let named_type = named_types.get(named_type_id).unwrap();
                 match named_type {
                     SchemaNamedType::Record(x) => x.field_schema(name),

@@ -175,20 +175,7 @@ impl RecordTypeBuilder {
         });
     }
 
-    pub fn add_struct(
-        &mut self,
-        name: impl Into<String>,
-        type_name: impl Into<String>,
-    ) -> &mut RecordTypeFieldBuilder {
-        self.fields.push(RecordTypeFieldBuilder {
-            field_type: SchemaDefType::NamedType(type_name.into()),
-            aliases: Default::default(),
-            name: name.into(),
-        });
-        self.fields.last_mut().unwrap()
-    }
-
-    pub fn add_enum(
+    pub fn add_named_type(
         &mut self,
         name: impl Into<String>,
         type_name: impl Into<String>,

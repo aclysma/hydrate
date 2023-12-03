@@ -33,7 +33,7 @@ pub(super) fn property_schema_and_path_ancestors_to_check<'a>(
     map_ancestors: &mut Vec<String>,
     accessed_dynamic_array_keys: &mut Vec<(String, String)>,
 ) -> DataSetResult<Schema> {
-    let mut schema = Schema::NamedType(named_type.fingerprint());
+    let mut schema = Schema::Record(named_type.fingerprint());
 
     //TODO: Escape map keys (and probably avoid path strings anyways)
     let split_path: Vec<_> = path.as_ref().split(".").collect();

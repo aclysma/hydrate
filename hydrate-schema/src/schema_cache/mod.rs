@@ -287,7 +287,9 @@ enum CachedSchema {
     //RecordRef(CachedSchemaRefConstraint),
     AssetRef(Uuid),
     /// Named type, it could be an enum, record, etc.
-    NamedType(Uuid),
+    Record(Uuid),
+    Enum(Uuid),
+    Fixed(Uuid),
 }
 
 impl CachedSchema {
@@ -314,7 +316,9 @@ impl CachedSchema {
             Schema::Map(x) => CachedSchema::Map(CachedSchemaMap::new_from_schema(x)),
             //Schema::RecordRef(x) => CachedSchemaStaticArray::new_from_schema(x),
             Schema::AssetRef(x) => CachedSchema::AssetRef(x.as_uuid()),
-            Schema::NamedType(x) => CachedSchema::NamedType(x.as_uuid()),
+            Schema::Record(x) => CachedSchema::Record(x.as_uuid()),
+            Schema::Enum(x) => CachedSchema::Enum(x.as_uuid()),
+            Schema::Fixed(x) => CachedSchema::Fixed(x.as_uuid()),
         }
     }
 
@@ -334,7 +338,9 @@ impl CachedSchema {
             CachedSchema::DynamicArray(x) => Schema::DynamicArray(x.to_schema()),
             CachedSchema::Map(x) => Schema::Map(x.to_schema()),
             CachedSchema::AssetRef(x) => Schema::AssetRef(SchemaFingerprint(x.as_u128())),
-            CachedSchema::NamedType(x) => Schema::NamedType(SchemaFingerprint(x.as_u128())),
+            CachedSchema::Record(x) => Schema::Record(SchemaFingerprint(x.as_u128())),
+            CachedSchema::Enum(x) => Schema::Enum(SchemaFingerprint(x.as_u128())),
+            CachedSchema::Fixed(x) => Schema::Fixed(SchemaFingerprint(x.as_u128())),
         }
     }
 }

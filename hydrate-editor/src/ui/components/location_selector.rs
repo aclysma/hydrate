@@ -31,9 +31,17 @@ fn draw_tree_node(
 
     let response = if tree_node.children.len() > 0 {
         let id = ui.make_persistent_id(tree_node.location.path_node_id());
+        let mut collapsing_header = egui::collapsing_header::CollapsingState::load_with_default_open(ui.ctx(), id, false);
+
+        if let Some(selected_location) = selected_asset_location {
+            let location_chain = editor_model.root_edit_context().asset_location_chain(selected_location.path_node_id()).unwrap();
+            if location_chain.contains(&tree_node.location) {
+                collapsing_header.set_open(true);
+            }
+        }
+
         let (toggle_button_response, header_response, body_response) =
-            egui::collapsing_header::CollapsingState::load_with_default_open(ui.ctx(), id, false)
-                .show_header(ui, |ui| ui.toggle_value(&mut is_selected, &name))
+            collapsing_header.show_header(ui, |ui| ui.toggle_value(&mut is_selected, &name))
                 .body(|ui| {
                     for (key, child_tree_node) in &tree_node.children {
                         draw_tree_node(

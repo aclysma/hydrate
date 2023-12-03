@@ -30,7 +30,7 @@ pub enum UIAction {
     ForceRebuild(Vec<AssetId>),
     ShowAssetInAssetGallery(AssetId),
     MoveAsset(AssetId, AssetLocation),
-    NewAsset(AssetName, AssetLocation, SchemaRecord),
+    NewAsset(AssetName, AssetLocation, SchemaRecord, Option<AssetId>),
 }
 
 impl UIAction {
@@ -184,6 +184,10 @@ impl UIActionQueueReceiver {
                         .asset_gallery_ui_state
                         .selected_assets
                         .insert(asset_id);
+
+                    if let Some(location) = editor_model.root_edit_context().asset_location(asset_id) {
+                        ui_state.asset_tree_ui_state.selected_tree_node = Some(location);
+                    }
                 }
                 UIAction::MoveAsset(moving_asset, new_location) => {
                     editor_model.root_edit_context_mut().with_undo_context(
@@ -207,20 +211,26 @@ impl UIActionQueueReceiver {
                         },
                     );
                 }
-                UIAction::NewAsset(asset_name, asset_location, schema_record) => {
+                UIAction::NewAsset(asset_name, asset_location, schema_record, prototype) => {
                     editor_model.root_edit_context_mut().with_undo_context(
                         "new asset",
                         |edit_context| {
-                            let new_asset_id = edit_context.new_asset(
-                                &asset_name,
-                                &asset_location,
-                                &schema_record,
-                            );
-                            self.sender
+                            let new_asset_id = if let Some(prototype) = prototype {
+                                edit_context.new_asset_from_prototype(
+                                    &asset_name,
+                                    &asset_location,
+                                    prototype
+                                ).unwrap()
+                            } else {
+                                edit_context.new_asset(
+                                    &asset_name,
+                                    &asset_location,
+                                    &schema_record,
+                                )
+                            };
+
+                            let new_asset_id = self.sender
                                 .queue_action(UIAction::ShowAssetInAssetGallery(new_asset_id));
-                            // let mut selected_items = HashSet::default();
-                            // selected_items.insert(new_asset_id);
-                            // ui_state.asset_browser_state.grid_state.selected_items = selected_items;
                             EndContextBehavior::Finish
                         },
                     );

@@ -16,6 +16,7 @@ fn draw_tree_node(
     action_sender: &UIActionQueueSender,
     asset_tree_ui_state: &mut AssetTreeUiState,
     tree_node: &LocationTreeNode,
+    indent_count: u32,
 ) {
     let path_node_asset_id = tree_node.location.path_node_id();
     let name = editor_model
@@ -36,9 +37,6 @@ fn draw_tree_node(
         egui::Id::new(path_node_asset_id),
         DragDropPayload::AssetReference(path_node_asset_id),
         |ui| {
-            //if tree_node.children.len() > 0 {
-            //ui.push_id(tree_node.location.path_node_id(), |ui| {
-
             //Reject drop if asset is dropped on itself
             //TODO: Make this also reject if dragged is already a child of this node
             let can_accept = match crate::ui::drag_drop::peek_payload() {
@@ -51,7 +49,7 @@ fn draw_tree_node(
             let response = if tree_node.children.len() > 0 {
                 let id = ui.make_persistent_id(tree_node.location.path_node_id());
 
-                let mut collapsing_header = egui::collapsing_header::CollapsingState::load_with_default_open(
+                let mut collapsing_header_state = egui::collapsing_header::CollapsingState::load_with_default_open(
                     ui.ctx(),
                     id,
                     false,
@@ -60,39 +58,48 @@ fn draw_tree_node(
                 if let Some(selected_tree_node) = asset_tree_ui_state.selected_tree_node {
                     let location_chain = editor_model.root_edit_context().asset_location_chain(selected_tree_node.path_node_id()).unwrap();
                     if location_chain.contains(&tree_node.location) {
-                        collapsing_header.set_open(true);
+                        collapsing_header_state.set_open(true);
                     }
                 }
 
-                let (toggle_button_response, header_response, body_response) = collapsing_header.show_header(ui, |ui| {
-                    let response = crate::ui::drag_drop::drop_target(ui, can_accept, |ui| {
-                        ui.toggle_value(&mut is_selected, &name)
-                    });
+                let inner_response = ui.horizontal(|ui| {
+                    ui.vertical(|ui| {
+                        let header_response = collapsing_header_state.show_header(ui, |ui| {
+                            let response = crate::ui::drag_drop::drop_target(ui, can_accept, |ui| {
+                                ui.toggle_value(&mut is_selected, &name)
+                            });
 
-                    handle_drop_on_asset_tree_node(ui, &response, action_sender, tree_node);
+                            handle_drop_on_asset_tree_node(ui, &response, action_sender, tree_node);
 
-                    response.inner
-                })
-                .body(|ui| {
-                    for (key, child_tree_node) in &tree_node.children {
-                        draw_tree_node(
-                            ui,
-                            editor_model,
-                            action_sender,
-                            asset_tree_ui_state,
-                            child_tree_node,
-                        );
-                    }
+                            response.inner
+                        });
+
+                        let (_, header_response, _) = header_response.body_unindented(|ui| {
+                            ui.horizontal(|ui| {
+                                crate::ui::add_indent_spacing(ui);
+                                ui.vertical(|ui| {
+                                    for (key, child_tree_node) in &tree_node.children {
+                                        draw_tree_node(
+                                            ui,
+                                            editor_model,
+                                            action_sender,
+                                            asset_tree_ui_state,
+                                            child_tree_node,
+                                            indent_count + 1
+                                        );
+                                    }
+                                });
+                            });
+                        });
+
+                        header_response.inner
+                    }).inner
                 });
 
-                header_response.inner
+                inner_response.inner
             } else {
                 ui.horizontal(|ui| {
-                    let prev_item_spacing = ui.spacing_mut().item_spacing;
-                    ui.spacing_mut().item_spacing.x = 0.0; // the toggler button uses the full indent width
-                                                           // empty space where the collapsing header's icon would be
-                    ui.allocate_space(egui::vec2(ui.spacing().indent, ui.spacing().icon_width));
-                    ui.spacing_mut().item_spacing = prev_item_spacing;
+                    crate::ui::add_icon_spacing(ui);
 
                     let response = crate::ui::drag_drop::drop_target(ui, can_accept, |ui| {
                         ui.selectable_label(is_selected, &name)
@@ -110,15 +117,19 @@ fn draw_tree_node(
             }
 
             response.context_menu(|ui| {
-                if ui.button("New Asset").clicked() {
-                    action_sender.try_set_modal_action(NewAssetModal::new(Some(tree_node.location)));
-                    ui.close_menu();
-                }
+                tree_node_context_menu(action_sender, tree_node, ui);
             })
 
             //});
         },
     );
+}
+
+fn tree_node_context_menu(action_sender: &UIActionQueueSender, tree_node: &LocationTreeNode, ui: &mut Ui) {
+    if ui.button("New Asset").clicked() {
+        action_sender.try_set_modal_action(NewAssetModal::new(Some(tree_node.location)));
+        ui.close_menu();
+    }
 }
 
 fn handle_drop_on_asset_tree_node(
@@ -164,6 +175,7 @@ pub fn draw_asset_tree(
                 action_sender,
                 asset_tree_ui_state,
                 tree_node,
+                0
             );
         }
     });

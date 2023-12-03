@@ -42,16 +42,21 @@ fn draw_tree_node(
 
         let (toggle_button_response, header_response, body_response) =
             collapsing_header.show_header(ui, |ui| ui.toggle_value(&mut is_selected, &name))
-                .body(|ui| {
-                    for (key, child_tree_node) in &tree_node.children {
-                        draw_tree_node(
-                            ui,
-                            editor_model,
-                            action_sender,
-                            selected_asset_location,
-                            child_tree_node,
-                        );
-                    }
+                .body_unindented(|ui| {
+                    ui.horizontal(|ui| {
+                        crate::ui::add_indent_spacing(ui);
+                        ui.vertical(|ui| {
+                            for (key, child_tree_node) in &tree_node.children {
+                                draw_tree_node(
+                                    ui,
+                                    editor_model,
+                                    action_sender,
+                                    selected_asset_location,
+                                    child_tree_node,
+                                );
+                            }
+                        });
+                    });
                 });
 
         header_response.inner

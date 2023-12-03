@@ -163,20 +163,25 @@ pub fn draw_asset_tree(
     editor_model_ui_state: &EditorModelUiState,
     asset_tree_ui_state: &mut AssetTreeUiState,
 ) {
-    ui.label("ASSET TREE");
-    ui.push_id("asset tree", |ui| {
-        ui.style_mut().visuals.indent_has_left_vline = false;
-        ui.style_mut().spacing.item_spacing = egui::vec2(2.0, 2.0);
+    egui::ScrollArea::vertical()
+        .max_width(f32::INFINITY)
+        .auto_shrink([false, false])
+        .show(ui, |ui| {
+        ui.label("ASSET TREE");
+        ui.push_id("asset tree", |ui| {
+            ui.style_mut().visuals.indent_has_left_vline = false;
+            ui.style_mut().spacing.item_spacing = egui::vec2(2.0, 2.0);
 
-        for (_, tree_node) in &editor_model_ui_state.location_tree.root_nodes {
-            draw_tree_node(
-                ui,
-                editor_model,
-                action_sender,
-                asset_tree_ui_state,
-                tree_node,
-                0
-            );
-        }
+            for (_, tree_node) in &editor_model_ui_state.location_tree.root_nodes {
+                draw_tree_node(
+                    ui,
+                    editor_model,
+                    action_sender,
+                    asset_tree_ui_state,
+                    tree_node,
+                    0
+                );
+            }
+        });
     });
 }

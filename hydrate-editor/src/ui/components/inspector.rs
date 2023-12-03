@@ -647,90 +647,322 @@ pub fn draw_inspector(
     editor_model: &EditorModel,
     action_sender: &UIActionQueueSender,
     editor_model_ui_state: &EditorModelUiState,
-    asset_id: AssetId,
+    asset_id: Option<AssetId>,
 ) {
-    let edit_context = editor_model.root_edit_context();
-    if !edit_context.has_asset(asset_id) {
-        return;
-    }
+    egui::ScrollArea::vertical()
+        .max_width(f32::INFINITY)
+        .auto_shrink([false, false])
+        .show(ui, |ui| {
+            ui.label("hi");
 
-    ui.heading(format!(
-        "{}",
-        edit_context.asset_name_or_id_string(asset_id).unwrap()
-    ));
+            let available_x = ui.available_width();
 
-    ui.label(format!(
-        "{}",
-        editor_model
-            .asset_display_name_long(asset_id, &editor_model_ui_state.asset_path_cache)
-    ));
+            // can I make tables share column widths?
 
-    ui.label(format!("{:?}", asset_id.as_uuid()));
+            let mut table = egui_extras::TableBuilder::new(ui)
+                .striped(true)
+                .auto_shrink([true, false])
+                .resizable(true)
+                // vscroll and min/max scroll height make this table grow/shrink according to available size
+                .vscroll(false)
+                .min_scrolled_height(1.0)
+                .max_scroll_height(1.0)
+                .cell_layout(egui::Layout::left_to_right(egui::Align::Center))
+                .column(egui_extras::Column::initial(200.0).at_least(5.0).at_most(available_x * 0.9).clip(true))
+                .column(egui_extras::Column::remainder().at_least(5.0).at_most(available_x * 0.9).clip(true));
 
+            fn add_empty_collapsing_header(ui: &mut egui::Ui, text: impl Into<egui::WidgetText>) -> bool {
+                let openness = egui::CollapsingHeader::new(text).show_unindented(ui, |ui| {
 
-    let import_info = edit_context.import_info(asset_id);
-    if let Some(import_info) = import_info {
-        ui.collapsing("Import Info", |ui| {
-            ui.label(format!(
-                "Imported From: {}",
-                import_info.source_file_path().to_string_lossy()
-            ));
-            ui.label(format!(
-                "Importable Name: {:?}",
-                import_info.importable_name().name()
-            ));
-        });
-    }
-
-    let is_generated = editor_model.is_generated_asset(asset_id);
-    if is_generated {
-        ui.label(format!("This asset is generated from a source file and can't be modified unless it is persisted to disk. A new asset file will be created and source file changes will no longer affect it."));
-    }
-
-    if is_generated {
-        if ui.button("Persist Asset").clicked() {
-            action_sender.queue_action(UIAction::PersistAssets(vec![asset_id]));
-        }
-    }
-
-    if ui.button("Use as prototype").clicked() {
-        action_sender.try_set_modal_action(NewAssetModal::new_with_prototype(Some(editor_model.root_edit_context().asset_location(asset_id).unwrap()), asset_id))
-    }
-
-    if let Some(prototype) = edit_context.asset_prototype(asset_id) {
-        ui.horizontal(|ui| {
-            if ui.button(">>").clicked() {
-                action_sender.queue_action(UIAction::ShowAssetInAssetGallery(prototype));
+                }).openness;
+                openness > 0.5
             }
 
-            let prototype_display_name =
-                editor_model.asset_display_name_long(prototype, &editor_model_ui_state.asset_path_cache);
+            table
+                // .header(20.0, |mut header| {
+                //     header.col(|ui| {
+                //         ui.strong("Name");
+                //     });
+                //     header.col(|ui| {
+                //         ui.strong("Type");
+                //     });
+                // })
+                .body(|mut body| {
+                    body.row(20.0, |mut row| {
+                        row.col(|ui| {
+                            crate::ui::add_icon_spacing(ui);
+                            ui.label("a");
+                        });
+                        row.col(|ui| {
+                            ui.label("b");
+                        });
+                    });
 
-            ui.label(format!("Prototype: {}", prototype_display_name));
+                    let mut is_open = false;
+
+
+                    body.row(20.0, |mut row| {
+                        row.col(|ui| {
+                            // no spacing because the collapsing header uses it
+                            is_open = add_empty_collapsing_header(ui, "test");
+                        });
+                        row.col(|ui| {
+                            //ui.label("b");
+                        });
+                    });
+
+                    if is_open {
+                        body.row(20.0, |mut row| {
+                            row.col(|ui| {
+                                crate::ui::add_indent_spacing(ui);
+                                crate::ui::add_icon_spacing(ui);
+                                ui.label("a fasd faf asdf asf asf ");
+                            });
+                            row.col(|ui| {
+                                ui.label("b");
+                            });
+                        });
+
+                        body.row(20.0, |mut row| {
+                            row.col(|ui| {
+                                crate::ui::add_indent_spacing(ui);
+                                crate::ui::add_icon_spacing(ui);
+                                ui.label("a fasd faf asdf asf asf ");
+                            });
+                            row.col(|ui| {
+                                ui.label("b");
+                            });
+                        });
+
+                        let mut is_open2 = false;
+                        body.row(20.0, |mut row| {
+                            row.col(|ui| {
+                                crate::ui::add_indent_spacing(ui);
+                                // no spacing because the collapsing header uses it
+                                is_open2 = add_empty_collapsing_header(ui, "a fasd faf asdf asf asf ");
+                            });
+                            row.col(|ui| {
+                                ui.label("b");
+                            });
+                        });
+
+                        if is_open2 {
+                            body.row(20.0, |mut row| {
+                                row.col(|ui| {
+                                    crate::ui::add_indent_spacing(ui);
+                                    crate::ui::add_indent_spacing(ui);
+                                    crate::ui::add_icon_spacing(ui);
+                                    ui.label("a");
+                                });
+                                row.col(|ui| {
+                                    ui.label("ba sdfasdfasdf asd fsd fasdf as fsadf ");
+                                });
+                            });
+                        }
+                    }
+
+
+
+                    body.row(20.0, |mut row| {
+                        row.col(|ui| {
+                            crate::ui::add_icon_spacing(ui);
+                            ui.label("a");
+                        });
+                        row.col(|ui| {
+                            ui.label("ba sdfasdfasdf asd fsd fasdf as fsadf ");
+                        });
+                    });
+                });
+
+
+            // // egui::Grid::new("some_unique_id").show(ui, |ui| {
+            // //     ui.label("First row, first column");
+            // //     ui.label("First row, second column");
+            // //     ui.end_row();
+            // //
+            // //     ui.label("Second row, first column");
+            // //     ui.label("Second row, second column");
+            // //     ui.label("Second row, third column");
+            // //     ui.end_row();
+            // //
+            // //     ui.horizontal(|ui| { ui.label("Same"); ui.label("cell"); });
+            // //     ui.label("Third row, second column");
+            // //     ui.end_row();
+            // // });
+            // //
+            // // egui::Grid::new("test_ui")
+            // //     .striped(true)
+            // //     .min_col_width(50.0)
+            // //     .max_col_width(50.0)
+            // //     .num_columns(2)
+            // //     .show(ui, |ui| {
+            // //         ui.label("1");
+            // //         ui.label("2");
+            // //         ui.end_row();
+            // //         ui.label("1 asdf asdf asdf sadf sda f as f");
+            // //         ui.label("2");
+            // //         ui.end_row();
+            // //         ui.label("1");
+            // //         ui.label("2a sfsad fasd fasd fasdf asdf asddf asdf asd f");
+            // //         ui.end_row();
+            // //         ui.label("1");
+            // //         ui.label("2");
+            // //         ui.end_row();
+            // //     });
+            //
+            //
+            // ui.horizontal_top(|ui| {
+            //     //ui.all
+            //     ui.add_sized(egui::vec2(100.0, 30.0), egui::Label::new("test text").truncate(true));
+            //     ui.label("some value");
+            // });
+            // ui.horizontal_top(|ui| {
+            //     //ui.all
+            //     ui.add_sized(egui::vec2(100.0, 30.0), egui::Label::new("test text that is very long").truncate(true));
+            //     ui.label("some value");
+            // });
+            // // ui.horizontal(|ui| {
+            // //     //ui.all
+            // //     ui.add_sized(egui::vec2(100.0, 30.0), egui::CollapsingHeader::new("test").show(ui, |ui| {}));
+            // //     ui.label("some value");
+            // // });
+            //
+            // ui.horizontal_top(|ui| {
+            //     //ui.all
+            //     ui.add_sized(egui::vec2(100.0, 30.0), egui::Label::new("test text").truncate(true));
+            //     ui.label("some value");
+            // });
+            //
+            //
+            //
+            // let openness = egui::CollapsingHeader::new("test").show(ui, |ui| {
+            // }).openness;
+            //
+            // if openness > 0.1 {
+            //
+            //     egui::Grid::new("test_u2")
+            //         .striped(true)
+            //         .min_col_width(5.0)
+            //         .num_columns(2)
+            //         .show(ui, |ui| {
+            //             ui.label("    1");
+            //             ui.label("2");
+            //             ui.end_row();
+            //             ui.label("    1 asdf asdf asdf sadf sda f as f");
+            //             ui.label("2");
+            //             ui.end_row();
+            //             ui.label("    1");
+            //             ui.label("2a sfsad fasd fasd fasdf asdf asddf asdf asd f");
+            //             ui.end_row();
+            //             ui.label("    1");
+            //             ui.label("2");
+            //             ui.end_row();
+            //         });
+            // }
+
+            if let Some(asset_id) = asset_id
+            {
+                let edit_context = editor_model.root_edit_context();
+                if !edit_context.has_asset(asset_id) {
+                    return;
+                }
+
+                ui.heading(format!(
+                    "{}",
+                    edit_context.asset_name_or_id_string(asset_id).unwrap()
+                ));
+
+                ui.label(format!(
+                    "{}",
+                    editor_model
+                        .asset_display_name_long(asset_id, &editor_model_ui_state.asset_path_cache)
+                ));
+
+                ui.label(format!("{:?}", asset_id.as_uuid()));
+
+
+                let import_info = edit_context.import_info(asset_id);
+                if let Some(import_info) = import_info {
+                    ui.collapsing("Import Info", |ui| {
+                        ui.label(format!(
+                            "Imported From: {}",
+                            import_info.source_file_path().to_string_lossy()
+                        ));
+                        ui.label(format!(
+                            "Importable Name: {:?}",
+                            import_info.importable_name().name()
+                        ));
+                    });
+                }
+
+                let is_generated = editor_model.is_generated_asset(asset_id);
+                if is_generated {
+                    ui.label(format!("This asset is generated from a source file and can't be modified unless it is persisted to disk. A new asset file will be created and source file changes will no longer affect it."));
+                }
+
+                if is_generated {
+                    if ui.button("Persist Asset").clicked() {
+                        action_sender.queue_action(UIAction::PersistAssets(vec![asset_id]));
+                    }
+                }
+
+                if ui.button("Use as prototype").clicked() {
+                    action_sender.try_set_modal_action(NewAssetModal::new_with_prototype(Some(editor_model.root_edit_context().asset_location(asset_id).unwrap()), asset_id))
+                }
+
+                if let Some(prototype) = edit_context.asset_prototype(asset_id) {
+                    ui.horizontal(|ui| {
+                        if ui.button(">>").clicked() {
+                            action_sender.queue_action(UIAction::ShowAssetInAssetGallery(prototype));
+                        }
+
+                        let prototype_display_name =
+                            editor_model.asset_display_name_long(prototype, &editor_model_ui_state.asset_path_cache);
+
+                        ui.label(format!("Prototype: {}", prototype_display_name));
+                    });
+                }
+
+                if ui.button("Rebuild this Asset").clicked() {
+                    //app_state.asset_engine.queue_build_operation(asset_id);
+                    action_sender.queue_action(UIAction::ForceRebuild(vec![asset_id]));
+                }
+
+                ui.separator();
+
+                let read_only = is_generated;
+
+                // let mut table = egui_extras::TableBuilder::new(ui)
+                //     .striped(true)
+                //     .auto_shrink([true, false])
+                //     .resizable(true)
+                //     // vscroll and min/max scroll height make this table grow/shrink according to available size
+                //     .vscroll(false)
+                //     .min_scrolled_height(1.0)
+                //     .max_scroll_height(1.0)
+                //     .cell_layout(egui::Layout::left_to_right(egui::Align::Center))
+                //     .column(egui_extras::Column::initial(200.0).at_least(5.0).at_most(available_x * 0.9).clip(true))
+                //     .column(egui_extras::Column::remainder().at_least(5.0).at_most(available_x * 0.9).clip(true));
+                //
+                // table.body(|body| {
+                //
+                // });
+
+                draw_inspector_property(
+                    ui,
+                    InspectorContext {
+                        editor_model,
+                        editor_model_ui_state,
+                        action_sender,
+                        asset_id,
+                        property_name: "",
+                        property_path: "",
+                        schema: &Schema::Record(
+                            editor_model.root_edit_context().data_set().asset_schema(asset_id).unwrap().fingerprint()
+                        ),
+                        read_only,
+                    },
+                )
+            }
         });
-    }
-
-    if ui.button("Rebuild this Asset").clicked() {
-        //app_state.asset_engine.queue_build_operation(asset_id);
-        action_sender.queue_action(UIAction::ForceRebuild(vec![asset_id]));
-    }
-
-    ui.separator();
-
-    let read_only = is_generated;
-    draw_inspector_property(
-        ui,
-        InspectorContext {
-            editor_model,
-            editor_model_ui_state,
-            action_sender,
-            asset_id,
-            property_name: "",
-            property_path: "",
-            schema: &Schema::Record(
-                editor_model.root_edit_context().data_set().asset_schema(asset_id).unwrap().fingerprint()
-            ),
-            read_only,
-        },
-    )
 }

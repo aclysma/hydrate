@@ -7,11 +7,9 @@ use crate::ui::components::{AssetGalleryUiState, AssetTreeUiState, InspectorUiSt
 use crate::ui::modals::ImportFilesModal;
 use crate::ui_state::EditorModelUiState;
 use egui::epaint::text::FontsImpl;
-use egui::scroll_area::ScrollBarVisibility;
-use egui::{Color32, FontDefinitions, Frame, ViewportCommand};
+use egui::{FontDefinitions, ViewportCommand};
 use hydrate_model::pipeline::AssetEngine;
-use hydrate_model::{AssetId, EditorModelWithCache, HashSet};
-use std::ops::Deref;
+use hydrate_model::{EditorModelWithCache};
 
 #[derive(Default)]
 pub struct UiState {
@@ -167,46 +165,32 @@ impl eframe::App for HydrateEditorApp {
             .show(ctx, |ui| {
                 ui.set_enabled(self.modal_action.is_none());
 
-                egui::ScrollArea::vertical()
-                    .max_width(f32::INFINITY)
-                    .auto_shrink([false, false])
-                    .show(ui, |ui| {
-                        if !self
-                            .ui_state
-                            .asset_gallery_ui_state
-                            .selected_assets
-                            .is_empty()
-                        {
-                            for selected in &self.ui_state.asset_gallery_ui_state.selected_assets {
-                                //TODO: Temp hack
-                                crate::ui::components::draw_inspector(
-                                    ui,
-                                    &self.db_state.editor_model,
-                                    &action_queue_sender,
-                                    &self.ui_state.editor_model_ui_state,
-                                    *selected,
-                                );
-                                break;
-                            }
-                        }
-                    });
+                //TODO: Temp hack
+                let mut first_selected = None;
+                for selected in &self.ui_state.asset_gallery_ui_state.selected_assets {
+                    first_selected = Some(*selected);
+                    break;
+                }
+
+                crate::ui::components::draw_inspector(
+                    ui,
+                    &self.db_state.editor_model,
+                    &action_queue_sender,
+                    &self.ui_state.editor_model_ui_state,
+                    first_selected,
+                );
             });
 
         egui::SidePanel::left("left_panel")
             .resizable(true)
             .show(ctx, |ui| {
-                egui::ScrollArea::vertical()
-                    .max_width(f32::INFINITY)
-                    .auto_shrink([false, false])
-                    .show(ui, |ui| {
-                        crate::ui::components::draw_asset_tree(
-                            ui,
-                            &self.db_state.editor_model,
-                            &action_queue_sender,
-                            &self.ui_state.editor_model_ui_state,
-                            &mut self.ui_state.asset_tree_ui_state,
-                        );
-                    });
+                crate::ui::components::draw_asset_tree(
+                    ui,
+                    &self.db_state.editor_model,
+                    &action_queue_sender,
+                    &self.ui_state.editor_model_ui_state,
+                    &mut self.ui_state.asset_tree_ui_state,
+                );
             });
 
         //let mut frame = Frame::central_panel(&*ctx.style());

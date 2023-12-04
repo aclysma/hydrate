@@ -427,10 +427,7 @@ fn asset_context_menu(ui: &mut egui::Ui, action_queue: &UIActionQueueSender, ass
         )
         .clicked()
     {
-        action_queue.queue_edit("delete asset", vec![asset_id], move |edit_context| {
-            edit_context.delete_asset(asset_id).unwrap();
-            Ok(EndContextBehavior::Finish)
-        });
+        action_queue.queue_action(UIAction::DeleteAsset(asset_id));
         ui.close_menu();
     }
 

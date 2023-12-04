@@ -1,15 +1,12 @@
 use crate::app::UiState;
 use crate::modal_action::ModalAction;
 use crate::ui::modals::ConfirmRevertChanges;
-use crate::ui::modals::{ConfirmQuitWithoutSaving, NewAssetModal};
+use crate::ui::modals::{ConfirmQuitWithoutSaving};
 use crossbeam_channel::{Receiver, Sender};
 use hydrate_model::edit_context::EditContext;
 use hydrate_model::pipeline::import_util::ImportToQueue;
 use hydrate_model::pipeline::AssetEngine;
-use hydrate_model::{
-    AssetId, AssetLocation, AssetName, DataSetError, DataSetResult, EditorModel,
-    EndContextBehavior, HashSet, SchemaNamedType, SchemaRecord,
-};
+use hydrate_model::{AssetId, AssetLocation, AssetName, DataSetError, DataSetResult, EditorModel, EndContextBehavior, NullOverride, PropertyPath, SchemaRecord, Value};
 use std::sync::Arc;
 
 pub enum UIAction {
@@ -31,6 +28,11 @@ pub enum UIAction {
     ShowAssetInAssetGallery(AssetId),
     MoveAsset(AssetId, AssetLocation),
     NewAsset(AssetName, AssetLocation, SchemaRecord, Option<AssetId>),
+    DeleteAsset(AssetId),
+    SetProperty(AssetId, PropertyPath, Option<Value>, EndContextBehavior),
+    ApplyPropertyOverrideToPrototype(AssetId, PropertyPath),
+    SetNullOverride(AssetId, PropertyPath, NullOverride),
+    AddDynamicArrayOverride(AssetId, PropertyPath),
 }
 
 impl UIAction {
@@ -66,20 +68,20 @@ impl UIActionQueueSender {
         self.queue_action(UIAction::TryBeginModalAction(Box::new(action)))
     }
 
-    pub fn queue_edit<
-        F: 'static + FnOnce(&mut EditContext) -> DataSetResult<EndContextBehavior>,
-    >(
-        &self,
-        undo_context_name: &'static str,
-        assets: Vec<AssetId>,
-        f: F,
-    ) {
-        self.queue_action(UIAction::EditContext(
-            undo_context_name,
-            assets,
-            Box::new(f),
-        ))
-    }
+    // pub fn queue_edit<
+    //     F: 'static + FnOnce(&mut EditContext) -> DataSetResult<EndContextBehavior>,
+    // >(
+    //     &self,
+    //     undo_context_name: &'static str,
+    //     assets: Vec<AssetId>,
+    //     f: F,
+    // ) {
+    //     self.queue_action(UIAction::EditContext(
+    //         undo_context_name,
+    //         assets,
+    //         Box::new(f),
+    //     ))
+    // }
 }
 
 pub struct UIActionQueueReceiver {
@@ -131,9 +133,6 @@ impl UIActionQueueReceiver {
         let mut imports_to_queue = Vec::<ImportToQueue>::default();
         while let Ok(action) = self.action_queue_rx.try_recv() {
             match action {
-                // UIAction::NewAsset(location) => {
-                //     //*modal_action = Some(Box::new(NewAssetModal::new(location)));
-                // }
                 UIAction::SaveAll => editor_model.save_root_edit_context(),
                 UIAction::RevertAll => {
                     if editor_model.any_edit_context_has_unsaved_changes() {
@@ -177,8 +176,6 @@ impl UIActionQueueReceiver {
                     }
                 }
                 UIAction::ShowAssetInAssetGallery(asset_id) => {
-                    //ui_state.editor_model_ui_state.selected_assets.clear();
-                    //ui_state.editor_model_ui_state.selected_assets.insert(asset_id);
                     ui_state.asset_gallery_ui_state.selected_assets.clear();
                     ui_state
                         .asset_gallery_ui_state
@@ -229,10 +226,58 @@ impl UIActionQueueReceiver {
                                 )
                             };
 
-                            let new_asset_id = self.sender
+                            self.sender
                                 .queue_action(UIAction::ShowAssetInAssetGallery(new_asset_id));
                             EndContextBehavior::Finish
                         },
+                    );
+                }
+                UIAction::DeleteAsset(asset_id) => {
+                    editor_model.root_edit_context_mut().with_undo_context(
+                        "delete asset",
+                        |edit_context| {
+                            edit_context.delete_asset(asset_id).unwrap();
+                            EndContextBehavior::Finish
+                        }
+                    );
+                }
+                UIAction::SetProperty(asset_id, property_path, value, end_context_behavior) => {
+                    editor_model.root_edit_context_mut().with_undo_context(
+                        "set property",
+                        |edit_context| {
+                            edit_context.set_property_override(asset_id, property_path.path(), value).unwrap();
+                            end_context_behavior
+                        }
+                    );
+                },
+                UIAction::ApplyPropertyOverrideToPrototype(asset_id, property_path) => {
+                    editor_model.root_edit_context_mut().with_undo_context(
+                        "apply override",
+                        |edit_context| {
+                            edit_context
+                                .apply_property_override_to_prototype(asset_id, property_path.path()).unwrap();
+                            EndContextBehavior::Finish
+                        }
+                    );
+                },
+                UIAction::SetNullOverride(asset_id, property_path, null_override) => {
+                    editor_model.root_edit_context_mut().with_undo_context(
+                        "set null override",
+                        |edit_context| {
+                            edit_context
+                                .set_null_override(asset_id, property_path.path(), null_override).unwrap();
+                            EndContextBehavior::Finish
+                        }
+                    );
+                }
+                UIAction::AddDynamicArrayOverride(asset_id, property_path) => {
+                    editor_model.root_edit_context_mut().with_undo_context(
+                        "set null override",
+                        |edit_context| {
+                            edit_context
+                                .add_dynamic_array_override(asset_id, property_path.path()).unwrap();
+                            EndContextBehavior::Finish
+                        }
                     );
                 }
             }

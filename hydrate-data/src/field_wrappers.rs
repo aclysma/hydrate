@@ -11,7 +11,7 @@ use std::rc::Rc;
 use std::sync::Arc;
 use uuid::Uuid;
 
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub struct PropertyPath(String);
 
 impl PropertyPath {

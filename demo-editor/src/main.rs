@@ -2,9 +2,11 @@ use demo_plugins::{
     BlenderMaterialAssetPlugin, BlenderMeshAssetPlugin, GlslAssetPlugin, GltfAssetPlugin,
     GpuBufferAssetPlugin, GpuImageAssetPlugin, MeshAdvAssetPlugin, SimpleDataAssetPlugin,
 };
-use hydrate::model::{AssetPathCache, EditorModelWithCache};
+use hydrate::model::{AssetPathCache, EditorModelWithCache, Record, SchemaRecord};
 use hydrate::pipeline::AssetEngine;
 use std::path::PathBuf;
+use demo_plugins::generated::Vec3Record;
+use hydrate::editor::inspector_system;
 
 fn schema_def_path() -> PathBuf {
     PathBuf::from(concat!(
@@ -144,5 +146,23 @@ fn main() -> eframe::Result<()> {
         (db_state, asset_engine)
     };
 
-    hydrate::editor::run(db_state, asset_engine)
+    let mut inspector_registry = inspector_system::InspectorRegistry::default();
+    let vec3_fingerprint = db_state.editor_model.schema_set().find_named_type(Vec3Record::schema_name()).unwrap().fingerprint();
+    inspector_registry.register_override(vec3_fingerprint, Vec3RecordInspector);
+
+    hydrate::editor::run(db_state, asset_engine, inspector_registry)
+}
+
+struct Vec3RecordInspector;
+
+impl inspector_system::RecordInspector for Vec3RecordInspector {
+    fn draw_properties_for_record(
+        &self,
+        table_body: &mut hydrate::editor::egui_extras::TableBody,
+        ctx: inspector_system::InspectorContext,
+        record: &SchemaRecord,
+        indent_level: u32
+    ) {
+
+    }
 }

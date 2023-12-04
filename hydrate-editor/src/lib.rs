@@ -12,12 +12,17 @@ mod egui_debug_ui;
 mod modal_action;
 mod ui_state;
 
+pub use egui;
+pub use egui_extras;
+
 use crate::app::HydrateEditorApp;
 use hydrate_model::pipeline::AssetEngine;
+pub use crate::ui::components::inspector_system;
 
 pub fn run(
     db_state: DbState,
     asset_engine: AssetEngine,
+    inspector_registry: inspector_system::InspectorRegistry,
 ) -> eframe::Result<()> {
     let native_options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default().with_inner_size([450.0, 300.0]),
@@ -36,6 +41,6 @@ pub fn run(
     eframe::run_native(
         "Hydrate Editor",
         native_options,
-        Box::new(|cc| Box::new(HydrateEditorApp::new(cc, db_state, asset_engine))),
+        Box::new(|cc| Box::new(HydrateEditorApp::new(cc, db_state, asset_engine, inspector_registry))),
     )
 }

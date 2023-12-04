@@ -41,7 +41,6 @@ fn property_value_to_json(
         Value::AssetRef(x) => serde_json::Value::from(x.as_uuid().to_string()),
         Value::Record(_) => unimplemented!(),
         Value::Enum(x) => serde_json::Value::from(x.symbol_name().to_string()),
-        Value::Fixed(_) => unimplemented!(),
     }
 }
 
@@ -86,10 +85,8 @@ fn json_to_property_value_with_schema(
                 SchemaNamedType::Enum(e) => {
                     Value::enum_value_from_string(e, value.as_str().unwrap()).unwrap()
                 }
-                SchemaNamedType::Fixed(_) => panic!("A Schema::Enum is matching a named type that is not an enum"),
             }
         }
-        Schema::Fixed(_) => unimplemented!(),
     }
 }
 

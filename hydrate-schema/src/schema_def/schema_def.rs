@@ -1,6 +1,6 @@
 use crate::{
     HashMap, HashSet, Schema, SchemaDynamicArray, SchemaEnum, SchemaEnumSymbol, SchemaFingerprint,
-    SchemaFixed, SchemaMap, SchemaNamedType, SchemaRecord, SchemaRecordField, SchemaStaticArray,
+    SchemaMap, SchemaNamedType, SchemaRecord, SchemaRecordField, SchemaStaticArray,
 };
 use std::hash::{Hash, Hasher};
 
@@ -385,61 +385,6 @@ impl SchemaDefEnum {
 }
 
 #[derive(Debug)]
-pub struct SchemaDefFixed {
-    pub(super) type_name: String,
-    pub(super) aliases: Vec<String>,
-    pub(super) length: usize,
-}
-
-impl SchemaDefFixed {
-    pub fn new(
-        type_name: String,
-        aliases: Vec<String>,
-        length: usize,
-    ) -> SchemaDefValidationResult<Self> {
-        Ok(SchemaDefFixed {
-            type_name,
-            aliases,
-            length,
-        })
-    }
-
-    fn apply_type_aliases(
-        &mut self,
-        _aliases: &HashMap<String, String>,
-    ) {
-    }
-
-    fn collect_all_related_types(
-        &self,
-        types: &mut HashSet<String>,
-    ) {
-        types.insert(self.type_name.clone());
-    }
-
-    fn partial_hash<T: Hasher>(
-        &self,
-        hasher: &mut T,
-    ) {
-        self.type_name.hash(hasher);
-        self.length.hash(hasher);
-    }
-
-    fn to_schema(
-        &self,
-        named_types: &HashMap<String, SchemaFingerprint>,
-    ) -> SchemaFixed {
-        let fingerprint = *named_types.get(&self.type_name).unwrap();
-        SchemaFixed::new(
-            self.type_name.clone(),
-            fingerprint,
-            self.aliases.clone().into_boxed_slice(),
-            self.length,
-        )
-    }
-}
-
-#[derive(Debug)]
 pub enum SchemaDefType {
     Nullable(Box<SchemaDefType>),
     Boolean,
@@ -586,10 +531,7 @@ impl SchemaDefType {
                 match named_type {
                     SchemaDefNamedType::Record(_) => Schema::Record(*fingerprints.get(x).unwrap()),
                     SchemaDefNamedType::Enum(_) => Schema::Enum(*fingerprints.get(x).unwrap()),
-                    SchemaDefNamedType::Fixed(_) => Schema::Fixed(*fingerprints.get(x).unwrap()),
                 }
-
-
             },
         }
     }
@@ -598,7 +540,6 @@ impl SchemaDefType {
 pub enum SchemaDefNamedType {
     Record(SchemaDefRecord),
     Enum(SchemaDefEnum),
-    Fixed(SchemaDefFixed),
 }
 
 impl SchemaDefNamedType {
@@ -606,7 +547,6 @@ impl SchemaDefNamedType {
         match self {
             SchemaDefNamedType::Record(x) => &x.type_name,
             SchemaDefNamedType::Enum(x) => &x.type_name,
-            SchemaDefNamedType::Fixed(x) => &x.type_name,
         }
     }
 
@@ -614,7 +554,6 @@ impl SchemaDefNamedType {
         match self {
             SchemaDefNamedType::Record(x) => &x.aliases,
             SchemaDefNamedType::Enum(x) => &x.aliases,
-            SchemaDefNamedType::Fixed(x) => &x.aliases,
         }
     }
 
@@ -625,7 +564,6 @@ impl SchemaDefNamedType {
         match self {
             SchemaDefNamedType::Record(x) => x.apply_type_aliases(aliases),
             SchemaDefNamedType::Enum(x) => x.apply_type_aliases(aliases),
-            SchemaDefNamedType::Fixed(x) => x.apply_type_aliases(aliases),
         }
     }
 
@@ -636,7 +574,6 @@ impl SchemaDefNamedType {
         match self {
             SchemaDefNamedType::Record(x) => x.collect_all_related_types(types),
             SchemaDefNamedType::Enum(x) => x.collect_all_related_types(types),
-            SchemaDefNamedType::Fixed(x) => x.collect_all_related_types(types),
         }
     }
 
@@ -654,10 +591,6 @@ impl SchemaDefNamedType {
                 "enum".hash(hasher);
                 x.partial_hash(hasher);
             }
-            SchemaDefNamedType::Fixed(x) => {
-                "fixed".hash(hasher);
-                x.partial_hash(hasher);
-            }
         }
     }
 
@@ -669,7 +602,6 @@ impl SchemaDefNamedType {
         match self {
             SchemaDefNamedType::Record(x) => SchemaNamedType::Record(x.to_schema(named_types, fingerprints)),
             SchemaDefNamedType::Enum(x) => SchemaNamedType::Enum(x.to_schema(fingerprints)),
-            SchemaDefNamedType::Fixed(x) => SchemaNamedType::Fixed(x.to_schema(fingerprints)),
         }
     }
 }

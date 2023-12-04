@@ -20,7 +20,6 @@ pub enum PropertyValue {
     String(Arc<String>),
     AssetRef(AssetId),
     Enum(ValueEnum),
-    Fixed(Arc<Vec<u8>>),
 }
 
 impl PropertyValue {
@@ -38,7 +37,6 @@ impl PropertyValue {
             PropertyValue::String(x) => Value::String(x.clone()),
             PropertyValue::AssetRef(x) => Value::AssetRef(*x),
             PropertyValue::Enum(x) => Value::Enum(x.clone()),
-            PropertyValue::Fixed(x) => Value::Fixed(x.clone()),
         }
     }
 
@@ -59,7 +57,6 @@ impl PropertyValue {
             (Value::String(lhs), Value::String(rhs)) => *lhs == *rhs,
             (Value::AssetRef(lhs), Value::AssetRef(rhs)) => *lhs == *rhs,
             (Value::Enum(lhs), Value::Enum(rhs)) => *lhs == *rhs,
-            (Value::Fixed(lhs), Value::Fixed(rhs)) => *lhs == *rhs,
             _ => false,
         }
     }
@@ -148,7 +145,6 @@ pub enum Value {
     AssetRef(AssetId),
     Record(ValueRecord),
     Enum(ValueEnum),
-    Fixed(Arc<Vec<u8>>),
 }
 
 impl Hash for Value {
@@ -173,7 +169,6 @@ impl Hash for Value {
             Value::AssetRef(x) => x.hash(state),
             Value::Record(x) => x.hash(state),
             Value::Enum(x) => x.hash(state),
-            Value::Fixed(x) => x.hash(state),
         }
     }
 }
@@ -196,7 +191,6 @@ lazy_static::lazy_static! {
     static ref DEFAULT_VALUE_MAP: Value = Value::Map(ValueMap::default());
     static ref DEFAULT_VALUE_RECORD: Value = Value::Record(ValueRecord::default());
     static ref DEFAULT_VALUE_ENUM: Value = Value::Enum(ValueEnum::default());
-    static ref DEFAULT_VALUE_FIXED: Value = Value::Fixed(Arc::new(Vec::default()));
 }
 
 impl Value {
@@ -228,7 +222,6 @@ impl Value {
                     .default_value_for_enum(*named_type_id)
                     .unwrap()
             }
-            Schema::Fixed(_) => &DEFAULT_VALUE_FIXED,
         }
     }
 
@@ -365,18 +358,6 @@ impl Value {
                 }
                 _ => false,
             },
-            Value::Fixed(value) => match schema {
-                Schema::Fixed(named_type_id) => {
-                    let named_type = named_types.get(named_type_id).unwrap();
-                    match named_type {
-                        SchemaNamedType::Fixed(inner_schema) => {
-                            value.len() == inner_schema.length()
-                        }
-                        _ => panic!("A Schema::Fixed fingerprint is matching a named type that isn't a fixed"),
-                    }
-                }
-                _ => false,
-            },
         }
     }
 
@@ -395,7 +376,6 @@ impl Value {
             Value::String(x) => Some(PropertyValue::String(x.clone())),
             Value::AssetRef(x) => Some(PropertyValue::AssetRef(*x)),
             Value::Enum(x) => Some(PropertyValue::Enum(x.clone())),
-            Value::Fixed(x) => Some(PropertyValue::Fixed(x.clone())),
             _ => None,
         }
     }

@@ -5,7 +5,7 @@
 
 use crate::{
     HashMap, Schema, SchemaDynamicArray, SchemaEnum, SchemaEnumSymbol, SchemaFingerprint,
-    SchemaFixed, SchemaMap, SchemaNamedType, SchemaRecord, SchemaRecordField, SchemaStaticArray,
+    SchemaMap, SchemaNamedType, SchemaRecord, SchemaRecordField, SchemaStaticArray,
 };
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
@@ -198,39 +198,9 @@ impl CachedSchemaEnum {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-struct CachedSchemaFixed {
-    name: String,
-    fingerprint: Uuid,
-    #[serde(skip_serializing_if = "Vec::is_empty", default)]
-    aliases: Vec<String>,
-    length: usize,
-}
-
-impl CachedSchemaFixed {
-    fn new_from_schema(schema: &SchemaFixed) -> Self {
-        CachedSchemaFixed {
-            name: schema.name().to_string(),
-            fingerprint: schema.fingerprint().as_uuid(),
-            aliases: schema.aliases().iter().cloned().collect(),
-            length: schema.length(),
-        }
-    }
-
-    fn to_schema(self) -> SchemaFixed {
-        SchemaFixed::new(
-            self.name,
-            SchemaFingerprint(self.fingerprint.as_u128()),
-            self.aliases.into_boxed_slice(),
-            self.length,
-        )
-    }
-}
-
-#[derive(Debug, Serialize, Deserialize)]
 enum CachedSchemaNamedType {
     Record(CachedSchemaRecord),
     Enum(CachedSchemaEnum),
-    Fixed(CachedSchemaFixed),
 }
 
 impl CachedSchemaNamedType {
@@ -238,7 +208,6 @@ impl CachedSchemaNamedType {
         match self {
             CachedSchemaNamedType::Record(x) => x.fingerprint,
             CachedSchemaNamedType::Enum(x) => x.fingerprint,
-            CachedSchemaNamedType::Fixed(x) => x.fingerprint,
         }
     }
 
@@ -250,9 +219,6 @@ impl CachedSchemaNamedType {
             SchemaNamedType::Enum(x) => {
                 CachedSchemaNamedType::Enum(CachedSchemaEnum::new_from_schema(x))
             }
-            SchemaNamedType::Fixed(x) => {
-                CachedSchemaNamedType::Fixed(CachedSchemaFixed::new_from_schema(x))
-            }
         }
     }
 
@@ -260,7 +226,6 @@ impl CachedSchemaNamedType {
         match self {
             CachedSchemaNamedType::Record(x) => SchemaNamedType::Record(x.to_schema()),
             CachedSchemaNamedType::Enum(x) => SchemaNamedType::Enum(x.to_schema()),
-            CachedSchemaNamedType::Fixed(x) => SchemaNamedType::Fixed(x.to_schema()),
         }
     }
 }
@@ -289,7 +254,6 @@ enum CachedSchema {
     /// Named type, it could be an enum, record, etc.
     Record(Uuid),
     Enum(Uuid),
-    Fixed(Uuid),
 }
 
 impl CachedSchema {
@@ -318,7 +282,6 @@ impl CachedSchema {
             Schema::AssetRef(x) => CachedSchema::AssetRef(x.as_uuid()),
             Schema::Record(x) => CachedSchema::Record(x.as_uuid()),
             Schema::Enum(x) => CachedSchema::Enum(x.as_uuid()),
-            Schema::Fixed(x) => CachedSchema::Fixed(x.as_uuid()),
         }
     }
 
@@ -340,7 +303,6 @@ impl CachedSchema {
             CachedSchema::AssetRef(x) => Schema::AssetRef(SchemaFingerprint(x.as_u128())),
             CachedSchema::Record(x) => Schema::Record(SchemaFingerprint(x.as_u128())),
             CachedSchema::Enum(x) => Schema::Enum(SchemaFingerprint(x.as_u128())),
-            CachedSchema::Fixed(x) => Schema::Fixed(SchemaFingerprint(x.as_u128())),
         }
     }
 }

@@ -4,9 +4,6 @@ pub use dynamic_array::*;
 mod r#enum;
 pub use r#enum::*;
 
-mod fixed;
-pub use fixed::*;
-
 mod interface;
 pub use interface::*;
 
@@ -50,7 +47,6 @@ enum SchemaTypeIndex {
     RecordRef = 14,
     Record = 15,
     Enum = 16,
-    Fixed = 17,
 }
 
 impl SchemaTypeIndex {
@@ -66,8 +62,6 @@ impl SchemaTypeIndex {
 pub enum SchemaNamedType {
     Record(SchemaRecord),
     Enum(SchemaEnum),
-    Fixed(SchemaFixed),
-    // Union?
 }
 
 impl SchemaNamedType {
@@ -75,7 +69,6 @@ impl SchemaNamedType {
         match self {
             SchemaNamedType::Record(x) => x.fingerprint(),
             SchemaNamedType::Enum(x) => x.fingerprint(),
-            SchemaNamedType::Fixed(x) => x.fingerprint(),
         }
     }
 
@@ -83,7 +76,6 @@ impl SchemaNamedType {
         match self {
             SchemaNamedType::Record(x) => x.name(),
             SchemaNamedType::Enum(x) => x.name(),
-            SchemaNamedType::Fixed(x) => x.name(),
         }
     }
 
@@ -105,17 +97,6 @@ impl SchemaNamedType {
     pub fn try_as_enum(&self) -> Option<&SchemaEnum> {
         match self {
             SchemaNamedType::Enum(x) => Some(x),
-            _ => None,
-        }
-    }
-
-    pub fn as_fixed(&self) -> DataSetResult<&SchemaFixed> {
-        self.try_as_fixed().ok_or(DataSetError::InvalidSchema)
-    }
-
-    pub fn try_as_fixed(&self) -> Option<&SchemaFixed> {
-        match self {
-            SchemaNamedType::Fixed(x) => Some(x),
             _ => None,
         }
     }
@@ -170,7 +151,6 @@ pub enum Schema {
     /// Named type, it could be an enum, record, etc.
     Record(SchemaFingerprint),
     Enum(SchemaFingerprint),
-    Fixed(SchemaFingerprint),
 }
 
 impl Schema {
@@ -287,13 +267,6 @@ impl Schema {
         }
     }
 
-    pub fn is_fixed(&self) -> bool {
-        match self {
-            Schema::Fixed(_) => true,
-            _ => false,
-        }
-    }
-
     // This recursively finds the schema through a full path
     pub fn find_property_schema(
         &self,
@@ -336,7 +309,6 @@ impl Schema {
                 match named_type {
                     SchemaNamedType::Record(x) => x.field_schema(name),
                     SchemaNamedType::Enum(_) => None,
-                    SchemaNamedType::Fixed(_) => None,
                 }
             }
             Schema::StaticArray(x) => {

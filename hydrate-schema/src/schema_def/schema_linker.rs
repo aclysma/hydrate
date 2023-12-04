@@ -197,22 +197,6 @@ impl SchemaLinker {
         self.add_named_type(named_type)
     }
 
-    pub fn register_fixed_type<F: Fn(&mut FixedTypeBuilder)>(
-        &mut self,
-        name: impl Into<String>,
-        length: usize,
-        f: F,
-    ) -> SchemaLinkerResult<()> {
-        let mut builder = FixedTypeBuilder::default();
-        (f)(&mut builder);
-
-        let name = name.into();
-        let schema_fixed = SchemaDefFixed::new(name.clone(), builder.aliases, length)?;
-
-        let named_type = SchemaDefNamedType::Fixed(schema_fixed);
-        self.add_named_type(named_type)
-    }
-
     pub fn link_schemas(mut self) -> SchemaLinkerResult<LinkedSchemas> {
         // Apply aliases
         for (_, named_type) in &mut self.types {

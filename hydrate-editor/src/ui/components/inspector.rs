@@ -689,7 +689,6 @@ fn draw_inspector_value(
                     .unwrap();
                 match schema {
                     SchemaNamedType::Record(record_schema) => panic!("An enum schema is referencing a record"),
-                    SchemaNamedType::Fixed(record_schema) => panic!("An enum schema is referencing a fixed"),
                     SchemaNamedType::Enum(enum_schema) => {
                         //ui.push_id(ctx.property_path, |ui| {
                         let resolved = ctx
@@ -733,7 +732,6 @@ fn draw_inspector_value(
                 }
             });
         }
-        Schema::Fixed(schema_fingerprint) => unimplemented!(),
         _ => {
             draw_basic_inspector_row(body, ctx, indent_level, |ui, ctx| {
                 ui.label(format!(

@@ -1,13 +1,11 @@
+use std::ops::RangeInclusive;
 use crate::action_queue::{UIAction, UIActionQueueSender};
 use crate::ui::drag_drop::DragDropPayload;
 use crate::ui_state::EditorModelUiState;
 use eframe::epaint::Color32;
 use egui::{Response, Widget, WidgetText};
 use hydrate_model::value::ValueEnum;
-use hydrate_model::{
-    AssetId, EditorModel, EndContextBehavior, HashMap, NullOverride, PropertyPath, Schema,
-    SchemaFingerprint, SchemaNamedType, SchemaRecord, SchemaSet, Value,
-};
+use hydrate_model::{AssetId, EditorModel, EndContextBehavior, HashMap, HashSet, NullOverride, PropertyPath, Record, Schema, SchemaDefRecordFieldMarkup, SchemaFingerprint, SchemaNamedType, SchemaRecord, SchemaSet, Value};
 use std::sync::Arc;
 
 pub fn show_property_context_menu(
@@ -63,10 +61,11 @@ fn add_empty_collapsing_header(
     ui: &mut egui::Ui,
     text: impl Into<egui::WidgetText>,
 ) -> bool {
-    let openness = egui::CollapsingHeader::new(text)
-        .show_unindented(ui, |ui| {})
-        .openness;
-    openness > 0.5
+    let response = egui::CollapsingHeader::new(text)
+        .show_unindented(ui, |ui| {});;
+
+    response.header_response.on_hover_text("test");
+    response.openness > 0.5
 }
 
 #[derive(Copy, Clone)]
@@ -76,10 +75,23 @@ pub struct InspectorContext<'a> {
     pub action_sender: &'a UIActionQueueSender,
     pub asset_id: AssetId,
     pub property_path: &'a PropertyPath,
-    pub property_name: &'a str,
-    pub schema: &'a hydrate_model::Schema,
+    pub property_default_display_name: &'a str,
+    pub field_markup: &'a SchemaDefRecordFieldMarkup,
+    pub schema: &'a Schema,
     pub inspector_registry: &'a InspectorRegistry,
     pub read_only: bool,
+}
+
+impl<'a> InspectorContext<'a> {
+    pub fn display_name(&self) -> & str {
+        if self.property_default_display_name.is_empty() {
+            // empty display name usually means we're drawing the value of a nullable, the display
+            // name will already be drawn. So omitting is a little cleaner aesthetically
+            ""
+        } else {
+            self.field_markup.display_name.as_ref().map(|x| x. as_str()).unwrap_or(self.property_default_display_name)
+        }
+    }
 }
 
 //Override AssetRef to show images or other preview info
@@ -122,18 +134,53 @@ impl RecordInspector for DefaultRecordInspector {
         record: &SchemaRecord,
         indent_level: u32,
     ) {
-        //
-        // Draw the fields
-        //
-        for field in record.fields() {
-            let field_path = ctx.property_path.push(field.name());
-            let ctx = InspectorContext {
-                property_name: field.name(),
-                property_path: &field_path,
-                schema: field.field_schema(),
-                ..ctx
-            };
-            draw_inspector_rows(table_body, ctx, indent_level);
+        let categories: HashSet<String> = record.fields()
+            .iter()
+            .filter(|x| x.markup().category.is_some())
+            .map(|x| x.markup().category.clone().unwrap())
+            .collect();
+
+        let mut categories: Vec<String> = categories.into_iter().collect();
+        categories.sort_by_key(|x| x.to_lowercase());
+
+        fn draw_category_fields(
+            category: Option<String>,
+            table_body: &mut egui_extras::TableBody,
+            ctx: InspectorContext,
+            record: &SchemaRecord,
+            mut indent_level: u32,
+        ) {
+            let mut visible = true;
+            if let Some(category) = &category {
+                table_body.row(20.0, |mut row| {
+                    row.col(|ui| {
+                        visible = draw_indented_collapsible_label(ui, indent_level, category);
+                        indent_level += 1;
+                    });
+                    row.col(|ui| {});
+                });
+            }
+            if visible {
+                for field in record.fields() {
+                    if field.markup().category == category {
+                        let field_path = ctx.property_path.push(field.name());
+                        let ctx = InspectorContext {
+                            property_default_display_name: field.name(),
+                            property_path: &field_path,
+                            schema: field.field_schema(),
+                            field_markup: field.markup(),
+                            ..ctx
+                        };
+                        draw_inspector_rows(table_body, ctx, indent_level);
+                    }
+                }
+            }
+        }
+
+        draw_category_fields(None, table_body, ctx, record, indent_level);
+
+        for category in categories {
+            draw_category_fields(Some(category), table_body, ctx, record, indent_level);
         }
     }
 }
@@ -156,13 +203,25 @@ impl InspectorRegistry {
         }
     }
 
-    pub fn register_override(
+    pub fn register_inspector_with_fingerprint(
         &mut self,
         fingerprint: SchemaFingerprint,
         inspector_impl: impl RecordInspector + 'static,
     ) {
         let old = self.overrides.insert(fingerprint, Box::new(inspector_impl));
         assert!(old.is_none());
+    }
+
+    pub fn register_inspector<T: Record>(
+        &mut self,
+        schema_set: &SchemaSet,
+        inspector_impl: impl RecordInspector + 'static,
+    ) {
+        let fingerprint = schema_set
+            .find_named_type(T::schema_name())
+            .unwrap()
+            .fingerprint();
+        self.register_inspector_with_fingerprint(fingerprint, inspector_impl);
     }
 }
 
@@ -228,12 +287,22 @@ pub fn draw_indented_label(
     ui: &mut egui::Ui,
     indent_level: u32,
     text: impl Into<WidgetText>,
+    hover_text: Option<impl Into<WidgetText>>
 ) -> Response {
     for _ in 0..indent_level {
         crate::ui::add_indent_spacing(ui);
     }
     crate::ui::add_icon_spacing(ui);
-    ui.label(text)
+    let response = ui.label(text);
+    if let Some(hover_text) = hover_text {
+        response.on_hover_text(hover_text)
+    } else {
+        response
+    }
+    // if let Some(hover_text) = hover_text {
+    //     ui.label("?").on_hover_text(hover_text);
+    // }
+    //response
 }
 
 pub fn draw_indented_collapsible_label(
@@ -255,7 +324,7 @@ pub fn draw_basic_inspector_row<F: FnOnce(&mut egui::Ui, InspectorContext)>(
 ) {
     body.row(20.0, |mut row| {
         row.col(|mut ui| {
-            let label_response = draw_indented_label(ui, indent_level, ctx.property_name);
+            let label_response = draw_indented_label(ui, indent_level, ctx.display_name(), Some("Test"));
             show_property_context_menu(ctx, label_response);
         });
         row.col(|mut ui| {
@@ -317,10 +386,17 @@ pub fn draw_inspector_value(
                 .unwrap()
                 .as_i32()
                 .unwrap();
-            let response = egui::DragValue::new(&mut value).ui(ui);
+
+            let response = if ctx.field_markup.has_min_bound() && ctx.field_markup.has_max_bound() {
+                let ui_range = RangeInclusive::new(ctx.field_markup.ui_min() as i32, ctx.field_markup.ui_max() as i32);
+                egui::Slider::new(&mut value, ui_range).clamp_to_range(false).ui(ui)
+            } else {
+                egui::DragValue::new(&mut value).ui(ui)
+            };
+
             if response.changed() {
                 Some((
-                    Value::I32(value),
+                    Value::I32(value.clamp(ctx.field_markup.clamp_min() as i32, ctx.field_markup.clamp_max() as i32)),
                     end_context_behavior_for_drag_value(response),
                 ))
             } else {
@@ -335,10 +411,17 @@ pub fn draw_inspector_value(
                 .unwrap()
                 .as_i64()
                 .unwrap();
-            let response = egui::DragValue::new(&mut value).ui(ui);
+
+            let response = if ctx.field_markup.has_min_bound() && ctx.field_markup.has_max_bound() {
+                let ui_range = RangeInclusive::new(ctx.field_markup.ui_min() as i64, ctx.field_markup.ui_max() as i64);
+                egui::Slider::new(&mut value, ui_range).clamp_to_range(false).ui(ui)
+            } else {
+                egui::DragValue::new(&mut value).ui(ui)
+            };
+
             if response.changed() {
                 Some((
-                    Value::I64(value),
+                    Value::I64(value.clamp(ctx.field_markup.clamp_min() as i64, ctx.field_markup.clamp_max() as i64)),
                     end_context_behavior_for_drag_value(response),
                 ))
             } else {
@@ -353,10 +436,17 @@ pub fn draw_inspector_value(
                 .unwrap()
                 .as_u32()
                 .unwrap();
-            let response = egui::DragValue::new(&mut value).ui(ui);
+
+            let response = if ctx.field_markup.has_max_bound() {
+                let ui_range = RangeInclusive::new(ctx.field_markup.ui_min() as u32, ctx.field_markup.ui_max() as u32);
+                egui::Slider::new(&mut value, ui_range).clamp_to_range(false).ui(ui)
+            } else {
+                egui::DragValue::new(&mut value).ui(ui)
+            };
+
             if response.changed() {
                 Some((
-                    Value::U32(value),
+                    Value::U32(value.clamp(ctx.field_markup.clamp_min() as u32, ctx.field_markup.clamp_max() as u32)),
                     end_context_behavior_for_drag_value(response),
                 ))
             } else {
@@ -371,10 +461,17 @@ pub fn draw_inspector_value(
                 .unwrap()
                 .as_u64()
                 .unwrap();
-            let response = egui::DragValue::new(&mut value).ui(ui);
+
+            let response = if ctx.field_markup.has_max_bound() {
+                let ui_range = RangeInclusive::new(ctx.field_markup.ui_min() as u64, ctx.field_markup.ui_max() as u64);
+                egui::Slider::new(&mut value, ui_range).clamp_to_range(false).ui(ui)
+            } else {
+                egui::DragValue::new(&mut value).ui(ui)
+            };
+
             if response.changed() {
                 Some((
-                    Value::U64(value),
+                    Value::U64(value.clamp(ctx.field_markup.clamp_min() as u64, ctx.field_markup.clamp_max() as u64)),
                     end_context_behavior_for_drag_value(response),
                 ))
             } else {
@@ -389,10 +486,17 @@ pub fn draw_inspector_value(
                 .unwrap()
                 .as_f32()
                 .unwrap();
-            let response = egui::DragValue::new(&mut value).ui(ui);
+
+            let response = if ctx.field_markup.has_min_bound() && ctx.field_markup.has_max_bound() {
+                let ui_range = RangeInclusive::new(ctx.field_markup.ui_min() as f32, ctx.field_markup.ui_max() as f32);
+                egui::Slider::new(&mut value, ui_range).clamp_to_range(false).ui(ui)
+            } else {
+                egui::DragValue::new(&mut value).ui(ui)
+            };
+
             if response.changed() {
                 Some((
-                    Value::F32(value),
+                    Value::F32(value.clamp(ctx.field_markup.clamp_min() as f32, ctx.field_markup.clamp_max() as f32)),
                     end_context_behavior_for_drag_value(response),
                 ))
             } else {
@@ -407,10 +511,17 @@ pub fn draw_inspector_value(
                 .unwrap()
                 .as_f64()
                 .unwrap();
-            let response = egui::DragValue::new(&mut value).ui(ui);
+
+            let response = if ctx.field_markup.has_min_bound() && ctx.field_markup.has_max_bound() {
+                let ui_range = RangeInclusive::new(ctx.field_markup.ui_min(), ctx.field_markup.ui_max());
+                egui::Slider::new(&mut value, ui_range).clamp_to_range(false).ui(ui)
+            } else {
+                egui::DragValue::new(&mut value).ui(ui)
+            };
+
             if response.changed() {
                 Some((
-                    Value::F64(value),
+                    Value::F64(value.clamp(ctx.field_markup.clamp_min(), ctx.field_markup.clamp_max())),
                     end_context_behavior_for_drag_value(response),
                 ))
             } else {
@@ -420,7 +531,7 @@ pub fn draw_inspector_value(
         Schema::Bytes => {
             ui.label(format!(
                 "{}: Unsupported Schema::Bytes Property",
-                ctx.property_name
+                ctx.property_default_display_name
             ));
         }
         Schema::String => simple_value_property(ui, ctx, |ui, ctx| {
@@ -622,10 +733,10 @@ pub fn draw_inspector_rows(
                                 is_visible = draw_indented_collapsible_label(
                                     ui,
                                     indent_level,
-                                    ctx.property_name,
+                                    ctx.display_name(),
                                 )
                             } else {
-                                draw_indented_label(ui, indent_level, ctx.property_name);
+                                draw_indented_label(ui, indent_level, ctx.display_name(), Some("test"));
                             }
                         },
                     );
@@ -689,7 +800,7 @@ pub fn draw_inspector_rows(
                     draw_inspector_rows(
                         body,
                         InspectorContext {
-                            property_name: "value",
+                            property_default_display_name: "",
                             property_path: &field_path,
                             schema: &*inner_schema,
                             ..ctx
@@ -733,7 +844,7 @@ pub fn draw_inspector_rows(
             draw_basic_inspector_row(body, ctx, indent_level, |ui, ctx| {
                 ui.label(format!(
                     "unimplemented {:?} {}",
-                    ctx.schema, ctx.property_name
+                    ctx.schema, ctx.property_default_display_name
                 ));
             });
         }
@@ -759,7 +870,7 @@ pub fn draw_inspector_rows(
                                 crate::ui::add_indent_spacing(ui);
                             }
 
-                            is_visible = add_empty_collapsing_header(ui, ctx.property_name)
+                            is_visible = add_empty_collapsing_header(ui, ctx.display_name())
                         },
                     );
                 });
@@ -821,7 +932,7 @@ pub fn draw_inspector_rows(
                                 draw_inspector_value(
                                     ui,
                                     InspectorContext {
-                                        property_name: &id_as_string,
+                                        property_default_display_name: &id_as_string,
                                         property_path: &field_path,
                                         schema: schema.item_type(),
                                         read_only: true,
@@ -836,7 +947,7 @@ pub fn draw_inspector_rows(
                         draw_inspector_rows(
                             body,
                             InspectorContext {
-                                property_name: &id_as_string,
+                                property_default_display_name: &id_as_string,
                                 property_path: &field_path,
                                 schema: schema.item_type(),
                                 read_only: true,
@@ -882,7 +993,7 @@ pub fn draw_inspector_rows(
                                 draw_inspector_value(
                                     ui,
                                     InspectorContext {
-                                        property_name: &id_as_string,
+                                        property_default_display_name: &id_as_string,
                                         property_path: &field_path,
                                         schema: schema.item_type(),
                                         ..ctx
@@ -896,7 +1007,7 @@ pub fn draw_inspector_rows(
                         draw_inspector_rows(
                             body,
                             InspectorContext {
-                                property_name: &id_as_string,
+                                property_default_display_name: &id_as_string,
                                 property_path: &field_path,
                                 schema: schema.item_type(),
                                 ..ctx
@@ -914,7 +1025,7 @@ pub fn draw_inspector_rows(
             draw_basic_inspector_row(body, ctx, indent_level, |ui, ctx| {
                 ui.label(format!(
                     "unimplemented {:?} {}",
-                    ctx.schema, ctx.property_name
+                    ctx.schema, ctx.property_default_display_name
                 ));
             });
         }

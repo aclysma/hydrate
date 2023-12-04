@@ -2,6 +2,7 @@
   {
     "type": "record",
     "name": "TransformRef",
+    "tags": ["asset"],
     "fields": [
       {
         "name": "transform",

@@ -1,3 +1,5 @@
+mod inspectors;
+
 use demo_plugins::generated::Vec3Record;
 use demo_plugins::{
     BlenderMaterialAssetPlugin, BlenderMeshAssetPlugin, GlslAssetPlugin, GltfAssetPlugin,
@@ -6,7 +8,7 @@ use demo_plugins::{
 use egui::Ui;
 use hydrate::editor::inspector_system;
 use hydrate::editor::inspector_system::InspectorContext;
-use hydrate::model::{AssetPathCache, EditorModelWithCache, Record, Schema, SchemaRecord};
+use hydrate::model::{AssetPathCache, EditorModelWithCache, Record, Schema, SchemaDefRecordFieldMarkup, SchemaRecord};
 use hydrate::pipeline::AssetEngine;
 use std::path::PathBuf;
 
@@ -148,15 +150,7 @@ fn main() -> eframe::Result<()> {
         (db_state, asset_engine)
     };
 
-    let mut inspector_registry = inspector_system::InspectorRegistry::default();
-    let vec3_fingerprint = db_state
-        .editor_model
-        .schema_set()
-        .find_named_type(Vec3Record::schema_name())
-        .unwrap()
-        .fingerprint();
-    inspector_registry.register_override(vec3_fingerprint, Vec3RecordInspector);
-
+    let inspector_registry = crate::inspectors::create_registry(db_state.editor_model.schema_set());
     hydrate::editor::run(db_state, asset_engine, inspector_registry)
 }
 
@@ -177,7 +171,7 @@ impl inspector_system::RecordInspector for Vec3RecordInspector {
         inspector_system::draw_inspector_value(
             ui,
             InspectorContext {
-                property_name: "x",
+                property_default_display_name: "x",
                 property_path: &field_path,
                 schema: &Schema::F32,
                 ..ctx
@@ -188,7 +182,7 @@ impl inspector_system::RecordInspector for Vec3RecordInspector {
         inspector_system::draw_inspector_value(
             ui,
             InspectorContext {
-                property_name: "y",
+                property_default_display_name: "y",
                 property_path: &field_path,
                 schema: &Schema::F32,
                 ..ctx
@@ -199,7 +193,7 @@ impl inspector_system::RecordInspector for Vec3RecordInspector {
         inspector_system::draw_inspector_value(
             ui,
             InspectorContext {
-                property_name: "z",
+                property_default_display_name: "z",
                 property_path: &field_path,
                 schema: &Schema::F32,
                 ..ctx
@@ -216,7 +210,7 @@ impl inspector_system::RecordInspector for Vec3RecordInspector {
     ) {
         table_body.row(20.0, |mut row| {
             row.col(|mut ui| {
-                inspector_system::draw_indented_label(ui, indent_level, "value");
+                inspector_system::draw_indented_label(ui, indent_level, "value", Some("test"));
             });
             row.col(|mut ui| {
                 self.draw_inspector_value(ui, ctx);
@@ -242,7 +236,7 @@ impl inspector_system::RecordInspector for Vec4RecordInspector {
         inspector_system::draw_inspector_value(
             ui,
             InspectorContext {
-                property_name: "x",
+                property_default_display_name: "x",
                 property_path: &field_path,
                 schema: &Schema::F32,
                 ..ctx
@@ -253,7 +247,7 @@ impl inspector_system::RecordInspector for Vec4RecordInspector {
         inspector_system::draw_inspector_value(
             ui,
             InspectorContext {
-                property_name: "y",
+                property_default_display_name: "y",
                 property_path: &field_path,
                 schema: &Schema::F32,
                 ..ctx
@@ -264,7 +258,7 @@ impl inspector_system::RecordInspector for Vec4RecordInspector {
         inspector_system::draw_inspector_value(
             ui,
             InspectorContext {
-                property_name: "z",
+                property_default_display_name: "z",
                 property_path: &field_path,
                 schema: &Schema::F32,
                 ..ctx
@@ -276,7 +270,7 @@ impl inspector_system::RecordInspector for Vec4RecordInspector {
         inspector_system::draw_inspector_value(
             ui,
             InspectorContext {
-                property_name: "w",
+                property_default_display_name: "w",
                 property_path: &field_path,
                 schema: &Schema::F32,
                 ..ctx
@@ -293,7 +287,7 @@ impl inspector_system::RecordInspector for Vec4RecordInspector {
     ) {
         table_body.row(20.0, |mut row| {
             row.col(|mut ui| {
-                inspector_system::draw_indented_label(ui, indent_level, "value");
+                inspector_system::draw_indented_label(ui, indent_level, "value", Some("test"));
             });
             row.col(|mut ui| {
                 self.draw_inspector_value(ui, ctx);

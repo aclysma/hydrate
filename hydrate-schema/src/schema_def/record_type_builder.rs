@@ -1,9 +1,11 @@
+use crate::{SchemaDefRecordFieldMarkup, SchemaDefRecordMarkup};
 use super::schema_def::{SchemaDefDynamicArray, SchemaDefType};
 
 pub struct RecordTypeFieldBuilder {
     pub(super) name: String,
     pub(super) aliases: Vec<String>,
     pub(super) field_type: SchemaDefType,
+    pub(super) markup: SchemaDefRecordFieldMarkup,
 }
 
 impl RecordTypeFieldBuilder {
@@ -19,6 +21,7 @@ impl RecordTypeFieldBuilder {
 pub struct RecordTypeBuilder {
     pub(super) aliases: Vec<String>,
     pub(super) fields: Vec<RecordTypeFieldBuilder>,
+    pub(super) markup: SchemaDefRecordMarkup,
 }
 
 impl RecordTypeBuilder {
@@ -38,6 +41,7 @@ impl RecordTypeBuilder {
             field_type: SchemaDefType::Nullable(Box::new(inner_schema)),
             aliases: Default::default(),
             name: name.into(),
+            markup: Default::default(),
         });
         self.fields.last_mut().unwrap()
     }
@@ -50,6 +54,7 @@ impl RecordTypeBuilder {
             field_type: SchemaDefType::Boolean,
             aliases: Default::default(),
             name: name.into(),
+            markup: Default::default(),
         });
         self.fields.last_mut().unwrap()
     }
@@ -62,6 +67,7 @@ impl RecordTypeBuilder {
             field_type: SchemaDefType::I32,
             aliases: Default::default(),
             name: name.into(),
+            markup: Default::default(),
         });
         self.fields.last_mut().unwrap()
     }
@@ -74,6 +80,7 @@ impl RecordTypeBuilder {
             field_type: SchemaDefType::I64,
             aliases: Default::default(),
             name: name.into(),
+            markup: Default::default(),
         });
         self.fields.last_mut().unwrap()
     }
@@ -86,6 +93,7 @@ impl RecordTypeBuilder {
             field_type: SchemaDefType::U32,
             aliases: Default::default(),
             name: name.into(),
+            markup: Default::default(),
         });
         self.fields.last_mut().unwrap()
     }
@@ -98,6 +106,7 @@ impl RecordTypeBuilder {
             field_type: SchemaDefType::U64,
             aliases: Default::default(),
             name: name.into(),
+            markup: Default::default(),
         });
         self.fields.last_mut().unwrap()
     }
@@ -110,6 +119,7 @@ impl RecordTypeBuilder {
             field_type: SchemaDefType::F32,
             aliases: Default::default(),
             name: name.into(),
+            markup: Default::default(),
         });
         self.fields.last_mut().unwrap()
     }
@@ -122,6 +132,7 @@ impl RecordTypeBuilder {
             field_type: SchemaDefType::F64,
             aliases: Default::default(),
             name: name.into(),
+            markup: Default::default(),
         });
         self.fields.last_mut().unwrap()
     }
@@ -134,6 +145,7 @@ impl RecordTypeBuilder {
             field_type: SchemaDefType::Bytes,
             aliases: Default::default(),
             name: name.into(),
+            markup: Default::default(),
         });
         self.fields.last_mut().unwrap()
     }
@@ -147,6 +159,7 @@ impl RecordTypeBuilder {
             field_type: SchemaDefType::AssetRef(type_name.into()),
             aliases: Default::default(),
             name: name.into(),
+            markup: Default::default(),
         });
         self.fields.last_mut().unwrap()
     }
@@ -159,6 +172,7 @@ impl RecordTypeBuilder {
             field_type: SchemaDefType::String,
             aliases: Default::default(),
             name: name.into(),
+            markup: Default::default(),
         });
         self.fields.last_mut().unwrap()
     }
@@ -172,6 +186,7 @@ impl RecordTypeBuilder {
             field_type: SchemaDefType::DynamicArray(SchemaDefDynamicArray::new(Box::new(schema))),
             aliases: Default::default(),
             name: name.into(),
+            markup: Default::default(),
         });
     }
 
@@ -184,6 +199,7 @@ impl RecordTypeBuilder {
             field_type: SchemaDefType::NamedType(type_name.into()),
             aliases: Default::default(),
             name: name.into(),
+            markup: Default::default(),
         });
         self.fields.last_mut().unwrap()
     }

@@ -3,10 +3,7 @@
 //! and data, we can always load the data that was serialized, even if the schema or code have
 //! been changed.
 
-use crate::{
-    HashMap, Schema, SchemaDynamicArray, SchemaEnum, SchemaEnumSymbol, SchemaFingerprint,
-    SchemaMap, SchemaNamedType, SchemaRecord, SchemaRecordField, SchemaStaticArray,
-};
+use crate::{HashMap, Schema, SchemaDefRecordFieldMarkup, SchemaDefRecordMarkup, SchemaDynamicArray, SchemaEnum, SchemaEnumSymbol, SchemaFingerprint, SchemaMap, SchemaNamedType, SchemaRecord, SchemaRecordField, SchemaStaticArray};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -90,6 +87,7 @@ impl CachedSchemaRecordField {
             self.name,
             self.aliases.into_boxed_slice(),
             self.field_schema.to_schema(),
+            SchemaDefRecordFieldMarkup::default(),
         )
     }
 }
@@ -129,6 +127,7 @@ impl CachedSchemaRecord {
             SchemaFingerprint(self.fingerprint.as_u128()),
             self.aliases.into_boxed_slice(),
             fields,
+            SchemaDefRecordMarkup::default(),
         )
     }
 }

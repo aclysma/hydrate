@@ -1,5 +1,4 @@
 use super::enum_type_builder::*;
-use super::fixed_type_builder::*;
 use super::record_type_builder::*;
 use super::schema_def::*;
 use crate::{HashMap, HashSet, SchemaDefParserError, SchemaFingerprint, SchemaNamedType};
@@ -163,11 +162,12 @@ impl SchemaLinker {
                 builder_field.name,
                 builder_field.aliases,
                 builder_field.field_type,
+                builder_field.markup,
             )?);
         }
 
         let name = name.into();
-        let schema_record = SchemaDefRecord::new(name.clone(), builder.aliases, fields)?;
+        let schema_record = SchemaDefRecord::new(name.clone(), builder.aliases, fields, builder.markup)?;
         let named_type = SchemaDefNamedType::Record(schema_record);
         self.add_named_type(named_type)
     }

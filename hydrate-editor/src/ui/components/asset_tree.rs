@@ -182,6 +182,10 @@ pub fn draw_asset_tree(
                 ui.style_mut().visuals.indent_has_left_vline = false;
                 ui.style_mut().spacing.item_spacing = egui::vec2(2.0, 2.0);
 
+                if ui.selectable_label(asset_tree_ui_state.selected_tree_node.is_none(), "project").clicked() {
+                    asset_tree_ui_state.selected_tree_node = None;
+                }
+
                 for (_, tree_node) in &editor_model_ui_state.location_tree.root_nodes {
                     draw_tree_node(
                         ui,

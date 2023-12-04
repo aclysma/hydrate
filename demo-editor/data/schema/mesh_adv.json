@@ -33,14 +33,8 @@
   },
   {
     "type": "record",
-    "name": "MeshAdvMaterialImportedData",
-    "fields": [
-
-    ]
-  },
-  {
-    "type": "record",
     "name": "MeshAdvMaterialAsset",
+    "tags": ["asset"],
     "fields": [
       {
         "name": "base_color_factor",
@@ -153,6 +147,7 @@
   {
     "type": "record",
     "name": "MeshAdvMeshAsset",
+    "tags": ["asset", "has_import_data"],
     "fields": [
       {
         "name": "material_slots",

@@ -1,5 +1,5 @@
 use super::Schema;
-use crate::{HashMap, SchemaFingerprint, SchemaNamedType};
+use crate::{HashMap, SchemaDefRecordField, SchemaDefRecordFieldMarkup, SchemaDefRecordMarkup, SchemaFingerprint, SchemaNamedType};
 use std::ops::Deref;
 use std::sync::Arc;
 
@@ -8,6 +8,7 @@ pub struct SchemaRecordField {
     name: String,
     aliases: Box<[String]>,
     field_schema: Schema,
+    markup: SchemaDefRecordFieldMarkup,
 }
 
 impl SchemaRecordField {
@@ -15,11 +16,13 @@ impl SchemaRecordField {
         name: String,
         aliases: Box<[String]>,
         field_schema: Schema,
+        markup: SchemaDefRecordFieldMarkup
     ) -> Self {
         SchemaRecordField {
             name,
             aliases,
             field_schema,
+            markup
         }
     }
 
@@ -34,6 +37,12 @@ impl SchemaRecordField {
     pub fn field_schema(&self) -> &Schema {
         &self.field_schema
     }
+
+    pub fn markup(
+        &self
+    ) -> &SchemaDefRecordFieldMarkup {
+        &self.markup
+    }
 }
 
 #[derive(Debug)]
@@ -42,6 +51,7 @@ pub struct SchemaRecordInner {
     fingerprint: SchemaFingerprint,
     aliases: Box<[String]>,
     fields: Box<[SchemaRecordField]>,
+    markup: SchemaDefRecordMarkup,
 }
 
 #[derive(Clone, Debug)]
@@ -63,6 +73,7 @@ impl SchemaRecord {
         fingerprint: SchemaFingerprint,
         aliases: Box<[String]>,
         mut fields: Vec<SchemaRecordField>,
+        markup: SchemaDefRecordMarkup
     ) -> Self {
         // Check names are unique
         for i in 0..fields.len() {
@@ -78,6 +89,7 @@ impl SchemaRecord {
             fingerprint,
             aliases,
             fields: fields.into_boxed_slice(),
+            markup
         };
 
         SchemaRecord {
@@ -120,5 +132,11 @@ impl SchemaRecord {
         named_types: &HashMap<SchemaFingerprint, SchemaNamedType>,
     ) -> Option<Schema> {
         SchemaNamedType::Record(self.clone()).find_property_schema(path, named_types)
+    }
+
+    pub fn markup(
+        &self
+    ) -> &SchemaDefRecordMarkup {
+        &self.markup
     }
 }

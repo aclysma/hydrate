@@ -2,7 +2,7 @@ use crate::action_queue::{UIAction, UIActionQueueSender};
 use crate::ui::modals::NewAssetModal;
 use crate::ui_state::EditorModelUiState;
 use egui::Widget;
-use hydrate_model::{AssetId, EditorModel, PropertyPath, Schema};
+use hydrate_model::{AssetId, EditorModel, PropertyPath, Schema, SchemaDefRecordFieldMarkup};
 
 use super::inspector_system::*;
 
@@ -138,15 +138,16 @@ pub fn draw_inspector(
                                 editor_model_ui_state,
                                 action_sender,
                                 asset_id,
-                                property_name: "",
+                                property_default_display_name: "",
                                 property_path: &PropertyPath::default(),
+                                field_markup: &SchemaDefRecordFieldMarkup::default(),
                                 schema: &Schema::Record(
                                     editor_model.root_edit_context().data_set().asset_schema(asset_id).unwrap().fingerprint()
                                 ),
                                 inspector_registry,
                                 read_only,
                             },
-                            0
+                            0,
                         );
                     });
                 });

@@ -152,11 +152,80 @@ impl SchemaDefMap {
     }
 }
 
+//prior art: https://benui.ca/unreal/uproperty/#general-points
+//display name
+//category
+//tooltip
+//min
+//max
+//clamp min
+//clamp max
+//units
+//array fixed size?
+//which field to use to describe the element (for arrays that can't be inlined). Could be like "Field {x} is {y}"
+//rgb/xyz/rgba/xyzw
+//bitmasks/bitflags?
+//deprecation
+//allowed classes for references. can we have some concept of interfaces?
+//code generation
+//if it is an asset that can be created in ui
+//if it is import data
+//hide in inspector?
+
+#[derive(Default, Debug, Clone)]
+pub struct SchemaDefRecordFieldMarkup {
+    // If set, we use this name instead of the class name in most UI
+    pub display_name: Option<String>,
+    // Additional documentation that may show in a tooltip, for example
+    pub description: Option<String>,
+
+    // Groups related fields together
+    pub category: Option<String>,
+
+    // Clamp min/max cause the UI to force numeric values to be within the given range
+    pub clamp_min: Option<f64>,
+    pub clamp_max: Option<f64>,
+
+    // ui min/max sets the begin/end point for sliding values but user can still set a value outside
+    // this range
+    pub ui_min: Option<f64>,
+    pub ui_max: Option<f64>,
+}
+
+impl SchemaDefRecordFieldMarkup {
+    pub fn clamp_min(&self) -> f64 {
+        self.clamp_min.unwrap_or(f64::MIN)
+    }
+
+    pub fn clamp_max(&self) -> f64 {
+        self.clamp_max.unwrap_or(f64::MAX)
+    }
+
+    pub fn ui_min(&self) -> f64 {
+        // The greater of clamp/ui min
+        self.clamp_min.unwrap_or(f64::MIN).max(self.ui_min.unwrap_or(f64::MIN))
+    }
+
+    pub fn ui_max(&self) -> f64 {
+        // The lesser of clamp/ui max
+        self.clamp_max.unwrap_or(f64::MAX).min(self.ui_max.unwrap_or(f64::MAX))
+    }
+
+    pub fn has_min_bound(&self) -> bool {
+        self.ui_min.is_some() || self.clamp_min.is_some()
+    }
+
+    pub fn has_max_bound(&self) -> bool {
+        self.ui_max.is_some() || self.clamp_max.is_some()
+    }
+}
+
 #[derive(Debug)]
 pub struct SchemaDefRecordField {
     pub(super) field_name: String,
     pub(super) aliases: Vec<String>,
     pub(super) field_type: SchemaDefType,
+    pub(super) markup: SchemaDefRecordFieldMarkup,
 }
 
 impl SchemaDefRecordField {
@@ -164,11 +233,13 @@ impl SchemaDefRecordField {
         field_name: String,
         aliases: Vec<String>,
         field_type: SchemaDefType,
+        markup: SchemaDefRecordFieldMarkup,
     ) -> SchemaDefValidationResult<Self> {
         Ok(SchemaDefRecordField {
             field_name,
             aliases,
             field_type,
+            markup,
         })
     }
 
@@ -203,8 +274,19 @@ impl SchemaDefRecordField {
             self.field_name.clone(),
             self.aliases.clone().into_boxed_slice(),
             self.field_type.to_schema(named_types, fingerprints),
+            self.markup.clone()
         )
     }
+}
+
+#[derive(Default, Debug, Clone)]
+pub struct SchemaDefRecordMarkup {
+    // If set, we use this name instead of the class name in most UI
+    pub display_name: Option<String>,
+
+    // Tags can be used to query for a list of records that meet some criteria
+    pub tags: HashSet<String>,
+    //description: String,
 }
 
 //TODO: Verify we don't have dupe field names
@@ -213,6 +295,7 @@ pub struct SchemaDefRecord {
     pub(super) type_name: String,
     pub(super) aliases: Vec<String>,
     pub(super) fields: Vec<SchemaDefRecordField>,
+    pub(super) markup: SchemaDefRecordMarkup,
 }
 
 impl SchemaDefRecord {
@@ -220,6 +303,7 @@ impl SchemaDefRecord {
         type_name: String,
         aliases: Vec<String>,
         fields: Vec<SchemaDefRecordField>,
+        markup: SchemaDefRecordMarkup,
     ) -> SchemaDefValidationResult<Self> {
         // Check names are unique
         for i in 0..fields.len() {
@@ -234,6 +318,7 @@ impl SchemaDefRecord {
             type_name,
             aliases,
             fields,
+            markup,
         })
     }
 
@@ -288,6 +373,7 @@ impl SchemaDefRecord {
             fingerprint,
             self.aliases.clone().into_boxed_slice(),
             fields,
+            self.markup.clone(),
         )
     }
 }

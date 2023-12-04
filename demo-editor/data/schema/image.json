@@ -2,6 +2,7 @@
   {
     "type": "record",
     "name": "GpuImageAsset",
+    "tags": ["asset", "has_import_data"],
     "fields": [
       {
         "name": "compress",

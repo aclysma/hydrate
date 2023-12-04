@@ -12,6 +12,7 @@
   {
     "type": "record",
     "name": "GlslSourceFileAsset",
+    "tags": ["asset", "has_import_data"],
     "fields": [
 
     ]
@@ -19,6 +20,7 @@
   {
     "type": "record",
     "name": "GlslBuildTargetAsset",
+    "tags": ["asset"],
     "fields": [
       {
         "name": "entry_point",

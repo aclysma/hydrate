@@ -2,8 +2,8 @@ use crate::action_queue::UIAction;
 use crate::modal_action::{
     default_modal_window, ModalAction, ModalActionControlFlow, ModalContext,
 };
-use hydrate_model::{AssetId, AssetLocation, AssetName, EndContextBehavior, SchemaFingerprint};
 use crate::ui::components::draw_location_selector;
+use hydrate_model::{AssetId, AssetLocation, AssetName, EndContextBehavior, SchemaFingerprint};
 
 pub struct NewAssetModal {
     create_location: Option<AssetLocation>,
@@ -22,7 +22,10 @@ impl NewAssetModal {
         }
     }
 
-    pub fn new_with_prototype(create_location: Option<AssetLocation>, prototype: AssetId) -> Self {
+    pub fn new_with_prototype(
+        create_location: Option<AssetLocation>,
+        prototype: AssetId,
+    ) -> Self {
         NewAssetModal {
             create_location,
             prototype: Some(prototype),
@@ -43,7 +46,12 @@ impl ModalAction for NewAssetModal {
             egui::TextEdit::singleline(&mut self.asset_name).show(ui);
 
             let named_schema_type = if let Some(prototype) = self.prototype {
-                context.db_state.editor_model.root_edit_context().asset_schema(prototype).cloned()
+                context
+                    .db_state
+                    .editor_model
+                    .root_edit_context()
+                    .asset_schema(prototype)
+                    .cloned()
             } else {
                 ui.label("Schema Type:");
                 crate::ui::components::schema_record_selector(
@@ -51,7 +59,8 @@ impl ModalAction for NewAssetModal {
                     "schema_name",
                     &mut self.schema_name,
                     context.db_state.editor_model.schema_set(),
-                ).inner
+                )
+                .inner
             };
 
             ui.separator();
@@ -77,7 +86,9 @@ impl ModalAction for NewAssetModal {
                     control_flow = ModalActionControlFlow::End;
                 }
 
-                let is_enabled = !self.asset_name.is_empty() && named_schema_type.is_some() && self.create_location.is_some();
+                let is_enabled = !self.asset_name.is_empty()
+                    && named_schema_type.is_some()
+                    && self.create_location.is_some();
                 if ui
                     .add_enabled(is_enabled, egui::Button::new("Create"))
                     .clicked()
@@ -86,7 +97,7 @@ impl ModalAction for NewAssetModal {
                         AssetName::new(&self.asset_name),
                         self.create_location.clone().unwrap(),
                         named_schema_type.unwrap(),
-                        self.prototype
+                        self.prototype,
                     ));
                     control_flow = ModalActionControlFlow::End;
                 }

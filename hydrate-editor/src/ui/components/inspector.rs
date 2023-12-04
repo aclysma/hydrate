@@ -1,8 +1,8 @@
 use crate::action_queue::{UIAction, UIActionQueueSender};
-use crate::ui_state::EditorModelUiState;
-use egui::{Widget};
-use hydrate_model::{AssetId, EditorModel, PropertyPath, Schema};
 use crate::ui::modals::NewAssetModal;
+use crate::ui_state::EditorModelUiState;
+use egui::Widget;
+use hydrate_model::{AssetId, EditorModel, PropertyPath, Schema};
 
 use super::inspector_system::*;
 

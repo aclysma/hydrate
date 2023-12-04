@@ -4,7 +4,10 @@ use crate::ui_state::EditorModelUiState;
 use eframe::epaint::Color32;
 use egui::{Response, Widget, WidgetText};
 use hydrate_model::value::ValueEnum;
-use hydrate_model::{AssetId, EditorModel, EndContextBehavior, HashMap, NullOverride, PropertyPath, Schema, SchemaFingerprint, SchemaNamedType, SchemaRecord, SchemaSet, Value};
+use hydrate_model::{
+    AssetId, EditorModel, EndContextBehavior, HashMap, NullOverride, PropertyPath, Schema,
+    SchemaFingerprint, SchemaNamedType, SchemaRecord, SchemaSet, Value,
+};
 use std::sync::Arc;
 
 pub fn show_property_context_menu(
@@ -25,7 +28,12 @@ pub fn show_property_context_menu(
             )
             .clicked()
         {
-            ctx.action_sender.queue_action(UIAction::SetProperty(asset_id,  ctx.property_path.clone(), None, EndContextBehavior::Finish));
+            ctx.action_sender.queue_action(UIAction::SetProperty(
+                asset_id,
+                ctx.property_path.clone(),
+                None,
+                EndContextBehavior::Finish,
+            ));
             ui.close_menu();
         }
 
@@ -41,14 +49,23 @@ pub fn show_property_context_menu(
             )
             .clicked()
         {
-            ctx.action_sender.queue_action(UIAction::ApplyPropertyOverrideToPrototype(asset_id, ctx.property_path.clone()));
+            ctx.action_sender
+                .queue_action(UIAction::ApplyPropertyOverrideToPrototype(
+                    asset_id,
+                    ctx.property_path.clone(),
+                ));
             ui.close_menu();
         }
     })
 }
 
-fn add_empty_collapsing_header(ui: &mut egui::Ui, text: impl Into<egui::WidgetText>) -> bool {
-    let openness = egui::CollapsingHeader::new(text).show_unindented(ui, |ui| {}).openness;
+fn add_empty_collapsing_header(
+    ui: &mut egui::Ui,
+    text: impl Into<egui::WidgetText>,
+) -> bool {
+    let openness = egui::CollapsingHeader::new(text)
+        .show_unindented(ui, |ui| {})
+        .openness;
     openness > 0.5
 }
 
@@ -64,7 +81,6 @@ pub struct InspectorContext<'a> {
     pub inspector_registry: &'a InspectorRegistry,
     pub read_only: bool,
 }
-
 
 //Override AssetRef to show images or other preview info
 // - Actually we can just always show thumbnail?
@@ -104,7 +120,7 @@ impl RecordInspector for DefaultRecordInspector {
         table_body: &mut egui_extras::TableBody,
         ctx: InspectorContext,
         record: &SchemaRecord,
-        indent_level: u32
+        indent_level: u32,
     ) {
         //
         // Draw the fields
@@ -122,7 +138,6 @@ impl RecordInspector for DefaultRecordInspector {
     }
 }
 
-
 #[derive(Default)]
 pub struct InspectorRegistry {
     overrides: HashMap<SchemaFingerprint, Box<dyn RecordInspector>>,
@@ -130,7 +145,10 @@ pub struct InspectorRegistry {
 }
 
 impl InspectorRegistry {
-    pub fn get_override(&self, fingerprint: SchemaFingerprint) -> &dyn RecordInspector {
+    pub fn get_override(
+        &self,
+        fingerprint: SchemaFingerprint,
+    ) -> &dyn RecordInspector {
         if let Some(inspector_override) = self.overrides.get(&fingerprint) {
             &**inspector_override
         } else {
@@ -138,13 +156,20 @@ impl InspectorRegistry {
         }
     }
 
-    pub fn register_override(&mut self, fingerprint: SchemaFingerprint, inspector_impl: impl RecordInspector + 'static) {
+    pub fn register_override(
+        &mut self,
+        fingerprint: SchemaFingerprint,
+        inspector_impl: impl RecordInspector + 'static,
+    ) {
         let old = self.overrides.insert(fingerprint, Box::new(inspector_impl));
         assert!(old.is_none());
     }
 }
 
-fn set_override_text_color_for_has_override_status(ctx: InspectorContext, ui: &mut egui::Ui) {
+fn set_override_text_color_for_has_override_status(
+    ctx: InspectorContext,
+    ui: &mut egui::Ui,
+) {
     let has_override = ctx
         .editor_model
         .root_edit_context()
@@ -169,15 +194,12 @@ pub fn simple_value_property<
         ui.set_enabled(!ctx.read_only);
         set_override_text_color_for_has_override_status(ctx, ui);
 
-        if let Some((new_value, end_context_behavior)) = f(
-            ui,
-            ctx,
-        ) {
+        if let Some((new_value, end_context_behavior)) = f(ui, ctx) {
             ctx.action_sender.queue_action(UIAction::SetProperty(
                 ctx.asset_id,
                 ctx.property_path.clone(),
                 Some(new_value),
-                end_context_behavior
+                end_context_behavior,
             ));
         }
     });
@@ -186,9 +208,7 @@ pub fn simple_value_property<
 //
 // These handle the quirks of how a UI control is manipulated and when we decide to "commit" an undo step
 //
-fn end_context_behavior_for_drag_value(
-    response: egui::Response,
-) -> EndContextBehavior {
+fn end_context_behavior_for_drag_value(response: egui::Response) -> EndContextBehavior {
     if response.lost_focus() || response.drag_released() {
         EndContextBehavior::Finish
     } else {
@@ -196,9 +216,7 @@ fn end_context_behavior_for_drag_value(
     }
 }
 
-fn end_context_behavior_for_text_field(
-    response: egui::Response,
-) -> EndContextBehavior {
+fn end_context_behavior_for_text_field(response: egui::Response) -> EndContextBehavior {
     if response.lost_focus() || response.drag_released() {
         EndContextBehavior::Finish
     } else {
@@ -206,7 +224,11 @@ fn end_context_behavior_for_text_field(
     }
 }
 
-pub fn draw_indented_label(ui: &mut egui::Ui, indent_level: u32, text: impl Into<WidgetText>) -> Response {
+pub fn draw_indented_label(
+    ui: &mut egui::Ui,
+    indent_level: u32,
+    text: impl Into<WidgetText>,
+) -> Response {
     for _ in 0..indent_level {
         crate::ui::add_indent_spacing(ui);
     }
@@ -214,7 +236,11 @@ pub fn draw_indented_label(ui: &mut egui::Ui, indent_level: u32, text: impl Into
     ui.label(text)
 }
 
-pub fn draw_indented_collapsible_label(ui: &mut egui::Ui, indent_level: u32, text: impl Into<WidgetText>) -> bool {
+pub fn draw_indented_collapsible_label(
+    ui: &mut egui::Ui,
+    indent_level: u32,
+    text: impl Into<WidgetText>,
+) -> bool {
     for _ in 0..indent_level {
         crate::ui::add_indent_spacing(ui);
     }
@@ -225,7 +251,7 @@ pub fn draw_basic_inspector_row<F: FnOnce(&mut egui::Ui, InspectorContext)>(
     body: &mut egui_extras::TableBody,
     ctx: InspectorContext,
     indent_level: u32,
-    f: F
+    f: F,
 ) {
     body.row(20.0, |mut row| {
         row.col(|mut ui| {
@@ -240,7 +266,10 @@ pub fn draw_basic_inspector_row<F: FnOnce(&mut egui::Ui, InspectorContext)>(
     });
 }
 
-fn can_draw_as_single_value(schema: &Schema, inspector_registry: &InspectorRegistry) -> bool {
+fn can_draw_as_single_value(
+    schema: &Schema,
+    inspector_registry: &InspectorRegistry,
+) -> bool {
     match schema {
         Schema::Boolean => true,
         Schema::I32 => true,
@@ -253,9 +282,9 @@ fn can_draw_as_single_value(schema: &Schema, inspector_registry: &InspectorRegis
         Schema::String => true,
         Schema::AssetRef(_) => true,
         Schema::Enum(_) => true,
-        Schema::Record(fingerprint) => {
-            inspector_registry.get_override(*fingerprint).can_draw_as_single_value()
-        }
+        Schema::Record(fingerprint) => inspector_registry
+            .get_override(*fingerprint)
+            .can_draw_as_single_value(),
         _ => false,
     }
 }
@@ -290,7 +319,10 @@ pub fn draw_inspector_value(
                 .unwrap();
             let response = egui::DragValue::new(&mut value).ui(ui);
             if response.changed() {
-                Some((Value::I32(value), end_context_behavior_for_drag_value(response)))
+                Some((
+                    Value::I32(value),
+                    end_context_behavior_for_drag_value(response),
+                ))
             } else {
                 None
             }
@@ -305,7 +337,10 @@ pub fn draw_inspector_value(
                 .unwrap();
             let response = egui::DragValue::new(&mut value).ui(ui);
             if response.changed() {
-                Some((Value::I64(value), end_context_behavior_for_drag_value(response)))
+                Some((
+                    Value::I64(value),
+                    end_context_behavior_for_drag_value(response),
+                ))
             } else {
                 None
             }
@@ -320,7 +355,10 @@ pub fn draw_inspector_value(
                 .unwrap();
             let response = egui::DragValue::new(&mut value).ui(ui);
             if response.changed() {
-                Some((Value::U32(value), end_context_behavior_for_drag_value(response)))
+                Some((
+                    Value::U32(value),
+                    end_context_behavior_for_drag_value(response),
+                ))
             } else {
                 None
             }
@@ -335,7 +373,10 @@ pub fn draw_inspector_value(
                 .unwrap();
             let response = egui::DragValue::new(&mut value).ui(ui);
             if response.changed() {
-                Some((Value::U64(value), end_context_behavior_for_drag_value(response)))
+                Some((
+                    Value::U64(value),
+                    end_context_behavior_for_drag_value(response),
+                ))
             } else {
                 None
             }
@@ -350,7 +391,10 @@ pub fn draw_inspector_value(
                 .unwrap();
             let response = egui::DragValue::new(&mut value).ui(ui);
             if response.changed() {
-                Some((Value::F32(value), end_context_behavior_for_drag_value(response)))
+                Some((
+                    Value::F32(value),
+                    end_context_behavior_for_drag_value(response),
+                ))
             } else {
                 None
             }
@@ -365,7 +409,10 @@ pub fn draw_inspector_value(
                 .unwrap();
             let response = egui::DragValue::new(&mut value).ui(ui);
             if response.changed() {
-                Some((Value::F64(value), end_context_behavior_for_drag_value(response)))
+                Some((
+                    Value::F64(value),
+                    end_context_behavior_for_drag_value(response),
+                ))
             } else {
                 None
             }
@@ -385,9 +432,14 @@ pub fn draw_inspector_value(
                 .as_string()
                 .unwrap()
                 .to_string();
-            let response = egui::TextEdit::singleline(&mut value).desired_width(ui.available_width()).ui(ui);
+            let response = egui::TextEdit::singleline(&mut value)
+                .desired_width(ui.available_width())
+                .ui(ui);
             if response.changed() {
-                Some((Value::String(Arc::new(value)), end_context_behavior_for_text_field(response)))
+                Some((
+                    Value::String(Arc::new(value)),
+                    end_context_behavior_for_text_field(response),
+                ))
             } else {
                 None
             }
@@ -461,7 +513,9 @@ pub fn draw_inspector_value(
                 .find_named_type_by_fingerprint(*schema_fingerprint)
                 .unwrap();
             match schema {
-                SchemaNamedType::Record(record_schema) => panic!("An enum schema is referencing a record"),
+                SchemaNamedType::Record(record_schema) => {
+                    panic!("An enum schema is referencing a record")
+                }
                 SchemaNamedType::Enum(enum_schema) => {
                     //ui.push_id(ctx.property_path, |ui| {
                     let resolved = ctx
@@ -497,31 +551,45 @@ pub fn draw_inspector_value(
                                 asset_id,
                                 ctx.property_path.clone(),
                                 Some(new_value),
-                                EndContextBehavior::Finish)
-                            );
+                                EndContextBehavior::Finish,
+                            ));
                         }
                     });
                 }
             }
-        },
+        }
         Schema::Record(schema_fingerprint) => {
             let inspector_impl = ctx.inspector_registry.get_override(*schema_fingerprint);
             if !inspector_impl.can_draw_as_single_value() {
                 ui.label("SCHEMA ERROR: Inspector can't draw as single value");
             } else {
                 // find the record?
-                let record = ctx.editor_model.schema_set().find_named_type_by_fingerprint(*schema_fingerprint);
+                let record = ctx
+                    .editor_model
+                    .schema_set()
+                    .find_named_type_by_fingerprint(*schema_fingerprint);
                 if let Some(record) = record {
                     match record {
-                        SchemaNamedType::Record(record) => inspector_impl.draw_inspector_value(ui, ctx),
-                        _ => { ui.label("SCHEMA ERROR: Type referenced by Schema::Record is not a record"); }
+                        SchemaNamedType::Record(record) => {
+                            inspector_impl.draw_inspector_value(ui, ctx)
+                        }
+                        _ => {
+                            ui.label(
+                                "SCHEMA ERROR: Type referenced by Schema::Record is not a record",
+                            );
+                        }
                     }
                 } else {
                     ui.label("SCHEMA ERROR: Type not found");
                 }
             }
-        },
-        _ => { ui.label(format!("Schema {:?} cannot be drawn as a single value", ctx.schema)); }
+        }
+        _ => {
+            ui.label(format!(
+                "Schema {:?} cannot be drawn as a single value",
+                ctx.schema
+            ));
+        }
     }
 }
 
@@ -547,43 +615,72 @@ pub fn draw_inspector_rows(
 
             body.row(20.0, |mut row| {
                 row.col(|ui| {
-                    ui.push_id(format!("{} inspector_label_column", ctx.property_path.path()), |ui| {
-                        if resolved_null_override == NullOverride::SetNonNull {
-                            is_visible = draw_indented_collapsible_label(ui, indent_level, ctx.property_name)
-                        } else {
-                            draw_indented_label(ui, indent_level, ctx.property_name);
-                        }
-                    });
+                    ui.push_id(
+                        format!("{} inspector_label_column", ctx.property_path.path()),
+                        |ui| {
+                            if resolved_null_override == NullOverride::SetNonNull {
+                                is_visible = draw_indented_collapsible_label(
+                                    ui,
+                                    indent_level,
+                                    ctx.property_name,
+                                )
+                            } else {
+                                draw_indented_label(ui, indent_level, ctx.property_name);
+                            }
+                        },
+                    );
                 });
                 row.col(|ui| {
-                    ui.push_id(format!("{} inspector_value_column", ctx.property_path.path()), |ui| {
-                        ui.set_enabled(!ctx.read_only);
-                        if null_override == NullOverride::Unset {
-                            ui.style_mut().visuals.override_text_color = Some(Color32::from_gray(150));
-                        } else {
-                            ui.style_mut().visuals.override_text_color = Some(Color32::from_gray(255));
-                        }
+                    ui.push_id(
+                        format!("{} inspector_value_column", ctx.property_path.path()),
+                        |ui| {
+                            ui.set_enabled(!ctx.read_only);
+                            if null_override == NullOverride::Unset {
+                                ui.style_mut().visuals.override_text_color =
+                                    Some(Color32::from_gray(150));
+                            } else {
+                                ui.style_mut().visuals.override_text_color =
+                                    Some(Color32::from_gray(255));
+                            }
 
-                        let mut new_null_override = None;
-                        if ui.selectable_label(resolved_null_override == NullOverride::Unset, "Inherit").clicked() {
-                            new_null_override = Some(NullOverride::Unset);
-                        }
-                        if ui.selectable_label(resolved_null_override == NullOverride::SetNull, "No Value").clicked() {
-                            new_null_override = Some(NullOverride::SetNull);
-                        }
-                        if ui.selectable_label(resolved_null_override == NullOverride::SetNonNull, "Has Value").clicked() {
-                            new_null_override = Some(NullOverride::SetNonNull);
-                        }
+                            let mut new_null_override = None;
+                            if ui
+                                .selectable_label(
+                                    resolved_null_override == NullOverride::Unset,
+                                    "Inherit",
+                                )
+                                .clicked()
+                            {
+                                new_null_override = Some(NullOverride::Unset);
+                            }
+                            if ui
+                                .selectable_label(
+                                    resolved_null_override == NullOverride::SetNull,
+                                    "No Value",
+                                )
+                                .clicked()
+                            {
+                                new_null_override = Some(NullOverride::SetNull);
+                            }
+                            if ui
+                                .selectable_label(
+                                    resolved_null_override == NullOverride::SetNonNull,
+                                    "Has Value",
+                                )
+                                .clicked()
+                            {
+                                new_null_override = Some(NullOverride::SetNonNull);
+                            }
 
-                        if let Some(new_null_override) = new_null_override {
-                            ctx.action_sender.queue_action(UIAction::SetNullOverride(
-                                ctx.asset_id,
-                                ctx.property_path.clone(),
-                                new_null_override
-                            ));
-
-                        }
-                    });
+                            if let Some(new_null_override) = new_null_override {
+                                ctx.action_sender.queue_action(UIAction::SetNullOverride(
+                                    ctx.asset_id,
+                                    ctx.property_path.clone(),
+                                    new_null_override,
+                                ));
+                            }
+                        },
+                    );
                 });
             });
             if is_visible {
@@ -597,7 +694,7 @@ pub fn draw_inspector_rows(
                             schema: &*inner_schema,
                             ..ctx
                         },
-                        indent_level + 1
+                        indent_level + 1,
                     );
                 }
             }
@@ -639,7 +736,7 @@ pub fn draw_inspector_rows(
                     ctx.schema, ctx.property_name
                 ));
             });
-        },
+        }
         Schema::DynamicArray(schema) => {
             let resolved = ctx
                 .editor_model
@@ -655,34 +752,45 @@ pub fn draw_inspector_rows(
 
             body.row(20.0, |mut row| {
                 row.col(|ui| {
-                    ui.push_id(format!("{} inspector_label_column", ctx.property_path.path()), |ui| {
-                        for i in 0..indent_level {
-                            crate::ui::add_indent_spacing(ui);
-                        }
+                    ui.push_id(
+                        format!("{} inspector_label_column", ctx.property_path.path()),
+                        |ui| {
+                            for i in 0..indent_level {
+                                crate::ui::add_indent_spacing(ui);
+                            }
 
-                        is_visible = add_empty_collapsing_header(ui, ctx.property_name)
-                    });
+                            is_visible = add_empty_collapsing_header(ui, ctx.property_name)
+                        },
+                    );
                 });
                 row.col(|ui| {
-                    ui.push_id(format!("{} inspector_value_column", ctx.property_path.path()), |ui| {
-                        ui.set_enabled(!ctx.read_only);
+                    ui.push_id(
+                        format!("{} inspector_value_column", ctx.property_path.path()),
+                        |ui| {
+                            ui.set_enabled(!ctx.read_only);
 
-                        if ui.button("+").clicked() {
-                            ctx.action_sender.queue_action(UIAction::AddDynamicArrayOverride(ctx.asset_id, ctx.property_path.clone()));
-                        }
+                            if ui.button("+").clicked() {
+                                ctx.action_sender
+                                    .queue_action(UIAction::AddDynamicArrayOverride(
+                                        ctx.asset_id,
+                                        ctx.property_path.clone(),
+                                    ));
+                            }
 
-                        // if overrides.is_empty() {
-                        //     ui.style_mut().visuals.override_text_color = Some(Color32::from_gray(150));
-                        // } else {
-                        //     ui.style_mut().visuals.override_text_color = Some(Color32::from_gray(255));
-                        // }
+                            // if overrides.is_empty() {
+                            //     ui.style_mut().visuals.override_text_color = Some(Color32::from_gray(150));
+                            // } else {
+                            //     ui.style_mut().visuals.override_text_color = Some(Color32::from_gray(255));
+                            // }
 
-                        // button to add elements?
-                    });
+                            // button to add elements?
+                        },
+                    );
                 });
             });
 
-            let can_use_inline_values = can_draw_as_single_value(schema.item_type(), ctx.inspector_registry);
+            let can_use_inline_values =
+                can_draw_as_single_value(schema.item_type(), ctx.inspector_registry);
 
             if is_visible {
                 let mut override_index = 0;
@@ -705,19 +813,21 @@ pub fn draw_inspector_rows(
                                 } else {
                                     is_override_visible = add_empty_collapsing_header(ui, label)
                                 }
-
                             });
                         });
                         row.col(|ui| {
                             //TODO: Could do basic values in here...
                             if can_use_inline_values {
-                                draw_inspector_value(ui, InspectorContext {
-                                    property_name: &id_as_string,
-                                    property_path: &field_path,
-                                    schema: schema.item_type(),
-                                    read_only: true,
-                                    ..ctx
-                                });
+                                draw_inspector_value(
+                                    ui,
+                                    InspectorContext {
+                                        property_name: &id_as_string,
+                                        property_path: &field_path,
+                                        schema: schema.item_type(),
+                                        read_only: true,
+                                        ..ctx
+                                    },
+                                );
                             }
                         });
                     });
@@ -732,7 +842,7 @@ pub fn draw_inspector_rows(
                                 read_only: true,
                                 ..ctx
                             },
-                            indent_level + 2
+                            indent_level + 2,
                         );
                     }
 
@@ -769,12 +879,15 @@ pub fn draw_inspector_rows(
                         });
                         row.col(|ui| {
                             if can_use_inline_values {
-                                draw_inspector_value(ui, InspectorContext {
-                                    property_name: &id_as_string,
-                                    property_path: &field_path,
-                                    schema: schema.item_type(),
-                                    ..ctx
-                                });
+                                draw_inspector_value(
+                                    ui,
+                                    InspectorContext {
+                                        property_name: &id_as_string,
+                                        property_path: &field_path,
+                                        schema: schema.item_type(),
+                                        ..ctx
+                                    },
+                                );
                             }
                         });
                     });
@@ -788,7 +901,7 @@ pub fn draw_inspector_rows(
                                 schema: schema.item_type(),
                                 ..ctx
                             },
-                            indent_level + 2
+                            indent_level + 2,
                         );
                     }
 
@@ -817,13 +930,20 @@ pub fn draw_inspector_rows(
         Schema::Record(schema_fingerprint) => {
             let inspector_impl = ctx.inspector_registry.get_override(*schema_fingerprint);
             // find the record?
-            let record = ctx.editor_model.schema_set().find_named_type_by_fingerprint(*schema_fingerprint);
+            let record = ctx
+                .editor_model
+                .schema_set()
+                .find_named_type_by_fingerprint(*schema_fingerprint);
             if let Some(record) = record {
                 match record {
-                    SchemaNamedType::Record(record) => inspector_impl.draw_inspector_rows(body, ctx, record, indent_level),
+                    SchemaNamedType::Record(record) => {
+                        inspector_impl.draw_inspector_rows(body, ctx, record, indent_level)
+                    }
                     _ => {
                         draw_basic_inspector_row(body, ctx, indent_level, |ui, ctx| {
-                            ui.label("SCHEMA ERROR: Type referenced by Schema::Record is not a record");
+                            ui.label(
+                                "SCHEMA ERROR: Type referenced by Schema::Record is not a record",
+                            );
                         });
                     }
                 }
@@ -841,7 +961,9 @@ pub fn draw_inspector_rows(
                     .find_named_type_by_fingerprint(*schema_fingerprint)
                     .unwrap();
                 match schema {
-                    SchemaNamedType::Record(record_schema) => panic!("An enum schema is referencing a record"),
+                    SchemaNamedType::Record(record_schema) => {
+                        panic!("An enum schema is referencing a record")
+                    }
                     SchemaNamedType::Enum(enum_schema) => {
                         draw_inspector_value(ui, ctx);
                     }

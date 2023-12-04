@@ -2,8 +2,11 @@ pub mod components;
 pub mod drag_drop;
 pub mod modals;
 
-
-pub fn add_spacing(ui: &mut egui::Ui, width: f32, height: f32) {
+pub fn add_spacing(
+    ui: &mut egui::Ui,
+    width: f32,
+    height: f32,
+) {
     let prev_item_spacing = ui.spacing_mut().item_spacing;
     ui.spacing_mut().item_spacing.x = 0.0;
     ui.allocate_space(egui::vec2(width, height));

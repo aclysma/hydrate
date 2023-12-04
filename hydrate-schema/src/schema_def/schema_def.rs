@@ -60,7 +60,10 @@ impl SchemaDefStaticArray {
         named_types: &HashMap<String, SchemaDefNamedType>,
         fingerprints: &HashMap<String, SchemaFingerprint>,
     ) -> SchemaStaticArray {
-        SchemaStaticArray::new(Box::new(self.item_type.to_schema(named_types, fingerprints)), self.length)
+        SchemaStaticArray::new(
+            Box::new(self.item_type.to_schema(named_types, fingerprints)),
+            self.length,
+        )
     }
 }
 
@@ -100,7 +103,9 @@ impl SchemaDefDynamicArray {
         named_types: &HashMap<String, SchemaDefNamedType>,
         fingerprints: &HashMap<String, SchemaFingerprint>,
     ) -> SchemaDynamicArray {
-        SchemaDynamicArray::new(Box::new(self.item_type.to_schema(named_types, fingerprints)))
+        SchemaDynamicArray::new(Box::new(
+            self.item_type.to_schema(named_types, fingerprints),
+        ))
     }
 }
 
@@ -312,7 +317,10 @@ impl SchemaDefEnumSymbol {
     }
 
     fn to_schema(&self) -> SchemaEnumSymbol {
-        SchemaEnumSymbol::new(self.symbol_name.clone(), self.aliases.clone().into_boxed_slice())
+        SchemaEnumSymbol::new(
+            self.symbol_name.clone(),
+            self.aliases.clone().into_boxed_slice(),
+        )
     }
 }
 
@@ -512,7 +520,9 @@ impl SchemaDefType {
         fingerprints: &HashMap<String, SchemaFingerprint>,
     ) -> Schema {
         match self {
-            SchemaDefType::Nullable(x) => Schema::Nullable(Box::new(x.to_schema(named_types, fingerprints))),
+            SchemaDefType::Nullable(x) => {
+                Schema::Nullable(Box::new(x.to_schema(named_types, fingerprints)))
+            }
             SchemaDefType::Boolean => Schema::Boolean,
             SchemaDefType::I32 => Schema::I32,
             SchemaDefType::I64 => Schema::I64,
@@ -522,8 +532,12 @@ impl SchemaDefType {
             SchemaDefType::F64 => Schema::F64,
             SchemaDefType::Bytes => Schema::Bytes,
             SchemaDefType::String => Schema::String,
-            SchemaDefType::StaticArray(x) => Schema::StaticArray(x.to_schema(named_types, fingerprints)),
-            SchemaDefType::DynamicArray(x) => Schema::DynamicArray(x.to_schema(named_types, fingerprints)),
+            SchemaDefType::StaticArray(x) => {
+                Schema::StaticArray(x.to_schema(named_types, fingerprints))
+            }
+            SchemaDefType::DynamicArray(x) => {
+                Schema::DynamicArray(x.to_schema(named_types, fingerprints))
+            }
             SchemaDefType::Map(x) => Schema::Map(x.to_schema(named_types, fingerprints)),
             SchemaDefType::AssetRef(x) => Schema::AssetRef(*fingerprints.get(x).unwrap()),
             SchemaDefType::NamedType(x) => {
@@ -532,7 +546,7 @@ impl SchemaDefType {
                     SchemaDefNamedType::Record(_) => Schema::Record(*fingerprints.get(x).unwrap()),
                     SchemaDefNamedType::Enum(_) => Schema::Enum(*fingerprints.get(x).unwrap()),
                 }
-            },
+            }
         }
     }
 }
@@ -600,7 +614,9 @@ impl SchemaDefNamedType {
         fingerprints: &HashMap<String, SchemaFingerprint>,
     ) -> SchemaNamedType {
         match self {
-            SchemaDefNamedType::Record(x) => SchemaNamedType::Record(x.to_schema(named_types, fingerprints)),
+            SchemaDefNamedType::Record(x) => {
+                SchemaNamedType::Record(x.to_schema(named_types, fingerprints))
+            }
             SchemaDefNamedType::Enum(x) => SchemaNamedType::Enum(x.to_schema(fingerprints)),
         }
     }

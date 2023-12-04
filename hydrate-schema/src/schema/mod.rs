@@ -259,7 +259,6 @@ impl Schema {
         }
     }
 
-
     pub fn is_enum(&self) -> bool {
         match self {
             Schema::Enum(_) => true,

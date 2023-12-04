@@ -1,13 +1,15 @@
 use crate::action_queue::{UIAction, UIActionQueueSender};
+use crate::ui::components::{schema_record_selector, AssetTreeUiState};
 use crate::ui::drag_drop::DragDropPayload;
 use crate::ui::modals::{NewAssetModal, TestModal};
-use crate::ui_state::{EditorModelUiState};
+use crate::ui_state::EditorModelUiState;
+use crate::DbState;
 use egui::epaint::text::FontsImpl;
 use egui::{Color32, FontDefinitions, FontId, Layout, SelectableLabel, Widget};
-use hydrate_model::{AssetId, AssetLocation, AssetName, DataSetAssetInfo, EndContextBehavior, HashSet};
+use hydrate_model::{
+    AssetId, AssetLocation, AssetName, DataSetAssetInfo, EndContextBehavior, HashSet,
+};
 use std::sync::Arc;
-use crate::DbState;
-use crate::ui::components::{AssetTreeUiState, schema_record_selector};
 
 #[derive(Default, PartialEq, Copy, Clone)]
 pub enum AssetGalleryViewMode {
@@ -67,17 +69,30 @@ pub fn draw_asset_gallery(
         egui::Layout::left_to_right(egui::Align::Center),
     );
 
-    if toolbar_ui_left.selectable_label(asset_gallery_ui_state.view_mode == AssetGalleryViewMode::Grid, "Grid").clicked() {
+    if toolbar_ui_left
+        .selectable_label(
+            asset_gallery_ui_state.view_mode == AssetGalleryViewMode::Grid,
+            "Grid",
+        )
+        .clicked()
+    {
         asset_gallery_ui_state.view_mode = AssetGalleryViewMode::Grid;
     }
 
-    if toolbar_ui_left.selectable_label(asset_gallery_ui_state.view_mode == AssetGalleryViewMode::Table, "Table").clicked() {
+    if toolbar_ui_left
+        .selectable_label(
+            asset_gallery_ui_state.view_mode == AssetGalleryViewMode::Table,
+            "Table",
+        )
+        .clicked()
+    {
         asset_gallery_ui_state.view_mode = AssetGalleryViewMode::Table;
     }
 
     toolbar_ui_left.add(egui::Separator::default().vertical());
 
-    let mut show_all_children = asset_gallery_ui_state.location_filtering_mode == AssetGalleryViewLocationFilteringMode::AllChildren;
+    let mut show_all_children = asset_gallery_ui_state.location_filtering_mode
+        == AssetGalleryViewLocationFilteringMode::AllChildren;
     toolbar_ui_left.checkbox(&mut show_all_children, "Show All Children");
     asset_gallery_ui_state.location_filtering_mode = if show_all_children {
         AssetGalleryViewLocationFilteringMode::AllChildren
@@ -109,13 +124,17 @@ pub fn draw_asset_gallery(
 
         ui.with_layout(Layout::right_to_left(egui::Align::TOP), |ui| {
             if toolbar_ui_right.button("New Asset").clicked() {
-                action_queue.try_set_modal_action(NewAssetModal::new(asset_tree_ui_state.selected_tree_node));
+                action_queue.try_set_modal_action(NewAssetModal::new(
+                    asset_tree_ui_state.selected_tree_node,
+                ));
             }
 
-            toolbar_ui_right.add_visible(asset_gallery_ui_state.view_mode == AssetGalleryViewMode::Grid,
-            egui::Slider::new(&mut asset_gallery_ui_state.tile_size, 50.0..=150.0)
-                .clamp_to_range(true)
-                .show_value(false));
+            toolbar_ui_right.add_visible(
+                asset_gallery_ui_state.view_mode == AssetGalleryViewMode::Grid,
+                egui::Slider::new(&mut asset_gallery_ui_state.tile_size, 50.0..=150.0)
+                    .clamp_to_range(true)
+                    .show_value(false),
+            );
         });
     }
 
@@ -123,34 +142,54 @@ pub fn draw_asset_gallery(
 
     let mut all_assets: Vec<_> = db_state
         .editor_model
-        .root_edit_context().assets().iter().filter(|(&asset_id, info)| {
-        if db_state.editor_model.is_path_node_or_root(info.schema().fingerprint()) {
-            return false;
-        }
-
-        if !asset_gallery_ui_state.search_string.is_empty() {
-            let long_name = db_state.editor_model.asset_path(asset_id, &ui_state.asset_path_cache);
-            if !long_name.as_str().to_lowercase().contains(&asset_gallery_ui_state.search_string.to_lowercase()) {
+        .root_edit_context()
+        .assets()
+        .iter()
+        .filter(|(&asset_id, info)| {
+            if db_state
+                .editor_model
+                .is_path_node_or_root(info.schema().fingerprint())
+            {
                 return false;
             }
-        }
 
-        if let Some(path_filter) = path_filter {
-            if show_all_children {
-                // Is child or indirect child of the selected directory
-                if !db_state.editor_model.root_edit_context().data_set().asset_location_chain(asset_id).unwrap().contains(&path_filter) {
-                    return false;
-                }
-            } else {
-                // Exactly matches
-                if info.asset_location() != path_filter {
+            if !asset_gallery_ui_state.search_string.is_empty() {
+                let long_name = db_state
+                    .editor_model
+                    .asset_path(asset_id, &ui_state.asset_path_cache);
+                if !long_name
+                    .as_str()
+                    .to_lowercase()
+                    .contains(&asset_gallery_ui_state.search_string.to_lowercase())
+                {
                     return false;
                 }
             }
-        }
 
-        true
-    }).collect();
+            if let Some(path_filter) = path_filter {
+                if show_all_children {
+                    // Is child or indirect child of the selected directory
+                    if !db_state
+                        .editor_model
+                        .root_edit_context()
+                        .data_set()
+                        .asset_location_chain(asset_id)
+                        .unwrap()
+                        .contains(&path_filter)
+                    {
+                        return false;
+                    }
+                } else {
+                    // Exactly matches
+                    if info.asset_location() != path_filter {
+                        return false;
+                    }
+                }
+            }
+
+            true
+        })
+        .collect();
 
     all_assets.sort_by(|(_, lhs), (_, rhs)| lhs.asset_name().cmp(&rhs.asset_name()));
 
@@ -170,9 +209,9 @@ pub fn draw_asset_gallery(
                         ui_state,
                         asset_gallery_ui_state,
                         action_queue,
-                        &all_assets
+                        &all_assets,
                     );
-               });
+                });
         }
         AssetGalleryViewMode::Grid => {
             egui::ScrollArea::vertical()
@@ -188,7 +227,7 @@ pub fn draw_asset_gallery(
                         ui_state,
                         asset_gallery_ui_state,
                         action_queue,
-                        &all_assets
+                        &all_assets,
                     );
                 });
         }
@@ -203,7 +242,7 @@ fn draw_asset_gallery_list(
     ui_state: &EditorModelUiState,
     asset_gallery_ui_state: &mut AssetGalleryUiState,
     action_queue: &UIActionQueueSender,
-    all_assets: &Vec<(&AssetId, &DataSetAssetInfo)>
+    all_assets: &Vec<(&AssetId, &DataSetAssetInfo)>,
 ) {
     ui.style_mut().spacing.item_spacing = egui::vec2(8.0, 2.0);
 
@@ -216,8 +255,16 @@ fn draw_asset_gallery_list(
         .min_scrolled_height(1.0)
         .max_scroll_height(1.0)
         .cell_layout(egui::Layout::left_to_right(egui::Align::Center))
-        .column(egui_extras::Column::initial(200.0).at_least(40.0).clip(true))
-        .column(egui_extras::Column::initial(100.0).at_least(40.0).clip(true))
+        .column(
+            egui_extras::Column::initial(200.0)
+                .at_least(40.0)
+                .clip(true),
+        )
+        .column(
+            egui_extras::Column::initial(100.0)
+                .at_least(40.0)
+                .clip(true),
+        )
         .column(egui_extras::Column::remainder());
 
     table
@@ -235,8 +282,14 @@ fn draw_asset_gallery_list(
         .body(|mut body| {
             for (&asset_id, asset_info) in all_assets {
                 body.row(20.0, |mut row| {
-                    let short_name = db_state.editor_model.root_edit_context().asset_name_or_id_string(asset_id).unwrap();
-                    let long_name = db_state.editor_model.asset_path(asset_id, &ui_state.asset_path_cache);
+                    let short_name = db_state
+                        .editor_model
+                        .root_edit_context()
+                        .asset_name_or_id_string(asset_id)
+                        .unwrap();
+                    let long_name = db_state
+                        .editor_model
+                        .asset_path(asset_id, &ui_state.asset_path_cache);
                     let is_generated = db_state.editor_model.is_generated_asset(asset_id);
 
                     row.col(|ui| {
@@ -245,16 +298,26 @@ fn draw_asset_gallery_list(
                             egui::Id::new(asset_id),
                             DragDropPayload::AssetReference(asset_id),
                             |ui| {
-                            let is_selected = asset_gallery_ui_state.selected_assets.contains(&asset_id);
-                            let response = egui::SelectableLabel::new(is_selected, &short_name).ui(ui);
-                            if response.clicked() {
-                                asset_gallery_ui_state.selected_assets.clear();
-                                asset_gallery_ui_state.selected_assets.insert(asset_id);
-                            }
-                            response.context_menu(|ui| {
-                                asset_context_menu(ui, action_queue, asset_id, is_generated, &short_name, asset_info.asset_location());
-                            })
-                        });
+                                let is_selected =
+                                    asset_gallery_ui_state.selected_assets.contains(&asset_id);
+                                let response =
+                                    egui::SelectableLabel::new(is_selected, &short_name).ui(ui);
+                                if response.clicked() {
+                                    asset_gallery_ui_state.selected_assets.clear();
+                                    asset_gallery_ui_state.selected_assets.insert(asset_id);
+                                }
+                                response.context_menu(|ui| {
+                                    asset_context_menu(
+                                        ui,
+                                        action_queue,
+                                        asset_id,
+                                        is_generated,
+                                        &short_name,
+                                        asset_info.asset_location(),
+                                    );
+                                })
+                            },
+                        );
                     });
                     row.col(|ui| {
                         ui.label(asset_info.schema().name());
@@ -262,12 +325,9 @@ fn draw_asset_gallery_list(
                     row.col(|ui| {
                         ui.label(long_name.as_str());
                     });
-
                 });
             }
         });
-
-
 }
 
 fn draw_asset_gallery_tile_grid(
@@ -278,7 +338,7 @@ fn draw_asset_gallery_tile_grid(
     ui_state: &EditorModelUiState,
     asset_gallery_ui_state: &mut AssetGalleryUiState,
     action_queue: &UIActionQueueSender,
-    all_assets: &Vec<(&AssetId, &DataSetAssetInfo)>
+    all_assets: &Vec<(&AssetId, &DataSetAssetInfo)>,
 ) {
     ui.with_layout(
         Layout::left_to_right(egui::Align::TOP).with_main_wrap(true),
@@ -322,10 +382,20 @@ fn draw_asset_gallery_tile(
     asset_info: &DataSetAssetInfo,
     action_queue: &UIActionQueueSender,
 ) {
-    let short_name = db_state.editor_model.root_edit_context().asset_name_or_id_string(asset_id).unwrap();
-    let long_name = db_state.editor_model.asset_path(asset_id, &ui_state.asset_path_cache);
+    let short_name = db_state
+        .editor_model
+        .root_edit_context()
+        .asset_name_or_id_string(asset_id)
+        .unwrap();
+    let long_name = db_state
+        .editor_model
+        .asset_path(asset_id, &ui_state.asset_path_cache);
     let is_generated = db_state.editor_model.is_generated_asset(asset_id);
-    let is_dirty = db_state.editor_model.root_edit_context().modified_assets().contains(&asset_id);
+    let is_dirty = db_state
+        .editor_model
+        .root_edit_context()
+        .modified_assets()
+        .contains(&asset_id);
 
     crate::ui::drag_drop::drag_source(
         ui,
@@ -334,8 +404,14 @@ fn draw_asset_gallery_tile(
         |ui| {
             let mut is_on = false;
 
-            let desired_size = egui::vec2(asset_gallery_ui_state.tile_size, asset_gallery_ui_state.tile_size + 30.0);
-            let thumbnail_size = egui::vec2(asset_gallery_ui_state.tile_size, asset_gallery_ui_state.tile_size);
+            let desired_size = egui::vec2(
+                asset_gallery_ui_state.tile_size,
+                asset_gallery_ui_state.tile_size + 30.0,
+            );
+            let thumbnail_size = egui::vec2(
+                asset_gallery_ui_state.tile_size,
+                asset_gallery_ui_state.tile_size,
+            );
 
             let (rect, mut response) = ui.allocate_exact_size(desired_size, egui::Sense::click());
             // ui.allocate_ui(desired_size, |ui| {
@@ -361,10 +437,7 @@ fn draw_asset_gallery_tile(
                 let visuals = ui.style().interact_selectable(&response, is_on);
                 let radius = 3.0;
 
-                if asset_gallery_ui_state
-                    .selected_assets
-                    .contains(&asset_id)
-                {
+                if asset_gallery_ui_state.selected_assets.contains(&asset_id) {
                     ui.painter()
                         .rect_filled(rect, radius, ui.style().visuals.selection.bg_fill);
                 }
@@ -408,7 +481,14 @@ fn draw_asset_gallery_tile(
 
             let is_generated = is_generated;
             let response = response.context_menu(move |ui| {
-                asset_context_menu(ui, action_queue, asset_id, is_generated, &short_name, asset_info.asset_location());
+                asset_context_menu(
+                    ui,
+                    action_queue,
+                    asset_id,
+                    is_generated,
+                    &short_name,
+                    asset_info.asset_location(),
+                );
             });
 
             response
@@ -416,15 +496,19 @@ fn draw_asset_gallery_tile(
     );
 }
 
-fn asset_context_menu(ui: &mut egui::Ui, action_queue: &UIActionQueueSender, asset_id: AssetId, is_generated: bool, name: &str, location: AssetLocation) {
+fn asset_context_menu(
+    ui: &mut egui::Ui,
+    action_queue: &UIActionQueueSender,
+    asset_id: AssetId,
+    is_generated: bool,
+    name: &str,
+    location: AssetLocation,
+) {
     if is_generated {
         ui.label("This asset is generated and cannot be edited directly");
     }
     if ui
-        .add_enabled(
-            !is_generated,
-            egui::Button::new(format!("Delete {}", name)),
-        )
+        .add_enabled(!is_generated, egui::Button::new(format!("Delete {}", name)))
         .clicked()
     {
         action_queue.queue_action(UIAction::DeleteAsset(asset_id));
@@ -432,7 +516,8 @@ fn asset_context_menu(ui: &mut egui::Ui, action_queue: &UIActionQueueSender, ass
     }
 
     if ui.button("Use as prototype for new asset").clicked() {
-        action_queue.try_set_modal_action(NewAssetModal::new_with_prototype(Some(location), asset_id));
+        action_queue
+            .try_set_modal_action(NewAssetModal::new_with_prototype(Some(location), asset_id));
         ui.close_menu();
     }
 }

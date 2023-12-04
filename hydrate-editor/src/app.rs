@@ -3,14 +3,14 @@ use crate::db_state::DbState;
 use crate::egui_debug_ui::EguiDebugUiState;
 use crate::modal_action::{ModalAction, ModalActionControlFlow, ModalContext};
 use crate::persistent_app_state::PersistentAppState;
+use crate::ui::components::inspector_system::{InspectorRegistry, RecordInspector};
 use crate::ui::components::{AssetGalleryUiState, AssetTreeUiState, InspectorUiState};
 use crate::ui::modals::ImportFilesModal;
 use crate::ui_state::EditorModelUiState;
 use egui::epaint::text::FontsImpl;
 use egui::{FontDefinitions, ViewportCommand};
 use hydrate_model::pipeline::AssetEngine;
-use hydrate_model::{EditorModelWithCache};
-use crate::ui::components::inspector_system::{RecordInspector, InspectorRegistry};
+use hydrate_model::EditorModelWithCache;
 
 #[derive(Default)]
 pub struct UiState {
@@ -30,7 +30,7 @@ pub struct HydrateEditorApp {
     ui_state: UiState,
     action_queue: UIActionQueueReceiver,
     modal_action: Option<Box<dyn ModalAction>>,
-    inspector_registry: InspectorRegistry
+    inspector_registry: InspectorRegistry,
 }
 
 impl HydrateEditorApp {
@@ -39,7 +39,7 @@ impl HydrateEditorApp {
         cc: &eframe::CreationContext<'_>,
         db_state: DbState,
         asset_engine: AssetEngine,
-        inspector_registry: InspectorRegistry
+        inspector_registry: InspectorRegistry,
     ) -> Self {
         let persistent_state = if let Some(storage) = cc.storage {
             eframe::get_value(storage, eframe::APP_KEY).unwrap_or_default()
@@ -61,7 +61,7 @@ impl HydrateEditorApp {
             ui_state: Default::default(),
             action_queue: UIActionQueueReceiver::default(),
             modal_action: None,
-            inspector_registry
+            inspector_registry,
         }
     }
 }
@@ -182,7 +182,7 @@ impl eframe::App for HydrateEditorApp {
                     &action_queue_sender,
                     &self.ui_state.editor_model_ui_state,
                     first_selected,
-                    &self.inspector_registry
+                    &self.inspector_registry,
                 );
             });
 

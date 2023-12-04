@@ -16,8 +16,8 @@ pub use egui;
 pub use egui_extras;
 
 use crate::app::HydrateEditorApp;
-use hydrate_model::pipeline::AssetEngine;
 pub use crate::ui::components::inspector_system;
+use hydrate_model::pipeline::AssetEngine;
 
 pub fn run(
     db_state: DbState,
@@ -41,6 +41,13 @@ pub fn run(
     eframe::run_native(
         "Hydrate Editor",
         native_options,
-        Box::new(|cc| Box::new(HydrateEditorApp::new(cc, db_state, asset_engine, inspector_registry))),
+        Box::new(|cc| {
+            Box::new(HydrateEditorApp::new(
+                cc,
+                db_state,
+                asset_engine,
+                inspector_registry,
+            ))
+        }),
     )
 }

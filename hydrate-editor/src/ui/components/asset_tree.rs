@@ -49,14 +49,18 @@ fn draw_tree_node(
             let response = if tree_node.children.len() > 0 {
                 let id = ui.make_persistent_id(tree_node.location.path_node_id());
 
-                let mut collapsing_header_state = egui::collapsing_header::CollapsingState::load_with_default_open(
-                    ui.ctx(),
-                    id,
-                    false,
-                );
+                let mut collapsing_header_state =
+                    egui::collapsing_header::CollapsingState::load_with_default_open(
+                        ui.ctx(),
+                        id,
+                        false,
+                    );
 
                 if let Some(selected_tree_node) = asset_tree_ui_state.selected_tree_node {
-                    let location_chain = editor_model.root_edit_context().asset_location_chain(selected_tree_node.path_node_id()).unwrap();
+                    let location_chain = editor_model
+                        .root_edit_context()
+                        .asset_location_chain(selected_tree_node.path_node_id())
+                        .unwrap();
                     if location_chain.contains(&tree_node.location) {
                         collapsing_header_state.set_open(true);
                     }
@@ -65,9 +69,10 @@ fn draw_tree_node(
                 let inner_response = ui.horizontal(|ui| {
                     ui.vertical(|ui| {
                         let header_response = collapsing_header_state.show_header(ui, |ui| {
-                            let response = crate::ui::drag_drop::drop_target(ui, can_accept, |ui| {
-                                ui.toggle_value(&mut is_selected, &name)
-                            });
+                            let response =
+                                crate::ui::drag_drop::drop_target(ui, can_accept, |ui| {
+                                    ui.toggle_value(&mut is_selected, &name)
+                                });
 
                             handle_drop_on_asset_tree_node(ui, &response, action_sender, tree_node);
 
@@ -85,7 +90,7 @@ fn draw_tree_node(
                                             action_sender,
                                             asset_tree_ui_state,
                                             child_tree_node,
-                                            indent_count + 1
+                                            indent_count + 1,
                                         );
                                     }
                                 });
@@ -93,7 +98,8 @@ fn draw_tree_node(
                         });
 
                         header_response.inner
-                    }).inner
+                    })
+                    .inner
                 });
 
                 inner_response.inner
@@ -125,7 +131,11 @@ fn draw_tree_node(
     );
 }
 
-fn tree_node_context_menu(action_sender: &UIActionQueueSender, tree_node: &LocationTreeNode, ui: &mut Ui) {
+fn tree_node_context_menu(
+    action_sender: &UIActionQueueSender,
+    tree_node: &LocationTreeNode,
+    ui: &mut Ui,
+) {
     if ui.button("New Asset").clicked() {
         action_sender.try_set_modal_action(NewAssetModal::new(Some(tree_node.location)));
         ui.close_menu();
@@ -167,21 +177,21 @@ pub fn draw_asset_tree(
         .max_width(f32::INFINITY)
         .auto_shrink([false, false])
         .show(ui, |ui| {
-        ui.label("ASSET TREE");
-        ui.push_id("asset tree", |ui| {
-            ui.style_mut().visuals.indent_has_left_vline = false;
-            ui.style_mut().spacing.item_spacing = egui::vec2(2.0, 2.0);
+            ui.label("ASSET TREE");
+            ui.push_id("asset tree", |ui| {
+                ui.style_mut().visuals.indent_has_left_vline = false;
+                ui.style_mut().spacing.item_spacing = egui::vec2(2.0, 2.0);
 
-            for (_, tree_node) in &editor_model_ui_state.location_tree.root_nodes {
-                draw_tree_node(
-                    ui,
-                    editor_model,
-                    action_sender,
-                    asset_tree_ui_state,
-                    tree_node,
-                    0
-                );
-            }
+                for (_, tree_node) in &editor_model_ui_state.location_tree.root_nodes {
+                    draw_tree_node(
+                        ui,
+                        editor_model,
+                        action_sender,
+                        asset_tree_ui_state,
+                        tree_node,
+                        0,
+                    );
+                }
+            });
         });
-    });
 }

@@ -13,7 +13,15 @@ fn confirm_lose_changes<F: Fn(&mut egui::Ui, &mut ModalActionControlFlow) -> ()>
 ) -> ModalActionControlFlow {
     let mut control_flow = ModalActionControlFlow::Continue;
     default_modal_window("Save or Discard Changes?", context, |context, ui| {
-        ui.label(format!("Changes to the following {} assets will be lost:", context.db_state.editor_model.root_edit_context().modified_assets().len()));
+        ui.label(format!(
+            "Changes to the following {} assets will be lost:",
+            context
+                .db_state
+                .editor_model
+                .root_edit_context()
+                .modified_assets()
+                .len()
+        ));
         ui.separator();
         let mut table = egui_extras::TableBuilder::new(ui)
             .striped(true)

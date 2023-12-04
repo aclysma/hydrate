@@ -81,7 +81,9 @@ fn json_to_property_value_with_schema(
         Schema::Enum(x) => {
             let named_type = named_types.get(x).unwrap();
             match named_type {
-                SchemaNamedType::Record(_) => panic!("A Schema::Enum is matching a named type that is not an enum"),
+                SchemaNamedType::Record(_) => {
+                    panic!("A Schema::Enum is matching a named type that is not an enum")
+                }
                 SchemaNamedType::Enum(e) => {
                     Value::enum_value_from_string(e, value.as_str().unwrap()).unwrap()
                 }

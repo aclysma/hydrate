@@ -1,12 +1,15 @@
 use crate::app::UiState;
 use crate::modal_action::ModalAction;
+use crate::ui::modals::ConfirmQuitWithoutSaving;
 use crate::ui::modals::ConfirmRevertChanges;
-use crate::ui::modals::{ConfirmQuitWithoutSaving};
 use crossbeam_channel::{Receiver, Sender};
 use hydrate_model::edit_context::EditContext;
 use hydrate_model::pipeline::import_util::ImportToQueue;
 use hydrate_model::pipeline::AssetEngine;
-use hydrate_model::{AssetId, AssetLocation, AssetName, DataSetError, DataSetResult, EditorModel, EndContextBehavior, NullOverride, PropertyPath, SchemaRecord, Value};
+use hydrate_model::{
+    AssetId, AssetLocation, AssetName, DataSetError, DataSetResult, EditorModel,
+    EndContextBehavior, NullOverride, PropertyPath, SchemaRecord, Value,
+};
 use std::sync::Arc;
 
 pub enum UIAction {
@@ -182,7 +185,9 @@ impl UIActionQueueReceiver {
                         .selected_assets
                         .insert(asset_id);
 
-                    if let Some(location) = editor_model.root_edit_context().asset_location(asset_id) {
+                    if let Some(location) =
+                        editor_model.root_edit_context().asset_location(asset_id)
+                    {
                         ui_state.asset_tree_ui_state.selected_tree_node = Some(location);
                     }
                 }
@@ -213,17 +218,15 @@ impl UIActionQueueReceiver {
                         "new asset",
                         |edit_context| {
                             let new_asset_id = if let Some(prototype) = prototype {
-                                edit_context.new_asset_from_prototype(
-                                    &asset_name,
-                                    &asset_location,
-                                    prototype
-                                ).unwrap()
+                                edit_context
+                                    .new_asset_from_prototype(
+                                        &asset_name,
+                                        &asset_location,
+                                        prototype,
+                                    )
+                                    .unwrap()
                             } else {
-                                edit_context.new_asset(
-                                    &asset_name,
-                                    &asset_location,
-                                    &schema_record,
-                                )
+                                edit_context.new_asset(&asset_name, &asset_location, &schema_record)
                             };
 
                             self.sender
@@ -238,36 +241,43 @@ impl UIActionQueueReceiver {
                         |edit_context| {
                             edit_context.delete_asset(asset_id).unwrap();
                             EndContextBehavior::Finish
-                        }
+                        },
                     );
                 }
                 UIAction::SetProperty(asset_id, property_path, value, end_context_behavior) => {
                     editor_model.root_edit_context_mut().with_undo_context(
                         "set property",
                         |edit_context| {
-                            edit_context.set_property_override(asset_id, property_path.path(), value).unwrap();
+                            edit_context
+                                .set_property_override(asset_id, property_path.path(), value)
+                                .unwrap();
                             end_context_behavior
-                        }
+                        },
                     );
-                },
+                }
                 UIAction::ApplyPropertyOverrideToPrototype(asset_id, property_path) => {
                     editor_model.root_edit_context_mut().with_undo_context(
                         "apply override",
                         |edit_context| {
                             edit_context
-                                .apply_property_override_to_prototype(asset_id, property_path.path()).unwrap();
+                                .apply_property_override_to_prototype(
+                                    asset_id,
+                                    property_path.path(),
+                                )
+                                .unwrap();
                             EndContextBehavior::Finish
-                        }
+                        },
                     );
-                },
+                }
                 UIAction::SetNullOverride(asset_id, property_path, null_override) => {
                     editor_model.root_edit_context_mut().with_undo_context(
                         "set null override",
                         |edit_context| {
                             edit_context
-                                .set_null_override(asset_id, property_path.path(), null_override).unwrap();
+                                .set_null_override(asset_id, property_path.path(), null_override)
+                                .unwrap();
                             EndContextBehavior::Finish
-                        }
+                        },
                     );
                 }
                 UIAction::AddDynamicArrayOverride(asset_id, property_path) => {
@@ -275,9 +285,10 @@ impl UIActionQueueReceiver {
                         "set null override",
                         |edit_context| {
                             edit_context
-                                .add_dynamic_array_override(asset_id, property_path.path()).unwrap();
+                                .add_dynamic_array_override(asset_id, property_path.path())
+                                .unwrap();
                             EndContextBehavior::Finish
-                        }
+                        },
                     );
                 }
             }

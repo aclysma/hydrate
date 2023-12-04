@@ -1,14 +1,14 @@
+use demo_plugins::generated::Vec3Record;
 use demo_plugins::{
     BlenderMaterialAssetPlugin, BlenderMeshAssetPlugin, GlslAssetPlugin, GltfAssetPlugin,
     GpuBufferAssetPlugin, GpuImageAssetPlugin, MeshAdvAssetPlugin, SimpleDataAssetPlugin,
 };
+use egui::Ui;
+use hydrate::editor::inspector_system;
+use hydrate::editor::inspector_system::InspectorContext;
 use hydrate::model::{AssetPathCache, EditorModelWithCache, Record, Schema, SchemaRecord};
 use hydrate::pipeline::AssetEngine;
 use std::path::PathBuf;
-use egui::Ui;
-use demo_plugins::generated::Vec3Record;
-use hydrate::editor::inspector_system;
-use hydrate::editor::inspector_system::InspectorContext;
 
 fn schema_def_path() -> PathBuf {
     PathBuf::from(concat!(
@@ -149,7 +149,12 @@ fn main() -> eframe::Result<()> {
     };
 
     let mut inspector_registry = inspector_system::InspectorRegistry::default();
-    let vec3_fingerprint = db_state.editor_model.schema_set().find_named_type(Vec3Record::schema_name()).unwrap().fingerprint();
+    let vec3_fingerprint = db_state
+        .editor_model
+        .schema_set()
+        .find_named_type(Vec3Record::schema_name())
+        .unwrap()
+        .fingerprint();
     inspector_registry.register_override(vec3_fingerprint, Vec3RecordInspector);
 
     hydrate::editor::run(db_state, asset_engine, inspector_registry)
@@ -162,31 +167,44 @@ impl inspector_system::RecordInspector for Vec3RecordInspector {
         true
     }
 
-    fn draw_inspector_value(&self, ui: &mut Ui, ctx: InspectorContext) {
+    fn draw_inspector_value(
+        &self,
+        ui: &mut Ui,
+        ctx: InspectorContext,
+    ) {
         ui.label("X");
         let field_path = ctx.property_path.push("x");
-        inspector_system::draw_inspector_value(ui, InspectorContext {
-            property_name: "x",
-            property_path: &field_path,
-            schema: &Schema::F32,
-            ..ctx
-        });
+        inspector_system::draw_inspector_value(
+            ui,
+            InspectorContext {
+                property_name: "x",
+                property_path: &field_path,
+                schema: &Schema::F32,
+                ..ctx
+            },
+        );
         ui.label("Y");
         let field_path = ctx.property_path.push("y");
-        inspector_system::draw_inspector_value(ui, InspectorContext {
-            property_name: "y",
-            property_path: &field_path,
-            schema: &Schema::F32,
-            ..ctx
-        });
+        inspector_system::draw_inspector_value(
+            ui,
+            InspectorContext {
+                property_name: "y",
+                property_path: &field_path,
+                schema: &Schema::F32,
+                ..ctx
+            },
+        );
         ui.label("Z");
         let field_path = ctx.property_path.push("z");
-        inspector_system::draw_inspector_value(ui, InspectorContext {
-            property_name: "z",
-            property_path: &field_path,
-            schema: &Schema::F32,
-            ..ctx
-        });
+        inspector_system::draw_inspector_value(
+            ui,
+            InspectorContext {
+                property_name: "z",
+                property_path: &field_path,
+                schema: &Schema::F32,
+                ..ctx
+            },
+        );
     }
 
     fn draw_inspector_rows(
@@ -194,7 +212,7 @@ impl inspector_system::RecordInspector for Vec3RecordInspector {
         table_body: &mut hydrate::editor::egui_extras::TableBody,
         ctx: inspector_system::InspectorContext,
         record: &SchemaRecord,
-        indent_level: u32
+        indent_level: u32,
     ) {
         table_body.row(20.0, |mut row| {
             row.col(|mut ui| {
@@ -214,40 +232,56 @@ impl inspector_system::RecordInspector for Vec4RecordInspector {
         true
     }
 
-    fn draw_inspector_value(&self, ui: &mut Ui, ctx: InspectorContext) {
+    fn draw_inspector_value(
+        &self,
+        ui: &mut Ui,
+        ctx: InspectorContext,
+    ) {
         ui.label("X");
         let field_path = ctx.property_path.push("x");
-        inspector_system::draw_inspector_value(ui, InspectorContext {
-            property_name: "x",
-            property_path: &field_path,
-            schema: &Schema::F32,
-            ..ctx
-        });
+        inspector_system::draw_inspector_value(
+            ui,
+            InspectorContext {
+                property_name: "x",
+                property_path: &field_path,
+                schema: &Schema::F32,
+                ..ctx
+            },
+        );
         ui.label("Y");
         let field_path = ctx.property_path.push("y");
-        inspector_system::draw_inspector_value(ui, InspectorContext {
-            property_name: "y",
-            property_path: &field_path,
-            schema: &Schema::F32,
-            ..ctx
-        });
+        inspector_system::draw_inspector_value(
+            ui,
+            InspectorContext {
+                property_name: "y",
+                property_path: &field_path,
+                schema: &Schema::F32,
+                ..ctx
+            },
+        );
         ui.label("Z");
         let field_path = ctx.property_path.push("z");
-        inspector_system::draw_inspector_value(ui, InspectorContext {
-            property_name: "z",
-            property_path: &field_path,
-            schema: &Schema::F32,
-            ..ctx
-        });
+        inspector_system::draw_inspector_value(
+            ui,
+            InspectorContext {
+                property_name: "z",
+                property_path: &field_path,
+                schema: &Schema::F32,
+                ..ctx
+            },
+        );
 
         ui.label("W");
         let field_path = ctx.property_path.push("w");
-        inspector_system::draw_inspector_value(ui, InspectorContext {
-            property_name: "w",
-            property_path: &field_path,
-            schema: &Schema::F32,
-            ..ctx
-        });
+        inspector_system::draw_inspector_value(
+            ui,
+            InspectorContext {
+                property_name: "w",
+                property_path: &field_path,
+                schema: &Schema::F32,
+                ..ctx
+            },
+        );
     }
 
     fn draw_inspector_rows(
@@ -255,7 +289,7 @@ impl inspector_system::RecordInspector for Vec4RecordInspector {
         table_body: &mut hydrate::editor::egui_extras::TableBody,
         ctx: inspector_system::InspectorContext,
         record: &SchemaRecord,
-        indent_level: u32
+        indent_level: u32,
     ) {
         table_body.row(20.0, |mut row| {
             row.col(|mut ui| {
@@ -267,4 +301,3 @@ impl inspector_system::RecordInspector for Vec4RecordInspector {
         });
     }
 }
-

@@ -218,9 +218,7 @@ impl Value {
             Schema::AssetRef(_) => &DEFAULT_VALUE_ASSET_REF,
             Schema::Record(_) => &DEFAULT_VALUE_RECORD,
             Schema::Enum(named_type_id) => {
-                schema_set
-                    .default_value_for_enum(*named_type_id)
-                    .unwrap()
+                schema_set.default_value_for_enum(*named_type_id).unwrap()
             }
         }
     }
@@ -340,10 +338,11 @@ impl Value {
                     _ => false,
                 }
             }
-            Value::Enum(inner_value) => match schema {
-                Schema::Enum(named_type_id) => {
-                    let named_type = named_types.get(named_type_id).unwrap();
-                    match named_type {
+            Value::Enum(inner_value) => {
+                match schema {
+                    Schema::Enum(named_type_id) => {
+                        let named_type = named_types.get(named_type_id).unwrap();
+                        match named_type {
                         SchemaNamedType::Enum(inner_schema) => {
                             for option in inner_schema.symbols() {
                                 if option.name() == inner_value.symbol_name {
@@ -355,9 +354,10 @@ impl Value {
                         }
                         _ => panic!("A Schema::Enum fingerprint is matching a named type that isn't a enum"),
                     }
+                    }
+                    _ => false,
                 }
-                _ => false,
-            },
+            }
         }
     }
 

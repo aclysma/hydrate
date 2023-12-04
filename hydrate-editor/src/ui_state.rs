@@ -1,6 +1,4 @@
-use hydrate_model::{
-    AssetPathCache, EditorModel, LocationTree,
-};
+use hydrate_model::{AssetPathCache, EditorModel, LocationTree};
 
 trait ModalWindow {
     fn draw(ui: &mut egui::Ui);

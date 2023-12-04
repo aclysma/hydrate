@@ -1,10 +1,10 @@
-use std::cmp::Ordering;
 use crate::{
     AssetId, HashMap, HashSet, OrderedSet, PathReference, Schema, SchemaFingerprint, SchemaRecord,
     SingleObject, Value,
 };
 pub use crate::{DataSetError, DataSetResult};
 use crate::{NullOverride, SchemaSet};
+use std::cmp::Ordering;
 use std::hash::{Hash, Hasher};
 use std::path::Path;
 use std::str::FromStr;
@@ -37,7 +37,10 @@ impl AssetName {
 }
 
 impl Ord for AssetName {
-    fn cmp(&self, other: &Self) -> Ordering {
+    fn cmp(
+        &self,
+        other: &Self,
+    ) -> Ordering {
         self.0.to_lowercase().cmp(&other.0.to_lowercase())
     }
 }
@@ -553,7 +556,10 @@ impl DataSet {
         &self,
         asset_id: AssetId,
     ) -> Option<AssetLocation> {
-        self.assets.get(&asset_id).map(|x| &x.asset_location).copied()
+        self.assets
+            .get(&asset_id)
+            .map(|x| &x.asset_location)
+            .copied()
     }
 
     /// Returns the asset locations from the parent all the way up to the root parent. If a cycle is

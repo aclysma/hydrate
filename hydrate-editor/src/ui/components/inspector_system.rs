@@ -2,12 +2,12 @@ use crate::action_queue::{UIAction, UIActionQueueSender};
 use crate::ui::drag_drop::DragDropPayload;
 use crate::ui_state::EditorModelUiState;
 use eframe::epaint::Color32;
-use egui::{Response, Widget};
+use egui::{Response, Widget, WidgetText};
 use hydrate_model::value::ValueEnum;
 use hydrate_model::{AssetId, EditorModel, EndContextBehavior, HashMap, NullOverride, PropertyPath, Schema, SchemaFingerprint, SchemaNamedType, SchemaRecord, SchemaSet, Value};
 use std::sync::Arc;
 
-fn show_property_context_menu(
+pub fn show_property_context_menu(
     ctx: InspectorContext,
     response: Response,
 ) -> Response {
@@ -75,7 +75,19 @@ pub struct InspectorContext<'a> {
 // what about colors vs. position vectors etc.?
 //Maybe I make a single code implementation that is data driven?
 pub trait RecordInspector {
-    fn draw_properties_for_record(
+    fn can_draw_as_single_value(&self) -> bool {
+        false
+    }
+
+    fn draw_inspector_value(
+        &self,
+        ui: &mut egui::Ui,
+        ctx: InspectorContext,
+    ) {
+        unimplemented!()
+    }
+
+    fn draw_inspector_rows(
         &self,
         table_body: &mut egui_extras::TableBody,
         ctx: InspectorContext,
@@ -87,7 +99,7 @@ pub trait RecordInspector {
 #[derive(Default)]
 struct DefaultRecordInspector;
 impl RecordInspector for DefaultRecordInspector {
-    fn draw_properties_for_record(
+    fn draw_inspector_rows(
         &self,
         table_body: &mut egui_extras::TableBody,
         ctx: InspectorContext,
@@ -194,6 +206,21 @@ fn end_context_behavior_for_text_field(
     }
 }
 
+pub fn draw_indented_label(ui: &mut egui::Ui, indent_level: u32, text: impl Into<WidgetText>) -> Response {
+    for _ in 0..indent_level {
+        crate::ui::add_indent_spacing(ui);
+    }
+    crate::ui::add_icon_spacing(ui);
+    ui.label(text)
+}
+
+pub fn draw_indented_collapsible_label(ui: &mut egui::Ui, indent_level: u32, text: impl Into<WidgetText>) -> bool {
+    for _ in 0..indent_level {
+        crate::ui::add_indent_spacing(ui);
+    }
+    add_empty_collapsing_header(ui, text)
+}
+
 pub fn draw_basic_inspector_row<F: FnOnce(&mut egui::Ui, InspectorContext)>(
     body: &mut egui_extras::TableBody,
     ctx: InspectorContext,
@@ -202,11 +229,7 @@ pub fn draw_basic_inspector_row<F: FnOnce(&mut egui::Ui, InspectorContext)>(
 ) {
     body.row(20.0, |mut row| {
         row.col(|mut ui| {
-            for _ in 0..indent_level {
-                crate::ui::add_indent_spacing(ui);
-            }
-            crate::ui::add_icon_spacing(ui);
-            let label_response = ui.label(ctx.property_name);
+            let label_response = draw_indented_label(ui, indent_level, ctx.property_name);
             show_property_context_menu(ctx, label_response);
         });
         row.col(|mut ui| {
@@ -217,7 +240,7 @@ pub fn draw_basic_inspector_row<F: FnOnce(&mut egui::Ui, InspectorContext)>(
     });
 }
 
-fn can_draw_as_single_value(schema: &Schema) -> bool {
+fn can_draw_as_single_value(schema: &Schema, inspector_registry: &InspectorRegistry) -> bool {
     match schema {
         Schema::Boolean => true,
         Schema::I32 => true,
@@ -230,11 +253,14 @@ fn can_draw_as_single_value(schema: &Schema) -> bool {
         Schema::String => true,
         Schema::AssetRef(_) => true,
         Schema::Enum(_) => true,
+        Schema::Record(fingerprint) => {
+            inspector_registry.get_override(*fingerprint).can_draw_as_single_value()
+        }
         _ => false,
     }
 }
 
-fn draw_inspector_value(
+pub fn draw_inspector_value(
     ui: &mut egui::Ui,
     ctx: InspectorContext,
 ) {
@@ -478,6 +504,23 @@ fn draw_inspector_value(
                 }
             }
         },
+        Schema::Record(schema_fingerprint) => {
+            let inspector_impl = ctx.inspector_registry.get_override(*schema_fingerprint);
+            if !inspector_impl.can_draw_as_single_value() {
+                ui.label("SCHEMA ERROR: Inspector can't draw as single value");
+            } else {
+                // find the record?
+                let record = ctx.editor_model.schema_set().find_named_type_by_fingerprint(*schema_fingerprint);
+                if let Some(record) = record {
+                    match record {
+                        SchemaNamedType::Record(record) => inspector_impl.draw_inspector_value(ui, ctx),
+                        _ => { ui.label("SCHEMA ERROR: Type referenced by Schema::Record is not a record"); }
+                    }
+                } else {
+                    ui.label("SCHEMA ERROR: Type not found");
+                }
+            }
+        },
         _ => { ui.label(format!("Schema {:?} cannot be drawn as a single value", ctx.schema)); }
     }
 }
@@ -505,14 +548,10 @@ pub fn draw_inspector_rows(
             body.row(20.0, |mut row| {
                 row.col(|ui| {
                     ui.push_id(format!("{} inspector_label_column", ctx.property_path.path()), |ui| {
-                        for i in 0..indent_level {
-                            crate::ui::add_indent_spacing(ui);
-                        }
                         if resolved_null_override == NullOverride::SetNonNull {
-                            is_visible = add_empty_collapsing_header(ui, ctx.property_name)
+                            is_visible = draw_indented_collapsible_label(ui, indent_level, ctx.property_name)
                         } else {
-                            crate::ui::add_icon_spacing(ui);
-                            ui.label(ctx.property_name);
+                            draw_indented_label(ui, indent_level, ctx.property_name);
                         }
                     });
                 });
@@ -643,7 +682,7 @@ pub fn draw_inspector_rows(
                 });
             });
 
-            let can_use_inline_values = can_draw_as_single_value(schema.item_type());
+            let can_use_inline_values = can_draw_as_single_value(schema.item_type(), ctx.inspector_registry);
 
             if is_visible {
                 let mut override_index = 0;
@@ -781,7 +820,7 @@ pub fn draw_inspector_rows(
             let record = ctx.editor_model.schema_set().find_named_type_by_fingerprint(*schema_fingerprint);
             if let Some(record) = record {
                 match record {
-                    SchemaNamedType::Record(record) => inspector_impl.draw_properties_for_record(body, ctx, record, indent_level),
+                    SchemaNamedType::Record(record) => inspector_impl.draw_inspector_rows(body, ctx, record, indent_level),
                     _ => {
                         draw_basic_inspector_row(body, ctx, indent_level, |ui, ctx| {
                             ui.label("SCHEMA ERROR: Type referenced by Schema::Record is not a record");

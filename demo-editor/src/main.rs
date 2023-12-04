@@ -201,30 +201,7 @@ impl inspector_system::RecordInspector for Vec3RecordInspector {
                 inspector_system::draw_indented_label(ui, indent_level, "value");
             });
             row.col(|mut ui| {
-                ui.label("X");
-                let field_path = ctx.property_path.push("x");
-                inspector_system::draw_inspector_value(ui, InspectorContext {
-                    property_name: "x",
-                    property_path: &field_path,
-                    schema: &Schema::F32,
-                    ..ctx
-                });
-                ui.label("Y");
-                let field_path = ctx.property_path.push("y");
-                inspector_system::draw_inspector_value(ui, InspectorContext {
-                    property_name: "y",
-                    property_path: &field_path,
-                    schema: &Schema::F32,
-                    ..ctx
-                });
-                ui.label("Z");
-                let field_path = ctx.property_path.push("z");
-                inspector_system::draw_inspector_value(ui, InspectorContext {
-                    property_name: "z",
-                    property_path: &field_path,
-                    schema: &Schema::F32,
-                    ..ctx
-                });
+                self.draw_inspector_value(ui, ctx);
             });
         });
     }
@@ -233,6 +210,46 @@ impl inspector_system::RecordInspector for Vec3RecordInspector {
 struct Vec4RecordInspector;
 
 impl inspector_system::RecordInspector for Vec4RecordInspector {
+    fn can_draw_as_single_value(&self) -> bool {
+        true
+    }
+
+    fn draw_inspector_value(&self, ui: &mut Ui, ctx: InspectorContext) {
+        ui.label("X");
+        let field_path = ctx.property_path.push("x");
+        inspector_system::draw_inspector_value(ui, InspectorContext {
+            property_name: "x",
+            property_path: &field_path,
+            schema: &Schema::F32,
+            ..ctx
+        });
+        ui.label("Y");
+        let field_path = ctx.property_path.push("y");
+        inspector_system::draw_inspector_value(ui, InspectorContext {
+            property_name: "y",
+            property_path: &field_path,
+            schema: &Schema::F32,
+            ..ctx
+        });
+        ui.label("Z");
+        let field_path = ctx.property_path.push("z");
+        inspector_system::draw_inspector_value(ui, InspectorContext {
+            property_name: "z",
+            property_path: &field_path,
+            schema: &Schema::F32,
+            ..ctx
+        });
+
+        ui.label("W");
+        let field_path = ctx.property_path.push("w");
+        inspector_system::draw_inspector_value(ui, InspectorContext {
+            property_name: "w",
+            property_path: &field_path,
+            schema: &Schema::F32,
+            ..ctx
+        });
+    }
+
     fn draw_inspector_rows(
         &self,
         table_body: &mut hydrate::editor::egui_extras::TableBody,
@@ -245,39 +262,7 @@ impl inspector_system::RecordInspector for Vec4RecordInspector {
                 inspector_system::draw_indented_label(ui, indent_level, "value");
             });
             row.col(|mut ui| {
-                ui.label("X");
-                let field_path = ctx.property_path.push("x");
-                inspector_system::draw_inspector_value(ui, InspectorContext {
-                    property_name: "x",
-                    property_path: &field_path,
-                    schema: &Schema::F32,
-                    ..ctx
-                });
-                ui.label("Y");
-                let field_path = ctx.property_path.push("y");
-                inspector_system::draw_inspector_value(ui, InspectorContext {
-                    property_name: "y",
-                    property_path: &field_path,
-                    schema: &Schema::F32,
-                    ..ctx
-                });
-                ui.label("Z");
-                let field_path = ctx.property_path.push("z");
-                inspector_system::draw_inspector_value(ui, InspectorContext {
-                    property_name: "z",
-                    property_path: &field_path,
-                    schema: &Schema::F32,
-                    ..ctx
-                });
-
-                ui.label("W");
-                let field_path = ctx.property_path.push("w");
-                inspector_system::draw_inspector_value(ui, InspectorContext {
-                    property_name: "w",
-                    property_path: &field_path,
-                    schema: &Schema::F32,
-                    ..ctx
-                });
+                self.draw_inspector_value(ui, ctx);
             });
         });
     }

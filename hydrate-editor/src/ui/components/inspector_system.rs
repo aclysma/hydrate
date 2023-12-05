@@ -3,7 +3,7 @@ use crate::action_queue::{UIAction, UIActionQueueSender};
 use crate::ui::drag_drop::DragDropPayload;
 use crate::ui_state::EditorModelUiState;
 use eframe::epaint::Color32;
-use egui::{Response, Widget, WidgetText};
+use egui::{FontFamily, FontId, Response, Widget, WidgetText};
 use hydrate_model::value::ValueEnum;
 use hydrate_model::{AssetId, EditorModel, EndContextBehavior, HashMap, HashSet, NullOverride, PropertyPath, Record, Schema, SchemaDefRecordFieldMarkup, SchemaFingerprint, SchemaNamedType, SchemaRecord, SchemaSet, Value};
 use std::sync::Arc;
@@ -122,6 +122,40 @@ pub fn show_property_action_button(
             show_property_action_menu(ctx, ui);
         });
     });
+}
+
+pub fn create_clipped_left_child_ui_for_right_aligned_controls(ui: &mut egui::Ui, space_for_controls: f32) -> egui::Ui {
+    let mut clip_rect = ui.clip_rect();
+    clip_rect.max.x = f32::max(clip_rect.min.x, clip_rect.max.x - space_for_controls);
+    let mut child_ui = ui.child_ui(clip_rect, egui::Layout::left_to_right(egui::Align::Center));
+    child_ui.set_clip_rect(clip_rect);
+    child_ui
+}
+
+pub fn create_clipped_right_child_ui_for_right_aligned_controls(ui: &mut egui::Ui, space_for_controls: f32) -> egui::Ui {
+    let mut clip_rect = ui.clip_rect();
+    clip_rect.min.x = clip_rect.max.x - space_for_controls;
+    let mut child_ui = ui.child_ui(clip_rect, egui::Layout::left_to_right(egui::Align::Center));
+    child_ui.set_clip_rect(clip_rect);
+    child_ui
+}
+
+pub fn draw_widgets_with_action_button<F: FnOnce(&mut egui::Ui, InspectorContext)>(
+    ui: &mut egui::Ui,
+    ctx: InspectorContext,
+    f: F
+) {
+    let mut child_ui = create_clipped_left_child_ui_for_right_aligned_controls(ui, 30.0);
+    child_ui.allocate_space(ui.style().spacing.item_spacing);
+    f(&mut child_ui, ctx);
+    show_property_action_button(ctx, ui);
+}
+
+pub fn draw_inspector_value_and_action_button(
+    ui: &mut egui::Ui,
+    ctx: InspectorContext,
+) {
+    draw_widgets_with_action_button(ui, ctx, |ui, ctx| draw_inspector_value(ui, ctx));
 }
 
 fn add_empty_collapsing_header(
@@ -425,29 +459,6 @@ fn can_draw_as_single_value(
             .can_draw_as_single_value(),
         _ => false,
     }
-}
-
-pub fn draw_widgets_with_action_button<F: FnOnce(&mut egui::Ui, InspectorContext)>(
-    ui: &mut egui::Ui,
-    ctx: InspectorContext,
-    f: F
-) {
-    let mut clip_rect = ui.clip_rect();
-    clip_rect.max.x = f32::max(clip_rect.min.x, clip_rect.max.x - 30.0);
-    let mut child_ui = ui.child_ui(clip_rect, egui::Layout::left_to_right(egui::Align::Center));
-    child_ui.set_clip_rect(clip_rect);
-    child_ui.allocate_space(ui.style().spacing.item_spacing);
-
-    f(&mut child_ui, ctx);
-
-    show_property_action_button(ctx, ui);
-}
-
-pub fn draw_inspector_value_and_action_button(
-    ui: &mut egui::Ui,
-    ctx: InspectorContext,
-) {
-    draw_widgets_with_action_button(ui, ctx, |ui, ctx| draw_inspector_value(ui, ctx));
 }
 
 pub fn draw_inspector_value(
@@ -1068,23 +1079,31 @@ pub fn draw_inspector_rows(
                     body.row(20.0, |mut row| {
                         row.col(|ui| {
                             ui.push_id(format!("{} inspector_label_column", id), |ui| {
+                                let mut left_child_ui = create_clipped_left_child_ui_for_right_aligned_controls(ui, 100.0);
+
                                 for i in 0..(indent_level + 1) {
-                                    crate::ui::add_indent_spacing(ui);
+                                    crate::ui::add_indent_spacing(&mut left_child_ui);
                                 }
                                 // Up button?
                                 // Down button?
                                 // Delete button?
 
+
                                 if can_use_inline_values {
-                                    crate::ui::add_icon_spacing(ui);
-                                    ui.label(label);
+                                    crate::ui::add_icon_spacing(&mut left_child_ui);
+                                    left_child_ui.label(label);
                                 } else {
-                                    is_override_visible = add_empty_collapsing_header(ui, label)
+                                    is_override_visible = add_empty_collapsing_header(&mut left_child_ui, label)
                                 }
 
-                                ui.button("⬆");
-                                ui.button("⬇");
-                                ui.button("🗑");
+                                let mut right_child_ui = create_clipped_right_child_ui_for_right_aligned_controls(ui, 100.0);
+
+                                // up arrow/down arrow/delete buttons
+                                right_child_ui.style_mut().text_styles.insert(egui::TextStyle::Button, egui::FontId::new(12.0, FontFamily::Monospace));
+                                right_child_ui.allocate_space(egui::vec2(0.0, 0.0));
+                                egui::Button::new("↑").min_size(egui::vec2(20.0, 0.0)).ui(&mut right_child_ui);
+                                egui::Button::new("↓").min_size(egui::vec2(20.0, 0.0)).ui(&mut right_child_ui);
+                                egui::Button::new("⊘").min_size(egui::vec2(20.0, 0.0)).ui(&mut right_child_ui);
                             });
                         });
                         row.col(|ui| {

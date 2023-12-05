@@ -11,6 +11,7 @@ mod action_queue;
 mod egui_debug_ui;
 mod modal_action;
 mod ui_state;
+mod fonts;
 
 pub use egui;
 pub use egui_extras;

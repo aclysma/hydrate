@@ -54,6 +54,9 @@ impl HydrateEditorApp {
             // })
         });
 
+        let fonts = crate::fonts::load_custom_fonts();
+        cc.egui_ctx.set_fonts(fonts);
+
         HydrateEditorApp {
             db_state,
             asset_engine,

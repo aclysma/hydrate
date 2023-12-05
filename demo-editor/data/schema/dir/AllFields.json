@@ -1,5 +1,19 @@
 [
   {
+    "type": "enum",
+    "name": "TestEnum",
+    "symbols": [
+      {
+        "name": "None",
+        "aliases": ["NONE"]
+      },
+      {
+        "name": "Opaque",
+        "aliases": ["OPAQUE"]
+      }
+    ]
+  },
+  {
     "type": "record",
     "name": "AllFields",
     "tags": ["asset"],
@@ -10,6 +24,14 @@
           "name": "asset_ref",
           "inner_type": "Vec3"
         }
+      },
+      {
+        "name": "enum_field",
+        "type": "TestEnum"
+      },
+      {
+        "name": "vec3_value",
+        "type": "Vec3"
       },
       {
         "name": "nullable_bool",

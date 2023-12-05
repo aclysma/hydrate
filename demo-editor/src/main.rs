@@ -210,7 +210,7 @@ impl inspector_system::RecordInspector for Vec3RecordInspector {
     ) {
         table_body.row(20.0, |mut row| {
             row.col(|mut ui| {
-                inspector_system::draw_indented_label(ui, indent_level, "value", Some("test"));
+                inspector_system::draw_indented_label(ui, indent_level, "value");
             });
             row.col(|mut ui| {
                 self.draw_inspector_value(ui, ctx);
@@ -287,7 +287,7 @@ impl inspector_system::RecordInspector for Vec4RecordInspector {
     ) {
         table_body.row(20.0, |mut row| {
             row.col(|mut ui| {
-                inspector_system::draw_indented_label(ui, indent_level, "value", Some("test"));
+                inspector_system::draw_indented_label(ui, indent_level, "value");
             });
             row.col(|mut ui| {
                 self.draw_inspector_value(ui, ctx);

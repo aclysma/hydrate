@@ -8,53 +8,120 @@ use hydrate_model::value::ValueEnum;
 use hydrate_model::{AssetId, EditorModel, EndContextBehavior, HashMap, HashSet, NullOverride, PropertyPath, Record, Schema, SchemaDefRecordFieldMarkup, SchemaFingerprint, SchemaNamedType, SchemaRecord, SchemaSet, Value};
 use std::sync::Arc;
 
-pub fn show_property_context_menu(
+pub fn show_property_action_menu(
     ctx: InspectorContext,
-    response: Response,
-) -> Response {
+    ui: &mut egui::Ui,
+) {
     let asset_id = ctx.asset_id;
-    response.context_menu(|ui| {
-        let has_override = ctx
-            .editor_model
-            .root_edit_context()
-            .has_property_override(asset_id, ctx.property_path.path())
-            .unwrap();
-        if ui
-            .add_enabled(
-                has_override && !ctx.read_only,
-                egui::Button::new("Clear Override"),
-            )
-            .clicked()
-        {
-            ctx.action_sender.queue_action(UIAction::SetProperty(
-                asset_id,
-                ctx.property_path.clone(),
-                None,
-                EndContextBehavior::Finish,
-            ));
-            ui.close_menu();
-        }
 
-        let has_prototype = ctx
-            .editor_model
-            .root_edit_context()
-            .asset_prototype(asset_id)
-            .is_some();
-        if ui
-            .add_enabled(
-                has_prototype && !ctx.read_only,
-                egui::Button::new("Apply Override"),
-            )
-            .clicked()
-        {
-            ctx.action_sender
-                .queue_action(UIAction::ApplyPropertyOverrideToPrototype(
+    let has_prototype = ctx
+        .editor_model
+        .root_edit_context()
+        .asset_prototype(asset_id)
+        .is_some();
+
+    match ctx.schema {
+        Schema::Record(record) => {
+            let record_schema = ctx.editor_model.schema_set().find_named_type_by_fingerprint(*record).unwrap().as_record().unwrap();
+
+            let mut any_field_has_override = false;
+            for field in record_schema.fields() {
+                let field_path = ctx.property_path.push(field.name());
+                if ctx.editor_model.root_edit_context().has_property_override(asset_id, field_path.path()).unwrap() {
+                    any_field_has_override = true;
+                    break;
+                }
+            }
+            if ui
+                .add_enabled(
+                    any_field_has_override && !ctx.read_only,
+                    egui::Button::new("Clear Override"),
+                )
+                .clicked()
+            {
+                for field in record_schema.fields() {
+                    let field_path = ctx.property_path.push(field.name());
+                    ctx.action_sender.queue_action(UIAction::SetProperty(
+                        asset_id,
+                        field_path,
+                        None,
+                        EndContextBehavior::Finish,
+                    ));
+                }
+                ui.close_menu();
+            }
+
+            if ui
+                .add_enabled(
+                    has_prototype && !ctx.read_only,
+                    egui::Button::new("Apply Override"),
+                )
+                .clicked()
+            {
+                for field in record_schema.fields() {
+                    let field_path = ctx.property_path.push(field.name());
+                    ctx.action_sender
+                        .queue_action(UIAction::ApplyPropertyOverrideToPrototype(
+                            asset_id,
+                            field_path,
+                        ));
+                }
+                ui.close_menu();
+            }
+
+        }
+        _ => {
+            let has_override = ctx
+                .editor_model
+                .root_edit_context()
+                .has_property_override(asset_id, ctx.property_path.path())
+                .unwrap();
+            if ui
+                .add_enabled(
+                    has_override && !ctx.read_only,
+                    egui::Button::new("Clear Override"),
+                )
+                .clicked()
+            {
+                ctx.action_sender.queue_action(UIAction::SetProperty(
                     asset_id,
                     ctx.property_path.clone(),
+                    None,
+                    EndContextBehavior::Finish,
                 ));
-            ui.close_menu();
+                ui.close_menu();
+            }
+
+            if ui
+                .add_enabled(
+                    has_prototype && !ctx.read_only,
+                    egui::Button::new("Apply Override"),
+                )
+                .clicked()
+            {
+                ctx.action_sender
+                    .queue_action(UIAction::ApplyPropertyOverrideToPrototype(
+                        asset_id,
+                        ctx.property_path.clone(),
+                    ));
+                ui.close_menu();
+            }
         }
-    })
+    }
+}
+
+
+pub fn show_property_action_button(
+    ctx: InspectorContext,
+    ui: &mut egui::Ui,
+) {
+    let mut rhs_button_rect = ui.clip_rect();
+    rhs_button_rect.min.x = f32::max(rhs_button_rect.min.x, rhs_button_rect.max.x - 30.0);
+    ui.allocate_ui_at_rect(rhs_button_rect.shrink(2.0), |ui| {
+        ui.menu_button("...", |ui| {
+            show_property_action_menu(ctx, ui);
+        });
+    });
 }
 
 fn add_empty_collapsing_header(
@@ -64,7 +131,6 @@ fn add_empty_collapsing_header(
     let response = egui::CollapsingHeader::new(text)
         .show_unindented(ui, |ui| {});;
 
-    response.header_response.on_hover_text("test");
     response.openness > 0.5
 }
 
@@ -121,7 +187,21 @@ pub trait RecordInspector {
         ctx: InspectorContext,
         record: &SchemaRecord,
         indent_level: u32,
-    );
+    ) {
+        // Must implement either draw_inspector_rows, or implement draw_inspector_value
+        assert!(self.can_draw_as_single_value());
+        table_body.row(20.0, |mut row| {
+            row.col(|mut ui| {
+                draw_indented_label(ui, indent_level, ctx.display_name());
+            });
+            row.col(|mut ui| {
+                draw_widgets_with_action_button(ui, ctx, |ui, ctx| self.draw_inspector_value(ui, ctx));
+            });
+        });
+    }
+    //{
+    //    DefaultRecordInspector::draw_inspector_rows(table_body, ctx, record, indent_level)
+    //}
 }
 
 #[derive(Default)]
@@ -287,22 +367,12 @@ pub fn draw_indented_label(
     ui: &mut egui::Ui,
     indent_level: u32,
     text: impl Into<WidgetText>,
-    hover_text: Option<impl Into<WidgetText>>
 ) -> Response {
     for _ in 0..indent_level {
         crate::ui::add_indent_spacing(ui);
     }
     crate::ui::add_icon_spacing(ui);
-    let response = ui.label(text);
-    if let Some(hover_text) = hover_text {
-        response.on_hover_text(hover_text)
-    } else {
-        response
-    }
-    // if let Some(hover_text) = hover_text {
-    //     ui.label("?").on_hover_text(hover_text);
-    // }
-    //response
+    ui.label(text)
 }
 
 pub fn draw_indented_collapsible_label(
@@ -324,8 +394,7 @@ pub fn draw_basic_inspector_row<F: FnOnce(&mut egui::Ui, InspectorContext)>(
 ) {
     body.row(20.0, |mut row| {
         row.col(|mut ui| {
-            let label_response = draw_indented_label(ui, indent_level, ctx.display_name(), Some("Test"));
-            show_property_context_menu(ctx, label_response);
+            draw_indented_label(ui, indent_level, ctx.display_name());
         });
         row.col(|mut ui| {
             ui.push_id(ctx.property_path.path(), |ui| {
@@ -358,6 +427,29 @@ fn can_draw_as_single_value(
     }
 }
 
+pub fn draw_widgets_with_action_button<F: FnOnce(&mut egui::Ui, InspectorContext)>(
+    ui: &mut egui::Ui,
+    ctx: InspectorContext,
+    f: F
+) {
+    let mut clip_rect = ui.clip_rect();
+    clip_rect.max.x = f32::max(clip_rect.min.x, clip_rect.max.x - 30.0);
+    let mut child_ui = ui.child_ui(clip_rect, egui::Layout::left_to_right(egui::Align::Center));
+    child_ui.set_clip_rect(clip_rect);
+    child_ui.allocate_space(ui.style().spacing.item_spacing);
+
+    f(&mut child_ui, ctx);
+
+    show_property_action_button(ctx, ui);
+}
+
+pub fn draw_inspector_value_and_action_button(
+    ui: &mut egui::Ui,
+    ctx: InspectorContext,
+) {
+    draw_widgets_with_action_button(ui, ctx, |ui, ctx| draw_inspector_value(ui, ctx));
+}
+
 pub fn draw_inspector_value(
     ui: &mut egui::Ui,
     ctx: InspectorContext,
@@ -371,7 +463,9 @@ pub fn draw_inspector_value(
                 .unwrap()
                 .as_boolean()
                 .unwrap();
+
             let response = egui::Checkbox::new(&mut value, "").ui(ui);
+
             if response.changed() {
                 Some((Value::Boolean(value), EndContextBehavior::Finish))
             } else {
@@ -543,9 +637,11 @@ pub fn draw_inspector_value(
                 .as_string()
                 .unwrap()
                 .to_string();
+
             let response = egui::TextEdit::singleline(&mut value)
-                .desired_width(ui.available_width())
+                .desired_width(ui.available_width() - ui.style().spacing.item_spacing.x)
                 .ui(ui);
+
             if response.changed() {
                 Some((
                     Value::String(Arc::new(value)),
@@ -589,7 +685,7 @@ pub fn draw_inspector_value(
                                 asset_path.as_str().to_string()
                             };
 
-                            ui.add(egui::TextEdit::singleline(&mut label_string).desired_width(ui.available_width() - 30.0));
+                            ui.add(egui::TextEdit::singleline(&mut label_string).desired_width(ui.available_width() - 30.0 - ui.style().spacing.item_spacing.x));
                         })
                     },
                 ).response;
@@ -645,7 +741,7 @@ pub fn draw_inspector_value(
 
                         let response = egui::ComboBox::new(ctx.property_path.path(), "")
                             .selected_text(&selected_symbol_name)
-                            .width(ui.available_width())
+                            .width(ui.available_width() - ui.style().spacing.item_spacing.x)
                             .show_ui(ui, |ui| {
                                 for symbol in enum_schema.symbols() {
                                     ui.selectable_value(
@@ -682,7 +778,8 @@ pub fn draw_inspector_value(
                 if let Some(record) = record {
                     match record {
                         SchemaNamedType::Record(record) => {
-                            inspector_impl.draw_inspector_value(ui, ctx)
+                            inspector_impl.draw_inspector_value(ui, ctx);
+                            //show_property_action_button(ctx, ui);
                         }
                         _ => {
                             ui.label(
@@ -736,7 +833,7 @@ pub fn draw_inspector_rows(
                                     ctx.display_name(),
                                 )
                             } else {
-                                draw_indented_label(ui, indent_level, ctx.display_name(), Some("test"));
+                                draw_indented_label(ui, indent_level, ctx.display_name());
                             }
                         },
                     );
@@ -755,6 +852,7 @@ pub fn draw_inspector_rows(
                             }
 
                             let mut new_null_override = None;
+                            ui.allocate_space(ui.style().spacing.item_spacing - egui::vec2(3.0, 3.0));
                             if ui
                                 .selectable_label(
                                     resolved_null_override == NullOverride::Unset,
@@ -811,25 +909,25 @@ pub fn draw_inspector_rows(
             }
         }
         Schema::Boolean => draw_basic_inspector_row(body, ctx, indent_level, |ui, ctx| {
-            draw_inspector_value(ui, ctx);
+            draw_inspector_value_and_action_button(ui, ctx);
         }),
         Schema::I32 => draw_basic_inspector_row(body, ctx, indent_level, |ui, ctx| {
-            draw_inspector_value(ui, ctx);
+            draw_inspector_value_and_action_button(ui, ctx);
         }),
         Schema::I64 => draw_basic_inspector_row(body, ctx, indent_level, |ui, ctx| {
-            draw_inspector_value(ui, ctx);
+            draw_inspector_value_and_action_button(ui, ctx);
         }),
         Schema::U32 => draw_basic_inspector_row(body, ctx, indent_level, |ui, ctx| {
-            draw_inspector_value(ui, ctx);
+            draw_inspector_value_and_action_button(ui, ctx);
         }),
         Schema::U64 => draw_basic_inspector_row(body, ctx, indent_level, |ui, ctx| {
-            draw_inspector_value(ui, ctx);
+            draw_inspector_value_and_action_button(ui, ctx);
         }),
         Schema::F32 => draw_basic_inspector_row(body, ctx, indent_level, |ui, ctx| {
-            draw_inspector_value(ui, ctx);
+            draw_inspector_value_and_action_button(ui, ctx);
         }),
         Schema::F64 => draw_basic_inspector_row(body, ctx, indent_level, |ui, ctx| {
-            draw_inspector_value(ui, ctx);
+            draw_inspector_value_and_action_button(ui, ctx);
         }),
         Schema::Bytes => {
             draw_basic_inspector_row(body, ctx, indent_level, |ui, ctx| {
@@ -837,7 +935,7 @@ pub fn draw_inspector_rows(
             });
         }
         Schema::String => draw_basic_inspector_row(body, ctx, indent_level, |ui, ctx| {
-            draw_inspector_value(ui, ctx);
+            draw_inspector_value_and_action_button(ui, ctx);
         }),
         //TODO: Implement static array
         Schema::StaticArray(_) => {
@@ -880,7 +978,8 @@ pub fn draw_inspector_rows(
                         |ui| {
                             ui.set_enabled(!ctx.read_only);
 
-                            if ui.button("+").clicked() {
+                            ui.allocate_space(ui.style().spacing.item_spacing - egui::vec2(3.0, 3.0));
+                            if ui.button("Add Item").clicked() {
                                 ctx.action_sender
                                     .queue_action(UIAction::AddDynamicArrayOverride(
                                         ctx.asset_id,
@@ -927,17 +1026,17 @@ pub fn draw_inspector_rows(
                             });
                         });
                         row.col(|ui| {
-                            //TODO: Could do basic values in here...
                             if can_use_inline_values {
-                                draw_inspector_value(
+                                let inner_ctx = InspectorContext {
+                                    property_default_display_name: &id_as_string,
+                                    property_path: &field_path,
+                                    schema: schema.item_type(),
+                                    read_only: true,
+                                    ..ctx
+                                };
+                                draw_inspector_value_and_action_button(
                                     ui,
-                                    InspectorContext {
-                                        property_default_display_name: &id_as_string,
-                                        property_path: &field_path,
-                                        schema: schema.item_type(),
-                                        read_only: true,
-                                        ..ctx
-                                    },
+                                    inner_ctx
                                 );
                             }
                         });
@@ -990,14 +1089,15 @@ pub fn draw_inspector_rows(
                         });
                         row.col(|ui| {
                             if can_use_inline_values {
-                                draw_inspector_value(
+                                let inner_ctx = InspectorContext {
+                                    property_default_display_name: &id_as_string,
+                                    property_path: &field_path,
+                                    schema: schema.item_type(),
+                                    ..ctx
+                                };
+                                draw_inspector_value_and_action_button(
                                     ui,
-                                    InspectorContext {
-                                        property_default_display_name: &id_as_string,
-                                        property_path: &field_path,
-                                        schema: schema.item_type(),
-                                        ..ctx
-                                    },
+                                    inner_ctx,
                                 );
                             }
                         });
@@ -1032,7 +1132,7 @@ pub fn draw_inspector_rows(
 
         Schema::AssetRef(_) => {
             draw_basic_inspector_row(body, ctx, indent_level, |ui, ctx| {
-                draw_inspector_value(ui, ctx);
+                draw_inspector_value_and_action_button(ui, ctx);
             });
         }
         // We don't support drawing records as simple values. This function draws into a single cell of a table
@@ -1076,7 +1176,7 @@ pub fn draw_inspector_rows(
                         panic!("An enum schema is referencing a record")
                     }
                     SchemaNamedType::Enum(enum_schema) => {
-                        draw_inspector_value(ui, ctx);
+                        draw_inspector_value_and_action_button(ui, ctx);
                     }
                 }
             });

@@ -49,23 +49,6 @@ impl RecordInspector for Vec3RecordInspector {
             },
         );
     }
-
-    fn draw_inspector_rows(
-        &self,
-        table_body: &mut hydrate::editor::egui_extras::TableBody,
-        ctx: InspectorContext,
-        record: &SchemaRecord,
-        indent_level: u32,
-    ) {
-        table_body.row(20.0, |mut row| {
-            row.col(|mut ui| {
-                draw_indented_label(ui, indent_level, ctx.display_name(), Some("test"));
-            });
-            row.col(|mut ui| {
-                self.draw_inspector_value(ui, ctx);
-            });
-        });
-    }
 }
 
 struct Vec4RecordInspector;
@@ -125,23 +108,6 @@ impl RecordInspector for Vec4RecordInspector {
                 ..ctx
             },
         );
-    }
-
-    fn draw_inspector_rows(
-        &self,
-        table_body: &mut hydrate::editor::egui_extras::TableBody,
-        ctx: InspectorContext,
-        record: &SchemaRecord,
-        indent_level: u32,
-    ) {
-        table_body.row(20.0, |mut row| {
-            row.col(|mut ui| {
-                draw_indented_label(ui, indent_level, ctx.display_name(), Some("test"));
-            });
-            row.col(|mut ui| {
-                self.draw_inspector_value(ui, ctx);
-            });
-        });
     }
 }
 

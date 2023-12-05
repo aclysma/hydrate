@@ -146,7 +146,6 @@ pub enum Schema {
     StaticArray(SchemaStaticArray),
     DynamicArray(SchemaDynamicArray),
     Map(SchemaMap),
-    //RecordRef(SchemaRefConstraint),
     AssetRef(SchemaFingerprint),
     /// Named type, it could be an enum, record, etc.
     Record(SchemaFingerprint),

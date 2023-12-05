@@ -430,8 +430,11 @@ impl AssetJson {
         let named_type = if let Some(named_type) = named_type {
             named_type.clone()
         } else {
+            log::error!("Can't load type {} by fingerprint, trying by name. Schema migration not yet implemented", stored_asset.schema_name);
+            schema_set.find_named_type(stored_asset.schema_name)?.clone()
+
             //Fingerprint doesn't match, this may need to be a data migration in the future
-            panic!("Can't load type {}", stored_asset.schema_name);
+            //panic!("Can't load type {}", stored_asset.schema_name);
         };
 
         let mut properties: HashMap<String, Value> = Default::default();
@@ -466,7 +469,7 @@ impl AssetJson {
             import_info,
             build_info,
             prototype,
-            schema_fingerprint,
+            named_type.fingerprint(),
             properties,
             property_null_overrides,
             properties_in_replace_mode,

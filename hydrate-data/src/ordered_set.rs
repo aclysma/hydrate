@@ -42,6 +42,20 @@ impl<T: Eq + PartialEq + Hash + Clone> OrderedSet<T> {
     }
 
     // Returns true if insert is "successful". Otherwise it's false if it already existed
+    pub fn try_insert_at_position(
+        &mut self,
+        index: usize,
+        value: T,
+    ) -> bool {
+        let is_newly_inserted = self.set.insert(value.clone());
+        if is_newly_inserted {
+            self.vec.insert(index, value);
+        }
+
+        is_newly_inserted
+    }
+
+    // Returns true if insert is "successful". Otherwise it's false if it already existed
     pub fn try_insert_at_end(
         &mut self,
         value: T,

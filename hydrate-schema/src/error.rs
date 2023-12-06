@@ -5,6 +5,8 @@ pub enum DataSetError {
     PathDynamicArrayEntryDoesNotExist,
     UnexpectedEnumSymbol,
     DuplicateAssetId,
+    DuplicateEntryKey,
+    EntryKeyNotFound,
     AssetNotFound,
     ImportDataNotFound,
     SingleObjectDoesNotMatchSchema,

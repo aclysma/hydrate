@@ -1144,6 +1144,38 @@ impl DataSet {
         Ok(new_uuid)
     }
 
+    pub fn insert_dynamic_array_override(
+        &mut self,
+        schema_set: &SchemaSet,
+        asset_id: AssetId,
+        path: impl AsRef<str>,
+        index: usize,
+        entry_uuid: Uuid,
+    ) -> DataSetResult<()> {
+        let asset = self
+            .assets
+            .get_mut(&asset_id)
+            .ok_or(DataSetError::AssetNotFound)?;
+        let property_schema = asset
+            .schema
+            .find_property_schema(&path, schema_set.schemas())
+            .ok_or(DataSetError::SchemaNotFound)?;
+
+        if !property_schema.is_dynamic_array() {
+            return Err(DataSetError::InvalidSchema);
+        }
+
+        let entry = asset
+            .dynamic_array_entries
+            .entry(path.as_ref().to_string())
+            .or_insert(Default::default());
+        if entry.try_insert_at_position(index, entry_uuid) {
+            Ok(())
+        } else {
+            Err(DataSetError::DuplicateEntryKey)
+        }
+    }
+
     pub fn remove_dynamic_array_override(
         &mut self,
         schema_set: &SchemaSet,

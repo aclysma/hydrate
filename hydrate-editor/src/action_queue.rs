@@ -11,6 +11,7 @@ use hydrate_model::{
     EndContextBehavior, NullOverride, PropertyPath, SchemaRecord, Value,
 };
 use std::sync::Arc;
+use uuid::Uuid;
 
 pub enum UIAction {
     TryBeginModalAction(Box<dyn ModalAction>),
@@ -36,6 +37,9 @@ pub enum UIAction {
     ApplyPropertyOverrideToPrototype(AssetId, PropertyPath),
     SetNullOverride(AssetId, PropertyPath, NullOverride),
     AddDynamicArrayOverride(AssetId, PropertyPath),
+    RemoveDynamicArrayOverride(AssetId, PropertyPath, Uuid),
+    MoveDynamicArrayOverrideUp(AssetId, PropertyPath, Uuid),
+    MoveDynamicArrayOverrideDown(AssetId, PropertyPath, Uuid),
 }
 
 impl UIAction {
@@ -287,6 +291,78 @@ impl UIActionQueueReceiver {
                             edit_context
                                 .add_dynamic_array_override(asset_id, property_path.path())
                                 .unwrap();
+                            EndContextBehavior::Finish
+                        },
+                    );
+                }
+                UIAction::RemoveDynamicArrayOverride(asset_id, property_path, entry_uuid) => {
+                    editor_model.root_edit_context_mut().with_undo_context(
+                        "RemoveDynamicArrayOverride",
+                        |edit_context| {
+                                edit_context.remove_dynamic_array_override(
+                                    asset_id,
+                                    property_path.path(),
+                                    entry_uuid
+                                ).unwrap();
+
+                            EndContextBehavior::Finish
+                        },
+                    );
+                },
+                UIAction::MoveDynamicArrayOverrideUp(asset_id, property_path, entry_uuid) => {
+                    editor_model.root_edit_context_mut().with_undo_context(
+                        "MoveDynamicArrayOverrideUp",
+                        |edit_context| {
+                            let mut overrides: Vec<_> = edit_context
+                                .get_dynamic_array_overrides(asset_id, property_path.path()).unwrap().copied().collect();
+                            let current_index = overrides.iter().position(|x| *x == entry_uuid).unwrap();
+                            if current_index > 0 {
+                                let schema_set = edit_context.schema_set().clone();
+                                // Remove
+                                edit_context.remove_dynamic_array_override(
+                                    asset_id,
+                                    property_path.path(),
+                                    entry_uuid
+                                ).unwrap();
+                                // Insert one index higher
+                                edit_context.insert_dynamic_array_override(
+                                    &schema_set,
+                                    asset_id,
+                                    property_path.path(),
+                                    current_index - 1,
+                                    entry_uuid
+                                ).unwrap();
+                            }
+
+                            EndContextBehavior::Finish
+                        },
+                    );
+                },
+                UIAction::MoveDynamicArrayOverrideDown(asset_id, property_path, entry_uuid) => {
+                    editor_model.root_edit_context_mut().with_undo_context(
+                        "MoveDynamicArrayOverrideDown",
+                        |edit_context| {
+                            let mut overrides: Vec<_> = edit_context
+                                .get_dynamic_array_overrides(asset_id, property_path.path()).unwrap().collect();
+                            let current_index = overrides.iter().position(|x| **x == entry_uuid).unwrap();
+                            if current_index < overrides.len() - 1 {
+                                let schema_set = edit_context.schema_set().clone();
+                                // Remove
+                                edit_context.remove_dynamic_array_override(
+                                    asset_id,
+                                    property_path.path(),
+                                    entry_uuid
+                                ).unwrap();
+                                // Re-insert at next index
+                                edit_context.insert_dynamic_array_override(
+                                    &schema_set,
+                                    asset_id,
+                                    property_path.path(),
+                                    current_index + 1,
+                                    entry_uuid
+                                ).unwrap();
+                            }
+
                             EndContextBehavior::Finish
                         },
                     );

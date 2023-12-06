@@ -1014,11 +1014,11 @@ pub fn draw_inspector_rows(
                 can_draw_as_single_value(schema.item_type(), ctx.inspector_registry);
 
             if is_visible {
-                let mut override_index = 0;
+                let mut entry_index = 0;
                 for id in &resolved[0..(resolved.len() - overrides.len())] {
                     let id_as_string = id.to_string();
                     let field_path = ctx.property_path.push(&id_as_string);
-                    let label = format!("[{}] (inherited)", override_index);
+                    let label = format!("[{}] (inherited)", entry_index);
 
                     let mut is_override_visible = false;
                     body.row(20.0, |mut row| {
@@ -1067,27 +1067,23 @@ pub fn draw_inspector_rows(
                         );
                     }
 
-                    override_index += 1;
+                    entry_index += 1;
                 }
-
-                for id in overrides {
-                    let id_as_string = id.to_string();
-                    let field_path = ctx.property_path.push(&id_as_string);
-                    let label = format!("[{}]", override_index);
+                let overrides_len = overrides.len();
+                for (override_index, entry_uuid) in overrides.into_iter().enumerate() {
+                    let entry_uuid_as_string = entry_uuid.to_string();
+                    let field_path = ctx.property_path.push(&entry_uuid_as_string);
+                    let label = format!("[{}]", entry_index);
 
                     let mut is_override_visible = false;
                     body.row(20.0, |mut row| {
                         row.col(|ui| {
-                            ui.push_id(format!("{} inspector_label_column", id), |ui| {
+                            ui.push_id(format!("{} inspector_label_column", entry_uuid), |ui| {
                                 let mut left_child_ui = create_clipped_left_child_ui_for_right_aligned_controls(ui, 100.0);
 
-                                for i in 0..(indent_level + 1) {
+                                for _ in 0..(indent_level + 1) {
                                     crate::ui::add_indent_spacing(&mut left_child_ui);
                                 }
-                                // Up button?
-                                // Down button?
-                                // Delete button?
-
 
                                 if can_use_inline_values {
                                     crate::ui::add_icon_spacing(&mut left_child_ui);
@@ -1101,15 +1097,38 @@ pub fn draw_inspector_rows(
                                 // up arrow/down arrow/delete buttons
                                 right_child_ui.style_mut().text_styles.insert(egui::TextStyle::Button, egui::FontId::new(12.0, FontFamily::Monospace));
                                 right_child_ui.allocate_space(egui::vec2(0.0, 0.0));
-                                egui::Button::new("↑").min_size(egui::vec2(20.0, 0.0)).ui(&mut right_child_ui);
-                                egui::Button::new("↓").min_size(egui::vec2(20.0, 0.0)).ui(&mut right_child_ui);
-                                egui::Button::new("⊘").min_size(egui::vec2(20.0, 0.0)).ui(&mut right_child_ui);
+
+                                let can_move_up = override_index > 0;
+                                if right_child_ui.add_visible(can_move_up, egui::Button::new("↑").min_size(egui::vec2(20.0, 0.0))).clicked() {
+                                    ctx.action_sender.queue_action(UIAction::MoveDynamicArrayOverrideUp(
+                                        ctx.asset_id,
+                                        ctx.property_path.clone(),
+                                        *entry_uuid
+                                    ));
+                                }
+
+                                let can_move_down = override_index < overrides_len - 1;
+                                if right_child_ui.add_visible(can_move_down, egui::Button::new("↓").min_size(egui::vec2(20.0, 0.0))).clicked() {
+                                    ctx.action_sender.queue_action(UIAction::MoveDynamicArrayOverrideDown(
+                                        ctx.asset_id,
+                                        ctx.property_path.clone(),
+                                        *entry_uuid
+                                    ));
+                                }
+
+                                if egui::Button::new("⊘").min_size(egui::vec2(20.0, 0.0)).ui(&mut right_child_ui).clicked() {
+                                    ctx.action_sender.queue_action(UIAction::RemoveDynamicArrayOverride(
+                                        ctx.asset_id,
+                                        ctx.property_path.clone(),
+                                        *entry_uuid
+                                    ));
+                                }
                             });
                         });
                         row.col(|ui| {
                             if can_use_inline_values {
                                 let inner_ctx = InspectorContext {
-                                    property_default_display_name: &id_as_string,
+                                    property_default_display_name: &entry_uuid_as_string,
                                     property_path: &field_path,
                                     schema: schema.item_type(),
                                     ..ctx
@@ -1126,7 +1145,7 @@ pub fn draw_inspector_rows(
                         draw_inspector_rows(
                             body,
                             InspectorContext {
-                                property_default_display_name: &id_as_string,
+                                property_default_display_name: &entry_uuid_as_string,
                                 property_path: &field_path,
                                 schema: schema.item_type(),
                                 ..ctx
@@ -1135,7 +1154,7 @@ pub fn draw_inspector_rows(
                         );
                     }
 
-                    override_index += 1;
+                    entry_index += 1;
                 }
             }
         }

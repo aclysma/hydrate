@@ -679,6 +679,19 @@ impl EditContext {
             .add_dynamic_array_override(&self.schema_set, asset_id, path)
     }
 
+    pub fn insert_dynamic_array_override(
+        &mut self,
+        schema_set: &SchemaSet,
+        asset_id: AssetId,
+        path: impl AsRef<str>,
+        index: usize,
+        entry_uuid: Uuid,
+    ) -> DataSetResult<()> {
+        self.track_existing_asset(asset_id)?;
+        self.data_set
+            .insert_dynamic_array_override(&self.schema_set, asset_id, path, index, entry_uuid)
+    }
+
     pub fn remove_dynamic_array_override(
         &mut self,
         asset_id: AssetId,

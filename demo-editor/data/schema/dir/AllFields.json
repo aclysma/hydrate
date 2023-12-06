@@ -91,7 +91,8 @@
         "clamp_min": -5,
         "ui_min": 0,
         "clamp_max": 5,
-        "ui_max": 3
+        "ui_max": 3,
+        "description": "This is some long descriptive text about the f32 example that can clamp values to [-5, 5]. However the slider still clamps at [0, 3]"
       },
       {
         "name": "f64",
@@ -115,7 +116,8 @@
         "clamp_min": -5,
         "ui_min": 0,
         "clamp_max": 5,
-        "ui_max": 3
+        "ui_max": 3,
+        "description": "This is some long descriptive text about the dynamic array i32 example that can clamp values to [-5, 5]"
       },
       {
         "name": "dynamic_array_vec3",

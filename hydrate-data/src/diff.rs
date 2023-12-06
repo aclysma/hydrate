@@ -1,15 +1,12 @@
 use crate::value::PropertyValue;
-use crate::{
-    AssetId, AssetLocation, AssetName, DataSet, DataSetAssetInfo, DataSetResult, HashSet,
-    NullOverride, PathReference, SchemaSet,
-};
+use crate::{AssetId, AssetLocation, AssetName, DataSet, DataSetAssetInfo, DataSetResult, HashSet, NullOverride, OrderedSet, PathReference, SchemaSet};
 use uuid::Uuid;
 
 #[derive(Debug)]
 pub struct DynamicArrayEntryDelta {
     key: String,
-    add: Vec<Uuid>,
-    remove: Vec<Uuid>,
+    // was previous add/remove, but order is important and this didn't maintain order
+    entries: OrderedSet<Uuid>,
 }
 
 #[derive(Default, Debug)]
@@ -85,41 +82,15 @@ impl AssetDiff {
         }
 
         for delta in &self.dynamic_array_entry_deltas {
-            if !delta.add.is_empty() {
-                //
-                // Path where we add keys: We may need to create the entry in the map. Won't need to remove it
-                //
-                let existing_entries = if let Some(existing_entries) =
-                    asset.dynamic_array_entries.get_mut(&delta.key)
-                {
-                    existing_entries
-                } else {
-                    asset
-                        .dynamic_array_entries
-                        .entry(delta.key.clone())
-                        .or_default()
-                };
-
-                for k in &delta.add {
-                    existing_entries.try_insert_at_end(*k);
-                }
-
-                for k in &delta.remove {
-                    existing_entries.remove(k);
-                }
-            } else if !delta.remove.is_empty() {
-                //
-                // Path where we don't add keys but we remove keys: We may need to delete the entry in the map. Won't need to add it
-                //
-                if let Some(existing_entries) = asset.dynamic_array_entries.get_mut(&delta.key) {
-                    for k in &delta.remove {
-                        existing_entries.remove(k);
-                    }
-
-                    if existing_entries.is_empty() {
-                        asset.dynamic_array_entries.remove(&delta.key);
-                    }
-                }
+            if delta.entries.is_empty() {
+                // No entries, just remove the key from the dynamic_array_entries entirely
+                asset.dynamic_array_entries.remove(&delta.key);
+            } else {
+                // We have entries, get or create the key, then stomp the value
+                *asset
+                    .dynamic_array_entries
+                    .entry(delta.key.clone())
+                    .or_default() = delta.entries.clone();
             }
         }
 
@@ -287,82 +258,24 @@ impl AssetDiffSet {
         }
 
         //
-        // Dynamic Array Entries
+        // Dynamic Array Entries. THe "key" in this context is a property path.
+        // We do a heavyweight clone so that we can maintain ordering of elements
         //
-        for (key, old_entries) in &before_obj.dynamic_array_entries {
-            if let Some(new_entries) = after_obj.dynamic_array_entries.get(key) {
-                // Diff the hashes
-                let mut added_entries = Vec::default();
-                let mut removed_entries = Vec::default();
-
-                for old_entry in old_entries {
-                    if !new_entries.contains(&old_entry) {
-                        removed_entries.push(*old_entry);
-                    }
-                }
-
-                for new_entry in new_entries {
-                    if !old_entries.contains(&new_entry) {
-                        added_entries.push(*new_entry);
-                    }
-                }
-
-                if !added_entries.is_empty() || !removed_entries.is_empty() {
-                    apply_diff
-                        .dynamic_array_entry_deltas
-                        .push(DynamicArrayEntryDelta {
-                            key: key.clone(),
-                            add: added_entries.clone(),
-                            remove: removed_entries.clone(),
-                        });
-                    revert_diff
-                        .dynamic_array_entry_deltas
-                        .push(DynamicArrayEntryDelta {
-                            key: key.clone(),
-                            add: removed_entries,
-                            remove: added_entries,
-                        });
-                }
-            } else {
-                if !old_entries.is_empty() {
-                    // All of them were removed
-                    apply_diff
-                        .dynamic_array_entry_deltas
-                        .push(DynamicArrayEntryDelta {
-                            key: key.clone(),
-                            add: Default::default(),
-                            remove: old_entries.iter().copied().collect(),
-                        });
-                    revert_diff
-                        .dynamic_array_entry_deltas
-                        .push(DynamicArrayEntryDelta {
-                            key: key.clone(),
-                            add: old_entries.iter().copied().collect(),
-                            remove: Default::default(),
-                        });
-                }
-            }
+        let mut all_dynamic_entry_keys = HashSet::default();
+        for key in before_obj.dynamic_array_entries().keys() {
+            all_dynamic_entry_keys.insert(key);
         }
+        for key in after_obj.dynamic_array_entries().keys() {
+            all_dynamic_entry_keys.insert(key);
+        }
+        for key in all_dynamic_entry_keys {
+            let empty_set = OrderedSet::<Uuid>::default();
+            let old = before_obj.dynamic_array_entries.get(key).unwrap_or(&empty_set);
+            let new = after_obj.dynamic_array_entries.get(key).unwrap_or(&empty_set);
 
-        for (key, new_entries) in &after_obj.dynamic_array_entries {
-            if !new_entries.is_empty() {
-                if !before_obj.dynamic_array_entries.contains_key(key) {
-                    // All of them were added
-                    apply_diff
-                        .dynamic_array_entry_deltas
-                        .push(DynamicArrayEntryDelta {
-                            key: key.clone(),
-                            add: new_entries.iter().copied().collect(),
-                            remove: Default::default(),
-                        });
-                    revert_diff
-                        .dynamic_array_entry_deltas
-                        .push(DynamicArrayEntryDelta {
-                            key: key.clone(),
-                            add: Default::default(),
-                            remove: new_entries.iter().copied().collect(),
-                        });
-                }
+            if old != new {
+                apply_diff.dynamic_array_entry_deltas.push(DynamicArrayEntryDelta { key: key.clone(), entries: new.clone() });
+                revert_diff.dynamic_array_entry_deltas.push(DynamicArrayEntryDelta { key: key.clone(), entries: old.clone() });
             }
         }
 

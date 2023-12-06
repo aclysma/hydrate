@@ -8,6 +8,12 @@ pub struct OrderedSet<T: Eq + PartialEq + Hash + Clone> {
     set: HashSet<T>,
 }
 
+impl<T: Eq + PartialEq + Hash + Clone> PartialEq for OrderedSet<T> {
+    fn eq(&self, other: &Self) -> bool {
+        self.vec == other.vec
+    }
+}
+
 impl<'a, T: Eq + PartialEq + Hash + Clone> IntoIterator for &'a OrderedSet<T> {
     type Item = &'a T;
     type IntoIter = std::slice::Iter<'a, T>;

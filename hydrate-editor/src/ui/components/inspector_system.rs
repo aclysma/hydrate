@@ -116,8 +116,16 @@ pub fn show_property_action_button(
     ui: &mut egui::Ui,
 ) {
     let mut rhs_button_rect = ui.clip_rect();
-    rhs_button_rect.min.x = f32::max(rhs_button_rect.min.x, rhs_button_rect.max.x - 30.0);
+    rhs_button_rect.min.x = f32::max(rhs_button_rect.min.x, rhs_button_rect.max.x - 45.0);
     ui.allocate_ui_at_rect(rhs_button_rect.shrink(2.0), |ui| {
+        let description = if let Some(description) = &ctx.field_markup.description {
+            description.as_str()
+        } else {
+            ""
+        };
+
+        ui.add_visible(!description.is_empty(), egui::Label::new("?")).on_hover_text(description);
+
         ui.menu_button("...", |ui| {
             show_property_action_menu(ctx, ui);
         });
@@ -145,7 +153,7 @@ pub fn draw_widgets_with_action_button<F: FnOnce(&mut egui::Ui, InspectorContext
     ctx: InspectorContext,
     f: F
 ) {
-    let mut child_ui = create_clipped_left_child_ui_for_right_aligned_controls(ui, 30.0);
+    let mut child_ui = create_clipped_left_child_ui_for_right_aligned_controls(ui, 45.0);
     child_ui.allocate_space(ui.style().spacing.item_spacing);
     f(&mut child_ui, ctx);
     show_property_action_button(ctx, ui);
@@ -790,7 +798,6 @@ pub fn draw_inspector_value(
                     match record {
                         SchemaNamedType::Record(record) => {
                             inspector_impl.draw_inspector_value(ui, ctx);
-                            //show_property_action_button(ctx, ui);
                         }
                         _ => {
                             ui.label(

@@ -17,6 +17,7 @@
     "type": "record",
     "name": "AllFields",
     "tags": ["asset"],
+    "display_name": "All Fields Test Object",
     "fields": [
       {
         "name": "reference",

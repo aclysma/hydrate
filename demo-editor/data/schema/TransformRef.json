@@ -3,6 +3,7 @@
     "type": "record",
     "name": "TransformRef",
     "tags": ["asset"],
+    "display_name": "Transform Ref",
     "fields": [
       {
         "name": "transform",

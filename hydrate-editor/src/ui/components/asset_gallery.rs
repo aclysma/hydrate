@@ -320,7 +320,8 @@ fn draw_asset_gallery_list(
                         );
                     });
                     row.col(|ui| {
-                        ui.label(asset_info.schema().name());
+                        let schema_display_name = asset_info.schema().markup().display_name.as_deref().unwrap_or(asset_info.schema().name());
+                        ui.label(schema_display_name);
                     });
                     row.col(|ui| {
                         ui.label(long_name.as_str());

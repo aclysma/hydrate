@@ -77,13 +77,13 @@ impl Importer for GltfImporter {
                 //
                 // Create import data
                 //
-                let import_data = GpuImageAssetRecord::new_builder(context.schema_set);
+                let import_data = GpuImageImportedDataRecord::new_builder(context.schema_set);
                 // omitted for brevity
 
                 //
                 // Create the default asset
                 //
-                let asset_data = GpuImageImportedDataRecord::new_builder(context.schema_set);
+                let asset_data = GpuImageAssetRecord::new_builder(context.schema_set);
                 //omitted for brevity
 
                 image_index_to_object_id.insert(image.index(), importable_object);

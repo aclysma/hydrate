@@ -49,23 +49,34 @@ pub fn schema_record_selector(
     let search: Vec<_> = schema_set
         .schemas()
         .values()
+        .filter_map(|x| x.try_as_record())
         .filter(|x| {
-            if let Some(record) = x.try_as_record() {
-                record.markup().tags.contains("asset") && !record.markup().tags.contains("has_import_data")
-            } else {
-                false
-            }
+            x.markup().tags.contains("asset") && !x.markup().tags.contains("has_import_data")
         })
-        .map(|x| x.name())
+        .map(|x| x.markup().display_name.as_deref().unwrap_or(x.name()))
         .collect();
     let response = ui.add(egui_autocomplete::AutoCompleteTextEdit::new(
         schema_name,
         search,
     ));
-    let record = schema_set
-        .try_find_named_type(schema_name)
-        .map(|x| x.try_as_record())
-        .flatten()
-        .cloned();
-    egui::InnerResponse::new(record, response)
+
+    let mut find_by_name = None;
+    let mut find_by_display_name = None;
+    for (_, named_type) in schema_set.schemas() {
+        if let Some(record_type) = named_type.try_as_record() {
+            if named_type.name().to_lowercase() == schema_name.to_lowercase() {
+                find_by_name = Some(record_type.clone());
+                break;
+            }
+
+            if let Some(display_name) = &record_type.markup().display_name {
+                if display_name.to_lowercase() == schema_name.to_lowercase() {
+                    find_by_display_name = Some(record_type.clone());
+                    break;
+                }
+            }
+        }
+    }
+
+    egui::InnerResponse::new(find_by_name.or(find_by_display_name), response)
 }

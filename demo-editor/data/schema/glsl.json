@@ -13,6 +13,7 @@
     "type": "record",
     "name": "GlslSourceFileAsset",
     "tags": ["asset", "has_import_data"],
+    "display_name": "GLSL Source File",
     "fields": [
 
     ]
@@ -21,6 +22,7 @@
     "type": "record",
     "name": "GlslBuildTargetAsset",
     "tags": ["asset"],
+    "display_name": "GLSL Build Target",
     "fields": [
       {
         "name": "entry_point",

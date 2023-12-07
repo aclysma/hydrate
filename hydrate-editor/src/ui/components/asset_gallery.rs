@@ -258,12 +258,12 @@ fn draw_asset_gallery_list(
         .column(
             egui_extras::Column::initial(200.0)
                 .at_least(40.0)
-                .clip(true),
+                .clip(true)
         )
         .column(
             egui_extras::Column::initial(100.0)
                 .at_least(40.0)
-                .clip(true),
+                .clip(true)
         )
         .column(egui_extras::Column::remainder());
 

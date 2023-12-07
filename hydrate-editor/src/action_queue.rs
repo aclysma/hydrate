@@ -6,10 +6,7 @@ use crossbeam_channel::{Receiver, Sender};
 use hydrate_model::edit_context::EditContext;
 use hydrate_model::pipeline::import_util::ImportToQueue;
 use hydrate_model::pipeline::AssetEngine;
-use hydrate_model::{
-    AssetId, AssetLocation, AssetName, DataSetError, DataSetResult, EditorModel,
-    EndContextBehavior, NullOverride, PropertyPath, SchemaRecord, Value,
-};
+use hydrate_model::{AssetId, AssetLocation, AssetName, DataSetError, DataSetResult, EditorModel, EndContextBehavior, NullOverride, OverrideBehavior, PropertyPath, Schema, SchemaRecord, Value};
 use std::sync::Arc;
 use uuid::Uuid;
 
@@ -41,6 +38,11 @@ pub enum UIAction {
     RemoveDynamicArrayOverride(AssetId, PropertyPath, Uuid),
     MoveDynamicArrayOverrideUp(AssetId, PropertyPath, Uuid),
     MoveDynamicArrayOverrideDown(AssetId, PropertyPath, Uuid),
+    //ClearStaticArrayOverride(AssetId, PropertyPath, usize),
+    MoveStaticArrayOverrideUp(AssetId, PropertyPath, usize),
+    MoveStaticArrayOverrideDown(AssetId, PropertyPath, usize),
+    OverrideWithDefault(AssetId, PropertyPath),
+    SetOverrideBehavior(AssetId, PropertyPath, OverrideBehavior),
 }
 
 impl UIAction {
@@ -371,6 +373,53 @@ impl UIActionQueueReceiver {
                         },
                     );
                 }
+                // UIAction::ClearStaticArrayOverride(asset_id, property_path, entry_index) => {
+                //
+                // }
+                UIAction::MoveStaticArrayOverrideUp(asset_id, property_path, entry_index) => {}
+                UIAction::MoveStaticArrayOverrideDown(asset_id, property_path, entry_index) => {}
+                UIAction::OverrideWithDefault(asset_id, property_path) => {
+                    editor_model.root_edit_context_mut().with_undo_context(
+                        "OverrideWithDefault",
+                        |edit_context| {
+
+                            //let schema = edit_context.asset_schema(asset_id).unwrap().clone();
+
+                            let schema = edit_context.asset_schema(asset_id).unwrap()
+                                .find_property_schema(property_path.path(), edit_context.schema_set().schemas()).unwrap();
+                            println!("find schema {:?} for property {:?}", schema, property_path.path());
+                            override_with_default_values_recursively(asset_id, property_path, schema, edit_context);
+
+                            //let schema_set = edit_context.schema_set().clone();
+                            // let schema = edit_context.asset_schema(asset_id).unwrap().clone();
+                            // for field in schema.fields() {
+                            //     let field_name = property_path.push(field.name());
+                            //     let field_schema = schema.field_schema(field).unwrap();
+                            //     match schema {
+                            //
+                            //     }
+                            // }
+
+
+                            // Value::default_for_schema(&property_schema, schema_set);
+                            // edit_context.set_property_override(asset_id, path, schema_set.)
+
+                            EndContextBehavior::Finish
+                        },
+                    );
+                }
+                UIAction::SetOverrideBehavior(asset_id, property_path, override_behavior) => {
+                    editor_model.root_edit_context_mut().with_undo_context(
+                        "SetOverrideBehavior",
+                        |edit_context| {
+                            let schema = edit_context.asset_schema(asset_id).unwrap()
+                                .find_property_schema(property_path.path(), edit_context.schema_set().schemas()).unwrap();
+                            println!("find schema {:?} for property {:?}", schema, property_path.path());
+                            override_with_default_values_recursively(asset_id, property_path, schema, edit_context);
+                            EndContextBehavior::Finish
+                        },
+                    );
+                }
             }
         }
 
@@ -381,6 +430,36 @@ impl UIActionQueueReceiver {
                 import_to_queue.source_file_path,
                 import_to_queue.import_type,
             );
+        }
+    }
+}
+
+fn override_with_default_values_recursively(asset_id: AssetId, property_path: PropertyPath, schema: Schema, edit_context: &mut EditContext) {
+    println!("{} {:?} set to default", property_path.path(), schema);
+    match schema {
+        Schema::Boolean | Schema::I32 | Schema::I64 | Schema::U32 | Schema::U64 | Schema::F32 | Schema::F64 |
+        Schema::Bytes | Schema::String | Schema::AssetRef(_) | Schema::Enum(_) => {
+            println!("set path {:?} {:?}", property_path.path(), schema);
+            edit_context.set_property_override(asset_id, property_path.path(), Some(
+                Value::default_for_schema(&schema, edit_context.schema_set()).clone()
+            )).unwrap();
+        }
+        Schema::Nullable(_) => {
+            edit_context.set_null_override(asset_id, property_path.path(), NullOverride::SetNull).unwrap();
+        }
+        Schema::StaticArray(_) => {}
+        Schema::DynamicArray(_) => {
+            edit_context.set_override_behavior(asset_id, property_path.path(), OverrideBehavior::Replace).unwrap();
+        }
+        Schema::Map(_) => {}
+        Schema::Record(record_schema) => {
+            let record_schema = edit_context.schema_set().find_named_type_by_fingerprint(record_schema).unwrap().as_record().unwrap().clone();
+            println!("iterate fields of {:?} {:?}", record_schema, record_schema.fields());
+            for field in record_schema.fields() {
+                let field_path = property_path.push(field.name());
+                let field_schema = record_schema.field_schema(field.name()).unwrap();
+                override_with_default_values_recursively(asset_id, field_path, field_schema.clone(), edit_context);
+            }
         }
     }
 }

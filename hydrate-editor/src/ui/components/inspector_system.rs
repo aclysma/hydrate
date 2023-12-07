@@ -5,7 +5,7 @@ use crate::ui_state::EditorModelUiState;
 use eframe::epaint::Color32;
 use egui::{FontFamily, FontId, Response, Widget, WidgetText};
 use hydrate_model::value::ValueEnum;
-use hydrate_model::{AssetId, EditorModel, EndContextBehavior, HashMap, HashSet, NullOverride, PropertyPath, Record, Schema, SchemaDefRecordFieldMarkup, SchemaFingerprint, SchemaNamedType, SchemaRecord, SchemaSet, Value};
+use hydrate_model::{AssetId, EditorModel, EndContextBehavior, HashMap, HashSet, NullOverride, OverrideBehavior, PropertyPath, Record, Schema, SchemaDefRecordFieldMarkup, SchemaFingerprint, SchemaNamedType, SchemaRecord, SchemaSet, Value};
 use std::sync::Arc;
 
 pub fn show_property_action_menu(
@@ -53,6 +53,21 @@ pub fn show_property_action_menu(
 
             if ui
                 .add_enabled(
+                    !ctx.read_only,
+                    egui::Button::new("Override With Default"),
+                )
+                .clicked()
+            {
+                ctx.action_sender
+                    .queue_action(UIAction::OverrideWithDefault(
+                        asset_id,
+                        ctx.property_path.clone(),
+                    ));
+                ui.close_menu();
+            }
+
+            if ui
+                .add_enabled(
                     has_prototype && !ctx.read_only,
                     egui::Button::new("Apply Override"),
                 )
@@ -89,6 +104,22 @@ pub fn show_property_action_menu(
                     None,
                     EndContextBehavior::Finish,
                 ));
+                ui.close_menu();
+            }
+
+            if ui
+                .add_enabled(
+                    !ctx.read_only,
+                    egui::Button::new("Override With Default"),
+                )
+                .clicked()
+            {
+                ctx.action_sender
+                    .queue_action(UIAction::SetOverrideBehavior(
+                        asset_id,
+                        ctx.property_path.clone(),
+                        OverrideBehavior::Append
+                    ));
                 ui.close_menu();
             }
 
@@ -956,13 +987,115 @@ pub fn draw_inspector_rows(
             draw_inspector_value_and_action_button(ui, ctx);
         }),
         //TODO: Implement static array
-        Schema::StaticArray(_) => {
-            draw_basic_inspector_row(body, ctx, indent_level, |ui, ctx| {
-                ui.label(format!(
-                    "unimplemented {:?} {}",
-                    ctx.schema, ctx.property_default_display_name
-                ));
+        Schema::StaticArray(schema) => {
+            let mut is_visible = false;
+
+            body.row(20.0, |mut row| {
+                row.col(|ui| {
+                    ui.push_id(
+                        format!("{} inspector_label_column", ctx.property_path.path()),
+                        |ui| {
+                            is_visible = draw_indented_collapsible_label(ui, indent_level, ctx.display_name());
+                        },
+                    );
+                });
+                row.col(|ui| {
+                    ui.push_id(
+                        format!("{} inspector_value_column", ctx.property_path.path()),
+                        |ui| {
+                            ui.set_enabled(!ctx.read_only);
+
+                            //ui.allocate_space(ui.style().spacing.item_spacing - egui::vec2(3.0, 3.0));
+                            // anything for UI goes after allocating this space
+                        },
+                    );
+                });
             });
+
+            let can_use_inline_values =
+               can_draw_as_single_value(schema.item_type(), ctx.inspector_registry);
+
+            if is_visible {
+                for entry_index in 0..schema.length() {
+                    let entry_index_as_string = entry_index.to_string();
+                    let field_path = ctx.property_path.push(&entry_index_as_string);
+                    let label = format!("[{}]", entry_index_as_string);
+
+                    let mut is_override_visible = false;
+                    body.row(20.0, |mut row| {
+                        row.col(|ui| {
+                            ui.push_id(format!("{} inspector_label_column", entry_index_as_string), |ui| {
+                                let mut left_child_ui = create_clipped_left_child_ui_for_right_aligned_controls(ui, 100.0);
+
+                                if can_use_inline_values {
+                                    draw_indented_label(&mut left_child_ui, indent_level + 1, label);
+                                } else {
+                                    is_override_visible = draw_indented_collapsible_label(&mut left_child_ui, indent_level + 1, label);
+                                }
+
+                                let mut right_child_ui = create_clipped_right_child_ui_for_right_aligned_controls(ui, 100.0);
+
+                                // up arrow/down arrow/delete buttons
+                                right_child_ui.style_mut().text_styles.insert(egui::TextStyle::Button, egui::FontId::new(12.0, FontFamily::Monospace));
+                                right_child_ui.allocate_space(egui::vec2(0.0, 0.0));
+
+                                let can_move_up = entry_index > 0;
+                                if right_child_ui.add_visible(can_move_up, egui::Button::new("↑").min_size(egui::vec2(20.0, 0.0))).clicked() {
+                                    ctx.action_sender.queue_action(UIAction::MoveStaticArrayOverrideUp(
+                                        ctx.asset_id,
+                                        ctx.property_path.clone(),
+                                        entry_index
+                                    ));
+                                }
+
+                                let can_move_down = entry_index < schema.length() - 1;
+                                if right_child_ui.add_visible(can_move_down, egui::Button::new("↓").min_size(egui::vec2(20.0, 0.0))).clicked() {
+                                    ctx.action_sender.queue_action(UIAction::MoveStaticArrayOverrideDown(
+                                        ctx.asset_id,
+                                        ctx.property_path.clone(),
+                                        entry_index
+                                    ));
+                                }
+
+                                // if egui::Button::new("⊘").min_size(egui::vec2(20.0, 0.0)).ui(&mut right_child_ui).clicked() {
+                                //     ctx.action_sender.queue_action(UIAction::RemoveStaticArrayOverride(
+                                //         ctx.asset_id,
+                                //         ctx.property_path.clone(),
+                                //         entry_index
+                                //     ));
+                                // }
+                            });
+                        });
+                        row.col(|ui| {
+                            if can_use_inline_values {
+                                let inner_ctx = InspectorContext {
+                                    property_default_display_name: &entry_index_as_string,
+                                    property_path: &field_path,
+                                    schema: schema.item_type(),
+                                    ..ctx
+                                };
+                                draw_inspector_value_and_action_button(
+                                    ui,
+                                    inner_ctx,
+                                );
+                            }
+                        });
+                    });
+
+                    if !can_use_inline_values && is_override_visible {
+                        draw_inspector_rows(
+                            body,
+                            InspectorContext {
+                                property_default_display_name: &entry_index_as_string,
+                                property_path: &field_path,
+                                schema: schema.item_type(),
+                                ..ctx
+                            },
+                            indent_level + 2,
+                        );
+                    }
+                }
+            }
         }
         Schema::DynamicArray(schema) => {
             let resolved = ctx
@@ -982,11 +1115,7 @@ pub fn draw_inspector_rows(
                     ui.push_id(
                         format!("{} inspector_label_column", ctx.property_path.path()),
                         |ui| {
-                            for i in 0..indent_level {
-                                crate::ui::add_indent_spacing(ui);
-                            }
-
-                            is_visible = add_empty_collapsing_header(ui, ctx.display_name())
+                            is_visible = draw_indented_collapsible_label(ui, indent_level, ctx.display_name())
                         },
                     );
                 });
@@ -1004,14 +1133,6 @@ pub fn draw_inspector_rows(
                                         ctx.property_path.clone(),
                                     ));
                             }
-
-                            // if overrides.is_empty() {
-                            //     ui.style_mut().visuals.override_text_color = Some(Color32::from_gray(150));
-                            // } else {
-                            //     ui.style_mut().visuals.override_text_color = Some(Color32::from_gray(255));
-                            // }
-
-                            // button to add elements?
                         },
                     );
                 });
@@ -1031,15 +1152,10 @@ pub fn draw_inspector_rows(
                     body.row(20.0, |mut row| {
                         row.col(|ui| {
                             ui.push_id(format!("{} inspector_label_column", id), |ui| {
-                                for i in 0..(indent_level + 1) {
-                                    crate::ui::add_indent_spacing(ui);
-                                }
-
                                 if can_use_inline_values {
-                                    crate::ui::add_icon_spacing(ui);
-                                    ui.label(label);
+                                    draw_indented_label(ui, indent_level + 1, label);
                                 } else {
-                                    is_override_visible = add_empty_collapsing_header(ui, label)
+                                    is_override_visible = draw_indented_collapsible_label(ui, indent_level + 1, label);
                                 }
                             });
                         });
@@ -1088,15 +1204,10 @@ pub fn draw_inspector_rows(
                             ui.push_id(format!("{} inspector_label_column", entry_uuid), |ui| {
                                 let mut left_child_ui = create_clipped_left_child_ui_for_right_aligned_controls(ui, 100.0);
 
-                                for _ in 0..(indent_level + 1) {
-                                    crate::ui::add_indent_spacing(&mut left_child_ui);
-                                }
-
                                 if can_use_inline_values {
-                                    crate::ui::add_icon_spacing(&mut left_child_ui);
-                                    left_child_ui.label(label);
+                                    draw_indented_label(&mut left_child_ui, indent_level + 1, label);
                                 } else {
-                                    is_override_visible = add_empty_collapsing_header(&mut left_child_ui, label)
+                                    is_override_visible = draw_indented_collapsible_label(&mut left_child_ui, indent_level + 1, label);
                                 }
 
                                 let mut right_child_ui = create_clipped_right_child_ui_for_right_aligned_controls(ui, 100.0);

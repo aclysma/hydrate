@@ -257,9 +257,11 @@ impl Value {
             Value::String(_) => schema.is_string(),
             Value::StaticArray(inner_values) => match schema {
                 Schema::StaticArray(inner_schema) => {
-                    if inner_schema.length() != inner_values.len() {
-                        return false;
-                    }
+                    // We can be lazy about having the correct number of values in the Vec, which allows for an empty
+                    // static array to be represented by an empty vec
+                    // if inner_schema.length() != inner_values.len() {
+                    //     return false;
+                    // }
 
                     for value in inner_values {
                         if !value.matches_schema(&*inner_schema.item_type(), named_types) {

@@ -51,7 +51,30 @@ fn parse_json_schema_type_ref(
         "bytes" => SchemaDefType::Bytes,
         "string" => SchemaDefType::String,
         "static_array" => {
-            unimplemented!()
+            let inner_type = json_value.get("inner_type").ok_or_else(|| {
+                SchemaDefParserError::String(format!(
+                    "{}All static_array types must has an inner_type",
+                    error_prefix
+                ))
+            })?;
+            let inner_type = parse_json_schema_type_ref(inner_type, error_prefix)?;
+
+            let length = json_value.get("length").ok_or_else(|| {
+                SchemaDefParserError::String(format!(
+                    "{}All static_array types must has a length with a non-negative whole number",
+                    error_prefix
+                ))
+            })?.as_u64().ok_or_else(|| {
+                SchemaDefParserError::String(format!(
+                    "{}All static_array types must has a length with a non-negative whole number",
+                    error_prefix
+                ))
+            })?;
+
+            SchemaDefType::StaticArray(SchemaDefStaticArray {
+                item_type: Box::new(inner_type),
+                length: length as usize
+            })
         }
         "dynamic_array" => {
             let inner_type = json_value.get("inner_type").ok_or_else(|| {

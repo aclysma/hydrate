@@ -6,7 +6,7 @@ pub use db_state::DbState;
 
 mod persistent_app_state;
 
-mod action_queue;
+pub mod action_queue;
 
 mod egui_debug_ui;
 mod modal_action;

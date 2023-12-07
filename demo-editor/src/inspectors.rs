@@ -1,7 +1,8 @@
 use demo_plugins::generated::*;
+use hydrate::editor::action_queue::UIAction;
 use hydrate::editor::egui::Ui;
 use hydrate::editor::inspector_system::*;
-use hydrate::model::{Record, Schema, SchemaDefRecordFieldMarkup, SchemaRecord, SchemaSet};
+use hydrate::model::{DataContainerRefMut, EndContextBehavior, Record, Schema, SchemaDefRecordFieldMarkup, SchemaRecord, SchemaSet, Value};
 
 struct Vec3RecordInspector;
 
@@ -111,9 +112,91 @@ impl RecordInspector for Vec4RecordInspector {
     }
 }
 
+
+struct ColorRgbaRecordInspector;
+
+impl RecordInspector for ColorRgbaRecordInspector {
+    fn can_draw_as_single_value(&self) -> bool {
+        true
+    }
+
+    fn draw_inspector_value(
+        &self,
+        ui: &mut Ui,
+        ctx: InspectorContext,
+    ) {
+        //
+        // Get the current values and put them in an egui color
+        //
+        let r_field_path = ctx.property_path.push("r");
+        let g_field_path = ctx.property_path.push("g");
+        let b_field_path = ctx.property_path.push("b");
+        let a_field_path = ctx.property_path.push("a");
+
+        let r = ctx.editor_model.root_edit_context().resolve_property(ctx.asset_id, r_field_path.path()).unwrap().as_f32().unwrap();
+        let g = ctx.editor_model.root_edit_context().resolve_property(ctx.asset_id, g_field_path.path()).unwrap().as_f32().unwrap();
+        let b = ctx.editor_model.root_edit_context().resolve_property(ctx.asset_id, b_field_path.path()).unwrap().as_f32().unwrap();
+        let a = ctx.editor_model.root_edit_context().resolve_property(ctx.asset_id, a_field_path.path()).unwrap().as_f32().unwrap();
+
+        let mut color = egui::Color32::from_rgba_unmultiplied(
+            (r as f32 * 255.0) as u8,
+            (g as f32 * 255.0) as u8,
+            (b as f32 * 255.0) as u8,
+            (a as f32 * 255.0) as u8
+        );
+
+        //
+        // Draw the egui widget
+        //
+        let popup_id = ui.auto_id_with("popup");
+        let was_open = ui.memory(|mem| mem.is_popup_open(popup_id));
+        let response = ui.color_edit_button_srgba(&mut color);
+        let is_open = ui.memory(|mem| mem.is_popup_open(popup_id));
+
+        //
+        // On change set the properties
+        //
+        if response.changed() {
+            ctx.action_sender.queue_action(UIAction::SetProperty(
+                ctx.asset_id,
+                r_field_path,
+                Some(Value::F32(color.r() as f32 / 255.0)),
+                EndContextBehavior::AllowResume,
+            ));
+            ctx.action_sender.queue_action(UIAction::SetProperty(
+                ctx.asset_id,
+                g_field_path,
+                Some(Value::F32(color.g() as f32 / 255.0)),
+                EndContextBehavior::AllowResume,
+            ));
+            ctx.action_sender.queue_action(UIAction::SetProperty(
+                ctx.asset_id,
+                b_field_path,
+                Some(Value::F32(color.b() as f32 / 255.0)),
+                EndContextBehavior::AllowResume,
+            ));
+            ctx.action_sender.queue_action(UIAction::SetProperty(
+                ctx.asset_id,
+                a_field_path,
+                Some(Value::F32(color.a() as f32 / 255.0)),
+                EndContextBehavior::AllowResume,
+            ));
+        }
+
+        //
+        // Committing any property will commit the above changes, whether they were made on this frame
+        // or a previous frame. Does nothing if we didn't send a property change notification
+        //
+        if was_open && !is_open {
+            ctx.action_sender.queue_action(UIAction::CommitPendingUndoContext);
+        }
+    }
+}
+
 pub fn create_registry(schema_set: &SchemaSet) -> InspectorRegistry {
     let mut inspector_registry = InspectorRegistry::default();
     inspector_registry.register_inspector::<Vec3Record>(schema_set, Vec3RecordInspector);
     inspector_registry.register_inspector::<Vec4Record>(schema_set, Vec4RecordInspector);
+    inspector_registry.register_inspector::<ColorRgbaRecord>(schema_set, ColorRgbaRecordInspector);
     inspector_registry
 }

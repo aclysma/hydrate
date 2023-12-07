@@ -38,5 +38,27 @@
         "type": "f32"
       }
     ]
+  },
+  {
+    "type": "record",
+    "name": "ColorRgba",
+    "fields": [
+      {
+        "name": "r",
+        "type": "f32"
+      },
+      {
+        "name": "g",
+        "type": "f32"
+      },
+      {
+        "name": "b",
+        "type": "f32"
+      },
+      {
+        "name": "a",
+        "type": "f32"
+      }
+    ]
   }
 ]

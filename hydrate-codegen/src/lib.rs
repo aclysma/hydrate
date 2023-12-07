@@ -76,7 +76,6 @@ fn schema_to_rs(
                 generate_owned(&schema_set, x),
             ],
             SchemaNamedType::Enum(x) => vec![generate_enum(&schema_set, x)],
-            SchemaNamedType::Fixed(_) => unimplemented!(),
         };
 
         for scope in scopes {
@@ -186,7 +185,7 @@ fn field_schema_to_field_type(
         ), //return None,//format!("Vec<{}>", field_schema_to_rust_type(schema_set, x.item_type())),
         Schema::Map(_x) => unimplemented!(), // return None,//format!("HashMap<{}, {}>", field_schema_to_rust_type(schema_set, x.key_type()), field_schema_to_rust_type(schema_set, x.value_type())),
         Schema::AssetRef(_x) => "AssetRefFieldAccessor".to_string(),
-        Schema::NamedType(x) => {
+        Schema::Record(x) | Schema::Enum(x) => {
             let inner_type = schema_set.find_named_type_by_fingerprint(*x).unwrap();
 
             match inner_type {
@@ -194,7 +193,6 @@ fn field_schema_to_field_type(
                 SchemaNamedType::Enum(_) => {
                     format!("EnumFieldAccessor::<{}Enum>", inner_type.name().to_string())
                 }
-                SchemaNamedType::Fixed(_) => unimplemented!(),
             }
         }
     })
@@ -273,7 +271,7 @@ fn field_schema_to_reader_type(
         ), //return None,//format!("Vec<{}>", field_schema_to_rust_type(schema_set, x.item_type())),
         Schema::Map(_x) => unimplemented!(), // return None,//format!("HashMap<{}, {}>", field_schema_to_rust_type(schema_set, x.key_type()), field_schema_to_rust_type(schema_set, x.value_type())),
         Schema::AssetRef(_x) => "AssetRefFieldRef".to_string(),
-        Schema::NamedType(x) => {
+        Schema::Record(x) | Schema::Enum(x) => {
             let inner_type = schema_set.find_named_type_by_fingerprint(*x).unwrap();
 
             match inner_type {
@@ -281,7 +279,6 @@ fn field_schema_to_reader_type(
                 SchemaNamedType::Enum(_) => {
                     format!("EnumFieldRef::<{}Enum>", inner_type.name().to_string())
                 }
-                SchemaNamedType::Fixed(_) => unimplemented!(),
             }
         }
     })
@@ -367,7 +364,7 @@ fn field_schema_to_writer_type(
         ), //return None,//format!("Vec<{}>", field_schema_to_rust_type(schema_set, x.item_type())),
         Schema::Map(_x) => unimplemented!(), // return None,//format!("HashMap<{}, {}>", field_schema_to_rust_type(schema_set, x.key_type()), field_schema_to_rust_type(schema_set, x.value_type())),
         Schema::AssetRef(_x) => "AssetRefFieldRefMut".to_string(),
-        Schema::NamedType(x) => {
+        Schema::Record(x) | Schema::Enum(x) => {
             let inner_type = schema_set.find_named_type_by_fingerprint(*x).unwrap();
 
             match inner_type {
@@ -375,7 +372,6 @@ fn field_schema_to_writer_type(
                 SchemaNamedType::Enum(_) => {
                     format!("EnumFieldRefMut::<{}Enum>", inner_type.name().to_string())
                 }
-                SchemaNamedType::Fixed(_) => unimplemented!(),
             }
         }
     })
@@ -462,7 +458,7 @@ fn field_schema_to_owned_type(
         ), //return None,//format!("Vec<{}>", field_schema_to_rust_type(schema_set, x.item_type())),
         Schema::Map(_x) => unimplemented!(), // return None,//format!("HashMap<{}, {}>", field_schema_to_rust_type(schema_set, x.key_type()), field_schema_to_rust_type(schema_set, x.value_type())),
         Schema::AssetRef(_x) => "AssetRefField".to_string(),
-        Schema::NamedType(x) => {
+        Schema::Record(x) | Schema::Enum(x) => {
             let inner_type = schema_set.find_named_type_by_fingerprint(*x).unwrap();
 
             match inner_type {
@@ -470,7 +466,6 @@ fn field_schema_to_owned_type(
                 SchemaNamedType::Enum(_) => {
                     format!("EnumField::<{}Enum>", inner_type.name().to_string())
                 }
-                SchemaNamedType::Fixed(_) => unimplemented!(),
             }
         }
     })

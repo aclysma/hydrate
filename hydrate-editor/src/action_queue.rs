@@ -34,6 +34,7 @@ pub enum UIAction {
     NewAsset(AssetName, AssetLocation, SchemaRecord, Option<AssetId>),
     DeleteAsset(AssetId),
     SetProperty(AssetId, PropertyPath, Option<Value>, EndContextBehavior),
+    CommitPendingUndoContext,
     ApplyPropertyOverrideToPrototype(AssetId, PropertyPath),
     SetNullOverride(AssetId, PropertyPath, NullOverride),
     AddDynamicArrayOverride(AssetId, PropertyPath),
@@ -258,6 +259,9 @@ impl UIActionQueueReceiver {
                             end_context_behavior
                         },
                     );
+                }
+                UIAction::CommitPendingUndoContext => {
+                    editor_model.root_edit_context_mut().commit_pending_undo_context();
                 }
                 UIAction::ApplyPropertyOverrideToPrototype(asset_id, property_path) => {
                     editor_model.root_edit_context_mut().with_undo_context(

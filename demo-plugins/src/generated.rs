@@ -19,12 +19,20 @@ impl AllFieldsAccessor {
         BooleanFieldAccessor::new(self.0.push("boolean"))
     }
 
+    pub fn color(&self) -> ColorRgbaAccessor {
+        ColorRgbaAccessor::new(self.0.push("color"))
+    }
+
     pub fn dynamic_array_i32(&self) -> DynamicArrayFieldAccessor::<I32FieldAccessor> {
         DynamicArrayFieldAccessor::<I32FieldAccessor>::new(self.0.push("dynamic_array_i32"))
     }
 
     pub fn dynamic_array_vec3(&self) -> DynamicArrayFieldAccessor::<Vec3Accessor> {
         DynamicArrayFieldAccessor::<Vec3Accessor>::new(self.0.push("dynamic_array_vec3"))
+    }
+
+    pub fn enum_field(&self) -> EnumFieldAccessor::<TestEnumEnum> {
+        EnumFieldAccessor::<TestEnumEnum>::new(self.0.push("enum_field"))
     }
 
     pub fn f32(&self) -> F32FieldAccessor {
@@ -66,6 +74,10 @@ impl AllFieldsAccessor {
     pub fn u64(&self) -> U64FieldAccessor {
         U64FieldAccessor::new(self.0.push("u64"))
     }
+
+    pub fn vec3_value(&self) -> Vec3Accessor {
+        Vec3Accessor::new(self.0.push("vec3_value"))
+    }
 }
 pub struct AllFieldsRef<'a>(PropertyPath, DataContainerRef<'a>);
 
@@ -86,12 +98,20 @@ impl<'a> AllFieldsRef<'a> {
         BooleanFieldRef::new(self.0.push("boolean"), self.1.clone())
     }
 
+    pub fn color(&self) -> ColorRgbaRef {
+        ColorRgbaRef::new(self.0.push("color"), self.1.clone())
+    }
+
     pub fn dynamic_array_i32(&self) -> DynamicArrayFieldRef::<I32FieldRef> {
         DynamicArrayFieldRef::<I32FieldRef>::new(self.0.push("dynamic_array_i32"), self.1.clone())
     }
 
     pub fn dynamic_array_vec3(&self) -> DynamicArrayFieldRef::<Vec3Ref> {
         DynamicArrayFieldRef::<Vec3Ref>::new(self.0.push("dynamic_array_vec3"), self.1.clone())
+    }
+
+    pub fn enum_field(&self) -> EnumFieldRef::<TestEnumEnum> {
+        EnumFieldRef::<TestEnumEnum>::new(self.0.push("enum_field"), self.1.clone())
     }
 
     pub fn f32(&self) -> F32FieldRef {
@@ -133,6 +153,10 @@ impl<'a> AllFieldsRef<'a> {
     pub fn u64(&self) -> U64FieldRef {
         U64FieldRef::new(self.0.push("u64"), self.1.clone())
     }
+
+    pub fn vec3_value(&self) -> Vec3Ref {
+        Vec3Ref::new(self.0.push("vec3_value"), self.1.clone())
+    }
 }
 pub struct AllFieldsRefMut<'a>(PropertyPath, Rc<RefCell<DataContainerRefMut<'a>>>);
 
@@ -153,12 +177,20 @@ impl<'a> AllFieldsRefMut<'a> {
         BooleanFieldRefMut::new(self.0.push("boolean"), &self.1)
     }
 
+    pub fn color(self: &'a Self) -> ColorRgbaRefMut {
+        ColorRgbaRefMut::new(self.0.push("color"), &self.1)
+    }
+
     pub fn dynamic_array_i32(self: &'a Self) -> DynamicArrayFieldRefMut::<I32FieldRefMut> {
         DynamicArrayFieldRefMut::<I32FieldRefMut>::new(self.0.push("dynamic_array_i32"), &self.1)
     }
 
     pub fn dynamic_array_vec3(self: &'a Self) -> DynamicArrayFieldRefMut::<Vec3RefMut> {
         DynamicArrayFieldRefMut::<Vec3RefMut>::new(self.0.push("dynamic_array_vec3"), &self.1)
+    }
+
+    pub fn enum_field(self: &'a Self) -> EnumFieldRefMut::<TestEnumEnum> {
+        EnumFieldRefMut::<TestEnumEnum>::new(self.0.push("enum_field"), &self.1)
     }
 
     pub fn f32(self: &'a Self) -> F32FieldRefMut {
@@ -200,6 +232,10 @@ impl<'a> AllFieldsRefMut<'a> {
     pub fn u64(self: &'a Self) -> U64FieldRefMut {
         U64FieldRefMut::new(self.0.push("u64"), &self.1)
     }
+
+    pub fn vec3_value(self: &'a Self) -> Vec3RefMut {
+        Vec3RefMut::new(self.0.push("vec3_value"), &self.1)
+    }
 }
 pub struct AllFieldsRecord(PropertyPath, Rc<RefCell<Option<DataContainer>>>);
 
@@ -224,12 +260,20 @@ impl AllFieldsRecord {
         BooleanField::new(self.0.push("boolean"), &self.1)
     }
 
+    pub fn color(self: &Self) -> ColorRgbaRecord {
+        ColorRgbaRecord::new(self.0.push("color"), &self.1)
+    }
+
     pub fn dynamic_array_i32(self: &Self) -> DynamicArrayField::<I32Field> {
         DynamicArrayField::<I32Field>::new(self.0.push("dynamic_array_i32"), &self.1)
     }
 
     pub fn dynamic_array_vec3(self: &Self) -> DynamicArrayField::<Vec3Record> {
         DynamicArrayField::<Vec3Record>::new(self.0.push("dynamic_array_vec3"), &self.1)
+    }
+
+    pub fn enum_field(self: &Self) -> EnumField::<TestEnumEnum> {
+        EnumField::<TestEnumEnum>::new(self.0.push("enum_field"), &self.1)
     }
 
     pub fn f32(self: &Self) -> F32Field {
@@ -270,6 +314,139 @@ impl AllFieldsRecord {
 
     pub fn u64(self: &Self) -> U64Field {
         U64Field::new(self.0.push("u64"), &self.1)
+    }
+
+    pub fn vec3_value(self: &Self) -> Vec3Record {
+        Vec3Record::new(self.0.push("vec3_value"), &self.1)
+    }
+}
+#[derive(Default)]
+pub struct ColorRgbaAccessor(PropertyPath);
+
+impl FieldAccessor for ColorRgbaAccessor {
+    fn new(property_path: PropertyPath) -> Self {
+        ColorRgbaAccessor(property_path)
+    }
+}
+
+impl RecordAccessor for ColorRgbaAccessor {
+    fn schema_name() -> &'static str {
+        "ColorRgba"
+    }
+}
+
+impl ColorRgbaAccessor {
+    pub fn a(&self) -> F32FieldAccessor {
+        F32FieldAccessor::new(self.0.push("a"))
+    }
+
+    pub fn b(&self) -> F32FieldAccessor {
+        F32FieldAccessor::new(self.0.push("b"))
+    }
+
+    pub fn g(&self) -> F32FieldAccessor {
+        F32FieldAccessor::new(self.0.push("g"))
+    }
+
+    pub fn r(&self) -> F32FieldAccessor {
+        F32FieldAccessor::new(self.0.push("r"))
+    }
+}
+pub struct ColorRgbaRef<'a>(PropertyPath, DataContainerRef<'a>);
+
+impl<'a> FieldRef<'a> for ColorRgbaRef<'a> {
+    fn new(property_path: PropertyPath, data_container: DataContainerRef<'a>) -> Self {
+        ColorRgbaRef(property_path, data_container)
+    }
+}
+
+impl<'a> RecordRef for ColorRgbaRef<'a> {
+    fn schema_name() -> &'static str {
+        "ColorRgba"
+    }
+}
+
+impl<'a> ColorRgbaRef<'a> {
+    pub fn a(&self) -> F32FieldRef {
+        F32FieldRef::new(self.0.push("a"), self.1.clone())
+    }
+
+    pub fn b(&self) -> F32FieldRef {
+        F32FieldRef::new(self.0.push("b"), self.1.clone())
+    }
+
+    pub fn g(&self) -> F32FieldRef {
+        F32FieldRef::new(self.0.push("g"), self.1.clone())
+    }
+
+    pub fn r(&self) -> F32FieldRef {
+        F32FieldRef::new(self.0.push("r"), self.1.clone())
+    }
+}
+pub struct ColorRgbaRefMut<'a>(PropertyPath, Rc<RefCell<DataContainerRefMut<'a>>>);
+
+impl<'a> FieldRefMut<'a> for ColorRgbaRefMut<'a> {
+    fn new(property_path: PropertyPath, data_container: &Rc<RefCell<DataContainerRefMut<'a>>>) -> Self {
+        ColorRgbaRefMut(property_path, data_container.clone())
+    }
+}
+
+impl<'a> RecordRefMut for ColorRgbaRefMut<'a> {
+    fn schema_name() -> &'static str {
+        "ColorRgba"
+    }
+}
+
+impl<'a> ColorRgbaRefMut<'a> {
+    pub fn a(self: &'a Self) -> F32FieldRefMut {
+        F32FieldRefMut::new(self.0.push("a"), &self.1)
+    }
+
+    pub fn b(self: &'a Self) -> F32FieldRefMut {
+        F32FieldRefMut::new(self.0.push("b"), &self.1)
+    }
+
+    pub fn g(self: &'a Self) -> F32FieldRefMut {
+        F32FieldRefMut::new(self.0.push("g"), &self.1)
+    }
+
+    pub fn r(self: &'a Self) -> F32FieldRefMut {
+        F32FieldRefMut::new(self.0.push("r"), &self.1)
+    }
+}
+pub struct ColorRgbaRecord(PropertyPath, Rc<RefCell<Option<DataContainer>>>);
+
+impl Field for ColorRgbaRecord {
+    fn new(property_path: PropertyPath, data_container: &Rc<RefCell<Option<DataContainer>>>) -> Self {
+        ColorRgbaRecord(property_path, data_container.clone())
+    }
+}
+
+impl Record for ColorRgbaRecord {
+    type Reader<'a> = ColorRgbaRef<'a>;
+    type Writer<'a> = ColorRgbaRefMut<'a>;
+    type Accessor = ColorRgbaAccessor;
+
+    fn schema_name() -> &'static str {
+        "ColorRgba"
+    }
+}
+
+impl ColorRgbaRecord {
+    pub fn a(self: &Self) -> F32Field {
+        F32Field::new(self.0.push("a"), &self.1)
+    }
+
+    pub fn b(self: &Self) -> F32Field {
+        F32Field::new(self.0.push("b"), &self.1)
+    }
+
+    pub fn g(self: &Self) -> F32Field {
+        F32Field::new(self.0.push("g"), &self.1)
+    }
+
+    pub fn r(self: &Self) -> F32Field {
+        F32Field::new(self.0.push("r"), &self.1)
     }
 }
 #[derive(Default)]
@@ -1248,75 +1425,6 @@ impl MeshAdvMaterialAssetRecord {
     }
 }
 #[derive(Default)]
-pub struct MeshAdvMaterialImportedDataAccessor(PropertyPath);
-
-impl FieldAccessor for MeshAdvMaterialImportedDataAccessor {
-    fn new(property_path: PropertyPath) -> Self {
-        MeshAdvMaterialImportedDataAccessor(property_path)
-    }
-}
-
-impl RecordAccessor for MeshAdvMaterialImportedDataAccessor {
-    fn schema_name() -> &'static str {
-        "MeshAdvMaterialImportedData"
-    }
-}
-
-impl MeshAdvMaterialImportedDataAccessor {
-}
-pub struct MeshAdvMaterialImportedDataRef<'a>(PropertyPath, DataContainerRef<'a>);
-
-impl<'a> FieldRef<'a> for MeshAdvMaterialImportedDataRef<'a> {
-    fn new(property_path: PropertyPath, data_container: DataContainerRef<'a>) -> Self {
-        MeshAdvMaterialImportedDataRef(property_path, data_container)
-    }
-}
-
-impl<'a> RecordRef for MeshAdvMaterialImportedDataRef<'a> {
-    fn schema_name() -> &'static str {
-        "MeshAdvMaterialImportedData"
-    }
-}
-
-impl<'a> MeshAdvMaterialImportedDataRef<'a> {
-}
-pub struct MeshAdvMaterialImportedDataRefMut<'a>(PropertyPath, Rc<RefCell<DataContainerRefMut<'a>>>);
-
-impl<'a> FieldRefMut<'a> for MeshAdvMaterialImportedDataRefMut<'a> {
-    fn new(property_path: PropertyPath, data_container: &Rc<RefCell<DataContainerRefMut<'a>>>) -> Self {
-        MeshAdvMaterialImportedDataRefMut(property_path, data_container.clone())
-    }
-}
-
-impl<'a> RecordRefMut for MeshAdvMaterialImportedDataRefMut<'a> {
-    fn schema_name() -> &'static str {
-        "MeshAdvMaterialImportedData"
-    }
-}
-
-impl<'a> MeshAdvMaterialImportedDataRefMut<'a> {
-}
-pub struct MeshAdvMaterialImportedDataRecord(PropertyPath, Rc<RefCell<Option<DataContainer>>>);
-
-impl Field for MeshAdvMaterialImportedDataRecord {
-    fn new(property_path: PropertyPath, data_container: &Rc<RefCell<Option<DataContainer>>>) -> Self {
-        MeshAdvMaterialImportedDataRecord(property_path, data_container.clone())
-    }
-}
-
-impl Record for MeshAdvMaterialImportedDataRecord {
-    type Reader<'a> = MeshAdvMaterialImportedDataRef<'a>;
-    type Writer<'a> = MeshAdvMaterialImportedDataRefMut<'a>;
-    type Accessor = MeshAdvMaterialImportedDataAccessor;
-
-    fn schema_name() -> &'static str {
-        "MeshAdvMaterialImportedData"
-    }
-}
-
-impl MeshAdvMaterialImportedDataRecord {
-}
-#[derive(Default)]
 pub struct MeshAdvMeshAssetAccessor(PropertyPath);
 
 impl FieldAccessor for MeshAdvMeshAssetAccessor {
@@ -1651,6 +1759,36 @@ impl Enum for MeshAdvShadowMethodEnum {
 impl MeshAdvShadowMethodEnum {
     pub fn schema_name() -> &'static str {
         "MeshAdvShadowMethod"
+    }
+}
+#[derive(Copy, Clone)]
+pub enum TestEnumEnum {
+    None,
+    Opaque,
+}
+
+impl Enum for TestEnumEnum {
+    fn to_symbol_name(&self) -> &'static str {
+        match self {
+            TestEnumEnum::None => "None",
+            TestEnumEnum::Opaque => "Opaque",
+        }
+    }
+
+    fn from_symbol_name(str: &str) -> Option<TestEnumEnum> {
+        match str {
+            "None" => Some(TestEnumEnum::None),
+            "NONE" => Some(TestEnumEnum::None),
+            "Opaque" => Some(TestEnumEnum::Opaque),
+            "OPAQUE" => Some(TestEnumEnum::Opaque),
+            _ => None,
+        }
+    }
+}
+
+impl TestEnumEnum {
+    pub fn schema_name() -> &'static str {
+        "TestEnum"
     }
 }
 #[derive(Default)]

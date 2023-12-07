@@ -27,6 +27,10 @@
         }
       },
       {
+        "name": "color",
+        "type": "ColorRgba"
+      },
+      {
         "name": "enum_field",
         "type": "TestEnum"
       },

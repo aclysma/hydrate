@@ -1,6 +1,6 @@
 use super::Schema;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct SchemaDynamicArray {
     item_type: Box<Schema>,
 }

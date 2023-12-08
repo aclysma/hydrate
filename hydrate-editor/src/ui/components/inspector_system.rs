@@ -1,3 +1,4 @@
+use std::hash::Hash;
 use std::ops::RangeInclusive;
 use crate::action_queue::{UIAction, UIActionQueueSender};
 use crate::ui::drag_drop::DragDropPayload;
@@ -200,8 +201,10 @@ pub fn draw_inspector_value_and_action_button(
 fn add_empty_collapsing_header(
     ui: &mut egui::Ui,
     text: impl Into<egui::WidgetText>,
+    id_source: impl Hash
 ) -> bool {
     let response = egui::CollapsingHeader::new(text)
+        .id_source(id_source)
         .show_unindented(ui, |ui| {});;
 
     response.openness > 0.5
@@ -307,7 +310,9 @@ impl RecordInspector for DefaultRecordInspector {
             if let Some(category) = &category {
                 table_body.row(20.0, |mut row| {
                     row.col(|ui| {
-                        visible = draw_indented_collapsible_label(ui, indent_level, category);
+                        ui.push_id(ctx.property_path.path(), |ui| {
+                            visible = draw_indented_collapsible_label(ui, indent_level, category, format!("{}/{}", ctx.property_path.path(), category));
+                        });
                         indent_level += 1;
                     });
                     row.col(|ui| {});
@@ -452,11 +457,12 @@ pub fn draw_indented_collapsible_label(
     ui: &mut egui::Ui,
     indent_level: u32,
     text: impl Into<WidgetText>,
+    id_source: impl Hash
 ) -> bool {
     for _ in 0..indent_level {
         crate::ui::add_indent_spacing(ui);
     }
-    add_empty_collapsing_header(ui, text)
+    add_empty_collapsing_header(ui, text, id_source)
 }
 
 pub fn draw_basic_inspector_row<F: FnOnce(&mut egui::Ui, InspectorContext)>(
@@ -467,7 +473,9 @@ pub fn draw_basic_inspector_row<F: FnOnce(&mut egui::Ui, InspectorContext)>(
 ) {
     body.row(20.0, |mut row| {
         row.col(|mut ui| {
-            draw_indented_label(ui, indent_level, ctx.display_name());
+            ui.push_id(ctx.property_path.path(), |ui| {
+                draw_indented_label(ui, indent_level, ctx.display_name());
+            });
         });
         row.col(|mut ui| {
             ui.push_id(ctx.property_path.path(), |ui| {
@@ -855,6 +863,13 @@ pub fn draw_inspector_rows(
     ctx: InspectorContext,
     indent_level: u32,
 ) {
+    if indent_level > 10 {
+        draw_basic_inspector_row(body, ctx, indent_level, |ui, ctx| {
+            ui.label(format!(
+                "Too many nested rows, returning."
+            ));
+        });
+    }
     match ctx.schema {
         Schema::Nullable(inner_schema) => {
             let null_override = ctx
@@ -880,6 +895,7 @@ pub fn draw_inspector_rows(
                                     ui,
                                     indent_level,
                                     ctx.display_name(),
+                                    format!("{}/{}", ctx.property_path.path(), ctx.display_name())
                                 )
                             } else {
                                 draw_indented_label(ui, indent_level, ctx.display_name());
@@ -986,7 +1002,6 @@ pub fn draw_inspector_rows(
         Schema::String => draw_basic_inspector_row(body, ctx, indent_level, |ui, ctx| {
             draw_inspector_value_and_action_button(ui, ctx);
         }),
-        //TODO: Implement static array
         Schema::StaticArray(schema) => {
             let mut is_visible = false;
 
@@ -995,7 +1010,7 @@ pub fn draw_inspector_rows(
                     ui.push_id(
                         format!("{} inspector_label_column", ctx.property_path.path()),
                         |ui| {
-                            is_visible = draw_indented_collapsible_label(ui, indent_level, ctx.display_name());
+                            is_visible = draw_indented_collapsible_label(ui, indent_level, ctx.display_name(), format!("{}/{}", ctx.property_path.path(), ctx.display_name()));
                         },
                     );
                 });
@@ -1030,7 +1045,7 @@ pub fn draw_inspector_rows(
                                 if can_use_inline_values {
                                     draw_indented_label(&mut left_child_ui, indent_level + 1, label);
                                 } else {
-                                    is_override_visible = draw_indented_collapsible_label(&mut left_child_ui, indent_level + 1, label);
+                                    is_override_visible = draw_indented_collapsible_label(&mut left_child_ui, indent_level + 1, label, format!("{}/{}", ctx.property_path.path(), entry_index));
                                 }
 
                                 let mut right_child_ui = create_clipped_right_child_ui_for_right_aligned_controls(ui, 100.0);
@@ -1115,7 +1130,7 @@ pub fn draw_inspector_rows(
                     ui.push_id(
                         format!("{} inspector_label_column", ctx.property_path.path()),
                         |ui| {
-                            is_visible = draw_indented_collapsible_label(ui, indent_level, ctx.display_name())
+                            is_visible = draw_indented_collapsible_label(ui, indent_level, ctx.display_name(), format!("{}/{}", ctx.property_path.path(), ctx.display_name()))
                         },
                     );
                 });
@@ -1155,7 +1170,8 @@ pub fn draw_inspector_rows(
                                 if can_use_inline_values {
                                     draw_indented_label(ui, indent_level + 1, label);
                                 } else {
-                                    is_override_visible = draw_indented_collapsible_label(ui, indent_level + 1, label);
+                                    let id_source = format!("{}/{}", ctx.property_path.path(), label);
+                                    is_override_visible = draw_indented_collapsible_label(ui, indent_level + 1, label, id_source);
                                 }
                             });
                         });
@@ -1207,7 +1223,8 @@ pub fn draw_inspector_rows(
                                 if can_use_inline_values {
                                     draw_indented_label(&mut left_child_ui, indent_level + 1, label);
                                 } else {
-                                    is_override_visible = draw_indented_collapsible_label(&mut left_child_ui, indent_level + 1, label);
+                                    let id_source = format!("{}/{}", ctx.property_path.path(), label);
+                                    is_override_visible = draw_indented_collapsible_label(&mut left_child_ui, indent_level + 1, label, id_source);
                                 }
 
                                 let mut right_child_ui = create_clipped_right_child_ui_for_right_aligned_controls(ui, 100.0);
@@ -1304,7 +1321,32 @@ pub fn draw_inspector_rows(
             if let Some(record) = record {
                 match record {
                     SchemaNamedType::Record(record) => {
-                        inspector_impl.draw_inspector_rows(body, ctx, record, indent_level)
+                        if indent_level > 10 {
+                            draw_basic_inspector_row(body, ctx, indent_level, |ui, ctx| {
+                                ui.label(format!(
+                                    "Too many nested rows, returning."
+                                ));
+                            });
+                        } else {
+                            if ctx.display_name().is_empty() {
+                                // If we are at the root of the inspector, draw the properties with no headers
+                                inspector_impl.draw_inspector_rows(body, ctx, record, indent_level);
+                            } else {
+                                // Otherwise draw a collapsible header
+                                let mut is_visible = false;
+                                body.row(20.0, |mut row| {
+                                    row.col(|ui| {
+                                        let id_source = format!("{}/{}", ctx.property_path.path(), ctx.property_default_display_name);
+                                        is_visible = draw_indented_collapsible_label(ui, indent_level, ctx.property_default_display_name, id_source);
+                                    });
+                                    row.col(|ui| {
+                                    });
+                                });
+                                if is_visible {
+                                    inspector_impl.draw_inspector_rows(body, ctx, record, indent_level + 1);
+                                }
+                            }
+                        }
                     }
                     _ => {
                         draw_basic_inspector_row(body, ctx, indent_level, |ui, ctx| {

@@ -1,6 +1,6 @@
 use super::Schema;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct SchemaStaticArray {
     pub(crate) item_type: Box<Schema>,
     pub(crate) length: usize,

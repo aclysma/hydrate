@@ -1,7 +1,4 @@
-use crate::{
-    AssetId, HashMap, HashSet, OrderedSet, PathReference, Schema, SchemaFingerprint, SchemaRecord,
-    SingleObject, Value,
-};
+use crate::{AssetId, HashMap, HashSet, OrderedSet, PathReference, PropertyPath, Schema, SchemaFingerprint, SchemaRecord, SingleObject, Value};
 pub use crate::{DataSetError, DataSetResult};
 use crate::{NullOverride, SchemaSet};
 use std::cmp::Ordering;
@@ -207,6 +204,109 @@ pub struct BuildInfo {
     // imported. We maintain the correlation between paths and imported asset ID here for use when
     // processing the imported data.
     pub file_reference_overrides: HashMap<PathReference, AssetId>,
+}
+
+pub struct PropertiesBundle {
+    schema: Schema,
+    properties: HashMap<String, Value>,
+    property_null_overrides: HashMap<String, NullOverride>,
+    properties_in_replace_mode: HashSet<String>,
+    dynamic_array_entries: HashMap<String, OrderedSet<Uuid>>,
+}
+
+impl PropertiesBundle {
+    fn read(asset_info: &DataSetAssetInfo, path_prefix: impl AsRef<str>, schema_set: &SchemaSet) -> DataSetResult<PropertiesBundle> {
+        let path_prefix_str = path_prefix.as_ref();
+        let prefix_string = if path_prefix_str.is_empty() {
+            Default::default()
+        } else {
+            format!("{}", path_prefix_str)
+        };
+
+        let schema = asset_info.schema().find_property_schema(path_prefix_str, schema_set.schemas()).ok_or(DataSetError::SchemaNotFound)?;
+
+        let mut properties = HashMap::<String, Value>::default();
+        println!("Look for property {:?}", path_prefix_str);
+        for (k, v) in &asset_info.properties {
+            println!("    property {:?}", k);
+            if k.starts_with(&prefix_string) {
+                properties.insert(k[prefix_string.len()..].to_string(), v.clone());
+            }
+        }
+
+        let mut property_null_overrides = HashMap::<String, NullOverride>::default();
+        for (k, v) in &asset_info.property_null_overrides {
+            if k.starts_with(&prefix_string) {
+                property_null_overrides.insert(k[prefix_string.len()..].to_string(), v.clone());
+            }
+        }
+
+        let mut properties_in_replace_mode = HashSet::<String>::default();
+        for k in &asset_info.properties_in_replace_mode {
+            if k.starts_with(&prefix_string) {
+                properties_in_replace_mode.insert(k[prefix_string.len()..].to_string());
+            }
+        }
+
+        let mut dynamic_array_entries =  HashMap::<String, OrderedSet<Uuid>>::default();
+        for (k, v) in &asset_info.dynamic_array_entries {
+            if k.starts_with(&prefix_string) {
+                dynamic_array_entries.insert(k[prefix_string.len()..].to_string(), v.clone());
+            }
+        }
+
+        Ok(PropertiesBundle {
+            schema,
+            properties,
+            property_null_overrides,
+            properties_in_replace_mode,
+            dynamic_array_entries
+        })
+    }
+
+    fn write(&self, asset_info: &mut DataSetAssetInfo, path_prefix: impl AsRef<str>, schema_set: &SchemaSet) -> DataSetResult<()> {
+        let path_prefix_str = path_prefix.as_ref();
+        let prefix_string = if path_prefix_str.is_empty() {
+            Default::default()
+        } else {
+            format!("{}", path_prefix_str)
+        };
+
+        //
+        // verify schema match at dest prefix
+        //
+        let schema = asset_info.schema().find_property_schema(path_prefix_str, schema_set.schemas()).ok_or(DataSetError::SchemaNotFound)?;
+        assert_eq!(schema, self.schema);
+
+        //
+        // wipe anything that was there
+        //
+        asset_info.properties.retain(|k, v| !k.starts_with(&prefix_string));
+        asset_info.property_null_overrides.retain(|k, v| !k.starts_with(&prefix_string));
+        asset_info.properties_in_replace_mode.retain(|k| !k.starts_with(&prefix_string));
+        asset_info.dynamic_array_entries.retain(|k, v| !k.starts_with(&prefix_string));
+
+        //
+        // stomp with new data
+        //
+        for (k, v) in &self.properties {
+            asset_info.properties.insert(format!("{}{}", prefix_string, k), v.clone());
+        }
+
+        for (k, v) in &self.property_null_overrides {
+            asset_info.property_null_overrides.insert(format!("{}{}", prefix_string, k), v.clone());
+        }
+
+        for k in &self.properties_in_replace_mode {
+            asset_info.properties_in_replace_mode.insert(format!("{}{}", prefix_string, k));
+        }
+
+        for (k, v) in &self.dynamic_array_entries {
+            asset_info.dynamic_array_entries.insert(format!("{}{}", prefix_string, k), v.clone());
+        }
+
+        Ok(())
+    }
 }
 
 /// The full state of a single asset in a dataset
@@ -1384,5 +1484,32 @@ impl DataSet {
             }
             _ => Err(DataSetError::InvalidSchema),
         }
+    }
+
+    pub fn read_properties_bundle(
+        &self,
+        schema_set: &SchemaSet,
+        asset_id: AssetId,
+        path: impl AsRef<str>
+    ) -> DataSetResult<PropertiesBundle> {
+        let asset = self
+            .assets
+            .get(&asset_id)
+            .ok_or(DataSetError::AssetNotFound)?;
+        Ok(PropertiesBundle::read(asset, path, schema_set)?)
+    }
+
+    pub fn write_properties_bundle(
+        &mut self,
+        schema_set: &SchemaSet,
+        asset_id: AssetId,
+        path: impl AsRef<str>,
+        properties_bundle: &PropertiesBundle
+    ) -> DataSetResult<()> {
+        let asset = self
+            .assets
+            .get_mut(&asset_id)
+            .ok_or(DataSetError::AssetNotFound)?;
+        properties_bundle.write(asset, path, schema_set)
     }
 }

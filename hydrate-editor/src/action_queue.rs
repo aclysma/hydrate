@@ -376,8 +376,44 @@ impl UIActionQueueReceiver {
                 // UIAction::ClearStaticArrayOverride(asset_id, property_path, entry_index) => {
                 //
                 // }
-                UIAction::MoveStaticArrayOverrideUp(asset_id, property_path, entry_index) => {}
-                UIAction::MoveStaticArrayOverrideDown(asset_id, property_path, entry_index) => {}
+                UIAction::MoveStaticArrayOverrideUp(asset_id, property_path, entry_index) => {
+                    editor_model.root_edit_context_mut().with_undo_context(
+                        "MoveStaticArrayOverrideUp",
+                        |edit_context| {
+                            let schema_set = edit_context.schema_set().clone();
+                            let index_a = entry_index;
+                            let property_path_a = property_path.push(&index_a.to_string());
+                            let bundle_a = edit_context.read_properties_bundle(&schema_set, asset_id, property_path_a.path()).unwrap();
+
+                            let index_b = (entry_index - 1);
+                            let property_path_b = property_path.push(&index_b.to_string());
+                            let bundle_b = edit_context.read_properties_bundle(&schema_set, asset_id, property_path_b.path()).unwrap();
+
+                            edit_context.write_properties_bundle(&schema_set, asset_id, property_path_a.path(), &bundle_b).unwrap();
+                            edit_context.write_properties_bundle(&schema_set, asset_id, property_path_b.path(), &bundle_a).unwrap();
+
+                            EndContextBehavior::Finish
+                        });
+                }
+                UIAction::MoveStaticArrayOverrideDown(asset_id, property_path, entry_index) => {
+                    editor_model.root_edit_context_mut().with_undo_context(
+                        "MoveStaticArrayOverrideDown",
+                        |edit_context| {
+                            let schema_set = edit_context.schema_set().clone();
+                            let index_a = entry_index;
+                            let property_path_a = property_path.push(&index_a.to_string());
+                            let bundle_a = edit_context.read_properties_bundle(&schema_set, asset_id, property_path_a.path()).unwrap();
+
+                            let index_b = (entry_index + 1);
+                            let property_path_b = property_path.push(&index_b.to_string());
+                            let bundle_b = edit_context.read_properties_bundle(&schema_set, asset_id, property_path_b.path()).unwrap();
+
+                            edit_context.write_properties_bundle(&schema_set, asset_id, property_path_a.path(), &bundle_b).unwrap();
+                            edit_context.write_properties_bundle(&schema_set, asset_id, property_path_b.path(), &bundle_a).unwrap();
+
+                            EndContextBehavior::Finish
+                        });
+                }
                 UIAction::OverrideWithDefault(asset_id, property_path) => {
                     editor_model.root_edit_context_mut().with_undo_context(
                         "OverrideWithDefault",

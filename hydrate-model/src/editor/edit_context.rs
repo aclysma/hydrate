@@ -1,5 +1,5 @@
 use hydrate_data::json_storage::RestoreAssetFromStorageImpl;
-use hydrate_data::{OrderedSet, PathReference, SingleObject};
+use hydrate_data::{OrderedSet, PathReference, PropertiesBundle, SingleObject};
 use hydrate_pipeline::DynEditContext;
 use uuid::Uuid;
 
@@ -730,5 +730,25 @@ impl EditContext {
         self.track_existing_asset(asset_id)?;
         self.data_set
             .set_override_behavior(&self.schema_set, asset_id, path, behavior)
+    }
+
+    pub fn read_properties_bundle(
+        &self,
+        schema_set: &SchemaSet,
+        asset_id: AssetId,
+        path: impl AsRef<str>
+    ) -> DataSetResult<PropertiesBundle> {
+        self.data_set.read_properties_bundle(schema_set, asset_id, path)
+    }
+
+    pub fn write_properties_bundle(
+        &mut self,
+        schema_set: &SchemaSet,
+        asset_id: AssetId,
+        path: impl AsRef<str>,
+        properties_bundle: &PropertiesBundle
+    ) -> DataSetResult<()> {
+        self.track_existing_asset(asset_id)?;
+        self.data_set.write_properties_bundle(schema_set, asset_id, path, properties_bundle)
     }
 }

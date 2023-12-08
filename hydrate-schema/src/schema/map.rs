@@ -1,6 +1,6 @@
 use super::Schema;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct SchemaMap {
     key_type: Box<Schema>,
     value_type: Box<Schema>,

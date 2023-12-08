@@ -127,7 +127,7 @@ impl SchemaNamedType {
 
 /// Describes format of data, either a single primitive value or complex layout comprised of
 /// potentially many values
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum Schema {
     /// Marks the field as possible to be null
     Nullable(Box<Schema>),

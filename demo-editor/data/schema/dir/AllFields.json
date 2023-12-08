@@ -27,6 +27,22 @@
         }
       },
       {
+        "name": "static_array",
+        "type": {
+          "name": "static_array",
+          "inner_type": "Vec3",
+          "length": 5
+        }
+      },
+      {
+        "name": "static_array_i32",
+        "type": {
+          "name": "static_array",
+          "inner_type": "i32",
+          "length": 5
+        }
+      },
+      {
         "name": "color",
         "type": "ColorRgba"
       },
@@ -35,8 +51,36 @@
         "type": "TestEnum"
       },
       {
-        "name": "vec3_value",
-        "type": "Vec3"
+        "name": "nullable_recursive",
+        "type": {
+          "name": "nullable",
+          "inner_type": "AllFields"
+        },
+        "display_name": "Nullable Recursive",
+        "category": "Test Nullables"
+      },
+      {
+        "name": "dynamic_array_recursive",
+        "type": {
+          "name": "dynamic_array",
+          "inner_type": "AllFields"
+        },
+        "display_name": "Dynamic Array Recursive",
+        "category": "Test Containers"
+      },
+      {
+        "name": "static_array_recursive",
+        "type": {
+          "name": "static_array",
+          "inner_type": "AllFields",
+          "length": 5
+        },
+        "display_name": "Static Array Recursive",
+        "category": "Test Containers"
+      },
+      {
+        "name": "record_recursive",
+        "type": "AllFields"
       },
       {
         "name": "nullable_bool",

@@ -6,6 +6,7 @@ use std::hash::{Hash, Hasher};
 use std::str::FromStr;
 use std::string::ToString;
 use uuid::Uuid;
+use hydrate_schema::Schema;
 
 /// A simplified container of data. Can be used to produce a set of properties and be merged into
 /// a data set later, or be serialized by itself. Still support schema migration.
@@ -157,13 +158,11 @@ impl SingleObject {
         }
     }
 
-    // None return means the property can't be resolved, maybe because something higher in
-    // property hierarchy is null or non-existing
-    pub fn resolve_null_override(
+    fn validate_parent_paths(
         &self,
         schema_set: &SchemaSet,
         path: impl AsRef<str>,
-    ) -> DataSetResult<NullOverride> {
+    ) -> DataSetResult<Schema> {
         // Contains the path segments that we need to check for being null
         let mut accessed_nullable_keys = vec![];
         // The containers we access and what keys are used to access them
@@ -183,11 +182,6 @@ impl SingleObject {
             &mut accessed_map_keys,
         )?;
 
-        // This field is not nullable, return an error
-        if !property_schema.is_nullable() {
-            return Err(DataSetError::InvalidSchema);
-        }
-
         // See if this field was contained in any nullables. If any of those were null, return None.
         for checked_property in &accessed_nullable_keys {
             if self.resolve_null_override(schema_set, checked_property)? != NullOverride::SetNonNull
@@ -205,6 +199,23 @@ impl SingleObject {
             {
                 return Err(DataSetError::PathDynamicArrayEntryDoesNotExist);
             }
+        }
+
+        Ok(property_schema)
+    }
+
+    // None return means the property can't be resolved, maybe because something higher in
+    // property hierarchy is null or non-existing
+    pub fn resolve_null_override(
+        &self,
+        schema_set: &SchemaSet,
+        path: impl AsRef<str>,
+    ) -> DataSetResult<NullOverride> {
+        let property_schema = self.validate_parent_paths(schema_set, path.as_ref())?;
+
+        // This field is not nullable, return an error
+        if !property_schema.is_nullable() {
+            return Err(DataSetError::InvalidSchema);
         }
 
         Ok(self
@@ -237,10 +248,7 @@ impl SingleObject {
         path: impl AsRef<str>,
         value: Option<Value>,
     ) -> DataSetResult<Option<Value>> {
-        let property_schema = self
-            .schema
-            .find_property_schema(&path, schema_set.schemas())
-            .ok_or(DataSetError::SchemaNotFound)?;
+        let property_schema = self.validate_parent_paths(schema_set, path.as_ref())?;
 
         if let Some(value) = &value {
             if !value.matches_schema(&property_schema, schema_set.schemas()) {
@@ -250,39 +258,6 @@ impl SingleObject {
                     property_schema
                 );
                 return Err(DataSetError::ValueDoesNotMatchSchema);
-            }
-        }
-
-        // Contains the path segments that we need to check for being null
-        let mut accessed_nullable_keys = vec![];
-        // The containers we access and what keys are used to access them
-        let mut accessed_dynamic_array_keys = vec![];
-        let mut accessed_static_array_keys = vec![];
-        let mut accessed_map_keys = vec![];
-
-        let _property_schema = super::property_schema_and_path_ancestors_to_check(
-            &self.schema,
-            &path,
-            schema_set.schemas(),
-            &mut accessed_nullable_keys,
-            &mut accessed_dynamic_array_keys,
-            &mut accessed_static_array_keys,
-            &mut accessed_map_keys,
-        )?;
-
-        for checked_property in &accessed_nullable_keys {
-            if self.resolve_null_override(schema_set, checked_property)? != NullOverride::SetNonNull
-            {
-                return Err(DataSetError::PathParentIsNull);
-            }
-        }
-
-        for (path, key) in &accessed_dynamic_array_keys {
-            let dynamic_array_entries = self.resolve_dynamic_array(schema_set, path)?;
-            if !dynamic_array_entries
-                .contains(&Uuid::from_str(key).map_err(|_| DataSetError::UuidParseError)?)
-            {
-                return Err(DataSetError::PathDynamicArrayEntryDoesNotExist);
             }
         }
 
@@ -299,38 +274,7 @@ impl SingleObject {
         schema_set: &'a SchemaSet,
         path: impl AsRef<str>,
     ) -> DataSetResult<&'a Value> {
-        // Contains the path segments that we need to check for being null
-        let mut accessed_nullable_keys = vec![];
-        // The containers we access and what keys are used to access them
-        let mut accessed_dynamic_array_keys = vec![];
-        let mut accessed_static_array_keys = vec![];
-        let mut accessed_map_keys = vec![];
-
-        let property_schema = super::property_schema_and_path_ancestors_to_check(
-            &self.schema,
-            &path,
-            schema_set.schemas(),
-            &mut accessed_nullable_keys,
-            &mut accessed_dynamic_array_keys,
-            &mut accessed_static_array_keys,
-            &mut accessed_map_keys,
-        )?;
-
-        for checked_property in &accessed_nullable_keys {
-            if self.resolve_null_override(schema_set, checked_property)? != NullOverride::SetNonNull
-            {
-                return Err(DataSetError::PathParentIsNull);
-            }
-        }
-
-        for (path, key) in &accessed_dynamic_array_keys {
-            let dynamic_array_entries = self.resolve_dynamic_array(schema_set, path)?;
-            if !dynamic_array_entries
-                .contains(&Uuid::from_str(key).map_err(|_| DataSetError::UuidParseError)?)
-            {
-                return Err(DataSetError::PathDynamicArrayEntryDoesNotExist);
-            }
-        }
+        let property_schema = self.validate_parent_paths(schema_set, path.as_ref())?;
 
         if let Some(value) = self.properties.get(path.as_ref()) {
             return Ok(value);
@@ -428,38 +372,7 @@ impl SingleObject {
         schema_set: &SchemaSet,
         path: impl AsRef<str>,
     ) -> DataSetResult<Box<[Uuid]>> {
-        // Contains the path segments that we need to check for being null
-        let mut accessed_nullable_keys = vec![];
-        // The containers we access and what keys are used to access them
-        let mut accessed_dynamic_array_keys = vec![];
-        let mut accessed_static_array_keys = vec![];
-        let mut accessed_map_keys = vec![];
-
-        let _property_schema = super::property_schema_and_path_ancestors_to_check(
-            &self.schema,
-            &path,
-            schema_set.schemas(),
-            &mut accessed_nullable_keys,
-            &mut accessed_dynamic_array_keys,
-            &mut accessed_static_array_keys,
-            &mut accessed_map_keys,
-        )?;
-
-        for checked_property in &accessed_nullable_keys {
-            if self.resolve_null_override(schema_set, checked_property)? != NullOverride::SetNonNull
-            {
-                return Err(DataSetError::PathParentIsNull);
-            }
-        }
-
-        for (path, key) in &accessed_dynamic_array_keys {
-            let dynamic_array_entries = self.resolve_dynamic_array(schema_set, path)?;
-            if !dynamic_array_entries
-                .contains(&Uuid::from_str(key).map_err(|_| DataSetError::UuidParseError)?)
-            {
-                return Err(DataSetError::PathDynamicArrayEntryDoesNotExist);
-            }
-        }
+        self.validate_parent_paths(schema_set, path.as_ref())?;
 
         let mut resolved_entries = vec![];
         self.do_resolve_dynamic_array(path.as_ref(), &mut resolved_entries);

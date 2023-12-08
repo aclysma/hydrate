@@ -975,52 +975,11 @@ impl DataSet {
         asset_id: AssetId,
         path: impl AsRef<str>,
     ) -> DataSetResult<NullOverride> {
-        let asset_schema = self
-            .asset_schema(asset_id)
-            .ok_or(DataSetError::AssetNotFound)?;
-
-        // Contains the path segments that we need to check for being null
-        let mut accessed_nullable_keys = vec![];
-        // The containers we access and what keys are used to access them
-        let mut accessed_dynamic_array_keys = vec![];
-        let mut accessed_static_array_keys = vec![];
-        let mut accessed_map_keys = vec![];
-
-        //TODO: Only allow getting values that exist, in particular, dynamic array overrides
-
-        let property_schema = super::property_schema_and_path_ancestors_to_check(
-            asset_schema,
-            &path,
-            schema_set.schemas(),
-            &mut accessed_nullable_keys,
-            &mut accessed_dynamic_array_keys,
-            &mut accessed_static_array_keys,
-            &mut accessed_map_keys,
-        )?;
+        let property_schema = self.validate_parent_paths(schema_set, asset_id, path.as_ref())?;
 
         // This field is not nullable, return an error
         if !property_schema.is_nullable() {
             return Err(DataSetError::InvalidSchema);
-        }
-
-        // See if this field was contained in any nullables. If any of those were null, return None.
-        for checked_property in &accessed_nullable_keys {
-            if self.resolve_null_override(schema_set, asset_id, checked_property)?
-                != NullOverride::SetNonNull
-            {
-                return Err(DataSetError::PathParentIsNull);
-            }
-        }
-
-        // See if this field was contained in a container. If any of those containers didn't contain
-        // this property path, return None
-        for (path, key) in &accessed_dynamic_array_keys {
-            let dynamic_array_entries = self.resolve_dynamic_array(schema_set, asset_id, path)?;
-            if !dynamic_array_entries
-                .contains(&Uuid::from_str(key).map_err(|_| DataSetError::UuidParseError)?)
-            {
-                return Err(DataSetError::PathDynamicArrayEntryDoesNotExist);
-            }
         }
 
         // Recursively look for a null override for this property being set. We can make a call
@@ -1095,39 +1054,7 @@ impl DataSet {
             }
         }
 
-        // Contains the path segments that we need to check for being null
-        let mut accessed_nullable_keys = vec![];
-        // The containers we access and what keys are used to access them
-        let mut accessed_dynamic_array_keys = vec![];
-        let mut accessed_static_array_keys = vec![];
-        let mut accessed_map_keys = vec![];
-
-        let _property_schema = super::property_schema_and_path_ancestors_to_check(
-            asset_schema,
-            &path,
-            schema_set.schemas(),
-            &mut accessed_nullable_keys,
-            &mut accessed_dynamic_array_keys,
-            &mut accessed_static_array_keys,
-            &mut accessed_map_keys,
-        )?;
-
-        for checked_property in &accessed_nullable_keys {
-            if self.resolve_null_override(schema_set, asset_id, checked_property)?
-                != NullOverride::SetNonNull
-            {
-                return Err(DataSetError::PathParentIsNull);
-            }
-        }
-
-        for (path, key) in &accessed_dynamic_array_keys {
-            let dynamic_array_entries = self.resolve_dynamic_array(schema_set, asset_id, path)?;
-            if !dynamic_array_entries
-                .contains(&Uuid::from_str(key).map_err(|_| DataSetError::UuidParseError)?)
-            {
-                return Err(DataSetError::PathDynamicArrayEntryDoesNotExist);
-            }
-        }
+        let _ = self.validate_parent_paths(schema_set, asset_id, path.as_ref())?;
 
         let obj = self
             .assets
@@ -1174,43 +1101,7 @@ impl DataSet {
         asset_id: AssetId,
         path: impl AsRef<str>,
     ) -> DataSetResult<&'a Value> {
-        let asset_schema = self
-            .asset_schema(asset_id)
-            .ok_or(DataSetError::AssetNotFound)?;
-
-        // Contains the path segments that we need to check for being null
-        let mut accessed_nullable_keys = vec![];
-        // The containers we access and what keys are used to access them
-        let mut accessed_dynamic_array_keys = vec![];
-        let mut accessed_static_array_keys = vec![];
-        let mut accessed_map_keys = vec![];
-
-        let property_schema = super::property_schema_and_path_ancestors_to_check(
-            asset_schema,
-            &path,
-            schema_set.schemas(),
-            &mut accessed_nullable_keys,
-            &mut accessed_dynamic_array_keys,
-            &mut accessed_static_array_keys,
-            &mut accessed_map_keys,
-        )?;
-
-        for checked_property in &accessed_nullable_keys {
-            if self.resolve_null_override(schema_set, asset_id, checked_property)?
-                != NullOverride::SetNonNull
-            {
-                return Err(DataSetError::PathParentIsNull);
-            }
-        }
-
-        for (path, key) in &accessed_dynamic_array_keys {
-            let dynamic_array_entries = self.resolve_dynamic_array(schema_set, asset_id, path)?;
-            if !dynamic_array_entries
-                .contains(&Uuid::from_str(key).map_err(|_| DataSetError::UuidParseError)?)
-            {
-                return Err(DataSetError::PathDynamicArrayEntryDoesNotExist);
-            }
-        }
+        let property_schema = self.validate_parent_paths(schema_set, asset_id, path.as_ref())?;
 
         let mut prototype_id = Some(asset_id);
         while let Some(prototype_id_iter) = prototype_id {
@@ -1397,43 +1288,7 @@ impl DataSet {
         asset_id: AssetId,
         path: impl AsRef<str>,
     ) -> DataSetResult<Box<[Uuid]>> {
-        let asset_schema = self
-            .asset_schema(asset_id)
-            .ok_or(DataSetError::AssetNotFound)?;
-
-        // Contains the path segments that we need to check for being null
-        let mut accessed_nullable_keys = vec![];
-        // The containers we access and what keys are used to access them
-        let mut accessed_dynamic_array_keys = vec![];
-        let mut accessed_static_array_keys = vec![];
-        let mut accessed_map_keys = vec![];
-
-        let _property_schema = super::property_schema_and_path_ancestors_to_check(
-            asset_schema,
-            &path,
-            schema_set.schemas(),
-            &mut accessed_nullable_keys,
-            &mut accessed_dynamic_array_keys,
-            &mut accessed_static_array_keys,
-            &mut accessed_map_keys,
-        )?;
-
-        for checked_property in &accessed_nullable_keys {
-            if self.resolve_null_override(schema_set, asset_id, checked_property)?
-                != NullOverride::SetNonNull
-            {
-                return Err(DataSetError::PathParentIsNull);
-            }
-        }
-
-        for (path, key) in &accessed_dynamic_array_keys {
-            let dynamic_array_entries = self.resolve_dynamic_array(schema_set, asset_id, path)?;
-            if !dynamic_array_entries
-                .contains(&Uuid::from_str(key).map_err(|_| DataSetError::UuidParseError)?)
-            {
-                return Err(DataSetError::PathDynamicArrayEntryDoesNotExist);
-            }
-        }
+        let _ = self.validate_parent_paths(schema_set, asset_id, path.as_ref())?;
 
         let mut resolved_entries = vec![];
         self.do_resolve_dynamic_array(

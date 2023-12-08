@@ -165,13 +165,11 @@ impl SingleObject {
         path: impl AsRef<str>,
     ) -> DataSetResult<NullOverride> {
         // Contains the path segments that we need to check for being null
-        let mut nullable_ancestors = vec![];
-        // Contains the path segments that we need to check for being in append mode
-        let mut dynamic_array_ancestors = vec![];
-        // Contains the path segments that we need to check for being in append mode
-        let mut map_ancestors = vec![];
-        // Contains the dynamic arrays we access and what keys are used to access them
+        let mut accessed_nullable_keys = vec![];
+        // The containers we access and what keys are used to access them
         let mut accessed_dynamic_array_keys = vec![];
+        let mut accessed_static_array_keys = vec![];
+        let mut accessed_map_keys = vec![];
 
         //TODO: Only allow getting values that exist, in particular, dynamic array overrides
 
@@ -179,10 +177,10 @@ impl SingleObject {
             &self.schema,
             &path,
             schema_set.schemas(),
-            &mut nullable_ancestors,
-            &mut dynamic_array_ancestors,
-            &mut map_ancestors,
+            &mut accessed_nullable_keys,
             &mut accessed_dynamic_array_keys,
+            &mut accessed_static_array_keys,
+            &mut accessed_map_keys,
         )?;
 
         // This field is not nullable, return an error
@@ -191,7 +189,7 @@ impl SingleObject {
         }
 
         // See if this field was contained in any nullables. If any of those were null, return None.
-        for checked_property in &nullable_ancestors {
+        for checked_property in &accessed_nullable_keys {
             if self.resolve_null_override(schema_set, checked_property)? != NullOverride::SetNonNull
             {
                 return Err(DataSetError::PathParentIsNull);
@@ -256,25 +254,23 @@ impl SingleObject {
         }
 
         // Contains the path segments that we need to check for being null
-        let mut nullable_ancestors = vec![];
-        // Contains the path segments that we need to check for being in append mode
-        let mut dynamic_array_ancestors = vec![];
-        // Contains the path segments that we need to check for being in append mode
-        let mut map_ancestors = vec![];
-        // Contains the dynamic arrays we access and what keys are used to access them
+        let mut accessed_nullable_keys = vec![];
+        // The containers we access and what keys are used to access them
         let mut accessed_dynamic_array_keys = vec![];
+        let mut accessed_static_array_keys = vec![];
+        let mut accessed_map_keys = vec![];
 
         let _property_schema = super::property_schema_and_path_ancestors_to_check(
             &self.schema,
             &path,
             schema_set.schemas(),
-            &mut nullable_ancestors,
-            &mut dynamic_array_ancestors,
-            &mut map_ancestors,
+            &mut accessed_nullable_keys,
             &mut accessed_dynamic_array_keys,
+            &mut accessed_static_array_keys,
+            &mut accessed_map_keys,
         )?;
 
-        for checked_property in &nullable_ancestors {
+        for checked_property in &accessed_nullable_keys {
             if self.resolve_null_override(schema_set, checked_property)? != NullOverride::SetNonNull
             {
                 return Err(DataSetError::PathParentIsNull);
@@ -304,25 +300,23 @@ impl SingleObject {
         path: impl AsRef<str>,
     ) -> DataSetResult<&'a Value> {
         // Contains the path segments that we need to check for being null
-        let mut nullable_ancestors = vec![];
-        // Contains the path segments that we need to check for being in append mode
-        let mut dynamic_array_ancestors = vec![];
-        // Contains the path segments that we need to check for being in append mode
-        let mut map_ancestors = vec![];
-        // Contains the dynamic arrays we access and what keys are used to access them
+        let mut accessed_nullable_keys = vec![];
+        // The containers we access and what keys are used to access them
         let mut accessed_dynamic_array_keys = vec![];
+        let mut accessed_static_array_keys = vec![];
+        let mut accessed_map_keys = vec![];
 
         let property_schema = super::property_schema_and_path_ancestors_to_check(
             &self.schema,
             &path,
             schema_set.schemas(),
-            &mut nullable_ancestors,
-            &mut dynamic_array_ancestors,
-            &mut map_ancestors,
+            &mut accessed_nullable_keys,
             &mut accessed_dynamic_array_keys,
+            &mut accessed_static_array_keys,
+            &mut accessed_map_keys,
         )?;
 
-        for checked_property in &nullable_ancestors {
+        for checked_property in &accessed_nullable_keys {
             if self.resolve_null_override(schema_set, checked_property)? != NullOverride::SetNonNull
             {
                 return Err(DataSetError::PathParentIsNull);
@@ -435,25 +429,23 @@ impl SingleObject {
         path: impl AsRef<str>,
     ) -> DataSetResult<Box<[Uuid]>> {
         // Contains the path segments that we need to check for being null
-        let mut nullable_ancestors = vec![];
-        // Contains the path segments that we need to check for being in append mode
-        let mut dynamic_array_ancestors = vec![];
-        // Contains the path segments that we need to check for being in append mode
-        let mut map_ancestors = vec![];
-        // Contains the dynamic arrays we access and what keys are used to access them
+        let mut accessed_nullable_keys = vec![];
+        // The containers we access and what keys are used to access them
         let mut accessed_dynamic_array_keys = vec![];
+        let mut accessed_static_array_keys = vec![];
+        let mut accessed_map_keys = vec![];
 
         let _property_schema = super::property_schema_and_path_ancestors_to_check(
             &self.schema,
             &path,
             schema_set.schemas(),
-            &mut nullable_ancestors,
-            &mut dynamic_array_ancestors,
-            &mut map_ancestors,
+            &mut accessed_nullable_keys,
             &mut accessed_dynamic_array_keys,
+            &mut accessed_static_array_keys,
+            &mut accessed_map_keys,
         )?;
 
-        for checked_property in &nullable_ancestors {
+        for checked_property in &accessed_nullable_keys {
             if self.resolve_null_override(schema_set, checked_property)? != NullOverride::SetNonNull
             {
                 return Err(DataSetError::PathParentIsNull);

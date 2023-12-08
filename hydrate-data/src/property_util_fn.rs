@@ -28,55 +28,49 @@ pub(super) fn property_schema_and_path_ancestors_to_check<'a>(
     named_type: &'a SchemaRecord,
     path: impl AsRef<str>,
     named_types: &HashMap<SchemaFingerprint, SchemaNamedType>,
-    nullable_ancestors: &mut Vec<String>,
-    dynamic_array_ancestors: &mut Vec<String>,
-    map_ancestors: &mut Vec<String>,
+    accessed_nullable_keys: &mut Vec<String>,
     accessed_dynamic_array_keys: &mut Vec<(String, String)>,
+    accessed_static_array_keys: &mut Vec<(String, String)>,
+    accessed_map_keys: &mut Vec<(String, String)>,
 ) -> DataSetResult<Schema> {
     let mut schema = Schema::Record(named_type.fingerprint());
 
     //TODO: Escape map keys (and probably avoid path strings anyways)
     let split_path: Vec<_> = path.as_ref().split(".").collect();
 
-    let mut parent_is_dynamic_array = false;
-
     for (i, path_segment) in split_path[0..split_path.len() - 1].iter().enumerate() {
-        let s = schema
+        let child_schema = schema
             .find_field_schema(path_segment, named_types)
             .ok_or(DataSetError::SchemaNotFound)?;
 
-        // current path needs to be verified as existing
-        if parent_is_dynamic_array {
-            accessed_dynamic_array_keys.push((
-                truncate_property_path(path.as_ref(), i - 1),
-                path_segment.to_string(),
-            ));
-        }
-
-        parent_is_dynamic_array = false;
-
-        //if let Some(s) = s {
-        // If it's nullable, we need to check for value being null before looking up the prototype chain
-        // If it's a map or dynamic array, we need to check for append mode before looking up the prototype chain
-        match s {
+        match schema {
             Schema::Nullable(_) => {
-                let shortened_path = super::truncate_property_path(path.as_ref(), i);
-                nullable_ancestors.push(shortened_path);
+                accessed_nullable_keys.push((
+                    truncate_property_path(path.as_ref(), i - 1)
+                ));
+            }
+            Schema::StaticArray(_) => {
+                accessed_static_array_keys.push((
+                    truncate_property_path(path.as_ref(), i - 1),
+                    path_segment.to_string(),
+                ));
             }
             Schema::DynamicArray(_) => {
-                let shortened_path = super::truncate_property_path(path.as_ref(), i);
-                dynamic_array_ancestors.push(shortened_path.clone());
-
-                parent_is_dynamic_array = true;
+                accessed_dynamic_array_keys.push((
+                    truncate_property_path(path.as_ref(), i - 1),
+                    path_segment.to_string(),
+                ));
             }
             Schema::Map(_) => {
-                let shortened_path = super::truncate_property_path(path.as_ref(), i);
-                map_ancestors.push(shortened_path);
+                accessed_map_keys.push((
+                    truncate_property_path(path.as_ref(), i - 1),
+                    path_segment.to_string(),
+                ));
             }
             _ => {}
         }
 
-        schema = s.clone();
+        schema = child_schema.clone();
     }
 
     if let Some(last_path_segment) = split_path.last() {

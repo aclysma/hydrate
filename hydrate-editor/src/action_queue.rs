@@ -448,10 +448,7 @@ impl UIActionQueueReceiver {
                     editor_model.root_edit_context_mut().with_undo_context(
                         "SetOverrideBehavior",
                         |edit_context| {
-                            let schema = edit_context.asset_schema(asset_id).unwrap()
-                                .find_property_schema(property_path.path(), edit_context.schema_set().schemas()).unwrap();
-                            println!("find schema {:?} for property {:?}", schema, property_path.path());
-                            override_with_default_values_recursively(asset_id, property_path, schema, edit_context);
+                            edit_context.set_override_behavior(asset_id, property_path.path(), override_behavior).unwrap();
                             EndContextBehavior::Finish
                         },
                     );

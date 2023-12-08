@@ -116,10 +116,9 @@ pub fn show_property_action_menu(
                 .clicked()
             {
                 ctx.action_sender
-                    .queue_action(UIAction::SetOverrideBehavior(
+                    .queue_action(UIAction::OverrideWithDefault(
                         asset_id,
                         ctx.property_path.clone(),
-                        OverrideBehavior::Append
                     ));
                 ui.close_menu();
             }
@@ -1141,6 +1140,7 @@ pub fn draw_inspector_rows(
                             ui.set_enabled(!ctx.read_only);
 
                             ui.allocate_space(ui.style().spacing.item_spacing - egui::vec2(3.0, 3.0));
+                            //ui.allocate_space(egui::vec2(0.0, 0.0));
                             if ui.button("Add Item").clicked() {
                                 ctx.action_sender
                                     .queue_action(UIAction::AddDynamicArrayOverride(
@@ -1148,6 +1148,19 @@ pub fn draw_inspector_rows(
                                         ctx.property_path.clone(),
                                     ));
                             }
+
+                            ui.separator();
+
+                            let is_append_mode = ctx.editor_model.root_edit_context().get_override_behavior(ctx.asset_id, ctx.property_path.path()).unwrap() == OverrideBehavior::Append;
+                            if ui.selectable_label(is_append_mode, "Inherit").clicked() {
+                                ctx.action_sender.queue_action(UIAction::SetOverrideBehavior(ctx.asset_id, ctx.property_path.clone(), OverrideBehavior::Append));
+                            }
+
+                            if ui.selectable_label(!is_append_mode, "Don't Inherit").clicked() {
+                                ctx.action_sender.queue_action(UIAction::SetOverrideBehavior(ctx.asset_id, ctx.property_path.clone(), OverrideBehavior::Replace));
+                            }
+
+                            //ui.allocate_space(ui.style().spacing.item_spacing - egui::vec2(3.0, 3.0));
                         },
                     );
                 });

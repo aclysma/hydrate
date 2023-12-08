@@ -1315,7 +1315,7 @@ impl DataSet {
             .ok_or(DataSetError::SchemaNotFound)?;
 
         Ok(match property_schema {
-            Schema::StaticArray(_) | Schema::DynamicArray(_) | Schema::Map(_) => {
+            Schema::DynamicArray(_) | Schema::Map(_) => {
                 if asset.properties_in_replace_mode.contains(path.as_ref()) {
                     OverrideBehavior::Replace
                 } else {
@@ -1343,7 +1343,7 @@ impl DataSet {
             .ok_or(DataSetError::SchemaNotFound)?;
 
         match property_schema {
-            Schema::StaticArray(_) | Schema::DynamicArray(_) | Schema::Map(_) => {
+            Schema::DynamicArray(_) | Schema::Map(_) => {
                 let _ = match behavior {
                     OverrideBehavior::Append => {
                         asset.properties_in_replace_mode.remove(path.as_ref())

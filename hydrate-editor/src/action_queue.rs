@@ -483,8 +483,11 @@ fn override_with_default_values_recursively(asset_id: AssetId, property_path: Pr
         Schema::Nullable(_) => {
             edit_context.set_null_override(asset_id, property_path.path(), NullOverride::SetNull).unwrap();
         }
-        Schema::StaticArray(_) => {
-            edit_context.set_override_behavior(asset_id, property_path.path(), OverrideBehavior::Replace).unwrap();
+        Schema::StaticArray(schema) => {
+            for i in 0..schema.length() {
+                let element_path = property_path.push(&i.to_string());
+                override_with_default_values_recursively(asset_id, element_path, schema.item_type().clone(), edit_context);
+            }
         }
         Schema::DynamicArray(_) => {
             edit_context.set_override_behavior(asset_id, property_path.path(), OverrideBehavior::Replace).unwrap();

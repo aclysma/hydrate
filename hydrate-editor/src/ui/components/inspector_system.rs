@@ -1084,7 +1084,7 @@ pub fn draw_inspector_rows(
                         row.col(|ui| {
                             if can_use_inline_values {
                                 let inner_ctx = InspectorContext {
-                                    property_default_display_name: &entry_index_as_string,
+                                    property_default_display_name: "",
                                     property_path: &field_path,
                                     schema: schema.item_type(),
                                     ..ctx
@@ -1101,7 +1101,7 @@ pub fn draw_inspector_rows(
                         draw_inspector_rows(
                             body,
                             InspectorContext {
-                                property_default_display_name: &entry_index_as_string,
+                                property_default_display_name: "",
                                 property_path: &field_path,
                                 schema: schema.item_type(),
                                 ..ctx
@@ -1178,7 +1178,7 @@ pub fn draw_inspector_rows(
                         row.col(|ui| {
                             if can_use_inline_values {
                                 let inner_ctx = InspectorContext {
-                                    property_default_display_name: &id_as_string,
+                                    property_default_display_name: "",
                                     property_path: &field_path,
                                     schema: schema.item_type(),
                                     read_only: true,
@@ -1196,7 +1196,7 @@ pub fn draw_inspector_rows(
                         draw_inspector_rows(
                             body,
                             InspectorContext {
-                                property_default_display_name: &id_as_string,
+                                property_default_display_name: "",
                                 property_path: &field_path,
                                 schema: schema.item_type(),
                                 read_only: true,
@@ -1263,7 +1263,7 @@ pub fn draw_inspector_rows(
                         row.col(|ui| {
                             if can_use_inline_values {
                                 let inner_ctx = InspectorContext {
-                                    property_default_display_name: &entry_uuid_as_string,
+                                    property_default_display_name: "",
                                     property_path: &field_path,
                                     schema: schema.item_type(),
                                     ..ctx
@@ -1280,7 +1280,7 @@ pub fn draw_inspector_rows(
                         draw_inspector_rows(
                             body,
                             InspectorContext {
-                                property_default_display_name: &entry_uuid_as_string,
+                                property_default_display_name: "",
                                 property_path: &field_path,
                                 schema: schema.item_type(),
                                 ..ctx

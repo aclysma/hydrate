@@ -24,6 +24,11 @@ trait DataContainerRead {
         path: impl AsRef<str>,
     ) -> DataSetResult<Box<[Uuid]>>;
 
+    fn resolve_map(
+        &self,
+        path: impl AsRef<str>,
+    ) -> DataSetResult<Box<[Uuid]>>;
+
     fn get_override_behavior(
         &self,
         path: impl AsRef<str>,
@@ -50,6 +55,11 @@ trait DataContainerWrite {
     ) -> DataSetResult<()>;
 
     fn add_dynamic_array_override(
+        &mut self,
+        path: impl AsRef<str>,
+    ) -> DataSetResult<Uuid>;
+
+    fn add_map_override(
         &mut self,
         path: impl AsRef<str>,
     ) -> DataSetResult<Uuid>;
@@ -163,6 +173,23 @@ impl<'a> DataContainerRef<'a> {
         }
     }
 
+    pub fn resolve_map(
+        &self,
+        path: impl AsRef<str>,
+    ) -> DataSetResult<Box<[Uuid]>> {
+        match self {
+            DataContainerRef::DataSet(data_set, schema_set, asset_id) => {
+                data_set.resolve_map(schema_set, *asset_id, path)
+            }
+            DataContainerRef::SingleObjectRef(single_object, schema_set) => {
+                single_object.resolve_map(schema_set, path)
+            }
+            DataContainerRef::SingleObjectArc(single_object, schema_set) => {
+                single_object.resolve_map(schema_set, path)
+            }
+        }
+    }
+
     pub fn get_override_behavior(
         &self,
         path: impl AsRef<str>,
@@ -200,6 +227,13 @@ impl<'a> DataContainerRead for DataContainerRef<'a> {
     }
 
     fn resolve_dynamic_array(
+        &self,
+        path: impl AsRef<str>,
+    ) -> DataSetResult<Box<[Uuid]>> {
+        self.resolve_dynamic_array(path)
+    }
+
+    fn resolve_map(
         &self,
         path: impl AsRef<str>,
     ) -> DataSetResult<Box<[Uuid]>> {
@@ -295,6 +329,13 @@ impl<'a> DataContainerRefMut<'a> {
         self.read().resolve_dynamic_array(path)
     }
 
+    pub fn resolve_map(
+        &self,
+        path: impl AsRef<str>,
+    ) -> DataSetResult<Box<[Uuid]>> {
+        self.read().resolve_map(path)
+    }
+
     pub fn get_override_behavior(
         &self,
         path: impl AsRef<str>,
@@ -343,6 +384,20 @@ impl<'a> DataContainerRefMut<'a> {
             }
         }
     }
+
+    pub fn add_map_override(
+        &mut self,
+        path: impl AsRef<str>,
+    ) -> DataSetResult<Uuid> {
+        match self {
+            DataContainerRefMut::DataSet(data_set, schema_set, asset_id) => {
+                data_set.add_map_override(schema_set, *asset_id, path)
+            }
+            DataContainerRefMut::SingleObject(single_object, schema_set) => {
+                single_object.add_map_override(schema_set, path)
+            }
+        }
+    }
 }
 
 impl<'a> DataContainerRead for DataContainerRefMut<'a> {
@@ -372,6 +427,13 @@ impl<'a> DataContainerRead for DataContainerRefMut<'a> {
         path: impl AsRef<str>,
     ) -> DataSetResult<Box<[Uuid]>> {
         self.resolve_dynamic_array(path)
+    }
+
+    fn resolve_map(
+        &self,
+        path: impl AsRef<str>,
+    ) -> DataSetResult<Box<[Uuid]>> {
+        self.resolve_map(path)
     }
 
     fn get_override_behavior(
@@ -412,6 +474,13 @@ impl<'a> DataContainerWrite for DataContainerRefMut<'a> {
         path: impl AsRef<str>,
     ) -> DataSetResult<Uuid> {
         self.add_dynamic_array_override(path)
+    }
+
+    fn add_map_override(
+        &mut self,
+        path: impl AsRef<str>,
+    ) -> DataSetResult<Uuid> {
+        self.add_map_override(path)
     }
 }
 
@@ -492,6 +561,13 @@ impl DataContainer {
         self.read().resolve_dynamic_array(path)
     }
 
+    pub fn resolve_map(
+        &self,
+        path: impl AsRef<str>,
+    ) -> DataSetResult<Box<[Uuid]>> {
+        self.read().resolve_map(path)
+    }
+
     pub fn get_override_behavior(
         &self,
         path: impl AsRef<str>,
@@ -531,6 +607,17 @@ impl DataContainer {
             }
         }
     }
+
+    pub fn add_map_override(
+        &mut self,
+        path: impl AsRef<str>,
+    ) -> DataSetResult<Uuid> {
+        match self {
+            DataContainer::SingleObject(single_object, schema_set) => {
+                single_object.add_map_override(schema_set, path)
+            }
+        }
+    }
 }
 
 impl DataContainerRead for DataContainer {
@@ -560,6 +647,13 @@ impl DataContainerRead for DataContainer {
         path: impl AsRef<str>,
     ) -> DataSetResult<Box<[Uuid]>> {
         self.resolve_dynamic_array(path)
+    }
+
+    fn resolve_map(
+        &self,
+        path: impl AsRef<str>,
+    ) -> DataSetResult<Box<[Uuid]>> {
+        self.resolve_map(path)
     }
 
     fn get_override_behavior(
@@ -600,5 +694,12 @@ impl DataContainerWrite for DataContainer {
         path: impl AsRef<str>,
     ) -> DataSetResult<Uuid> {
         self.add_dynamic_array_override(path)
+    }
+
+    fn add_map_override(
+        &mut self,
+        path: impl AsRef<str>,
+    ) -> DataSetResult<Uuid> {
+        self.add_map_override(path)
     }
 }

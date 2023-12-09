@@ -1,5 +1,5 @@
-use crate::{SchemaDefRecordFieldMarkup, SchemaDefRecordMarkup};
 use super::schema_def::{SchemaDefDynamicArray, SchemaDefType};
+use crate::{SchemaDefRecordFieldMarkup, SchemaDefRecordMarkup};
 
 pub struct RecordTypeFieldBuilder {
     pub(super) name: String,

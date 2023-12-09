@@ -706,8 +706,13 @@ impl EditContext {
         entry_uuid: Uuid,
     ) -> DataSetResult<()> {
         self.track_existing_asset(asset_id)?;
-        self.data_set
-            .insert_dynamic_array_entry(&self.schema_set, asset_id, path, index, entry_uuid)
+        self.data_set.insert_dynamic_array_entry(
+            &self.schema_set,
+            asset_id,
+            path,
+            index,
+            entry_uuid,
+        )
     }
 
     pub fn remove_dynamic_array_entry(
@@ -774,9 +779,10 @@ impl EditContext {
         &self,
         schema_set: &SchemaSet,
         asset_id: AssetId,
-        path: impl AsRef<str>
+        path: impl AsRef<str>,
     ) -> DataSetResult<PropertiesBundle> {
-        self.data_set.read_properties_bundle(schema_set, asset_id, path)
+        self.data_set
+            .read_properties_bundle(schema_set, asset_id, path)
     }
 
     pub fn write_properties_bundle(
@@ -784,9 +790,10 @@ impl EditContext {
         schema_set: &SchemaSet,
         asset_id: AssetId,
         path: impl AsRef<str>,
-        properties_bundle: &PropertiesBundle
+        properties_bundle: &PropertiesBundle,
     ) -> DataSetResult<()> {
         self.track_existing_asset(asset_id)?;
-        self.data_set.write_properties_bundle(schema_set, asset_id, path, properties_bundle)
+        self.data_set
+            .write_properties_bundle(schema_set, asset_id, path, properties_bundle)
     }
 }

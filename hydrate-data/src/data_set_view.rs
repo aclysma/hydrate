@@ -64,7 +64,6 @@ trait DataContainerWrite {
     ) -> DataSetResult<Option<Value>>;
     //resolve_property
 
-
     //get_dynamic_array_entries
     //get_map_entries
     fn add_dynamic_array_entry(
@@ -397,7 +396,7 @@ impl<'a> DataContainerRefMut<'a> {
     pub fn remove_dynamic_array_entry(
         &mut self,
         path: impl AsRef<str>,
-        entry_id: Uuid
+        entry_id: Uuid,
     ) -> DataSetResult<bool> {
         match self {
             DataContainerRefMut::DataSet(data_set, schema_set, asset_id) => {
@@ -412,7 +411,7 @@ impl<'a> DataContainerRefMut<'a> {
     pub fn remove_map_entry(
         &mut self,
         path: impl AsRef<str>,
-        entry_id: Uuid
+        entry_id: Uuid,
     ) -> DataSetResult<bool> {
         match self {
             DataContainerRefMut::DataSet(data_set, schema_set, asset_id) => {

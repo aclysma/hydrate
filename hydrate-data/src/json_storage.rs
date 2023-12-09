@@ -182,8 +182,9 @@ fn load_json_properties(
                 for json_array_element in json_array {
                     let element = json_array_element.as_str().unwrap();
                     let element = Uuid::from_str(element).unwrap();
-                    let existing_entries =
-                        dynamic_collection_entries.entry(path.to_string()).or_default();
+                    let existing_entries = dynamic_collection_entries
+                        .entry(path.to_string())
+                        .or_default();
                     if !existing_entries.contains(&element) {
                         log::trace!("add dynamic array element {} to {:?}", element, path);
                         let newly_inserted = existing_entries.try_insert_at_end(element);
@@ -431,7 +432,9 @@ impl AssetJson {
             named_type.clone()
         } else {
             log::error!("Can't load type {} by fingerprint, trying by name. Schema migration not yet implemented", stored_asset.schema_name);
-            schema_set.find_named_type(stored_asset.schema_name)?.clone()
+            schema_set
+                .find_named_type(stored_asset.schema_name)?
+                .clone()
 
             //Fingerprint doesn't match, this may need to be a data migration in the future
             //panic!("Can't load type {}", stored_asset.schema_name);

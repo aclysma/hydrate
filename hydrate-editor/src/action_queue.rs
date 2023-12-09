@@ -6,7 +6,10 @@ use crossbeam_channel::{Receiver, Sender};
 use hydrate_model::edit_context::EditContext;
 use hydrate_model::pipeline::import_util::ImportToQueue;
 use hydrate_model::pipeline::AssetEngine;
-use hydrate_model::{AssetId, AssetLocation, AssetName, DataSetError, DataSetResult, EditorModel, EndContextBehavior, NullOverride, OverrideBehavior, PropertyPath, Schema, SchemaRecord, Value};
+use hydrate_model::{
+    AssetId, AssetLocation, AssetName, DataSetError, DataSetResult, EditorModel,
+    EndContextBehavior, NullOverride, OverrideBehavior, PropertyPath, Schema, SchemaRecord, Value,
+};
 use std::sync::Arc;
 use uuid::Uuid;
 
@@ -265,7 +268,9 @@ impl UIActionQueueReceiver {
                     );
                 }
                 UIAction::CommitPendingUndoContext => {
-                    editor_model.root_edit_context_mut().commit_pending_undo_context();
+                    editor_model
+                        .root_edit_context_mut()
+                        .commit_pending_undo_context();
                 }
                 UIAction::ApplyPropertyOverrideToPrototype(asset_id, property_path) => {
                     editor_model.root_edit_context_mut().with_undo_context(
@@ -318,80 +323,95 @@ impl UIActionQueueReceiver {
                     editor_model.root_edit_context_mut().with_undo_context(
                         "RemoveDynamicArrayOverride",
                         |edit_context| {
-                                edit_context.remove_dynamic_array_entry(
+                            edit_context
+                                .remove_dynamic_array_entry(
                                     asset_id,
                                     property_path.path(),
-                                    entry_uuid
-                                ).unwrap();
+                                    entry_uuid,
+                                )
+                                .unwrap();
 
                             EndContextBehavior::Finish
                         },
                     );
-                },
+                }
                 UIAction::RemoveMapEntry(asset_id, property_path, entry_uuid) => {
                     editor_model.root_edit_context_mut().with_undo_context(
                         "RemoveDynamicArrayOverride",
                         |edit_context| {
-                            edit_context.remove_map_entry(
-                                asset_id,
-                                property_path.path(),
-                                entry_uuid
-                            ).unwrap();
+                            edit_context
+                                .remove_map_entry(asset_id, property_path.path(), entry_uuid)
+                                .unwrap();
 
                             EndContextBehavior::Finish
                         },
                     );
-                },
+                }
                 UIAction::MoveDynamicArrayEntryUp(asset_id, property_path, entry_uuid) => {
                     editor_model.root_edit_context_mut().with_undo_context(
                         "MoveDynamicArrayOverrideUp",
                         |edit_context| {
                             let mut overrides: Vec<_> = edit_context
-                                .get_dynamic_array_entries(asset_id, property_path.path()).unwrap().copied().collect();
-                            let current_index = overrides.iter().position(|x| *x == entry_uuid).unwrap();
+                                .get_dynamic_array_entries(asset_id, property_path.path())
+                                .unwrap()
+                                .copied()
+                                .collect();
+                            let current_index =
+                                overrides.iter().position(|x| *x == entry_uuid).unwrap();
                             if current_index > 0 {
                                 let schema_set = edit_context.schema_set().clone();
                                 // Remove
-                                edit_context.remove_dynamic_array_entry(
-                                    asset_id,
-                                    property_path.path(),
-                                    entry_uuid
-                                ).unwrap();
+                                edit_context
+                                    .remove_dynamic_array_entry(
+                                        asset_id,
+                                        property_path.path(),
+                                        entry_uuid,
+                                    )
+                                    .unwrap();
                                 // Insert one index higher
-                                edit_context.insert_dynamic_array_entry(
-                                    asset_id,
-                                    property_path.path(),
-                                    current_index - 1,
-                                    entry_uuid
-                                ).unwrap();
+                                edit_context
+                                    .insert_dynamic_array_entry(
+                                        asset_id,
+                                        property_path.path(),
+                                        current_index - 1,
+                                        entry_uuid,
+                                    )
+                                    .unwrap();
                             }
 
                             EndContextBehavior::Finish
                         },
                     );
-                },
+                }
                 UIAction::MoveDynamicArrayEntryDown(asset_id, property_path, entry_uuid) => {
                     editor_model.root_edit_context_mut().with_undo_context(
                         "MoveDynamicArrayOverrideDown",
                         |edit_context| {
                             let mut overrides: Vec<_> = edit_context
-                                .get_dynamic_array_entries(asset_id, property_path.path()).unwrap().collect();
-                            let current_index = overrides.iter().position(|x| **x == entry_uuid).unwrap();
+                                .get_dynamic_array_entries(asset_id, property_path.path())
+                                .unwrap()
+                                .collect();
+                            let current_index =
+                                overrides.iter().position(|x| **x == entry_uuid).unwrap();
                             if current_index < overrides.len() - 1 {
                                 let schema_set = edit_context.schema_set().clone();
                                 // Remove
-                                edit_context.remove_dynamic_array_entry(
-                                    asset_id,
-                                    property_path.path(),
-                                    entry_uuid
-                                ).unwrap();
+                                edit_context
+                                    .remove_dynamic_array_entry(
+                                        asset_id,
+                                        property_path.path(),
+                                        entry_uuid,
+                                    )
+                                    .unwrap();
                                 // Re-insert at next index
-                                edit_context.insert_dynamic_array_entry(
-                                    asset_id,
-                                    property_path.path(),
-                                    current_index + 1,
-                                    entry_uuid
-                                ).unwrap();
+                                edit_context
+                                    .insert_dynamic_array_entry(
+                                        asset_id,
+                                        property_path.path(),
+                                        current_index + 1,
+                                        entry_uuid,
+                                    )
+                                    .unwrap();
                             }
 
                             EndContextBehavior::Finish
@@ -408,17 +428,44 @@ impl UIActionQueueReceiver {
                             let schema_set = edit_context.schema_set().clone();
                             let index_a = entry_index;
                             let property_path_a = property_path.push(&index_a.to_string());
-                            let bundle_a = edit_context.read_properties_bundle(&schema_set, asset_id, property_path_a.path()).unwrap();
+                            let bundle_a = edit_context
+                                .read_properties_bundle(
+                                    &schema_set,
+                                    asset_id,
+                                    property_path_a.path(),
+                                )
+                                .unwrap();
 
                             let index_b = (entry_index - 1);
                             let property_path_b = property_path.push(&index_b.to_string());
-                            let bundle_b = edit_context.read_properties_bundle(&schema_set, asset_id, property_path_b.path()).unwrap();
+                            let bundle_b = edit_context
+                                .read_properties_bundle(
+                                    &schema_set,
+                                    asset_id,
+                                    property_path_b.path(),
+                                )
+                                .unwrap();
 
-                            edit_context.write_properties_bundle(&schema_set, asset_id, property_path_a.path(), &bundle_b).unwrap();
-                            edit_context.write_properties_bundle(&schema_set, asset_id, property_path_b.path(), &bundle_a).unwrap();
+                            edit_context
+                                .write_properties_bundle(
+                                    &schema_set,
+                                    asset_id,
+                                    property_path_a.path(),
+                                    &bundle_b,
+                                )
+                                .unwrap();
+                            edit_context
+                                .write_properties_bundle(
+                                    &schema_set,
+                                    asset_id,
+                                    property_path_b.path(),
+                                    &bundle_a,
+                                )
+                                .unwrap();
 
                             EndContextBehavior::Finish
-                        });
+                        },
+                    );
                 }
                 UIAction::MoveStaticArrayOverrideDown(asset_id, property_path, entry_index) => {
                     editor_model.root_edit_context_mut().with_undo_context(
@@ -427,29 +474,70 @@ impl UIActionQueueReceiver {
                             let schema_set = edit_context.schema_set().clone();
                             let index_a = entry_index;
                             let property_path_a = property_path.push(&index_a.to_string());
-                            let bundle_a = edit_context.read_properties_bundle(&schema_set, asset_id, property_path_a.path()).unwrap();
+                            let bundle_a = edit_context
+                                .read_properties_bundle(
+                                    &schema_set,
+                                    asset_id,
+                                    property_path_a.path(),
+                                )
+                                .unwrap();
 
                             let index_b = (entry_index + 1);
                             let property_path_b = property_path.push(&index_b.to_string());
-                            let bundle_b = edit_context.read_properties_bundle(&schema_set, asset_id, property_path_b.path()).unwrap();
+                            let bundle_b = edit_context
+                                .read_properties_bundle(
+                                    &schema_set,
+                                    asset_id,
+                                    property_path_b.path(),
+                                )
+                                .unwrap();
 
-                            edit_context.write_properties_bundle(&schema_set, asset_id, property_path_a.path(), &bundle_b).unwrap();
-                            edit_context.write_properties_bundle(&schema_set, asset_id, property_path_b.path(), &bundle_a).unwrap();
+                            edit_context
+                                .write_properties_bundle(
+                                    &schema_set,
+                                    asset_id,
+                                    property_path_a.path(),
+                                    &bundle_b,
+                                )
+                                .unwrap();
+                            edit_context
+                                .write_properties_bundle(
+                                    &schema_set,
+                                    asset_id,
+                                    property_path_b.path(),
+                                    &bundle_a,
+                                )
+                                .unwrap();
 
                             EndContextBehavior::Finish
-                        });
+                        },
+                    );
                 }
                 UIAction::OverrideWithDefault(asset_id, property_path) => {
                     editor_model.root_edit_context_mut().with_undo_context(
                         "OverrideWithDefault",
                         |edit_context| {
-
                             //let schema = edit_context.asset_schema(asset_id).unwrap().clone();
 
-                            let schema = edit_context.asset_schema(asset_id).unwrap()
-                                .find_property_schema(property_path.path(), edit_context.schema_set().schemas()).unwrap();
-                            println!("find schema {:?} for property {:?}", schema, property_path.path());
-                            override_with_default_values_recursively(asset_id, property_path, schema, edit_context);
+                            let schema = edit_context
+                                .asset_schema(asset_id)
+                                .unwrap()
+                                .find_property_schema(
+                                    property_path.path(),
+                                    edit_context.schema_set().schemas(),
+                                )
+                                .unwrap();
+                            println!(
+                                "find schema {:?} for property {:?}",
+                                schema,
+                                property_path.path()
+                            );
+                            override_with_default_values_recursively(
+                                asset_id,
+                                property_path,
+                                schema,
+                                edit_context,
+                            );
 
                             //let schema_set = edit_context.schema_set().clone();
                             // let schema = edit_context.asset_schema(asset_id).unwrap().clone();
@@ -460,7 +548,6 @@ impl UIActionQueueReceiver {
                             //
                             //     }
                             // }
-
 
                             // Value::default_for_schema(&property_schema, schema_set);
                             // edit_context.set_property_override(asset_id, path, schema_set.)
@@ -473,7 +560,13 @@ impl UIActionQueueReceiver {
                     editor_model.root_edit_context_mut().with_undo_context(
                         "SetOverrideBehavior",
                         |edit_context| {
-                            edit_context.set_override_behavior(asset_id, property_path.path(), override_behavior).unwrap();
+                            edit_context
+                                .set_override_behavior(
+                                    asset_id,
+                                    property_path.path(),
+                                    override_behavior,
+                                )
+                                .unwrap();
                             EndContextBehavior::Finish
                         },
                     );
@@ -492,38 +585,82 @@ impl UIActionQueueReceiver {
     }
 }
 
-fn override_with_default_values_recursively(asset_id: AssetId, property_path: PropertyPath, schema: Schema, edit_context: &mut EditContext) {
+fn override_with_default_values_recursively(
+    asset_id: AssetId,
+    property_path: PropertyPath,
+    schema: Schema,
+    edit_context: &mut EditContext,
+) {
     println!("{} {:?} set to default", property_path.path(), schema);
     match schema {
-        Schema::Boolean | Schema::I32 | Schema::I64 | Schema::U32 | Schema::U64 | Schema::F32 | Schema::F64 |
-        Schema::Bytes | Schema::String | Schema::AssetRef(_) | Schema::Enum(_) => {
+        Schema::Boolean
+        | Schema::I32
+        | Schema::I64
+        | Schema::U32
+        | Schema::U64
+        | Schema::F32
+        | Schema::F64
+        | Schema::Bytes
+        | Schema::String
+        | Schema::AssetRef(_)
+        | Schema::Enum(_) => {
             println!("set path {:?} {:?}", property_path.path(), schema);
-            edit_context.set_property_override(asset_id, property_path.path(), Some(
-                Value::default_for_schema(&schema, edit_context.schema_set()).clone()
-            )).unwrap();
+            edit_context
+                .set_property_override(
+                    asset_id,
+                    property_path.path(),
+                    Some(Value::default_for_schema(&schema, edit_context.schema_set()).clone()),
+                )
+                .unwrap();
         }
         Schema::Nullable(_) => {
-            edit_context.set_null_override(asset_id, property_path.path(), NullOverride::SetNull).unwrap();
+            edit_context
+                .set_null_override(asset_id, property_path.path(), NullOverride::SetNull)
+                .unwrap();
         }
         Schema::StaticArray(schema) => {
             for i in 0..schema.length() {
                 let element_path = property_path.push(&i.to_string());
-                override_with_default_values_recursively(asset_id, element_path, schema.item_type().clone(), edit_context);
+                override_with_default_values_recursively(
+                    asset_id,
+                    element_path,
+                    schema.item_type().clone(),
+                    edit_context,
+                );
             }
         }
         Schema::DynamicArray(_) => {
-            edit_context.set_override_behavior(asset_id, property_path.path(), OverrideBehavior::Replace).unwrap();
+            edit_context
+                .set_override_behavior(asset_id, property_path.path(), OverrideBehavior::Replace)
+                .unwrap();
         }
         Schema::Map(_) => {
-            edit_context.set_override_behavior(asset_id, property_path.path(), OverrideBehavior::Replace).unwrap();
+            edit_context
+                .set_override_behavior(asset_id, property_path.path(), OverrideBehavior::Replace)
+                .unwrap();
         }
         Schema::Record(record_schema) => {
-            let record_schema = edit_context.schema_set().find_named_type_by_fingerprint(record_schema).unwrap().as_record().unwrap().clone();
-            println!("iterate fields of {:?} {:?}", record_schema, record_schema.fields());
+            let record_schema = edit_context
+                .schema_set()
+                .find_named_type_by_fingerprint(record_schema)
+                .unwrap()
+                .as_record()
+                .unwrap()
+                .clone();
+            println!(
+                "iterate fields of {:?} {:?}",
+                record_schema,
+                record_schema.fields()
+            );
             for field in record_schema.fields() {
                 let field_path = property_path.push(field.name());
                 let field_schema = record_schema.field_schema(field.name()).unwrap();
-                override_with_default_values_recursively(asset_id, field_path, field_schema.clone(), edit_context);
+                override_with_default_values_recursively(
+                    asset_id,
+                    field_path,
+                    field_schema.clone(),
+                    edit_context,
+                );
             }
         }
     }

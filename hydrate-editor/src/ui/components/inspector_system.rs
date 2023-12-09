@@ -1,12 +1,16 @@
-use std::hash::Hash;
-use std::ops::RangeInclusive;
 use crate::action_queue::{UIAction, UIActionQueueSender};
 use crate::ui::drag_drop::DragDropPayload;
 use crate::ui_state::EditorModelUiState;
 use eframe::epaint::Color32;
 use egui::{FontFamily, FontId, Response, Widget, WidgetText};
 use hydrate_model::value::ValueEnum;
-use hydrate_model::{AssetId, EditorModel, EndContextBehavior, HashMap, HashSet, NullOverride, OverrideBehavior, PropertyPath, Record, Schema, SchemaDefRecordFieldMarkup, SchemaFingerprint, SchemaNamedType, SchemaRecord, SchemaSet, Value};
+use hydrate_model::{
+    AssetId, EditorModel, EndContextBehavior, HashMap, HashSet, NullOverride, OverrideBehavior,
+    PropertyPath, Record, Schema, SchemaDefRecordFieldMarkup, SchemaFingerprint, SchemaNamedType,
+    SchemaRecord, SchemaSet, Value,
+};
+use std::hash::Hash;
+use std::ops::RangeInclusive;
 use std::sync::Arc;
 
 pub fn show_property_action_menu(
@@ -23,12 +27,23 @@ pub fn show_property_action_menu(
 
     match ctx.schema {
         Schema::Record(record) => {
-            let record_schema = ctx.editor_model.schema_set().find_named_type_by_fingerprint(*record).unwrap().as_record().unwrap();
+            let record_schema = ctx
+                .editor_model
+                .schema_set()
+                .find_named_type_by_fingerprint(*record)
+                .unwrap()
+                .as_record()
+                .unwrap();
 
             let mut any_field_has_override = false;
             for field in record_schema.fields() {
                 let field_path = ctx.property_path.push(field.name());
-                if ctx.editor_model.root_edit_context().has_property_override(asset_id, field_path.path()).unwrap() {
+                if ctx
+                    .editor_model
+                    .root_edit_context()
+                    .has_property_override(asset_id, field_path.path())
+                    .unwrap()
+                {
                     any_field_has_override = true;
                     break;
                 }
@@ -53,10 +68,7 @@ pub fn show_property_action_menu(
             }
 
             if ui
-                .add_enabled(
-                    !ctx.read_only,
-                    egui::Button::new("Override With Default"),
-                )
+                .add_enabled(!ctx.read_only, egui::Button::new("Override With Default"))
                 .clicked()
             {
                 ctx.action_sender
@@ -78,13 +90,11 @@ pub fn show_property_action_menu(
                     let field_path = ctx.property_path.push(field.name());
                     ctx.action_sender
                         .queue_action(UIAction::ApplyPropertyOverrideToPrototype(
-                            asset_id,
-                            field_path,
+                            asset_id, field_path,
                         ));
                 }
                 ui.close_menu();
             }
-
         }
         _ => {
             let has_override = ctx
@@ -109,10 +119,7 @@ pub fn show_property_action_menu(
             }
 
             if ui
-                .add_enabled(
-                    !ctx.read_only,
-                    egui::Button::new("Override With Default"),
-                )
+                .add_enabled(!ctx.read_only, egui::Button::new("Override With Default"))
                 .clicked()
             {
                 ctx.action_sender
@@ -141,7 +148,6 @@ pub fn show_property_action_menu(
     }
 }
 
-
 pub fn show_property_action_button(
     ctx: InspectorContext,
     ui: &mut egui::Ui,
@@ -155,7 +161,8 @@ pub fn show_property_action_button(
             ""
         };
 
-        ui.add_visible(!description.is_empty(), egui::Label::new("?")).on_hover_text(description);
+        ui.add_visible(!description.is_empty(), egui::Label::new("?"))
+            .on_hover_text(description);
 
         ui.menu_button("...", |ui| {
             show_property_action_menu(ctx, ui);
@@ -163,7 +170,10 @@ pub fn show_property_action_button(
     });
 }
 
-pub fn create_clipped_left_child_ui_for_right_aligned_controls(ui: &mut egui::Ui, space_for_controls: f32) -> egui::Ui {
+pub fn create_clipped_left_child_ui_for_right_aligned_controls(
+    ui: &mut egui::Ui,
+    space_for_controls: f32,
+) -> egui::Ui {
     let mut clip_rect = ui.clip_rect();
     clip_rect.max.x = f32::max(clip_rect.min.x, clip_rect.max.x - space_for_controls);
     let mut child_ui = ui.child_ui(clip_rect, egui::Layout::left_to_right(egui::Align::Center));
@@ -171,7 +181,10 @@ pub fn create_clipped_left_child_ui_for_right_aligned_controls(ui: &mut egui::Ui
     child_ui
 }
 
-pub fn create_clipped_right_child_ui_for_right_aligned_controls(ui: &mut egui::Ui, space_for_controls: f32) -> egui::Ui {
+pub fn create_clipped_right_child_ui_for_right_aligned_controls(
+    ui: &mut egui::Ui,
+    space_for_controls: f32,
+) -> egui::Ui {
     let mut clip_rect = ui.clip_rect();
     clip_rect.min.x = clip_rect.max.x - space_for_controls;
     let mut child_ui = ui.child_ui(clip_rect, egui::Layout::left_to_right(egui::Align::Center));
@@ -182,7 +195,7 @@ pub fn create_clipped_right_child_ui_for_right_aligned_controls(ui: &mut egui::U
 pub fn draw_widgets_with_action_button<F: FnOnce(&mut egui::Ui, InspectorContext)>(
     ui: &mut egui::Ui,
     ctx: InspectorContext,
-    f: F
+    f: F,
 ) {
     let mut child_ui = create_clipped_left_child_ui_for_right_aligned_controls(ui, 45.0);
     child_ui.allocate_space(ui.style().spacing.item_spacing);
@@ -200,11 +213,11 @@ pub fn draw_inspector_value_and_action_button(
 fn add_empty_collapsing_header(
     ui: &mut egui::Ui,
     text: impl Into<egui::WidgetText>,
-    id_source: impl Hash
+    id_source: impl Hash,
 ) -> bool {
     let response = egui::CollapsingHeader::new(text)
         .id_source(id_source)
-        .show_unindented(ui, |ui| {});;
+        .show_unindented(ui, |ui| {});
 
     response.openness > 0.5
 }
@@ -224,13 +237,17 @@ pub struct InspectorContext<'a> {
 }
 
 impl<'a> InspectorContext<'a> {
-    pub fn display_name(&self) -> & str {
+    pub fn display_name(&self) -> &str {
         if self.property_default_display_name.is_empty() {
             // empty display name usually means we're drawing the value of a nullable, the display
             // name will already be drawn. So omitting is a little cleaner aesthetically
             ""
         } else {
-            self.field_markup.display_name.as_ref().map(|x| x. as_str()).unwrap_or(self.property_default_display_name)
+            self.field_markup
+                .display_name
+                .as_ref()
+                .map(|x| x.as_str())
+                .unwrap_or(self.property_default_display_name)
         }
     }
 }
@@ -270,7 +287,9 @@ pub trait RecordInspector {
                 draw_indented_label(ui, indent_level, ctx.display_name());
             });
             row.col(|mut ui| {
-                draw_widgets_with_action_button(ui, ctx, |ui, ctx| self.draw_inspector_value(ui, ctx));
+                draw_widgets_with_action_button(ui, ctx, |ui, ctx| {
+                    self.draw_inspector_value(ui, ctx)
+                });
             });
         });
     }
@@ -289,7 +308,8 @@ impl RecordInspector for DefaultRecordInspector {
         record: &SchemaRecord,
         indent_level: u32,
     ) {
-        let categories: HashSet<String> = record.fields()
+        let categories: HashSet<String> = record
+            .fields()
             .iter()
             .filter(|x| x.markup().category.is_some())
             .map(|x| x.markup().category.clone().unwrap())
@@ -310,7 +330,12 @@ impl RecordInspector for DefaultRecordInspector {
                 table_body.row(20.0, |mut row| {
                     row.col(|ui| {
                         ui.push_id(ctx.property_path.path(), |ui| {
-                            visible = draw_indented_collapsible_label(ui, indent_level, category, format!("{}/{}", ctx.property_path.path(), category));
+                            visible = draw_indented_collapsible_label(
+                                ui,
+                                indent_level,
+                                category,
+                                format!("{}/{}", ctx.property_path.path(), category),
+                            );
                         });
                         indent_level += 1;
                     });
@@ -456,7 +481,7 @@ pub fn draw_indented_collapsible_label(
     ui: &mut egui::Ui,
     indent_level: u32,
     text: impl Into<WidgetText>,
-    id_source: impl Hash
+    id_source: impl Hash,
 ) -> bool {
     for _ in 0..indent_level {
         crate::ui::add_indent_spacing(ui);
@@ -539,15 +564,23 @@ pub fn draw_inspector_value(
                 .unwrap();
 
             let response = if ctx.field_markup.has_min_bound() && ctx.field_markup.has_max_bound() {
-                let ui_range = RangeInclusive::new(ctx.field_markup.ui_min() as i32, ctx.field_markup.ui_max() as i32);
-                egui::Slider::new(&mut value, ui_range).clamp_to_range(false).ui(ui)
+                let ui_range = RangeInclusive::new(
+                    ctx.field_markup.ui_min() as i32,
+                    ctx.field_markup.ui_max() as i32,
+                );
+                egui::Slider::new(&mut value, ui_range)
+                    .clamp_to_range(false)
+                    .ui(ui)
             } else {
                 egui::DragValue::new(&mut value).ui(ui)
             };
 
             if response.changed() {
                 Some((
-                    Value::I32(value.clamp(ctx.field_markup.clamp_min() as i32, ctx.field_markup.clamp_max() as i32)),
+                    Value::I32(value.clamp(
+                        ctx.field_markup.clamp_min() as i32,
+                        ctx.field_markup.clamp_max() as i32,
+                    )),
                     end_context_behavior_for_drag_value(response),
                 ))
             } else {
@@ -564,15 +597,23 @@ pub fn draw_inspector_value(
                 .unwrap();
 
             let response = if ctx.field_markup.has_min_bound() && ctx.field_markup.has_max_bound() {
-                let ui_range = RangeInclusive::new(ctx.field_markup.ui_min() as i64, ctx.field_markup.ui_max() as i64);
-                egui::Slider::new(&mut value, ui_range).clamp_to_range(false).ui(ui)
+                let ui_range = RangeInclusive::new(
+                    ctx.field_markup.ui_min() as i64,
+                    ctx.field_markup.ui_max() as i64,
+                );
+                egui::Slider::new(&mut value, ui_range)
+                    .clamp_to_range(false)
+                    .ui(ui)
             } else {
                 egui::DragValue::new(&mut value).ui(ui)
             };
 
             if response.changed() {
                 Some((
-                    Value::I64(value.clamp(ctx.field_markup.clamp_min() as i64, ctx.field_markup.clamp_max() as i64)),
+                    Value::I64(value.clamp(
+                        ctx.field_markup.clamp_min() as i64,
+                        ctx.field_markup.clamp_max() as i64,
+                    )),
                     end_context_behavior_for_drag_value(response),
                 ))
             } else {
@@ -589,15 +630,23 @@ pub fn draw_inspector_value(
                 .unwrap();
 
             let response = if ctx.field_markup.has_max_bound() {
-                let ui_range = RangeInclusive::new(ctx.field_markup.ui_min() as u32, ctx.field_markup.ui_max() as u32);
-                egui::Slider::new(&mut value, ui_range).clamp_to_range(false).ui(ui)
+                let ui_range = RangeInclusive::new(
+                    ctx.field_markup.ui_min() as u32,
+                    ctx.field_markup.ui_max() as u32,
+                );
+                egui::Slider::new(&mut value, ui_range)
+                    .clamp_to_range(false)
+                    .ui(ui)
             } else {
                 egui::DragValue::new(&mut value).ui(ui)
             };
 
             if response.changed() {
                 Some((
-                    Value::U32(value.clamp(ctx.field_markup.clamp_min() as u32, ctx.field_markup.clamp_max() as u32)),
+                    Value::U32(value.clamp(
+                        ctx.field_markup.clamp_min() as u32,
+                        ctx.field_markup.clamp_max() as u32,
+                    )),
                     end_context_behavior_for_drag_value(response),
                 ))
             } else {
@@ -614,15 +663,23 @@ pub fn draw_inspector_value(
                 .unwrap();
 
             let response = if ctx.field_markup.has_max_bound() {
-                let ui_range = RangeInclusive::new(ctx.field_markup.ui_min() as u64, ctx.field_markup.ui_max() as u64);
-                egui::Slider::new(&mut value, ui_range).clamp_to_range(false).ui(ui)
+                let ui_range = RangeInclusive::new(
+                    ctx.field_markup.ui_min() as u64,
+                    ctx.field_markup.ui_max() as u64,
+                );
+                egui::Slider::new(&mut value, ui_range)
+                    .clamp_to_range(false)
+                    .ui(ui)
             } else {
                 egui::DragValue::new(&mut value).ui(ui)
             };
 
             if response.changed() {
                 Some((
-                    Value::U64(value.clamp(ctx.field_markup.clamp_min() as u64, ctx.field_markup.clamp_max() as u64)),
+                    Value::U64(value.clamp(
+                        ctx.field_markup.clamp_min() as u64,
+                        ctx.field_markup.clamp_max() as u64,
+                    )),
                     end_context_behavior_for_drag_value(response),
                 ))
             } else {
@@ -639,15 +696,23 @@ pub fn draw_inspector_value(
                 .unwrap();
 
             let response = if ctx.field_markup.has_min_bound() && ctx.field_markup.has_max_bound() {
-                let ui_range = RangeInclusive::new(ctx.field_markup.ui_min() as f32, ctx.field_markup.ui_max() as f32);
-                egui::Slider::new(&mut value, ui_range).clamp_to_range(false).ui(ui)
+                let ui_range = RangeInclusive::new(
+                    ctx.field_markup.ui_min() as f32,
+                    ctx.field_markup.ui_max() as f32,
+                );
+                egui::Slider::new(&mut value, ui_range)
+                    .clamp_to_range(false)
+                    .ui(ui)
             } else {
                 egui::DragValue::new(&mut value).ui(ui)
             };
 
             if response.changed() {
                 Some((
-                    Value::F32(value.clamp(ctx.field_markup.clamp_min() as f32, ctx.field_markup.clamp_max() as f32)),
+                    Value::F32(value.clamp(
+                        ctx.field_markup.clamp_min() as f32,
+                        ctx.field_markup.clamp_max() as f32,
+                    )),
                     end_context_behavior_for_drag_value(response),
                 ))
             } else {
@@ -664,15 +729,20 @@ pub fn draw_inspector_value(
                 .unwrap();
 
             let response = if ctx.field_markup.has_min_bound() && ctx.field_markup.has_max_bound() {
-                let ui_range = RangeInclusive::new(ctx.field_markup.ui_min(), ctx.field_markup.ui_max());
-                egui::Slider::new(&mut value, ui_range).clamp_to_range(false).ui(ui)
+                let ui_range =
+                    RangeInclusive::new(ctx.field_markup.ui_min(), ctx.field_markup.ui_max());
+                egui::Slider::new(&mut value, ui_range)
+                    .clamp_to_range(false)
+                    .ui(ui)
             } else {
                 egui::DragValue::new(&mut value).ui(ui)
             };
 
             if response.changed() {
                 Some((
-                    Value::F64(value.clamp(ctx.field_markup.clamp_min(), ctx.field_markup.clamp_max())),
+                    Value::F64(
+                        value.clamp(ctx.field_markup.clamp_min(), ctx.field_markup.clamp_max()),
+                    ),
                     end_context_behavior_for_drag_value(response),
                 ))
             } else {
@@ -864,9 +934,7 @@ pub fn draw_inspector_rows(
 ) {
     if indent_level > 10 {
         draw_basic_inspector_row(body, ctx, indent_level, |ui, ctx| {
-            ui.label(format!(
-                "Too many nested rows, returning."
-            ));
+            ui.label(format!("Too many nested rows, returning."));
         });
     }
     match ctx.schema {
@@ -894,7 +962,7 @@ pub fn draw_inspector_rows(
                                     ui,
                                     indent_level,
                                     ctx.display_name(),
-                                    format!("{}/{}", ctx.property_path.path(), ctx.display_name())
+                                    format!("{}/{}", ctx.property_path.path(), ctx.display_name()),
                                 )
                             } else {
                                 draw_indented_label(ui, indent_level, ctx.display_name());
@@ -916,7 +984,9 @@ pub fn draw_inspector_rows(
                             }
 
                             let mut new_null_override = None;
-                            ui.allocate_space(ui.style().spacing.item_spacing - egui::vec2(3.0, 3.0));
+                            ui.allocate_space(
+                                ui.style().spacing.item_spacing - egui::vec2(3.0, 3.0),
+                            );
                             if ui
                                 .selectable_label(
                                     resolved_null_override == NullOverride::Unset,
@@ -1009,7 +1079,12 @@ pub fn draw_inspector_rows(
                     ui.push_id(
                         format!("{} inspector_label_column", ctx.property_path.path()),
                         |ui| {
-                            is_visible = draw_indented_collapsible_label(ui, indent_level, ctx.display_name(), format!("{}/{}", ctx.property_path.path(), ctx.display_name()));
+                            is_visible = draw_indented_collapsible_label(
+                                ui,
+                                indent_level,
+                                ctx.display_name(),
+                                format!("{}/{}", ctx.property_path.path(), ctx.display_name()),
+                            );
                         },
                     );
                 });
@@ -1027,7 +1102,7 @@ pub fn draw_inspector_rows(
             });
 
             let can_use_inline_values =
-               can_draw_as_single_value(schema.item_type(), ctx.inspector_registry);
+                can_draw_as_single_value(schema.item_type(), ctx.inspector_registry);
 
             if is_visible {
                 for entry_index in 0..schema.length() {
@@ -1038,39 +1113,76 @@ pub fn draw_inspector_rows(
                     let mut is_override_visible = false;
                     body.row(20.0, |mut row| {
                         row.col(|ui| {
-                            ui.push_id(format!("{} inspector_label_column", entry_index_as_string), |ui| {
-                                let mut left_child_ui = create_clipped_left_child_ui_for_right_aligned_controls(ui, 100.0);
+                            ui.push_id(
+                                format!("{} inspector_label_column", entry_index_as_string),
+                                |ui| {
+                                    let mut left_child_ui =
+                                        create_clipped_left_child_ui_for_right_aligned_controls(
+                                            ui, 100.0,
+                                        );
 
-                                if can_use_inline_values {
-                                    draw_indented_label(&mut left_child_ui, indent_level + 1, label);
-                                } else {
-                                    is_override_visible = draw_indented_collapsible_label(&mut left_child_ui, indent_level + 1, label, format!("{}/{}", ctx.property_path.path(), entry_index));
-                                }
+                                    if can_use_inline_values {
+                                        draw_indented_label(
+                                            &mut left_child_ui,
+                                            indent_level + 1,
+                                            label,
+                                        );
+                                    } else {
+                                        is_override_visible = draw_indented_collapsible_label(
+                                            &mut left_child_ui,
+                                            indent_level + 1,
+                                            label,
+                                            format!("{}/{}", ctx.property_path.path(), entry_index),
+                                        );
+                                    }
 
-                                let mut right_child_ui = create_clipped_right_child_ui_for_right_aligned_controls(ui, 100.0);
+                                    let mut right_child_ui =
+                                        create_clipped_right_child_ui_for_right_aligned_controls(
+                                            ui, 100.0,
+                                        );
 
-                                // up arrow/down arrow/delete buttons
-                                right_child_ui.style_mut().text_styles.insert(egui::TextStyle::Button, egui::FontId::new(12.0, FontFamily::Monospace));
-                                right_child_ui.allocate_space(egui::vec2(0.0, 0.0));
+                                    // up arrow/down arrow/delete buttons
+                                    right_child_ui.style_mut().text_styles.insert(
+                                        egui::TextStyle::Button,
+                                        egui::FontId::new(12.0, FontFamily::Monospace),
+                                    );
+                                    right_child_ui.allocate_space(egui::vec2(0.0, 0.0));
 
-                                let can_move_up = entry_index > 0;
-                                if right_child_ui.add_visible(can_move_up, egui::Button::new("↑").min_size(egui::vec2(20.0, 0.0))).clicked() {
-                                    ctx.action_sender.queue_action(UIAction::MoveStaticArrayOverrideUp(
-                                        ctx.asset_id,
-                                        ctx.property_path.clone(),
-                                        entry_index
-                                    ));
-                                }
+                                    let can_move_up = entry_index > 0;
+                                    if right_child_ui
+                                        .add_visible(
+                                            can_move_up,
+                                            egui::Button::new("↑").min_size(egui::vec2(20.0, 0.0)),
+                                        )
+                                        .clicked()
+                                    {
+                                        ctx.action_sender.queue_action(
+                                            UIAction::MoveStaticArrayOverrideUp(
+                                                ctx.asset_id,
+                                                ctx.property_path.clone(),
+                                                entry_index,
+                                            ),
+                                        );
+                                    }
 
-                                let can_move_down = entry_index < schema.length() - 1;
-                                if right_child_ui.add_visible(can_move_down, egui::Button::new("↓").min_size(egui::vec2(20.0, 0.0))).clicked() {
-                                    ctx.action_sender.queue_action(UIAction::MoveStaticArrayOverrideDown(
-                                        ctx.asset_id,
-                                        ctx.property_path.clone(),
-                                        entry_index
-                                    ));
-                                }
-                            });
+                                    let can_move_down = entry_index < schema.length() - 1;
+                                    if right_child_ui
+                                        .add_visible(
+                                            can_move_down,
+                                            egui::Button::new("↓").min_size(egui::vec2(20.0, 0.0)),
+                                        )
+                                        .clicked()
+                                    {
+                                        ctx.action_sender.queue_action(
+                                            UIAction::MoveStaticArrayOverrideDown(
+                                                ctx.asset_id,
+                                                ctx.property_path.clone(),
+                                                entry_index,
+                                            ),
+                                        );
+                                    }
+                                },
+                            );
                         });
                         row.col(|ui| {
                             if can_use_inline_values {
@@ -1080,10 +1192,7 @@ pub fn draw_inspector_rows(
                                     schema: schema.item_type(),
                                     ..ctx
                                 };
-                                draw_inspector_value_and_action_button(
-                                    ui,
-                                    inner_ctx,
-                                );
+                                draw_inspector_value_and_action_button(ui, inner_ctx);
                             }
                         });
                     });
@@ -1121,7 +1230,12 @@ pub fn draw_inspector_rows(
                     ui.push_id(
                         format!("{} inspector_label_column", ctx.property_path.path()),
                         |ui| {
-                            is_visible = draw_indented_collapsible_label(ui, indent_level, ctx.display_name(), format!("{}/{}", ctx.property_path.path(), ctx.display_name()))
+                            is_visible = draw_indented_collapsible_label(
+                                ui,
+                                indent_level,
+                                ctx.display_name(),
+                                format!("{}/{}", ctx.property_path.path(), ctx.display_name()),
+                            )
                         },
                     );
                 });
@@ -1131,7 +1245,9 @@ pub fn draw_inspector_rows(
                         |ui| {
                             ui.set_enabled(!ctx.read_only);
 
-                            ui.allocate_space(ui.style().spacing.item_spacing - egui::vec2(3.0, 3.0));
+                            ui.allocate_space(
+                                ui.style().spacing.item_spacing - egui::vec2(3.0, 3.0),
+                            );
                             if ui.button("Add Item").clicked() {
                                 ctx.action_sender
                                     .queue_action(UIAction::AddDynamicArrayEntry(
@@ -1140,16 +1256,39 @@ pub fn draw_inspector_rows(
                                     ));
                             }
 
-                            if ctx.editor_model.root_edit_context().asset_prototype(ctx.asset_id).is_some() {
+                            if ctx
+                                .editor_model
+                                .root_edit_context()
+                                .asset_prototype(ctx.asset_id)
+                                .is_some()
+                            {
                                 ui.separator();
 
-                                let is_append_mode = ctx.editor_model.root_edit_context().get_override_behavior(ctx.asset_id, ctx.property_path.path()).unwrap() == OverrideBehavior::Append;
+                                let is_append_mode = ctx
+                                    .editor_model
+                                    .root_edit_context()
+                                    .get_override_behavior(ctx.asset_id, ctx.property_path.path())
+                                    .unwrap()
+                                    == OverrideBehavior::Append;
                                 if ui.selectable_label(is_append_mode, "Inherit").clicked() {
-                                    ctx.action_sender.queue_action(UIAction::SetOverrideBehavior(ctx.asset_id, ctx.property_path.clone(), OverrideBehavior::Append));
+                                    ctx.action_sender
+                                        .queue_action(UIAction::SetOverrideBehavior(
+                                            ctx.asset_id,
+                                            ctx.property_path.clone(),
+                                            OverrideBehavior::Append,
+                                        ));
                                 }
 
-                                if ui.selectable_label(!is_append_mode, "Don't Inherit").clicked() {
-                                    ctx.action_sender.queue_action(UIAction::SetOverrideBehavior(ctx.asset_id, ctx.property_path.clone(), OverrideBehavior::Replace));
+                                if ui
+                                    .selectable_label(!is_append_mode, "Don't Inherit")
+                                    .clicked()
+                                {
+                                    ctx.action_sender
+                                        .queue_action(UIAction::SetOverrideBehavior(
+                                            ctx.asset_id,
+                                            ctx.property_path.clone(),
+                                            OverrideBehavior::Replace,
+                                        ));
                                 }
                             }
                         },
@@ -1174,8 +1313,14 @@ pub fn draw_inspector_rows(
                                 if can_use_inline_values {
                                     draw_indented_label(ui, indent_level + 1, label);
                                 } else {
-                                    let id_source = format!("{}/{}", ctx.property_path.path(), entry_uuid);
-                                    is_override_visible = draw_indented_collapsible_label(ui, indent_level + 1, label, id_source);
+                                    let id_source =
+                                        format!("{}/{}", ctx.property_path.path(), entry_uuid);
+                                    is_override_visible = draw_indented_collapsible_label(
+                                        ui,
+                                        indent_level + 1,
+                                        label,
+                                        id_source,
+                                    );
                                 }
                             });
                         });
@@ -1188,10 +1333,7 @@ pub fn draw_inspector_rows(
                                     read_only: true,
                                     ..ctx
                                 };
-                                draw_inspector_value_and_action_button(
-                                    ui,
-                                    inner_ctx
-                                );
+                                draw_inspector_value_and_action_button(ui, inner_ctx);
                             }
                         });
                     });
@@ -1222,45 +1364,86 @@ pub fn draw_inspector_rows(
                     body.row(20.0, |mut row| {
                         row.col(|ui| {
                             ui.push_id(format!("{} inspector_label_column", entry_uuid), |ui| {
-                                let mut left_child_ui = create_clipped_left_child_ui_for_right_aligned_controls(ui, 100.0);
+                                let mut left_child_ui =
+                                    create_clipped_left_child_ui_for_right_aligned_controls(
+                                        ui, 100.0,
+                                    );
 
                                 if can_use_inline_values {
-                                    draw_indented_label(&mut left_child_ui, indent_level + 1, label);
+                                    draw_indented_label(
+                                        &mut left_child_ui,
+                                        indent_level + 1,
+                                        label,
+                                    );
                                 } else {
-                                    let id_source = format!("{}/{}", ctx.property_path.path(), entry_uuid);
-                                    is_override_visible = draw_indented_collapsible_label(&mut left_child_ui, indent_level + 1, label, id_source);
+                                    let id_source =
+                                        format!("{}/{}", ctx.property_path.path(), entry_uuid);
+                                    is_override_visible = draw_indented_collapsible_label(
+                                        &mut left_child_ui,
+                                        indent_level + 1,
+                                        label,
+                                        id_source,
+                                    );
                                 }
 
-                                let mut right_child_ui = create_clipped_right_child_ui_for_right_aligned_controls(ui, 100.0);
+                                let mut right_child_ui =
+                                    create_clipped_right_child_ui_for_right_aligned_controls(
+                                        ui, 100.0,
+                                    );
 
                                 // up arrow/down arrow/delete buttons
-                                right_child_ui.style_mut().text_styles.insert(egui::TextStyle::Button, egui::FontId::new(12.0, FontFamily::Monospace));
+                                right_child_ui.style_mut().text_styles.insert(
+                                    egui::TextStyle::Button,
+                                    egui::FontId::new(12.0, FontFamily::Monospace),
+                                );
                                 right_child_ui.allocate_space(egui::vec2(0.0, 0.0));
 
                                 let can_move_up = override_index > 0;
-                                if right_child_ui.add_visible(can_move_up, egui::Button::new("↑").min_size(egui::vec2(20.0, 0.0))).clicked() {
-                                    ctx.action_sender.queue_action(UIAction::MoveDynamicArrayEntryUp(
-                                        ctx.asset_id,
-                                        ctx.property_path.clone(),
-                                        *entry_uuid
-                                    ));
+                                if right_child_ui
+                                    .add_visible(
+                                        can_move_up,
+                                        egui::Button::new("↑").min_size(egui::vec2(20.0, 0.0)),
+                                    )
+                                    .clicked()
+                                {
+                                    ctx.action_sender.queue_action(
+                                        UIAction::MoveDynamicArrayEntryUp(
+                                            ctx.asset_id,
+                                            ctx.property_path.clone(),
+                                            *entry_uuid,
+                                        ),
+                                    );
                                 }
 
                                 let can_move_down = override_index < overrides_len - 1;
-                                if right_child_ui.add_visible(can_move_down, egui::Button::new("↓").min_size(egui::vec2(20.0, 0.0))).clicked() {
-                                    ctx.action_sender.queue_action(UIAction::MoveDynamicArrayEntryDown(
-                                        ctx.asset_id,
-                                        ctx.property_path.clone(),
-                                        *entry_uuid
-                                    ));
+                                if right_child_ui
+                                    .add_visible(
+                                        can_move_down,
+                                        egui::Button::new("↓").min_size(egui::vec2(20.0, 0.0)),
+                                    )
+                                    .clicked()
+                                {
+                                    ctx.action_sender.queue_action(
+                                        UIAction::MoveDynamicArrayEntryDown(
+                                            ctx.asset_id,
+                                            ctx.property_path.clone(),
+                                            *entry_uuid,
+                                        ),
+                                    );
                                 }
 
-                                if egui::Button::new("⊘").min_size(egui::vec2(20.0, 0.0)).ui(&mut right_child_ui).clicked() {
-                                    ctx.action_sender.queue_action(UIAction::RemoveDynamicArrayEntry(
-                                        ctx.asset_id,
-                                        ctx.property_path.clone(),
-                                        *entry_uuid
-                                    ));
+                                if egui::Button::new("⊘")
+                                    .min_size(egui::vec2(20.0, 0.0))
+                                    .ui(&mut right_child_ui)
+                                    .clicked()
+                                {
+                                    ctx.action_sender.queue_action(
+                                        UIAction::RemoveDynamicArrayEntry(
+                                            ctx.asset_id,
+                                            ctx.property_path.clone(),
+                                            *entry_uuid,
+                                        ),
+                                    );
                                 }
                             });
                         });
@@ -1272,10 +1455,7 @@ pub fn draw_inspector_rows(
                                     schema: schema.item_type(),
                                     ..ctx
                                 };
-                                draw_inspector_value_and_action_button(
-                                    ui,
-                                    inner_ctx,
-                                );
+                                draw_inspector_value_and_action_button(ui, inner_ctx);
                             }
                         });
                     });
@@ -1316,7 +1496,12 @@ pub fn draw_inspector_rows(
                     ui.push_id(
                         format!("{} inspector_label_column", ctx.property_path.path()),
                         |ui| {
-                            is_visible = draw_indented_collapsible_label(ui, indent_level, ctx.display_name(), format!("{}/{}", ctx.property_path.path(), ctx.display_name()))
+                            is_visible = draw_indented_collapsible_label(
+                                ui,
+                                indent_level,
+                                ctx.display_name(),
+                                format!("{}/{}", ctx.property_path.path(), ctx.display_name()),
+                            )
                         },
                     );
                 });
@@ -1326,26 +1511,49 @@ pub fn draw_inspector_rows(
                         |ui| {
                             ui.set_enabled(!ctx.read_only);
 
-                            ui.allocate_space(ui.style().spacing.item_spacing - egui::vec2(3.0, 3.0));
+                            ui.allocate_space(
+                                ui.style().spacing.item_spacing - egui::vec2(3.0, 3.0),
+                            );
                             if ui.button("Add Item").clicked() {
-                                ctx.action_sender
-                                    .queue_action(UIAction::AddMapEntry(
-                                        ctx.asset_id,
-                                        ctx.property_path.clone(),
-                                    ));
+                                ctx.action_sender.queue_action(UIAction::AddMapEntry(
+                                    ctx.asset_id,
+                                    ctx.property_path.clone(),
+                                ));
                             }
 
-
-                            if ctx.editor_model.root_edit_context().asset_prototype(ctx.asset_id).is_some() {
+                            if ctx
+                                .editor_model
+                                .root_edit_context()
+                                .asset_prototype(ctx.asset_id)
+                                .is_some()
+                            {
                                 ui.separator();
 
-                                let is_append_mode = ctx.editor_model.root_edit_context().get_override_behavior(ctx.asset_id, ctx.property_path.path()).unwrap() == OverrideBehavior::Append;
+                                let is_append_mode = ctx
+                                    .editor_model
+                                    .root_edit_context()
+                                    .get_override_behavior(ctx.asset_id, ctx.property_path.path())
+                                    .unwrap()
+                                    == OverrideBehavior::Append;
                                 if ui.selectable_label(is_append_mode, "Inherit").clicked() {
-                                    ctx.action_sender.queue_action(UIAction::SetOverrideBehavior(ctx.asset_id, ctx.property_path.clone(), OverrideBehavior::Append));
+                                    ctx.action_sender
+                                        .queue_action(UIAction::SetOverrideBehavior(
+                                            ctx.asset_id,
+                                            ctx.property_path.clone(),
+                                            OverrideBehavior::Append,
+                                        ));
                                 }
 
-                                if ui.selectable_label(!is_append_mode, "Don't Inherit").clicked() {
-                                    ctx.action_sender.queue_action(UIAction::SetOverrideBehavior(ctx.asset_id, ctx.property_path.clone(), OverrideBehavior::Replace));
+                                if ui
+                                    .selectable_label(!is_append_mode, "Don't Inherit")
+                                    .clicked()
+                                {
+                                    ctx.action_sender
+                                        .queue_action(UIAction::SetOverrideBehavior(
+                                            ctx.asset_id,
+                                            ctx.property_path.clone(),
+                                            OverrideBehavior::Replace,
+                                        ));
                                 }
                             }
                         },
@@ -1360,8 +1568,14 @@ pub fn draw_inspector_rows(
                 let mut entry_index = 0;
                 for entry_uuid in &resolved[0..(resolved.len() - overrides.len())] {
                     let entry_uuid_as_string = entry_uuid.to_string();
-                    let key_path = ctx.property_path.push(&format!("{}:key", entry_uuid_as_string));
-                    let value = ctx.editor_model.root_edit_context().resolve_property(ctx.asset_id, key_path.path()).unwrap();
+                    let key_path = ctx
+                        .property_path
+                        .push(&format!("{}:key", entry_uuid_as_string));
+                    let value = ctx
+                        .editor_model
+                        .root_edit_context()
+                        .resolve_property(ctx.asset_id, key_path.path())
+                        .unwrap();
                     let value_as_str = match value {
                         Value::Boolean(x) => x.to_string(),
                         Value::I32(x) => x.to_string(),
@@ -1372,7 +1586,7 @@ pub fn draw_inspector_rows(
                         Value::AssetRef(x) => x.to_string(),
                         Value::Enum(x) => x.symbol_name().to_string(),
                         // Other types are not valid types to use as keys
-                        _ => unimplemented!()
+                        _ => unimplemented!(),
                     };
                     let is_duplicate_key = rendered_keys.insert(value_as_str.clone()) == false;
 
@@ -1382,10 +1596,17 @@ pub fn draw_inspector_rows(
                     body.row(20.0, |mut row| {
                         row.col(|ui| {
                             ui.push_id(format!("{} inspector_label_column", entry_uuid), |ui| {
-                                let id_source = format!("{}/{}", ctx.property_path.path(), entry_uuid);
-                                is_override_visible = draw_indented_collapsible_label(ui, indent_level + 1, label, id_source);
+                                let id_source =
+                                    format!("{}/{}", ctx.property_path.path(), entry_uuid);
+                                is_override_visible = draw_indented_collapsible_label(
+                                    ui,
+                                    indent_level + 1,
+                                    label,
+                                    id_source,
+                                );
                                 if is_duplicate_key {
-                                    ui.style_mut().visuals.override_text_color = Some(Color32::from_rgb(255, 0, 0));
+                                    ui.style_mut().visuals.override_text_color =
+                                        Some(Color32::from_rgb(255, 0, 0));
                                     ui.label("Duplicate Key");
                                 }
                             });
@@ -1393,31 +1614,29 @@ pub fn draw_inspector_rows(
                         row.col(|ui| {
                             if is_override_visible {
                                 // Draw key on first row if opened
-                                let key_path = ctx.property_path.push(&format!("{}:key", entry_uuid_as_string));
+                                let key_path = ctx
+                                    .property_path
+                                    .push(&format!("{}:key", entry_uuid_as_string));
                                 let inner_ctx = InspectorContext {
                                     property_default_display_name: "",
                                     property_path: &key_path,
                                     schema: schema.key_type(),
                                     ..ctx
                                 };
-                                draw_inspector_value_and_action_button(
-                                    ui,
-                                    inner_ctx,
-                                );
+                                draw_inspector_value_and_action_button(ui, inner_ctx);
                             } else {
                                 // Otherwise draw the value if possible
                                 if can_use_inline_values {
-                                    let value_path = ctx.property_path.push(&format!("{}:value", entry_uuid_as_string));
+                                    let value_path = ctx
+                                        .property_path
+                                        .push(&format!("{}:value", entry_uuid_as_string));
                                     let inner_ctx = InspectorContext {
                                         property_default_display_name: "",
                                         property_path: &value_path,
                                         schema: schema.value_type(),
                                         ..ctx
                                     };
-                                    draw_inspector_value_and_action_button(
-                                        ui,
-                                        inner_ctx,
-                                    );
+                                    draw_inspector_value_and_action_button(ui, inner_ctx);
                                 }
                             }
                         });
@@ -1435,7 +1654,9 @@ pub fn draw_inspector_rows(
                         //     },
                         //     indent_level + 2,
                         // );
-                        let value_path = ctx.property_path.push(&format!("{}:value", entry_uuid_as_string));
+                        let value_path = ctx
+                            .property_path
+                            .push(&format!("{}:value", entry_uuid_as_string));
                         draw_inspector_rows(
                             body,
                             InspectorContext {
@@ -1454,8 +1675,14 @@ pub fn draw_inspector_rows(
                 let overrides_len = overrides.len();
                 for (override_index, entry_uuid) in overrides.into_iter().enumerate() {
                     let entry_uuid_as_string = entry_uuid.to_string();
-                    let key_path = ctx.property_path.push(&format!("{}:key", entry_uuid_as_string));
-                    let value = ctx.editor_model.root_edit_context().resolve_property(ctx.asset_id, key_path.path()).unwrap();
+                    let key_path = ctx
+                        .property_path
+                        .push(&format!("{}:key", entry_uuid_as_string));
+                    let value = ctx
+                        .editor_model
+                        .root_edit_context()
+                        .resolve_property(ctx.asset_id, key_path.path())
+                        .unwrap();
                     let value_as_str = match value {
                         Value::Boolean(x) => x.to_string(),
                         Value::I32(x) => x.to_string(),
@@ -1466,7 +1693,7 @@ pub fn draw_inspector_rows(
                         Value::AssetRef(x) => x.to_string(),
                         Value::Enum(x) => x.symbol_name().to_string(),
                         // Other types are not valid types to use as keys
-                        _ => unimplemented!()
+                        _ => unimplemented!(),
                     };
                     let is_duplicate_key = rendered_keys.insert(value_as_str.clone()) == false;
 
@@ -1476,26 +1703,46 @@ pub fn draw_inspector_rows(
                     body.row(20.0, |mut row| {
                         row.col(|ui| {
                             ui.push_id(format!("{} inspector_label_column", entry_uuid), |ui| {
-                                let mut left_child_ui = create_clipped_left_child_ui_for_right_aligned_controls(ui, 100.0);
+                                let mut left_child_ui =
+                                    create_clipped_left_child_ui_for_right_aligned_controls(
+                                        ui, 100.0,
+                                    );
 
-                                let id_source = format!("{}/{}", ctx.property_path.path(), entry_uuid);
-                                is_override_visible = draw_indented_collapsible_label(&mut left_child_ui, indent_level + 1, label, id_source);
+                                let id_source =
+                                    format!("{}/{}", ctx.property_path.path(), entry_uuid);
+                                is_override_visible = draw_indented_collapsible_label(
+                                    &mut left_child_ui,
+                                    indent_level + 1,
+                                    label,
+                                    id_source,
+                                );
                                 if is_duplicate_key {
-                                    left_child_ui.style_mut().visuals.override_text_color = Some(egui::Color32::from_rgb(255, 0, 0));
+                                    left_child_ui.style_mut().visuals.override_text_color =
+                                        Some(egui::Color32::from_rgb(255, 0, 0));
                                     left_child_ui.label("Duplicate Key");
                                 }
 
-                                let mut right_child_ui = create_clipped_right_child_ui_for_right_aligned_controls(ui, 44.0);
+                                let mut right_child_ui =
+                                    create_clipped_right_child_ui_for_right_aligned_controls(
+                                        ui, 44.0,
+                                    );
 
                                 // up arrow/down arrow/delete buttons
-                                right_child_ui.style_mut().text_styles.insert(egui::TextStyle::Button, egui::FontId::new(12.0, FontFamily::Monospace));
+                                right_child_ui.style_mut().text_styles.insert(
+                                    egui::TextStyle::Button,
+                                    egui::FontId::new(12.0, FontFamily::Monospace),
+                                );
                                 right_child_ui.allocate_space(egui::vec2(0.0, 0.0));
 
-                                if egui::Button::new("⊘").min_size(egui::vec2(20.0, 0.0)).ui(&mut right_child_ui).clicked() {
+                                if egui::Button::new("⊘")
+                                    .min_size(egui::vec2(20.0, 0.0))
+                                    .ui(&mut right_child_ui)
+                                    .clicked()
+                                {
                                     ctx.action_sender.queue_action(UIAction::RemoveMapEntry(
                                         ctx.asset_id,
                                         ctx.property_path.clone(),
-                                        *entry_uuid
+                                        *entry_uuid,
                                     ));
                                 }
                             });
@@ -1503,31 +1750,29 @@ pub fn draw_inspector_rows(
                         row.col(|ui| {
                             if is_override_visible {
                                 // Draw key on first row if opened
-                                let key_path = ctx.property_path.push(&format!("{}:key", entry_uuid_as_string));
+                                let key_path = ctx
+                                    .property_path
+                                    .push(&format!("{}:key", entry_uuid_as_string));
                                 let inner_ctx = InspectorContext {
                                     property_default_display_name: "",
                                     property_path: &key_path,
                                     schema: schema.key_type(),
                                     ..ctx
                                 };
-                                draw_inspector_value_and_action_button(
-                                    ui,
-                                    inner_ctx,
-                                );
+                                draw_inspector_value_and_action_button(ui, inner_ctx);
                             } else {
                                 // Otherwise draw the value if possible
                                 if can_use_inline_values {
-                                    let value_path = ctx.property_path.push(&format!("{}:value", entry_uuid_as_string));
+                                    let value_path = ctx
+                                        .property_path
+                                        .push(&format!("{}:value", entry_uuid_as_string));
                                     let inner_ctx = InspectorContext {
                                         property_default_display_name: "",
                                         property_path: &value_path,
                                         schema: schema.value_type(),
                                         ..ctx
                                     };
-                                    draw_inspector_value_and_action_button(
-                                        ui,
-                                        inner_ctx,
-                                    );
+                                    draw_inspector_value_and_action_button(ui, inner_ctx);
                                 }
                             }
                         });
@@ -1545,7 +1790,9 @@ pub fn draw_inspector_rows(
                         //     },
                         //     indent_level + 2,
                         // );
-                        let value_path = ctx.property_path.push(&format!("{}:value", entry_uuid_as_string));
+                        let value_path = ctx
+                            .property_path
+                            .push(&format!("{}:value", entry_uuid_as_string));
                         draw_inspector_rows(
                             body,
                             InspectorContext {
@@ -1583,12 +1830,11 @@ pub fn draw_inspector_rows(
                     SchemaNamedType::Record(record) => {
                         if indent_level > 10 {
                             draw_basic_inspector_row(body, ctx, indent_level, |ui, ctx| {
-                                ui.label(format!(
-                                    "Too many nested rows, returning."
-                                ));
+                                ui.label(format!("Too many nested rows, returning."));
                             });
                         } else {
-                            let can_draw_as_single_value = inspector_impl.can_draw_as_single_value();
+                            let can_draw_as_single_value =
+                                inspector_impl.can_draw_as_single_value();
                             if ctx.display_name().is_empty() {
                                 // If we are at the root of the inspector, draw the properties with no headers
                                 inspector_impl.draw_inspector_rows(body, ctx, record, indent_level);
@@ -1597,11 +1843,24 @@ pub fn draw_inspector_rows(
                                 let mut is_visible = false;
                                 body.row(20.0, |mut row| {
                                     row.col(|ui| {
-                                        let id_source = format!("{}/{}", ctx.property_path.path(), ctx.property_default_display_name);
+                                        let id_source = format!(
+                                            "{}/{}",
+                                            ctx.property_path.path(),
+                                            ctx.property_default_display_name
+                                        );
                                         if can_draw_as_single_value {
-                                            draw_indented_label(ui, indent_level, ctx.property_default_display_name);
+                                            draw_indented_label(
+                                                ui,
+                                                indent_level,
+                                                ctx.property_default_display_name,
+                                            );
                                         } else {
-                                            is_visible = draw_indented_collapsible_label(ui, indent_level, ctx.property_default_display_name, id_source);
+                                            is_visible = draw_indented_collapsible_label(
+                                                ui,
+                                                indent_level,
+                                                ctx.property_default_display_name,
+                                                id_source,
+                                            );
                                         }
                                     });
                                     row.col(|ui| {
@@ -1611,7 +1870,12 @@ pub fn draw_inspector_rows(
                                     });
                                 });
                                 if is_visible {
-                                    inspector_impl.draw_inspector_rows(body, ctx, record, indent_level + 1);
+                                    inspector_impl.draw_inspector_rows(
+                                        body,
+                                        ctx,
+                                        record,
+                                        indent_level + 1,
+                                    );
                                 }
                             }
                         }

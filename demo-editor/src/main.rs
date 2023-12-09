@@ -8,7 +8,9 @@ use demo_plugins::{
 use egui::Ui;
 use hydrate::editor::inspector_system;
 use hydrate::editor::inspector_system::InspectorContext;
-use hydrate::model::{AssetPathCache, EditorModelWithCache, Record, Schema, SchemaDefRecordFieldMarkup, SchemaRecord};
+use hydrate::model::{
+    AssetPathCache, EditorModelWithCache, Record, Schema, SchemaDefRecordFieldMarkup, SchemaRecord,
+};
 use hydrate::pipeline::AssetEngine;
 use std::path::PathBuf;
 
@@ -289,7 +291,7 @@ impl inspector_system::RecordInspector for Vec4RecordInspector {
             row.col(|mut ui| {
                 inspector_system::draw_indented_label(ui, indent_level, "value");
             });
-            row.col(|mut ui| {
+            row.col(|ui| {
                 self.draw_inspector_value(ui, ctx);
             });
         });

@@ -325,10 +325,10 @@ impl Schema {
             }
             Schema::Map(x) => {
                 if name.as_ref().ends_with(":key") {
-                    Uuid::from_str(&name.as_ref()[0..name.as_ref().len()-4]).ok()?;
+                    Uuid::from_str(&name.as_ref()[0..name.as_ref().len() - 4]).ok()?;
                     Some(x.key_type())
                 } else if name.as_ref().ends_with(":value") {
-                    Uuid::from_str(&name.as_ref()[0..name.as_ref().len()-6]).ok()?;
+                    Uuid::from_str(&name.as_ref()[0..name.as_ref().len() - 6]).ok()?;
                     Some(x.value_type())
                 } else {
                     None

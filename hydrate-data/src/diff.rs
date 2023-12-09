@@ -1,5 +1,8 @@
 use crate::value::PropertyValue;
-use crate::{AssetId, AssetLocation, AssetName, DataSet, DataSetAssetInfo, DataSetResult, HashSet, NullOverride, OrderedSet, PathReference, SchemaSet};
+use crate::{
+    AssetId, AssetLocation, AssetName, DataSet, DataSetAssetInfo, DataSetResult, HashSet,
+    NullOverride, OrderedSet, PathReference, SchemaSet,
+};
 use uuid::Uuid;
 
 #[derive(Debug)]
@@ -270,12 +273,28 @@ impl AssetDiffSet {
         }
         for key in all_dynamic_entry_keys {
             let empty_set = OrderedSet::<Uuid>::default();
-            let old = before_obj.dynamic_collection_entries.get(key).unwrap_or(&empty_set);
-            let new = after_obj.dynamic_collection_entries.get(key).unwrap_or(&empty_set);
+            let old = before_obj
+                .dynamic_collection_entries
+                .get(key)
+                .unwrap_or(&empty_set);
+            let new = after_obj
+                .dynamic_collection_entries
+                .get(key)
+                .unwrap_or(&empty_set);
 
             if old != new {
-                apply_diff.dynamic_array_entry_deltas.push(DynamicArrayEntryDelta { key: key.clone(), entries: new.clone() });
-                revert_diff.dynamic_array_entry_deltas.push(DynamicArrayEntryDelta { key: key.clone(), entries: old.clone() });
+                apply_diff
+                    .dynamic_array_entry_deltas
+                    .push(DynamicArrayEntryDelta {
+                        key: key.clone(),
+                        entries: new.clone(),
+                    });
+                revert_diff
+                    .dynamic_array_entry_deltas
+                    .push(DynamicArrayEntryDelta {
+                        key: key.clone(),
+                        entries: old.clone(),
+                    });
             }
         }
 

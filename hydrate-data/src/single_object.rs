@@ -2,11 +2,11 @@ use crate::{
     DataSetError, DataSetResult, HashMap, OrderedSet, SchemaFingerprint, SchemaRecord, Value,
 };
 use crate::{NullOverride, SchemaSet};
+use hydrate_schema::Schema;
 use std::hash::{Hash, Hasher};
 use std::str::FromStr;
 use std::string::ToString;
 use uuid::Uuid;
-use hydrate_schema::Schema;
 
 /// A simplified container of data. Can be used to produce a set of properties and be merged into
 /// a data set later, or be serialized by itself. Still support schema migration.
@@ -61,7 +61,8 @@ impl Hash for SingleObject {
             }
             uuid_set_hash.hash(&mut inner_hasher);
 
-            dynamic_collection_entries_hash = dynamic_collection_entries_hash ^ inner_hasher.finish();
+            dynamic_collection_entries_hash =
+                dynamic_collection_entries_hash ^ inner_hasher.finish();
         }
         dynamic_collection_entries_hash.hash(state);
     }
@@ -193,7 +194,8 @@ impl SingleObject {
         // See if this field was contained in a container. If any of those containers didn't contain
         // this property path, return None
         for (path, key) in &accessed_dynamic_array_keys {
-            let dynamic_collection_entries = self.resolve_dynamic_array_entries(schema_set, path)?;
+            let dynamic_collection_entries =
+                self.resolve_dynamic_array_entries(schema_set, path)?;
             if !dynamic_collection_entries
                 .contains(&Uuid::from_str(key).map_err(|_| DataSetError::UuidParseError)?)
             {

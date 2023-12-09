@@ -3,7 +3,11 @@
 //! and data, we can always load the data that was serialized, even if the schema or code have
 //! been changed.
 
-use crate::{HashMap, Schema, SchemaDefRecordFieldMarkup, SchemaDefRecordMarkup, SchemaDynamicArray, SchemaEnum, SchemaEnumSymbol, SchemaFingerprint, SchemaMap, SchemaNamedType, SchemaRecord, SchemaRecordField, SchemaStaticArray};
+use crate::{
+    HashMap, Schema, SchemaDefRecordFieldMarkup, SchemaDefRecordMarkup, SchemaDynamicArray,
+    SchemaEnum, SchemaEnumSymbol, SchemaFingerprint, SchemaMap, SchemaNamedType, SchemaRecord,
+    SchemaRecordField, SchemaStaticArray,
+};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 

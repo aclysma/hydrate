@@ -59,21 +59,25 @@ fn parse_json_schema_type_ref(
             })?;
             let inner_type = parse_json_schema_type_ref(inner_type, error_prefix)?;
 
-            let length = json_value.get("length").ok_or_else(|| {
-                SchemaDefParserError::String(format!(
+            let length = json_value
+                .get("length")
+                .ok_or_else(|| {
+                    SchemaDefParserError::String(format!(
                     "{}All static_array types must has a length with a non-negative whole number",
                     error_prefix
                 ))
-            })?.as_u64().ok_or_else(|| {
-                SchemaDefParserError::String(format!(
+                })?
+                .as_u64()
+                .ok_or_else(|| {
+                    SchemaDefParserError::String(format!(
                     "{}All static_array types must has a length with a non-negative whole number",
                     error_prefix
                 ))
-            })?;
+                })?;
 
             SchemaDefType::StaticArray(SchemaDefStaticArray {
                 item_type: Box::new(inner_type),
-                length: length as usize
+                length: length as usize,
             })
         }
         "dynamic_array" => {
@@ -98,7 +102,13 @@ fn parse_json_schema_type_ref(
             })?;
             let key_type = parse_json_schema_type_ref(key_type, error_prefix)?;
             match &key_type {
-                SchemaDefType::Boolean | SchemaDefType::I32 | SchemaDefType::I64 | SchemaDefType::U32 | SchemaDefType::U64 | SchemaDefType::String | SchemaDefType::AssetRef(_) => {
+                SchemaDefType::Boolean
+                | SchemaDefType::I32
+                | SchemaDefType::I64
+                | SchemaDefType::U32
+                | SchemaDefType::U64
+                | SchemaDefType::String
+                | SchemaDefType::AssetRef(_) => {
                     // value types are fine other than float
                     Ok(())
                 }
@@ -216,47 +226,86 @@ fn parse_json_schema_def_record_field(
     let mut markup = SchemaDefRecordFieldMarkup::default();
 
     if let Some(display_name) = object.get("display_name") {
-        markup.display_name = Some(display_name.as_str().ok_or_else(||SchemaDefParserError::String("display_name must be a string".to_string()))?.to_string());
+        markup.display_name = Some(
+            display_name
+                .as_str()
+                .ok_or_else(|| {
+                    SchemaDefParserError::String("display_name must be a string".to_string())
+                })?
+                .to_string(),
+        );
     }
 
     if let Some(category) = object.get("category") {
-        markup.category = Some(category.as_str().ok_or_else(|| SchemaDefParserError::String("category must be a string".to_string()))?.to_string());
+        markup.category = Some(
+            category
+                .as_str()
+                .ok_or_else(|| {
+                    SchemaDefParserError::String("category must be a string".to_string())
+                })?
+                .to_string(),
+        );
     }
 
     if let Some(description) = object.get("description") {
-        markup.description = Some(description.as_str().ok_or_else(|| SchemaDefParserError::String("description must be a string".to_string()))?.to_string());
+        markup.description = Some(
+            description
+                .as_str()
+                .ok_or_else(|| {
+                    SchemaDefParserError::String("description must be a string".to_string())
+                })?
+                .to_string(),
+        );
     }
 
     if let Some(ui_min) = object.get("ui_min") {
-        markup.ui_min = Some(ui_min.as_f64().ok_or_else(|| SchemaDefParserError::String("ui_min must be a number".to_string()))?);
+        markup.ui_min =
+            Some(ui_min.as_f64().ok_or_else(|| {
+                SchemaDefParserError::String("ui_min must be a number".to_string())
+            })?);
     }
 
     if let Some(ui_max) = object.get("ui_max") {
-        markup.ui_max = Some(ui_max.as_f64().ok_or_else(|| SchemaDefParserError::String("ui_max must be a number".to_string()))?);
+        markup.ui_max =
+            Some(ui_max.as_f64().ok_or_else(|| {
+                SchemaDefParserError::String("ui_max must be a number".to_string())
+            })?);
     }
 
     if let Some(clamp_min) = object.get("clamp_min") {
-        markup.clamp_min = Some(clamp_min.as_f64().ok_or_else(|| SchemaDefParserError::String("clamp_min must be a number".to_string()))?);
+        markup.clamp_min = Some(clamp_min.as_f64().ok_or_else(|| {
+            SchemaDefParserError::String("clamp_min must be a number".to_string())
+        })?);
     }
 
     if let Some(clamp_max) = object.get("clamp_max") {
-        markup.clamp_max = Some(clamp_max.as_f64().ok_or_else(|| SchemaDefParserError::String("clamp_max must be a number".to_string()))?);
+        markup.clamp_max = Some(clamp_max.as_f64().ok_or_else(|| {
+            SchemaDefParserError::String("clamp_max must be a number".to_string())
+        })?);
     }
 
     if markup.clamp_min.unwrap_or(f64::MIN) > markup.ui_min.unwrap_or(f64::MIN) {
-        Err(SchemaDefParserError::String("clamp_min must be <= ui_min".to_string()))?
+        Err(SchemaDefParserError::String(
+            "clamp_min must be <= ui_min".to_string(),
+        ))?
     }
 
     if markup.clamp_max.unwrap_or(f64::MAX) < markup.ui_max.unwrap_or(f64::MAX) {
-        Err(SchemaDefParserError::String("clamp_max must be >= ui_max".to_string()))?
+        Err(SchemaDefParserError::String(
+            "clamp_max must be >= ui_max".to_string(),
+        ))?
     }
 
     if markup.ui_min.unwrap_or(f64::MIN) > markup.ui_max.unwrap_or(f64::MAX) {
-        Err(SchemaDefParserError::String("ui_min must be <= ui_max".to_string()))?
+        Err(SchemaDefParserError::String(
+            "ui_min must be <= ui_max".to_string(),
+        ))?
     }
 
     if markup.clamp_min.unwrap_or(f64::MIN) > markup.clamp_max.unwrap_or(f64::MAX) {
-        Err(SchemaDefParserError::String("clamp_min must be <= clamp_max".to_string()))?
+        Err(SchemaDefParserError::String(
+            "clamp_min must be <= clamp_max".to_string(),
+        ))?
     }
 
     Ok(SchemaDefRecordField {
@@ -320,13 +369,28 @@ fn parse_json_schema_def_record(
     let mut markup = SchemaDefRecordMarkup::default();
 
     if let Some(display_name) = json_object.get("display_name") {
-        markup.display_name = Some(display_name.as_str().ok_or_else(|| SchemaDefParserError::String("display_name must be a string".to_string()))?.to_string());
+        markup.display_name = Some(
+            display_name
+                .as_str()
+                .ok_or_else(|| {
+                    SchemaDefParserError::String("display_name must be a string".to_string())
+                })?
+                .to_string(),
+        );
     }
 
     if let Some(tags) = json_object.get("tags") {
-        let tags = tags.as_array().ok_or_else(|| SchemaDefParserError::String("tags must be an array of strings".to_string()))?;
+        let tags = tags.as_array().ok_or_else(|| {
+            SchemaDefParserError::String("tags must be an array of strings".to_string())
+        })?;
         for tag in tags {
-            markup.tags.insert(tag.as_str().ok_or_else(|| SchemaDefParserError::String("tags must be an array of strings".to_string()))?.to_string());
+            markup.tags.insert(
+                tag.as_str()
+                    .ok_or_else(|| {
+                        SchemaDefParserError::String("tags must be an array of strings".to_string())
+                    })?
+                    .to_string(),
+            );
         }
     }
 
@@ -334,7 +398,7 @@ fn parse_json_schema_def_record(
         type_name: name_str.to_string(),
         aliases,
         fields,
-        markup
+        markup,
     })
 }
 

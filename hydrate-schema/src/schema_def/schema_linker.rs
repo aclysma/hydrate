@@ -167,7 +167,8 @@ impl SchemaLinker {
         }
 
         let name = name.into();
-        let schema_record = SchemaDefRecord::new(name.clone(), builder.aliases, fields, builder.markup)?;
+        let schema_record =
+            SchemaDefRecord::new(name.clone(), builder.aliases, fields, builder.markup)?;
         let named_type = SchemaDefNamedType::Record(schema_record);
         self.add_named_type(named_type)
     }
@@ -197,7 +198,11 @@ impl SchemaLinker {
         self.add_named_type(named_type)
     }
 
-    fn validate_schema(schema: &SchemaDefType, named_types: &HashMap<String, SchemaDefNamedType>, validated_types: &mut HashSet<String>) -> SchemaLinkerResult<()> {
+    fn validate_schema(
+        schema: &SchemaDefType,
+        named_types: &HashMap<String, SchemaDefNamedType>,
+        validated_types: &mut HashSet<String>,
+    ) -> SchemaLinkerResult<()> {
         match schema {
             // For nullables we just need to make sure their inner type is validated
             SchemaDefType::Nullable(def) => {
@@ -224,23 +229,23 @@ impl SchemaLinker {
             SchemaDefType::Map(def) => {
                 // If we update this, update the similar logic in parse_json_schema_type_ref()
                 match &*def.key_type {
-                    SchemaDefType::Boolean |
-                    SchemaDefType::I32 |
-                    SchemaDefType::I64 |
-                    SchemaDefType::U32 |
-                    SchemaDefType::U64 |
-                    SchemaDefType::String |
-                    SchemaDefType::AssetRef(_) => {
+                    SchemaDefType::Boolean
+                    | SchemaDefType::I32
+                    | SchemaDefType::I64
+                    | SchemaDefType::U32
+                    | SchemaDefType::U64
+                    | SchemaDefType::String
+                    | SchemaDefType::AssetRef(_) => {
                         // valid keys
                         Ok(())
                     }
-                    SchemaDefType::Nullable(_) |
-                    SchemaDefType::F32 |
-                    SchemaDefType::F64 |
-                    SchemaDefType::Bytes |
-                    SchemaDefType::StaticArray(_) |
-                    SchemaDefType::DynamicArray(_) |
-                    SchemaDefType::Map(_) => {
+                    SchemaDefType::Nullable(_)
+                    | SchemaDefType::F32
+                    | SchemaDefType::F64
+                    | SchemaDefType::Bytes
+                    | SchemaDefType::StaticArray(_)
+                    | SchemaDefType::DynamicArray(_)
+                    | SchemaDefType::Map(_) => {
                         // Invalid schema, we don't support these types as keys
                         Err(SchemaDefValidationError::InvalidMapKeyType)
                     }
@@ -264,7 +269,7 @@ impl SchemaLinker {
                 Self::validate_schema(&*def.value_type, named_types, validated_types)?;
                 Self::validate_schema(&*def.value_type, named_types, validated_types)?;
                 Ok(())
-            },
+            }
             // For assets we verify they point at a record
             SchemaDefType::AssetRef(def) => {
                 match named_types.get(def) {
@@ -276,9 +281,7 @@ impl SchemaLinker {
                         // Asset refs can't point at enums
                         Err(SchemaDefValidationError::InvalidAssetRefInnerType.into())
                     }
-                    None => {
-                        Err(SchemaDefValidationError::ReferencedNamedTypeNotFound.into())
-                    }
+                    None => Err(SchemaDefValidationError::ReferencedNamedTypeNotFound.into()),
                 }
             }
             // For named types, we validate the fields. However, we need to handle cyclical references between types
@@ -293,16 +296,16 @@ impl SchemaLinker {
                     Some(SchemaDefNamedType::Record(def)) => {
                         // Validate field types
                         for field_def in def.fields() {
-                            Self::validate_schema(&field_def.field_type, named_types, validated_types)?;
+                            Self::validate_schema(
+                                &field_def.field_type,
+                                named_types,
+                                validated_types,
+                            )?;
                         }
                         Ok(())
                     }
-                    Some(SchemaDefNamedType::Enum(def)) => {
-                        Ok(())
-                    },
-                    None => {
-                        Err(SchemaDefValidationError::ReferencedNamedTypeNotFound.into())
-                    }
+                    Some(SchemaDefNamedType::Enum(def)) => Ok(()),
+                    None => Err(SchemaDefValidationError::ReferencedNamedTypeNotFound.into()),
                 }
             }
         }
@@ -316,7 +319,11 @@ impl SchemaLinker {
 
         let mut validated_types = Default::default();
         for (_, named_type) in &self.types {
-            Self::validate_schema(&SchemaDefType::NamedType(named_type.type_name().to_string()), &self.types, &mut validated_types)?;
+            Self::validate_schema(
+                &SchemaDefType::NamedType(named_type.type_name().to_string()),
+                &self.types,
+                &mut validated_types,
+            )?;
         }
 
         let mut partial_hashes = HashMap::default();

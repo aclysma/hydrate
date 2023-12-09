@@ -28,88 +28,101 @@ fn confirm_lose_changes<F: Fn(&mut egui::Ui, &mut ModalActionControlFlow) -> ()>
             .max_height(300.0)
             .auto_shrink([false, false])
             .show(ui, |ui| {
-            let mut table = egui_extras::TableBuilder::new(ui)
-                .striped(true)
-                .auto_shrink([false, false])
-                .resizable(true)
-                .cell_layout(egui::Layout::left_to_right(egui::Align::Center))
-                .column(
-                    egui_extras::Column::exact(10.0)
-                        .clip(true)
-                ).column(
-                    egui_extras::Column::initial(100.0)
-                        .at_least(10.0)
-                        .clip(true)
-                ).column(
-                    egui_extras::Column::initial(100.0)
-                        .at_least(10.0)
-                        .clip(true)
-                ).column(
-                    egui_extras::Column::initial(200.0)
-                        .at_least(10.0)
-                        .clip(true)
-                );
+                let mut table = egui_extras::TableBuilder::new(ui)
+                    .striped(true)
+                    .auto_shrink([false, false])
+                    .resizable(true)
+                    .cell_layout(egui::Layout::left_to_right(egui::Align::Center))
+                    .column(egui_extras::Column::exact(10.0).clip(true))
+                    .column(
+                        egui_extras::Column::initial(100.0)
+                            .at_least(10.0)
+                            .clip(true),
+                    )
+                    .column(
+                        egui_extras::Column::initial(100.0)
+                            .at_least(10.0)
+                            .clip(true),
+                    )
+                    .column(
+                        egui_extras::Column::initial(200.0)
+                            .at_least(10.0)
+                            .clip(true),
+                    );
 
-            let mut all_modified_assets: Vec<_> = context.db_state
-                .editor_model
-                .root_edit_context()
-                .assets()
-                .iter()
-                .filter(|(asset_id, info)| {
-                    context.db_state.editor_model.root_edit_context().modified_assets().contains(asset_id)
-                })
-                .collect();
+                let mut all_modified_assets: Vec<_> = context
+                    .db_state
+                    .editor_model
+                    .root_edit_context()
+                    .assets()
+                    .iter()
+                    .filter(|(asset_id, info)| {
+                        context
+                            .db_state
+                            .editor_model
+                            .root_edit_context()
+                            .modified_assets()
+                            .contains(asset_id)
+                    })
+                    .collect();
 
-            all_modified_assets.sort_by(|(_, lhs), (_, rhs)| lhs.asset_name().cmp(&rhs.asset_name()));
+                all_modified_assets
+                    .sort_by(|(_, lhs), (_, rhs)| lhs.asset_name().cmp(&rhs.asset_name()));
 
-            table
-                .header(20.0, |mut header| {
-                    header.col(|ui| {
-                        ui.strong("");
-                    });
-                    header.col(|ui| {
-                        ui.strong("Name");
-                    });
-                    header.col(|ui| {
-                        ui.strong("Type");
-                    });
-                    header.col(|ui| {
-                        ui.strong("Path");
-                    });
-                })
-                .body(|mut body| {
-                    for (&asset_id, asset_info) in all_modified_assets {
-                        body.row(20.0, |mut row| {
-                            let short_name = context.db_state
-                                .editor_model
-                                .root_edit_context()
-                                .asset_name_or_id_string(asset_id)
-                                .unwrap();
-                            let long_name = context.db_state
-                                .editor_model
-                                .asset_path(asset_id, &context.ui_state.asset_path_cache);
-
-                            row.col(|ui| {
-                                //TODO
-                                ui.label("M");
-                            });
-                            row.col(|ui| {
-                                ui.strong(short_name);
-                            });
-                            row.col(|ui| {
-                                let schema_display_name = asset_info.schema().markup().display_name.as_deref().unwrap_or(asset_info.schema().name());
-                                ui.label(schema_display_name);
-                            });
-                            row.col(|ui| {
-                                ui.label(long_name.as_str());
-                            });
+                table
+                    .header(20.0, |mut header| {
+                        header.col(|ui| {
+                            ui.strong("");
                         });
-                    }
-                });
+                        header.col(|ui| {
+                            ui.strong("Name");
+                        });
+                        header.col(|ui| {
+                            ui.strong("Type");
+                        });
+                        header.col(|ui| {
+                            ui.strong("Path");
+                        });
+                    })
+                    .body(|mut body| {
+                        for (&asset_id, asset_info) in all_modified_assets {
+                            body.row(20.0, |mut row| {
+                                let short_name = context
+                                    .db_state
+                                    .editor_model
+                                    .root_edit_context()
+                                    .asset_name_or_id_string(asset_id)
+                                    .unwrap();
+                                let long_name = context
+                                    .db_state
+                                    .editor_model
+                                    .asset_path(asset_id, &context.ui_state.asset_path_cache);
+
+                                row.col(|ui| {
+                                    //TODO
+                                    ui.label("M");
+                                });
+                                row.col(|ui| {
+                                    ui.strong(short_name);
+                                });
+                                row.col(|ui| {
+                                    let schema_display_name = asset_info
+                                        .schema()
+                                        .markup()
+                                        .display_name
+                                        .as_deref()
+                                        .unwrap_or(asset_info.schema().name());
+                                    ui.label(schema_display_name);
+                                });
+                                row.col(|ui| {
+                                    ui.label(long_name.as_str());
+                                });
+                            });
+                        }
+                    });
             });
 
         ui.separator();
-
 
         (bottom_ui)(ui, &mut control_flow);
     });

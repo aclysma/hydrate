@@ -1,5 +1,8 @@
 use super::Schema;
-use crate::{HashMap, SchemaDefRecordField, SchemaDefRecordFieldMarkup, SchemaDefRecordMarkup, SchemaFingerprint, SchemaNamedType};
+use crate::{
+    HashMap, SchemaDefRecordField, SchemaDefRecordFieldMarkup, SchemaDefRecordMarkup,
+    SchemaFingerprint, SchemaNamedType,
+};
 use std::ops::Deref;
 use std::sync::Arc;
 
@@ -16,13 +19,13 @@ impl SchemaRecordField {
         name: String,
         aliases: Box<[String]>,
         field_schema: Schema,
-        markup: SchemaDefRecordFieldMarkup
+        markup: SchemaDefRecordFieldMarkup,
     ) -> Self {
         SchemaRecordField {
             name,
             aliases,
             field_schema,
-            markup
+            markup,
         }
     }
 
@@ -38,9 +41,7 @@ impl SchemaRecordField {
         &self.field_schema
     }
 
-    pub fn markup(
-        &self
-    ) -> &SchemaDefRecordFieldMarkup {
+    pub fn markup(&self) -> &SchemaDefRecordFieldMarkup {
         &self.markup
     }
 }
@@ -73,7 +74,7 @@ impl SchemaRecord {
         fingerprint: SchemaFingerprint,
         aliases: Box<[String]>,
         mut fields: Vec<SchemaRecordField>,
-        markup: SchemaDefRecordMarkup
+        markup: SchemaDefRecordMarkup,
     ) -> Self {
         // Check names are unique
         for i in 0..fields.len() {
@@ -89,7 +90,7 @@ impl SchemaRecord {
             fingerprint,
             aliases,
             fields: fields.into_boxed_slice(),
-            markup
+            markup,
         };
 
         SchemaRecord {
@@ -134,9 +135,7 @@ impl SchemaRecord {
         SchemaNamedType::Record(self.clone()).find_property_schema(path, named_types)
     }
 
-    pub fn markup(
-        &self
-    ) -> &SchemaDefRecordMarkup {
+    pub fn markup(&self) -> &SchemaDefRecordMarkup {
         &self.markup
     }
 }

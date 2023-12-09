@@ -1,4 +1,7 @@
-use crate::{AssetId, HashMap, HashSet, OrderedSet, PathReference, PropertyPath, Schema, SchemaFingerprint, SchemaRecord, SingleObject, Value};
+use crate::{
+    AssetId, HashMap, HashSet, OrderedSet, PathReference, PropertyPath, Schema, SchemaFingerprint,
+    SchemaRecord, SingleObject, Value,
+};
 pub use crate::{DataSetError, DataSetResult};
 use crate::{NullOverride, SchemaSet};
 use std::cmp::Ordering;
@@ -215,7 +218,11 @@ pub struct PropertiesBundle {
 }
 
 impl PropertiesBundle {
-    fn read(asset_info: &DataSetAssetInfo, path_prefix: impl AsRef<str>, schema_set: &SchemaSet) -> DataSetResult<PropertiesBundle> {
+    fn read(
+        asset_info: &DataSetAssetInfo,
+        path_prefix: impl AsRef<str>,
+        schema_set: &SchemaSet,
+    ) -> DataSetResult<PropertiesBundle> {
         let path_prefix_str = path_prefix.as_ref();
         let prefix_string = if path_prefix_str.is_empty() {
             Default::default()
@@ -223,7 +230,10 @@ impl PropertiesBundle {
             format!("{}", path_prefix_str)
         };
 
-        let schema = asset_info.schema().find_property_schema(path_prefix_str, schema_set.schemas()).ok_or(DataSetError::SchemaNotFound)?;
+        let schema = asset_info
+            .schema()
+            .find_property_schema(path_prefix_str, schema_set.schemas())
+            .ok_or(DataSetError::SchemaNotFound)?;
 
         let mut properties = HashMap::<String, Value>::default();
         println!("Look for property {:?}", path_prefix_str);
@@ -248,7 +258,7 @@ impl PropertiesBundle {
             }
         }
 
-        let mut dynamic_collection_entries =  HashMap::<String, OrderedSet<Uuid>>::default();
+        let mut dynamic_collection_entries = HashMap::<String, OrderedSet<Uuid>>::default();
         for (k, v) in &asset_info.dynamic_collection_entries {
             if k.starts_with(&prefix_string) {
                 dynamic_collection_entries.insert(k[prefix_string.len()..].to_string(), v.clone());
@@ -260,11 +270,16 @@ impl PropertiesBundle {
             properties,
             property_null_overrides,
             properties_in_replace_mode,
-            dynamic_collection_entries
+            dynamic_collection_entries,
         })
     }
 
-    fn write(&self, asset_info: &mut DataSetAssetInfo, path_prefix: impl AsRef<str>, schema_set: &SchemaSet) -> DataSetResult<()> {
+    fn write(
+        &self,
+        asset_info: &mut DataSetAssetInfo,
+        path_prefix: impl AsRef<str>,
+        schema_set: &SchemaSet,
+    ) -> DataSetResult<()> {
         let path_prefix_str = path_prefix.as_ref();
         let prefix_string = if path_prefix_str.is_empty() {
             Default::default()
@@ -275,34 +290,53 @@ impl PropertiesBundle {
         //
         // verify schema match at dest prefix
         //
-        let schema = asset_info.schema().find_property_schema(path_prefix_str, schema_set.schemas()).ok_or(DataSetError::SchemaNotFound)?;
+        let schema = asset_info
+            .schema()
+            .find_property_schema(path_prefix_str, schema_set.schemas())
+            .ok_or(DataSetError::SchemaNotFound)?;
         assert_eq!(schema, self.schema);
 
         //
         // wipe anything that was there
         //
-        asset_info.properties.retain(|k, v| !k.starts_with(&prefix_string));
-        asset_info.property_null_overrides.retain(|k, v| !k.starts_with(&prefix_string));
-        asset_info.properties_in_replace_mode.retain(|k| !k.starts_with(&prefix_string));
-        asset_info.dynamic_collection_entries.retain(|k, v| !k.starts_with(&prefix_string));
+        asset_info
+            .properties
+            .retain(|k, v| !k.starts_with(&prefix_string));
+        asset_info
+            .property_null_overrides
+            .retain(|k, v| !k.starts_with(&prefix_string));
+        asset_info
+            .properties_in_replace_mode
+            .retain(|k| !k.starts_with(&prefix_string));
+        asset_info
+            .dynamic_collection_entries
+            .retain(|k, v| !k.starts_with(&prefix_string));
 
         //
         // stomp with new data
         //
         for (k, v) in &self.properties {
-            asset_info.properties.insert(format!("{}{}", prefix_string, k), v.clone());
+            asset_info
+                .properties
+                .insert(format!("{}{}", prefix_string, k), v.clone());
         }
 
         for (k, v) in &self.property_null_overrides {
-            asset_info.property_null_overrides.insert(format!("{}{}", prefix_string, k), v.clone());
+            asset_info
+                .property_null_overrides
+                .insert(format!("{}{}", prefix_string, k), v.clone());
         }
 
         for k in &self.properties_in_replace_mode {
-            asset_info.properties_in_replace_mode.insert(format!("{}{}", prefix_string, k));
+            asset_info
+                .properties_in_replace_mode
+                .insert(format!("{}{}", prefix_string, k));
         }
 
         for (k, v) in &self.dynamic_collection_entries {
-            asset_info.dynamic_collection_entries.insert(format!("{}{}", prefix_string, k), v.clone());
+            asset_info
+                .dynamic_collection_entries
+                .insert(format!("{}{}", prefix_string, k), v.clone());
         }
 
         Ok(())
@@ -848,7 +882,8 @@ impl DataSet {
             }
             uuid_set_hash.hash(&mut inner_hasher);
 
-            dynamic_collection_entries_hash = dynamic_collection_entries_hash ^ inner_hasher.finish();
+            dynamic_collection_entries_hash =
+                dynamic_collection_entries_hash ^ inner_hasher.finish();
         }
         dynamic_collection_entries_hash.hash(&mut hasher);
 
@@ -957,7 +992,8 @@ impl DataSet {
         // See if this field was contained in a container. If any of those containers didn't contain
         // this property path, return None
         for (path, key) in &accessed_dynamic_array_keys {
-            let dynamic_collection_entries = self.resolve_dynamic_array_entries(schema_set, asset_id, path)?;
+            let dynamic_collection_entries =
+                self.resolve_dynamic_array_entries(schema_set, asset_id, path)?;
             if !dynamic_collection_entries
                 .contains(&Uuid::from_str(key).map_err(|_| DataSetError::UuidParseError)?)
             {
@@ -1353,11 +1389,7 @@ impl DataSet {
             if let Some(prototype) = obj.prototype {
                 // If the prototype is not found, we behave as if the prototype was not set
                 if self.assets.contains_key(&prototype) {
-                    self.do_resolve_dynamic_collection_entries(
-                        prototype,
-                        path,
-                        resolved_entries,
-                    )?;
+                    self.do_resolve_dynamic_collection_entries(prototype, path, resolved_entries)?;
                 }
             }
         }
@@ -1383,11 +1415,7 @@ impl DataSet {
         }
 
         let mut resolved_entries = vec![];
-        self.do_resolve_dynamic_collection_entries(
-            asset_id,
-            path.as_ref(),
-            &mut resolved_entries,
-        )?;
+        self.do_resolve_dynamic_collection_entries(asset_id, path.as_ref(), &mut resolved_entries)?;
         Ok(resolved_entries.into_boxed_slice())
     }
 
@@ -1403,11 +1431,7 @@ impl DataSet {
         }
 
         let mut resolved_entries = vec![];
-        self.do_resolve_dynamic_collection_entries(
-            asset_id,
-            path.as_ref(),
-            &mut resolved_entries,
-        )?;
+        self.do_resolve_dynamic_collection_entries(asset_id, path.as_ref(), &mut resolved_entries)?;
         Ok(resolved_entries.into_boxed_slice())
     }
 
@@ -1474,7 +1498,7 @@ impl DataSet {
         &self,
         schema_set: &SchemaSet,
         asset_id: AssetId,
-        path: impl AsRef<str>
+        path: impl AsRef<str>,
     ) -> DataSetResult<PropertiesBundle> {
         let asset = self
             .assets
@@ -1488,7 +1512,7 @@ impl DataSet {
         schema_set: &SchemaSet,
         asset_id: AssetId,
         path: impl AsRef<str>,
-        properties_bundle: &PropertiesBundle
+        properties_bundle: &PropertiesBundle,
     ) -> DataSetResult<()> {
         let asset = self
             .assets

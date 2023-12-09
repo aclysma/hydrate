@@ -2,7 +2,10 @@ use demo_plugins::generated::*;
 use hydrate::editor::action_queue::UIAction;
 use hydrate::editor::egui::Ui;
 use hydrate::editor::inspector_system::*;
-use hydrate::model::{DataContainerRefMut, EndContextBehavior, Record, Schema, SchemaDefRecordFieldMarkup, SchemaRecord, SchemaSet, Value};
+use hydrate::model::{
+    DataContainerRefMut, EndContextBehavior, Record, Schema, SchemaDefRecordFieldMarkup,
+    SchemaRecord, SchemaSet, Value,
+};
 
 struct Vec3RecordInspector;
 
@@ -112,7 +115,6 @@ impl RecordInspector for Vec4RecordInspector {
     }
 }
 
-
 struct ColorRgbaRecordInspector;
 
 impl RecordInspector for ColorRgbaRecordInspector {
@@ -133,16 +135,40 @@ impl RecordInspector for ColorRgbaRecordInspector {
         let b_field_path = ctx.property_path.push("b");
         let a_field_path = ctx.property_path.push("a");
 
-        let r = ctx.editor_model.root_edit_context().resolve_property(ctx.asset_id, r_field_path.path()).unwrap().as_f32().unwrap();
-        let g = ctx.editor_model.root_edit_context().resolve_property(ctx.asset_id, g_field_path.path()).unwrap().as_f32().unwrap();
-        let b = ctx.editor_model.root_edit_context().resolve_property(ctx.asset_id, b_field_path.path()).unwrap().as_f32().unwrap();
-        let a = ctx.editor_model.root_edit_context().resolve_property(ctx.asset_id, a_field_path.path()).unwrap().as_f32().unwrap();
+        let r = ctx
+            .editor_model
+            .root_edit_context()
+            .resolve_property(ctx.asset_id, r_field_path.path())
+            .unwrap()
+            .as_f32()
+            .unwrap();
+        let g = ctx
+            .editor_model
+            .root_edit_context()
+            .resolve_property(ctx.asset_id, g_field_path.path())
+            .unwrap()
+            .as_f32()
+            .unwrap();
+        let b = ctx
+            .editor_model
+            .root_edit_context()
+            .resolve_property(ctx.asset_id, b_field_path.path())
+            .unwrap()
+            .as_f32()
+            .unwrap();
+        let a = ctx
+            .editor_model
+            .root_edit_context()
+            .resolve_property(ctx.asset_id, a_field_path.path())
+            .unwrap()
+            .as_f32()
+            .unwrap();
 
         let mut color = egui::Color32::from_rgba_unmultiplied(
             (r as f32 * 255.0) as u8,
             (g as f32 * 255.0) as u8,
             (b as f32 * 255.0) as u8,
-            (a as f32 * 255.0) as u8
+            (a as f32 * 255.0) as u8,
         );
 
         //
@@ -189,7 +215,8 @@ impl RecordInspector for ColorRgbaRecordInspector {
         // or a previous frame. Does nothing if we didn't send a property change notification
         //
         if was_open && !is_open {
-            ctx.action_sender.queue_action(UIAction::CommitPendingUndoContext);
+            ctx.action_sender
+                .queue_action(UIAction::CommitPendingUndoContext);
         }
     }
 }

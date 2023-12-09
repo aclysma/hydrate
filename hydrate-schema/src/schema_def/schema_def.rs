@@ -11,7 +11,7 @@ pub enum SchemaDefValidationError {
     // Map keys cannot be f32/f64, containers, nullables, records, etc.
     InvalidMapKeyType,
     // AssetRef can only reference named types that are records
-    InvalidAssetRefInnerType
+    InvalidAssetRefInnerType,
 }
 
 pub type SchemaDefValidationResult<T> = Result<T, SchemaDefValidationError>;
@@ -208,12 +208,16 @@ impl SchemaDefRecordFieldMarkup {
 
     pub fn ui_min(&self) -> f64 {
         // The greater of clamp/ui min
-        self.clamp_min.unwrap_or(f64::MIN).max(self.ui_min.unwrap_or(f64::MIN))
+        self.clamp_min
+            .unwrap_or(f64::MIN)
+            .max(self.ui_min.unwrap_or(f64::MIN))
     }
 
     pub fn ui_max(&self) -> f64 {
         // The lesser of clamp/ui max
-        self.clamp_max.unwrap_or(f64::MAX).min(self.ui_max.unwrap_or(f64::MAX))
+        self.clamp_max
+            .unwrap_or(f64::MAX)
+            .min(self.ui_max.unwrap_or(f64::MAX))
     }
 
     pub fn has_min_bound(&self) -> bool {
@@ -279,7 +283,7 @@ impl SchemaDefRecordField {
             self.field_name.clone(),
             self.aliases.clone().into_boxed_slice(),
             self.field_type.to_schema(named_types, fingerprints),
-            self.markup.clone()
+            self.markup.clone(),
         )
     }
 }

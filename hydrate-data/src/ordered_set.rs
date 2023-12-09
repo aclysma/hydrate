@@ -9,7 +9,10 @@ pub struct OrderedSet<T: Eq + PartialEq + Hash + Clone> {
 }
 
 impl<T: Eq + PartialEq + Hash + Clone> PartialEq for OrderedSet<T> {
-    fn eq(&self, other: &Self) -> bool {
+    fn eq(
+        &self,
+        other: &Self,
+    ) -> bool {
         self.vec == other.vec
     }
 }

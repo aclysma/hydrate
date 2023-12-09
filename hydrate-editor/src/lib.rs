@@ -9,9 +9,9 @@ mod persistent_app_state;
 pub mod action_queue;
 
 mod egui_debug_ui;
+mod fonts;
 mod modal_action;
 mod ui_state;
-mod fonts;
 
 pub use egui;
 pub use egui_extras;

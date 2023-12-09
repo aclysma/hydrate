@@ -1575,16 +1575,6 @@ impl StringField {
     }
 }
 
-
-
-
-
-
-
-
-
-
-
 pub struct StaticArrayFieldAccessor<T: FieldAccessor>(pub PropertyPath, PhantomData<T>);
 
 impl<T: FieldAccessor> FieldAccessor for StaticArrayFieldAccessor<T> {
@@ -1654,7 +1644,9 @@ impl<'a, T: FieldRefMut<'a>> FieldRefMut<'a> for StaticArrayFieldRefMut<'a, T> {
 
 impl<'a, T: FieldRefMut<'a>> StaticArrayFieldRefMut<'a, T> {
     pub fn resolve_entries(&self) -> DataSetResult<Box<[Uuid]>> {
-        self.1.borrow_mut().resolve_dynamic_array_entries(self.0.path())
+        self.1
+            .borrow_mut()
+            .resolve_dynamic_array_entries(self.0.path())
     }
 
     pub fn entry(
@@ -1697,25 +1689,6 @@ impl<'a, T: Field> StaticArrayField<T> {
     }
 }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 pub struct DynamicArrayFieldAccessor<T: FieldAccessor>(pub PropertyPath, PhantomData<T>);
 
 impl<T: FieldAccessor> FieldAccessor for DynamicArrayFieldAccessor<T> {
@@ -1749,7 +1722,7 @@ impl<T: FieldAccessor> DynamicArrayFieldAccessor<T> {
     pub fn remove_entry(
         &self,
         data_container: &mut DataContainerRefMut,
-        entry_id: Uuid
+        entry_id: Uuid,
     ) -> DataSetResult<bool> {
         data_container.remove_dynamic_array_entry(self.0.path(), entry_id)
     }
@@ -1800,7 +1773,9 @@ impl<'a, T: FieldRefMut<'a>> FieldRefMut<'a> for DynamicArrayFieldRefMut<'a, T> 
 
 impl<'a, T: FieldRefMut<'a>> DynamicArrayFieldRefMut<'a, T> {
     pub fn resolve_entries(&self) -> DataSetResult<Box<[Uuid]>> {
-        self.1.borrow_mut().resolve_dynamic_array_entries(self.0.path())
+        self.1
+            .borrow_mut()
+            .resolve_dynamic_array_entries(self.0.path())
     }
 
     pub fn entry(
@@ -1811,12 +1786,13 @@ impl<'a, T: FieldRefMut<'a>> DynamicArrayFieldRefMut<'a, T> {
     }
 
     pub fn add_entry(&self) -> DataSetResult<Uuid> {
-        self.1
-            .borrow_mut()
-            .add_dynamic_array_entry(self.0.path())
+        self.1.borrow_mut().add_dynamic_array_entry(self.0.path())
     }
 
-    pub fn remove_entry(&self, entry_id: Uuid) -> DataSetResult<bool> {
+    pub fn remove_entry(
+        &self,
+        entry_id: Uuid,
+    ) -> DataSetResult<bool> {
         self.1
             .borrow_mut()
             .remove_dynamic_array_entry(self.0.path(), entry_id)
@@ -1862,7 +1838,10 @@ impl<'a, T: Field> DynamicArrayField<T> {
             .add_dynamic_array_entry(self.0.path())
     }
 
-    pub fn remove_entry(&self, entry_id: Uuid) -> DataSetResult<bool> {
+    pub fn remove_entry(
+        &self,
+        entry_id: Uuid,
+    ) -> DataSetResult<bool> {
         self.1
             .borrow_mut()
             .as_mut()
@@ -1871,17 +1850,10 @@ impl<'a, T: Field> DynamicArrayField<T> {
     }
 }
 
-
-
-
-
-
-
-
-
-
-
-pub struct MapFieldAccessor<KeyT: FieldAccessor, ValueT: FieldAccessor>(pub PropertyPath, PhantomData<(KeyT, ValueT)>);
+pub struct MapFieldAccessor<KeyT: FieldAccessor, ValueT: FieldAccessor>(
+    pub PropertyPath,
+    PhantomData<(KeyT, ValueT)>,
+);
 
 impl<KeyT: FieldAccessor, ValueT: FieldAccessor> FieldAccessor for MapFieldAccessor<KeyT, ValueT> {
     fn new(property_path: PropertyPath) -> Self {
@@ -1921,7 +1893,7 @@ impl<KeyT: FieldAccessor, ValueT: FieldAccessor> MapFieldAccessor<KeyT, ValueT> 
     pub fn remove_entry(
         &self,
         data_container: &mut DataContainerRefMut,
-        entry_id: Uuid
+        entry_id: Uuid,
     ) -> DataSetResult<bool> {
         data_container.remove_map_entry(self.0.path(), entry_id)
     }
@@ -1968,7 +1940,9 @@ pub struct MapFieldRefMut<'a, KeyT: FieldRefMut<'a>, ValueT: FieldRefMut<'a>>(
     PhantomData<(KeyT, ValueT)>,
 );
 
-impl<'a, KeyT: FieldRefMut<'a>, ValueT: FieldRefMut<'a>> FieldRefMut<'a> for MapFieldRefMut<'a, KeyT, ValueT> {
+impl<'a, KeyT: FieldRefMut<'a>, ValueT: FieldRefMut<'a>> FieldRefMut<'a>
+    for MapFieldRefMut<'a, KeyT, ValueT>
+{
     fn new(
         property_path: PropertyPath,
         data_container: &'a Rc<RefCell<DataContainerRefMut<'a>>>,
@@ -1997,12 +1971,13 @@ impl<'a, KeyT: FieldRefMut<'a>, ValueT: FieldRefMut<'a>> MapFieldRefMut<'a, KeyT
     }
 
     pub fn add_entry(&self) -> DataSetResult<Uuid> {
-        self.1
-            .borrow_mut()
-            .add_map_entry(self.0.path())
+        self.1.borrow_mut().add_map_entry(self.0.path())
     }
 
-    pub fn remove_entry(&self, entry_id: Uuid) -> DataSetResult<bool> {
+    pub fn remove_entry(
+        &self,
+        entry_id: Uuid,
+    ) -> DataSetResult<bool> {
         self.1
             .borrow_mut()
             .remove_map_entry(self.0.path(), entry_id)
@@ -2055,7 +2030,10 @@ impl<'a, KeyT: Field, ValueT: Field> MapField<KeyT, ValueT> {
             .add_map_entry(self.0.path())
     }
 
-    pub fn remove_entry(&self, entry_id: Uuid) -> DataSetResult<bool> {
+    pub fn remove_entry(
+        &self,
+        entry_id: Uuid,
+    ) -> DataSetResult<bool> {
         self.1
             .borrow_mut()
             .as_mut()
@@ -2063,26 +2041,6 @@ impl<'a, KeyT: Field, ValueT: Field> MapField<KeyT, ValueT> {
             .remove_map_entry(self.0.path(), entry_id)
     }
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 pub struct AssetRefFieldAccessor(pub PropertyPath);
 

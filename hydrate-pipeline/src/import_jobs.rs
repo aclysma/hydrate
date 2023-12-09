@@ -4,6 +4,7 @@ use std::hash::{Hash, Hasher};
 use std::io::BufReader;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
+use crossbeam_channel::Receiver;
 
 use crate::import_storage::ImportDataMetadata;
 use crate::import_thread_pool::{
@@ -99,6 +100,22 @@ impl ImportJob {
     }
 }
 
+pub struct ImportStatusImporting {
+    pub total_job_count: usize,
+    pub completed_job_count: usize
+}
+
+pub enum ImportStatus {
+    Idle,
+    Importing(ImportStatusImporting)
+}
+
+struct ImportTask {
+    thread_pool: ImportWorkerThreadPool,
+    job_count: usize,
+    result_rx: Receiver<ImportThreadOutcome>,
+}
+
 // Cache of all known import jobs. This includes imports that are complete, in progress, or not started.
 // We find these by scanning existing assets and import data. We also inspect the asset and imported
 // data to see if the job is complete, or is in a failed or stale state.
@@ -107,6 +124,7 @@ pub struct ImportJobs {
     import_data_root_path: PathBuf,
     import_jobs: HashMap<AssetId, ImportJob>,
     import_operations: Vec<ImportOp>,
+    current_import_task: Option<ImportTask>,
 }
 
 impl ImportJobs {
@@ -126,6 +144,7 @@ impl ImportJobs {
             import_data_root_path: import_data_root_path.to_path_buf(),
             import_jobs,
             import_operations: Default::default(),
+            current_import_task: None,
         }
     }
 
@@ -168,28 +187,12 @@ impl ImportJobs {
         metadata_hashes
     }
 
-    // pub fn handle_file_updates(&mut self, file_updates: &[PathBuf]) {
-    //     for file_update in file_updates {
-    //         if let Ok(relative) = file_update.strip_prefix(&self.import_data_root_path) {
-    //             if let Some(uuid) = path_to_uuid(&self.import_data_root_path, file_update) {
-    //                 let asset_id = AssetId(uuid.as_u128());
-    //
-    //             }
-    //         }
-    //     }
-    // }
-
     #[profiling::function]
-    pub fn update(
+    pub fn start_import_task(
         &mut self,
         importer_registry: &ImporterRegistry,
         editor_model: &mut dyn DynEditorModel,
-    ) -> PipelineResult<()> {
-        profiling::scope!("Process Import Operations");
-        if self.import_operations.is_empty() {
-            return Ok(());
-        }
-
+    ) -> PipelineResult<ImportTask> {
         //
         // Take the import operations
         //
@@ -231,7 +234,7 @@ impl ImportJobs {
         //
         // Queue the import operations
         //
-        let mut total_jobs = 0;
+        let mut job_count = 0;
         for import_op in import_operations {
             let mut importable_assets = HashMap::<ImportableName, ImportableAsset>::default();
             for (name, requested_importable) in &import_op.requested_importables {
@@ -260,7 +263,7 @@ impl ImportJobs {
                 );
             }
 
-            total_jobs += 1;
+            job_count += 1;
             thread_pool.add_request(ImportThreadRequest::RequestImport(
                 ImportThreadRequestImport {
                     import_op,
@@ -269,59 +272,85 @@ impl ImportJobs {
             ));
         }
 
-        //
-        // Wait for the thread pool to finish
-        //
-        let mut last_job_print_time = None;
-        while !thread_pool.is_idle() {
-            std::thread::sleep(std::time::Duration::from_millis(50));
+        Ok(ImportTask {
+            thread_pool,
+            job_count,
+            result_rx
+        })
+    }
 
-            let now = std::time::Instant::now();
-            let mut print_progress = true;
-            if let Some(last_job_print_time) = last_job_print_time {
-                if (now - last_job_print_time) < std::time::Duration::from_millis(500) {
-                    print_progress = false;
-                }
-            }
+    #[profiling::function]
+    pub fn update(
+        &mut self,
+        importer_registry: &ImporterRegistry,
+        editor_model: &mut dyn DynEditorModel,
+    ) -> PipelineResult<ImportStatus> {
+        profiling::scope!("Process Import Operations");
 
-            if print_progress {
-                log::info!(
-                    "Import jobs: {}/{}",
-                    total_jobs - thread_pool.active_request_count(),
-                    total_jobs
-                );
-                last_job_print_time = Some(now);
+        //
+        // If we already have an import task running, report progress
+        //
+        if let Some(current_import_task) = &self.current_import_task {
+            if !current_import_task.thread_pool.is_idle() {
+                return Ok(ImportStatus::Importing(ImportStatusImporting {
+                    total_job_count: current_import_task.job_count,
+                    completed_job_count: current_import_task.job_count - current_import_task.thread_pool.active_request_count()
+                }));
             }
         }
 
-        thread_pool.finish();
+        //
+        // If we have a completed import task, merge results back into the editor model
+        //
+        if let Some(finished_import_task) = self.current_import_task.take() {
+            finished_import_task.thread_pool.finish();
 
-        //
-        // Commit the imports
-        //
-        for outcome in result_rx.try_iter() {
-            match outcome {
-                ImportThreadOutcome::Complete(msg) => {
-                    for (name, imported_asset) in msg.result? {
-                        if let Some(requested_importable) =
-                            msg.request.import_op.requested_importables.get(&name)
-                        {
-                            editor_model.handle_import_complete(
-                                requested_importable.asset_id,
-                                requested_importable.asset_name.clone(),
-                                requested_importable.asset_location.clone(),
-                                &imported_asset.default_asset,
-                                requested_importable.replace_with_default_asset,
-                                imported_asset.import_info,
-                                &requested_importable.path_references,
-                            )?;
+            //
+            // Commit the imports
+            //
+            for outcome in finished_import_task.result_rx.try_iter() {
+                match outcome {
+                    ImportThreadOutcome::Complete(msg) => {
+                        for (name, imported_asset) in msg.result? {
+                            if let Some(requested_importable) =
+                                msg.request.import_op.requested_importables.get(&name)
+                            {
+                                editor_model.handle_import_complete(
+                                    requested_importable.asset_id,
+                                    requested_importable.asset_name.clone(),
+                                    requested_importable.asset_location.clone(),
+                                    &imported_asset.default_asset,
+                                    requested_importable.replace_with_default_asset,
+                                    imported_asset.import_info,
+                                    &requested_importable.path_references,
+                                )?;
+                            }
                         }
                     }
                 }
             }
         }
 
-        Ok(())
+        //
+        // Check if we have pending imports/should start a new import task
+        //
+        if self.import_operations.is_empty() {
+            // Nothing is pending import
+            return Ok(ImportStatus::Idle);
+        }
+
+        //
+        // Start a new import task with all pending imports
+        //
+        let import_task = self.start_import_task(importer_registry, editor_model)?;
+        let status = ImportStatus::Importing(ImportStatusImporting {
+            total_job_count: import_task.job_count,
+            completed_job_count: 0
+        });
+
+        self.current_import_task = Some(import_task);
+
+        Ok(status)
     }
 
     fn find_all_jobs(

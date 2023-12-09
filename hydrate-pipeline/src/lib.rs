@@ -119,6 +119,12 @@ pub trait DynEditContext {
     fn schema_set(&self) -> &SchemaSet;
 }
 
+pub enum AssetEngineState {
+    Idle,
+    Importing(ImportStatusImporting),
+    Building
+}
+
 pub struct AssetEngine {
     importer_registry: ImporterRegistry,
     import_jobs: ImportJobs,
@@ -175,7 +181,7 @@ impl AssetEngine {
     pub fn update(
         &mut self,
         editor_model: &mut dyn DynEditorModel,
-    ) -> PipelineResult<()> {
+    ) -> PipelineResult<AssetEngineState> {
         //
         // If user changes any asset data, cancel the in-flight build
         // If user initiates any import jobs, cancel the in-flight build
@@ -185,8 +191,17 @@ impl AssetEngine {
         //
         // If there are import jobs pending, cancel the in-flight build and execute them
         //
-        self.import_jobs
+        let import_state = self.import_jobs
             .update(&self.importer_registry, editor_model)?;
+
+        match import_state {
+            ImportStatus::Idle => {
+                // We can go to the next step
+            },
+            ImportStatus::Importing(importing_state) => {
+                return Ok(AssetEngineState::Importing(importing_state))
+            }
+        }
 
         //
         // If we don't have any pending import jobs, and we don't have a build in-flight, and
@@ -224,7 +239,7 @@ impl AssetEngine {
             };
 
         if !needs_rebuild {
-            return Ok(());
+            return Ok(AssetEngineState::Idle);
         }
 
         //
@@ -242,7 +257,7 @@ impl AssetEngine {
             combined_build_hash,
         )?;
         self.previous_combined_build_hash = Some(combined_build_hash);
-        Ok(())
+        Ok(AssetEngineState::Idle)
     }
 
     pub fn importers_for_file_extension(

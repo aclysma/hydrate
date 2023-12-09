@@ -1,3 +1,4 @@
+use std::time::Duration;
 use crate::action_queue::{UIAction, UIActionQueueReceiver};
 use crate::db_state::DbState;
 use crate::egui_debug_ui::EguiDebugUiState;
@@ -9,7 +10,7 @@ use crate::ui::modals::ImportFilesModal;
 use crate::ui_state::EditorModelUiState;
 use egui::epaint::text::FontsImpl;
 use egui::{FontDefinitions, ViewportCommand};
-use hydrate_model::pipeline::AssetEngine;
+use hydrate_model::pipeline::{AssetEngine, AssetEngineState};
 use hydrate_model::EditorModelWithCache;
 
 #[derive(Default)]
@@ -116,7 +117,7 @@ impl eframe::App for HydrateEditorApp {
             }
         });
 
-        {
+        let asset_engine_state = {
             let mut editor_model_with_cache = EditorModelWithCache {
                 editor_model: &mut self.db_state.editor_model,
                 asset_path_cache: &self.ui_state.editor_model_ui_state.asset_path_cache,
@@ -124,7 +125,12 @@ impl eframe::App for HydrateEditorApp {
 
             self.asset_engine
                 .update(&mut editor_model_with_cache)
-                .unwrap();
+                .unwrap()
+        };
+
+        match asset_engine_state {
+            AssetEngineState::Idle => ctx.request_repaint_after(Duration::from_millis(1000)),
+            _ => ctx.request_repaint(),
         }
 
         let clear_modal_action = if let Some(modal_action) = &mut self.modal_action {
@@ -154,6 +160,24 @@ impl eframe::App for HydrateEditorApp {
             .get(&egui::TextStyle::Body)
             .unwrap()
             .clone();
+
+        //if self.asset_engine.update()
+
+        egui::TopBottomPanel::bottom("bottom_panel").show(ctx, |ui| {
+            match asset_engine_state {
+                AssetEngineState::Importing(import_state) => {
+                    let text = format!("Importing {}/{} assets", import_state.completed_job_count, import_state.total_job_count);
+                    ui.add(egui::ProgressBar::new(import_state.completed_job_count as f32 / import_state.total_job_count as f32).text(text));
+                },
+                AssetEngineState::Building => {
+                    ui.add(egui::ProgressBar::new(0.5).text("building X/X assets"));
+
+                }
+                AssetEngineState::Idle => {
+                    ui.label("Ready");
+                }
+            }
+        });
 
         egui::TopBottomPanel::top("top_panel").show(ctx, |ui| {
             ui.set_enabled(self.modal_action.is_none());
@@ -192,6 +216,8 @@ impl eframe::App for HydrateEditorApp {
         egui::SidePanel::left("left_panel")
             .resizable(true)
             .show(ctx, |ui| {
+                ui.set_enabled(self.modal_action.is_none());
+
                 crate::ui::components::draw_asset_tree(
                     ui,
                     &self.db_state.editor_model,
@@ -205,6 +231,7 @@ impl eframe::App for HydrateEditorApp {
         egui::CentralPanel::default() /*.frame(frame)*/
             .show(ctx, |ui| {
                 ui.set_enabled(self.modal_action.is_none());
+
                 let mut fonts = FontsImpl::new(1.0, 1024, FontDefinitions::default());
                 crate::ui::components::draw_asset_gallery(
                     ui,

@@ -7,6 +7,11 @@ use std::hash::{Hash, Hasher};
 #[derive(Debug)]
 pub enum SchemaDefValidationError {
     DuplicateFieldName,
+    ReferencedNamedTypeNotFound,
+    // Map keys cannot be f32/f64, containers, nullables, records, etc.
+    InvalidMapKeyType,
+    // AssetRef can only reference named types that are records
+    InvalidAssetRefInnerType
 }
 
 pub type SchemaDefValidationResult<T> = Result<T, SchemaDefValidationError>;
@@ -320,6 +325,10 @@ impl SchemaDefRecord {
             fields,
             markup,
         })
+    }
+
+    pub(crate) fn fields(&self) -> &Vec<SchemaDefRecordField> {
+        &self.fields
     }
 
     fn apply_type_aliases(

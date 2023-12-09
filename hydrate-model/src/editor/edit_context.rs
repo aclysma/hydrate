@@ -669,6 +669,15 @@ impl EditContext {
             .get_dynamic_array_entries(&self.schema_set, asset_id, path)
     }
 
+    pub fn get_map_entries(
+        &self,
+        asset_id: AssetId,
+        path: impl AsRef<str>,
+    ) -> DataSetResult<std::slice::Iter<Uuid>> {
+        self.data_set
+            .get_map_entries(&self.schema_set, asset_id, path)
+    }
+
     pub fn add_dynamic_array_entry(
         &mut self,
         asset_id: AssetId,
@@ -679,9 +688,18 @@ impl EditContext {
             .add_dynamic_array_entry(&self.schema_set, asset_id, path)
     }
 
+    pub fn add_map_entry(
+        &mut self,
+        asset_id: AssetId,
+        path: impl AsRef<str>,
+    ) -> DataSetResult<Uuid> {
+        self.track_existing_asset(asset_id)?;
+        self.data_set
+            .add_map_entry(&self.schema_set, asset_id, path)
+    }
+
     pub fn insert_dynamic_array_entry(
         &mut self,
-        schema_set: &SchemaSet,
         asset_id: AssetId,
         path: impl AsRef<str>,
         index: usize,
@@ -703,6 +721,17 @@ impl EditContext {
             .remove_dynamic_array_entry(&self.schema_set, asset_id, path, element_id)
     }
 
+    pub fn remove_map_entry(
+        &mut self,
+        asset_id: AssetId,
+        path: impl AsRef<str>,
+        element_id: Uuid,
+    ) -> DataSetResult<bool> {
+        self.track_existing_asset(asset_id)?;
+        self.data_set
+            .remove_map_entry(&self.schema_set, asset_id, path, element_id)
+    }
+
     pub fn resolve_dynamic_array_entries(
         &self,
         asset_id: AssetId,
@@ -710,6 +739,15 @@ impl EditContext {
     ) -> DataSetResult<Box<[Uuid]>> {
         self.data_set
             .resolve_dynamic_array_entries(&self.schema_set, asset_id, path)
+    }
+
+    pub fn resolve_map_entries(
+        &self,
+        asset_id: AssetId,
+        path: impl AsRef<str>,
+    ) -> DataSetResult<Box<[Uuid]>> {
+        self.data_set
+            .resolve_map_entries(&self.schema_set, asset_id, path)
     }
 
     pub fn get_override_behavior(

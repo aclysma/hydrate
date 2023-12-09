@@ -20,6 +20,14 @@
     "display_name": "All Fields Test Object",
     "fields": [
       {
+        "name": "map_i32_vec3",
+        "type": {
+          "name": "map",
+          "key_type": "i32",
+          "value_type": "Vec3"
+        }
+      },
+      {
         "name": "reference",
         "type": {
           "name": "asset_ref",

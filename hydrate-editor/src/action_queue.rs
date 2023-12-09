@@ -34,11 +34,13 @@ pub enum UIAction {
     CommitPendingUndoContext,
     ApplyPropertyOverrideToPrototype(AssetId, PropertyPath),
     SetNullOverride(AssetId, PropertyPath, NullOverride),
-    AddDynamicArrayOverride(AssetId, PropertyPath),
-    RemoveDynamicArrayOverride(AssetId, PropertyPath, Uuid),
-    MoveDynamicArrayOverrideUp(AssetId, PropertyPath, Uuid),
-    MoveDynamicArrayOverrideDown(AssetId, PropertyPath, Uuid),
-    //ClearStaticArrayOverride(AssetId, PropertyPath, usize),
+    AddDynamicArrayEntry(AssetId, PropertyPath),
+    AddMapEntry(AssetId, PropertyPath),
+    RemoveDynamicArrayEntry(AssetId, PropertyPath, Uuid),
+    RemoveMapEntry(AssetId, PropertyPath, Uuid),
+    MoveDynamicArrayEntryUp(AssetId, PropertyPath, Uuid),
+    MoveDynamicArrayEntryDown(AssetId, PropertyPath, Uuid),
+    // This moves values, not entries, that's why it's named differently
     MoveStaticArrayOverrideUp(AssetId, PropertyPath, usize),
     MoveStaticArrayOverrideDown(AssetId, PropertyPath, usize),
     OverrideWithDefault(AssetId, PropertyPath),
@@ -290,7 +292,7 @@ impl UIActionQueueReceiver {
                         },
                     );
                 }
-                UIAction::AddDynamicArrayOverride(asset_id, property_path) => {
+                UIAction::AddDynamicArrayEntry(asset_id, property_path) => {
                     editor_model.root_edit_context_mut().with_undo_context(
                         "set null override",
                         |edit_context| {
@@ -301,7 +303,18 @@ impl UIActionQueueReceiver {
                         },
                     );
                 }
-                UIAction::RemoveDynamicArrayOverride(asset_id, property_path, entry_uuid) => {
+                UIAction::AddMapEntry(asset_id, property_path) => {
+                    editor_model.root_edit_context_mut().with_undo_context(
+                        "set null override",
+                        |edit_context| {
+                            edit_context
+                                .add_map_entry(asset_id, property_path.path())
+                                .unwrap();
+                            EndContextBehavior::Finish
+                        },
+                    );
+                }
+                UIAction::RemoveDynamicArrayEntry(asset_id, property_path, entry_uuid) => {
                     editor_model.root_edit_context_mut().with_undo_context(
                         "RemoveDynamicArrayOverride",
                         |edit_context| {
@@ -315,7 +328,21 @@ impl UIActionQueueReceiver {
                         },
                     );
                 },
-                UIAction::MoveDynamicArrayOverrideUp(asset_id, property_path, entry_uuid) => {
+                UIAction::RemoveMapEntry(asset_id, property_path, entry_uuid) => {
+                    editor_model.root_edit_context_mut().with_undo_context(
+                        "RemoveDynamicArrayOverride",
+                        |edit_context| {
+                            edit_context.remove_map_entry(
+                                asset_id,
+                                property_path.path(),
+                                entry_uuid
+                            ).unwrap();
+
+                            EndContextBehavior::Finish
+                        },
+                    );
+                },
+                UIAction::MoveDynamicArrayEntryUp(asset_id, property_path, entry_uuid) => {
                     editor_model.root_edit_context_mut().with_undo_context(
                         "MoveDynamicArrayOverrideUp",
                         |edit_context| {
@@ -332,7 +359,6 @@ impl UIActionQueueReceiver {
                                 ).unwrap();
                                 // Insert one index higher
                                 edit_context.insert_dynamic_array_entry(
-                                    &schema_set,
                                     asset_id,
                                     property_path.path(),
                                     current_index - 1,
@@ -344,7 +370,7 @@ impl UIActionQueueReceiver {
                         },
                     );
                 },
-                UIAction::MoveDynamicArrayOverrideDown(asset_id, property_path, entry_uuid) => {
+                UIAction::MoveDynamicArrayEntryDown(asset_id, property_path, entry_uuid) => {
                     editor_model.root_edit_context_mut().with_undo_context(
                         "MoveDynamicArrayOverrideDown",
                         |edit_context| {
@@ -361,7 +387,6 @@ impl UIActionQueueReceiver {
                                 ).unwrap();
                                 // Re-insert at next index
                                 edit_context.insert_dynamic_array_entry(
-                                    &schema_set,
                                     asset_id,
                                     property_path.path(),
                                     current_index + 1,

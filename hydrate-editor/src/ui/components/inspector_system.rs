@@ -1142,7 +1142,7 @@ pub fn draw_inspector_rows(
                             ui.allocate_space(ui.style().spacing.item_spacing - egui::vec2(3.0, 3.0));
                             if ui.button("Add Item").clicked() {
                                 ctx.action_sender
-                                    .queue_action(UIAction::AddDynamicArrayOverride(
+                                    .queue_action(UIAction::AddDynamicArrayEntry(
                                         ctx.asset_id,
                                         ctx.property_path.clone(),
                                     ));
@@ -1245,7 +1245,7 @@ pub fn draw_inspector_rows(
 
                                 let can_move_up = override_index > 0;
                                 if right_child_ui.add_visible(can_move_up, egui::Button::new("↑").min_size(egui::vec2(20.0, 0.0))).clicked() {
-                                    ctx.action_sender.queue_action(UIAction::MoveDynamicArrayOverrideUp(
+                                    ctx.action_sender.queue_action(UIAction::MoveDynamicArrayEntryUp(
                                         ctx.asset_id,
                                         ctx.property_path.clone(),
                                         *entry_uuid
@@ -1254,7 +1254,7 @@ pub fn draw_inspector_rows(
 
                                 let can_move_down = override_index < overrides_len - 1;
                                 if right_child_ui.add_visible(can_move_down, egui::Button::new("↓").min_size(egui::vec2(20.0, 0.0))).clicked() {
-                                    ctx.action_sender.queue_action(UIAction::MoveDynamicArrayOverrideDown(
+                                    ctx.action_sender.queue_action(UIAction::MoveDynamicArrayEntryDown(
                                         ctx.asset_id,
                                         ctx.property_path.clone(),
                                         *entry_uuid
@@ -1262,7 +1262,7 @@ pub fn draw_inspector_rows(
                                 }
 
                                 if egui::Button::new("⊘").min_size(egui::vec2(20.0, 0.0)).ui(&mut right_child_ui).clicked() {
-                                    ctx.action_sender.queue_action(UIAction::RemoveDynamicArrayOverride(
+                                    ctx.action_sender.queue_action(UIAction::RemoveDynamicArrayEntry(
                                         ctx.asset_id,
                                         ctx.property_path.clone(),
                                         *entry_uuid
@@ -1303,16 +1303,16 @@ pub fn draw_inspector_rows(
                 }
             }
         }
-        Schema::Map(_) => {
+        Schema::Map(schema) => {
             let resolved = ctx
                 .editor_model
                 .root_edit_context()
-                .resolve_dynamic_array_entries(ctx.asset_id, ctx.property_path.path())
+                .resolve_map_entries(ctx.asset_id, ctx.property_path.path())
                 .unwrap();
             let overrides = ctx
                 .editor_model
                 .root_edit_context()
-                .get_dynamic_array_entries(ctx.asset_id, ctx.property_path.path())
+                .get_map_entries(ctx.asset_id, ctx.property_path.path())
                 .unwrap();
             let mut is_visible = false;
 
@@ -1334,7 +1334,7 @@ pub fn draw_inspector_rows(
                             ui.allocate_space(ui.style().spacing.item_spacing - egui::vec2(3.0, 3.0));
                             if ui.button("Add Item").clicked() {
                                 ctx.action_sender
-                                    .queue_action(UIAction::AddDynamicArrayOverride(
+                                    .queue_action(UIAction::AddMapEntry(
                                         ctx.asset_id,
                                         ctx.property_path.clone(),
                                     ));
@@ -1355,8 +1355,11 @@ pub fn draw_inspector_rows(
                 });
             });
 
-            let can_use_inline_values =
-                can_draw_as_single_value(schema.item_type(), ctx.inspector_registry);
+            // let can_use_inline_keys =
+            //     can_draw_as_single_value(schema.key_type(), ctx.inspector_registry);
+            //
+            // let can_use_inline_values =
+            //     can_draw_as_single_value(schema.value_type(), ctx.inspector_registry);
 
             if is_visible {
                 let mut entry_index = 0;
@@ -1382,7 +1385,7 @@ pub fn draw_inspector_rows(
                                 let inner_ctx = InspectorContext {
                                     property_default_display_name: "",
                                     property_path: &field_path,
-                                    schema: schema.item_type(),
+                                    schema: schema.value_type(),
                                     read_only: true,
                                     ..ctx
                                 };
@@ -1400,7 +1403,7 @@ pub fn draw_inspector_rows(
                             InspectorContext {
                                 property_default_display_name: "",
                                 property_path: &field_path,
-                                schema: schema.item_type(),
+                                schema: schema.value_type(),
                                 read_only: true,
                                 ..ctx
                             },
@@ -1429,32 +1432,14 @@ pub fn draw_inspector_rows(
                                     is_override_visible = draw_indented_collapsible_label(&mut left_child_ui, indent_level + 1, label, id_source);
                                 }
 
-                                let mut right_child_ui = create_clipped_right_child_ui_for_right_aligned_controls(ui, 100.0);
+                                let mut right_child_ui = create_clipped_right_child_ui_for_right_aligned_controls(ui, 44.0);
 
                                 // up arrow/down arrow/delete buttons
                                 right_child_ui.style_mut().text_styles.insert(egui::TextStyle::Button, egui::FontId::new(12.0, FontFamily::Monospace));
                                 right_child_ui.allocate_space(egui::vec2(0.0, 0.0));
 
-                                let can_move_up = override_index > 0;
-                                if right_child_ui.add_visible(can_move_up, egui::Button::new("↑").min_size(egui::vec2(20.0, 0.0))).clicked() {
-                                    ctx.action_sender.queue_action(UIAction::MoveDynamicArrayOverrideUp(
-                                        ctx.asset_id,
-                                        ctx.property_path.clone(),
-                                        *entry_uuid
-                                    ));
-                                }
-
-                                let can_move_down = override_index < overrides_len - 1;
-                                if right_child_ui.add_visible(can_move_down, egui::Button::new("↓").min_size(egui::vec2(20.0, 0.0))).clicked() {
-                                    ctx.action_sender.queue_action(UIAction::MoveDynamicArrayOverrideDown(
-                                        ctx.asset_id,
-                                        ctx.property_path.clone(),
-                                        *entry_uuid
-                                    ));
-                                }
-
                                 if egui::Button::new("⊘").min_size(egui::vec2(20.0, 0.0)).ui(&mut right_child_ui).clicked() {
-                                    ctx.action_sender.queue_action(UIAction::RemoveDynamicArrayOverride(
+                                    ctx.action_sender.queue_action(UIAction::RemoveMapEntry(
                                         ctx.asset_id,
                                         ctx.property_path.clone(),
                                         *entry_uuid
@@ -1467,7 +1452,7 @@ pub fn draw_inspector_rows(
                                 let inner_ctx = InspectorContext {
                                     property_default_display_name: "",
                                     property_path: &field_path,
-                                    schema: schema.item_type(),
+                                    schema: schema.value_type(),
                                     ..ctx
                                 };
                                 draw_inspector_value_and_action_button(
@@ -1484,7 +1469,7 @@ pub fn draw_inspector_rows(
                             InspectorContext {
                                 property_default_display_name: "",
                                 property_path: &field_path,
-                                schema: schema.item_type(),
+                                schema: schema.value_type(),
                                 ..ctx
                             },
                             indent_level + 2,

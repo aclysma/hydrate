@@ -90,7 +90,46 @@ fn parse_json_schema_type_ref(
             })
         }
         "map" => {
-            unimplemented!()
+            let key_type = json_value.get("key_type").ok_or_else(|| {
+                SchemaDefParserError::String(format!(
+                    "{}All dynamic_array types must has an key_type",
+                    error_prefix
+                ))
+            })?;
+            let key_type = parse_json_schema_type_ref(key_type, error_prefix)?;
+            match &key_type {
+                SchemaDefType::Boolean | SchemaDefType::I32 | SchemaDefType::I64 | SchemaDefType::U32 | SchemaDefType::U64 | SchemaDefType::String | SchemaDefType::AssetRef(_) => {
+                    // value types are fine other than float
+                    Ok(())
+                }
+                SchemaDefType::NamedType(type_name) => {
+                    // must be enum, but we have to catch that when we link the schemas
+                    Ok(())
+                }
+                _ => {
+                    // No floats
+                    // No containers
+                    // No nullables
+                    // Bytes is unbounded in size, bad idea
+                    Err(SchemaDefParserError::String(format!(
+                        "{}Any map key_type must be a boolean, i32, i64, u32, u64, string, asset reference, or enum",
+                        error_prefix
+                    )))
+                }
+            }?;
+
+            let value_type = json_value.get("value_type").ok_or_else(|| {
+                SchemaDefParserError::String(format!(
+                    "{}All dynamic_array types must has an value_type",
+                    error_prefix
+                ))
+            })?;
+            let value_type = parse_json_schema_type_ref(value_type, error_prefix)?;
+
+            SchemaDefType::Map(SchemaDefMap {
+                key_type: Box::new(key_type),
+                value_type: Box::new(value_type),
+            })
         }
         "asset_ref" => {
             let inner_type = json_value.get("inner_type").ok_or_else(|| {

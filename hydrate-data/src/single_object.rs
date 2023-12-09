@@ -193,7 +193,7 @@ impl SingleObject {
         // See if this field was contained in a container. If any of those containers didn't contain
         // this property path, return None
         for (path, key) in &accessed_dynamic_array_keys {
-            let dynamic_array_entries = self.resolve_dynamic_array(schema_set, path)?;
+            let dynamic_array_entries = self.resolve_dynamic_array_entries(schema_set, path)?;
             if !dynamic_array_entries
                 .contains(&Uuid::from_str(key).map_err(|_| DataSetError::UuidParseError)?)
             {
@@ -283,7 +283,7 @@ impl SingleObject {
         Ok(Value::default_for_schema(&property_schema, schema_set))
     }
 
-    fn get_dynamic_collection_overrides(
+    fn get_dynamic_collection_entries(
         &self,
         path: impl AsRef<str>,
     ) -> DataSetResult<std::slice::Iter<Uuid>> {
@@ -294,7 +294,7 @@ impl SingleObject {
         }
     }
 
-    pub fn get_dynamic_array_overrides(
+    pub fn get_dynamic_array_entries(
         &self,
         schema_set: &SchemaSet,
         path: impl AsRef<str>,
@@ -308,10 +308,10 @@ impl SingleObject {
             return Err(DataSetError::InvalidSchema);
         }
 
-        self.get_dynamic_collection_overrides(path)
+        self.get_dynamic_collection_entries(path)
     }
 
-    pub fn get_map_overrides(
+    pub fn get_map_entries(
         &self,
         schema_set: &SchemaSet,
         path: impl AsRef<str>,
@@ -325,10 +325,10 @@ impl SingleObject {
             return Err(DataSetError::InvalidSchema);
         }
 
-        self.get_dynamic_collection_overrides(path)
+        self.get_dynamic_collection_entries(path)
     }
 
-    fn add_dynamic_collection_override(
+    fn add_dynamic_collection_entry(
         &mut self,
         path: impl AsRef<str>,
     ) -> DataSetResult<Uuid> {
@@ -344,7 +344,7 @@ impl SingleObject {
         Ok(new_uuid)
     }
 
-    pub fn add_dynamic_array_override(
+    pub fn add_dynamic_array_entry(
         &mut self,
         schema_set: &SchemaSet,
         path: impl AsRef<str>,
@@ -358,10 +358,10 @@ impl SingleObject {
             return Err(DataSetError::InvalidSchema);
         }
 
-        self.add_dynamic_collection_override(path)
+        self.add_dynamic_collection_entry(path)
     }
 
-    pub fn add_map_override(
+    pub fn add_map_entry(
         &mut self,
         schema_set: &SchemaSet,
         path: impl AsRef<str>,
@@ -375,10 +375,41 @@ impl SingleObject {
             return Err(DataSetError::InvalidSchema);
         }
 
-        self.add_dynamic_collection_override(path)
+        self.add_dynamic_collection_entry(path)
+    }
+    
+    pub fn insert_dynamic_array_entry(
+        &mut self,
+        schema_set: &SchemaSet,
+        path: impl AsRef<str>,
+        index: usize,
+        entry_uuid: Uuid,
+    ) -> DataSetResult<()> {
+        let property_schema = self
+            .schema
+            .find_property_schema(&path, schema_set.schemas())
+            .ok_or(DataSetError::SchemaNotFound)?;
+
+        if !property_schema.is_dynamic_array() {
+            return Err(DataSetError::InvalidSchema);
+        }
+
+        if !property_schema.is_dynamic_array() {
+            return Err(DataSetError::InvalidSchema);
+        }
+
+        let entry = self
+            .dynamic_array_entries
+            .entry(path.as_ref().to_string())
+            .or_insert(Default::default());
+        if entry.try_insert_at_position(index, entry_uuid) {
+            Ok(())
+        } else {
+            Err(DataSetError::DuplicateEntryKey)
+        }
     }
 
-    fn remove_dynamic_collection_override(
+    fn remove_dynamic_collection_entry(
         &mut self,
         path: impl AsRef<str>,
         element_id: Uuid,
@@ -393,7 +424,7 @@ impl SingleObject {
         }
     }
 
-    pub fn remove_dynamic_array_override(
+    pub fn remove_dynamic_array_entry(
         &mut self,
         schema_set: &SchemaSet,
         path: impl AsRef<str>,
@@ -408,10 +439,10 @@ impl SingleObject {
             return Err(DataSetError::InvalidSchema);
         }
 
-        self.remove_dynamic_collection_override(path, element_id)
+        self.remove_dynamic_collection_entry(path, element_id)
     }
 
-    pub fn remove_map_override(
+    pub fn remove_map_entry(
         &mut self,
         schema_set: &SchemaSet,
         path: impl AsRef<str>,
@@ -426,10 +457,10 @@ impl SingleObject {
             return Err(DataSetError::InvalidSchema);
         }
 
-        self.remove_dynamic_collection_override(path, element_id)
+        self.remove_dynamic_collection_entry(path, element_id)
     }
 
-    fn do_resolve_dynamic_array(
+    fn do_resolve_dynamic_collection_entries(
         &self,
         path: &str,
         resolved_entries: &mut Vec<Uuid>,
@@ -441,7 +472,7 @@ impl SingleObject {
         }
     }
 
-    pub fn resolve_dynamic_array(
+    pub fn resolve_dynamic_array_entries(
         &self,
         schema_set: &SchemaSet,
         path: impl AsRef<str>,
@@ -452,11 +483,11 @@ impl SingleObject {
         }
 
         let mut resolved_entries = vec![];
-        self.do_resolve_dynamic_array(path.as_ref(), &mut resolved_entries);
+        self.do_resolve_dynamic_collection_entries(path.as_ref(), &mut resolved_entries);
         Ok(resolved_entries.into_boxed_slice())
     }
 
-    pub fn resolve_map(
+    pub fn resolve_map_entries(
         &self,
         schema_set: &SchemaSet,
         path: impl AsRef<str>,
@@ -467,7 +498,7 @@ impl SingleObject {
         }
 
         let mut resolved_entries = vec![];
-        self.do_resolve_dynamic_array(path.as_ref(), &mut resolved_entries);
+        self.do_resolve_dynamic_collection_entries(path.as_ref(), &mut resolved_entries);
         Ok(resolved_entries.into_boxed_slice())
     }
 }

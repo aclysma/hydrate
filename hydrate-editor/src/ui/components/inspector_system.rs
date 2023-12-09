@@ -1115,12 +1115,12 @@ pub fn draw_inspector_rows(
             let resolved = ctx
                 .editor_model
                 .root_edit_context()
-                .resolve_dynamic_array(ctx.asset_id, ctx.property_path.path())
+                .resolve_dynamic_array_entries(ctx.asset_id, ctx.property_path.path())
                 .unwrap();
             let overrides = ctx
                 .editor_model
                 .root_edit_context()
-                .get_dynamic_array_overrides(ctx.asset_id, ctx.property_path.path())
+                .get_dynamic_array_entries(ctx.asset_id, ctx.property_path.path())
                 .unwrap();
             let mut is_visible = false;
 
@@ -1140,7 +1140,6 @@ pub fn draw_inspector_rows(
                             ui.set_enabled(!ctx.read_only);
 
                             ui.allocate_space(ui.style().spacing.item_spacing - egui::vec2(3.0, 3.0));
-                            //ui.allocate_space(egui::vec2(0.0, 0.0));
                             if ui.button("Add Item").clicked() {
                                 ctx.action_sender
                                     .queue_action(UIAction::AddDynamicArrayOverride(
@@ -1159,8 +1158,6 @@ pub fn draw_inspector_rows(
                             if ui.selectable_label(!is_append_mode, "Don't Inherit").clicked() {
                                 ctx.action_sender.queue_action(UIAction::SetOverrideBehavior(ctx.asset_id, ctx.property_path.clone(), OverrideBehavior::Replace));
                             }
-
-                            //ui.allocate_space(ui.style().spacing.item_spacing - egui::vec2(3.0, 3.0));
                         },
                     );
                 });
@@ -1306,14 +1303,197 @@ pub fn draw_inspector_rows(
                 }
             }
         }
-        //TODO: Implement map
         Schema::Map(_) => {
-            draw_basic_inspector_row(body, ctx, indent_level, |ui, ctx| {
-                ui.label(format!(
-                    "unimplemented {:?} {}",
-                    ctx.schema, ctx.property_default_display_name
-                ));
+            let resolved = ctx
+                .editor_model
+                .root_edit_context()
+                .resolve_dynamic_array_entries(ctx.asset_id, ctx.property_path.path())
+                .unwrap();
+            let overrides = ctx
+                .editor_model
+                .root_edit_context()
+                .get_dynamic_array_entries(ctx.asset_id, ctx.property_path.path())
+                .unwrap();
+            let mut is_visible = false;
+
+            body.row(20.0, |mut row| {
+                row.col(|ui| {
+                    ui.push_id(
+                        format!("{} inspector_label_column", ctx.property_path.path()),
+                        |ui| {
+                            is_visible = draw_indented_collapsible_label(ui, indent_level, ctx.display_name(), format!("{}/{}", ctx.property_path.path(), ctx.display_name()))
+                        },
+                    );
+                });
+                row.col(|ui| {
+                    ui.push_id(
+                        format!("{} inspector_value_column", ctx.property_path.path()),
+                        |ui| {
+                            ui.set_enabled(!ctx.read_only);
+
+                            ui.allocate_space(ui.style().spacing.item_spacing - egui::vec2(3.0, 3.0));
+                            if ui.button("Add Item").clicked() {
+                                ctx.action_sender
+                                    .queue_action(UIAction::AddDynamicArrayOverride(
+                                        ctx.asset_id,
+                                        ctx.property_path.clone(),
+                                    ));
+                            }
+
+                            ui.separator();
+
+                            let is_append_mode = ctx.editor_model.root_edit_context().get_override_behavior(ctx.asset_id, ctx.property_path.path()).unwrap() == OverrideBehavior::Append;
+                            if ui.selectable_label(is_append_mode, "Inherit").clicked() {
+                                ctx.action_sender.queue_action(UIAction::SetOverrideBehavior(ctx.asset_id, ctx.property_path.clone(), OverrideBehavior::Append));
+                            }
+
+                            if ui.selectable_label(!is_append_mode, "Don't Inherit").clicked() {
+                                ctx.action_sender.queue_action(UIAction::SetOverrideBehavior(ctx.asset_id, ctx.property_path.clone(), OverrideBehavior::Replace));
+                            }
+                        },
+                    );
+                });
             });
+
+            let can_use_inline_values =
+                can_draw_as_single_value(schema.item_type(), ctx.inspector_registry);
+
+            if is_visible {
+                let mut entry_index = 0;
+                for id in &resolved[0..(resolved.len() - overrides.len())] {
+                    let id_as_string = id.to_string();
+                    let field_path = ctx.property_path.push(&id_as_string);
+                    let label = format!("[{}] (inherited)", entry_index);
+
+                    let mut is_override_visible = false;
+                    body.row(20.0, |mut row| {
+                        row.col(|ui| {
+                            ui.push_id(format!("{} inspector_label_column", id), |ui| {
+                                if can_use_inline_values {
+                                    draw_indented_label(ui, indent_level + 1, label);
+                                } else {
+                                    let id_source = format!("{}/{}", ctx.property_path.path(), label);
+                                    is_override_visible = draw_indented_collapsible_label(ui, indent_level + 1, label, id_source);
+                                }
+                            });
+                        });
+                        row.col(|ui| {
+                            if can_use_inline_values {
+                                let inner_ctx = InspectorContext {
+                                    property_default_display_name: "",
+                                    property_path: &field_path,
+                                    schema: schema.item_type(),
+                                    read_only: true,
+                                    ..ctx
+                                };
+                                draw_inspector_value_and_action_button(
+                                    ui,
+                                    inner_ctx
+                                );
+                            }
+                        });
+                    });
+
+                    if !can_use_inline_values && is_override_visible {
+                        draw_inspector_rows(
+                            body,
+                            InspectorContext {
+                                property_default_display_name: "",
+                                property_path: &field_path,
+                                schema: schema.item_type(),
+                                read_only: true,
+                                ..ctx
+                            },
+                            indent_level + 2,
+                        );
+                    }
+
+                    entry_index += 1;
+                }
+                let overrides_len = overrides.len();
+                for (override_index, entry_uuid) in overrides.into_iter().enumerate() {
+                    let entry_uuid_as_string = entry_uuid.to_string();
+                    let field_path = ctx.property_path.push(&entry_uuid_as_string);
+                    let label = format!("[{}]", entry_index);
+
+                    let mut is_override_visible = false;
+                    body.row(20.0, |mut row| {
+                        row.col(|ui| {
+                            ui.push_id(format!("{} inspector_label_column", entry_uuid), |ui| {
+                                let mut left_child_ui = create_clipped_left_child_ui_for_right_aligned_controls(ui, 100.0);
+
+                                if can_use_inline_values {
+                                    draw_indented_label(&mut left_child_ui, indent_level + 1, label);
+                                } else {
+                                    let id_source = format!("{}/{}", ctx.property_path.path(), label);
+                                    is_override_visible = draw_indented_collapsible_label(&mut left_child_ui, indent_level + 1, label, id_source);
+                                }
+
+                                let mut right_child_ui = create_clipped_right_child_ui_for_right_aligned_controls(ui, 100.0);
+
+                                // up arrow/down arrow/delete buttons
+                                right_child_ui.style_mut().text_styles.insert(egui::TextStyle::Button, egui::FontId::new(12.0, FontFamily::Monospace));
+                                right_child_ui.allocate_space(egui::vec2(0.0, 0.0));
+
+                                let can_move_up = override_index > 0;
+                                if right_child_ui.add_visible(can_move_up, egui::Button::new("↑").min_size(egui::vec2(20.0, 0.0))).clicked() {
+                                    ctx.action_sender.queue_action(UIAction::MoveDynamicArrayOverrideUp(
+                                        ctx.asset_id,
+                                        ctx.property_path.clone(),
+                                        *entry_uuid
+                                    ));
+                                }
+
+                                let can_move_down = override_index < overrides_len - 1;
+                                if right_child_ui.add_visible(can_move_down, egui::Button::new("↓").min_size(egui::vec2(20.0, 0.0))).clicked() {
+                                    ctx.action_sender.queue_action(UIAction::MoveDynamicArrayOverrideDown(
+                                        ctx.asset_id,
+                                        ctx.property_path.clone(),
+                                        *entry_uuid
+                                    ));
+                                }
+
+                                if egui::Button::new("⊘").min_size(egui::vec2(20.0, 0.0)).ui(&mut right_child_ui).clicked() {
+                                    ctx.action_sender.queue_action(UIAction::RemoveDynamicArrayOverride(
+                                        ctx.asset_id,
+                                        ctx.property_path.clone(),
+                                        *entry_uuid
+                                    ));
+                                }
+                            });
+                        });
+                        row.col(|ui| {
+                            if can_use_inline_values {
+                                let inner_ctx = InspectorContext {
+                                    property_default_display_name: "",
+                                    property_path: &field_path,
+                                    schema: schema.item_type(),
+                                    ..ctx
+                                };
+                                draw_inspector_value_and_action_button(
+                                    ui,
+                                    inner_ctx,
+                                );
+                            }
+                        });
+                    });
+
+                    if !can_use_inline_values && is_override_visible {
+                        draw_inspector_rows(
+                            body,
+                            InspectorContext {
+                                property_default_display_name: "",
+                                property_path: &field_path,
+                                schema: schema.item_type(),
+                                ..ctx
+                            },
+                            indent_level + 2,
+                        );
+                    }
+
+                    entry_index += 1;
+                }
+            }
         }
 
         Schema::AssetRef(_) => {

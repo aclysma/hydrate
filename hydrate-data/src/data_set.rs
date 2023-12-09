@@ -957,7 +957,7 @@ impl DataSet {
         // See if this field was contained in a container. If any of those containers didn't contain
         // this property path, return None
         for (path, key) in &accessed_dynamic_array_keys {
-            let dynamic_array_entries = self.resolve_dynamic_array(schema_set, asset_id, path)?;
+            let dynamic_array_entries = self.resolve_dynamic_array_entries(schema_set, asset_id, path)?;
             if !dynamic_array_entries
                 .contains(&Uuid::from_str(key).map_err(|_| DataSetError::UuidParseError)?)
             {
@@ -1122,7 +1122,7 @@ impl DataSet {
         Ok(Value::default_for_schema(&property_schema, schema_set))
     }
 
-    fn get_dynamic_collection_overrides(
+    fn get_dynamic_collection_entries(
         asset: &DataSetAssetInfo,
         path: impl AsRef<str>,
     ) -> DataSetResult<std::slice::Iter<Uuid>> {
@@ -1133,7 +1133,7 @@ impl DataSet {
         }
     }
 
-    pub fn get_dynamic_array_overrides(
+    pub fn get_dynamic_array_entries(
         &self,
         schema_set: &SchemaSet,
         asset_id: AssetId,
@@ -1152,10 +1152,10 @@ impl DataSet {
             return Err(DataSetError::InvalidSchema);
         }
 
-        Self::get_dynamic_collection_overrides(asset, path)
+        Self::get_dynamic_collection_entries(asset, path)
     }
 
-    pub fn get_map_overrides(
+    pub fn get_map_entries(
         &self,
         schema_set: &SchemaSet,
         asset_id: AssetId,
@@ -1174,10 +1174,10 @@ impl DataSet {
             return Err(DataSetError::InvalidSchema);
         }
 
-        Self::get_dynamic_collection_overrides(asset, path)
+        Self::get_dynamic_collection_entries(asset, path)
     }
 
-    fn add_dynamic_collection_override(
+    fn add_dynamic_collection_entry(
         asset: &mut DataSetAssetInfo,
         path: impl AsRef<str>,
     ) -> DataSetResult<Uuid> {
@@ -1193,7 +1193,7 @@ impl DataSet {
         Ok(new_uuid)
     }
 
-    pub fn add_dynamic_array_override(
+    pub fn add_dynamic_array_entry(
         &mut self,
         schema_set: &SchemaSet,
         asset_id: AssetId,
@@ -1212,10 +1212,10 @@ impl DataSet {
             return Err(DataSetError::InvalidSchema);
         }
 
-        Self::add_dynamic_collection_override(asset, path)
+        Self::add_dynamic_collection_entry(asset, path)
     }
 
-    pub fn add_map_override(
+    pub fn add_map_entry(
         &mut self,
         schema_set: &SchemaSet,
         asset_id: AssetId,
@@ -1234,15 +1234,30 @@ impl DataSet {
             return Err(DataSetError::InvalidSchema);
         }
 
-        Self::add_dynamic_collection_override(asset, path)
+        Self::add_dynamic_collection_entry(asset, path)
     }
 
-    fn insert_dynamic_collection_override(
-        asset: &mut DataSetAssetInfo,
+    pub fn insert_dynamic_array_entry(
+        &mut self,
+        schema_set: &SchemaSet,
+        asset_id: AssetId,
         path: impl AsRef<str>,
         index: usize,
         entry_uuid: Uuid,
     ) -> DataSetResult<()> {
+        let asset = self
+            .assets
+            .get_mut(&asset_id)
+            .ok_or(DataSetError::AssetNotFound)?;
+        let property_schema = asset
+            .schema
+            .find_property_schema(&path, schema_set.schemas())
+            .ok_or(DataSetError::SchemaNotFound)?;
+
+        if !property_schema.is_dynamic_array() {
+            return Err(DataSetError::InvalidSchema);
+        }
+
         let entry = asset
             .dynamic_array_entries
             .entry(path.as_ref().to_string())
@@ -1254,55 +1269,7 @@ impl DataSet {
         }
     }
 
-    pub fn insert_dynamic_array_override(
-        &mut self,
-        schema_set: &SchemaSet,
-        asset_id: AssetId,
-        path: impl AsRef<str>,
-        index: usize,
-        entry_uuid: Uuid,
-    ) -> DataSetResult<()> {
-        let asset = self
-            .assets
-            .get_mut(&asset_id)
-            .ok_or(DataSetError::AssetNotFound)?;
-        let property_schema = asset
-            .schema
-            .find_property_schema(&path, schema_set.schemas())
-            .ok_or(DataSetError::SchemaNotFound)?;
-
-        if !property_schema.is_dynamic_array() {
-            return Err(DataSetError::InvalidSchema);
-        }
-
-        Self::insert_dynamic_collection_override(asset, path, index, entry_uuid)
-    }
-
-    pub fn insert_map_override(
-        &mut self,
-        schema_set: &SchemaSet,
-        asset_id: AssetId,
-        path: impl AsRef<str>,
-        index: usize,
-        entry_uuid: Uuid,
-    ) -> DataSetResult<()> {
-        let asset = self
-            .assets
-            .get_mut(&asset_id)
-            .ok_or(DataSetError::AssetNotFound)?;
-        let property_schema = asset
-            .schema
-            .find_property_schema(&path, schema_set.schemas())
-            .ok_or(DataSetError::SchemaNotFound)?;
-
-        if !property_schema.is_map() {
-            return Err(DataSetError::InvalidSchema);
-        }
-
-        Self::insert_dynamic_collection_override(asset, path, index, entry_uuid)
-    }
-
-    fn remove_dynamic_collection_override(
+    fn remove_dynamic_collection_entry(
         asset: &mut DataSetAssetInfo,
         path: impl AsRef<str>,
         element_id: Uuid,
@@ -1317,7 +1284,7 @@ impl DataSet {
         }
     }
 
-    pub fn remove_dynamic_array_override(
+    pub fn remove_dynamic_array_entry(
         &mut self,
         schema_set: &SchemaSet,
         asset_id: AssetId,
@@ -1337,10 +1304,10 @@ impl DataSet {
             return Err(DataSetError::InvalidSchema);
         }
 
-        Self::remove_dynamic_collection_override(asset, path, element_id)
+        Self::remove_dynamic_collection_entry(asset, path, element_id)
     }
 
-    pub fn remove_map_override(
+    pub fn remove_map_entry(
         &mut self,
         schema_set: &SchemaSet,
         asset_id: AssetId,
@@ -1360,10 +1327,10 @@ impl DataSet {
             return Err(DataSetError::InvalidSchema);
         }
 
-        Self::remove_dynamic_collection_override(asset, path, element_id)
+        Self::remove_dynamic_collection_entry(asset, path, element_id)
     }
 
-    fn do_resolve_dynamic_collection(
+    fn do_resolve_dynamic_collection_entries(
         &self,
         asset_id: AssetId,
         path: &str,
@@ -1386,7 +1353,7 @@ impl DataSet {
             if let Some(prototype) = obj.prototype {
                 // If the prototype is not found, we behave as if the prototype was not set
                 if self.assets.contains_key(&prototype) {
-                    self.do_resolve_dynamic_collection(
+                    self.do_resolve_dynamic_collection_entries(
                         prototype,
                         path,
                         resolved_entries,
@@ -1404,7 +1371,7 @@ impl DataSet {
         Ok(())
     }
 
-    pub fn resolve_dynamic_array(
+    pub fn resolve_dynamic_array_entries(
         &self,
         schema_set: &SchemaSet,
         asset_id: AssetId,
@@ -1416,7 +1383,7 @@ impl DataSet {
         }
 
         let mut resolved_entries = vec![];
-        self.do_resolve_dynamic_collection(
+        self.do_resolve_dynamic_collection_entries(
             asset_id,
             path.as_ref(),
             &mut resolved_entries,
@@ -1424,7 +1391,7 @@ impl DataSet {
         Ok(resolved_entries.into_boxed_slice())
     }
 
-    pub fn resolve_map(
+    pub fn resolve_map_entries(
         &self,
         schema_set: &SchemaSet,
         asset_id: AssetId,
@@ -1436,7 +1403,7 @@ impl DataSet {
         }
 
         let mut resolved_entries = vec![];
-        self.do_resolve_dynamic_collection(
+        self.do_resolve_dynamic_collection_entries(
             asset_id,
             path.as_ref(),
             &mut resolved_entries,

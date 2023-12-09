@@ -660,26 +660,26 @@ impl EditContext {
             .resolve_property(&self.schema_set, asset_id, path)
     }
 
-    pub fn get_dynamic_array_overrides(
+    pub fn get_dynamic_array_entries(
         &self,
         asset_id: AssetId,
         path: impl AsRef<str>,
     ) -> DataSetResult<std::slice::Iter<Uuid>> {
         self.data_set
-            .get_dynamic_array_overrides(&self.schema_set, asset_id, path)
+            .get_dynamic_array_entries(&self.schema_set, asset_id, path)
     }
 
-    pub fn add_dynamic_array_override(
+    pub fn add_dynamic_array_entry(
         &mut self,
         asset_id: AssetId,
         path: impl AsRef<str>,
     ) -> DataSetResult<Uuid> {
         self.track_existing_asset(asset_id)?;
         self.data_set
-            .add_dynamic_array_override(&self.schema_set, asset_id, path)
+            .add_dynamic_array_entry(&self.schema_set, asset_id, path)
     }
 
-    pub fn insert_dynamic_array_override(
+    pub fn insert_dynamic_array_entry(
         &mut self,
         schema_set: &SchemaSet,
         asset_id: AssetId,
@@ -689,10 +689,10 @@ impl EditContext {
     ) -> DataSetResult<()> {
         self.track_existing_asset(asset_id)?;
         self.data_set
-            .insert_dynamic_array_override(&self.schema_set, asset_id, path, index, entry_uuid)
+            .insert_dynamic_array_entry(&self.schema_set, asset_id, path, index, entry_uuid)
     }
 
-    pub fn remove_dynamic_array_override(
+    pub fn remove_dynamic_array_entry(
         &mut self,
         asset_id: AssetId,
         path: impl AsRef<str>,
@@ -700,16 +700,16 @@ impl EditContext {
     ) -> DataSetResult<bool> {
         self.track_existing_asset(asset_id)?;
         self.data_set
-            .remove_dynamic_array_override(&self.schema_set, asset_id, path, element_id)
+            .remove_dynamic_array_entry(&self.schema_set, asset_id, path, element_id)
     }
 
-    pub fn resolve_dynamic_array(
+    pub fn resolve_dynamic_array_entries(
         &self,
         asset_id: AssetId,
         path: impl AsRef<str>,
     ) -> DataSetResult<Box<[Uuid]>> {
         self.data_set
-            .resolve_dynamic_array(&self.schema_set, asset_id, path)
+            .resolve_dynamic_array_entries(&self.schema_set, asset_id, path)
     }
 
     pub fn get_override_behavior(

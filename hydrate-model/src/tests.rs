@@ -435,16 +435,16 @@ fn struct_in_dynamic_array() {
 
     let obj = db.new_asset(asset_location(), &outer_struct_type);
 
-    assert!(db.resolve_dynamic_array(obj, "array").is_empty());
-    let uuid1 = db.add_dynamic_array_override(obj, "array");
+    assert!(db.resolve_dynamic_array_entries(obj, "array").is_empty());
+    let uuid1 = db.add_dynamic_array_entry(obj, "array");
     let prop1 = format!("array.{}.x", uuid1);
     assert_eq!(
-        db.resolve_dynamic_array(obj, "array"),
+        db.resolve_dynamic_array_entries(obj, "array"),
         vec![uuid1].into_boxed_slice()
     );
-    let uuid2 = db.add_dynamic_array_override(obj, "array");
+    let uuid2 = db.add_dynamic_array_entry(obj, "array");
     let prop2 = format!("array.{}.x", uuid2);
-    let resolved = db.resolve_dynamic_array(obj, "array");
+    let resolved = db.resolve_dynamic_array_entries(obj, "array");
     assert!(resolved.contains(&uuid1));
     assert!(resolved.contains(&uuid2));
 
@@ -475,9 +475,9 @@ fn struct_in_dynamic_array() {
         20.0
     );
 
-    db.remove_dynamic_array_override(obj, "array", uuid1);
+    db.remove_dynamic_array_entry(obj, "array", uuid1);
     assert_eq!(
-        db.resolve_dynamic_array(obj, "array"),
+        db.resolve_dynamic_array_entries(obj, "array"),
         vec![uuid2].into_boxed_slice()
     );
     assert!(db.resolve_property(obj, &prop1).is_none());
@@ -528,15 +528,15 @@ fn dynamic_array_override_behavior() {
     let obj1 = db.new_asset(asset_location(), &outer_struct_type);
     let obj2 = db.new_asset_from_prototype(asset_location(), obj1);
 
-    let item1 = db.add_dynamic_array_override(obj1, "array");
-    let item2 = db.add_dynamic_array_override(obj2, "array");
+    let item1 = db.add_dynamic_array_entry(obj1, "array");
+    let item2 = db.add_dynamic_array_entry(obj2, "array");
 
     assert_eq!(
-        db.resolve_dynamic_array(obj1, "array"),
+        db.resolve_dynamic_array_entries(obj1, "array"),
         vec![item1].into_boxed_slice()
     );
     assert_eq!(
-        db.resolve_dynamic_array(obj2, "array"),
+        db.resolve_dynamic_array_entries(obj2, "array"),
         vec![item1, item2].into_boxed_slice()
     );
 
@@ -548,7 +548,7 @@ fn dynamic_array_override_behavior() {
 
     db.set_override_behavior(obj2, "array", OverrideBehavior::Replace);
     assert_eq!(
-        db.resolve_dynamic_array(obj2, "array"),
+        db.resolve_dynamic_array_entries(obj2, "array"),
         vec![item2].into_boxed_slice()
     );
 
@@ -568,7 +568,7 @@ fn dynamic_array_override_behavior() {
 
     db.set_override_behavior(obj2, "array", OverrideBehavior::Append);
     assert_eq!(
-        db.resolve_dynamic_array(obj2, "array"),
+        db.resolve_dynamic_array_entries(obj2, "array"),
         vec![item1, item2].into_boxed_slice()
     );
 }

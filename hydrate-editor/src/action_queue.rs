@@ -295,7 +295,7 @@ impl UIActionQueueReceiver {
                         "set null override",
                         |edit_context| {
                             edit_context
-                                .add_dynamic_array_override(asset_id, property_path.path())
+                                .add_dynamic_array_entry(asset_id, property_path.path())
                                 .unwrap();
                             EndContextBehavior::Finish
                         },
@@ -305,7 +305,7 @@ impl UIActionQueueReceiver {
                     editor_model.root_edit_context_mut().with_undo_context(
                         "RemoveDynamicArrayOverride",
                         |edit_context| {
-                                edit_context.remove_dynamic_array_override(
+                                edit_context.remove_dynamic_array_entry(
                                     asset_id,
                                     property_path.path(),
                                     entry_uuid
@@ -320,18 +320,18 @@ impl UIActionQueueReceiver {
                         "MoveDynamicArrayOverrideUp",
                         |edit_context| {
                             let mut overrides: Vec<_> = edit_context
-                                .get_dynamic_array_overrides(asset_id, property_path.path()).unwrap().copied().collect();
+                                .get_dynamic_array_entries(asset_id, property_path.path()).unwrap().copied().collect();
                             let current_index = overrides.iter().position(|x| *x == entry_uuid).unwrap();
                             if current_index > 0 {
                                 let schema_set = edit_context.schema_set().clone();
                                 // Remove
-                                edit_context.remove_dynamic_array_override(
+                                edit_context.remove_dynamic_array_entry(
                                     asset_id,
                                     property_path.path(),
                                     entry_uuid
                                 ).unwrap();
                                 // Insert one index higher
-                                edit_context.insert_dynamic_array_override(
+                                edit_context.insert_dynamic_array_entry(
                                     &schema_set,
                                     asset_id,
                                     property_path.path(),
@@ -349,18 +349,18 @@ impl UIActionQueueReceiver {
                         "MoveDynamicArrayOverrideDown",
                         |edit_context| {
                             let mut overrides: Vec<_> = edit_context
-                                .get_dynamic_array_overrides(asset_id, property_path.path()).unwrap().collect();
+                                .get_dynamic_array_entries(asset_id, property_path.path()).unwrap().collect();
                             let current_index = overrides.iter().position(|x| **x == entry_uuid).unwrap();
                             if current_index < overrides.len() - 1 {
                                 let schema_set = edit_context.schema_set().clone();
                                 // Remove
-                                edit_context.remove_dynamic_array_override(
+                                edit_context.remove_dynamic_array_entry(
                                     asset_id,
                                     property_path.path(),
                                     entry_uuid
                                 ).unwrap();
                                 // Re-insert at next index
-                                edit_context.insert_dynamic_array_override(
+                                edit_context.insert_dynamic_array_entry(
                                     &schema_set,
                                     asset_id,
                                     property_path.path(),

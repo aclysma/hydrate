@@ -1588,7 +1588,7 @@ impl<T: FieldAccessor> DynamicArrayFieldAccessor<T> {
         &self,
         data_container: DataContainerRef,
     ) -> DataSetResult<Box<[Uuid]>> {
-        data_container.resolve_dynamic_array(self.0.path())
+        data_container.resolve_dynamic_array_entries(self.0.path())
     }
 
     pub fn entry(
@@ -1602,7 +1602,7 @@ impl<T: FieldAccessor> DynamicArrayFieldAccessor<T> {
         &self,
         data_container: &mut DataContainerRefMut,
     ) -> DataSetResult<Uuid> {
-        data_container.add_dynamic_array_override(self.0.path())
+        data_container.add_dynamic_array_entry(self.0.path())
     }
 }
 
@@ -1623,7 +1623,7 @@ impl<'a, T: FieldRef<'a>> FieldRef<'a> for DynamicArrayFieldRef<'a, T> {
 
 impl<'a, T: FieldRef<'a>> DynamicArrayFieldRef<'a, T> {
     pub fn resolve_entries(&self) -> DataSetResult<Box<[Uuid]>> {
-        self.1.resolve_dynamic_array(self.0.path())
+        self.1.resolve_dynamic_array_entries(self.0.path())
     }
 
     pub fn entry(
@@ -1651,7 +1651,7 @@ impl<'a, T: FieldRefMut<'a>> FieldRefMut<'a> for DynamicArrayFieldRefMut<'a, T> 
 
 impl<'a, T: FieldRefMut<'a>> DynamicArrayFieldRefMut<'a, T> {
     pub fn resolve_entries(&self) -> DataSetResult<Box<[Uuid]>> {
-        self.1.borrow_mut().resolve_dynamic_array(self.0.path())
+        self.1.borrow_mut().resolve_dynamic_array_entries(self.0.path())
     }
 
     pub fn entry(
@@ -1664,7 +1664,7 @@ impl<'a, T: FieldRefMut<'a>> DynamicArrayFieldRefMut<'a, T> {
     pub fn add_entry(&self) -> DataSetResult<Uuid> {
         self.1
             .borrow_mut()
-            .add_dynamic_array_override(self.0.path())
+            .add_dynamic_array_entry(self.0.path())
     }
 }
 
@@ -1689,7 +1689,7 @@ impl<'a, T: Field> DynamicArrayField<T> {
             .borrow_mut()
             .as_mut()
             .ok_or(DataSetError::DataTaken)?
-            .resolve_dynamic_array(self.0.path())
+            .resolve_dynamic_array_entries(self.0.path())
     }
 
     pub fn entry(
@@ -1704,7 +1704,7 @@ impl<'a, T: Field> DynamicArrayField<T> {
             .borrow_mut()
             .as_mut()
             .ok_or(DataSetError::DataTaken)?
-            .add_dynamic_array_override(self.0.path())
+            .add_dynamic_array_entry(self.0.path())
     }
 }
 

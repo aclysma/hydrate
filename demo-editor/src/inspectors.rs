@@ -115,9 +115,9 @@ impl RecordInspector for Vec4RecordInspector {
     }
 }
 
-struct ColorRgbaRecordInspector;
+struct ColorRgbaU8RecordInspector;
 
-impl RecordInspector for ColorRgbaRecordInspector {
+impl RecordInspector for ColorRgbaU8RecordInspector {
     fn can_draw_as_single_value(&self) -> bool {
         true
     }
@@ -140,43 +140,38 @@ impl RecordInspector for ColorRgbaRecordInspector {
             .root_edit_context()
             .resolve_property(ctx.asset_id, r_field_path.path())
             .unwrap()
-            .as_f32()
+            .as_u32()
             .unwrap();
         let g = ctx
             .editor_model
             .root_edit_context()
             .resolve_property(ctx.asset_id, g_field_path.path())
             .unwrap()
-            .as_f32()
+            .as_u32()
             .unwrap();
         let b = ctx
             .editor_model
             .root_edit_context()
             .resolve_property(ctx.asset_id, b_field_path.path())
             .unwrap()
-            .as_f32()
+            .as_u32()
             .unwrap();
         let a = ctx
             .editor_model
             .root_edit_context()
             .resolve_property(ctx.asset_id, a_field_path.path())
             .unwrap()
-            .as_f32()
+            .as_u32()
             .unwrap();
 
-        let mut color = egui::Color32::from_rgba_unmultiplied(
-            (r as f32 * 255.0) as u8,
-            (g as f32 * 255.0) as u8,
-            (b as f32 * 255.0) as u8,
-            (a as f32 * 255.0) as u8,
-        );
+        let mut color = egui::Color32::from_rgba_unmultiplied(r as u8, g as u8, b as u8, a as u8);
 
         //
         // Draw the egui widget
         //
         let popup_id = ui.auto_id_with("popup");
         let was_open = ui.memory(|mem| mem.is_popup_open(popup_id));
-        ui.allocate_space(egui::vec2(5.0, 5.0));
+        //ui.allocate_space(egui::vec2(5.0, 5.0));
         let response = ui.color_edit_button_srgba(&mut color);
         let is_open = ui.memory(|mem| mem.is_popup_open(popup_id));
 
@@ -187,25 +182,25 @@ impl RecordInspector for ColorRgbaRecordInspector {
             ctx.action_sender.queue_action(UIAction::SetProperty(
                 ctx.asset_id,
                 r_field_path,
-                Some(Value::F32(color.r() as f32 / 255.0)),
+                Some(Value::U32(color.r() as u32)),
                 EndContextBehavior::AllowResume,
             ));
             ctx.action_sender.queue_action(UIAction::SetProperty(
                 ctx.asset_id,
                 g_field_path,
-                Some(Value::F32(color.g() as f32 / 255.0)),
+                Some(Value::U32(color.g() as u32)),
                 EndContextBehavior::AllowResume,
             ));
             ctx.action_sender.queue_action(UIAction::SetProperty(
                 ctx.asset_id,
                 b_field_path,
-                Some(Value::F32(color.b() as f32 / 255.0)),
+                Some(Value::U32(color.b() as u32)),
                 EndContextBehavior::AllowResume,
             ));
             ctx.action_sender.queue_action(UIAction::SetProperty(
                 ctx.asset_id,
                 a_field_path,
-                Some(Value::F32(color.a() as f32 / 255.0)),
+                Some(Value::U32(color.a() as u32)),
                 EndContextBehavior::AllowResume,
             ));
         }
@@ -225,6 +220,7 @@ pub fn create_registry(schema_set: &SchemaSet) -> InspectorRegistry {
     let mut inspector_registry = InspectorRegistry::default();
     inspector_registry.register_inspector::<Vec3Record>(schema_set, Vec3RecordInspector);
     inspector_registry.register_inspector::<Vec4Record>(schema_set, Vec4RecordInspector);
-    inspector_registry.register_inspector::<ColorRgbaRecord>(schema_set, ColorRgbaRecordInspector);
+    inspector_registry
+        .register_inspector::<ColorRgbaU8Record>(schema_set, ColorRgbaU8RecordInspector);
     inspector_registry
 }

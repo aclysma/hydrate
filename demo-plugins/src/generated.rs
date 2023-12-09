@@ -19,8 +19,8 @@ impl AllFieldsAccessor {
         BooleanFieldAccessor::new(self.0.push("boolean"))
     }
 
-    pub fn color(&self) -> ColorRgbaAccessor {
-        ColorRgbaAccessor::new(self.0.push("color"))
+    pub fn color(&self) -> ColorRgbaU8Accessor {
+        ColorRgbaU8Accessor::new(self.0.push("color"))
     }
 
     pub fn dynamic_array_i32(&self) -> DynamicArrayFieldAccessor::<I32FieldAccessor> {
@@ -134,8 +134,8 @@ impl<'a> AllFieldsRef<'a> {
         BooleanFieldRef::new(self.0.push("boolean"), self.1.clone())
     }
 
-    pub fn color(&self) -> ColorRgbaRef {
-        ColorRgbaRef::new(self.0.push("color"), self.1.clone())
+    pub fn color(&self) -> ColorRgbaU8Ref {
+        ColorRgbaU8Ref::new(self.0.push("color"), self.1.clone())
     }
 
     pub fn dynamic_array_i32(&self) -> DynamicArrayFieldRef::<I32FieldRef> {
@@ -249,8 +249,8 @@ impl<'a> AllFieldsRefMut<'a> {
         BooleanFieldRefMut::new(self.0.push("boolean"), &self.1)
     }
 
-    pub fn color(self: &'a Self) -> ColorRgbaRefMut {
-        ColorRgbaRefMut::new(self.0.push("color"), &self.1)
+    pub fn color(self: &'a Self) -> ColorRgbaU8RefMut {
+        ColorRgbaU8RefMut::new(self.0.push("color"), &self.1)
     }
 
     pub fn dynamic_array_i32(self: &'a Self) -> DynamicArrayFieldRefMut::<I32FieldRefMut> {
@@ -368,8 +368,8 @@ impl AllFieldsRecord {
         BooleanField::new(self.0.push("boolean"), &self.1)
     }
 
-    pub fn color(self: &Self) -> ColorRgbaRecord {
-        ColorRgbaRecord::new(self.0.push("color"), &self.1)
+    pub fn color(self: &Self) -> ColorRgbaU8Record {
+        ColorRgbaU8Record::new(self.0.push("color"), &self.1)
     }
 
     pub fn dynamic_array_i32(self: &Self) -> DynamicArrayField::<I32Field> {
@@ -465,132 +465,132 @@ impl AllFieldsRecord {
     }
 }
 #[derive(Default)]
-pub struct ColorRgbaAccessor(PropertyPath);
+pub struct ColorRgbaU8Accessor(PropertyPath);
 
-impl FieldAccessor for ColorRgbaAccessor {
+impl FieldAccessor for ColorRgbaU8Accessor {
     fn new(property_path: PropertyPath) -> Self {
-        ColorRgbaAccessor(property_path)
+        ColorRgbaU8Accessor(property_path)
     }
 }
 
-impl RecordAccessor for ColorRgbaAccessor {
+impl RecordAccessor for ColorRgbaU8Accessor {
     fn schema_name() -> &'static str {
-        "ColorRgba"
+        "ColorRgbaU8"
     }
 }
 
-impl ColorRgbaAccessor {
-    pub fn a(&self) -> F32FieldAccessor {
-        F32FieldAccessor::new(self.0.push("a"))
+impl ColorRgbaU8Accessor {
+    pub fn a(&self) -> U32FieldAccessor {
+        U32FieldAccessor::new(self.0.push("a"))
     }
 
-    pub fn b(&self) -> F32FieldAccessor {
-        F32FieldAccessor::new(self.0.push("b"))
+    pub fn b(&self) -> U32FieldAccessor {
+        U32FieldAccessor::new(self.0.push("b"))
     }
 
-    pub fn g(&self) -> F32FieldAccessor {
-        F32FieldAccessor::new(self.0.push("g"))
+    pub fn g(&self) -> U32FieldAccessor {
+        U32FieldAccessor::new(self.0.push("g"))
     }
 
-    pub fn r(&self) -> F32FieldAccessor {
-        F32FieldAccessor::new(self.0.push("r"))
+    pub fn r(&self) -> U32FieldAccessor {
+        U32FieldAccessor::new(self.0.push("r"))
     }
 }
-pub struct ColorRgbaRef<'a>(PropertyPath, DataContainerRef<'a>);
+pub struct ColorRgbaU8Ref<'a>(PropertyPath, DataContainerRef<'a>);
 
-impl<'a> FieldRef<'a> for ColorRgbaRef<'a> {
+impl<'a> FieldRef<'a> for ColorRgbaU8Ref<'a> {
     fn new(property_path: PropertyPath, data_container: DataContainerRef<'a>) -> Self {
-        ColorRgbaRef(property_path, data_container)
+        ColorRgbaU8Ref(property_path, data_container)
     }
 }
 
-impl<'a> RecordRef for ColorRgbaRef<'a> {
+impl<'a> RecordRef for ColorRgbaU8Ref<'a> {
     fn schema_name() -> &'static str {
-        "ColorRgba"
+        "ColorRgbaU8"
     }
 }
 
-impl<'a> ColorRgbaRef<'a> {
-    pub fn a(&self) -> F32FieldRef {
-        F32FieldRef::new(self.0.push("a"), self.1.clone())
+impl<'a> ColorRgbaU8Ref<'a> {
+    pub fn a(&self) -> U32FieldRef {
+        U32FieldRef::new(self.0.push("a"), self.1.clone())
     }
 
-    pub fn b(&self) -> F32FieldRef {
-        F32FieldRef::new(self.0.push("b"), self.1.clone())
+    pub fn b(&self) -> U32FieldRef {
+        U32FieldRef::new(self.0.push("b"), self.1.clone())
     }
 
-    pub fn g(&self) -> F32FieldRef {
-        F32FieldRef::new(self.0.push("g"), self.1.clone())
+    pub fn g(&self) -> U32FieldRef {
+        U32FieldRef::new(self.0.push("g"), self.1.clone())
     }
 
-    pub fn r(&self) -> F32FieldRef {
-        F32FieldRef::new(self.0.push("r"), self.1.clone())
+    pub fn r(&self) -> U32FieldRef {
+        U32FieldRef::new(self.0.push("r"), self.1.clone())
     }
 }
-pub struct ColorRgbaRefMut<'a>(PropertyPath, Rc<RefCell<DataContainerRefMut<'a>>>);
+pub struct ColorRgbaU8RefMut<'a>(PropertyPath, Rc<RefCell<DataContainerRefMut<'a>>>);
 
-impl<'a> FieldRefMut<'a> for ColorRgbaRefMut<'a> {
+impl<'a> FieldRefMut<'a> for ColorRgbaU8RefMut<'a> {
     fn new(property_path: PropertyPath, data_container: &Rc<RefCell<DataContainerRefMut<'a>>>) -> Self {
-        ColorRgbaRefMut(property_path, data_container.clone())
+        ColorRgbaU8RefMut(property_path, data_container.clone())
     }
 }
 
-impl<'a> RecordRefMut for ColorRgbaRefMut<'a> {
+impl<'a> RecordRefMut for ColorRgbaU8RefMut<'a> {
     fn schema_name() -> &'static str {
-        "ColorRgba"
+        "ColorRgbaU8"
     }
 }
 
-impl<'a> ColorRgbaRefMut<'a> {
-    pub fn a(self: &'a Self) -> F32FieldRefMut {
-        F32FieldRefMut::new(self.0.push("a"), &self.1)
+impl<'a> ColorRgbaU8RefMut<'a> {
+    pub fn a(self: &'a Self) -> U32FieldRefMut {
+        U32FieldRefMut::new(self.0.push("a"), &self.1)
     }
 
-    pub fn b(self: &'a Self) -> F32FieldRefMut {
-        F32FieldRefMut::new(self.0.push("b"), &self.1)
+    pub fn b(self: &'a Self) -> U32FieldRefMut {
+        U32FieldRefMut::new(self.0.push("b"), &self.1)
     }
 
-    pub fn g(self: &'a Self) -> F32FieldRefMut {
-        F32FieldRefMut::new(self.0.push("g"), &self.1)
+    pub fn g(self: &'a Self) -> U32FieldRefMut {
+        U32FieldRefMut::new(self.0.push("g"), &self.1)
     }
 
-    pub fn r(self: &'a Self) -> F32FieldRefMut {
-        F32FieldRefMut::new(self.0.push("r"), &self.1)
+    pub fn r(self: &'a Self) -> U32FieldRefMut {
+        U32FieldRefMut::new(self.0.push("r"), &self.1)
     }
 }
-pub struct ColorRgbaRecord(PropertyPath, Rc<RefCell<Option<DataContainer>>>);
+pub struct ColorRgbaU8Record(PropertyPath, Rc<RefCell<Option<DataContainer>>>);
 
-impl Field for ColorRgbaRecord {
+impl Field for ColorRgbaU8Record {
     fn new(property_path: PropertyPath, data_container: &Rc<RefCell<Option<DataContainer>>>) -> Self {
-        ColorRgbaRecord(property_path, data_container.clone())
+        ColorRgbaU8Record(property_path, data_container.clone())
     }
 }
 
-impl Record for ColorRgbaRecord {
-    type Reader<'a> = ColorRgbaRef<'a>;
-    type Writer<'a> = ColorRgbaRefMut<'a>;
-    type Accessor = ColorRgbaAccessor;
+impl Record for ColorRgbaU8Record {
+    type Reader<'a> = ColorRgbaU8Ref<'a>;
+    type Writer<'a> = ColorRgbaU8RefMut<'a>;
+    type Accessor = ColorRgbaU8Accessor;
 
     fn schema_name() -> &'static str {
-        "ColorRgba"
+        "ColorRgbaU8"
     }
 }
 
-impl ColorRgbaRecord {
-    pub fn a(self: &Self) -> F32Field {
-        F32Field::new(self.0.push("a"), &self.1)
+impl ColorRgbaU8Record {
+    pub fn a(self: &Self) -> U32Field {
+        U32Field::new(self.0.push("a"), &self.1)
     }
 
-    pub fn b(self: &Self) -> F32Field {
-        F32Field::new(self.0.push("b"), &self.1)
+    pub fn b(self: &Self) -> U32Field {
+        U32Field::new(self.0.push("b"), &self.1)
     }
 
-    pub fn g(self: &Self) -> F32Field {
-        F32Field::new(self.0.push("g"), &self.1)
+    pub fn g(self: &Self) -> U32Field {
+        U32Field::new(self.0.push("g"), &self.1)
     }
 
-    pub fn r(self: &Self) -> F32Field {
-        F32Field::new(self.0.push("r"), &self.1)
+    pub fn r(self: &Self) -> U32Field {
+        U32Field::new(self.0.push("r"), &self.1)
     }
 }
 #[derive(Default)]

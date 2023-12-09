@@ -2,16 +2,57 @@ use crate::{
     HashMap, HashSet, Schema, SchemaDynamicArray, SchemaEnum, SchemaEnumSymbol, SchemaFingerprint,
     SchemaMap, SchemaNamedType, SchemaRecord, SchemaRecordField, SchemaStaticArray,
 };
+use std::fmt::{write, Formatter};
 use std::hash::{Hash, Hasher};
 
 #[derive(Debug)]
 pub enum SchemaDefValidationError {
-    DuplicateFieldName,
-    ReferencedNamedTypeNotFound,
+    DuplicateFieldName(String, String),
+    ReferencedNamedTypeNotFound(String, String),
     // Map keys cannot be f32/f64, containers, nullables, records, etc.
-    InvalidMapKeyType,
+    InvalidMapKeyType(String, String),
     // AssetRef can only reference named types that are records
-    InvalidAssetRefInnerType,
+    InvalidAssetRefInnerType(String, String),
+}
+
+impl std::fmt::Display for SchemaDefValidationError {
+    fn fmt(
+        &self,
+        f: &mut Formatter<'_>,
+    ) -> std::fmt::Result {
+        match self {
+            SchemaDefValidationError::DuplicateFieldName(schema_name, duplicate_field_name) => {
+                write!(
+                    f,
+                    "Schema {} has a duplicate field {}",
+                    schema_name, duplicate_field_name
+                )
+            }
+            SchemaDefValidationError::ReferencedNamedTypeNotFound(
+                schema_name,
+                referenced_named_type_not_found,
+            ) => write!(
+                f,
+                "Schema {} references a type {} that wasn't found",
+                schema_name, referenced_named_type_not_found
+            ),
+            SchemaDefValidationError::InvalidMapKeyType(schema_name, invalid_map_key_type) => {
+                write!(
+                    f,
+                    "Schema {} has map with key of type {}, but this type cannot be used as a key",
+                    schema_name, invalid_map_key_type
+                )
+            }
+            SchemaDefValidationError::InvalidAssetRefInnerType(
+                schema_name,
+                invalid_asset_ref_inner_type,
+            ) => write!(
+                f,
+                "Schema {} references an AssetRef that references {} but it is not a record",
+                schema_name, invalid_asset_ref_inner_type
+            ),
+        }
+    }
 }
 
 pub type SchemaDefValidationResult<T> = Result<T, SchemaDefValidationError>;
@@ -318,7 +359,10 @@ impl SchemaDefRecord {
         for i in 0..fields.len() {
             for j in 0..i {
                 if fields[i].field_name == fields[j].field_name {
-                    Err(SchemaDefValidationError::DuplicateFieldName)?;
+                    Err(SchemaDefValidationError::DuplicateFieldName(
+                        type_name.clone(),
+                        fields[i].field_name.to_string(),
+                    ))?;
                 }
             }
         }

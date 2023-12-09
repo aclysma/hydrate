@@ -68,7 +68,7 @@
       },
       {
         "name": "color",
-        "type": "ColorRgba"
+        "type": "ColorRgbaU8"
       },
       {
         "name": "enum_field",

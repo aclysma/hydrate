@@ -8,7 +8,8 @@ use hydrate_model::pipeline::import_util::ImportToQueue;
 use hydrate_model::pipeline::AssetEngine;
 use hydrate_model::{
     AssetId, AssetLocation, AssetName, DataSetError, DataSetResult, EditorModel,
-    EndContextBehavior, NullOverride, OverrideBehavior, PropertyPath, Schema, SchemaRecord, Value,
+    EndContextBehavior, NullOverride, OverrideBehavior, PropertyPath, Schema, SchemaFingerprint,
+    SchemaRecord, Value,
 };
 use std::sync::Arc;
 use uuid::Uuid;
@@ -34,8 +35,10 @@ pub enum UIAction {
     NewAsset(AssetName, AssetLocation, SchemaRecord, Option<AssetId>),
     DeleteAsset(AssetId),
     SetProperty(AssetId, PropertyPath, Option<Value>, EndContextBehavior),
+    ClearPropertiesForRecord(AssetId, PropertyPath, SchemaFingerprint),
     CommitPendingUndoContext,
     ApplyPropertyOverrideToPrototype(AssetId, PropertyPath),
+    ApplyPropertyOverrideToPrototypeForRecord(AssetId, PropertyPath, SchemaFingerprint),
     SetNullOverride(AssetId, PropertyPath, NullOverride),
     AddDynamicArrayEntry(AssetId, PropertyPath),
     AddMapEntry(AssetId, PropertyPath),
@@ -267,6 +270,33 @@ impl UIActionQueueReceiver {
                         },
                     );
                 }
+                UIAction::ClearPropertiesForRecord(
+                    asset_id,
+                    property_path,
+                    record_schema_fingerprint,
+                ) => {
+                    editor_model.root_edit_context_mut().with_undo_context(
+                        "ClearPropertiesForRecord",
+                        |edit_context| {
+                            let record_schema = edit_context
+                                .schema_set()
+                                .find_named_type_by_fingerprint(record_schema_fingerprint)
+                                .unwrap()
+                                .as_record()
+                                .unwrap()
+                                .clone();
+
+                            for field in record_schema.fields() {
+                                let field_path = property_path.push(field.name());
+                                edit_context
+                                    .set_property_override(asset_id, field_path.path(), None)
+                                    .unwrap();
+                            }
+
+                            EndContextBehavior::Finish
+                        },
+                    );
+                }
                 UIAction::CommitPendingUndoContext => {
                     editor_model
                         .root_edit_context_mut()
@@ -282,6 +312,37 @@ impl UIActionQueueReceiver {
                                     property_path.path(),
                                 )
                                 .unwrap();
+                            EndContextBehavior::Finish
+                        },
+                    );
+                }
+
+                UIAction::ApplyPropertyOverrideToPrototypeForRecord(
+                    asset_id,
+                    property_path,
+                    record_schema_fingerprint,
+                ) => {
+                    editor_model.root_edit_context_mut().with_undo_context(
+                        "ApplyPropertyOverrideToPrototypeForRecord",
+                        |edit_context| {
+                            let record_schema = edit_context
+                                .schema_set()
+                                .find_named_type_by_fingerprint(record_schema_fingerprint)
+                                .unwrap()
+                                .as_record()
+                                .unwrap()
+                                .clone();
+
+                            for field in record_schema.fields() {
+                                let field_path = property_path.push(field.name());
+                                edit_context
+                                    .apply_property_override_to_prototype(
+                                        asset_id,
+                                        field_path.path(),
+                                    )
+                                    .unwrap();
+                            }
+
                             EndContextBehavior::Finish
                         },
                     );

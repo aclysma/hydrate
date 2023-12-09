@@ -29,12 +29,14 @@ pub fn show_property_action_menu(
         Schema::Record(record) => {
             let record_schema = ctx
                 .editor_model
+                .root_edit_context()
                 .schema_set()
                 .find_named_type_by_fingerprint(*record)
                 .unwrap()
                 .as_record()
                 .unwrap();
 
+            // Determine if any of the fields have an override
             let mut any_field_has_override = false;
             for field in record_schema.fields() {
                 let field_path = ctx.property_path.push(field.name());
@@ -48,6 +50,8 @@ pub fn show_property_action_menu(
                     break;
                 }
             }
+
+            // Clear overrides option, but only if any of them have an override
             if ui
                 .add_enabled(
                     any_field_has_override && !ctx.read_only,
@@ -55,15 +59,12 @@ pub fn show_property_action_menu(
                 )
                 .clicked()
             {
-                for field in record_schema.fields() {
-                    let field_path = ctx.property_path.push(field.name());
-                    ctx.action_sender.queue_action(UIAction::SetProperty(
+                ctx.action_sender
+                    .queue_action(UIAction::ClearPropertiesForRecord(
                         asset_id,
-                        field_path,
-                        None,
-                        EndContextBehavior::Finish,
+                        ctx.property_path.clone(),
+                        *record,
                     ));
-                }
                 ui.close_menu();
             }
 
@@ -86,13 +87,13 @@ pub fn show_property_action_menu(
                 )
                 .clicked()
             {
-                for field in record_schema.fields() {
-                    let field_path = ctx.property_path.push(field.name());
-                    ctx.action_sender
-                        .queue_action(UIAction::ApplyPropertyOverrideToPrototype(
-                            asset_id, field_path,
-                        ));
-                }
+                ctx.action_sender.queue_action(
+                    UIAction::ApplyPropertyOverrideToPrototypeForRecord(
+                        asset_id,
+                        ctx.property_path.clone(),
+                        *record,
+                    ),
+                );
                 ui.close_menu();
             }
         }
@@ -1865,7 +1866,9 @@ pub fn draw_inspector_rows(
                                     });
                                     row.col(|ui| {
                                         if can_draw_as_single_value {
-                                            inspector_impl.draw_inspector_value(ui, ctx);
+                                            draw_widgets_with_action_button(ui, ctx, |ui, ctx| {
+                                                inspector_impl.draw_inspector_value(ui, ctx);
+                                            });
                                         }
                                     });
                                 });

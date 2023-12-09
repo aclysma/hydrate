@@ -41,23 +41,39 @@
   },
   {
     "type": "record",
-    "name": "ColorRgba",
+    "name": "ColorRgbaU8",
     "fields": [
       {
         "name": "r",
-        "type": "f32"
+        "type": "u32",
+        "clamp_min": 0,
+        "ui_min": 0,
+        "clamp_max": 255,
+        "ui_max": 255
       },
       {
         "name": "g",
-        "type": "f32"
+        "type": "u32",
+        "clamp_min": 0,
+        "ui_min": 0,
+        "clamp_max": 255,
+        "ui_max": 255
       },
       {
         "name": "b",
-        "type": "f32"
+        "type": "u32",
+        "clamp_min": 0,
+        "ui_min": 0,
+        "clamp_max": 255,
+        "ui_max": 255
       },
       {
         "name": "a",
-        "type": "f32"
+        "type": "u32",
+        "clamp_min": 0,
+        "ui_min": 0,
+        "clamp_max": 255,
+        "ui_max": 255
       }
     ]
   }

@@ -28,6 +28,14 @@
         }
       },
       {
+        "name": "map_test_enum_all_fields",
+        "type": {
+          "name": "map",
+          "key_type": "TestEnum",
+          "value_type": "AllFields"
+        }
+      },
+      {
         "name": "reference",
         "type": {
           "name": "asset_ref",
@@ -41,6 +49,14 @@
           "inner_type": "Vec3",
           "length": 5
         }
+      },
+      {
+        "name": "v3",
+        "type": "Vec3"
+      },
+      {
+        "name": "v4",
+        "type": "Vec4"
       },
       {
         "name": "static_array_i32",

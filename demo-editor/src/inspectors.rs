@@ -150,6 +150,7 @@ impl RecordInspector for ColorRgbaRecordInspector {
         //
         let popup_id = ui.auto_id_with("popup");
         let was_open = ui.memory(|mem| mem.is_popup_open(popup_id));
+        ui.allocate_space(egui::vec2(5.0, 5.0));
         let response = ui.color_edit_button_srgba(&mut color);
         let is_open = ui.memory(|mem| mem.is_popup_open(popup_id));
 

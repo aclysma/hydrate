@@ -1070,14 +1070,6 @@ pub fn draw_inspector_rows(
                                         entry_index
                                     ));
                                 }
-
-                                // if egui::Button::new("⊘").min_size(egui::vec2(20.0, 0.0)).ui(&mut right_child_ui).clicked() {
-                                //     ctx.action_sender.queue_action(UIAction::RemoveStaticArrayOverride(
-                                //         ctx.asset_id,
-                                //         ctx.property_path.clone(),
-                                //         entry_index
-                                //     ));
-                                // }
                             });
                         });
                         row.col(|ui| {
@@ -1317,6 +1309,7 @@ pub fn draw_inspector_rows(
                 .get_map_entries(ctx.asset_id, ctx.property_path.path())
                 .unwrap();
             let mut is_visible = false;
+            let mut rendered_keys = HashSet::default();
 
             body.row(20.0, |mut row| {
                 row.col(|ui| {
@@ -1381,6 +1374,7 @@ pub fn draw_inspector_rows(
                         // Other types are not valid types to use as keys
                         _ => unimplemented!()
                     };
+                    let is_duplicate_key = rendered_keys.insert(value_as_str.clone()) == false;
 
                     let label = format!("[{}] (inherited) {}", entry_index, &value_as_str);
 
@@ -1390,6 +1384,10 @@ pub fn draw_inspector_rows(
                             ui.push_id(format!("{} inspector_label_column", entry_uuid), |ui| {
                                 let id_source = format!("{}/{}", ctx.property_path.path(), entry_uuid);
                                 is_override_visible = draw_indented_collapsible_label(ui, indent_level + 1, label, id_source);
+                                if is_duplicate_key {
+                                    ui.style_mut().visuals.override_text_color = Some(Color32::from_rgb(255, 0, 0));
+                                    ui.label("Duplicate Key");
+                                }
                             });
                         });
                         row.col(|ui| {
@@ -1470,6 +1468,7 @@ pub fn draw_inspector_rows(
                         // Other types are not valid types to use as keys
                         _ => unimplemented!()
                     };
+                    let is_duplicate_key = rendered_keys.insert(value_as_str.clone()) == false;
 
                     let label = format!("[{}] {}", entry_index, &value_as_str);
 
@@ -1479,13 +1478,12 @@ pub fn draw_inspector_rows(
                             ui.push_id(format!("{} inspector_label_column", entry_uuid), |ui| {
                                 let mut left_child_ui = create_clipped_left_child_ui_for_right_aligned_controls(ui, 100.0);
 
-                                //TODO: DRAW THE KEY AS A LABEL AND VALUE ON RIGHT IF POSSIBLE, EXPAND = KEY/VALUE BELOW
-
-
-
-
                                 let id_source = format!("{}/{}", ctx.property_path.path(), entry_uuid);
                                 is_override_visible = draw_indented_collapsible_label(&mut left_child_ui, indent_level + 1, label, id_source);
+                                if is_duplicate_key {
+                                    left_child_ui.style_mut().visuals.override_text_color = Some(egui::Color32::from_rgb(255, 0, 0));
+                                    left_child_ui.label("Duplicate Key");
+                                }
 
                                 let mut right_child_ui = create_clipped_right_child_ui_for_right_aligned_controls(ui, 44.0);
 
@@ -1590,6 +1588,7 @@ pub fn draw_inspector_rows(
                                 ));
                             });
                         } else {
+                            let can_draw_as_single_value = inspector_impl.can_draw_as_single_value();
                             if ctx.display_name().is_empty() {
                                 // If we are at the root of the inspector, draw the properties with no headers
                                 inspector_impl.draw_inspector_rows(body, ctx, record, indent_level);
@@ -1599,9 +1598,16 @@ pub fn draw_inspector_rows(
                                 body.row(20.0, |mut row| {
                                     row.col(|ui| {
                                         let id_source = format!("{}/{}", ctx.property_path.path(), ctx.property_default_display_name);
-                                        is_visible = draw_indented_collapsible_label(ui, indent_level, ctx.property_default_display_name, id_source);
+                                        if can_draw_as_single_value {
+                                            draw_indented_label(ui, indent_level, ctx.property_default_display_name);
+                                        } else {
+                                            is_visible = draw_indented_collapsible_label(ui, indent_level, ctx.property_default_display_name, id_source);
+                                        }
                                     });
                                     row.col(|ui| {
+                                        if can_draw_as_single_value {
+                                            inspector_impl.draw_inspector_value(ui, ctx);
+                                        }
                                     });
                                 });
                                 if is_visible {

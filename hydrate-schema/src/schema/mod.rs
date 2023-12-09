@@ -22,6 +22,8 @@ pub use static_array::*;
 use crate::SchemaFingerprint;
 use crate::{DataSetError, DataSetResult, HashMap};
 use std::hash::{Hash, Hasher};
+use std::str::FromStr;
+use uuid::Uuid;
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub struct SchemaId(u128);
@@ -317,11 +319,21 @@ impl Schema {
                 }
             }
             Schema::DynamicArray(x) => {
-                // We are not picky about the index being a number as the asset DB/property
-                // handling uses UUIDs to ID each asset, we just don't show the IDs to users
+                // We could validate that name is a valid UUID
+                Uuid::from_str(name.as_ref()).ok()?;
                 Some(x.item_type())
             }
-            Schema::Map(x) => Some(x.value_type()),
+            Schema::Map(x) => {
+                if name.as_ref().ends_with(":key") {
+                    Uuid::from_str(&name.as_ref()[0..name.as_ref().len()-4]).ok()?;
+                    Some(x.key_type())
+                } else if name.as_ref().ends_with(":value") {
+                    Uuid::from_str(&name.as_ref()[0..name.as_ref().len()-6]).ok()?;
+                    Some(x.value_type())
+                } else {
+                    None
+                }
+            }
             _ => None,
         }
     }

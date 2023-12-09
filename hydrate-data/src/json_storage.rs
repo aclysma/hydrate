@@ -177,7 +177,7 @@ fn load_json_properties(
 
         if !property_handled {
             let property_schema = named_type.find_property_schema(&path, named_types).unwrap();
-            if property_schema.is_dynamic_array() {
+            if property_schema.is_dynamic_array() || property_schema.is_map() {
                 let json_array = value.as_array().unwrap();
                 for json_array_element in json_array {
                     let element = json_array_element.as_str().unwrap();

@@ -83,12 +83,12 @@ impl AssetDiff {
 
         for delta in &self.dynamic_array_entry_deltas {
             if delta.entries.is_empty() {
-                // No entries, just remove the key from the dynamic_array_entries entirely
-                asset.dynamic_array_entries.remove(&delta.key);
+                // No entries, just remove the key from the dynamic_collection_entries entirely
+                asset.dynamic_collection_entries.remove(&delta.key);
             } else {
                 // We have entries, get or create the key, then stomp the value
                 *asset
-                    .dynamic_array_entries
+                    .dynamic_collection_entries
                     .entry(delta.key.clone())
                     .or_default() = delta.entries.clone();
             }
@@ -262,16 +262,16 @@ impl AssetDiffSet {
         // We do a heavyweight clone so that we can maintain ordering of elements
         //
         let mut all_dynamic_entry_keys = HashSet::default();
-        for key in before_obj.dynamic_array_entries().keys() {
+        for key in before_obj.dynamic_collection_entries().keys() {
             all_dynamic_entry_keys.insert(key);
         }
-        for key in after_obj.dynamic_array_entries().keys() {
+        for key in after_obj.dynamic_collection_entries().keys() {
             all_dynamic_entry_keys.insert(key);
         }
         for key in all_dynamic_entry_keys {
             let empty_set = OrderedSet::<Uuid>::default();
-            let old = before_obj.dynamic_array_entries.get(key).unwrap_or(&empty_set);
-            let new = after_obj.dynamic_array_entries.get(key).unwrap_or(&empty_set);
+            let old = before_obj.dynamic_collection_entries.get(key).unwrap_or(&empty_set);
+            let new = after_obj.dynamic_collection_entries.get(key).unwrap_or(&empty_set);
 
             if old != new {
                 apply_diff.dynamic_array_entry_deltas.push(DynamicArrayEntryDelta { key: key.clone(), entries: new.clone() });
@@ -374,7 +374,7 @@ impl DataSetDiff {
                 create.properties.clone(),
                 create.property_null_overrides.clone(),
                 create.properties_in_replace_mode.clone(),
-                create.dynamic_array_entries.clone(),
+                create.dynamic_collection_entries.clone(),
             )?;
         }
 

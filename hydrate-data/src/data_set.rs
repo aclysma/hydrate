@@ -211,7 +211,7 @@ pub struct PropertiesBundle {
     properties: HashMap<String, Value>,
     property_null_overrides: HashMap<String, NullOverride>,
     properties_in_replace_mode: HashSet<String>,
-    dynamic_array_entries: HashMap<String, OrderedSet<Uuid>>,
+    dynamic_collection_entries: HashMap<String, OrderedSet<Uuid>>,
 }
 
 impl PropertiesBundle {
@@ -248,10 +248,10 @@ impl PropertiesBundle {
             }
         }
 
-        let mut dynamic_array_entries =  HashMap::<String, OrderedSet<Uuid>>::default();
-        for (k, v) in &asset_info.dynamic_array_entries {
+        let mut dynamic_collection_entries =  HashMap::<String, OrderedSet<Uuid>>::default();
+        for (k, v) in &asset_info.dynamic_collection_entries {
             if k.starts_with(&prefix_string) {
-                dynamic_array_entries.insert(k[prefix_string.len()..].to_string(), v.clone());
+                dynamic_collection_entries.insert(k[prefix_string.len()..].to_string(), v.clone());
             }
         }
 
@@ -260,7 +260,7 @@ impl PropertiesBundle {
             properties,
             property_null_overrides,
             properties_in_replace_mode,
-            dynamic_array_entries
+            dynamic_collection_entries
         })
     }
 
@@ -284,7 +284,7 @@ impl PropertiesBundle {
         asset_info.properties.retain(|k, v| !k.starts_with(&prefix_string));
         asset_info.property_null_overrides.retain(|k, v| !k.starts_with(&prefix_string));
         asset_info.properties_in_replace_mode.retain(|k| !k.starts_with(&prefix_string));
-        asset_info.dynamic_array_entries.retain(|k, v| !k.starts_with(&prefix_string));
+        asset_info.dynamic_collection_entries.retain(|k, v| !k.starts_with(&prefix_string));
 
         //
         // stomp with new data
@@ -301,8 +301,8 @@ impl PropertiesBundle {
             asset_info.properties_in_replace_mode.insert(format!("{}{}", prefix_string, k));
         }
 
-        for (k, v) in &self.dynamic_array_entries {
-            asset_info.dynamic_array_entries.insert(format!("{}{}", prefix_string, k), v.clone());
+        for (k, v) in &self.dynamic_collection_entries {
+            asset_info.dynamic_collection_entries.insert(format!("{}{}", prefix_string, k), v.clone());
         }
 
         Ok(())
@@ -325,7 +325,7 @@ pub struct DataSetAssetInfo {
     pub(super) properties: HashMap<String, Value>,
     pub(super) property_null_overrides: HashMap<String, NullOverride>,
     pub(super) properties_in_replace_mode: HashSet<String>,
-    pub(super) dynamic_array_entries: HashMap<String, OrderedSet<Uuid>>,
+    pub(super) dynamic_collection_entries: HashMap<String, OrderedSet<Uuid>>,
 }
 
 impl DataSetAssetInfo {
@@ -365,8 +365,8 @@ impl DataSetAssetInfo {
         &self.properties_in_replace_mode
     }
 
-    pub fn dynamic_array_entries(&self) -> &HashMap<String, OrderedSet<Uuid>> {
-        &self.dynamic_array_entries
+    pub fn dynamic_collection_entries(&self) -> &HashMap<String, OrderedSet<Uuid>> {
+        &self.dynamic_collection_entries
     }
 }
 
@@ -420,7 +420,7 @@ impl DataSet {
         properties: HashMap<String, Value>,
         property_null_overrides: HashMap<String, NullOverride>,
         properties_in_replace_mode: HashSet<String>,
-        dynamic_array_entries: HashMap<String, OrderedSet<Uuid>>,
+        dynamic_collection_entries: HashMap<String, OrderedSet<Uuid>>,
     ) -> DataSetResult<()> {
         let schema = schema_set
             .schemas()
@@ -437,7 +437,7 @@ impl DataSet {
             properties,
             property_null_overrides,
             properties_in_replace_mode,
-            dynamic_array_entries,
+            dynamic_collection_entries,
         };
 
         self.assets.insert(asset_id, obj);
@@ -463,7 +463,7 @@ impl DataSet {
             properties: Default::default(),
             property_null_overrides: Default::default(),
             properties_in_replace_mode: Default::default(),
-            dynamic_array_entries: Default::default(),
+            dynamic_collection_entries: Default::default(),
         };
 
         self.insert_asset(asset_id, obj)
@@ -531,7 +531,7 @@ impl DataSet {
         asset.properties.clear();
         asset.property_null_overrides.clear();
         asset.properties_in_replace_mode.clear();
-        asset.dynamic_array_entries.clear();
+        asset.dynamic_collection_entries.clear();
 
         for (property, value) in single_object.properties() {
             asset.properties.insert(property.clone(), value.clone());
@@ -543,12 +543,12 @@ impl DataSet {
                 .insert(property.clone(), *null_override);
         }
 
-        for (property, dynamic_array_entries) in single_object.dynamic_array_entries() {
+        for (property, dynamic_collection_entries) in single_object.dynamic_collection_entries() {
             let property_entry = asset
-                .dynamic_array_entries
+                .dynamic_collection_entries
                 .entry(property.clone())
                 .or_default();
-            for element in &*dynamic_array_entries {
+            for element in &*dynamic_collection_entries {
                 let is_newly_inserted = property_entry.try_insert_at_end(*element);
                 // elements are UUIDs and they should have been unique
                 assert!(is_newly_inserted);
@@ -834,9 +834,9 @@ impl DataSet {
         }
         properties_in_replace_mode_hash.hash(&mut hasher);
 
-        // dynamic_array_entries
-        let mut dynamic_array_entries_hash = 0;
-        for (key, value) in &asset.dynamic_array_entries {
+        // dynamic_collection_entries
+        let mut dynamic_collection_entries_hash = 0;
+        for (key, value) in &asset.dynamic_collection_entries {
             let mut inner_hasher = siphasher::sip::SipHasher::default();
             key.hash(&mut inner_hasher);
 
@@ -848,9 +848,9 @@ impl DataSet {
             }
             uuid_set_hash.hash(&mut inner_hasher);
 
-            dynamic_array_entries_hash = dynamic_array_entries_hash ^ inner_hasher.finish();
+            dynamic_collection_entries_hash = dynamic_collection_entries_hash ^ inner_hasher.finish();
         }
-        dynamic_array_entries_hash.hash(&mut hasher);
+        dynamic_collection_entries_hash.hash(&mut hasher);
 
         let asset_hash = hasher.finish();
         Some(asset_hash)
@@ -957,8 +957,8 @@ impl DataSet {
         // See if this field was contained in a container. If any of those containers didn't contain
         // this property path, return None
         for (path, key) in &accessed_dynamic_array_keys {
-            let dynamic_array_entries = self.resolve_dynamic_array_entries(schema_set, asset_id, path)?;
-            if !dynamic_array_entries
+            let dynamic_collection_entries = self.resolve_dynamic_array_entries(schema_set, asset_id, path)?;
+            if !dynamic_collection_entries
                 .contains(&Uuid::from_str(key).map_err(|_| DataSetError::UuidParseError)?)
             {
                 return Err(DataSetError::PathDynamicArrayEntryDoesNotExist);
@@ -1126,7 +1126,7 @@ impl DataSet {
         asset: &DataSetAssetInfo,
         path: impl AsRef<str>,
     ) -> DataSetResult<std::slice::Iter<Uuid>> {
-        if let Some(overrides) = asset.dynamic_array_entries.get(path.as_ref()) {
+        if let Some(overrides) = asset.dynamic_collection_entries.get(path.as_ref()) {
             Ok(overrides.iter())
         } else {
             Ok(std::slice::Iter::default())
@@ -1182,7 +1182,7 @@ impl DataSet {
         path: impl AsRef<str>,
     ) -> DataSetResult<Uuid> {
         let entry = asset
-            .dynamic_array_entries
+            .dynamic_collection_entries
             .entry(path.as_ref().to_string())
             .or_insert(Default::default());
         let new_uuid = Uuid::new_v4();
@@ -1259,7 +1259,7 @@ impl DataSet {
         }
 
         let entry = asset
-            .dynamic_array_entries
+            .dynamic_collection_entries
             .entry(path.as_ref().to_string())
             .or_insert(Default::default());
         if entry.try_insert_at_position(index, entry_uuid) {
@@ -1274,7 +1274,7 @@ impl DataSet {
         path: impl AsRef<str>,
         element_id: Uuid,
     ) -> DataSetResult<bool> {
-        if let Some(override_list) = asset.dynamic_array_entries.get_mut(path.as_ref()) {
+        if let Some(override_list) = asset.dynamic_collection_entries.get_mut(path.as_ref()) {
             // Return if the override existed or not
             let was_removed = override_list.remove(&element_id);
             Ok(was_removed)
@@ -1362,7 +1362,7 @@ impl DataSet {
             }
         }
 
-        if let Some(entries) = obj.dynamic_array_entries.get(path) {
+        if let Some(entries) = obj.dynamic_collection_entries.get(path) {
             for entry in entries {
                 resolved_entries.push(*entry);
             }

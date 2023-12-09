@@ -137,7 +137,7 @@ fn load_json_properties(
     properties: &mut HashMap<String, Value>,
     property_null_overrides: &mut HashMap<String, NullOverride>,
     mut properties_in_replace_mode: Option<&mut HashSet<String>>,
-    dynamic_array_entries: &mut HashMap<String, OrderedSet<Uuid>>,
+    dynamic_collection_entries: &mut HashMap<String, OrderedSet<Uuid>>,
     buffers: &mut Option<Vec<Arc<Vec<u8>>>>,
 ) {
     let mut max_path_length = 0;
@@ -183,7 +183,7 @@ fn load_json_properties(
                     let element = json_array_element.as_str().unwrap();
                     let element = Uuid::from_str(element).unwrap();
                     let existing_entries =
-                        dynamic_array_entries.entry(path.to_string()).or_default();
+                        dynamic_collection_entries.entry(path.to_string()).or_default();
                     if !existing_entries.contains(&element) {
                         log::trace!("add dynamic array element {} to {:?}", element, path);
                         let newly_inserted = existing_entries.try_insert_at_end(element);
@@ -208,7 +208,7 @@ fn store_json_properties(
     properties: &HashMap<String, Value>,
     property_null_overrides: &HashMap<String, NullOverride>,
     properties_in_replace_mode: Option<&HashSet<String>>,
-    dynamic_array_entries: &HashMap<String, OrderedSet<Uuid>>,
+    dynamic_collection_entries: &HashMap<String, OrderedSet<Uuid>>,
     buffers: &mut Option<Vec<Arc<Vec<u8>>>>,
 ) -> HashMap<String, serde_json::Value> {
     let mut saved_properties: HashMap<String, serde_json::Value> = Default::default();
@@ -226,7 +226,7 @@ fn store_json_properties(
         }
     }
 
-    for (path, elements) in dynamic_array_entries {
+    for (path, elements) in dynamic_collection_entries {
         let elements_json: Vec<_> = elements
             .iter()
             .map(|x| serde_json::Value::from(x.to_string()))
@@ -362,7 +362,7 @@ pub trait RestoreAssetFromStorageImpl {
         properties: HashMap<String, Value>,
         property_null_overrides: HashMap<String, NullOverride>,
         properties_in_replace_mode: HashSet<String>,
-        dynamic_array_entries: HashMap<String, OrderedSet<Uuid>>,
+        dynamic_collection_entries: HashMap<String, OrderedSet<Uuid>>,
     ) -> DataSetResult<()>;
 }
 
@@ -440,7 +440,7 @@ impl AssetJson {
         let mut properties: HashMap<String, Value> = Default::default();
         let mut property_null_overrides: HashMap<String, NullOverride> = Default::default();
         let mut properties_in_replace_mode: HashSet<String> = Default::default();
-        let mut dynamic_array_entries: HashMap<String, OrderedSet<Uuid>> = Default::default();
+        let mut dynamic_collection_entries: HashMap<String, OrderedSet<Uuid>> = Default::default();
         let mut buffers = None;
 
         load_json_properties(
@@ -450,7 +450,7 @@ impl AssetJson {
             &mut properties,
             &mut property_null_overrides,
             Some(&mut properties_in_replace_mode),
-            &mut dynamic_array_entries,
+            &mut dynamic_collection_entries,
             &mut buffers,
         );
 
@@ -473,7 +473,7 @@ impl AssetJson {
             properties,
             property_null_overrides,
             properties_in_replace_mode,
-            dynamic_array_entries,
+            dynamic_collection_entries,
         )?;
 
         Ok(asset_id)
@@ -495,7 +495,7 @@ impl AssetJson {
             obj.properties(),
             obj.property_null_overrides(),
             Some(obj.properties_in_replace_mode()),
-            obj.dynamic_array_entries(),
+            obj.dynamic_collection_entries(),
             &mut buffers,
         );
 
@@ -548,7 +548,7 @@ impl SingleObjectJson {
             &object.properties(),
             &object.property_null_overrides(),
             None,
-            &object.dynamic_array_entries(),
+            &object.dynamic_collection_entries(),
             buffers,
         );
 
@@ -579,7 +579,7 @@ impl SingleObjectJson {
 
         let mut properties: HashMap<String, Value> = Default::default();
         let mut property_null_overrides: HashMap<String, NullOverride> = Default::default();
-        let mut dynamic_array_entries: HashMap<String, OrderedSet<Uuid>> = Default::default();
+        let mut dynamic_collection_entries: HashMap<String, OrderedSet<Uuid>> = Default::default();
 
         load_json_properties(
             &named_type,
@@ -588,7 +588,7 @@ impl SingleObjectJson {
             &mut properties,
             &mut property_null_overrides,
             None,
-            &mut dynamic_array_entries,
+            &mut dynamic_collection_entries,
             buffers,
         );
 
@@ -597,7 +597,7 @@ impl SingleObjectJson {
             schema_fingerprint,
             properties,
             property_null_overrides,
-            dynamic_array_entries,
+            dynamic_collection_entries,
         )
     }
 }

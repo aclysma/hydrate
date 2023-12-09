@@ -61,7 +61,7 @@ impl RestoreAssetFromStorageImpl for EditContext {
         properties: HashMap<String, Value>,
         property_null_overrides: HashMap<String, NullOverride>,
         properties_in_replace_mode: HashSet<String>,
-        dynamic_array_entries: HashMap<String, OrderedSet<Uuid>>,
+        dynamic_collection_entries: HashMap<String, OrderedSet<Uuid>>,
     ) -> DataSetResult<()> {
         self.restore_asset(
             asset_id,
@@ -74,7 +74,7 @@ impl RestoreAssetFromStorageImpl for EditContext {
             properties,
             property_null_overrides,
             properties_in_replace_mode,
-            dynamic_array_entries,
+            dynamic_collection_entries,
         )
     }
 }
@@ -422,7 +422,7 @@ impl EditContext {
                 v.properties().clone(),
                 v.property_null_overrides().clone(),
                 v.properties_in_replace_mode().clone(),
-                v.dynamic_array_entries().clone(),
+                v.dynamic_collection_entries().clone(),
             )?;
         }
 
@@ -441,7 +441,7 @@ impl EditContext {
         properties: HashMap<String, Value>,
         property_null_overrides: HashMap<String, NullOverride>,
         properties_in_replace_mode: HashSet<String>,
-        dynamic_array_entries: HashMap<String, OrderedSet<Uuid>>,
+        dynamic_collection_entries: HashMap<String, OrderedSet<Uuid>>,
     ) -> DataSetResult<()> {
         self.track_new_asset(asset_id, &asset_location);
         self.data_set.restore_asset(
@@ -456,7 +456,7 @@ impl EditContext {
             properties,
             property_null_overrides,
             properties_in_replace_mode,
-            dynamic_array_entries,
+            dynamic_collection_entries,
         )
     }
 

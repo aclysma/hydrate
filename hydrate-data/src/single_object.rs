@@ -15,7 +15,7 @@ pub struct SingleObject {
     schema: SchemaRecord,
     properties: HashMap<String, Value>,
     property_null_overrides: HashMap<String, NullOverride>,
-    dynamic_array_entries: HashMap<String, OrderedSet<Uuid>>,
+    dynamic_collection_entries: HashMap<String, OrderedSet<Uuid>>,
 }
 
 impl Hash for SingleObject {
@@ -47,9 +47,9 @@ impl Hash for SingleObject {
         }
         property_null_overrides_hash.hash(state);
 
-        // dynamic_array_entries
-        let mut dynamic_array_entries_hash = 0;
-        for (key, value) in &self.dynamic_array_entries {
+        // dynamic_collection_entries
+        let mut dynamic_collection_entries_hash = 0;
+        for (key, value) in &self.dynamic_collection_entries {
             let mut inner_hasher = siphasher::sip::SipHasher::default();
             key.hash(&mut inner_hasher);
 
@@ -61,9 +61,9 @@ impl Hash for SingleObject {
             }
             uuid_set_hash.hash(&mut inner_hasher);
 
-            dynamic_array_entries_hash = dynamic_array_entries_hash ^ inner_hasher.finish();
+            dynamic_collection_entries_hash = dynamic_collection_entries_hash ^ inner_hasher.finish();
         }
-        dynamic_array_entries_hash.hash(state);
+        dynamic_collection_entries_hash.hash(state);
     }
 }
 
@@ -73,7 +73,7 @@ impl SingleObject {
             schema: schema.clone(),
             properties: Default::default(),
             property_null_overrides: Default::default(),
-            dynamic_array_entries: Default::default(),
+            dynamic_collection_entries: Default::default(),
         }
     }
 
@@ -82,7 +82,7 @@ impl SingleObject {
         schema: SchemaFingerprint,
         properties: HashMap<String, Value>,
         property_null_overrides: HashMap<String, NullOverride>,
-        dynamic_array_entries: HashMap<String, OrderedSet<Uuid>>,
+        dynamic_collection_entries: HashMap<String, OrderedSet<Uuid>>,
     ) -> SingleObject {
         let schema = schema_set.schemas().get(&schema).unwrap();
         let schema_record = schema.as_record().cloned().unwrap();
@@ -90,7 +90,7 @@ impl SingleObject {
             schema: schema_record,
             properties,
             property_null_overrides,
-            dynamic_array_entries,
+            dynamic_collection_entries,
         }
     }
 
@@ -106,8 +106,8 @@ impl SingleObject {
         &self.property_null_overrides
     }
 
-    pub fn dynamic_array_entries(&self) -> &HashMap<String, OrderedSet<Uuid>> {
-        &self.dynamic_array_entries
+    pub fn dynamic_collection_entries(&self) -> &HashMap<String, OrderedSet<Uuid>> {
+        &self.dynamic_collection_entries
     }
 
     /// Gets if the property has a null override associated with it An error will be returned if
@@ -193,8 +193,8 @@ impl SingleObject {
         // See if this field was contained in a container. If any of those containers didn't contain
         // this property path, return None
         for (path, key) in &accessed_dynamic_array_keys {
-            let dynamic_array_entries = self.resolve_dynamic_array_entries(schema_set, path)?;
-            if !dynamic_array_entries
+            let dynamic_collection_entries = self.resolve_dynamic_array_entries(schema_set, path)?;
+            if !dynamic_collection_entries
                 .contains(&Uuid::from_str(key).map_err(|_| DataSetError::UuidParseError)?)
             {
                 return Err(DataSetError::PathDynamicArrayEntryDoesNotExist);
@@ -287,7 +287,7 @@ impl SingleObject {
         &self,
         path: impl AsRef<str>,
     ) -> DataSetResult<std::slice::Iter<Uuid>> {
-        if let Some(overrides) = self.dynamic_array_entries.get(path.as_ref()) {
+        if let Some(overrides) = self.dynamic_collection_entries.get(path.as_ref()) {
             Ok(overrides.iter())
         } else {
             Ok(std::slice::Iter::default())
@@ -333,7 +333,7 @@ impl SingleObject {
         path: impl AsRef<str>,
     ) -> DataSetResult<Uuid> {
         let entry = self
-            .dynamic_array_entries
+            .dynamic_collection_entries
             .entry(path.as_ref().to_string())
             .or_insert(Default::default());
         let new_uuid = Uuid::new_v4();
@@ -377,7 +377,7 @@ impl SingleObject {
 
         self.add_dynamic_collection_entry(path)
     }
-    
+
     pub fn insert_dynamic_array_entry(
         &mut self,
         schema_set: &SchemaSet,
@@ -399,7 +399,7 @@ impl SingleObject {
         }
 
         let entry = self
-            .dynamic_array_entries
+            .dynamic_collection_entries
             .entry(path.as_ref().to_string())
             .or_insert(Default::default());
         if entry.try_insert_at_position(index, entry_uuid) {
@@ -414,7 +414,7 @@ impl SingleObject {
         path: impl AsRef<str>,
         element_id: Uuid,
     ) -> DataSetResult<bool> {
-        if let Some(override_list) = self.dynamic_array_entries.get_mut(path.as_ref()) {
+        if let Some(override_list) = self.dynamic_collection_entries.get_mut(path.as_ref()) {
             // Return if the override existed or not
             let was_removed = override_list.remove(&element_id);
             Ok(was_removed)
@@ -465,7 +465,7 @@ impl SingleObject {
         path: &str,
         resolved_entries: &mut Vec<Uuid>,
     ) {
-        if let Some(entries) = self.dynamic_array_entries.get(path) {
+        if let Some(entries) = self.dynamic_collection_entries.get(path) {
             for entry in entries {
                 resolved_entries.push(*entry);
             }

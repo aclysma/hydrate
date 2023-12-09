@@ -27,6 +27,10 @@ impl AllFieldsAccessor {
         DynamicArrayFieldAccessor::<I32FieldAccessor>::new(self.0.push("dynamic_array_i32"))
     }
 
+    pub fn dynamic_array_recursive(&self) -> DynamicArrayFieldAccessor::<AllFieldsAccessor> {
+        DynamicArrayFieldAccessor::<AllFieldsAccessor>::new(self.0.push("dynamic_array_recursive"))
+    }
+
     pub fn dynamic_array_vec3(&self) -> DynamicArrayFieldAccessor::<Vec3Accessor> {
         DynamicArrayFieldAccessor::<Vec3Accessor>::new(self.0.push("dynamic_array_vec3"))
     }
@@ -51,16 +55,44 @@ impl AllFieldsAccessor {
         I64FieldAccessor::new(self.0.push("i64"))
     }
 
+    pub fn map_i32_vec3(&self) -> MapFieldAccessor::<I32FieldAccessor, Vec3Accessor> {
+        MapFieldAccessor::<I32FieldAccessor, Vec3Accessor>::new(self.0.push("map_i32_vec3"))
+    }
+
+    pub fn map_test_enum_all_fields(&self) -> MapFieldAccessor::<EnumFieldAccessor::<TestEnumEnum>, AllFieldsAccessor> {
+        MapFieldAccessor::<EnumFieldAccessor::<TestEnumEnum>, AllFieldsAccessor>::new(self.0.push("map_test_enum_all_fields"))
+    }
+
     pub fn nullable_bool(&self) -> NullableFieldAccessor::<BooleanFieldAccessor> {
         NullableFieldAccessor::<BooleanFieldAccessor>::new(self.0.push("nullable_bool"))
+    }
+
+    pub fn nullable_recursive(&self) -> NullableFieldAccessor::<AllFieldsAccessor> {
+        NullableFieldAccessor::<AllFieldsAccessor>::new(self.0.push("nullable_recursive"))
     }
 
     pub fn nullable_vec3(&self) -> NullableFieldAccessor::<Vec3Accessor> {
         NullableFieldAccessor::<Vec3Accessor>::new(self.0.push("nullable_vec3"))
     }
 
+    pub fn record_recursive(&self) -> AllFieldsAccessor {
+        AllFieldsAccessor::new(self.0.push("record_recursive"))
+    }
+
     pub fn reference(&self) -> AssetRefFieldAccessor {
         AssetRefFieldAccessor::new(self.0.push("reference"))
+    }
+
+    pub fn static_array(&self) -> StaticArrayFieldAccessor::<Vec3Accessor> {
+        StaticArrayFieldAccessor::<Vec3Accessor>::new(self.0.push("static_array"))
+    }
+
+    pub fn static_array_i32(&self) -> StaticArrayFieldAccessor::<I32FieldAccessor> {
+        StaticArrayFieldAccessor::<I32FieldAccessor>::new(self.0.push("static_array_i32"))
+    }
+
+    pub fn static_array_recursive(&self) -> StaticArrayFieldAccessor::<AllFieldsAccessor> {
+        StaticArrayFieldAccessor::<AllFieldsAccessor>::new(self.0.push("static_array_recursive"))
     }
 
     pub fn string(&self) -> StringFieldAccessor {
@@ -75,8 +107,12 @@ impl AllFieldsAccessor {
         U64FieldAccessor::new(self.0.push("u64"))
     }
 
-    pub fn vec3_value(&self) -> Vec3Accessor {
-        Vec3Accessor::new(self.0.push("vec3_value"))
+    pub fn v3(&self) -> Vec3Accessor {
+        Vec3Accessor::new(self.0.push("v3"))
+    }
+
+    pub fn v4(&self) -> Vec4Accessor {
+        Vec4Accessor::new(self.0.push("v4"))
     }
 }
 pub struct AllFieldsRef<'a>(PropertyPath, DataContainerRef<'a>);
@@ -106,6 +142,10 @@ impl<'a> AllFieldsRef<'a> {
         DynamicArrayFieldRef::<I32FieldRef>::new(self.0.push("dynamic_array_i32"), self.1.clone())
     }
 
+    pub fn dynamic_array_recursive(&self) -> DynamicArrayFieldRef::<AllFieldsRef> {
+        DynamicArrayFieldRef::<AllFieldsRef>::new(self.0.push("dynamic_array_recursive"), self.1.clone())
+    }
+
     pub fn dynamic_array_vec3(&self) -> DynamicArrayFieldRef::<Vec3Ref> {
         DynamicArrayFieldRef::<Vec3Ref>::new(self.0.push("dynamic_array_vec3"), self.1.clone())
     }
@@ -130,16 +170,44 @@ impl<'a> AllFieldsRef<'a> {
         I64FieldRef::new(self.0.push("i64"), self.1.clone())
     }
 
+    pub fn map_i32_vec3(&self) -> MapFieldRef::<I32FieldRef, Vec3Ref> {
+        MapFieldRef::<I32FieldRef, Vec3Ref>::new(self.0.push("map_i32_vec3"), self.1.clone())
+    }
+
+    pub fn map_test_enum_all_fields(&self) -> MapFieldRef::<EnumFieldRef::<TestEnumEnum>, AllFieldsRef> {
+        MapFieldRef::<EnumFieldRef::<TestEnumEnum>, AllFieldsRef>::new(self.0.push("map_test_enum_all_fields"), self.1.clone())
+    }
+
     pub fn nullable_bool(&self) -> NullableFieldRef::<BooleanFieldRef> {
         NullableFieldRef::<BooleanFieldRef>::new(self.0.push("nullable_bool"), self.1.clone())
+    }
+
+    pub fn nullable_recursive(&self) -> NullableFieldRef::<AllFieldsRef> {
+        NullableFieldRef::<AllFieldsRef>::new(self.0.push("nullable_recursive"), self.1.clone())
     }
 
     pub fn nullable_vec3(&self) -> NullableFieldRef::<Vec3Ref> {
         NullableFieldRef::<Vec3Ref>::new(self.0.push("nullable_vec3"), self.1.clone())
     }
 
+    pub fn record_recursive(&self) -> AllFieldsRef {
+        AllFieldsRef::new(self.0.push("record_recursive"), self.1.clone())
+    }
+
     pub fn reference(&self) -> AssetRefFieldRef {
         AssetRefFieldRef::new(self.0.push("reference"), self.1.clone())
+    }
+
+    pub fn static_array(&self) -> StaticArrayFieldRef::<Vec3Ref> {
+        StaticArrayFieldRef::<Vec3Ref>::new(self.0.push("static_array"), self.1.clone())
+    }
+
+    pub fn static_array_i32(&self) -> StaticArrayFieldRef::<I32FieldRef> {
+        StaticArrayFieldRef::<I32FieldRef>::new(self.0.push("static_array_i32"), self.1.clone())
+    }
+
+    pub fn static_array_recursive(&self) -> StaticArrayFieldRef::<AllFieldsRef> {
+        StaticArrayFieldRef::<AllFieldsRef>::new(self.0.push("static_array_recursive"), self.1.clone())
     }
 
     pub fn string(&self) -> StringFieldRef {
@@ -154,8 +222,12 @@ impl<'a> AllFieldsRef<'a> {
         U64FieldRef::new(self.0.push("u64"), self.1.clone())
     }
 
-    pub fn vec3_value(&self) -> Vec3Ref {
-        Vec3Ref::new(self.0.push("vec3_value"), self.1.clone())
+    pub fn v3(&self) -> Vec3Ref {
+        Vec3Ref::new(self.0.push("v3"), self.1.clone())
+    }
+
+    pub fn v4(&self) -> Vec4Ref {
+        Vec4Ref::new(self.0.push("v4"), self.1.clone())
     }
 }
 pub struct AllFieldsRefMut<'a>(PropertyPath, Rc<RefCell<DataContainerRefMut<'a>>>);
@@ -185,6 +257,10 @@ impl<'a> AllFieldsRefMut<'a> {
         DynamicArrayFieldRefMut::<I32FieldRefMut>::new(self.0.push("dynamic_array_i32"), &self.1)
     }
 
+    pub fn dynamic_array_recursive(self: &'a Self) -> DynamicArrayFieldRefMut::<AllFieldsRefMut> {
+        DynamicArrayFieldRefMut::<AllFieldsRefMut>::new(self.0.push("dynamic_array_recursive"), &self.1)
+    }
+
     pub fn dynamic_array_vec3(self: &'a Self) -> DynamicArrayFieldRefMut::<Vec3RefMut> {
         DynamicArrayFieldRefMut::<Vec3RefMut>::new(self.0.push("dynamic_array_vec3"), &self.1)
     }
@@ -209,16 +285,44 @@ impl<'a> AllFieldsRefMut<'a> {
         I64FieldRefMut::new(self.0.push("i64"), &self.1)
     }
 
+    pub fn map_i32_vec3(self: &'a Self) -> MapFieldRefMut::<I32FieldRefMut, Vec3RefMut> {
+        MapFieldRefMut::<I32FieldRefMut, Vec3RefMut>::new(self.0.push("map_i32_vec3"), &self.1)
+    }
+
+    pub fn map_test_enum_all_fields(self: &'a Self) -> MapFieldRefMut::<EnumFieldRefMut::<TestEnumEnum>, AllFieldsRefMut> {
+        MapFieldRefMut::<EnumFieldRefMut::<TestEnumEnum>, AllFieldsRefMut>::new(self.0.push("map_test_enum_all_fields"), &self.1)
+    }
+
     pub fn nullable_bool(self: &'a Self) -> NullableFieldRefMut::<BooleanFieldRefMut> {
         NullableFieldRefMut::<BooleanFieldRefMut>::new(self.0.push("nullable_bool"), &self.1)
+    }
+
+    pub fn nullable_recursive(self: &'a Self) -> NullableFieldRefMut::<AllFieldsRefMut> {
+        NullableFieldRefMut::<AllFieldsRefMut>::new(self.0.push("nullable_recursive"), &self.1)
     }
 
     pub fn nullable_vec3(self: &'a Self) -> NullableFieldRefMut::<Vec3RefMut> {
         NullableFieldRefMut::<Vec3RefMut>::new(self.0.push("nullable_vec3"), &self.1)
     }
 
+    pub fn record_recursive(self: &'a Self) -> AllFieldsRefMut {
+        AllFieldsRefMut::new(self.0.push("record_recursive"), &self.1)
+    }
+
     pub fn reference(self: &'a Self) -> AssetRefFieldRefMut {
         AssetRefFieldRefMut::new(self.0.push("reference"), &self.1)
+    }
+
+    pub fn static_array(self: &'a Self) -> StaticArrayFieldRefMut::<Vec3RefMut> {
+        StaticArrayFieldRefMut::<Vec3RefMut>::new(self.0.push("static_array"), &self.1)
+    }
+
+    pub fn static_array_i32(self: &'a Self) -> StaticArrayFieldRefMut::<I32FieldRefMut> {
+        StaticArrayFieldRefMut::<I32FieldRefMut>::new(self.0.push("static_array_i32"), &self.1)
+    }
+
+    pub fn static_array_recursive(self: &'a Self) -> StaticArrayFieldRefMut::<AllFieldsRefMut> {
+        StaticArrayFieldRefMut::<AllFieldsRefMut>::new(self.0.push("static_array_recursive"), &self.1)
     }
 
     pub fn string(self: &'a Self) -> StringFieldRefMut {
@@ -233,8 +337,12 @@ impl<'a> AllFieldsRefMut<'a> {
         U64FieldRefMut::new(self.0.push("u64"), &self.1)
     }
 
-    pub fn vec3_value(self: &'a Self) -> Vec3RefMut {
-        Vec3RefMut::new(self.0.push("vec3_value"), &self.1)
+    pub fn v3(self: &'a Self) -> Vec3RefMut {
+        Vec3RefMut::new(self.0.push("v3"), &self.1)
+    }
+
+    pub fn v4(self: &'a Self) -> Vec4RefMut {
+        Vec4RefMut::new(self.0.push("v4"), &self.1)
     }
 }
 pub struct AllFieldsRecord(PropertyPath, Rc<RefCell<Option<DataContainer>>>);
@@ -268,6 +376,10 @@ impl AllFieldsRecord {
         DynamicArrayField::<I32Field>::new(self.0.push("dynamic_array_i32"), &self.1)
     }
 
+    pub fn dynamic_array_recursive(self: &Self) -> DynamicArrayField::<AllFieldsRecord> {
+        DynamicArrayField::<AllFieldsRecord>::new(self.0.push("dynamic_array_recursive"), &self.1)
+    }
+
     pub fn dynamic_array_vec3(self: &Self) -> DynamicArrayField::<Vec3Record> {
         DynamicArrayField::<Vec3Record>::new(self.0.push("dynamic_array_vec3"), &self.1)
     }
@@ -292,16 +404,44 @@ impl AllFieldsRecord {
         I64Field::new(self.0.push("i64"), &self.1)
     }
 
+    pub fn map_i32_vec3(self: &Self) -> MapField::<I32Field, Vec3Record> {
+        MapField::<I32Field, Vec3Record>::new(self.0.push("map_i32_vec3"), &self.1)
+    }
+
+    pub fn map_test_enum_all_fields(self: &Self) -> MapField::<EnumField::<TestEnumEnum>, AllFieldsRecord> {
+        MapField::<EnumField::<TestEnumEnum>, AllFieldsRecord>::new(self.0.push("map_test_enum_all_fields"), &self.1)
+    }
+
     pub fn nullable_bool(self: &Self) -> NullableField::<BooleanField> {
         NullableField::<BooleanField>::new(self.0.push("nullable_bool"), &self.1)
+    }
+
+    pub fn nullable_recursive(self: &Self) -> NullableField::<AllFieldsRecord> {
+        NullableField::<AllFieldsRecord>::new(self.0.push("nullable_recursive"), &self.1)
     }
 
     pub fn nullable_vec3(self: &Self) -> NullableField::<Vec3Record> {
         NullableField::<Vec3Record>::new(self.0.push("nullable_vec3"), &self.1)
     }
 
+    pub fn record_recursive(self: &Self) -> AllFieldsRecord {
+        AllFieldsRecord::new(self.0.push("record_recursive"), &self.1)
+    }
+
     pub fn reference(self: &Self) -> AssetRefField {
         AssetRefField::new(self.0.push("reference"), &self.1)
+    }
+
+    pub fn static_array(self: &Self) -> StaticArrayField::<Vec3Record> {
+        StaticArrayField::<Vec3Record>::new(self.0.push("static_array"), &self.1)
+    }
+
+    pub fn static_array_i32(self: &Self) -> StaticArrayField::<I32Field> {
+        StaticArrayField::<I32Field>::new(self.0.push("static_array_i32"), &self.1)
+    }
+
+    pub fn static_array_recursive(self: &Self) -> StaticArrayField::<AllFieldsRecord> {
+        StaticArrayField::<AllFieldsRecord>::new(self.0.push("static_array_recursive"), &self.1)
     }
 
     pub fn string(self: &Self) -> StringField {
@@ -316,8 +456,12 @@ impl AllFieldsRecord {
         U64Field::new(self.0.push("u64"), &self.1)
     }
 
-    pub fn vec3_value(self: &Self) -> Vec3Record {
-        Vec3Record::new(self.0.push("vec3_value"), &self.1)
+    pub fn v3(self: &Self) -> Vec3Record {
+        Vec3Record::new(self.0.push("v3"), &self.1)
+    }
+
+    pub fn v4(self: &Self) -> Vec4Record {
+        Vec4Record::new(self.0.push("v4"), &self.1)
     }
 }
 #[derive(Default)]

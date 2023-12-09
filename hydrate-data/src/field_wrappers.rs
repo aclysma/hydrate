@@ -1575,6 +1575,147 @@ impl StringField {
     }
 }
 
+
+
+
+
+
+
+
+
+
+
+pub struct StaticArrayFieldAccessor<T: FieldAccessor>(pub PropertyPath, PhantomData<T>);
+
+impl<T: FieldAccessor> FieldAccessor for StaticArrayFieldAccessor<T> {
+    fn new(property_path: PropertyPath) -> Self {
+        StaticArrayFieldAccessor(property_path, PhantomData::default())
+    }
+}
+
+impl<T: FieldAccessor> StaticArrayFieldAccessor<T> {
+    pub fn resolve_entries(
+        &self,
+        data_container: DataContainerRef,
+    ) -> DataSetResult<Box<[Uuid]>> {
+        data_container.resolve_dynamic_array_entries(self.0.path())
+    }
+
+    pub fn entry(
+        &self,
+        index: usize,
+    ) -> T {
+        T::new(self.0.push(&index.to_string()))
+    }
+}
+
+pub struct StaticArrayFieldRef<'a, T: FieldRef<'a>>(
+    pub PropertyPath,
+    DataContainerRef<'a>,
+    PhantomData<T>,
+);
+
+impl<'a, T: FieldRef<'a>> FieldRef<'a> for StaticArrayFieldRef<'a, T> {
+    fn new(
+        property_path: PropertyPath,
+        data_container: DataContainerRef<'a>,
+    ) -> Self {
+        StaticArrayFieldRef(property_path, data_container, PhantomData)
+    }
+}
+
+impl<'a, T: FieldRef<'a>> StaticArrayFieldRef<'a, T> {
+    pub fn resolve_entries(&self) -> DataSetResult<Box<[Uuid]>> {
+        self.1.resolve_dynamic_array_entries(self.0.path())
+    }
+
+    pub fn entry(
+        &self,
+        index: usize,
+    ) -> T {
+        T::new(self.0.push(&index.to_string()), self.1.clone())
+    }
+}
+
+pub struct StaticArrayFieldRefMut<'a, T: FieldRefMut<'a>>(
+    pub PropertyPath,
+    Rc<RefCell<DataContainerRefMut<'a>>>,
+    PhantomData<T>,
+);
+
+impl<'a, T: FieldRefMut<'a>> FieldRefMut<'a> for StaticArrayFieldRefMut<'a, T> {
+    fn new(
+        property_path: PropertyPath,
+        data_container: &'a Rc<RefCell<DataContainerRefMut<'a>>>,
+    ) -> Self {
+        StaticArrayFieldRefMut(property_path, data_container.clone(), PhantomData)
+    }
+}
+
+impl<'a, T: FieldRefMut<'a>> StaticArrayFieldRefMut<'a, T> {
+    pub fn resolve_entries(&self) -> DataSetResult<Box<[Uuid]>> {
+        self.1.borrow_mut().resolve_dynamic_array_entries(self.0.path())
+    }
+
+    pub fn entry(
+        &'a self,
+        index: usize,
+    ) -> T {
+        T::new(self.0.push(&index.to_string()), &self.1)
+    }
+}
+
+pub struct StaticArrayField<T: Field>(
+    pub PropertyPath,
+    Rc<RefCell<Option<DataContainer>>>,
+    PhantomData<T>,
+);
+
+impl<'a, T: Field> Field for StaticArrayField<T> {
+    fn new(
+        property_path: PropertyPath,
+        data_container: &Rc<RefCell<Option<DataContainer>>>,
+    ) -> Self {
+        StaticArrayField(property_path, data_container.clone(), PhantomData)
+    }
+}
+
+impl<'a, T: Field> StaticArrayField<T> {
+    pub fn resolve_entries(&self) -> DataSetResult<Box<[Uuid]>> {
+        self.1
+            .borrow_mut()
+            .as_mut()
+            .ok_or(DataSetError::DataTaken)?
+            .resolve_dynamic_array_entries(self.0.path())
+    }
+
+    pub fn entry(
+        &'a self,
+        index: usize,
+    ) -> T {
+        T::new(self.0.push(&index.to_string()), &self.1)
+    }
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 pub struct DynamicArrayFieldAccessor<T: FieldAccessor>(pub PropertyPath, PhantomData<T>);
 
 impl<T: FieldAccessor> FieldAccessor for DynamicArrayFieldAccessor<T> {
@@ -1603,6 +1744,14 @@ impl<T: FieldAccessor> DynamicArrayFieldAccessor<T> {
         data_container: &mut DataContainerRefMut,
     ) -> DataSetResult<Uuid> {
         data_container.add_dynamic_array_entry(self.0.path())
+    }
+
+    pub fn remove_entry(
+        &self,
+        data_container: &mut DataContainerRefMut,
+        entry_id: Uuid
+    ) -> DataSetResult<bool> {
+        data_container.remove_dynamic_array_entry(self.0.path(), entry_id)
     }
 }
 
@@ -1666,6 +1815,12 @@ impl<'a, T: FieldRefMut<'a>> DynamicArrayFieldRefMut<'a, T> {
             .borrow_mut()
             .add_dynamic_array_entry(self.0.path())
     }
+
+    pub fn remove_entry(&self, entry_id: Uuid) -> DataSetResult<bool> {
+        self.1
+            .borrow_mut()
+            .remove_dynamic_array_entry(self.0.path(), entry_id)
+    }
 }
 
 pub struct DynamicArrayField<T: Field>(
@@ -1706,7 +1861,228 @@ impl<'a, T: Field> DynamicArrayField<T> {
             .ok_or(DataSetError::DataTaken)?
             .add_dynamic_array_entry(self.0.path())
     }
+
+    pub fn remove_entry(&self, entry_id: Uuid) -> DataSetResult<bool> {
+        self.1
+            .borrow_mut()
+            .as_mut()
+            .ok_or(DataSetError::DataTaken)?
+            .remove_dynamic_array_entry(self.0.path(), entry_id)
+    }
 }
+
+
+
+
+
+
+
+
+
+
+
+pub struct MapFieldAccessor<KeyT: FieldAccessor, ValueT: FieldAccessor>(pub PropertyPath, PhantomData<(KeyT, ValueT)>);
+
+impl<KeyT: FieldAccessor, ValueT: FieldAccessor> FieldAccessor for MapFieldAccessor<KeyT, ValueT> {
+    fn new(property_path: PropertyPath) -> Self {
+        MapFieldAccessor(property_path, PhantomData::default())
+    }
+}
+
+impl<KeyT: FieldAccessor, ValueT: FieldAccessor> MapFieldAccessor<KeyT, ValueT> {
+    pub fn resolve_entries(
+        &self,
+        data_container: DataContainerRef,
+    ) -> DataSetResult<Box<[Uuid]>> {
+        data_container.resolve_map_entries(self.0.path())
+    }
+
+    pub fn key(
+        &self,
+        entry_uuid: Uuid,
+    ) -> KeyT {
+        KeyT::new(self.0.push(&entry_uuid.to_string()))
+    }
+
+    pub fn value(
+        &self,
+        entry_uuid: Uuid,
+    ) -> ValueT {
+        ValueT::new(self.0.push(&entry_uuid.to_string()))
+    }
+
+    pub fn add_entry(
+        &self,
+        data_container: &mut DataContainerRefMut,
+    ) -> DataSetResult<Uuid> {
+        data_container.add_map_entry(self.0.path())
+    }
+
+    pub fn remove_entry(
+        &self,
+        data_container: &mut DataContainerRefMut,
+        entry_id: Uuid
+    ) -> DataSetResult<bool> {
+        data_container.remove_map_entry(self.0.path(), entry_id)
+    }
+}
+
+pub struct MapFieldRef<'a, KeyT: FieldRef<'a>, ValueT: FieldRef<'a>>(
+    pub PropertyPath,
+    DataContainerRef<'a>,
+    PhantomData<(KeyT, ValueT)>,
+);
+
+impl<'a, KeyT: FieldRef<'a>, ValueT: FieldRef<'a>> FieldRef<'a> for MapFieldRef<'a, KeyT, ValueT> {
+    fn new(
+        property_path: PropertyPath,
+        data_container: DataContainerRef<'a>,
+    ) -> Self {
+        MapFieldRef(property_path, data_container, PhantomData)
+    }
+}
+
+impl<'a, KeyT: FieldRef<'a>, ValueT: FieldRef<'a>> MapFieldRef<'a, KeyT, ValueT> {
+    pub fn resolve_entries(&self) -> DataSetResult<Box<[Uuid]>> {
+        self.1.resolve_map_entries(self.0.path())
+    }
+
+    pub fn key(
+        &self,
+        entry_uuid: Uuid,
+    ) -> KeyT {
+        KeyT::new(self.0.push(&entry_uuid.to_string()), self.1.clone())
+    }
+
+    pub fn value(
+        &self,
+        entry_uuid: Uuid,
+    ) -> ValueT {
+        ValueT::new(self.0.push(&entry_uuid.to_string()), self.1.clone())
+    }
+}
+
+pub struct MapFieldRefMut<'a, KeyT: FieldRefMut<'a>, ValueT: FieldRefMut<'a>>(
+    pub PropertyPath,
+    Rc<RefCell<DataContainerRefMut<'a>>>,
+    PhantomData<(KeyT, ValueT)>,
+);
+
+impl<'a, KeyT: FieldRefMut<'a>, ValueT: FieldRefMut<'a>> FieldRefMut<'a> for MapFieldRefMut<'a, KeyT, ValueT> {
+    fn new(
+        property_path: PropertyPath,
+        data_container: &'a Rc<RefCell<DataContainerRefMut<'a>>>,
+    ) -> Self {
+        MapFieldRefMut(property_path, data_container.clone(), PhantomData)
+    }
+}
+
+impl<'a, KeyT: FieldRefMut<'a>, ValueT: FieldRefMut<'a>> MapFieldRefMut<'a, KeyT, ValueT> {
+    pub fn resolve_entries(&self) -> DataSetResult<Box<[Uuid]>> {
+        self.1.borrow_mut().resolve_map_entries(self.0.path())
+    }
+
+    pub fn key(
+        &'a self,
+        entry_uuid: Uuid,
+    ) -> KeyT {
+        KeyT::new(self.0.push(&entry_uuid.to_string()), &self.1)
+    }
+
+    pub fn value(
+        &'a self,
+        entry_uuid: Uuid,
+    ) -> ValueT {
+        ValueT::new(self.0.push(&entry_uuid.to_string()), &self.1)
+    }
+
+    pub fn add_entry(&self) -> DataSetResult<Uuid> {
+        self.1
+            .borrow_mut()
+            .add_map_entry(self.0.path())
+    }
+
+    pub fn remove_entry(&self, entry_id: Uuid) -> DataSetResult<bool> {
+        self.1
+            .borrow_mut()
+            .remove_map_entry(self.0.path(), entry_id)
+    }
+}
+
+pub struct MapField<KeyT: Field, ValueT: Field>(
+    pub PropertyPath,
+    Rc<RefCell<Option<DataContainer>>>,
+    PhantomData<(KeyT, ValueT)>,
+);
+
+impl<'a, KeyT: Field, ValueT: Field> Field for MapField<KeyT, ValueT> {
+    fn new(
+        property_path: PropertyPath,
+        data_container: &Rc<RefCell<Option<DataContainer>>>,
+    ) -> Self {
+        MapField(property_path, data_container.clone(), PhantomData)
+    }
+}
+
+impl<'a, KeyT: Field, ValueT: Field> MapField<KeyT, ValueT> {
+    pub fn resolve_entries(&self) -> DataSetResult<Box<[Uuid]>> {
+        self.1
+            .borrow_mut()
+            .as_mut()
+            .ok_or(DataSetError::DataTaken)?
+            .resolve_map_entries(self.0.path())
+    }
+
+    pub fn key(
+        &'a self,
+        entry_uuid: Uuid,
+    ) -> KeyT {
+        KeyT::new(self.0.push(&entry_uuid.to_string()), &self.1)
+    }
+
+    pub fn value(
+        &'a self,
+        entry_uuid: Uuid,
+    ) -> ValueT {
+        ValueT::new(self.0.push(&entry_uuid.to_string()), &self.1)
+    }
+
+    pub fn add_entry(&self) -> DataSetResult<Uuid> {
+        self.1
+            .borrow_mut()
+            .as_mut()
+            .ok_or(DataSetError::DataTaken)?
+            .add_map_entry(self.0.path())
+    }
+
+    pub fn remove_entry(&self, entry_id: Uuid) -> DataSetResult<bool> {
+        self.1
+            .borrow_mut()
+            .as_mut()
+            .ok_or(DataSetError::DataTaken)?
+            .remove_map_entry(self.0.path(), entry_id)
+    }
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 pub struct AssetRefFieldAccessor(pub PropertyPath);
 

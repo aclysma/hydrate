@@ -4,11 +4,6 @@ use std::sync::Arc;
 use uuid::Uuid;
 
 trait DataContainerRead {
-    fn resolve_property(
-        &self,
-        path: impl AsRef<str>,
-    ) -> DataSetResult<&Value>;
-
     fn get_null_override(
         &self,
         path: impl AsRef<str>,
@@ -18,6 +13,21 @@ trait DataContainerRead {
         &self,
         path: impl AsRef<str>,
     ) -> DataSetResult<NullOverride>;
+
+    // get_property_override
+
+    fn resolve_property(
+        &self,
+        path: impl AsRef<str>,
+    ) -> DataSetResult<&Value>;
+
+    //get_dynamic_array_entries
+    //get_map_entries
+    //add_dynamic_array_entry
+    //add_map_entry
+    //insert_dynamic_array_entry
+    //remove_dynamic_array_entry
+    //remove_map_entry
 
     fn resolve_dynamic_array_entries(
         &self,
@@ -33,27 +43,30 @@ trait DataContainerRead {
         &self,
         path: impl AsRef<str>,
     ) -> DataSetResult<OverrideBehavior>;
+
+    //read_properties_bundle
 }
 
 trait DataContainerWrite {
+    //get_null_override
     fn set_null_override(
         &mut self,
         path: impl AsRef<str>,
         null_override: NullOverride,
     ) -> DataSetResult<()>;
+    //resolve_null_override
 
+    //get_property_override
     fn set_property_override(
         &mut self,
         path: impl AsRef<str>,
         value: Option<Value>,
     ) -> DataSetResult<Option<Value>>;
+    //resolve_property
 
-    fn set_override_behavior(
-        &mut self,
-        path: impl AsRef<str>,
-        behavior: OverrideBehavior,
-    ) -> DataSetResult<()>;
 
+    //get_dynamic_array_entries
+    //get_map_entries
     fn add_dynamic_array_entry(
         &mut self,
         path: impl AsRef<str>,
@@ -63,6 +76,16 @@ trait DataContainerWrite {
         &mut self,
         path: impl AsRef<str>,
     ) -> DataSetResult<Uuid>;
+    //insert_dynamic_array_entry
+    //remove_dynamic_array_entry
+    //remove_map_entry
+
+    //get_override_behavior
+    fn set_override_behavior(
+        &mut self,
+        path: impl AsRef<str>,
+        behavior: OverrideBehavior,
+    ) -> DataSetResult<()>;
 }
 
 /// Provides a read-only view into a DataSet or SingleObject. A schema can be used to write into
@@ -343,34 +366,6 @@ impl<'a> DataContainerRefMut<'a> {
         self.read().get_override_behavior(path)
     }
 
-    pub fn set_property_override(
-        &mut self,
-        path: impl AsRef<str>,
-        value: Option<Value>,
-    ) -> DataSetResult<Option<Value>> {
-        match self {
-            DataContainerRefMut::DataSet(data_set, schema_set, asset_id) => {
-                data_set.set_property_override(schema_set, *asset_id, path, value)
-            }
-            DataContainerRefMut::SingleObject(single_object, schema_set) => {
-                single_object.set_property_override(schema_set, path, value)
-            }
-        }
-    }
-
-    pub fn set_override_behavior(
-        &mut self,
-        path: impl AsRef<str>,
-        behavior: OverrideBehavior,
-    ) -> DataSetResult<()> {
-        match self {
-            DataContainerRefMut::DataSet(data_set, schema_set, asset_id) => {
-                data_set.set_override_behavior(schema_set, *asset_id, path, behavior)
-            }
-            DataContainerRefMut::SingleObject(_, _) => Ok(()),
-        }
-    }
-
     pub fn add_dynamic_array_entry(
         &mut self,
         path: impl AsRef<str>,
@@ -396,6 +391,64 @@ impl<'a> DataContainerRefMut<'a> {
             DataContainerRefMut::SingleObject(single_object, schema_set) => {
                 single_object.add_map_entry(schema_set, path)
             }
+        }
+    }
+
+    pub fn remove_dynamic_array_entry(
+        &mut self,
+        path: impl AsRef<str>,
+        entry_id: Uuid
+    ) -> DataSetResult<bool> {
+        match self {
+            DataContainerRefMut::DataSet(data_set, schema_set, asset_id) => {
+                data_set.remove_dynamic_array_entry(schema_set, *asset_id, path, entry_id)
+            }
+            DataContainerRefMut::SingleObject(single_object, schema_set) => {
+                single_object.remove_dynamic_array_entry(schema_set, path, entry_id)
+            }
+        }
+    }
+
+    pub fn remove_map_entry(
+        &mut self,
+        path: impl AsRef<str>,
+        entry_id: Uuid
+    ) -> DataSetResult<bool> {
+        match self {
+            DataContainerRefMut::DataSet(data_set, schema_set, asset_id) => {
+                data_set.remove_map_entry(schema_set, *asset_id, path, entry_id)
+            }
+            DataContainerRefMut::SingleObject(single_object, schema_set) => {
+                single_object.remove_map_entry(schema_set, path, entry_id)
+            }
+        }
+    }
+
+    pub fn set_property_override(
+        &mut self,
+        path: impl AsRef<str>,
+        value: Option<Value>,
+    ) -> DataSetResult<Option<Value>> {
+        match self {
+            DataContainerRefMut::DataSet(data_set, schema_set, asset_id) => {
+                data_set.set_property_override(schema_set, *asset_id, path, value)
+            }
+            DataContainerRefMut::SingleObject(single_object, schema_set) => {
+                single_object.set_property_override(schema_set, path, value)
+            }
+        }
+    }
+
+    pub fn set_override_behavior(
+        &mut self,
+        path: impl AsRef<str>,
+        behavior: OverrideBehavior,
+    ) -> DataSetResult<()> {
+        match self {
+            DataContainerRefMut::DataSet(data_set, schema_set, asset_id) => {
+                data_set.set_override_behavior(schema_set, *asset_id, path, behavior)
+            }
+            DataContainerRefMut::SingleObject(_, _) => Ok(()),
         }
     }
 }
@@ -568,13 +621,6 @@ impl DataContainer {
         self.read().resolve_map_entries(path)
     }
 
-    pub fn get_override_behavior(
-        &self,
-        path: impl AsRef<str>,
-    ) -> DataSetResult<OverrideBehavior> {
-        self.read().get_override_behavior(path)
-    }
-
     pub fn set_property_override(
         &mut self,
         path: impl AsRef<str>,
@@ -584,16 +630,6 @@ impl DataContainer {
             DataContainer::SingleObject(single_object, schema_set) => {
                 single_object.set_property_override(schema_set, path, value)
             }
-        }
-    }
-
-    pub fn set_override_behavior(
-        &mut self,
-        _path: impl AsRef<str>,
-        _behavior: OverrideBehavior,
-    ) -> DataSetResult<()> {
-        match self {
-            DataContainer::SingleObject(_, _) => Ok(()),
         }
     }
 
@@ -616,6 +652,47 @@ impl DataContainer {
             DataContainer::SingleObject(single_object, schema_set) => {
                 single_object.add_map_entry(schema_set, path)
             }
+        }
+    }
+
+    pub fn remove_dynamic_array_entry(
+        &mut self,
+        path: impl AsRef<str>,
+        element_id: Uuid,
+    ) -> DataSetResult<bool> {
+        match self {
+            DataContainer::SingleObject(single_object, schema_set) => {
+                single_object.remove_dynamic_array_entry(schema_set, path, element_id)
+            }
+        }
+    }
+
+    pub fn remove_map_entry(
+        &mut self,
+        path: impl AsRef<str>,
+        element_id: Uuid,
+    ) -> DataSetResult<bool> {
+        match self {
+            DataContainer::SingleObject(single_object, schema_set) => {
+                single_object.remove_map_entry(schema_set, path, element_id)
+            }
+        }
+    }
+
+    pub fn get_override_behavior(
+        &self,
+        path: impl AsRef<str>,
+    ) -> DataSetResult<OverrideBehavior> {
+        self.read().get_override_behavior(path)
+    }
+
+    pub fn set_override_behavior(
+        &mut self,
+        _path: impl AsRef<str>,
+        _behavior: OverrideBehavior,
+    ) -> DataSetResult<()> {
+        match self {
+            DataContainer::SingleObject(_, _) => Ok(()),
         }
     }
 }

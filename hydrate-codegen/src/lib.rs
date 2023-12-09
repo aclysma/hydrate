@@ -176,14 +176,21 @@ fn field_schema_to_field_type(
         Schema::U64 => "U64FieldAccessor".to_string(),
         Schema::F32 => "F32FieldAccessor".to_string(),
         Schema::F64 => "F64FieldAccessor".to_string(),
-        Schema::Bytes => "BytesFieldAccessor".to_string(), //return None,//"Vec<u8>".to_string(),
+        Schema::Bytes => "BytesFieldAccessor".to_string(),
         Schema::String => "StringFieldAccessor".to_string(),
-        Schema::StaticArray(_x) => unimplemented!(), //return None,//format!("[{}; {}]", field_schema_to_rust_type(schema_set, x.item_type()), x.length()),
+        Schema::StaticArray(x) => format!(
+            "StaticArrayFieldAccessor::<{}>",
+            field_schema_to_field_type(schema_set, x.item_type())?
+        ),
         Schema::DynamicArray(x) => format!(
             "DynamicArrayFieldAccessor::<{}>",
             field_schema_to_field_type(schema_set, x.item_type())?
-        ), //return None,//format!("Vec<{}>", field_schema_to_rust_type(schema_set, x.item_type())),
-        Schema::Map(_x) => unimplemented!(), // return None,//format!("HashMap<{}, {}>", field_schema_to_rust_type(schema_set, x.key_type()), field_schema_to_rust_type(schema_set, x.value_type())),
+        ),
+        Schema::Map(x) => format!(
+            "MapFieldAccessor::<{}, {}>",
+            field_schema_to_field_type(schema_set, x.key_type())?,
+            field_schema_to_field_type(schema_set, x.value_type())?
+        ),
         Schema::AssetRef(_x) => "AssetRefFieldAccessor".to_string(),
         Schema::Record(x) | Schema::Enum(x) => {
             let inner_type = schema_set.find_named_type_by_fingerprint(*x).unwrap();
@@ -262,14 +269,21 @@ fn field_schema_to_reader_type(
         Schema::U64 => "U64FieldRef".to_string(),
         Schema::F32 => "F32FieldRef".to_string(),
         Schema::F64 => "F64FieldRef".to_string(),
-        Schema::Bytes => "BytesFieldRef".to_string(), //return None,//"Vec<u8>".to_string(),
+        Schema::Bytes => "BytesFieldRef".to_string(),
         Schema::String => "StringFieldRef".to_string(),
-        Schema::StaticArray(_x) => unimplemented!(), //return None,//format!("[{}; {}]", field_schema_to_rust_type(schema_set, x.item_type()), x.length()),
+        Schema::StaticArray(x) => format!(
+            "StaticArrayFieldRef::<{}>",
+            field_schema_to_reader_type(schema_set, x.item_type())?
+        ),
         Schema::DynamicArray(x) => format!(
             "DynamicArrayFieldRef::<{}>",
             field_schema_to_reader_type(schema_set, x.item_type())?
-        ), //return None,//format!("Vec<{}>", field_schema_to_rust_type(schema_set, x.item_type())),
-        Schema::Map(_x) => unimplemented!(), // return None,//format!("HashMap<{}, {}>", field_schema_to_rust_type(schema_set, x.key_type()), field_schema_to_rust_type(schema_set, x.value_type())),
+        ),
+        Schema::Map(x) => format!(
+            "MapFieldRef::<{}, {}>",
+            field_schema_to_reader_type(schema_set, x.key_type())?,
+            field_schema_to_reader_type(schema_set, x.value_type())?
+        ),
         Schema::AssetRef(_x) => "AssetRefFieldRef".to_string(),
         Schema::Record(x) | Schema::Enum(x) => {
             let inner_type = schema_set.find_named_type_by_fingerprint(*x).unwrap();
@@ -355,14 +369,21 @@ fn field_schema_to_writer_type(
         Schema::U64 => "U64FieldRefMut".to_string(),
         Schema::F32 => "F32FieldRefMut".to_string(),
         Schema::F64 => "F64FieldRefMut".to_string(),
-        Schema::Bytes => "BytesFieldRefMut".to_string(), //return None,//"Vec<u8>".to_string(),
+        Schema::Bytes => "BytesFieldRefMut".to_string(),
         Schema::String => "StringFieldRefMut".to_string(),
-        Schema::StaticArray(_x) => unimplemented!(), //return None,//format!("[{}; {}]", field_schema_to_rust_type(schema_set, x.item_type()), x.length()),
+        Schema::StaticArray(x) => format!(
+            "StaticArrayFieldRefMut::<{}>",
+            field_schema_to_writer_type(schema_set, x.item_type())?
+        ),
         Schema::DynamicArray(x) => format!(
             "DynamicArrayFieldRefMut::<{}>",
             field_schema_to_writer_type(schema_set, x.item_type())?
-        ), //return None,//format!("Vec<{}>", field_schema_to_rust_type(schema_set, x.item_type())),
-        Schema::Map(_x) => unimplemented!(), // return None,//format!("HashMap<{}, {}>", field_schema_to_rust_type(schema_set, x.key_type()), field_schema_to_rust_type(schema_set, x.value_type())),
+        ),
+        Schema::Map(x) => format!(
+            "MapFieldRefMut::<{}, {}>",
+            field_schema_to_writer_type(schema_set, x.key_type())?,
+            field_schema_to_writer_type(schema_set, x.value_type())?
+        ),
         Schema::AssetRef(_x) => "AssetRefFieldRefMut".to_string(),
         Schema::Record(x) | Schema::Enum(x) => {
             let inner_type = schema_set.find_named_type_by_fingerprint(*x).unwrap();
@@ -449,14 +470,21 @@ fn field_schema_to_owned_type(
         Schema::U64 => "U64Field".to_string(),
         Schema::F32 => "F32Field".to_string(),
         Schema::F64 => "F64Field".to_string(),
-        Schema::Bytes => "BytesField".to_string(), //return None,//"Vec<u8>".to_string(),
+        Schema::Bytes => "BytesField".to_string(),
         Schema::String => "StringField".to_string(),
-        Schema::StaticArray(_x) => unimplemented!(), //return None,//format!("[{}; {}]", field_schema_to_rust_type(schema_set, x.item_type()), x.length()),
+        Schema::StaticArray(x) => format!(
+            "StaticArrayField::<{}>",
+            field_schema_to_owned_type(schema_set, x.item_type())?
+        ),
         Schema::DynamicArray(x) => format!(
             "DynamicArrayField::<{}>",
             field_schema_to_owned_type(schema_set, x.item_type())?
-        ), //return None,//format!("Vec<{}>", field_schema_to_rust_type(schema_set, x.item_type())),
-        Schema::Map(_x) => unimplemented!(), // return None,//format!("HashMap<{}, {}>", field_schema_to_rust_type(schema_set, x.key_type()), field_schema_to_rust_type(schema_set, x.value_type())),
+        ),
+        Schema::Map(x) => format!(
+            "MapField::<{}, {}>",
+            field_schema_to_owned_type(schema_set, x.key_type())?,
+            field_schema_to_owned_type(schema_set, x.value_type())?,
+        ),
         Schema::AssetRef(_x) => "AssetRefField".to_string(),
         Schema::Record(x) | Schema::Enum(x) => {
             let inner_type = schema_set.find_named_type_by_fingerprint(*x).unwrap();

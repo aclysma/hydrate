@@ -216,11 +216,9 @@ impl RecordInspector for ColorRgbaU8RecordInspector {
     }
 }
 
-pub fn create_registry(schema_set: &SchemaSet) -> InspectorRegistry {
-    let mut inspector_registry = InspectorRegistry::default();
+pub fn register_inspectors(schema_set: &SchemaSet, inspector_registry: &mut InspectorRegistry) {
     inspector_registry.register_inspector::<Vec3Record>(schema_set, Vec3RecordInspector);
     inspector_registry.register_inspector::<Vec4Record>(schema_set, Vec4RecordInspector);
     inspector_registry
         .register_inspector::<ColorRgbaU8Record>(schema_set, ColorRgbaU8RecordInspector);
-    inspector_registry
 }

@@ -1,10 +1,11 @@
-use hydrate_model::{
+use hydrate_data::{
     Schema, SchemaEnum, SchemaNamedType, SchemaRecord, SchemaSet, SchemaSetBuilder,
 };
 use std::error::Error;
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use structopt::StructOpt;
+use hydrate_pipeline::HydrateProjectConfiguration;
 
 //
 // TODO: Validation code - we should have a fn on generated types to verify they are registered in the schema and match
@@ -14,18 +15,55 @@ use structopt::StructOpt;
 
 #[derive(StructOpt, Debug)]
 pub struct HydrateCodegenArgs {
+    // If no options are provided, we will run all jobs in hydrate_project.json
+
+    // If a job name is specified, we will look for the job in a hydrate_project.json
+    #[structopt(name = "job-name", long)]
+    pub job_name: Option<String>,
+
+    // If schema_path and outfile are used, we will consume that input file and write to the output file
     #[structopt(name = "schema-path", long, parse(from_os_str))]
-    pub schema_path: PathBuf,
+    pub schema_path: Option<PathBuf>,
+    #[structopt(name = "outfile", long, parse(from_os_str))]
+    pub outfile: Option<PathBuf>,
     #[structopt(name = "included-schema", long, parse(from_os_str))]
     pub included_schema: Vec<PathBuf>,
-    #[structopt(name = "outfile", long, parse(from_os_str))]
-    pub outfile: PathBuf,
+
     #[structopt(name = "trace", long)]
     pub trace: bool,
 }
 
 pub fn run(args: &HydrateCodegenArgs) -> Result<(), Box<dyn Error>> {
-    schema_to_rs(&args.schema_path, &args.included_schema, &args.outfile)
+    if args.schema_path.is_some() && args.outfile.is_some() {
+        return schema_to_rs(args.schema_path.as_ref().unwrap(), &args.included_schema, args.outfile.as_ref().unwrap());
+    }
+
+    if args.schema_path.is_some() != args.outfile.is_some() {
+        Err("--schema-path and --outfile both must be provided if either is provided")?;
+    }
+
+    // find the hydrate project file
+    let project_configuration = HydrateProjectConfiguration::locate_project_file(&PathBuf::from(env!("CARGO_MANIFEST_DIR"))).unwrap();
+
+    // If a job was specified, just run that job or error if it wasn't found
+    if let Some(job_name) = &args.job_name {
+        for schema_codegen_job in &project_configuration.schema_codegen_jobs {
+            if schema_codegen_job.name == *job_name {
+                log::info!("Run schema codegen job {}", &schema_codegen_job.name);
+                return schema_to_rs(&schema_codegen_job.schema_path, &schema_codegen_job.included_schema_paths, &schema_codegen_job.outfile);
+            }
+        }
+
+        Err("Could not find codegen job {} in hydrate_project.json")?;
+    }
+
+    // If nothing was specified run all schema codegen jobs
+    for schema_codegen_job in &project_configuration.schema_codegen_jobs {
+        log::info!("Run schema codegen job {}", &schema_codegen_job.name);
+        schema_to_rs(&schema_codegen_job.schema_path, &schema_codegen_job.included_schema_paths, &schema_codegen_job.outfile)?
+    }
+
+    Ok(())
 }
 
 fn schema_to_rs(
@@ -33,7 +71,7 @@ fn schema_to_rs(
     referenced_schema_paths: &[PathBuf],
     outfile: &Path,
 ) -> Result<(), Box<dyn Error>> {
-    let mut linker = hydrate_model::SchemaLinker::default();
+    let mut linker = hydrate_data::SchemaLinker::default();
     linker
         .add_source_dir(&schema_path, "**.json")
         .map_err(|x| Box::new(x))?;

@@ -312,7 +312,7 @@ impl CachedSchema {
 
 /// Handles saving and loading a schema cache, an immutable repository of all schemas that have ever
 /// existed.
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Default)]
 pub struct SchemaCacheSingleFile {
     cached_schemas: Vec<CachedSchemaNamedType>,
 }

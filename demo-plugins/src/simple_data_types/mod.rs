@@ -67,7 +67,6 @@ pub struct SimpleDataAssetPlugin;
 
 impl AssetPlugin for SimpleDataAssetPlugin {
     fn setup(
-        _schema_linker: &mut SchemaLinker,
         _importer_registry: &mut ImporterRegistryBuilder,
         builder_registry: &mut BuilderRegistryBuilder,
         job_processor_registry: &mut JobProcessorRegistryBuilder,

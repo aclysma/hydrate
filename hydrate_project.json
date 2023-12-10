@@ -1,0 +1,35 @@
+{
+  "schema_def_paths": [
+    "demo-editor/data/schema"
+  ],
+  "schema_cache_file_path": "demo-editor/data/schema_cache.json",
+  "import_data_path": "demo-editor/data/import_data",
+  "build_data_path": "demo-editor/data/build_data",
+  "job_data_path": "demo-editor/data/job_data",
+  "id_based_asset_sources": [
+    {
+      "name": "vault",
+      "path": "demo-editor/data/assets_id_based"
+    }
+  ],
+  "path_based_asset_sources": [
+    {
+      "name": "assets",
+      "path": "demo-editor/data/assets_path_based"
+    }
+  ],
+  "source_file_locations": [
+    {
+      "name": "art",
+      "path": "demo-editor/data/art"
+    }
+  ],
+  "schema_codegen_jobs": [
+    {
+      "name": "demo",
+      "schema_path": "demo-editor/data/schema",
+      "included_schema_paths": [],
+      "outfile": "demo-plugins/src/generated.rs"
+    }
+  ]
+}

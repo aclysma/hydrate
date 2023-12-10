@@ -34,27 +34,29 @@ pub mod import_util;
 mod import_storage;
 mod pipeline_error;
 
+mod project;
+pub use project::{HydrateProjectConfiguration, NamePathPair};
+
 use crate::import_util::RequestedImportable;
 pub use pipeline_error::*;
 
 pub trait AssetPlugin {
     fn setup(
-        schema_linker: &mut SchemaLinker,
         importer_registry: &mut ImporterRegistryBuilder,
         builder_registry: &mut BuilderRegistryBuilder,
         job_processor_registry: &mut JobProcessorRegistryBuilder,
     );
 }
 
-pub struct AssetPluginRegistrationHelper {
+pub struct AssetPluginRegistry {
     importer_registry: ImporterRegistryBuilder,
     builder_registry: BuilderRegistryBuilder,
     job_processor_registry: JobProcessorRegistryBuilder,
 }
 
-impl AssetPluginRegistrationHelper {
+impl AssetPluginRegistry {
     pub fn new() -> Self {
-        AssetPluginRegistrationHelper {
+        AssetPluginRegistry {
             importer_registry: Default::default(),
             builder_registry: Default::default(),
             job_processor_registry: Default::default(),
@@ -63,10 +65,8 @@ impl AssetPluginRegistrationHelper {
 
     pub fn register_plugin<T: AssetPlugin>(
         mut self,
-        schema_linker: &mut SchemaLinker,
     ) -> Self {
         T::setup(
-            schema_linker,
             &mut self.importer_registry,
             &mut self.builder_registry,
             &mut self.job_processor_registry,
@@ -139,25 +139,20 @@ impl AssetEngine {
         builder_registry: BuilderRegistry,
         job_processor_registry: JobProcessorRegistry,
         editor_model: &dyn DynEditorModel,
-        import_data_root_path: PathBuf,
-        job_data_path: PathBuf,
-        build_data_path: PathBuf,
+        project_configuration: &HydrateProjectConfiguration
     ) -> Self {
-        let import_data_root_path = dunce::canonicalize(&import_data_root_path).unwrap();
-        let job_data_path = dunce::canonicalize(&job_data_path).unwrap();
-        let build_data_path = dunce::canonicalize(&build_data_path).unwrap();
         let import_jobs = ImportJobs::new(
             &importer_registry,
             editor_model,
-            &import_data_root_path, /*DbState::import_data_source_path()*/
+            &project_configuration.import_data_path,
         );
 
         let build_jobs = BuildJobs::new(
             schema_set,
             &job_processor_registry,
-            import_data_root_path,
-            job_data_path,
-            build_data_path,
+            project_configuration.import_data_path.clone(),
+            project_configuration.job_data_path.clone(),
+            project_configuration.build_data_path.clone(),
         );
 
         //TODO: Consider looking at disk to determine previous combined build hash so we don't for a rebuild every time we open

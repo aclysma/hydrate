@@ -88,9 +88,7 @@ impl DiskAssetIOWorkerThread {
                                 let mut reader = std::fs::File::open(&path).unwrap();
                                 let _header_data = hydrate_base::BuiltArtifactHeaderData::read_header(&mut reader).unwrap();
 
-                                let mut bytes = Vec::new();
                                 use std::io::Read;
-                                reader.read_to_end(&mut bytes).unwrap();
 
                                 let mut reader = std::fs::File::open(path).unwrap();
                                 let mut length_bytes = [0u8; 8];

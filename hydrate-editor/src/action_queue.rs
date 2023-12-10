@@ -190,7 +190,7 @@ impl UIActionQueueReceiver {
                 }
                 UIAction::ForceRebuild(asset_ids) => {
                     for asset_id in asset_ids {
-                        asset_engine.queue_build_operation(asset_id)
+                        asset_engine.queue_build_asset(asset_id)
                     }
                 }
                 UIAction::ShowAssetInAssetGallery(asset_id) => {

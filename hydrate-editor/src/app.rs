@@ -169,12 +169,28 @@ impl eframe::App for HydrateEditorApp {
                     let text = format!("Importing {}/{} assets", import_state.completed_job_count, import_state.total_job_count);
                     ui.add(egui::ProgressBar::new(import_state.completed_job_count as f32 / import_state.total_job_count as f32).text(text));
                 },
-                AssetEngineState::Building => {
-                    ui.add(egui::ProgressBar::new(0.5).text("building X/X assets"));
+                AssetEngineState::Building(build_state) => {
+                    let text = format!("Building {}/{} assets", build_state.completed_job_count, build_state.total_job_count);
+                    ui.add(egui::ProgressBar::new(build_state.completed_job_count as f32 / build_state.total_job_count as f32).text(text));
 
                 }
                 AssetEngineState::Idle => {
-                    ui.label("Ready");
+                    ui.horizontal(|ui| {
+                        ui.label("Ready");
+
+                        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                            //let needs_build = self.asset_engine.needs_build();
+                            let needs_build = true;
+                            if ui.add_enabled(needs_build, egui::Button::new("Build")).clicked() {
+                                self.asset_engine.queue_build_all();
+                            }
+                        });
+
+                        // ui.layout(egui::Layout::right_to_left(egui::Align::TOP))
+                        //
+                        // ui.label("Ready");
+                        // ui.separator();
+                    });
                 }
             }
         });

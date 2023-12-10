@@ -344,7 +344,7 @@ pub struct JobExecutor {
     thread_pool_result_rx: Receiver<JobExecutorThreadPoolOutcome>,
     thread_pool: Option<JobExecutorThreadPool>,
 
-    completed_job_count: u32,
+    completed_job_count: usize,
     last_job_print_time: Option<std::time::Instant>,
 }
 
@@ -356,6 +356,13 @@ impl Drop for JobExecutor {
 }
 
 impl JobExecutor {
+
+    pub fn reset(&mut self) {
+        assert!(self.is_idle());
+        self.current_jobs.clear();
+        self.completed_job_count = 0;
+    }
+
     pub fn new(
         schema_set: &SchemaSet,
         job_processor_registry: &JobProcessorRegistry,
@@ -636,6 +643,14 @@ impl JobExecutor {
             );
             self.last_job_print_time = Some(now);
         }
+    }
+
+    pub fn completed_job_count(&self) -> usize {
+        self.completed_job_count
+    }
+
+    pub fn current_job_count(&self) -> usize {
+        self.current_jobs.len()
     }
 
     pub fn stop(&mut self) {

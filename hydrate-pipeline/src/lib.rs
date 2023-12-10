@@ -122,7 +122,7 @@ pub trait DynEditContext {
 pub enum AssetEngineState {
     Idle,
     Importing(ImportStatusImporting),
-    Building
+    Building(BuildStatusBuilding),
 }
 
 pub struct AssetEngine {
@@ -130,8 +130,6 @@ pub struct AssetEngine {
     import_jobs: ImportJobs,
     builder_registry: BuilderRegistry,
     build_jobs: BuildJobs,
-
-    previous_combined_build_hash: Option<u64>,
 }
 
 impl AssetEngine {
@@ -169,7 +167,6 @@ impl AssetEngine {
             import_jobs,
             builder_registry,
             build_jobs,
-            previous_combined_build_hash: None,
         }
     }
 
@@ -204,60 +201,25 @@ impl AssetEngine {
         }
 
         //
-        // If we don't have any pending import jobs, and we don't have a build in-flight, and
-        // something has been changed since the last build, we can start a build now. We need to
-        // first store the hashes of everything that will potentially go into the build.
-        //
-        let mut combined_build_hash = 0;
-        let mut object_hashes = HashMap::default();
-        for (asset_id, object) in editor_model.data_set().assets() {
-            let hash = editor_model.data_set().hash_properties(*asset_id).unwrap();
-
-            if !editor_model.is_path_node_or_root(object.schema()) {
-                object_hashes.insert(*asset_id, hash);
-            }
-
-            let mut inner_hasher = siphasher::sip::SipHasher::default();
-            asset_id.hash(&mut inner_hasher);
-            hash.hash(&mut inner_hasher);
-            combined_build_hash = combined_build_hash ^ inner_hasher.finish();
-        }
-
-        let import_data_metadata_hashes = self.import_jobs.clone_import_data_metadata_hashes();
-        for (k, v) in &import_data_metadata_hashes {
-            let mut inner_hasher = siphasher::sip::SipHasher::default();
-            k.hash(&mut inner_hasher);
-            v.hash(&mut inner_hasher);
-            combined_build_hash = combined_build_hash ^ inner_hasher.finish();
-        }
-
-        let needs_rebuild =
-            if let Some(previous_combined_build_hash) = self.previous_combined_build_hash {
-                previous_combined_build_hash != combined_build_hash
-            } else {
-                true
-            };
-
-        if !needs_rebuild {
-            return Ok(AssetEngineState::Idle);
-        }
-
-        //
         // Process the in-flight build. It will be cancelled and restarted if any data is detected
         // as changing during the build.
         //
 
         // Check if our import state is consistent, if it is we save expected hashes and run builds
-        self.build_jobs.update(
+        let build_state = self.build_jobs.update(
             &self.builder_registry,
             editor_model,
             &self.import_jobs,
-            &object_hashes,
-            &import_data_metadata_hashes,
-            combined_build_hash,
         )?;
-        self.previous_combined_build_hash = Some(combined_build_hash);
-        Ok(AssetEngineState::Idle)
+
+        match build_state {
+            BuildStatus::Idle => {
+                Ok(AssetEngineState::Idle)
+            }
+            BuildStatus::Building(building_state) => {
+                return Ok(AssetEngineState::Building(building_state))
+            }
+        }
     }
 
     pub fn importers_for_file_extension(
@@ -297,10 +259,22 @@ impl AssetEngine {
             .queue_import_operation(asset_ids, importer_id, path, import_type);
     }
 
-    pub fn queue_build_operation(
+    pub fn queue_build_asset(
         &mut self,
         asset_id: AssetId,
     ) {
         self.build_jobs.queue_build_operation(asset_id);
+    }
+
+    pub fn needs_build(
+        &self
+    ) -> bool {
+        self.build_jobs.needs_build()
+    }
+
+    pub fn queue_build_all(
+        &mut self,
+    ) {
+        self.build_jobs.build();
     }
 }

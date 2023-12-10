@@ -104,7 +104,6 @@ pub fn draw_inspector(
             }
 
             if ui.button("Rebuild this Asset").clicked() {
-                //app_state.asset_engine.queue_build_operation(asset_id);
                 action_sender.queue_action(UIAction::ForceRebuild(vec![asset_id]));
             }
 

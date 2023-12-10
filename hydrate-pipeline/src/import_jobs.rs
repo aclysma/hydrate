@@ -348,6 +348,7 @@ impl ImportJobs {
             completed_job_count: 0
         });
 
+        assert!(self.current_import_task.is_none());
         self.current_import_task = Some(import_task);
 
         Ok(status)

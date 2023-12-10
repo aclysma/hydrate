@@ -1,3 +1,4 @@
+use hydrate_model::pipeline::AssetEngine;
 use crate::action_queue::{UIAction, UIActionQueueSender};
 use crate::egui_debug_ui::EguiDebugUiState;
 

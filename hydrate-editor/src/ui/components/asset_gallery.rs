@@ -68,6 +68,16 @@ pub fn draw_asset_gallery(
         toolbar_rect,
         egui::Layout::left_to_right(egui::Align::Center),
     );
+    toolbar_ui_left.set_clip_rect(toolbar_rect);
+
+    toolbar_ui_left.allocate_space(egui::vec2(0.0, 0.0));
+    if toolbar_ui_left.button("New Asset").clicked() {
+        action_queue.try_set_modal_action(NewAssetModal::new(
+            asset_tree_ui_state.selected_tree_node,
+        ));
+    }
+
+    toolbar_ui_left.separator();
 
     if toolbar_ui_left
         .selectable_label(
@@ -116,27 +126,23 @@ pub fn draw_asset_gallery(
     //         ui.selectable_value(&mut selected, "Third", "Third");
     //     });
 
-    if toolbar_ui_left.available_width() > 200.0 {
-        let mut toolbar_ui_right = ui.child_ui(
-            toolbar_rect,
-            egui::Layout::right_to_left(egui::Align::Center),
-        );
+    // if toolbar_ui_left.available_width() > 200.0 {
+    //     let mut toolbar_ui_right = ui.child_ui(
+    //         toolbar_rect,
+    //         egui::Layout::right_to_left(egui::Align::Center),
+    //     );
+    //
+    //     ui.with_layout(Layout::right_to_left(egui::Align::TOP), |ui| {
 
-        ui.with_layout(Layout::right_to_left(egui::Align::TOP), |ui| {
-            if toolbar_ui_right.button("New Asset").clicked() {
-                action_queue.try_set_modal_action(NewAssetModal::new(
-                    asset_tree_ui_state.selected_tree_node,
-                ));
-            }
 
-            toolbar_ui_right.add_visible(
+            toolbar_ui_left.add_visible(
                 asset_gallery_ui_state.view_mode == AssetGalleryViewMode::Grid,
                 egui::Slider::new(&mut asset_gallery_ui_state.tile_size, 50.0..=150.0)
                     .clamp_to_range(true)
                     .show_value(false),
             );
-        });
-    }
+    //     });
+    // }
 
     ui.separator();
 

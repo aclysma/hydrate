@@ -1,9 +1,6 @@
-use crate::action_queue::{UIAction, UIActionQueueSender};
-use crate::ui::drag_drop::DragDropPayload;
-use crate::ui::modals::NewAssetModal;
+use crate::action_queue::{UIActionQueueSender};
 use crate::ui_state::EditorModelUiState;
-use egui::{InnerResponse, Response, Ui};
-use hydrate_model::{AssetId, AssetLocation, EditorModel, LocationTreeNode};
+use hydrate_model::{AssetLocation, EditorModel, LocationTreeNode};
 
 fn draw_tree_node(
     ui: &mut egui::Ui,
@@ -44,13 +41,13 @@ fn draw_tree_node(
             }
         }
 
-        let (toggle_button_response, header_response, body_response) = collapsing_header
+        let (_toggle_button_response, header_response, _body_response) = collapsing_header
             .show_header(ui, |ui| ui.toggle_value(&mut is_selected, &name))
             .body_unindented(|ui| {
                 ui.horizontal(|ui| {
                     crate::ui::add_indent_spacing(ui);
                     ui.vertical(|ui| {
-                        for (key, child_tree_node) in &tree_node.children {
+                        for (_, child_tree_node) in &tree_node.children {
                             draw_tree_node(
                                 ui,
                                 editor_model,

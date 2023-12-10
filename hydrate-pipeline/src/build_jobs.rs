@@ -169,7 +169,7 @@ impl BuildJobs {
             //
             {
                 //profiling::scope!("Job Executor Update");
-                self.job_executor.update(&build_task.data_set, &build_task.schema_set, import_jobs);
+                self.job_executor.update(&build_task.data_set);
             }
 
             {

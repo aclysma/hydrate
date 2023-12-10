@@ -3,7 +3,7 @@ use crate::modal_action::{
     default_modal_window, ModalAction, ModalActionControlFlow, ModalContext,
 };
 use crate::ui::components::draw_location_selector;
-use hydrate_model::{AssetId, AssetLocation, AssetName, EndContextBehavior, SchemaFingerprint};
+use hydrate_model::{AssetId, AssetLocation, AssetName};
 
 pub struct NewAssetModal {
     create_location: Option<AssetLocation>,
@@ -56,7 +56,6 @@ impl ModalAction for NewAssetModal {
                 ui.label("Schema Type:");
                 crate::ui::components::schema_record_selector(
                     ui,
-                    "schema_name",
                     &mut self.schema_name,
                     context.db_state.editor_model.schema_set(),
                 )

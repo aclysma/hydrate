@@ -1,10 +1,9 @@
-use crate::action_queue::UIAction;
 use crate::modal_action::{
     default_modal_window, ModalAction, ModalActionControlFlow, ModalContext,
 };
 use crate::ui::components::draw_location_selector;
 use hydrate_model::pipeline::{ImportType, ImporterRegistry};
-use hydrate_model::{AssetLocation, AssetName, EndContextBehavior, HashSet, SchemaFingerprint};
+use hydrate_model::{AssetLocation, HashSet};
 use std::path::PathBuf;
 
 pub struct ImportFilesModal {

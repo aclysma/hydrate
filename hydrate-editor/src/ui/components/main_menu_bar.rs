@@ -1,9 +1,8 @@
-use hydrate_model::pipeline::AssetEngine;
 use crate::action_queue::{UIAction, UIActionQueueSender};
 use crate::egui_debug_ui::EguiDebugUiState;
 
 pub fn draw_main_menu_bar(
-    ctx: &egui::Context,
+    _ctx: &egui::Context,
     ui: &mut egui::Ui,
     egui_debug_ui_state: &mut EguiDebugUiState,
     action_sender: &UIActionQueueSender,

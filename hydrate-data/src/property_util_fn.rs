@@ -45,7 +45,7 @@ pub(super) fn property_schema_and_path_ancestors_to_check<'a>(
 
         match schema {
             Schema::Nullable(_) => {
-                accessed_nullable_keys.push((truncate_property_path(path.as_ref(), i - 1)));
+                accessed_nullable_keys.push(truncate_property_path(path.as_ref(), i - 1));
             }
             Schema::StaticArray(_) => {
                 accessed_static_array_keys.push((

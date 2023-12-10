@@ -3,8 +3,8 @@ use hydrate::editor::action_queue::UIAction;
 use hydrate::editor::egui::Ui;
 use hydrate::editor::inspector_system::*;
 use hydrate::model::{
-    DataContainerRefMut, EndContextBehavior, Record, Schema, SchemaDefRecordFieldMarkup,
-    SchemaRecord, SchemaSet, Value,
+    EndContextBehavior, Schema,
+    SchemaSet, Value,
 };
 
 struct Vec3RecordInspector;

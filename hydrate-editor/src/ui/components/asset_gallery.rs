@@ -1,13 +1,13 @@
 use crate::action_queue::{UIAction, UIActionQueueSender};
-use crate::ui::components::{schema_record_selector, AssetTreeUiState};
+use crate::ui::components::AssetTreeUiState;
 use crate::ui::drag_drop::DragDropPayload;
-use crate::ui::modals::{NewAssetModal, TestModal};
+use crate::ui::modals::NewAssetModal;
 use crate::ui_state::EditorModelUiState;
 use crate::DbState;
 use egui::epaint::text::FontsImpl;
-use egui::{Color32, FontDefinitions, FontId, Layout, SelectableLabel, Widget};
+use egui::{FontId, Layout, Widget};
 use hydrate_model::{
-    AssetId, AssetLocation, AssetName, DataSetAssetInfo, EndContextBehavior, HashSet,
+    AssetId, AssetLocation, DataSetAssetInfo, HashSet,
 };
 use std::sync::Arc;
 
@@ -252,7 +252,7 @@ fn draw_asset_gallery_list(
 ) {
     ui.style_mut().spacing.item_spacing = egui::vec2(8.0, 2.0);
 
-    let mut table = egui_extras::TableBuilder::new(ui)
+    let table = egui_extras::TableBuilder::new(ui)
         .striped(true)
         .auto_shrink([true, false])
         .resizable(true)
@@ -414,9 +414,6 @@ fn draw_asset_gallery_tile(
         .root_edit_context()
         .asset_name_or_id_string(asset_id)
         .unwrap();
-    let long_name = db_state
-        .editor_model
-        .asset_path(asset_id, &ui_state.asset_path_cache);
     let is_generated = db_state.editor_model.is_generated_asset(asset_id);
     let is_dirty = db_state
         .editor_model
@@ -429,7 +426,7 @@ fn draw_asset_gallery_tile(
         egui::Id::new(asset_id),
         DragDropPayload::AssetReference(asset_id),
         |ui| {
-            let mut is_on = false;
+            let is_on = false;
 
             let desired_size = egui::vec2(
                 asset_gallery_ui_state.tile_size,
@@ -440,7 +437,7 @@ fn draw_asset_gallery_tile(
                 asset_gallery_ui_state.tile_size,
             );
 
-            let (rect, mut response) = ui.allocate_exact_size(desired_size, egui::Sense::click());
+            let (rect, response) = ui.allocate_exact_size(desired_size, egui::Sense::click());
             // ui.allocate_ui(desired_size, |ui| {
             //     ui.painter().rect_stroke(thumbnail_size, 3.0, egui::Stroke::new(2.0, egui::Color32::from_gray(50)));
             //     ui.label("hi");
@@ -460,8 +457,7 @@ fn draw_asset_gallery_tile(
             }
 
             if ui.is_visible() {
-                let how_on = ui.ctx().animate_bool(response.id, is_on);
-                let visuals = ui.style().interact_selectable(&response, is_on);
+                //let visuals = ui.style().interact_selectable(&response, is_on);
                 let radius = 3.0;
 
                 if asset_gallery_ui_state.selected_assets.contains(&asset_id) {

@@ -1,19 +1,13 @@
 use hydrate_model::pipeline::import_util::ImportToQueue;
 use hydrate_model::pipeline::{HydrateProjectConfiguration, ImporterRegistry};
 use hydrate_model::{
-    AssetId, AssetLocation, AssetName, AssetPathCache, DataSet, EditorModel, LocationTree,
+    EditorModel,
     PathNode, PathNodeRoot, SchemaCacheSingleFile, SchemaLinker, SchemaSet, SchemaSetBuilder,
 };
-use std::path::{Path, PathBuf};
 
 pub struct DbState {
-    //pub db: hydrate_model::Database,
-    //pub undo_stack: hydrate_model::UndoStack,
     project_configuration: HydrateProjectConfiguration,
     pub editor_model: EditorModel,
-    //pub asset_path_cache: AssetPathCache,
-    //pub location_tree: LocationTree,
-    //schema_cache_file_path: PathBuf,
 }
 
 impl DbState {

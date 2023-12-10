@@ -284,10 +284,10 @@ pub trait RecordInspector {
         // Must implement either draw_inspector_rows, or implement draw_inspector_value
         assert!(self.can_draw_as_single_value());
         table_body.row(20.0, |mut row| {
-            row.col(|mut ui| {
+            row.col(|ui| {
                 draw_indented_label(ui, indent_level, ctx.display_name());
             });
-            row.col(|mut ui| {
+            row.col(|ui| {
                 draw_widgets_with_action_button(ui, ctx, |ui, ctx| {
                     self.draw_inspector_value(ui, ctx)
                 });
@@ -497,12 +497,12 @@ pub fn draw_basic_inspector_row<F: FnOnce(&mut egui::Ui, InspectorContext)>(
     f: F,
 ) {
     body.row(20.0, |mut row| {
-        row.col(|mut ui| {
+        row.col(|ui| {
             ui.push_id(ctx.property_path.path(), |ui| {
                 draw_indented_label(ui, indent_level, ctx.display_name());
             });
         });
-        row.col(|mut ui| {
+        row.col(|ui| {
             ui.push_id(ctx.property_path.path(), |ui| {
                 f(ui, ctx);
             });

@@ -1,6 +1,4 @@
-//use crate::value::ValueEnum;
 use crate::SchemaFingerprint;
-use std::hash::{Hash, Hasher};
 use std::ops::Deref;
 use std::sync::Arc;
 
@@ -8,15 +6,6 @@ use std::sync::Arc;
 pub struct SchemaEnumSymbol {
     name: String,
     aliases: Box<[String]>,
-}
-
-impl SchemaEnumSymbol {
-    pub(crate) fn fingerprint_hash<T: Hasher>(
-        &self,
-        hasher: &mut T,
-    ) {
-        self.name.hash(hasher);
-    }
 }
 
 impl SchemaEnumSymbol {

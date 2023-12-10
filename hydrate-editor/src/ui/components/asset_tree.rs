@@ -3,7 +3,7 @@ use crate::ui::drag_drop::DragDropPayload;
 use crate::ui::modals::NewAssetModal;
 use crate::ui_state::EditorModelUiState;
 use egui::{InnerResponse, Response, Ui};
-use hydrate_model::{AssetId, AssetLocation, EditorModel, LocationTreeNode};
+use hydrate_model::{AssetLocation, EditorModel, LocationTreeNode};
 
 #[derive(Default)]
 pub struct AssetTreeUiState {
@@ -83,7 +83,7 @@ fn draw_tree_node(
                             ui.horizontal(|ui| {
                                 crate::ui::add_indent_spacing(ui);
                                 ui.vertical(|ui| {
-                                    for (key, child_tree_node) in &tree_node.children {
+                                    for (_, child_tree_node) in &tree_node.children {
                                         draw_tree_node(
                                             ui,
                                             editor_model,
@@ -161,7 +161,6 @@ fn handle_drop_on_asset_tree_node(
                     dropped_on_tree_node.location,
                 ));
             }
-            _ => unimplemented!(),
         }
     }
 }

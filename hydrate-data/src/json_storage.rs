@@ -299,11 +299,11 @@ impl AssetImportInfoJson {
 
         let source_file_modified_timestamp =
             u64::from_str_radix(&self.source_file_modified_timestamp, 16)
-                .map_err(|e| (DataSetError::StorageFormatError))?;
+                .map_err(|_| (DataSetError::StorageFormatError))?;
         let source_file_size = u64::from_str_radix(&self.source_file_size, 16)
-            .map_err(|e| (DataSetError::StorageFormatError))?;
+            .map_err(|_| (DataSetError::StorageFormatError))?;
         let import_data_contents_hash = u64::from_str_radix(&self.import_data_contents_hash, 16)
-            .map_err(|e| (DataSetError::StorageFormatError))?;
+            .map_err(|_| (DataSetError::StorageFormatError))?;
 
         Ok(ImportInfo::new(
             ImporterId(self.importer_id),

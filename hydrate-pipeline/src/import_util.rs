@@ -1,8 +1,7 @@
 use crate::{DynEditContext, PipelineResult};
 use crate::{ImportType, ImporterRegistry};
 use crate::{Importer, ScanContext, ScannedImportable};
-use hydrate_base::hashing::HashSet;
-use hydrate_data::{AssetId, AssetLocation, AssetName, HashMap, ImportInfo, ImporterId};
+use hydrate_data::{AssetId, AssetLocation, AssetName, HashMap, ImporterId};
 use hydrate_data::{ImportableName, PathReference};
 use hydrate_schema::SchemaRecord;
 use std::path::{Path, PathBuf};

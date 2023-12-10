@@ -2,7 +2,7 @@ use crate::edit_context::EditContext;
 use crate::editor::undo::UndoStack;
 use crate::{
     AssetId, AssetPath, AssetPathCache, AssetSourceId, DataSet, DataSource,
-    FileSystemIdBasedDataSource, FileSystemPathBasedDataSource, HashMap, HashSet, LocationTree,
+    FileSystemIdBasedDataSource, FileSystemPathBasedDataSource, HashMap,
     PathNode, PathNodeRoot, SchemaNamedType, SchemaSet,
 };
 use hydrate_data::{

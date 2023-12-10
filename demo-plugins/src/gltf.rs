@@ -9,7 +9,7 @@ use hydrate_model::pipeline::Importer;
 use hydrate_model::pipeline::{AssetPlugin, ImportContext, ScanContext};
 use hydrate_pipeline::{
     BuilderRegistryBuilder, HashMap, ImporterRegistryBuilder, JobProcessorRegistryBuilder,
-    PipelineResult, SchemaLinker,
+    PipelineResult,
 };
 use type_uuid::TypeUuid;
 

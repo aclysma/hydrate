@@ -1,4 +1,4 @@
-use hydrate_base::hashing::{HashMap, HashSet};
+use hydrate_base::hashing::HashMap;
 use hydrate_base::AssetId;
 use std::hash::{Hash, Hasher};
 use std::io::BufReader;
@@ -238,7 +238,7 @@ impl ImportJobs {
         for import_op in import_operations {
             let mut importable_assets = HashMap::<ImportableName, ImportableAsset>::default();
             for (name, requested_importable) in &import_op.requested_importables {
-                let mut referenced_paths = requested_importable.path_references.clone();
+                let referenced_paths = requested_importable.path_references.clone();
 
                 // We could merge in any paths that were already configured in the asset DB. However
                 // for now we rely on the code queueing the update to determine if it wants to do that

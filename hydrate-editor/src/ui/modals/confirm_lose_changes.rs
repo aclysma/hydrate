@@ -1,10 +1,7 @@
-use crate::action_queue::{UIAction, UIActionQueueSender};
+use crate::action_queue::UIAction;
 use crate::modal_action::{
     default_modal_window, ModalAction, ModalActionControlFlow, ModalContext,
 };
-use crate::ui_state::EditorModelUiState;
-use crate::DbState;
-use hydrate_model::pipeline::AssetEngine;
 
 // For revert all or quitting without saving
 fn confirm_lose_changes<F: Fn(&mut egui::Ui, &mut ModalActionControlFlow) -> ()>(
@@ -28,7 +25,7 @@ fn confirm_lose_changes<F: Fn(&mut egui::Ui, &mut ModalActionControlFlow) -> ()>
             .max_height(300.0)
             .auto_shrink([false, false])
             .show(ui, |ui| {
-                let mut table = egui_extras::TableBuilder::new(ui)
+                let table = egui_extras::TableBuilder::new(ui)
                     .striped(true)
                     .auto_shrink([false, false])
                     .resizable(true)
@@ -56,7 +53,7 @@ fn confirm_lose_changes<F: Fn(&mut egui::Ui, &mut ModalActionControlFlow) -> ()>
                     .root_edit_context()
                     .assets()
                     .iter()
-                    .filter(|(asset_id, info)| {
+                    .filter(|(asset_id, _)| {
                         context
                             .db_state
                             .editor_model

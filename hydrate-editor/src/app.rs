@@ -4,7 +4,7 @@ use crate::db_state::DbState;
 use crate::egui_debug_ui::EguiDebugUiState;
 use crate::modal_action::{ModalAction, ModalActionControlFlow, ModalContext};
 use crate::persistent_app_state::PersistentAppState;
-use crate::ui::components::inspector_system::{InspectorRegistry, RecordInspector};
+use crate::ui::components::inspector_system::{InspectorRegistry};
 use crate::ui::components::{AssetGalleryUiState, AssetTreeUiState, InspectorUiState};
 use crate::ui::modals::ImportFilesModal;
 use crate::ui_state::EditorModelUiState;

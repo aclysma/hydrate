@@ -1,6 +1,6 @@
 use crate::{
-    AssetId, AssetLocation, AssetPath, AssetPathCache, AssetSourceId, DataSet, DataSource,
-    EditorModel, HashMap,
+    AssetId, AssetLocation, AssetPathCache, DataSet,
+    EditorModel
 };
 use std::cmp::Ordering;
 use std::collections::BTreeMap;
@@ -144,7 +144,7 @@ impl LocationTree {
 
         // Create root nodes for all the data sources
         let mut root_nodes: BTreeMap<LocationTreeNodeKey, LocationTreeNode> = Default::default();
-        for (source_id, data_source) in data_sources {
+        for (source_id, _) in data_sources {
             let location = AssetLocation::new(AssetId::from_uuid(*source_id.uuid()));
             let name = root_data_set.asset_name(location.path_node_id()).unwrap();
             root_nodes.insert(

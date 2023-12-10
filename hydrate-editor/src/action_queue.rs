@@ -18,7 +18,6 @@ pub enum UIAction {
     TryBeginModalAction(Box<dyn ModalAction>),
     EditContext(
         &'static str,
-        Vec<AssetId>,
         Box<dyn FnOnce(&mut EditContext) -> DataSetResult<EndContextBehavior>>,
     ),
     Undo,
@@ -179,7 +178,7 @@ impl UIActionQueueReceiver {
                         *modal_action = Some(modal);
                     }
                 }
-                UIAction::EditContext(undo_context_name, assets_to_edit, f) => editor_model
+                UIAction::EditContext(undo_context_name, f) => editor_model
                     .root_edit_context_mut()
                     .with_undo_context(&undo_context_name, |x| f(x).unwrap()),
 
@@ -412,7 +411,7 @@ impl UIActionQueueReceiver {
                     editor_model.root_edit_context_mut().with_undo_context(
                         "MoveDynamicArrayOverrideUp",
                         |edit_context| {
-                            let mut overrides: Vec<_> = edit_context
+                            let overrides: Vec<_> = edit_context
                                 .get_dynamic_array_entries(asset_id, property_path.path())
                                 .unwrap()
                                 .copied()
@@ -420,7 +419,6 @@ impl UIActionQueueReceiver {
                             let current_index =
                                 overrides.iter().position(|x| *x == entry_uuid).unwrap();
                             if current_index > 0 {
-                                let schema_set = edit_context.schema_set().clone();
                                 // Remove
                                 edit_context
                                     .remove_dynamic_array_entry(
@@ -448,14 +446,13 @@ impl UIActionQueueReceiver {
                     editor_model.root_edit_context_mut().with_undo_context(
                         "MoveDynamicArrayOverrideDown",
                         |edit_context| {
-                            let mut overrides: Vec<_> = edit_context
+                            let overrides: Vec<_> = edit_context
                                 .get_dynamic_array_entries(asset_id, property_path.path())
                                 .unwrap()
                                 .collect();
                             let current_index =
                                 overrides.iter().position(|x| **x == entry_uuid).unwrap();
                             if current_index < overrides.len() - 1 {
-                                let schema_set = edit_context.schema_set().clone();
                                 // Remove
                                 edit_context
                                     .remove_dynamic_array_entry(
@@ -497,7 +494,7 @@ impl UIActionQueueReceiver {
                                 )
                                 .unwrap();
 
-                            let index_b = (entry_index - 1);
+                            let index_b = entry_index - 1;
                             let property_path_b = property_path.push(&index_b.to_string());
                             let bundle_b = edit_context
                                 .read_properties_bundle(
@@ -543,7 +540,7 @@ impl UIActionQueueReceiver {
                                 )
                                 .unwrap();
 
-                            let index_b = (entry_index + 1);
+                            let index_b = entry_index + 1;
                             let property_path_b = property_path.push(&index_b.to_string());
                             let bundle_b = edit_context
                                 .read_properties_bundle(

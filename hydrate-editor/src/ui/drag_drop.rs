@@ -68,7 +68,7 @@ pub fn drag_source(
         let pointer_pos = ui.ctx().input(|input| input.pointer.latest_pos());
 
         // Paint the widget in-place
-        let response = body(ui);
+        body(ui);
 
         // Paint the widget floating under cursor and still allocate the space in the dragged widget's
         // container

@@ -1,5 +1,5 @@
 use crate::{
-    AssetId, HashMap, HashSet, OrderedSet, PathReference, PropertyPath, Schema, SchemaFingerprint,
+    AssetId, HashMap, HashSet, OrderedSet, PathReference, Schema, SchemaFingerprint,
     SchemaRecord, SingleObject, Value,
 };
 pub use crate::{DataSetError, DataSetResult};
@@ -301,16 +301,16 @@ impl PropertiesBundle {
         //
         asset_info
             .properties
-            .retain(|k, v| !k.starts_with(&prefix_string));
+            .retain(|k, _| !k.starts_with(&prefix_string));
         asset_info
             .property_null_overrides
-            .retain(|k, v| !k.starts_with(&prefix_string));
+            .retain(|k, _| !k.starts_with(&prefix_string));
         asset_info
             .properties_in_replace_mode
             .retain(|k| !k.starts_with(&prefix_string));
         asset_info
             .dynamic_collection_entries
-            .retain(|k, v| !k.starts_with(&prefix_string));
+            .retain(|k, _| !k.starts_with(&prefix_string));
 
         //
         // stomp with new data

@@ -12,7 +12,7 @@ use hydrate_model::pipeline::{AssetPlugin, Builder, ImportContext, ScanContext};
 use hydrate_pipeline::{
     AssetId, BuilderContext, BuilderRegistryBuilder, HashMap, HashSet, ImporterRegistryBuilder,
     JobInput, JobOutput, JobProcessor, JobProcessorRegistryBuilder, PipelineResult, RunContext,
-    SchemaLinker,
+
 };
 use serde::{Deserialize, Serialize};
 use shaderc::IncludeType;

@@ -1,5 +1,4 @@
-use hydrate_model::{SchemaFingerprint, SchemaNamedType, SchemaRecord, SchemaSet};
-use std::hash::Hash;
+use hydrate_model::{SchemaRecord, SchemaSet};
 
 // Based on
 // Could be improved using this example https://github.com/emilk/egui/pull/777/files
@@ -42,7 +41,6 @@ use std::hash::Hash;
 
 pub fn schema_record_selector(
     ui: &mut egui::Ui,
-    id: impl Hash,
     schema_name: &mut String,
     schema_set: &SchemaSet,
 ) -> egui::InnerResponse<Option<SchemaRecord>> {

@@ -1,7 +1,6 @@
 use crate::action_queue::{UIAction, UIActionQueueSender};
 use crate::ui::modals::NewAssetModal;
 use crate::ui_state::EditorModelUiState;
-use egui::Widget;
 use hydrate_model::{AssetId, EditorModel, PropertyPath, Schema, SchemaDefRecordFieldMarkup};
 
 use super::inspector_system::*;
@@ -122,7 +121,7 @@ pub fn draw_inspector(
                     let read_only = is_generated;
 
                     let available_x = ui.available_width();
-                    let mut table = egui_extras::TableBuilder::new(ui)
+                    let table = egui_extras::TableBuilder::new(ui)
                         .striped(true)
                         .auto_shrink([true, false])
                         .resizable(true)

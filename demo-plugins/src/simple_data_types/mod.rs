@@ -3,7 +3,7 @@ use demo_types::simple_data::*;
 use hydrate_model::pipeline::AssetPlugin;
 use hydrate_pipeline::{
     BuilderRegistryBuilder, DataContainerRef, HandleFactory, ImporterRegistryBuilder,
-    JobProcessorRegistryBuilder, PipelineResult, SchemaLinker,
+    JobProcessorRegistryBuilder, PipelineResult,
 };
 
 mod simple_data_trait;

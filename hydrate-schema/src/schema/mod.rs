@@ -21,44 +21,12 @@ pub use static_array::*;
 
 use crate::SchemaFingerprint;
 use crate::{DataSetError, DataSetResult, HashMap};
-use std::hash::{Hash, Hasher};
+use std::hash::Hash;
 use std::str::FromStr;
 use uuid::Uuid;
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub struct SchemaId(u128);
-
-// Defines a unique number for each variant for hashing/fingerprinting purposes, the number is
-// completely arbitrary
-#[derive(Copy, Clone)]
-enum SchemaTypeIndex {
-    Nullable = 0,
-    Boolean = 1,
-    I32 = 2,
-    I64 = 3,
-    U32 = 4,
-    U64 = 5,
-    F32 = 6,
-    F64 = 7,
-    Bytes = 8,
-    Buffer = 9,
-    String = 10,
-    StaticArray = 11,
-    DynamicArray = 12,
-    Map = 13,
-    RecordRef = 14,
-    Record = 15,
-    Enum = 16,
-}
-
-impl SchemaTypeIndex {
-    pub(crate) fn fingerprint_hash<T: Hasher>(
-        &self,
-        hasher: &mut T,
-    ) {
-        (*self as u32).hash(hasher);
-    }
-}
 
 #[derive(Clone, Debug)]
 pub enum SchemaNamedType {

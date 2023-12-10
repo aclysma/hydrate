@@ -6,10 +6,10 @@ use super::generated::{GpuImageAssetRecord, GpuImageImportedDataRecord};
 use demo_types::image::*;
 use hydrate_data::Record;
 use hydrate_model::pipeline::{ImportContext, ScanContext};
-use hydrate_pipeline::{HydrateProjectConfiguration, Importer};
+use hydrate_pipeline::Importer;
 use hydrate_pipeline::{
     AssetId, BuilderContext, BuilderRegistryBuilder, ImporterRegistryBuilder, JobInput, JobOutput,
-    JobProcessor, JobProcessorRegistryBuilder, PipelineResult, RunContext, SchemaLinker,
+    JobProcessor, JobProcessorRegistryBuilder, PipelineResult, RunContext,
 };
 use hydrate_pipeline::{AssetPlugin, Builder};
 use serde::{Deserialize, Serialize};

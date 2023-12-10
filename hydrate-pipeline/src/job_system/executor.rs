@@ -525,8 +525,6 @@ impl JobExecutor {
     pub fn update(
         &mut self,
         data_set: &Arc<DataSet>,
-        schema_set: &SchemaSet,
-        import_data_provider: &dyn ImportDataProvider,
     ) {
         //
         // Pull jobs off the create queue. Determine their dependencies and prepare them to run.

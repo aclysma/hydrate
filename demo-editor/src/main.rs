@@ -4,9 +4,6 @@ use demo_plugins::{
     BlenderMaterialAssetPlugin, BlenderMeshAssetPlugin, GlslAssetPlugin, GltfAssetPlugin,
     GpuBufferAssetPlugin, GpuImageAssetPlugin, MeshAdvAssetPlugin, SimpleDataAssetPlugin,
 };
-use hydrate::model::{
-    Record
-};
 use hydrate::pipeline::{HydrateProjectConfiguration};
 use std::path::PathBuf;
 

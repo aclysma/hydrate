@@ -4,7 +4,7 @@ use hydrate_base::b3f::B3FReader;
 use hydrate_data::json_storage::SingleObjectJson;
 use hydrate_data::{SchemaSet, SingleObject};
 use serde::{Deserialize, Serialize};
-use std::hash::{Hash, Hasher};
+use std::hash::Hash;
 use std::sync::Arc;
 
 // No real reason this limit needs to exist, just don't want to read corrupt data and try to

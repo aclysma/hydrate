@@ -13,7 +13,7 @@ use hydrate_pipeline::HydrateProjectConfiguration;
 // TODO: Could cache a ref to a linked schema
 //
 
-#[derive(StructOpt, Debug)]
+#[derive(StructOpt, Debug, Default)]
 pub struct HydrateCodegenArgs {
     // If no options are provided, we will run all jobs in hydrate_project.json
 
@@ -33,7 +33,7 @@ pub struct HydrateCodegenArgs {
     pub trace: bool,
 }
 
-pub fn run(args: &HydrateCodegenArgs) -> Result<(), Box<dyn Error>> {
+pub fn run(project_file_serach_location: &Path, args: &HydrateCodegenArgs) -> Result<(), Box<dyn Error>> {
     if args.schema_path.is_some() && args.outfile.is_some() {
         return schema_to_rs(args.schema_path.as_ref().unwrap(), &args.included_schema, args.outfile.as_ref().unwrap());
     }
@@ -43,7 +43,7 @@ pub fn run(args: &HydrateCodegenArgs) -> Result<(), Box<dyn Error>> {
     }
 
     // find the hydrate project file
-    let project_configuration = HydrateProjectConfiguration::locate_project_file(&PathBuf::from(env!("CARGO_MANIFEST_DIR"))).unwrap();
+    let project_configuration = HydrateProjectConfiguration::locate_project_file(project_file_serach_location).unwrap();
 
     // If a job was specified, just run that job or error if it wasn't found
     if let Some(job_name) = &args.job_name {
@@ -118,7 +118,7 @@ fn schema_to_rs(
 
         for scope in scopes {
             let code_fragment_as_string = scope.to_string();
-            println!("{}\n", code_fragment_as_string);
+            //println!("{}\n", code_fragment_as_string);
             code_fragments_as_string.push(code_fragment_as_string);
         }
     }

@@ -193,6 +193,7 @@ impl HydrateProjectConfiguration {
         while let Some(p) = path {
             let joined_path = p.join("hydrate_project.json");
             if joined_path.exists() {
+                log::info!("Using project configuration at {:?}", joined_path);
                 return Self::read_from_path(&joined_path);
             }
 

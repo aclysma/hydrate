@@ -1,3 +1,4 @@
+use std::path::PathBuf;
 use log::LevelFilter;
 use structopt::StructOpt;
 
@@ -18,7 +19,7 @@ fn main() -> Result<(), String> {
         .filter_level(level)
         .init();
 
-    if let Err(e) = run(&args) {
+    if let Err(e) = run(&PathBuf::from(env!("CARGO_MANIFEST_DIR")), &args) {
         eprintln!("{}", e.to_string());
         Err("Hydrate codegen failed".to_string())
     } else {

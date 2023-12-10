@@ -297,6 +297,11 @@ fn draw_asset_gallery_list(
                         .editor_model
                         .asset_path(asset_id, &ui_state.asset_path_cache);
                     let is_generated = db_state.editor_model.is_generated_asset(asset_id);
+                    let is_dirty = db_state
+                        .editor_model
+                        .root_edit_context()
+                        .modified_assets()
+                        .contains(&asset_id);
 
                     row.col(|ui| {
                         crate::ui::drag_drop::drag_source(
@@ -306,6 +311,16 @@ fn draw_asset_gallery_list(
                             |ui| {
                                 let is_selected =
                                     asset_gallery_ui_state.selected_assets.contains(&asset_id);
+
+                                let text_color = if is_dirty {
+                                    egui::Color32::from_rgb(255, 255, 100)
+                                } else if is_generated {
+                                    egui::Color32::from_rgb(97, 150, 199)
+                                } else {
+                                    egui::Color32::from_rgb(230, 230, 230)
+                                };
+                                ui.style_mut().visuals.override_text_color = Some(text_color);
+
                                 let response =
                                     egui::SelectableLabel::new(is_selected, &short_name).ui(ui);
                                 if response.clicked() {
@@ -463,9 +478,9 @@ fn draw_asset_gallery_tile(
                     egui::Pos2::new((text_rect.min.x + text_rect.max.x) / 2.0, text_rect.min.y);
 
                 let text_color = if is_dirty {
-                    egui::Color32::from_rgb(255, 255, 0)
+                    egui::Color32::from_rgb(255, 255, 100)
                 } else if is_generated {
-                    egui::Color32::from_rgb(150, 150, 150)
+                    egui::Color32::from_rgb(97, 150, 199)
                 } else {
                     egui::Color32::from_rgb(230, 230, 230)
                 };

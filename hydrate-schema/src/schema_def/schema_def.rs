@@ -2,7 +2,7 @@ use crate::{
     HashMap, HashSet, Schema, SchemaDynamicArray, SchemaEnum, SchemaEnumSymbol, SchemaFingerprint,
     SchemaMap, SchemaNamedType, SchemaRecord, SchemaRecordField, SchemaStaticArray,
 };
-use std::fmt::{write, Formatter};
+use std::fmt::Formatter;
 use std::hash::{Hash, Hasher};
 
 #[derive(Debug)]

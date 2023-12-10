@@ -360,7 +360,7 @@ impl SchemaLinker {
                         }
                         Ok(())
                     }
-                    Some(SchemaDefNamedType::Enum(def)) => Ok(()),
+                    Some(SchemaDefNamedType::Enum(_)) => Ok(()),
                     None => Err(SchemaDefValidationError::ReferencedNamedTypeNotFound(
                         schema_being_validated.to_string(),
                         type_name.to_string(),

@@ -35,18 +35,41 @@ pub fn draw_inspector(
             //
             // Some basic info
             //
-            ui.heading(format!(
-                "{}",
-                edit_context.asset_name_or_id_string(asset_id).unwrap()
-            ));
+            let is_generated = editor_model.is_generated_asset(asset_id);
+            ui.horizontal(|ui| {
+                ui.heading(format!(
+                    "{}",
+                    edit_context.asset_name_or_id_string(asset_id).unwrap()
+                ));
+                ui.menu_button("...", |ui| {
+                    //
+                    // Some actions that can be taken (TODO: Make a context menu?)
+                    //
+                    if is_generated {
+                        if ui.button("Persist Asset").clicked() {
+                            action_sender.queue_action(UIAction::PersistAssets(vec![asset_id]));
+                        }
+                    }
 
-            ui.label(format!(
-                "{}",
-                editor_model
-                    .asset_display_name_long(asset_id, &editor_model_ui_state.asset_path_cache)
-            ));
+                    if ui.button("Use as prototype").clicked() {
+                        action_sender.try_set_modal_action(NewAssetModal::new_with_prototype(Some(editor_model.root_edit_context().asset_location(asset_id).unwrap()), asset_id))
+                    }
 
-            ui.label(format!("{:?}", asset_id.as_uuid()));
+                    if ui.button("Rebuild this Asset").clicked() {
+                        action_sender.queue_action(UIAction::ForceRebuild(vec![asset_id]));
+                    }
+                });
+            });
+
+            ui.collapsing("Details", |ui| {
+                ui.label(format!(
+                    "{}",
+                    editor_model
+                        .asset_display_name_long(asset_id, &editor_model_ui_state.asset_path_cache)
+                ));
+
+                ui.label(format!("{:?}", asset_id.as_uuid()));
+            });
 
             //
             // Import info (TODO: Make this a mouseover/icon?)
@@ -84,28 +107,10 @@ pub fn draw_inspector(
             //
             // Explain that generated assets are not editable (TODO: Make this prettier)
             //
-            let is_generated = editor_model.is_generated_asset(asset_id);
             if is_generated {
                 ui.label(format!("This asset is generated from a source file and can't be modified unless it is persisted to disk. A new asset file will be created and source file changes will no longer affect it."));
             }
 
-
-            //
-            // Some actions that can be taken (TODO: Make a context menu?)
-            //
-            if is_generated {
-                if ui.button("Persist Asset").clicked() {
-                    action_sender.queue_action(UIAction::PersistAssets(vec![asset_id]));
-                }
-            }
-
-            if ui.button("Use as prototype").clicked() {
-                action_sender.try_set_modal_action(NewAssetModal::new_with_prototype(Some(editor_model.root_edit_context().asset_location(asset_id).unwrap()), asset_id))
-            }
-
-            if ui.button("Rebuild this Asset").clicked() {
-                action_sender.queue_action(UIAction::ForceRebuild(vec![asset_id]));
-            }
 
             ui.separator();
 

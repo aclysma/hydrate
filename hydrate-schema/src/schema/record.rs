@@ -1,6 +1,6 @@
 use super::Schema;
 use crate::{
-    HashMap, SchemaDefRecordField, SchemaDefRecordFieldMarkup, SchemaDefRecordMarkup,
+    HashMap, SchemaDefRecordFieldMarkup, SchemaDefRecordMarkup,
     SchemaFingerprint, SchemaNamedType,
 };
 use std::ops::Deref;

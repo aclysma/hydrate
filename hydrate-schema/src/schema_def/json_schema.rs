@@ -112,7 +112,7 @@ fn parse_json_schema_type_ref(
                     // value types are fine other than float
                     Ok(())
                 }
-                SchemaDefType::NamedType(type_name) => {
+                SchemaDefType::NamedType(_) => {
                     // must be enum, but we have to catch that when we link the schemas
                     Ok(())
                 }

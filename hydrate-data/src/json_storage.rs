@@ -1,7 +1,4 @@
-use crate::{
-    AssetId, BuildInfo, DataSetAssetInfo, HashMap, HashSet, ImportInfo, ImporterId, NullOverride,
-    PathReference, Schema, SchemaFingerprint, SchemaNamedType, SchemaSet, SingleObject, Value,
-};
+use crate::{AssetId, BuildInfo, DataSetAssetInfo, HashMap, HashSet, ImportInfo, ImporterId, NullOverride, PathReference, Schema, SchemaFingerprint, SchemaNamedType, SchemaSet, SingleObject, Value, PathReferenceNamespaceResolver};
 use crate::{AssetLocation, AssetName, DataSetResult, ImportableName, OrderedSet};
 use hydrate_schema::DataSetError;
 use serde::{Deserialize, Serialize};
@@ -288,14 +285,17 @@ impl AssetImportInfoJson {
     pub fn to_import_info(
         &self,
         _schema_set: &SchemaSet,
+        namespace_resolver: &dyn PathReferenceNamespaceResolver,
+
     ) -> DataSetResult<ImportInfo> {
         let mut path_references = Vec::with_capacity(self.file_references.len());
         for reference in &self.file_references {
-            path_references.push(reference.into());
+            let path_reference: PathReference = reference.into();
+            path_references.push(path_reference.simplify(namespace_resolver));
         }
 
         let mut path_reference: PathReference = self.source_file_path.clone().into();
-        let source_file = PathReference::new(path_reference.namespace().to_string(), path_reference.path().to_string(), ImportableName::new(self.importable_name.clone()));
+        let source_file = PathReference::new(path_reference.namespace().to_string(), path_reference.path().to_string(), ImportableName::new(self.importable_name.clone())).simplify(namespace_resolver);
 
         let source_file_modified_timestamp =
             u64::from_str_radix(&self.source_file_modified_timestamp, 16)
@@ -338,10 +338,12 @@ impl AssetBuildInfoJson {
     pub fn to_build_info(
         &self,
         _schema_set: &SchemaSet,
+        namespace_resolver: &dyn PathReferenceNamespaceResolver,
     ) -> BuildInfo {
         let mut file_reference_overrides = HashMap::default();
         for (k, v) in &self.file_reference_overrides {
-            file_reference_overrides.insert(k.into(), AssetId::from_uuid(*v));
+            let path_reference: PathReference = k.into();
+            file_reference_overrides.insert(path_reference.simplify(namespace_resolver), AssetId::from_uuid(*v));
         }
 
         BuildInfo {
@@ -365,6 +367,8 @@ pub trait RestoreAssetFromStorageImpl {
         properties_in_replace_mode: HashSet<String>,
         dynamic_collection_entries: HashMap<String, OrderedSet<Uuid>>,
     ) -> DataSetResult<()>;
+
+    fn namespace_resolver(&self) -> &dyn PathReferenceNamespaceResolver;
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -458,12 +462,12 @@ impl AssetJson {
         );
 
         let import_info = if let Some(import_info) = stored_asset.import_info {
-            Some(import_info.to_import_info(schema_set)?)
+            Some(import_info.to_import_info(schema_set, restore_asset_impl.namespace_resolver())?)
         } else {
             None
         };
 
-        let build_info = stored_asset.build_info.to_build_info(schema_set);
+        let build_info = stored_asset.build_info.to_build_info(schema_set, restore_asset_impl.namespace_resolver());
 
         restore_asset_impl.restore_asset(
             asset_id,

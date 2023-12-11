@@ -12,9 +12,107 @@ pub trait PathReferenceNamespaceResolver {
 }
 
 
-//TODO: I want to change this to be optionally using something like db:/ with the data source name instead of "db"
-//TODO: Remove PartialEq, Eq, Hash
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub fn canonicalized_absolute_path(
+    namespace: &String,
+    referenced_path: &String,
+    importable_name: &ImportableName,
+    namespace_resolver: &dyn PathReferenceNamespaceResolver,
+    source_file_path: &Path,
+) -> DataSetResult<PathReference> {
+    let canonical_absolute_path = if namespace.is_empty() {
+        if Path::new(referenced_path).is_relative() {
+            source_file_path
+                .parent()
+                .unwrap()
+                .join(Path::new(referenced_path))
+                .canonicalize()
+                .unwrap()
+        } else {
+            PathBuf::from(referenced_path).canonicalize().unwrap()
+        }
+    } else {
+        let namespace_root = namespace_resolver.namespace_root(namespace).ok_or(DataSetError::UnknownPathNamespace)?;
+        namespace_root.join(referenced_path).canonicalize().unwrap()
+    };
+
+    Ok(PathReference {
+        namespace: "".to_string(),
+        path: canonical_absolute_path.to_string_lossy().to_string(),
+        importable_name: importable_name.clone(),
+    })
+}
+
+// Given any path, parsed as a PathReference, the same CanonicalPathReference will be produced, and it is comparable,
+// hashable, etc.
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub struct CanonicalPathReference {
+    namespace: String,
+    path: String,
+    importable_name: ImportableName,
+}
+
+impl Display for CanonicalPathReference {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        if self.namespace.is_empty() {
+            if let Some(importable_name) = self.importable_name.name() {
+                write!(f, "{}#{}", self.path, importable_name)
+            } else {
+                write!(f, "{}", self.path)
+            }
+        } else {
+            if let Some(importable_name) = self.importable_name.name() {
+                write!(f, "{}://{}#{}", self.namespace, self.path, importable_name)
+            } else {
+                write!(f, "{}://{}", self.namespace, self.path)
+            }
+        }
+    }
+}
+
+impl CanonicalPathReference {
+    pub fn new(
+        namespace_resolver: &dyn PathReferenceNamespaceResolver,
+        namespace: String,
+        path: String,
+        importable_name: ImportableName,
+    ) -> Self {
+        PathReference {
+            namespace,
+            path,
+            importable_name,
+        }.simplify(namespace_resolver)
+    }
+
+    pub fn namespace(&self) -> &str {
+        &self.namespace
+    }
+
+    pub fn path(&self) -> &str {
+        &self.path
+    }
+
+    pub fn importable_name(&self) -> &ImportableName {
+        &self.importable_name
+    }
+
+    pub fn canonicalized_absolute_path(
+        &self,
+        namespace_resolver: &dyn PathReferenceNamespaceResolver,
+        source_file_path: &Path,
+    ) -> DataSetResult<PathReference> {
+        canonicalized_absolute_path(
+            &self.namespace,
+            &self.path,
+            &self.importable_name,
+            namespace_resolver,
+            source_file_path
+        )
+    }
+}
+
+// This path reference is good for parsing from string and representing a path other than the canonical path reference
+// (i.e. an absolute path when it could be represented relative to a namespace.)
+#[derive(Debug, Clone)]
 pub struct PathReference {
     namespace: String,
     path: String,
@@ -69,53 +167,43 @@ impl PathReference {
         namespace_resolver: &dyn PathReferenceNamespaceResolver,
         source_file_path: &Path,
     ) -> DataSetResult<PathReference> {
-        let canonical_absolute_path = if self.namespace.is_empty() {
-            if Path::new(&self.path).is_relative() {
-                source_file_path
-                    .parent()
-                    .unwrap()
-                    .join(Path::new(&self.path))
-                    .canonicalize()
-                    .unwrap()
-            } else {
-                PathBuf::from(&self.path).canonicalize().unwrap()
-            }
-        } else {
-            let namespace_root = namespace_resolver.namespace_root(&self.namespace).ok_or(DataSetError::UnknownPathNamespace)?;
-            namespace_root.join(&self.path).canonicalize().unwrap()
-        };
-
-        Ok(PathReference {
-            namespace: "".to_string(),
-            path: canonical_absolute_path.to_string_lossy().to_string(),
-            importable_name: self.importable_name.clone(),
-        })
+        canonicalized_absolute_path(
+            &self.namespace,
+            &self.path,
+            &self.importable_name,
+            namespace_resolver,
+            source_file_path
+        )
     }
 
     pub fn simplify(
         self,
         namespace_resolver: &dyn PathReferenceNamespaceResolver
-    ) -> PathReference {
+    ) -> CanonicalPathReference {
         if !self.namespace.is_empty() {
             // If it has a namespace it can't be simplified
-            self
+
         } else if Path::new(&self.path).is_relative() {
             // If it's a relative path it can't be simplified
-            self
+
         } else {
             // If it's an absolute path, see if it is in a namespace, if it is, we can return a PathReference relative
             // to the namespace
             let canonicalized_path = PathBuf::from(&self.path).canonicalize().unwrap();
 
             if let Some((namespace, prefix)) = namespace_resolver.simplify_path(&canonicalized_path) {
-                PathReference {
+                return CanonicalPathReference {
                     namespace,
                     path: prefix.to_string_lossy().to_string(),
                     importable_name: self.importable_name
-                }
-            } else {
-                self
+                };
             }
+        }
+
+        CanonicalPathReference {
+            namespace: self.namespace,
+            path: self.path,
+            importable_name: self.importable_name
         }
     }
 }

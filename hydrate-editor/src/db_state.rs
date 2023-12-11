@@ -17,7 +17,7 @@ impl DbState {
         project_configuration: &HydrateProjectConfiguration,
         imports_to_queue: &mut Vec<ImportToQueue>,
     ) -> EditorModel {
-        let mut editor_model = EditorModel::new(schema_set);
+        let mut editor_model = EditorModel::new(project_configuration.clone(), schema_set);
         for pair in &project_configuration.id_based_asset_sources {
             editor_model.add_file_system_id_based_asset_source(
                 project_configuration,

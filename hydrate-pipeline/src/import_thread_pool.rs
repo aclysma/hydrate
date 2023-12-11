@@ -195,6 +195,7 @@ fn do_import(
             &msg.import_op.path,
             &msg.importable_assets,
             schema_set,
+            project_config,
             &mut imported_importables,
         ))?
     }

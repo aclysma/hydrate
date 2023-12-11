@@ -4,6 +4,7 @@ use crate::{
     NullOverride, OrderedSet, PathReference, SchemaSet,
 };
 use uuid::Uuid;
+use crate::path_reference::CanonicalPathReference;
 
 #[derive(Debug)]
 pub struct DynamicArrayEntryDelta {
@@ -24,8 +25,8 @@ pub struct AssetDiff {
     add_properties_in_replace_mode: Vec<String>,
     remove_properties_in_replace_mode: Vec<String>,
     dynamic_array_entry_deltas: Vec<DynamicArrayEntryDelta>,
-    set_file_references: Vec<(PathReference, AssetId)>,
-    remove_file_references: Vec<PathReference>,
+    set_file_references: Vec<(CanonicalPathReference, AssetId)>,
+    remove_file_references: Vec<CanonicalPathReference>,
 }
 
 impl AssetDiff {

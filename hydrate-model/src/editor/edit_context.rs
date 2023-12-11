@@ -1,6 +1,7 @@
+use std::path::{Path, PathBuf};
 use hydrate_data::json_storage::RestoreAssetFromStorageImpl;
-use hydrate_data::{OrderedSet, PathReference, PropertiesBundle, SingleObject};
-use hydrate_pipeline::DynEditContext;
+use hydrate_data::{CanonicalPathReference, OrderedSet, PathReference, PathReferenceNamespaceResolver, PropertiesBundle, SingleObject};
+use hydrate_pipeline::{DynEditContext, HydrateProjectConfiguration};
 use uuid::Uuid;
 
 use crate::editor::undo::{UndoContext, UndoStack};
@@ -38,6 +39,7 @@ use crate::{
 // - These undo contexts can be pushed onto a single global queue or a per-document queue
 
 pub struct EditContext {
+    project_config: HydrateProjectConfiguration,
     schema_set: SchemaSet,
     pub(super) data_set: DataSet,
     undo_context: UndoContext,
@@ -46,6 +48,16 @@ pub struct EditContext {
     // was stored at
     modified_assets: HashSet<AssetId>,
     modified_locations: HashSet<AssetLocation>,
+}
+
+impl PathReferenceNamespaceResolver for EditContext {
+    fn namespace_root(&self, namespace: &str) -> Option<PathBuf> {
+        self.project_config.namespace_root(namespace)
+    }
+
+    fn simplify_path(&self, path: &Path) -> Option<(String, PathBuf)> {
+        self.project_config.simplify_path(path)
+    }
 }
 
 impl RestoreAssetFromStorageImpl for EditContext {
@@ -76,6 +88,10 @@ impl RestoreAssetFromStorageImpl for EditContext {
             properties_in_replace_mode,
             dynamic_collection_entries,
         )
+    }
+
+    fn namespace_resolver(&self) -> &dyn PathReferenceNamespaceResolver {
+        self
     }
 }
 
@@ -204,11 +220,13 @@ impl EditContext {
     }
 
     pub fn new(
+        project_config: &HydrateProjectConfiguration,
         edit_context_key: EditContextKey,
         schema_set: SchemaSet,
         undo_stack: &UndoStack,
     ) -> Self {
         EditContext {
+            project_config: project_config.clone(),
             schema_set,
             data_set: Default::default(),
             undo_context: UndoContext::new(undo_stack, edit_context_key),
@@ -218,11 +236,13 @@ impl EditContext {
     }
 
     pub fn new_with_data(
+        project_config: &HydrateProjectConfiguration,
         edit_context_key: EditContextKey,
         schema_set: SchemaSet,
         undo_stack: &UndoStack,
     ) -> Self {
         EditContext {
+            project_config: project_config.clone(),
             schema_set,
             data_set: Default::default(),
             undo_context: UndoContext::new(undo_stack, edit_context_key),
@@ -542,21 +562,21 @@ impl EditContext {
     pub fn resolve_all_file_references(
         &self,
         asset_id: AssetId,
-    ) -> DataSetResult<HashMap<PathReference, AssetId>> {
+    ) -> DataSetResult<HashMap<CanonicalPathReference, AssetId>> {
         self.data_set.resolve_all_file_references(asset_id)
     }
 
     pub fn get_all_file_reference_overrides(
         &mut self,
         asset_id: AssetId,
-    ) -> Option<&HashMap<PathReference, AssetId>> {
+    ) -> Option<&HashMap<CanonicalPathReference, AssetId>> {
         self.data_set.get_all_file_reference_overrides(asset_id)
     }
 
     pub fn set_file_reference_override(
         &mut self,
         asset_id: AssetId,
-        path: PathReference,
+        path: CanonicalPathReference,
         referenced_asset_id: AssetId,
     ) -> DataSetResult<()> {
         self.track_existing_asset(asset_id)?;

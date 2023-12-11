@@ -1,8 +1,5 @@
-use crate::{ImporterRegistry, PipelineResult};
-use hydrate_data::{
-    AssetId, HashMap, ImportableName, ImporterId, PathReference, Record, SchemaRecord, SchemaSet,
-    SingleObject,
-};
+use crate::{HydrateProjectConfiguration, ImporterRegistry, PipelineResult};
+use hydrate_data::{AssetId, CanonicalPathReference, HashMap, ImportableName, ImporterId, PathReference, Record, SchemaRecord, SchemaSet, SingleObject};
 use std::cell::RefCell;
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
@@ -13,7 +10,7 @@ use uuid::Uuid;
 // at build time
 #[derive(Debug)]
 pub struct SourceFileWithImporter {
-    pub path_reference: PathReference,
+    pub path_reference: CanonicalPathReference,
     pub importer_id: ImporterId,
 }
 
@@ -40,7 +37,7 @@ pub trait ImporterStatic: TypeUuid {
 #[derive(Debug)]
 pub struct ImportableAsset {
     pub id: AssetId,
-    pub referenced_paths: HashMap<PathReference, AssetId>,
+    pub referenced_paths: HashMap<CanonicalPathReference, AssetId>,
 }
 
 #[derive(Clone)]
@@ -48,6 +45,7 @@ pub struct ScanContext<'a> {
     pub path: &'a Path,
     pub schema_set: &'a SchemaSet,
     pub importer_registry: &'a ImporterRegistry,
+    project_config: &'a HydrateProjectConfiguration,
     pub(crate) scanned_importables: Rc<RefCell<&'a mut HashMap<ImportableName, ScannedImportable>>>,
 }
 
@@ -61,12 +59,14 @@ impl<'a> ScanContext<'a> {
         path: &'a Path,
         schema_set: &'a SchemaSet,
         importer_registry: &'a ImporterRegistry,
+        project_config: &'a HydrateProjectConfiguration,
         scanned_importables: &'a mut HashMap<ImportableName, ScannedImportable>,
     ) -> ScanContext<'a> {
         ScanContext {
             path,
             schema_set,
             importer_registry,
+            project_config,
             scanned_importables: Rc::new(RefCell::new(scanned_importables)),
         }
     }
@@ -120,7 +120,7 @@ impl<'a> ScanContext<'a> {
     ) -> PipelineResult<()> {
         let file_reference = SourceFileWithImporter {
             importer_id,
-            path_reference: path_reference.into(),
+            path_reference: path_reference.into().simplify(self.project_config),
         };
 
         self.scanned_importables
@@ -217,6 +217,7 @@ pub struct ImportContext<'a> {
     pub path: &'a Path,
     importable_assets: &'a HashMap<ImportableName, ImportableAsset>,
     pub schema_set: &'a SchemaSet,
+    project_config: &'a HydrateProjectConfiguration,
     imported_importables: Rc<RefCell<&'a mut HashMap<ImportableName, ImportedImportable>>>,
 }
 
@@ -225,12 +226,14 @@ impl<'a> ImportContext<'a> {
         path: &'a Path,
         importable_assets: &'a HashMap<ImportableName, ImportableAsset>,
         schema_set: &'a SchemaSet,
+        project_config: &'a HydrateProjectConfiguration,
         imported_importables: &'a mut HashMap<ImportableName, ImportedImportable>,
     ) -> ImportContext<'a> {
         ImportContext {
             path,
             importable_assets,
             schema_set,
+            project_config,
             imported_importables: Rc::new(RefCell::new(imported_importables)),
         }
     }
@@ -280,10 +283,12 @@ impl<'a> ImportContext<'a> {
         name: ImportableName,
         path: &PathReference,
     ) -> PipelineResult<AssetId> {
+
+
         Ok(*self.importable_assets
             .get(&name)
             .ok_or_else(|| format!("Default importable not found when trying to resolve path {:?} referenced by importable {:?}", path, name))?
-            .referenced_paths.get(path)
+            .referenced_paths.get(&path.clone().simplify(self.project_config))
             .ok_or_else(|| format!("No asset ID found for default importable when trying to resolve path {:?} referenced by importable {:?}", path, name))?)
     }
 }

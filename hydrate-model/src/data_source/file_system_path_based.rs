@@ -698,6 +698,7 @@ impl DataSource for FileSystemPathBasedDataSource {
                                 &source_file,
                                 edit_context.schema_set(),
                                 &self.importer_registry,
+                                project_config,
                                 &mut scanned_importables,
                             ))
                             .unwrap()
@@ -854,20 +855,20 @@ impl DataSource for FileSystemPathBasedDataSource {
                         scanned_importable.referenced_source_files.len()
                     );
 
-                    let mut file_references = HashMap::default();
+                    let mut path_references = HashMap::default();
                     for (k, v) in scanned_importable
                         .referenced_source_files
                         .iter()
                         .zip(referenced_source_file_asset_ids)
                     {
-                        file_references.insert(k.path_reference.clone(), *v);
+                        path_references.insert(k.path_reference.clone(), *v);
                     }
 
                     let source_file = PathReference::new(
                         "".to_string(),
                         source_file_path.to_string_lossy().to_string(),
                         scanned_importable.name.clone(),
-                    );
+                    ).simplify(project_config);
 
                     let requested_importable = RequestedImportable {
                         asset_id: importable_asset_id,
@@ -876,7 +877,7 @@ impl DataSource for FileSystemPathBasedDataSource {
                         asset_location: import_location,
                         //importer_id: scanned_source_file.importer.importer_id(),
                         source_file,
-                        path_references: file_references,
+                        path_references,
                         replace_with_default_asset: !asset_file_exists,
                     };
 

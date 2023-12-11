@@ -1,7 +1,7 @@
 use crate::{DynEditContext, HydrateProjectConfiguration, PipelineResult};
 use crate::{ImportType, ImporterRegistry};
 use crate::{Importer, ScanContext, ScannedImportable};
-use hydrate_data::{AssetId, AssetLocation, AssetName, HashMap, ImporterId};
+use hydrate_data::{AssetId, AssetLocation, AssetName, CanonicalPathReference, HashMap, ImporterId};
 use hydrate_data::{ImportableName, PathReference};
 use hydrate_schema::SchemaRecord;
 use std::path::{Path, PathBuf};
@@ -15,8 +15,8 @@ pub struct RequestedImportable {
     pub asset_name: AssetName,
     pub asset_location: AssetLocation,
     //pub importer_id: ImporterId,
-    pub source_file: PathReference,
-    pub path_references: HashMap<PathReference, AssetId>,
+    pub source_file: CanonicalPathReference,
+    pub path_references: HashMap<CanonicalPathReference, AssetId>,
     pub replace_with_default_asset: bool,
 }
 
@@ -72,6 +72,7 @@ pub fn recursively_gather_import_operations_and_create_assets(
         source_file_path,
         editor_context.schema_set(),
         importer_registry,
+        project_config,
         &mut scanned_importables,
     ))?;
 
@@ -141,14 +142,14 @@ pub fn recursively_gather_import_operations_and_create_assets(
         // We create a random asset ID now so that other imported files can reference this asset later
         let asset_id = AssetId::from_uuid(Uuid::new_v4());
 
-        let mut file_references = HashMap::default();
+        let mut path_references = HashMap::default();
         for (k, v) in scanned_importable
             .referenced_source_files
             .iter()
             .zip(referenced_source_file_asset_ids)
         {
             if let Some(v) = v {
-                file_references.insert(k.path_reference.clone(), v);
+                path_references.insert(k.path_reference.clone(), v);
             }
         }
 
@@ -156,7 +157,7 @@ pub fn recursively_gather_import_operations_and_create_assets(
             "".to_string(),
             source_file_path.to_string_lossy().to_string(),
             scanned_importable.name.clone(),
-        );
+        ).simplify(project_config);
 
         // This is everything we will need to create the asset, set the import info, and init
         // the build info with path overrides
@@ -167,7 +168,7 @@ pub fn recursively_gather_import_operations_and_create_assets(
             asset_location: selected_import_location.clone(),
             //importer_id: importer.importer_id(),
             source_file,
-            path_references: file_references,
+            path_references,
             //TODO: A re-import of data from the source file might not want to do this
             replace_with_default_asset: true,
         };

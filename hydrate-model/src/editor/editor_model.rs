@@ -5,9 +5,7 @@ use crate::{
     FileSystemIdBasedDataSource, FileSystemPathBasedDataSource, HashMap,
     PathNode, PathNodeRoot, SchemaNamedType, SchemaSet,
 };
-use hydrate_data::{
-    AssetLocation, AssetName, DataSetError, DataSetResult, ImportInfo, PathReference, SingleObject,
-};
+use hydrate_data::{AssetLocation, AssetName, CanonicalPathReference, DataSetError, DataSetResult, ImportInfo, PathReference, SingleObject};
 use hydrate_pipeline::{import_util::ImportToQueue, DynEditorModel, ImporterRegistry, HydrateProjectConfiguration};
 use hydrate_schema::{SchemaFingerprint, SchemaRecord};
 use slotmap::DenseSlotMap;
@@ -15,6 +13,7 @@ use std::path::PathBuf;
 slotmap::new_key_type! { pub struct EditContextKey; }
 
 pub struct EditorModel {
+    project_config: HydrateProjectConfiguration,
     schema_set: SchemaSet,
     undo_stack: UndoStack,
     root_edit_context_key: EditContextKey,
@@ -46,7 +45,7 @@ impl<'a> DynEditorModel for EditorModelWithCache<'a> {
         default_asset: &SingleObject,
         replace_with_default_asset: bool,
         import_info: ImportInfo,
-        path_references: &HashMap<PathReference, AssetId>,
+        path_references: &HashMap<CanonicalPathReference, AssetId>,
     ) -> DataSetResult<()> {
         //
         // If the asset is supposed to be regenerated, stomp the existing asset
@@ -98,12 +97,12 @@ impl<'a> DynEditorModel for EditorModelWithCache<'a> {
 }
 
 impl EditorModel {
-    pub fn new(schema_set: SchemaSet) -> Self {
+    pub fn new(project_config: HydrateProjectConfiguration, schema_set: SchemaSet) -> Self {
         let undo_stack = UndoStack::default();
         let mut edit_contexts: DenseSlotMap<EditContextKey, EditContext> = Default::default();
 
         let root_edit_context_key = edit_contexts
-            .insert_with_key(|key| EditContext::new(key, schema_set.clone(), &undo_stack));
+            .insert_with_key(|key| EditContext::new(&project_config, key, schema_set.clone(), &undo_stack));
 
         let path_node_root_schema = schema_set
             .find_named_type(PathNodeRoot::schema_name())
@@ -116,6 +115,7 @@ impl EditorModel {
             .clone();
 
         EditorModel {
+            project_config,
             schema_set,
             undo_stack,
             root_edit_context_key,
@@ -449,7 +449,7 @@ impl EditorModel {
         assets: &[AssetId],
     ) -> DataSetResult<EditContextKey> {
         let new_edit_context_key = self.edit_contexts.insert_with_key(|key| {
-            EditContext::new_with_data(key, self.schema_set.clone(), &self.undo_stack)
+            EditContext::new_with_data(&self.project_config, key, self.schema_set.clone(), &self.undo_stack)
         });
 
         let [root_edit_context, new_edit_context] = self

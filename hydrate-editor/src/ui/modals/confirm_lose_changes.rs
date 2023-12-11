@@ -93,7 +93,7 @@ fn confirm_lose_changes<F: Fn(&mut egui::Ui, &mut ModalActionControlFlow) -> ()>
                                 let long_name = context
                                     .db_state
                                     .editor_model
-                                    .asset_path(asset_id, &context.ui_state.asset_path_cache);
+                                    .asset_display_name_long(asset_id, &context.ui_state.asset_path_cache);
 
                                 row.col(|ui| {
                                     //TODO

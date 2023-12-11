@@ -219,7 +219,7 @@ impl EditorModel {
         &self,
         asset_id: AssetId,
         asset_path_cache: &AssetPathCache,
-    ) -> AssetPath {
+    ) -> Option<AssetPath> {
         let root_data_set = &self.root_edit_context().data_set;
         let location = root_data_set.asset_location(asset_id);
 
@@ -228,17 +228,16 @@ impl EditorModel {
         let path = location
             .map(|x| asset_path_cache.path_to_id_lookup().get(&x.path_node_id()))
             .flatten()
-            .cloned()
-            .unwrap_or_else(AssetPath::root);
+            .cloned()?;
 
         let name = root_data_set
             .asset_name(asset_id)
-            .map(|x| x.as_string())
-            .flatten();
+            .unwrap()
+            .as_string();
         if let Some(name) = name {
-            path.join(name)
+            Some(path.join(name))
         } else {
-            path.join(&format!("{}", asset_id.as_uuid()))
+            Some(path.join(&format!("{}", asset_id.as_uuid())))
         }
     }
 
@@ -248,8 +247,8 @@ impl EditorModel {
         asset_path_cache: &AssetPathCache,
     ) -> String {
         self.asset_path(asset_id, asset_path_cache)
-            .as_str()
-            .to_string()
+            .map(|x| x.as_str().to_string())
+            .unwrap_or_else(|| format!("{}", asset_id.as_uuid()))
     }
 
     pub fn data_source(

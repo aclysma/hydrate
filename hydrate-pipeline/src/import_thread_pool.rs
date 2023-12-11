@@ -177,7 +177,7 @@ fn do_import(
                     assert!(old.is_none());
                 }
 
-                //return Ok(cached_importables);
+                return Ok(cached_importables);
             }
         }
     }

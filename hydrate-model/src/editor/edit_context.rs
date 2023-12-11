@@ -513,16 +513,16 @@ impl EditContext {
     pub fn asset_name(
         &self,
         asset_id: AssetId,
-    ) -> Option<&AssetName> {
+    ) -> DataSetResult<&AssetName> {
         self.data_set.asset_name(asset_id)
     }
 
     pub fn asset_name_or_id_string(
         &self,
         asset_id: AssetId,
-    ) -> Option<String> {
+    ) -> DataSetResult<String> {
         let asset_name = self.data_set.asset_name(asset_id)?;
-        Some(if let Some(name) = asset_name.as_string() {
+        Ok(if let Some(name) = asset_name.as_string() {
             name.to_string()
         } else {
             asset_id.as_uuid().to_string()

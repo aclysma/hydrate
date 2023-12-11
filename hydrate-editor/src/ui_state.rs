@@ -23,7 +23,7 @@ impl EditorModelUiState {
         &mut self,
         editor_model: &EditorModel,
     ) {
-        self.asset_path_cache = AssetPathCache::build(editor_model);
+        self.asset_path_cache = AssetPathCache::build(editor_model).unwrap();
         self.location_tree = LocationTree::build(&editor_model, &self.asset_path_cache);
     }
 }

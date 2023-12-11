@@ -810,7 +810,7 @@ pub fn draw_inspector_value(
                                 "not set".to_string()
                             } else {
                                 let asset_path = ctx.editor_model.asset_path(asset_ref, &ctx.editor_model_ui_state.asset_path_cache);
-                                asset_path.as_str().to_string()
+                                asset_path.as_ref().map(|x| x.as_str()).unwrap_or("Unknown Path").to_string()
                             };
 
                             ui.add(egui::TextEdit::singleline(&mut label_string).desired_width(ui.available_width() - 30.0 - ui.style().spacing.item_spacing.x));

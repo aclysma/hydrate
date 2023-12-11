@@ -61,7 +61,7 @@ impl Editor {
             &mut imports_to_queue,
         );
 
-        let asset_path_cache = AssetPathCache::build(&db_state.editor_model);
+        let asset_path_cache = AssetPathCache::build(&db_state.editor_model).unwrap();
         let mut editor_model_with_cache = EditorModelWithCache {
             editor_model: &mut db_state.editor_model,
             asset_path_cache: &asset_path_cache,

@@ -160,9 +160,12 @@ pub fn draw_asset_gallery(
             }
 
             if !asset_gallery_ui_state.search_string.is_empty() {
-                let long_name = db_state
+                let Some(long_name) = db_state
                     .editor_model
-                    .asset_path(asset_id, &ui_state.asset_path_cache);
+                    .asset_path(asset_id, &ui_state.asset_path_cache) else {
+                    return false;
+                };
+
                 if !long_name
                     .as_str()
                     .to_lowercase()
@@ -350,7 +353,7 @@ fn draw_asset_gallery_list(
                         ui.label(schema_display_name);
                     });
                     row.col(|ui| {
-                        ui.label(long_name.as_str());
+                        ui.label(long_name.as_ref().map(|x| x.as_str()).unwrap_or_default());
                     });
                 });
             }

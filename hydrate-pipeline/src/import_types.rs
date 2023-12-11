@@ -277,14 +277,27 @@ impl<'a> ImportContext<'a> {
         self.importable_assets.get(name).map(|x| x.id)
     }
 
+    pub fn canonical_path_for_referenced_file_path(
+        &self,
+        name: ImportableName,
+        path: &PathReference,
+    ) -> PipelineResult<CanonicalPathReference> {
+        if self.importable_assets
+            .get(&name)
+            .ok_or_else(|| format!("Default importable not found when trying to resolve path {:?} referenced by importable {:?}", path, name))?
+            .referenced_paths.get(&path.clone().simplify(self.project_config)).is_none() {
+            Err(format!("No asset ID found for default importable when trying to resolve path {:?} referenced by importable {:?}", path, name))?
+        }
+
+        Ok(path.clone().simplify(self.project_config))
+    }
+
     // This is for assets produced by importing other files
     pub fn asset_id_for_referenced_file_path(
         &self,
         name: ImportableName,
         path: &PathReference,
     ) -> PipelineResult<AssetId> {
-
-
         Ok(*self.importable_assets
             .get(&name)
             .ok_or_else(|| format!("Default importable not found when trying to resolve path {:?} referenced by importable {:?}", path, name))?

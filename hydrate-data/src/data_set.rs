@@ -138,7 +138,7 @@ pub struct ImportInfo {
 
     // All the file references that need to be resolved in order to build the asset (this represents
     // file references encountered in the input data, and only changes when data is re-imported)
-    file_references: Vec<CanonicalPathReference>,
+    file_references: HashMap<Uuid, CanonicalPathReference>,
 
     // State of the source file when the asset was imported
     source_file_modified_timestamp: u64,
@@ -152,7 +152,7 @@ impl ImportInfo {
     pub fn new(
         importer_id: ImporterId,
         source_file: CanonicalPathReference,
-        file_references: Vec<CanonicalPathReference>,
+        file_references: HashMap<Uuid, CanonicalPathReference>,
         source_file_modified_timestamp: u64,
         source_file_size: u64,
         import_data_contents_hash: u64,
@@ -179,7 +179,7 @@ impl ImportInfo {
         self.source_file.importable_name()
     }
 
-    pub fn file_references(&self) -> &[CanonicalPathReference] {
+    pub fn file_references(&self) -> &HashMap<Uuid, CanonicalPathReference> {
         &self.file_references
     }
 
@@ -663,8 +663,8 @@ impl DataSet {
     pub fn asset_name(
         &self,
         asset_id: AssetId,
-    ) -> Option<&AssetName> {
-        self.assets.get(&asset_id).map(|x| &x.asset_name)
+    ) -> DataSetResult<&AssetName> {
+        Ok(self.assets.get(&asset_id).ok_or(DataSetError::AssetNotFound)?.asset_name())
     }
 
     /// Sets the asset's name, fails if the asset does not exist

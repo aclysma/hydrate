@@ -125,10 +125,6 @@ impl<'a> ScanContext<'a> {
     ) -> PipelineResult<()> {
         let path_reference: PathReference = path_reference.into();
         let canonical_path_reference = path_reference.clone().simplify(self.project_config);
-        // let file_reference = SourceFileWithImporter {
-        //     importer_id,
-        //     path_reference: path_reference.into().simplify(self.project_config),
-        // };
 
         let mut scanned_importables = self.scanned_importables
             .borrow_mut();
@@ -311,15 +307,6 @@ impl<'a> ImportContext<'a> {
             .ok_or_else(|| format!("Importable not found when trying to resolve path {:?} referenced by importable {:?}", path, name))?
             .path_references.get(&path_reference_hash)
             .ok_or_else(|| format!("No asset ID found for importable when trying to resolve path {:?} referenced by importable {:?}", path, name))?)
-
-        // if self.importable_assets
-        //     .get(&name)
-        //     .ok_or_else(|| format!("Default importable not found when trying to resolve path {:?} referenced by importable {:?}", path, name))?
-        //     .canonical_path_references.get(&path.clone().simplify(self.project_config)).is_none() {
-        //     Err(format!("No asset ID found for default importable when trying to resolve path {:?} referenced by importable {:?}", path, name))?
-        // }
-
-        //Ok(path.clone().simplify(self.project_config))
     }
 
     // This is for assets produced by importing other files

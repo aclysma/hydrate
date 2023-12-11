@@ -176,11 +176,6 @@ pub fn recursively_gather_import_operations_and_create_assets(
             .iter()
             .zip(referenced_source_file_asset_ids)
         {
-            // let mut hasher = siphasher::sip128::SipHasher::default();
-            // k.path_reference.hash(&mut hasher);
-            // let path_reference_hash = Uuid::from_u128(hasher.finish128().as_u128());
-
-
             if let Some(v) = v {
                 path_references.insert(*path_reference_hash, canonical_path_reference.clone());
                 canonical_path_references.insert(canonical_path_reference.clone(), v);

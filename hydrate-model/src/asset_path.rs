@@ -30,10 +30,6 @@ impl AssetPath {
         AssetPath(Some(format!("{}://", name)))
     }
 
-    // pub fn root() -> Self {
-    //     AssetPath(None)
-    // }
-
     pub fn join(
         &self,
         rhs: &str,

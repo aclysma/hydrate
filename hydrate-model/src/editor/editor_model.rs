@@ -5,7 +5,7 @@ use crate::{
     FileSystemIdBasedDataSource, FileSystemPathBasedDataSource, HashMap,
     PathNode, PathNodeRoot, SchemaNamedType, SchemaSet,
 };
-use hydrate_data::{AssetLocation, AssetName, CanonicalPathReference, DataSetError, DataSetResult, ImportInfo, PathReference, SingleObject};
+use hydrate_data::{AssetLocation, AssetName, CanonicalPathReference, DataSetError, DataSetResult, ImportInfo, SingleObject};
 use hydrate_pipeline::{import_util::ImportToQueue, DynEditorModel, ImporterRegistry, HydrateProjectConfiguration};
 use hydrate_schema::{SchemaFingerprint, SchemaRecord};
 use slotmap::DenseSlotMap;
@@ -47,7 +47,7 @@ impl<'a> DynEditorModel for EditorModelWithCache<'a> {
         replace_with_default_asset: bool,
         import_info: ImportInfo,
         canonical_path_references: &HashMap<CanonicalPathReference, AssetId>,
-        path_references: &HashMap<Uuid, CanonicalPathReference>,
+        _path_references: &HashMap<Uuid, CanonicalPathReference>,
     ) -> DataSetResult<()> {
         //
         // If the asset is supposed to be regenerated, stomp the existing asset

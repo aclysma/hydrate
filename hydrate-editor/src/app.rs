@@ -10,7 +10,7 @@ use crate::ui::modals::ImportFilesModal;
 use crate::ui_state::EditorModelUiState;
 use egui::epaint::text::FontsImpl;
 use egui::{FontDefinitions, ViewportCommand};
-use hydrate_model::pipeline::{AssetEngine, AssetEngineState, HydrateProjectConfiguration};
+use hydrate_model::pipeline::{AssetEngine, AssetEngineState};
 use hydrate_model::EditorModelWithCache;
 
 #[derive(Default)]
@@ -220,7 +220,6 @@ impl eframe::App for HydrateEditorApp {
                 }
 
                 crate::ui::components::draw_inspector(
-                    &self.db_state.project_configuration,
                     ui,
                     &self.db_state.editor_model,
                     &action_queue_sender,

@@ -1,6 +1,6 @@
 use std::path::{Path, PathBuf};
 use hydrate_data::json_storage::RestoreAssetFromStorageImpl;
-use hydrate_data::{CanonicalPathReference, OrderedSet, PathReference, PathReferenceNamespaceResolver, PropertiesBundle, SingleObject};
+use hydrate_data::{CanonicalPathReference, OrderedSet, PathReferenceNamespaceResolver, PropertiesBundle, SingleObject};
 use hydrate_pipeline::{DynEditContext, HydrateProjectConfiguration};
 use uuid::Uuid;
 

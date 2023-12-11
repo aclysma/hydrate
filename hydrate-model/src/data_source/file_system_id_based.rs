@@ -156,7 +156,7 @@ impl DataSource for FileSystemIdBasedDataSource {
     #[profiling::function]
     fn load_from_storage(
         &mut self,
-        project_config: &HydrateProjectConfiguration,
+        _project_config: &HydrateProjectConfiguration,
         edit_context: &mut EditContext,
         _imports_to_queue: &mut Vec<ImportToQueue>,
     ) {

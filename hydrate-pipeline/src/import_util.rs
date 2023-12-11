@@ -1,4 +1,3 @@
-use std::hash::Hash;
 use crate::{DynEditContext, HydrateProjectConfiguration, PipelineResult};
 use crate::{ImportType, ImporterRegistry};
 use crate::{Importer, ScanContext, ScannedImportable};
@@ -7,7 +6,6 @@ use hydrate_data::{ImportableName, PathReference};
 use hydrate_schema::SchemaRecord;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
-use siphasher::sip128::Hasher128;
 use uuid::Uuid;
 
 #[derive(Debug, Clone)]

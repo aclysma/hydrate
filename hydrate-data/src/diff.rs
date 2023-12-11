@@ -1,7 +1,7 @@
 use crate::value::PropertyValue;
 use crate::{
     AssetId, AssetLocation, AssetName, DataSet, DataSetAssetInfo, DataSetResult, HashSet,
-    NullOverride, OrderedSet, PathReference, SchemaSet,
+    NullOverride, OrderedSet, SchemaSet,
 };
 use uuid::Uuid;
 use crate::path_reference::CanonicalPathReference;

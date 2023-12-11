@@ -1,61 +1,9 @@
 use crate::{AssetPath, EditorModel};
-use hydrate_base::hashing::{HashMap, HashSet};
+use hydrate_base::hashing::HashMap;
 use hydrate_base::AssetId;
-use hydrate_base::uuid_path::path_to_uuid_and_hash;
 use hydrate_data::DataSet;
 use hydrate_schema::{DataSetResult, SchemaNamedType};
-/*
-fn do_populate_path(
-    data_set: &DataSet,
-    path_stack: &mut HashSet<AssetId>,
-    paths: &mut HashMap<AssetId, AssetPath>,
-    path_node: AssetId,
-) -> AssetPath {
-    if path_node.is_null() {
-        return AssetPath::root();
-    }
 
-    // If we already know the path for the tree node, just return it
-    if let Some(parent_path) = paths.get(&path_node) {
-        return parent_path.clone();
-    }
-
-    // To detect cyclical references, we accumulate visited assets into a set
-    let is_cyclical_reference = !path_stack.insert(path_node);
-    let source_id_and_path = if is_cyclical_reference {
-        // If we detect a cycle, bail and return root path
-        AssetPath::root()
-    } else {
-        if let Some(asset) = data_set.assets().get(&path_node) {
-            if let Some(name) = asset.asset_name().as_string() {
-                // Parent is found, named, and not a cyclical reference
-                let parent = do_populate_path(
-                    data_set,
-                    path_stack,
-                    paths,
-                    asset.asset_location().path_node_id(),
-                );
-                let path = parent.join(name);
-                path
-            } else {
-                // Parent is unnamed, just treat as being at root path
-                AssetPath::root()
-            }
-        } else {
-            // Can't find parent, just treat as being at root path
-            AssetPath::root()
-        }
-    };
-
-    paths.insert(path_node, source_id_and_path.clone());
-
-    if !is_cyclical_reference {
-        path_stack.remove(&path_node);
-    }
-
-    source_id_and_path
-}
-*/
 pub fn build_path_lookup(
     data_set: &DataSet,
     path_node_type: &SchemaNamedType,

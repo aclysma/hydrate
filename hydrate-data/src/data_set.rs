@@ -1,12 +1,11 @@
 use crate::{
-    AssetId, HashMap, HashSet, OrderedSet, PathReference, Schema, SchemaFingerprint,
+    AssetId, HashMap, HashSet, OrderedSet, Schema, SchemaFingerprint,
     SchemaRecord, SingleObject, Value,
 };
 pub use crate::{DataSetError, DataSetResult};
 use crate::{NullOverride, SchemaSet};
 use std::cmp::Ordering;
 use std::hash::{Hash, Hasher};
-use std::path::Path;
 use std::str::FromStr;
 use std::string::ToString;
 use uuid::Uuid;

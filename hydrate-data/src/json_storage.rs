@@ -251,12 +251,6 @@ fn store_json_properties(
     saved_properties
 }
 
-#[derive(Debug, Serialize, Deserialize)]
-pub struct FileReferenceJson {
-    reference_hash: Uuid,
-    canonical_path_reference: String,
-}
-
 // Import Info, part of AssetJson
 #[derive(Debug, Serialize, Deserialize)]
 pub struct AssetImportInfoJson {
@@ -317,7 +311,7 @@ impl AssetImportInfoJson {
             path_references.insert(*key, path_reference.simplify(namespace_resolver));
         }
 
-        let mut path_reference: PathReference = self.source_file_path.clone().into();
+        let path_reference: PathReference = self.source_file_path.clone().into();
         let source_file = PathReference::new(path_reference.namespace().to_string(), path_reference.path().to_string(), ImportableName::new(self.importable_name.clone())).simplify(namespace_resolver);
 
         let source_file_modified_timestamp =

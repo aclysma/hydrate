@@ -2,7 +2,6 @@ use crate::action_queue::{UIAction, UIActionQueueSender};
 use crate::ui::modals::NewAssetModal;
 use crate::ui_state::EditorModelUiState;
 use hydrate_model::{AssetId, EditorModel, PropertyPath, Schema, SchemaDefRecordFieldMarkup};
-use hydrate_model::pipeline::HydrateProjectConfiguration;
 
 use super::inspector_system::*;
 
@@ -10,7 +9,6 @@ use super::inspector_system::*;
 pub struct InspectorUiState {}
 
 pub fn draw_inspector(
-    project_config: &HydrateProjectConfiguration,
     ui: &mut egui::Ui,
     editor_model: &EditorModel,
     action_sender: &UIActionQueueSender,

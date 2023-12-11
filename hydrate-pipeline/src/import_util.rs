@@ -57,6 +57,23 @@ pub fn recursively_gather_import_operations_and_create_assets(
     // created. Pre-existing but referenced assets won't be in this list
     imports_to_queue: &mut Vec<ImportToQueue>,
 ) -> PipelineResult<HashMap<ImportableName, AssetId>> {
+    assert!(source_file_path.is_absolute());
+    let source_file_path = source_file_path.canonicalize().unwrap();
+
+    //
+    // If we request to import a file we already processed, just return the name/id pairs again
+    //
+    for import_to_queue in &*imports_to_queue {
+        if import_to_queue.source_file_path == source_file_path {
+            let mut imported_asset_ids = HashMap::default();
+            for (k, v) in &import_to_queue.requested_importables {
+                imported_asset_ids.insert(k.clone(), v.asset_id);
+            }
+            return Ok(imported_asset_ids);
+        }
+    }
+
+    log::info!("recursively_gather_import_operations_and_create_assets {:?}", source_file_path);
     //
     // We now build a list of things we will be importing from the file.
     // 1. Scan the file to see what's available
@@ -69,18 +86,20 @@ pub fn recursively_gather_import_operations_and_create_assets(
     let mut scanned_importables = HashMap::default();
 
     importer.scan_file(ScanContext::new(
-        source_file_path,
+        &source_file_path,
         editor_context.schema_set(),
         importer_registry,
         project_config,
         &mut scanned_importables,
     ))?;
 
-    for (_, scanned_importable) in &scanned_importables {
+    for (scanned_importable_name, scanned_importable) in &scanned_importables {
+        log::info!("iterating scanned importable {:?} {:?}", source_file_path, scanned_importable_name);
+
         //
         // Pick name for the asset for this file
         //
-        let object_name = create_asset_name(source_file_path, scanned_importable);
+        let object_name = create_asset_name(&source_file_path, scanned_importable);
 
         let mut referenced_source_file_asset_ids = Vec::default();
 
@@ -88,24 +107,29 @@ pub fn recursively_gather_import_operations_and_create_assets(
         for referenced_source_file in &scanned_importable.referenced_source_files {
             let referenced_file_absolute = referenced_source_file.path_reference.canonicalized_absolute_path(
                 project_config,
-                source_file_path,
+                &source_file_path,
             )?;
+
+            let referenced_file_canonical = referenced_file_absolute.clone().simplify(project_config);
 
             // Does it already exist?
             let mut found = None;
 
             // Have we already iterated over it and will be creating it later?
-            for (_, requested_importable) in &requested_importables {
-                if requested_importable.source_file == referenced_source_file.path_reference {
-                    found = Some(requested_importable.asset_id);
+            for import_to_queue in &*imports_to_queue {
+                for (_, requested_importable) in &import_to_queue.requested_importables {
+                    if requested_importable.source_file == referenced_file_canonical {
+                        found = Some(requested_importable.asset_id);
+                    }
                 }
+
             }
 
             // Have we imported it previously?
             if found.is_none() {
                 for (asset_id, _) in editor_context.data_set().assets() {
                     if let Some(import_info) = editor_context.data_set().import_info(*asset_id) {
-                        if *import_info.source_file() == referenced_source_file.path_reference {
+                        if *import_info.source_file() == referenced_file_canonical {
                             found = Some(*asset_id);
                         }
                     }
@@ -119,14 +143,14 @@ pub fn recursively_gather_import_operations_and_create_assets(
                     .unwrap();
                 found = recursively_gather_import_operations_and_create_assets(
                     project_config,
-                    &Path::new(referenced_file_absolute.path()),
+                    Path::new(referenced_file_absolute.path()),
                     importer,
                     editor_context,
                     importer_registry,
                     selected_import_location,
                     imports_to_queue,
                 )?
-                .get(referenced_file_absolute.importable_name())
+                .get(referenced_source_file.path_reference.importable_name())
                 .copied();
             }
 

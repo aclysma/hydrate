@@ -94,6 +94,7 @@ impl ModalAction for ImportFilesModal {
 
                 //TODO: Make this disable if location not set
                 if ui.add_enabled(self.selected_location.is_some(), egui::Button::new("Import")).clicked() {
+                    let mut imports_to_queue = Vec::default();
                     for file in &self.files_to_import {
                         let extension = file.extension();
                         if let Some(extension) = extension {
@@ -106,7 +107,7 @@ impl ModalAction for ImportFilesModal {
                                 //
                                 let importer = context.asset_engine.importer(handlers[0]).unwrap();
 
-                                let mut imports_to_queue = Vec::default();
+                                log::info!("Starting import recursively on {:?}", file);
                                 hydrate_model::pipeline::import_util::recursively_gather_import_operations_and_create_assets(
                                     &context.db_state.project_configuration,
                                     file,
@@ -116,17 +117,17 @@ impl ModalAction for ImportFilesModal {
                                     &self.selected_location.unwrap(),
                                     &mut imports_to_queue,
                                 ).unwrap();
-
-                                for import_to_queue in imports_to_queue {
-                                    context.asset_engine.queue_import_operation(
-                                        import_to_queue.requested_importables,
-                                        import_to_queue.importer_id,
-                                        import_to_queue.source_file_path,
-                                        ImportType::ImportIfImportDataStale,
-                                    );
-                                }
                             }
                         }
+                    }
+
+                    for import_to_queue in imports_to_queue {
+                        context.asset_engine.queue_import_operation(
+                            import_to_queue.requested_importables,
+                            import_to_queue.importer_id,
+                            import_to_queue.source_file_path,
+                            ImportType::ImportIfImportDataStale,
+                        );
                     }
 
                     control_flow = ModalActionControlFlow::End;

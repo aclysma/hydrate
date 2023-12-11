@@ -7,6 +7,7 @@ use crate::AssetId;
 
 mod file_system_path_based;
 pub use file_system_path_based::*;
+use hydrate_pipeline::HydrateProjectConfiguration;
 use hydrate_pipeline::import_util::ImportToQueue;
 
 pub trait DataSource {
@@ -15,6 +16,7 @@ pub trait DataSource {
     // Load storage state to memory
     fn load_from_storage(
         &mut self,
+        project_config: &HydrateProjectConfiguration,
         edit_context: &mut EditContext,
         imports_to_queue: &mut Vec<ImportToQueue>,
     );

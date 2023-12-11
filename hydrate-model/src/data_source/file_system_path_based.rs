@@ -5,9 +5,7 @@ use hydrate_base::hashing::HashSet;
 use hydrate_data::json_storage::{MetaFile, MetaFileJson};
 use hydrate_data::{AssetId, AssetLocation, AssetName, ImportableName, ImporterId, PathReference};
 use hydrate_pipeline::import_util::{ImportToQueue, RequestedImportable};
-use hydrate_pipeline::{
-    import_util, ImportType, Importer, ImporterRegistry, ScanContext, ScannedImportable,
-};
+use hydrate_pipeline::{import_util, ImportType, Importer, ImporterRegistry, ScanContext, ScannedImportable, HydrateProjectConfiguration};
 use hydrate_schema::{HashMap, SchemaNamedType};
 use std::ffi::OsStr;
 use std::path::{Path, PathBuf};
@@ -492,6 +490,7 @@ impl DataSource for FileSystemPathBasedDataSource {
 
     fn load_from_storage(
         &mut self,
+        project_config: &HydrateProjectConfiguration,
         edit_context: &mut EditContext,
         imports_to_queue: &mut Vec<ImportToQueue>,
     ) {
@@ -825,16 +824,16 @@ impl DataSource for FileSystemPathBasedDataSource {
                     // and at this point must exist in the meta file.
                     let mut referenced_source_file_asset_ids = Vec::default();
                     for file_reference in &scanned_importable.referenced_source_files {
-                        let file_reference_absolute = PathReference::canonicalize_relative(
+                        let file_reference_absolute = file_reference.path_reference.canonicalized_absolute_path(
+                            project_config,
                             source_file_path,
-                            &file_reference.path_reference,
-                        );
+                        ).unwrap();
 
                         //println!("referenced {:?} {:?}", file_reference_absolute_path, scanned_source_files.keys());
                         //println!("pull from {:?}", scanned_source_files.keys());
                         //println!("referenced {:?}", file_reference_absolute_path);
                         let referenced_scanned_source_file = scanned_source_files
-                            .get(&PathBuf::from(file_reference_absolute.path))
+                            .get(&PathBuf::from(file_reference_absolute.path()))
                             .unwrap();
                         assert_eq!(
                             file_reference.importer_id,
@@ -844,8 +843,8 @@ impl DataSource for FileSystemPathBasedDataSource {
                             referenced_scanned_source_file
                                 .meta_file
                                 .past_id_assignments
-                                .get(&file_reference.path_reference.importable_name)
-                                .ok_or_else(|| format!("{:?} is referencing importable {:?} in {:?} but it was not found when the file was scanned", source_file_path, file_reference.path_reference.path, file_reference.path_reference.importable_name))
+                                .get(file_reference.path_reference.importable_name())
+                                .ok_or_else(|| format!("{:?} is referencing importable {:?} in {:?} but it was not found when the file was scanned", source_file_path, file_reference.path_reference.path(), file_reference.path_reference.importable_name()))
                                 .unwrap()
                         );
                     }
@@ -864,10 +863,11 @@ impl DataSource for FileSystemPathBasedDataSource {
                         file_references.insert(k.path_reference.clone(), *v);
                     }
 
-                    let source_file = PathReference {
-                        path: source_file_path.to_string_lossy().to_string(),
-                        importable_name: scanned_importable.name.clone(),
-                    };
+                    let source_file = PathReference::new(
+                        "".to_string(),
+                        source_file_path.to_string_lossy().to_string(),
+                        scanned_importable.name.clone(),
+                    );
 
                     let requested_importable = RequestedImportable {
                         asset_id: importable_asset_id,

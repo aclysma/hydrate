@@ -247,6 +247,8 @@ fn store_json_properties(
 #[derive(Debug, Serialize, Deserialize)]
 pub struct AssetImportInfoJson {
     importer_id: Uuid,
+
+    //source_file_root: String,
     source_file_path: String,
     importable_name: String,
     file_references: Vec<String>,
@@ -259,7 +261,7 @@ pub struct AssetImportInfoJson {
 
 impl AssetImportInfoJson {
     pub fn new(import_info: &ImportInfo) -> Self {
-        let source_file_path = import_info.source_file_path().to_string_lossy().to_string();
+        let source_file_path = format!("{}", PathReference::new(import_info.source_file().namespace().to_string(), import_info.source_file().path().to_string(), ImportableName::default()));
 
         AssetImportInfoJson {
             importer_id: import_info.importer_id().0,
@@ -292,10 +294,8 @@ impl AssetImportInfoJson {
             path_references.push(reference.into());
         }
 
-        let source_file = PathReference {
-            path: self.source_file_path.clone(),
-            importable_name: ImportableName::new(self.importable_name.clone()),
-        };
+        let mut path_reference: PathReference = self.source_file_path.clone().into();
+        let source_file = PathReference::new(path_reference.namespace().to_string(), path_reference.path().to_string(), ImportableName::new(self.importable_name.clone()));
 
         let source_file_modified_timestamp =
             u64::from_str_radix(&self.source_file_modified_timestamp, 16)

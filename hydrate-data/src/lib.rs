@@ -44,6 +44,7 @@ mod ordered_set;
 
 mod path_reference;
 pub use path_reference::PathReference;
+pub use path_reference::PathReferenceNamespaceResolver;
 
 pub use ordered_set::OrderedSet;
 

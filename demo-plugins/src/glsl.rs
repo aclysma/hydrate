@@ -608,10 +608,10 @@ impl JobProcessor for GlslBuildTargetJobProcessor {
                 .data_set
                 .import_info(dependency_asset_id)
                 .ok_or("Imported GLSL source file had no import info")?;
-            let this_path = import_info.source_file_path();
+            let this_path = import_info.source_file().path();
             for (ref_path, ref_obj) in all_references {
                 dependency_lookup.insert(
-                    (this_path.to_path_buf(), PathBuf::from(ref_path.path)),
+                    (Path::new(this_path).to_path_buf(), PathBuf::from(ref_path.path())),
                     ref_obj,
                 );
             }
@@ -659,7 +659,7 @@ impl JobProcessor for GlslBuildTargetJobProcessor {
             let compiled_code = compiler.compile_into_spirv(
                 &*code,
                 shaderc::ShaderKind::Vertex,
-                source_file_import_info.source_file_path().to_str().unwrap(),
+                source_file_import_info.source_file().path(),
                 &entry_point,
                 Some(&compile_options),
             );

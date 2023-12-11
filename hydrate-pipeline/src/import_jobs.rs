@@ -11,7 +11,7 @@ use crate::import_thread_pool::{
     ImportThreadOutcome, ImportThreadRequest, ImportThreadRequestImport, ImportWorkerThreadPool,
 };
 use crate::import_util::RequestedImportable;
-use crate::{DynEditorModel, PipelineResult};
+use crate::{DynEditorModel, HydrateProjectConfiguration, PipelineResult};
 use hydrate_base::uuid_path::{path_to_uuid, uuid_to_path};
 use hydrate_data::ImportableName;
 use hydrate_data::{ImporterId, SchemaSet, SingleObject};
@@ -121,6 +121,7 @@ struct ImportTask {
 // data to see if the job is complete, or is in a failed or stale state.
 pub struct ImportJobs {
     //import_editor_model: EditorModel
+    project_config: HydrateProjectConfiguration,
     import_data_root_path: PathBuf,
     import_jobs: HashMap<AssetId, ImportJob>,
     import_operations: Vec<ImportOp>,
@@ -133,6 +134,7 @@ impl ImportJobs {
     }
 
     pub fn new(
+        project_config: &HydrateProjectConfiguration,
         importer_registry: &ImporterRegistry,
         editor_model: &dyn DynEditorModel,
         import_data_root_path: &Path,
@@ -141,6 +143,7 @@ impl ImportJobs {
             ImportJobs::find_all_jobs(importer_registry, editor_model, import_data_root_path);
 
         ImportJobs {
+            project_config: project_config.clone(),
             import_data_root_path: import_data_root_path.to_path_buf(),
             import_jobs,
             import_operations: Default::default(),
@@ -223,6 +226,7 @@ impl ImportJobs {
 
         let (result_tx, result_rx) = crossbeam_channel::unbounded();
         let thread_pool = ImportWorkerThreadPool::new(
+            &self.project_config,
             importer_registry,
             editor_model.schema_set(),
             &existing_asset_import_state,

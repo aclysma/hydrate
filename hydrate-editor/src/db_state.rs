@@ -6,7 +6,7 @@ use hydrate_model::{
 };
 
 pub struct DbState {
-    project_configuration: HydrateProjectConfiguration,
+    pub project_configuration: HydrateProjectConfiguration,
     pub editor_model: EditorModel,
 }
 
@@ -20,6 +20,7 @@ impl DbState {
         let mut editor_model = EditorModel::new(schema_set);
         for pair in &project_configuration.id_based_asset_sources {
             editor_model.add_file_system_id_based_asset_source(
+                project_configuration,
                 &pair.name,
                 &pair.path,
                 imports_to_queue,
@@ -27,6 +28,7 @@ impl DbState {
         }
         for pair in &project_configuration.path_based_asset_sources {
             editor_model.add_file_system_path_based_data_source(
+                project_configuration,
                 &pair.name,
                 &pair.path,
                 importer_registry,

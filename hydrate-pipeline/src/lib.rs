@@ -142,6 +142,7 @@ impl AssetEngine {
         project_configuration: &HydrateProjectConfiguration
     ) -> Self {
         let import_jobs = ImportJobs::new(
+            project_configuration,
             &importer_registry,
             editor_model,
             &project_configuration.import_data_path,

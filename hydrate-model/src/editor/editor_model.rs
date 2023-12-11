@@ -8,7 +8,7 @@ use crate::{
 use hydrate_data::{
     AssetLocation, AssetName, DataSetError, DataSetResult, ImportInfo, PathReference, SingleObject,
 };
-use hydrate_pipeline::{import_util::ImportToQueue, DynEditorModel, ImporterRegistry};
+use hydrate_pipeline::{import_util::ImportToQueue, DynEditorModel, ImporterRegistry, HydrateProjectConfiguration};
 use hydrate_schema::{SchemaFingerprint, SchemaRecord};
 use slotmap::DenseSlotMap;
 use std::path::PathBuf;
@@ -274,6 +274,7 @@ impl EditorModel {
 
     pub fn add_file_system_id_based_asset_source<RootPathT: Into<PathBuf>>(
         &mut self,
+        project_config: &HydrateProjectConfiguration,
         data_source_name: &str,
         file_system_root_path: RootPathT,
         imports_to_queue: &mut Vec<ImportToQueue>,
@@ -311,7 +312,7 @@ impl EditorModel {
             root_edit_context,
             asset_source_id,
         );
-        fs.load_from_storage(root_edit_context, imports_to_queue);
+        fs.load_from_storage(project_config, root_edit_context, imports_to_queue);
 
         self.data_sources.insert(asset_source_id, Box::new(fs));
 
@@ -320,6 +321,7 @@ impl EditorModel {
 
     pub fn add_file_system_path_based_data_source<RootPathT: Into<PathBuf>>(
         &mut self,
+        project_config: &HydrateProjectConfiguration,
         data_source_name: &str,
         file_system_root_path: RootPathT,
         importer_registry: &ImporterRegistry,
@@ -359,7 +361,7 @@ impl EditorModel {
             asset_source_id,
             importer_registry,
         );
-        fs.load_from_storage(root_edit_context, imports_to_queue);
+        fs.load_from_storage(project_config, root_edit_context, imports_to_queue);
 
         self.data_sources.insert(asset_source_id, Box::new(fs));
 
@@ -388,6 +390,7 @@ impl EditorModel {
 
     pub fn revert_root_edit_context(
         &mut self,
+        project_config: &HydrateProjectConfiguration,
         imports_to_queue: &mut Vec<ImportToQueue>,
     ) {
         //
@@ -410,7 +413,7 @@ impl EditorModel {
         );
 
         for (_id, data_source) in &mut self.data_sources {
-            data_source.load_from_storage(root_edit_context, imports_to_queue);
+            data_source.load_from_storage(project_config, root_edit_context, imports_to_queue);
         }
 
         //

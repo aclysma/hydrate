@@ -5,7 +5,7 @@ use crate::ui::modals::ConfirmRevertChanges;
 use crossbeam_channel::{Receiver, Sender};
 use hydrate_model::edit_context::EditContext;
 use hydrate_model::pipeline::import_util::ImportToQueue;
-use hydrate_model::pipeline::AssetEngine;
+use hydrate_model::pipeline::{AssetEngine, HydrateProjectConfiguration};
 use hydrate_model::{
     AssetId, AssetLocation, AssetName, DataSetError, DataSetResult, EditorModel,
     EndContextBehavior, NullOverride, OverrideBehavior, PropertyPath, Schema, SchemaFingerprint,
@@ -141,6 +141,7 @@ impl UIActionQueueReceiver {
 
     pub fn process(
         &self,
+        project_config: &HydrateProjectConfiguration,
         editor_model: &mut EditorModel,
         asset_engine: &mut AssetEngine,
         ui_state: &mut UiState,
@@ -157,7 +158,7 @@ impl UIActionQueueReceiver {
                     }
                 }
                 UIAction::RevertAllNoConfirm => {
-                    editor_model.revert_root_edit_context(&mut imports_to_queue)
+                    editor_model.revert_root_edit_context(project_config, &mut imports_to_queue)
                 }
                 UIAction::Undo => editor_model.undo().unwrap(),
                 UIAction::Redo => editor_model.redo().unwrap(),

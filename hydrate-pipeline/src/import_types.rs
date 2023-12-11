@@ -138,7 +138,7 @@ impl<'a> ScanContext<'a> {
         path: PathT,
     ) -> PipelineResult<()> {
         let path = path.into();
-        let extension = PathBuf::from(&path.path)
+        let extension = PathBuf::from(path.path())
             .extension()
             .ok_or("File has no extension, cannot determine importer to use")?
             .to_str()

@@ -5,6 +5,7 @@ use hydrate_data::AssetLocation;
 use hydrate_pipeline::import_util::ImportToQueue;
 use hydrate_schema::SchemaNamedType;
 use std::path::{Path, PathBuf};
+use hydrate_pipeline::HydrateProjectConfiguration;
 
 fn load_asset_files(
     edit_context: &mut EditContext,
@@ -155,6 +156,7 @@ impl DataSource for FileSystemIdBasedDataSource {
     #[profiling::function]
     fn load_from_storage(
         &mut self,
+        project_config: &HydrateProjectConfiguration,
         edit_context: &mut EditContext,
         _imports_to_queue: &mut Vec<ImportToQueue>,
     ) {

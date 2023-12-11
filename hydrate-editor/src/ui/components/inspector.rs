@@ -2,6 +2,7 @@ use crate::action_queue::{UIAction, UIActionQueueSender};
 use crate::ui::modals::NewAssetModal;
 use crate::ui_state::EditorModelUiState;
 use hydrate_model::{AssetId, EditorModel, PropertyPath, Schema, SchemaDefRecordFieldMarkup};
+use hydrate_model::pipeline::HydrateProjectConfiguration;
 
 use super::inspector_system::*;
 
@@ -9,6 +10,7 @@ use super::inspector_system::*;
 pub struct InspectorUiState {}
 
 pub fn draw_inspector(
+    project_config: &HydrateProjectConfiguration,
     ui: &mut egui::Ui,
     editor_model: &EditorModel,
     action_sender: &UIActionQueueSender,
@@ -75,15 +77,24 @@ pub fn draw_inspector(
             //
             let import_info = edit_context.import_info(asset_id);
             if let Some(import_info) = import_info {
+                let mut file_references: Vec<_> = edit_context.resolve_all_file_references(asset_id).unwrap().into_iter().collect();
+                file_references.sort_by(|lhs, rhs| lhs.0.path().cmp(rhs.0.path()));
                 ui.collapsing("Import Info", |ui| {
                     ui.label(format!(
                         "Imported From: {}",
-                        import_info.source_file_path().to_string_lossy()
+                        import_info.source_file()
                     ));
                     ui.label(format!(
                         "Importable Name: {:?}",
                         import_info.importable_name().name()
                     ));
+
+                    for (k, v) in file_references {
+                        ui.label(format!(
+                            "name {} value {}", k, v
+                        ));
+                    }
+
                 });
             }
 

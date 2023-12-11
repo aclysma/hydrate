@@ -174,12 +174,8 @@ impl ImportInfo {
         &self.source_file
     }
 
-    pub fn source_file_path(&self) -> &Path {
-        Path::new(&self.source_file.path)
-    }
-
     pub fn importable_name(&self) -> &ImportableName {
-        &self.source_file.importable_name
+        self.source_file.importable_name()
     }
 
     pub fn file_references(&self) -> &[PathReference] {

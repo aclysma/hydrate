@@ -1,4 +1,4 @@
-use crate::{DynEditContext, PipelineResult};
+use crate::{DynEditContext, HydrateProjectConfiguration, PipelineResult};
 use crate::{ImportType, ImporterRegistry};
 use crate::{Importer, ScanContext, ScannedImportable};
 use hydrate_data::{AssetId, AssetLocation, AssetName, HashMap, ImporterId};
@@ -45,6 +45,7 @@ pub fn create_asset_name(
 }
 
 pub fn recursively_gather_import_operations_and_create_assets(
+    project_config: &HydrateProjectConfiguration,
     source_file_path: &Path,
     importer: &Arc<dyn Importer>,
     editor_context: &dyn DynEditContext,
@@ -84,10 +85,10 @@ pub fn recursively_gather_import_operations_and_create_assets(
 
         //TODO: Check referenced source files to find existing imported assets or import referenced files
         for referenced_source_file in &scanned_importable.referenced_source_files {
-            let referenced_file_absolute = PathReference::canonicalize_relative(
+            let referenced_file_absolute = referenced_source_file.path_reference.canonicalized_absolute_path(
+                project_config,
                 source_file_path,
-                &referenced_source_file.path_reference,
-            );
+            )?;
 
             // Does it already exist?
             let mut found = None;
@@ -116,14 +117,15 @@ pub fn recursively_gather_import_operations_and_create_assets(
                     .importer(referenced_source_file.importer_id)
                     .unwrap();
                 found = recursively_gather_import_operations_and_create_assets(
-                    &Path::new(&referenced_file_absolute.path),
+                    project_config,
+                    &Path::new(referenced_file_absolute.path()),
                     importer,
                     editor_context,
                     importer_registry,
                     selected_import_location,
                     imports_to_queue,
                 )?
-                .get(&referenced_file_absolute.importable_name)
+                .get(referenced_file_absolute.importable_name())
                 .copied();
             }
 
@@ -150,10 +152,11 @@ pub fn recursively_gather_import_operations_and_create_assets(
             }
         }
 
-        let source_file = PathReference {
-            path: source_file_path.to_string_lossy().to_string(),
-            importable_name: scanned_importable.name.clone(),
-        };
+        let source_file = PathReference::new(
+            "".to_string(),
+            source_file_path.to_string_lossy().to_string(),
+            scanned_importable.name.clone(),
+        );
 
         // This is everything we will need to create the asset, set the import info, and init
         // the build info with path overrides

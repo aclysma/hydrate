@@ -1,6 +1,6 @@
 use crate::import_jobs::ImportOp;
 use crate::import_storage::ImportDataMetadata;
-use crate::{ImportContext, ImportType, ImportableAsset, ImporterRegistry, PipelineResult};
+use crate::{ImportContext, ImportType, ImportableAsset, ImporterRegistry, PipelineResult, HydrateProjectConfiguration};
 use crossbeam_channel::{Receiver, Sender};
 use hydrate_base::hashing::HashMap;
 use hydrate_base::uuid_path::uuid_to_path;
@@ -53,6 +53,7 @@ struct ImportWorkerThread {
 }
 
 fn do_import(
+    project_config: &HydrateProjectConfiguration,
     importer_registry: &ImporterRegistry,
     schema_set: &SchemaSet,
     existing_asset_import_state: &HashMap<AssetId, ImportDataMetadata>,
@@ -164,7 +165,7 @@ fn do_import(
                         source_file_size,
                         import_data_contents_hash: metadata.import_data_contents_hash,
                     };
-                    let import_info = create_import_info(msg, &name, metadata);
+                    let import_info = create_import_info(project_config, msg, &name, metadata);
 
                     let old = cached_importables.insert(
                         name.clone(),
@@ -176,7 +177,7 @@ fn do_import(
                     assert!(old.is_none());
                 }
 
-                return Ok(cached_importables);
+                //return Ok(cached_importables);
             }
         }
     }
@@ -273,7 +274,7 @@ fn do_import(
                 }
             }
 
-            let import_info = create_import_info(msg, &name, import_data_metadata);
+            let import_info = create_import_info(project_config, msg, &name, import_data_metadata);
             let old = written_importables.insert(
                 name,
                 ImportThreadImportedImportable {
@@ -291,14 +292,17 @@ fn do_import(
 }
 
 fn create_import_info(
+    project_config: &HydrateProjectConfiguration,
     msg: &ImportThreadRequestImport,
     name: &ImportableName,
     import_data_metadata: ImportDataMetadata,
 ) -> ImportInfo {
     let source_file = PathReference::new(
+        "".to_string(),
         msg.import_op.path.to_string_lossy().to_string(),
-        name.clone(),
-    );
+        name.clone()
+    ).simplify(project_config);
+
     let import_info = ImportInfo::new(
         msg.import_op.importer_id,
         source_file,
@@ -316,6 +320,7 @@ fn create_import_info(
 
 impl ImportWorkerThread {
     fn new(
+        project_config: HydrateProjectConfiguration,
         importer_registry: ImporterRegistry,
         schema_set: SchemaSet,
         existing_asset_import_state: Arc<HashMap<AssetId, ImportDataMetadata>>,
@@ -337,6 +342,7 @@ impl ImportWorkerThread {
                                 ImportThreadRequest::RequestImport(msg) => {
                                     profiling::scope!("ImportThreadRequest::RequestImport");
                                     let result = do_import(
+                                        &project_config,
                                         &importer_registry,
                                         &schema_set,
                                         &*existing_asset_import_state,
@@ -376,6 +382,7 @@ pub struct ImportWorkerThreadPool {
 
 impl ImportWorkerThreadPool {
     pub fn new(
+        project_config: &HydrateProjectConfiguration,
         importer_registry: &ImporterRegistry,
         schema_set: &SchemaSet,
         existing_asset_import_state: &Arc<HashMap<AssetId, ImportDataMetadata>>,
@@ -390,6 +397,7 @@ impl ImportWorkerThreadPool {
         let mut worker_threads = Vec::with_capacity(max_requests_in_flight);
         for thread_index in 0..max_requests_in_flight {
             let worker = ImportWorkerThread::new(
+                project_config.clone(),
                 importer_registry.clone(),
                 schema_set.clone(),
                 existing_asset_import_state.clone(),

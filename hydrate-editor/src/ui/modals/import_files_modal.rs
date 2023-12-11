@@ -108,6 +108,7 @@ impl ModalAction for ImportFilesModal {
 
                                 let mut imports_to_queue = Vec::default();
                                 hydrate_model::pipeline::import_util::recursively_gather_import_operations_and_create_assets(
+                                    &context.db_state.project_configuration,
                                     file,
                                     importer,
                                     context.db_state.editor_model.root_edit_context(),

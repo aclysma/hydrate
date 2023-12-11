@@ -17,6 +17,7 @@ pub enum DataSetError {
     UuidParseError,
     StorageFormatError,
     NewLocationIsChildOfCurrentAsset,
+    UnknownPathNamespace,
 
     // the data was in a container, but moved out of it (i.e. Option::take())
     DataTaken,

@@ -1,6 +1,7 @@
 use std::error::Error;
 use std::path::{Path, PathBuf};
 use serde::{Deserialize, Serialize};
+use hydrate_data::PathReferenceNamespaceResolver;
 use hydrate_schema::SchemaCacheSingleFile;
 
 #[derive(Serialize, Deserialize)]
@@ -73,8 +74,53 @@ pub struct HydrateProjectConfiguration {
     pub schema_codegen_jobs: Vec<SchemaCodegenJobs>,
 }
 
-impl HydrateProjectConfiguration {
+impl PathReferenceNamespaceResolver for HydrateProjectConfiguration {
+    fn namespace_root(&self, namespace: &str) -> Option<PathBuf> {
+        for src in &self.id_based_asset_sources {
+            if src.name == namespace {
+                return Some(src.path.clone());
+            }
+        }
 
+        for src in &self.path_based_asset_sources {
+            if src.name == namespace {
+                return Some(src.path.clone());
+            }
+        }
+
+        for src in &self.source_file_locations {
+            if src.name == namespace {
+                return Some(src.path.clone());
+            }
+        }
+
+        None
+    }
+
+    fn simplify_path(&self, path: &Path) -> Option<(String, PathBuf)> {
+        for src in &self.id_based_asset_sources {
+            if let Ok(path) = path.strip_prefix(&src.path) {
+                return Some((src.name.clone(), path.to_path_buf()));
+            }
+        }
+
+        for src in &self.path_based_asset_sources {
+            if let Ok(path) = path.strip_prefix(&src.path) {
+                return Some((src.name.clone(), path.to_path_buf()));
+            }
+        }
+
+        for src in &self.source_file_locations {
+            if let Ok(path) = path.strip_prefix(&src.path) {
+                return Some((src.name.clone(), path.to_path_buf()));
+            }
+        }
+
+        None
+    }
+}
+
+impl HydrateProjectConfiguration {
     pub fn unverified_absolute_path(root_path: &Path, json_path: &str) -> PathBuf {
         if Path::new(json_path).is_absolute() {
             PathBuf::from(json_path)

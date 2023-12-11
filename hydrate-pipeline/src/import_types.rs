@@ -1,8 +1,10 @@
 use crate::{HydrateProjectConfiguration, ImporterRegistry, PipelineResult};
 use hydrate_data::{AssetId, CanonicalPathReference, HashMap, ImportableName, ImporterId, PathReference, Record, SchemaRecord, SchemaSet, SingleObject};
 use std::cell::RefCell;
+use std::hash::Hash;
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
+use siphasher::sip128::Hasher128;
 use type_uuid::{TypeUuid, TypeUuidDynamic};
 use uuid::Uuid;
 
@@ -20,7 +22,8 @@ pub struct SourceFileWithImporter {
 pub struct ScannedImportable {
     pub name: ImportableName,
     pub asset_type: SchemaRecord,
-    pub referenced_source_files: Vec<SourceFileWithImporter>,
+    pub referenced_source_files: HashMap<Uuid, CanonicalPathReference>,
+    pub referenced_source_file_info: HashMap<CanonicalPathReference, ImporterId>,
 }
 
 pub struct ImportedImportable {
@@ -37,7 +40,8 @@ pub trait ImporterStatic: TypeUuid {
 #[derive(Debug)]
 pub struct ImportableAsset {
     pub id: AssetId,
-    pub referenced_paths: HashMap<CanonicalPathReference, AssetId>,
+    pub canonical_path_references: HashMap<CanonicalPathReference, AssetId>,
+    pub path_references: HashMap<Uuid, CanonicalPathReference>,
 }
 
 #[derive(Clone)]
@@ -97,6 +101,7 @@ impl<'a> ScanContext<'a> {
             name: name.clone(),
             asset_type: schema_record,
             referenced_source_files: Default::default(),
+            referenced_source_file_info: Default::default(),
         };
         if self.scanned_importables.borrow().contains_key(&name) {
             Err(format!("The importable {:?} was added twice", name))?;
@@ -118,16 +123,31 @@ impl<'a> ScanContext<'a> {
         path_reference: PathT,
         importer_id: ImporterId,
     ) -> PipelineResult<()> {
-        let file_reference = SourceFileWithImporter {
-            importer_id,
-            path_reference: path_reference.into().simplify(self.project_config),
-        };
+        let path_reference: PathReference = path_reference.into();
+        let canonical_path_reference = path_reference.clone().simplify(self.project_config);
+        // let file_reference = SourceFileWithImporter {
+        //     importer_id,
+        //     path_reference: path_reference.into().simplify(self.project_config),
+        // };
 
-        self.scanned_importables
-            .borrow_mut()
+        let mut scanned_importables = self.scanned_importables
+            .borrow_mut();
+
+        let importable = scanned_importables
             .get_mut(&name)
-            .ok_or_else(|| format!("Trying to add file reference for importable named '{:?}'. The importable must be added before adding path references", name))?
-            .referenced_source_files.push(file_reference);
+            .ok_or_else(|| format!("Trying to add file reference for importable named '{:?}'. The importable must be added before adding path references", name))?;
+
+        let old_importer_id = importable.referenced_source_file_info.insert(canonical_path_reference.clone(), importer_id);
+        if let Some(old_importer_id) = old_importer_id {
+            if old_importer_id != importer_id {
+                Err(format!("The referenced file {:?} has been requested with different importers", canonical_path_reference.to_string()))?;
+            }
+        }
+
+        let mut hasher = siphasher::sip128::SipHasher::default();
+        path_reference.to_string().hash(&mut hasher);
+        let path_reference_hash = Uuid::from_u128(hasher.finish128().as_u128());
+        importable.referenced_source_files.insert(path_reference_hash, canonical_path_reference);
 
         Ok(())
     }
@@ -281,15 +301,25 @@ impl<'a> ImportContext<'a> {
         &self,
         name: ImportableName,
         path: &PathReference,
-    ) -> PipelineResult<CanonicalPathReference> {
-        if self.importable_assets
-            .get(&name)
-            .ok_or_else(|| format!("Default importable not found when trying to resolve path {:?} referenced by importable {:?}", path, name))?
-            .referenced_paths.get(&path.clone().simplify(self.project_config)).is_none() {
-            Err(format!("No asset ID found for default importable when trying to resolve path {:?} referenced by importable {:?}", path, name))?
-        }
+    ) -> PipelineResult<&CanonicalPathReference> {
+        let mut hasher = siphasher::sip128::SipHasher::default();
+        path.to_string().hash(&mut hasher);
+        let path_reference_hash = Uuid::from_u128(hasher.finish128().as_u128());
 
-        Ok(path.clone().simplify(self.project_config))
+        Ok(self.importable_assets
+            .get(&name)
+            .ok_or_else(|| format!("Importable not found when trying to resolve path {:?} referenced by importable {:?}", path, name))?
+            .path_references.get(&path_reference_hash)
+            .ok_or_else(|| format!("No asset ID found for importable when trying to resolve path {:?} referenced by importable {:?}", path, name))?)
+
+        // if self.importable_assets
+        //     .get(&name)
+        //     .ok_or_else(|| format!("Default importable not found when trying to resolve path {:?} referenced by importable {:?}", path, name))?
+        //     .canonical_path_references.get(&path.clone().simplify(self.project_config)).is_none() {
+        //     Err(format!("No asset ID found for default importable when trying to resolve path {:?} referenced by importable {:?}", path, name))?
+        // }
+
+        //Ok(path.clone().simplify(self.project_config))
     }
 
     // This is for assets produced by importing other files
@@ -300,9 +330,9 @@ impl<'a> ImportContext<'a> {
     ) -> PipelineResult<AssetId> {
         Ok(*self.importable_assets
             .get(&name)
-            .ok_or_else(|| format!("Default importable not found when trying to resolve path {:?} referenced by importable {:?}", path, name))?
-            .referenced_paths.get(&path.clone().simplify(self.project_config))
-            .ok_or_else(|| format!("No asset ID found for default importable when trying to resolve path {:?} referenced by importable {:?}", path, name))?)
+            .ok_or_else(|| format!("Importable not found when trying to resolve path {:?} referenced by importable {:?}", path, name))?
+            .canonical_path_references.get(&path.clone().simplify(self.project_config))
+            .ok_or_else(|| format!("No asset ID found for importable when trying to resolve path {:?} referenced by importable {:?}", path, name))?)
     }
 }
 

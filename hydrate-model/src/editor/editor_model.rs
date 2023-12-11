@@ -10,6 +10,7 @@ use hydrate_pipeline::{import_util::ImportToQueue, DynEditorModel, ImporterRegis
 use hydrate_schema::{SchemaFingerprint, SchemaRecord};
 use slotmap::DenseSlotMap;
 use std::path::PathBuf;
+use uuid::Uuid;
 slotmap::new_key_type! { pub struct EditContextKey; }
 
 pub struct EditorModel {
@@ -45,7 +46,8 @@ impl<'a> DynEditorModel for EditorModelWithCache<'a> {
         default_asset: &SingleObject,
         replace_with_default_asset: bool,
         import_info: ImportInfo,
-        path_references: &HashMap<CanonicalPathReference, AssetId>,
+        canonical_path_references: &HashMap<CanonicalPathReference, AssetId>,
+        path_references: &HashMap<Uuid, CanonicalPathReference>,
     ) -> DataSetResult<()> {
         //
         // If the asset is supposed to be regenerated, stomp the existing asset
@@ -64,7 +66,7 @@ impl<'a> DynEditorModel for EditorModelWithCache<'a> {
         // Whether it is regenerated or not, update import data
         //
         edit_context.set_import_info(asset_id, import_info)?;
-        for (path_reference, referenced_asset_id) in path_references {
+        for (path_reference, referenced_asset_id) in canonical_path_references {
             edit_context.set_file_reference_override(
                 asset_id,
                 path_reference.clone(),

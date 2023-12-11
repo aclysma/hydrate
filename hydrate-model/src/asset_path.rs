@@ -1,4 +1,6 @@
 // assumed to end with /. We don't just use / to make it clear that it's not a file path
+
+//TODO: I want to change this "db:" to match the data source name
 const ROOT_PATH_STR: &str = "db:/";
 const ROOT_PATH: AssetPath = AssetPath(None);
 
@@ -23,9 +25,14 @@ impl AssetPath {
         &ROOT_PATH
     }
 
-    pub fn root() -> Self {
-        AssetPath(None)
+    pub fn new_root(name: &str) -> Self {
+        assert!(!name.is_empty());
+        AssetPath(Some(format!("{}://", name)))
     }
+
+    // pub fn root() -> Self {
+    //     AssetPath(None)
+    // }
 
     pub fn join(
         &self,

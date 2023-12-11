@@ -105,6 +105,17 @@ fn string_to_null_override_value(s: &str) -> Option<NullOverride> {
     }
 }
 
+fn ordered_map_file_references<S>(
+    value: &HashMap<Uuid, String>,
+    serializer: S,
+) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+{
+    let ordered: std::collections::BTreeMap<_, _> = value.iter().collect();
+    ordered.serialize(serializer)
+}
+
 fn ordered_map_json_value<S>(
     value: &HashMap<String, serde_json::Value>,
     serializer: S,
@@ -240,6 +251,12 @@ fn store_json_properties(
     saved_properties
 }
 
+#[derive(Debug, Serialize, Deserialize)]
+pub struct FileReferenceJson {
+    reference_hash: Uuid,
+    canonical_path_reference: String,
+}
+
 // Import Info, part of AssetJson
 #[derive(Debug, Serialize, Deserialize)]
 pub struct AssetImportInfoJson {
@@ -248,7 +265,9 @@ pub struct AssetImportInfoJson {
     //source_file_root: String,
     source_file_path: String,
     importable_name: String,
-    file_references: Vec<String>,
+
+    #[serde(serialize_with = "ordered_map_file_references")]
+    file_references: HashMap<Uuid, String>,
 
     // These are all encoded as hex to avoid json/u64 weirdness
     source_file_modified_timestamp: String,
@@ -257,7 +276,9 @@ pub struct AssetImportInfoJson {
 }
 
 impl AssetImportInfoJson {
-    pub fn new(import_info: &ImportInfo) -> Self {
+    pub fn new(
+        import_info: &ImportInfo
+    ) -> Self {
         let source_file_path = format!("{}", PathReference::new(import_info.source_file().namespace().to_string(), import_info.source_file().path().to_string(), ImportableName::default()));
 
         AssetImportInfoJson {
@@ -271,7 +292,9 @@ impl AssetImportInfoJson {
             file_references: import_info
                 .file_references()
                 .iter()
-                .map(|x| x.to_string())
+                .map(|(k, v)| {
+                    (*k, v.to_string())
+                })
                 .collect(),
             source_file_modified_timestamp: format!(
                 "{:0>16x}",
@@ -288,10 +311,10 @@ impl AssetImportInfoJson {
         namespace_resolver: &dyn PathReferenceNamespaceResolver,
 
     ) -> DataSetResult<ImportInfo> {
-        let mut path_references = Vec::with_capacity(self.file_references.len());
-        for reference in &self.file_references {
-            let path_reference: PathReference = reference.into();
-            path_references.push(path_reference.simplify(namespace_resolver));
+        let mut path_references = HashMap::default();
+        for (key, value) in &self.file_references {
+            let path_reference: PathReference = value.into();
+            path_references.insert(*key, path_reference.simplify(namespace_resolver));
         }
 
         let mut path_reference: PathReference = self.source_file_path.clone().into();

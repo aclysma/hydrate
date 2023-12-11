@@ -308,9 +308,11 @@ fn create_import_info(
         msg.import_op.importer_id,
         source_file,
         msg.importable_assets[&name]
-            .referenced_paths
-            .keys()
-            .cloned()
+            .path_references
+            .iter()
+            .map(|(k, v)| {
+                (*k, v.clone())
+            })
             .collect(),
         import_data_metadata.source_file_modified_timestamp,
         import_data_metadata.source_file_size,

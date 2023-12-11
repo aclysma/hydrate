@@ -824,8 +824,8 @@ impl DataSource for FileSystemPathBasedDataSource {
                     // For any referenced file, locate the AssetID at that path. It must be in this data source,
                     // and at this point must exist in the meta file.
                     let mut referenced_source_file_asset_ids = Vec::default();
-                    for file_reference in &scanned_importable.referenced_source_files {
-                        let file_reference_absolute = file_reference.path_reference.canonicalized_absolute_path(
+                    for (path_reference, &importer_id) in &scanned_importable.referenced_source_file_info {
+                        let file_reference_absolute = path_reference.canonicalized_absolute_path(
                             project_config,
                             source_file_path,
                         ).unwrap();
@@ -837,15 +837,20 @@ impl DataSource for FileSystemPathBasedDataSource {
                             .get(&PathBuf::from(file_reference_absolute.path()))
                             .unwrap();
                         assert_eq!(
-                            file_reference.importer_id,
+                            importer_id,
                             referenced_scanned_source_file.importer.importer_id()
                         );
                         referenced_source_file_asset_ids.push(
                             referenced_scanned_source_file
                                 .meta_file
                                 .past_id_assignments
-                                .get(file_reference.path_reference.importable_name())
-                                .ok_or_else(|| format!("{:?} is referencing importable {:?} in {:?} but it was not found when the file was scanned", source_file_path, file_reference.path_reference.path(), file_reference.path_reference.importable_name()))
+                                .get(path_reference.importable_name())
+                                .ok_or_else(|| format!(
+                                    "{:?} is referencing importable {:?} in {:?} but it was not found when the file was scanned",
+                                    source_file_path,
+                                    path_reference.path(),
+                                    path_reference.importable_name())
+                                )
                                 .unwrap()
                         );
                     }
@@ -856,12 +861,14 @@ impl DataSource for FileSystemPathBasedDataSource {
                     );
 
                     let mut path_references = HashMap::default();
-                    for (k, v) in scanned_importable
+                    let mut canonical_path_references = HashMap::default();
+                    for ((path_reference_hash, canonical_path_reference), v) in scanned_importable
                         .referenced_source_files
                         .iter()
                         .zip(referenced_source_file_asset_ids)
                     {
-                        path_references.insert(k.path_reference.clone(), *v);
+                        path_references.insert(*path_reference_hash, canonical_path_reference.clone());
+                        canonical_path_references.insert(canonical_path_reference.clone(), *v);
                     }
 
                     let source_file = PathReference::new(
@@ -877,6 +884,7 @@ impl DataSource for FileSystemPathBasedDataSource {
                         asset_location: import_location,
                         //importer_id: scanned_source_file.importer.importer_id(),
                         source_file,
+                        canonical_path_references,
                         path_references,
                         replace_with_default_asset: !asset_file_exists,
                     };

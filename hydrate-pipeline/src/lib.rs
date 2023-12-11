@@ -1,6 +1,7 @@
 use std::hash::{Hash, Hasher};
 use std::path::PathBuf;
 use std::sync::Arc;
+use uuid::Uuid;
 
 pub use hydrate_schema::*;
 
@@ -97,7 +98,8 @@ pub trait DynEditorModel {
         default_asset: &SingleObject,
         replace_with_default_asset: bool,
         import_info: ImportInfo,
-        path_references: &HashMap<CanonicalPathReference, AssetId>,
+        canonical_path_references: &HashMap<CanonicalPathReference, AssetId>,
+        path_references: &HashMap<Uuid, CanonicalPathReference>,
     ) -> DataSetResult<()>;
 
     fn data_set(&self) -> &DataSet;

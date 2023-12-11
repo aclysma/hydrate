@@ -242,7 +242,8 @@ impl ImportJobs {
         for import_op in import_operations {
             let mut importable_assets = HashMap::<ImportableName, ImportableAsset>::default();
             for (name, requested_importable) in &import_op.requested_importables {
-                let referenced_paths = requested_importable.path_references.clone();
+                let canonical_path_references = requested_importable.canonical_path_references.clone();
+                let path_references = requested_importable.path_references.clone();
 
                 // We could merge in any paths that were already configured in the asset DB. However
                 // for now we rely on the code queueing the update to determine if it wants to do that
@@ -254,7 +255,7 @@ impl ImportJobs {
                 //         .unwrap_or_default();
                 //
                 //     for (k, v) in asset_referenced_paths {
-                //         referenced_paths.insert(k, v);
+                //         path_references.insert(k, v);
                 //     }
                 // }
 
@@ -262,7 +263,8 @@ impl ImportJobs {
                     name.clone(),
                     ImportableAsset {
                         id: requested_importable.asset_id,
-                        referenced_paths,
+                        canonical_path_references,
+                        path_references,
                     },
                 );
             }
@@ -326,6 +328,7 @@ impl ImportJobs {
                                     &imported_asset.default_asset,
                                     requested_importable.replace_with_default_asset,
                                     imported_asset.import_info,
+                                    &requested_importable.canonical_path_references,
                                     &requested_importable.path_references,
                                 )?;
                             }

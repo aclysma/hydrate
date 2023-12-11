@@ -1,3 +1,4 @@
+use std::hash::Hash;
 use crate::{DynEditContext, HydrateProjectConfiguration, PipelineResult};
 use crate::{ImportType, ImporterRegistry};
 use crate::{Importer, ScanContext, ScannedImportable};
@@ -6,6 +7,7 @@ use hydrate_data::{ImportableName, PathReference};
 use hydrate_schema::SchemaRecord;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
+use siphasher::sip128::Hasher128;
 use uuid::Uuid;
 
 #[derive(Debug, Clone)]
@@ -16,7 +18,8 @@ pub struct RequestedImportable {
     pub asset_location: AssetLocation,
     //pub importer_id: ImporterId,
     pub source_file: CanonicalPathReference,
-    pub path_references: HashMap<CanonicalPathReference, AssetId>,
+    pub canonical_path_references: HashMap<CanonicalPathReference, AssetId>,
+    pub path_references: HashMap<Uuid, CanonicalPathReference>,
     pub replace_with_default_asset: bool,
 }
 
@@ -104,8 +107,8 @@ pub fn recursively_gather_import_operations_and_create_assets(
         let mut referenced_source_file_asset_ids = Vec::default();
 
         //TODO: Check referenced source files to find existing imported assets or import referenced files
-        for referenced_source_file in &scanned_importable.referenced_source_files {
-            let referenced_file_absolute = referenced_source_file.path_reference.canonicalized_absolute_path(
+        for (referenced_source_file, importer_id) in &scanned_importable.referenced_source_file_info {
+            let referenced_file_absolute = referenced_source_file.canonicalized_absolute_path(
                 project_config,
                 &source_file_path,
             )?;
@@ -139,7 +142,7 @@ pub fn recursively_gather_import_operations_and_create_assets(
             // If we didn't find it, try to import it
             if found.is_none() {
                 let importer = importer_registry
-                    .importer(referenced_source_file.importer_id)
+                    .importer(*importer_id)
                     .unwrap();
                 found = recursively_gather_import_operations_and_create_assets(
                     project_config,
@@ -150,7 +153,7 @@ pub fn recursively_gather_import_operations_and_create_assets(
                     selected_import_location,
                     imports_to_queue,
                 )?
-                .get(referenced_source_file.path_reference.importable_name())
+                .get(referenced_source_file.importable_name())
                 .copied();
             }
 
@@ -167,13 +170,20 @@ pub fn recursively_gather_import_operations_and_create_assets(
         let asset_id = AssetId::from_uuid(Uuid::new_v4());
 
         let mut path_references = HashMap::default();
-        for (k, v) in scanned_importable
+        let mut canonical_path_references = HashMap::default();
+        for ((path_reference_hash, canonical_path_reference), v) in scanned_importable
             .referenced_source_files
             .iter()
             .zip(referenced_source_file_asset_ids)
         {
+            // let mut hasher = siphasher::sip128::SipHasher::default();
+            // k.path_reference.hash(&mut hasher);
+            // let path_reference_hash = Uuid::from_u128(hasher.finish128().as_u128());
+
+
             if let Some(v) = v {
-                path_references.insert(k.path_reference.clone(), v);
+                path_references.insert(*path_reference_hash, canonical_path_reference.clone());
+                canonical_path_references.insert(canonical_path_reference.clone(), v);
             }
         }
 
@@ -192,6 +202,7 @@ pub fn recursively_gather_import_operations_and_create_assets(
             asset_location: selected_import_location.clone(),
             //importer_id: importer.importer_id(),
             source_file,
+            canonical_path_references,
             path_references,
             //TODO: A re-import of data from the source file might not want to do this
             replace_with_default_asset: true,

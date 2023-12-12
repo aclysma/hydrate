@@ -1,6 +1,6 @@
 use std::path::{Path, PathBuf};
 use hydrate_data::json_storage::RestoreAssetFromStorageImpl;
-use hydrate_data::{CanonicalPathReference, OrderedSet, PathReferenceNamespaceResolver, PropertiesBundle, SingleObject};
+use hydrate_data::{CanonicalPathReference, OrderedSet, PathReference, PathReferenceNamespaceResolver, PropertiesBundle, SingleObject};
 use hydrate_pipeline::{DynEditContext, HydrateProjectConfiguration};
 use uuid::Uuid;
 
@@ -559,11 +559,27 @@ impl EditContext {
         self.data_set.import_info(asset_id)
     }
 
-    pub fn resolve_all_canonical_path_references(
+    pub fn resolve_path_reference<P: Into<PathReference>>(
+        &self,
+        asset_id: AssetId,
+        path: P
+    ) -> DataSetResult<Option<AssetId>> {
+        self.data_set.resolve_path_reference(asset_id, path)
+    }
+
+    pub fn resolve_canonical_path_reference(
+        &self,
+        asset_id: AssetId,
+        canonical_path: &CanonicalPathReference
+    ) -> DataSetResult<Option<AssetId>> {
+        self.data_set.resolve_canonical_path_reference(asset_id, canonical_path)
+    }
+
+    pub fn resolve_all_path_reference_overrides(
         &self,
         asset_id: AssetId,
     ) -> DataSetResult<HashMap<CanonicalPathReference, AssetId>> {
-        self.data_set.resolve_all_canonical_path_references(asset_id)
+        self.data_set.resolve_all_path_reference_overrides(asset_id)
     }
 
     pub fn get_all_path_reference_overrides(

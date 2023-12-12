@@ -566,7 +566,7 @@ impl JobProcessor for GlslBuildTargetJobProcessor {
         while let Some(next_reference) = visit_queue.pop_front() {
             let references = context
                 .data_set
-                .resolve_all_file_references(next_reference)?;
+                .resolve_all_path_reference_overrides(next_reference)?;
 
             for (_, &v) in &references {
                 if !dependencies.contains(&v) {
@@ -583,11 +583,11 @@ impl JobProcessor for GlslBuildTargetJobProcessor {
         for dependency_asset_id in dependencies {
             let all_hashed_references = context
                 .data_set
-                .resolve_all_hashed_file_references(dependency_asset_id)?;
+                .resolve_all_hashed_path_references(dependency_asset_id)?;
 
             let all_references = context
                 .data_set
-                .resolve_all_file_references(dependency_asset_id)?;
+                .resolve_all_path_reference_overrides(dependency_asset_id)?;
 
             let import_info = context
                 .data_set

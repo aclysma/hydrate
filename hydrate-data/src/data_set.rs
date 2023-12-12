@@ -849,7 +849,7 @@ impl DataSet {
         Ok(self.do_resolve_canonical_path_reference_into_asset_id(asset, canonical_path))
     }
 
-    pub fn resolve_all_path_references(
+    pub fn resolve_all_hashed_path_references(
         &self,
         asset_id: AssetId,
     ) -> DataSetResult<HashMap<PathReferenceHash, CanonicalPathReference>> {
@@ -859,7 +859,7 @@ impl DataSet {
         Ok(all_references)
     }
 
-    pub fn resolve_all_canonical_path_references(
+    pub fn resolve_all_path_reference_overrides(
         &self,
         asset_id: AssetId,
     ) -> DataSetResult<HashMap<CanonicalPathReference, AssetId>> {

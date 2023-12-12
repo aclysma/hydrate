@@ -75,7 +75,7 @@ pub fn draw_inspector(
             //
             let import_info = edit_context.import_info(asset_id);
             if let Some(import_info) = import_info {
-                let mut file_references: Vec<_> = edit_context.resolve_all_canonical_path_references(asset_id).unwrap().into_iter().collect();
+                let mut file_references: Vec<_> = edit_context.resolve_all_path_reference_overrides(asset_id).unwrap().into_iter().collect();
                 file_references.sort_by(|lhs, rhs| lhs.0.path().cmp(rhs.0.path()));
                 ui.collapsing("Import Info", |ui| {
                     ui.label(format!(

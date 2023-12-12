@@ -1,6 +1,9 @@
 use crate::ImportableName;
 use std::fmt::{Display, Formatter};
+use std::hash::Hash;
 use std::path::{Path, PathBuf};
+use siphasher::sip128::Hasher128;
+use uuid::Uuid;
 use hydrate_schema::{DataSetError, DataSetResult};
 
 pub trait PathReferenceNamespaceResolver {
@@ -110,6 +113,11 @@ impl CanonicalPathReference {
     }
 }
 
+// A hash of a potentially non-canonical path. Be very careful how these are used to check equality. It should really
+// only be done to look up a path identified during a scan/import.
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+pub struct PathReferenceHash(pub Uuid);
+
 // This path reference is good for parsing from string and representing a path other than the canonical path reference
 // (i.e. an absolute path when it could be represented relative to a namespace.)
 #[derive(Debug, Clone)]
@@ -148,6 +156,13 @@ impl PathReference {
             path,
             importable_name,
         }
+    }
+
+    pub fn path_reference_hash(&self) -> PathReferenceHash {
+        let mut hasher = siphasher::sip128::SipHasher::default();
+        self.to_string().hash(&mut hasher);
+        let path_reference_hash = Uuid::from_u128(hasher.finish128().as_u128());
+        PathReferenceHash(path_reference_hash)
     }
 
     pub fn namespace(&self) -> &str {

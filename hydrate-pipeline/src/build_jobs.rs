@@ -277,8 +277,10 @@ impl BuildJobs {
                     StringHash::from_runtime_str(&symbol_name.clone().unwrap_or_default()).hash();
                 if symbol_name_hash != 0 {
                     let newly_inserted = all_hashes.insert(symbol_name_hash);
-                    // We have a hash collision if this assert fires
-                    assert!(newly_inserted);
+                    if !newly_inserted {
+                        // We have a hash collision if this fires
+                        panic!("Two artifacts have been produced with the same symbol name. Check for assets with the same name: {:?}", symbol_name);
+                    }
                 }
 
                 let debug_name = if let Some(artifact_key_debug_name) =

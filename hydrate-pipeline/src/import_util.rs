@@ -1,7 +1,7 @@
 use crate::{DynEditContext, HydrateProjectConfiguration, PipelineResult};
 use crate::{ImportType, ImporterRegistry};
 use crate::{Importer, ScanContext, ScannedImportable};
-use hydrate_data::{AssetId, AssetLocation, AssetName, CanonicalPathReference, HashMap, ImporterId};
+use hydrate_data::{AssetId, AssetLocation, AssetName, CanonicalPathReference, HashMap, ImporterId, PathReferenceHash};
 use hydrate_data::{ImportableName, PathReference};
 use hydrate_schema::SchemaRecord;
 use std::path::{Path, PathBuf};
@@ -17,7 +17,7 @@ pub struct RequestedImportable {
     //pub importer_id: ImporterId,
     pub source_file: CanonicalPathReference,
     pub canonical_path_references: HashMap<CanonicalPathReference, AssetId>,
-    pub path_references: HashMap<Uuid, CanonicalPathReference>,
+    pub path_references: HashMap<PathReferenceHash, CanonicalPathReference>,
     pub replace_with_default_asset: bool,
 }
 

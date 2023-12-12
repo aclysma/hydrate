@@ -99,7 +99,7 @@ pub trait DynEditorModel {
         replace_with_default_asset: bool,
         import_info: ImportInfo,
         canonical_path_references: &HashMap<CanonicalPathReference, AssetId>,
-        path_references: &HashMap<Uuid, CanonicalPathReference>,
+        path_references: &HashMap<PathReferenceHash, CanonicalPathReference>,
     ) -> DataSetResult<()>;
 
     fn data_set(&self) -> &DataSet;

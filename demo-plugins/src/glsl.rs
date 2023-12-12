@@ -6,7 +6,7 @@ use std::path::{Path, PathBuf};
 use super::generated::GlslSourceFileImportedDataRecord;
 use crate::generated_wrapper::{GlslBuildTargetAssetRecord, GlslSourceFileAssetRecord};
 use demo_types::glsl::*;
-use hydrate_data::Record;
+use hydrate_data::{CanonicalPathReference, PathReference, PathReferenceHash, Record};
 use hydrate_model::pipeline::Importer;
 use hydrate_model::pipeline::{AssetPlugin, Builder, ImportContext, ScanContext};
 use hydrate_pipeline::{
@@ -424,12 +424,13 @@ pub(crate) fn find_included_paths(code: &Vec<char>) -> Result<HashSet<PathBuf>, 
 
 pub(crate) fn include_impl<'a>(
     context: &'a RunContext<'a, GlslBuildTargetJobInput>,
-    requested_path: &Path,
+    requested_path: &str,
     include_type: IncludeType,
-    requested_from: &Path,
+    requested_from: &str,
     include_depth: usize,
-    dependency_lookup: &HashMap<(PathBuf, PathBuf), AssetId>,
-    //dependency_data: &HashMap<AssetId, Arc<SingleObject>>,
+    // Key: The CanonicalPathReference as a string, and the has of the file being pointed at
+    // Value: The AssetID (from which we can recover the canonical path the hash pointed to)
+    dependency_lookup: &HashMap<(String, PathReferenceHash), AssetId>,
 ) -> PipelineResult<shaderc::ResolvedInclude> {
     log::trace!(
         "include file {:?} {:?} {:?} {:?}",
@@ -439,49 +440,29 @@ pub(crate) fn include_impl<'a>(
         include_depth,
     );
 
-    // what asset are we calling from?
-    // what are the path redirects on it?
-    // find the one that matches
+    let requested_path_reference: PathReference = requested_path.into();
+    let referenced_asset = dependency_lookup.get(&(requested_from.to_string(), requested_path_reference.path_reference_hash()));
 
-    let resolved_path = match include_type {
-        IncludeType::Relative => {
-            if requested_path.is_absolute() {
-                let path = requested_path.to_path_buf();
-                log::trace!("absolute path {:?}", path);
-                path
-            } else {
-                let path = requested_from.parent().unwrap().join(requested_path);
-                log::trace!("from: {:?} relative path: {:?}", requested_from, path);
-                path
-            }
-        }
-        IncludeType::Standard => {
-            //TODO: Implement include paths
-            requested_from.parent().unwrap().join(requested_path)
-        }
-    };
-
-    log::trace!(
-        "Need to read file {:?} when trying to include {:?} from {:?}",
-        resolved_path,
-        requested_path,
-        requested_from
-    );
-
-    let referenced_asset =
-        dependency_lookup.get(&(requested_from.to_path_buf(), requested_path.to_path_buf()));
     if let Some(referenced_asset_id) = referenced_asset {
+
+        let import_info = context
+            .data_set
+            .import_info(*referenced_asset_id)
+            .ok_or("Imported GLSL source file had no import info")?;
+        let resolved_path = import_info.source_file().clone();
+
         let dependency_data =
             context.imported_data::<GlslSourceFileImportedDataRecord>(*referenced_asset_id)?;
         let content = dependency_data.code().get()?;
         Ok(shaderc::ResolvedInclude {
-            resolved_name: resolved_path.to_str().unwrap().to_string(),
+            resolved_name: resolved_path.to_string(),
             content: (*content).clone(),
         })
     } else {
+        //println!("paths {:?}", dependency_lookup);
         Err(format!(
-            "Could not find a file reference for {:?} -> {:?}",
-            requested_from, resolved_path
+            "Could not find a file reference for '{}' -> '{}'",
+            requested_from, requested_path
         ))?
     }
 }
@@ -600,6 +581,10 @@ impl JobProcessor for GlslBuildTargetJobProcessor {
         //
         let mut dependency_lookup = HashMap::default();
         for dependency_asset_id in dependencies {
+            let all_hashed_references = context
+                .data_set
+                .resolve_all_hashed_file_references(dependency_asset_id)?;
+
             let all_references = context
                 .data_set
                 .resolve_all_file_references(dependency_asset_id)?;
@@ -608,11 +593,12 @@ impl JobProcessor for GlslBuildTargetJobProcessor {
                 .data_set
                 .import_info(dependency_asset_id)
                 .ok_or("Imported GLSL source file had no import info")?;
-            let this_path = import_info.source_file().path();
-            for (ref_path, ref_obj) in all_references {
+            let this_path = import_info.source_file().clone();
+            for (path_hash, canonical_path) in all_hashed_references {
+                let referenced_asset_id = all_references.get(&canonical_path).unwrap();
                 dependency_lookup.insert(
-                    (Path::new(this_path).to_path_buf(), PathBuf::from(ref_path.path())),
-                    ref_obj,
+                    (this_path.to_string(), path_hash),
+                    *referenced_asset_id,
                 );
             }
         }
@@ -637,13 +623,11 @@ impl JobProcessor for GlslBuildTargetJobProcessor {
                                             requested_from: &str,
                                             include_depth: usize|
              -> shaderc::IncludeCallbackResult {
-                let requested_path: PathBuf = requested_path.into();
-                let requested_from: PathBuf = requested_from.into();
                 include_impl(
                     &context,
-                    &requested_path,
+                    requested_path,
                     include_type.into(),
-                    &requested_from,
+                    requested_from,
                     include_depth,
                     &dependency_lookup,
                 )
@@ -659,7 +643,7 @@ impl JobProcessor for GlslBuildTargetJobProcessor {
             let compiled_code = compiler.compile_into_spirv(
                 &*code,
                 shaderc::ShaderKind::Vertex,
-                source_file_import_info.source_file().path(),
+                &source_file_import_info.source_file().to_string(),
                 &entry_point,
                 Some(&compile_options),
             );

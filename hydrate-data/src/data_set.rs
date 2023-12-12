@@ -1,7 +1,4 @@
-use crate::{
-    AssetId, HashMap, HashSet, OrderedSet, Schema, SchemaFingerprint,
-    SchemaRecord, SingleObject, Value,
-};
+use crate::{AssetId, HashMap, HashSet, OrderedSet, PathReferenceHash, Schema, SchemaFingerprint, SchemaRecord, SingleObject, Value};
 pub use crate::{DataSetError, DataSetResult};
 use crate::{NullOverride, SchemaSet};
 use std::cmp::Ordering;
@@ -137,7 +134,7 @@ pub struct ImportInfo {
 
     // All the file references that need to be resolved in order to build the asset (this represents
     // file references encountered in the input data, and only changes when data is re-imported)
-    file_references: HashMap<Uuid, CanonicalPathReference>,
+    file_references: HashMap<PathReferenceHash, CanonicalPathReference>,
 
     // State of the source file when the asset was imported
     source_file_modified_timestamp: u64,
@@ -151,7 +148,7 @@ impl ImportInfo {
     pub fn new(
         importer_id: ImporterId,
         source_file: CanonicalPathReference,
-        file_references: HashMap<Uuid, CanonicalPathReference>,
+        file_references: HashMap<PathReferenceHash, CanonicalPathReference>,
         source_file_modified_timestamp: u64,
         source_file_size: u64,
         import_data_contents_hash: u64,
@@ -178,7 +175,7 @@ impl ImportInfo {
         self.source_file.importable_name()
     }
 
-    pub fn file_references(&self) -> &HashMap<Uuid, CanonicalPathReference> {
+    pub fn file_references(&self) -> &HashMap<PathReferenceHash, CanonicalPathReference> {
         &self.file_references
     }
 
@@ -737,22 +734,46 @@ impl DataSet {
             .flatten()
     }
 
+    fn do_resolve_all_hashed_file_references(
+        &self,
+        asset_id: AssetId,
+        all_references: &mut HashMap<PathReferenceHash, CanonicalPathReference>,
+    ) -> DataSetResult<()> {
+        let asset = self.assets.get(&asset_id).ok_or(DataSetError::AssetNotFound)?;
+        if let Some(prototype) = asset.prototype {
+            self.do_resolve_all_hashed_file_references(prototype, all_references)?;
+        }
+
+        if let Some(import_info) = &asset.import_info {
+            for (k, v) in &import_info.file_references {
+                all_references.insert(*k, v.clone());
+            }
+        }
+
+        Ok(())
+    }
+
+    pub fn resolve_all_hashed_file_references(
+        &self,
+        asset_id: AssetId,
+    ) -> DataSetResult<HashMap<PathReferenceHash, CanonicalPathReference>> {
+        let mut all_references = HashMap::default();
+        self.do_resolve_all_hashed_file_references(asset_id, &mut all_references)?;
+        Ok(all_references)
+    }
+
     fn do_resolve_all_file_references(
         &self,
         asset_id: AssetId,
         all_references: &mut HashMap<CanonicalPathReference, AssetId>,
     ) -> DataSetResult<()> {
-        let asset = self.assets.get(&asset_id);
-        if let Some(asset) = asset {
-            if let Some(prototype) = asset.prototype {
-                self.do_resolve_all_file_references(prototype, all_references)?;
-            }
+        let asset = self.assets.get(&asset_id).ok_or(DataSetError::AssetNotFound)?;
+        if let Some(prototype) = asset.prototype {
+            self.do_resolve_all_file_references(prototype, all_references)?;
+        }
 
-            for (k, v) in &asset.build_info.file_reference_overrides {
-                all_references.insert(k.clone(), *v);
-            }
-        } else {
-            return Err(DataSetError::AssetNotFound);
+        for (k, v) in &asset.build_info.file_reference_overrides {
+            all_references.insert(k.clone(), *v);
         }
 
         Ok(())

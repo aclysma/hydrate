@@ -1,10 +1,9 @@
 use crate::{HydrateProjectConfiguration, ImporterRegistry, PipelineResult};
-use hydrate_data::{AssetId, CanonicalPathReference, HashMap, ImportableName, ImporterId, PathReference, Record, SchemaRecord, SchemaSet, SingleObject};
+use hydrate_data::{AssetId, CanonicalPathReference, HashMap, ImportableName, ImporterId, PathReference, PathReferenceHash, Record, SchemaRecord, SchemaSet, SingleObject};
 use std::cell::RefCell;
 use std::hash::Hash;
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
-use siphasher::sip128::Hasher128;
 use type_uuid::{TypeUuid, TypeUuidDynamic};
 use uuid::Uuid;
 
@@ -22,7 +21,7 @@ pub struct SourceFileWithImporter {
 pub struct ScannedImportable {
     pub name: ImportableName,
     pub asset_type: SchemaRecord,
-    pub referenced_source_files: HashMap<Uuid, CanonicalPathReference>,
+    pub referenced_source_files: HashMap<PathReferenceHash, CanonicalPathReference>,
     pub referenced_source_file_info: HashMap<CanonicalPathReference, ImporterId>,
 }
 
@@ -41,7 +40,7 @@ pub trait ImporterStatic: TypeUuid {
 pub struct ImportableAsset {
     pub id: AssetId,
     pub canonical_path_references: HashMap<CanonicalPathReference, AssetId>,
-    pub path_references: HashMap<Uuid, CanonicalPathReference>,
+    pub path_references: HashMap<PathReferenceHash, CanonicalPathReference>,
 }
 
 #[derive(Clone)]
@@ -140,9 +139,7 @@ impl<'a> ScanContext<'a> {
             }
         }
 
-        let mut hasher = siphasher::sip128::SipHasher::default();
-        path_reference.to_string().hash(&mut hasher);
-        let path_reference_hash = Uuid::from_u128(hasher.finish128().as_u128());
+        let path_reference_hash = path_reference.path_reference_hash();
         importable.referenced_source_files.insert(path_reference_hash, canonical_path_reference);
 
         Ok(())
@@ -298,9 +295,7 @@ impl<'a> ImportContext<'a> {
         name: ImportableName,
         path: &PathReference,
     ) -> PipelineResult<&CanonicalPathReference> {
-        let mut hasher = siphasher::sip128::SipHasher::default();
-        path.to_string().hash(&mut hasher);
-        let path_reference_hash = Uuid::from_u128(hasher.finish128().as_u128());
+        let path_reference_hash = path.path_reference_hash();
 
         Ok(self.importable_assets
             .get(&name)

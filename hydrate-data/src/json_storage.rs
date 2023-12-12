@@ -1,4 +1,4 @@
-use crate::{AssetId, BuildInfo, DataSetAssetInfo, HashMap, HashSet, ImportInfo, ImporterId, NullOverride, PathReference, Schema, SchemaFingerprint, SchemaNamedType, SchemaSet, SingleObject, Value, PathReferenceNamespaceResolver};
+use crate::{AssetId, BuildInfo, DataSetAssetInfo, HashMap, HashSet, ImportInfo, ImporterId, NullOverride, PathReference, Schema, SchemaFingerprint, SchemaNamedType, SchemaSet, SingleObject, Value, PathReferenceNamespaceResolver, PathReferenceHash};
 use crate::{AssetLocation, AssetName, DataSetResult, ImportableName, OrderedSet};
 use hydrate_schema::DataSetError;
 use serde::{Deserialize, Serialize};
@@ -287,7 +287,7 @@ impl AssetImportInfoJson {
                 .file_references()
                 .iter()
                 .map(|(k, v)| {
-                    (*k, v.to_string())
+                    (k.0, v.to_string())
                 })
                 .collect(),
             source_file_modified_timestamp: format!(
@@ -308,7 +308,7 @@ impl AssetImportInfoJson {
         let mut path_references = HashMap::default();
         for (key, value) in &self.file_references {
             let path_reference: PathReference = value.into();
-            path_references.insert(*key, path_reference.simplify(namespace_resolver));
+            path_references.insert(PathReferenceHash(*key), path_reference.simplify(namespace_resolver));
         }
 
         let path_reference: PathReference = self.source_file_path.clone().into();

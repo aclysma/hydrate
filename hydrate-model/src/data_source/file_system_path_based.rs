@@ -823,7 +823,8 @@ impl DataSource for FileSystemPathBasedDataSource {
 
                     // For any referenced file, locate the AssetID at that path. It must be in this data source,
                     // and at this point must exist in the meta file.
-                    let mut referenced_source_file_asset_ids = Vec::default();
+                    let mut canonical_path_references = HashMap::default();
+
                     for (path_reference, &importer_id) in &scanned_importable.referenced_source_file_info {
                         let file_reference_absolute = path_reference.canonicalized_absolute_path(
                             project_config,
@@ -840,8 +841,9 @@ impl DataSource for FileSystemPathBasedDataSource {
                             importer_id,
                             referenced_scanned_source_file.importer.importer_id()
                         );
-                        referenced_source_file_asset_ids.push(
-                            referenced_scanned_source_file
+                        canonical_path_references.insert(
+                            path_reference.clone(),
+                            *referenced_scanned_source_file
                                 .meta_file
                                 .past_id_assignments
                                 .get(path_reference.importable_name())
@@ -853,22 +855,6 @@ impl DataSource for FileSystemPathBasedDataSource {
                                 )
                                 .unwrap()
                         );
-                    }
-
-                    assert_eq!(
-                        referenced_source_file_asset_ids.len(),
-                        scanned_importable.referenced_source_files.len()
-                    );
-
-                    let mut path_references = HashMap::default();
-                    let mut canonical_path_references = HashMap::default();
-                    for ((path_reference_hash, canonical_path_reference), v) in scanned_importable
-                        .referenced_source_files
-                        .iter()
-                        .zip(referenced_source_file_asset_ids)
-                    {
-                        path_references.insert(*path_reference_hash, canonical_path_reference.clone());
-                        canonical_path_references.insert(canonical_path_reference.clone(), *v);
                     }
 
                     let source_file = PathReference::new(
@@ -885,7 +871,9 @@ impl DataSource for FileSystemPathBasedDataSource {
                         //importer_id: scanned_source_file.importer.importer_id(),
                         source_file,
                         canonical_path_references,
-                        path_references,
+                        path_references: scanned_importable
+                            .referenced_source_files
+                            .clone(),
                         replace_with_default_asset: !asset_file_exists,
                     };
 

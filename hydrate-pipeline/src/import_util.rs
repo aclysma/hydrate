@@ -102,7 +102,7 @@ pub fn recursively_gather_import_operations_and_create_assets(
         //
         let object_name = create_asset_name(&source_file_path, scanned_importable);
 
-        let mut referenced_source_file_asset_ids = Vec::default();
+        let mut canonical_path_references = HashMap::default();
 
         //TODO: Check referenced source files to find existing imported assets or import referenced files
         for (referenced_source_file, importer_id) in &scanned_importable.referenced_source_file_info {
@@ -155,30 +155,15 @@ pub fn recursively_gather_import_operations_and_create_assets(
                 .copied();
             }
 
-            referenced_source_file_asset_ids.push(found);
+            //if let Some(found) = found {
+            canonical_path_references.insert(referenced_source_file.clone(), found.unwrap());
+            //}
         }
 
         // At this point all referenced files have either been found or scanned
-        assert_eq!(
-            referenced_source_file_asset_ids.len(),
-            scanned_importable.referenced_source_files.len()
-        );
 
         // We create a random asset ID now so that other imported files can reference this asset later
         let asset_id = AssetId::from_uuid(Uuid::new_v4());
-
-        let mut path_references = HashMap::default();
-        let mut canonical_path_references = HashMap::default();
-        for ((path_reference_hash, canonical_path_reference), v) in scanned_importable
-            .referenced_source_files
-            .iter()
-            .zip(referenced_source_file_asset_ids)
-        {
-            if let Some(v) = v {
-                path_references.insert(*path_reference_hash, canonical_path_reference.clone());
-                canonical_path_references.insert(canonical_path_reference.clone(), v);
-            }
-        }
 
         let source_file = PathReference::new(
             "".to_string(),
@@ -196,7 +181,7 @@ pub fn recursively_gather_import_operations_and_create_assets(
             //importer_id: importer.importer_id(),
             source_file,
             canonical_path_references,
-            path_references,
+            path_references: scanned_importable.referenced_source_files.clone(),
             //TODO: A re-import of data from the source file might not want to do this
             replace_with_default_asset: true,
         };

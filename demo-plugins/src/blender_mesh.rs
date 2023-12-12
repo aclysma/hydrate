@@ -84,7 +84,7 @@ impl Importer for BlenderMeshImporter {
         context.add_default_importable::<MeshAdvMeshAssetRecord>()?;
 
         for mesh_part in &mesh_as_json.mesh_parts {
-            context.add_file_reference_with_importer::<BlenderMaterialImporter, _>(
+            context.add_path_reference_with_importer::<BlenderMaterialImporter, _>(
                 ImportableName::default(),
                 &mesh_part.material,
             )?;

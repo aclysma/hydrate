@@ -826,16 +826,16 @@ impl DataSource for FileSystemPathBasedDataSource {
                     let mut canonical_path_references = HashMap::default();
 
                     for (path_reference, &importer_id) in &scanned_importable.referenced_source_file_info {
-                        let file_reference_absolute = path_reference.canonicalized_absolute_path(
+                        let path_reference_absolute = path_reference.canonicalized_absolute_path(
                             project_config,
                             source_file_path,
                         ).unwrap();
 
-                        //println!("referenced {:?} {:?}", file_reference_absolute_path, scanned_source_files.keys());
+                        //println!("referenced {:?} {:?}", path_reference_absolute_path, scanned_source_files.keys());
                         //println!("pull from {:?}", scanned_source_files.keys());
-                        //println!("referenced {:?}", file_reference_absolute_path);
+                        //println!("referenced {:?}", path_reference_absolute_path);
                         let referenced_scanned_source_file = scanned_source_files
-                            .get(&PathBuf::from(file_reference_absolute.path()))
+                            .get(&PathBuf::from(path_reference_absolute.path()))
                             .unwrap();
                         assert_eq!(
                             importer_id,

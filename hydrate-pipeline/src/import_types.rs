@@ -116,7 +116,7 @@ impl<'a> ScanContext<'a> {
         })
     }
 
-    pub fn add_file_reference_with_importer_id<PathT: Into<PathReference>>(
+    pub fn add_path_reference_with_importer_id<PathT: Into<PathReference>>(
         &self,
         name: ImportableName,
         path_reference: PathT,
@@ -145,7 +145,7 @@ impl<'a> ScanContext<'a> {
         Ok(())
     }
 
-    pub fn add_file_reference<PathT: Into<PathReference>>(
+    pub fn add_path_reference<PathT: Into<PathReference>>(
         &self,
         name: ImportableName,
         path: PathT,
@@ -176,15 +176,15 @@ impl<'a> ScanContext<'a> {
             ))?;
         }
 
-        self.add_file_reference_with_importer_id(name, path, importer[0])
+        self.add_path_reference_with_importer_id(name, path, importer[0])
     }
 
-    pub fn add_file_reference_with_importer<ImporterT: TypeUuid, PathT: Into<PathReference>>(
+    pub fn add_path_reference_with_importer<ImporterT: TypeUuid, PathT: Into<PathReference>>(
         &self,
         name: ImportableName,
         path: PathT,
     ) -> PipelineResult<()> {
-        self.add_file_reference_with_importer_id(
+        self.add_path_reference_with_importer_id(
             name,
             path,
             ImporterId(Uuid::from_bytes(ImporterT::UUID)),
@@ -193,12 +193,12 @@ impl<'a> ScanContext<'a> {
 }
 
 impl<'a> ScanContextImportable<'a> {
-    pub fn add_file_reference_with_importer_id<PathT: Into<PathReference>>(
+    pub fn add_path_reference_with_importer_id<PathT: Into<PathReference>>(
         &self,
         path: PathT,
         importer_id: ImporterId,
     ) -> PipelineResult<&Self> {
-        self.context.add_file_reference_with_importer_id(
+        self.context.add_path_reference_with_importer_id(
             self.importable_name.clone(),
             path,
             importer_id,
@@ -206,21 +206,21 @@ impl<'a> ScanContextImportable<'a> {
         Ok(self)
     }
 
-    pub fn add_file_reference<PathT: Into<PathReference>>(
+    pub fn add_path_reference<PathT: Into<PathReference>>(
         &self,
         path: PathT,
     ) -> PipelineResult<&Self> {
         self.context
-            .add_file_reference(self.importable_name.clone(), path)?;
+            .add_path_reference(self.importable_name.clone(), path)?;
         Ok(self)
     }
 
-    pub fn add_file_reference_with_importer<ImporterT: TypeUuid, PathT: Into<PathReference>>(
+    pub fn add_path_reference_with_importer<ImporterT: TypeUuid, PathT: Into<PathReference>>(
         &self,
         path: PathT,
     ) -> PipelineResult<&Self> {
         self.context
-            .add_file_reference_with_importer::<ImporterT, _>(self.importable_name.clone(), path)?;
+            .add_path_reference_with_importer::<ImporterT, _>(self.importable_name.clone(), path)?;
         Ok(self)
     }
 }

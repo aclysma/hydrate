@@ -251,7 +251,7 @@ impl ImportJobs {
                 // if !requested_importable.replace_with_default_asset {
                 //     let asset_referenced_paths = editor_model
                 //         .data_set()
-                //         .resolve_all_file_references(requested_importable.asset_id)
+                //         .resolve_all_path_references(requested_importable.asset_id)
                 //         .unwrap_or_default();
                 //
                 //     for (k, v) in asset_referenced_paths {

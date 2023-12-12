@@ -134,7 +134,7 @@ pub struct ImportInfo {
 
     // All the file references that need to be resolved in order to build the asset (this represents
     // file references encountered in the input data, and only changes when data is re-imported)
-    file_references: HashMap<PathReferenceHash, CanonicalPathReference>,
+    path_references: HashMap<PathReferenceHash, CanonicalPathReference>,
 
     // State of the source file when the asset was imported
     source_file_modified_timestamp: u64,
@@ -148,7 +148,7 @@ impl ImportInfo {
     pub fn new(
         importer_id: ImporterId,
         source_file: CanonicalPathReference,
-        file_references: HashMap<PathReferenceHash, CanonicalPathReference>,
+        path_references: HashMap<PathReferenceHash, CanonicalPathReference>,
         source_file_modified_timestamp: u64,
         source_file_size: u64,
         import_data_contents_hash: u64,
@@ -156,7 +156,7 @@ impl ImportInfo {
         ImportInfo {
             importer_id,
             source_file,
-            file_references,
+            path_references,
             source_file_modified_timestamp,
             source_file_size,
             import_data_contents_hash,
@@ -175,8 +175,8 @@ impl ImportInfo {
         self.source_file.importable_name()
     }
 
-    pub fn file_references(&self) -> &HashMap<PathReferenceHash, CanonicalPathReference> {
-        &self.file_references
+    pub fn path_references(&self) -> &HashMap<PathReferenceHash, CanonicalPathReference> {
+        &self.path_references
     }
 
     pub fn source_file_modified_timestamp(&self) -> u64 {
@@ -199,7 +199,7 @@ pub struct BuildInfo {
     // Imported files often reference other files. During import, referenced files will also be
     // imported. We maintain the correlation between paths and imported asset ID here for use when
     // processing the imported data.
-    pub file_reference_overrides: HashMap<CanonicalPathReference, AssetId>,
+    pub path_reference_overrides: HashMap<CanonicalPathReference, AssetId>,
 }
 
 pub struct PropertiesBundle {
@@ -741,7 +741,7 @@ impl DataSet {
     ) -> Option<&'a CanonicalPathReference> {
         // Can we find the canonical path in our import info?
         if let Some(import_info) = &asset.import_info {
-            if let Some(canonical_path) = import_info.file_references.get(&path_reference_hash) {
+            if let Some(canonical_path) = import_info.path_references.get(&path_reference_hash) {
                 return Some(canonical_path);
             }
         }
@@ -764,7 +764,7 @@ impl DataSet {
         canonical_path: &CanonicalPathReference
     ) -> Option<AssetId> {
         // Can we find the asset id in our build info?
-        if let Some(referenced_asset_id) = asset.build_info.file_reference_overrides.get(canonical_path) {
+        if let Some(referenced_asset_id) = asset.build_info.path_reference_overrides.get(canonical_path) {
             return Some(*referenced_asset_id);
         }
 
@@ -780,7 +780,7 @@ impl DataSet {
         None
     }
 
-    fn do_resolve_all_path_references(
+    fn do_resolve_all_path_references_into_canonical_path_references(
         &self,
         asset: &DataSetAssetInfo,
         all_references: &mut HashMap<PathReferenceHash, CanonicalPathReference>,
@@ -789,12 +789,12 @@ impl DataSet {
             // Silently ignore a missing prototype, we treat broken prototype references as acting like there was
             // no prototype reference
             if let Some(prototype_asset) = self.assets.get(&prototype) {
-                self.do_resolve_all_path_references(prototype_asset, all_references)?;
+                self.do_resolve_all_path_references_into_canonical_path_references(prototype_asset, all_references)?;
             }
         }
 
         if let Some(import_info) = &asset.import_info {
-            for (k, v) in &import_info.file_references {
+            for (k, v) in &import_info.path_references {
                 all_references.insert(*k, v.clone());
             }
         }
@@ -802,7 +802,7 @@ impl DataSet {
         Ok(())
     }
 
-    fn do_resolve_all_canonical_path_references(
+    fn do_resolve_all_canonical_path_references_into_asset_id(
         &self,
         asset: &DataSetAssetInfo,
         all_references: &mut HashMap<CanonicalPathReference, AssetId>,
@@ -811,11 +811,11 @@ impl DataSet {
             // Silently ignore a missing prototype, we treat broken prototype references as acting like there was
             // no prototype reference
             if let Some(prototype_asset) = self.assets.get(&prototype) {
-                self.do_resolve_all_canonical_path_references(prototype_asset, all_references)?;
+                self.do_resolve_all_canonical_path_references_into_asset_id(prototype_asset, all_references)?;
             }
         }
 
-        for (k, v) in &asset.build_info.file_reference_overrides {
+        for (k, v) in &asset.build_info.path_reference_overrides {
             all_references.insert(k.clone(), *v);
         }
 
@@ -855,7 +855,7 @@ impl DataSet {
     ) -> DataSetResult<HashMap<PathReferenceHash, CanonicalPathReference>> {
         let asset = self.assets.get(&asset_id).ok_or(DataSetError::AssetNotFound)?;
         let mut all_references = HashMap::default();
-        self.do_resolve_all_path_references(asset, &mut all_references)?;
+        self.do_resolve_all_path_references_into_canonical_path_references(asset, &mut all_references)?;
         Ok(all_references)
     }
 
@@ -865,7 +865,7 @@ impl DataSet {
     ) -> DataSetResult<HashMap<CanonicalPathReference, AssetId>> {
         let asset = self.assets.get(&asset_id).ok_or(DataSetError::AssetNotFound)?;
         let mut all_references = HashMap::default();
-        self.do_resolve_all_canonical_path_references(asset, &mut all_references)?;
+        self.do_resolve_all_canonical_path_references_into_asset_id(asset, &mut all_references)?;
         Ok(all_references)
     }
 
@@ -875,7 +875,7 @@ impl DataSet {
     ) -> Option<&HashMap<CanonicalPathReference, AssetId>> {
         self.assets
             .get(&asset_id)
-            .map(|x| &x.build_info.file_reference_overrides)
+            .map(|x| &x.build_info.path_reference_overrides)
     }
 
     pub fn set_path_reference_override(
@@ -891,7 +891,7 @@ impl DataSet {
 
         asset
             .build_info
-            .file_reference_overrides
+            .path_reference_overrides
             .insert(path, referenced_asset_id);
         Ok(())
     }

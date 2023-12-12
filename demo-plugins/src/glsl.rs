@@ -487,7 +487,7 @@ impl Importer for GlslSourceFileImporter {
         let importable = context.add_default_importable::<GlslSourceFileAssetRecord>()?;
 
         for include_path in find_included_paths(&code_chars)? {
-            importable.add_file_reference_with_importer::<Self, _>(include_path)?;
+            importable.add_path_reference_with_importer::<Self, _>(include_path)?;
         }
 
         Ok(())

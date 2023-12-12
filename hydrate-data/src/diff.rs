@@ -25,8 +25,8 @@ pub struct AssetDiff {
     add_properties_in_replace_mode: Vec<String>,
     remove_properties_in_replace_mode: Vec<String>,
     dynamic_array_entry_deltas: Vec<DynamicArrayEntryDelta>,
-    set_file_references: Vec<(CanonicalPathReference, AssetId)>,
-    remove_file_references: Vec<CanonicalPathReference>,
+    set_canonical_path_references: Vec<(CanonicalPathReference, AssetId)>,
+    remove_canonical_path_references: Vec<CanonicalPathReference>,
 }
 
 impl AssetDiff {
@@ -41,8 +41,8 @@ impl AssetDiff {
             || !self.add_properties_in_replace_mode.is_empty()
             || !self.remove_properties_in_replace_mode.is_empty()
             || !self.dynamic_array_entry_deltas.is_empty()
-            || !self.set_file_references.is_empty()
-            || !self.remove_file_references.is_empty()
+            || !self.set_canonical_path_references.is_empty()
+            || !self.remove_canonical_path_references.is_empty()
     }
 
     pub fn apply(
@@ -98,15 +98,15 @@ impl AssetDiff {
             }
         }
 
-        for (k, v) in &self.set_file_references {
+        for (k, v) in &self.set_canonical_path_references {
             asset
                 .build_info
-                .file_reference_overrides
+                .path_reference_overrides
                 .insert(k.clone(), *v);
         }
 
-        for k in &self.remove_file_references {
-            asset.build_info.file_reference_overrides.remove(k);
+        for k in &self.remove_canonical_path_references {
+            asset.build_info.path_reference_overrides.remove(k);
         }
     }
 }
@@ -302,39 +302,39 @@ impl AssetDiffSet {
         //
         // File References
         //
-        for (key, &before_value) in &before_obj.build_info.file_reference_overrides {
-            if let Some(&after_value) = after_obj.build_info.file_reference_overrides.get(key) {
+        for (key, &before_value) in &before_obj.build_info.path_reference_overrides {
+            if let Some(&after_value) = after_obj.build_info.path_reference_overrides.get(key) {
                 if before_value != after_value {
                     // Value was changed
                     apply_diff
-                        .set_file_references
+                        .set_canonical_path_references
                         .push((key.clone(), after_value));
                     revert_diff
-                        .set_file_references
+                        .set_canonical_path_references
                         .push((key.clone(), before_value));
                 } else {
                     // No change
                 }
             } else {
                 // Property was removed
-                apply_diff.remove_file_references.push(key.clone());
+                apply_diff.remove_canonical_path_references.push(key.clone());
                 revert_diff
-                    .set_file_references
+                    .set_canonical_path_references
                     .push((key.clone(), before_value));
             }
         }
 
-        for (key, &after_value) in &after_obj.build_info.file_reference_overrides {
+        for (key, &after_value) in &after_obj.build_info.path_reference_overrides {
             if !before_obj
                 .build_info
-                .file_reference_overrides
+                .path_reference_overrides
                 .contains_key(key)
             {
                 // Property was added
                 apply_diff
-                    .set_file_references
+                    .set_canonical_path_references
                     .push((key.clone(), after_value));
-                revert_diff.remove_file_references.push(key.clone());
+                revert_diff.remove_canonical_path_references.push(key.clone());
             }
         }
 

@@ -284,7 +284,7 @@ impl AssetImportInfoJson {
                 .map(|x| x.to_string())
                 .unwrap_or_default(),
             file_references: import_info
-                .file_references()
+                .path_references()
                 .iter()
                 .map(|(k, v)| {
                     (k.0, v.to_string())
@@ -343,7 +343,7 @@ pub struct AssetBuildInfoJson {
 impl AssetBuildInfoJson {
     pub fn new(import_info: &BuildInfo) -> Self {
         let mut file_reference_overrides = HashMap::default();
-        for (k, v) in &import_info.file_reference_overrides {
+        for (k, v) in &import_info.path_reference_overrides {
             file_reference_overrides.insert(k.to_string(), v.as_uuid());
         }
 
@@ -364,7 +364,7 @@ impl AssetBuildInfoJson {
         }
 
         BuildInfo {
-            file_reference_overrides,
+            path_reference_overrides: file_reference_overrides,
         }
     }
 }

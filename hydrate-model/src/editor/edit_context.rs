@@ -559,21 +559,21 @@ impl EditContext {
         self.data_set.import_info(asset_id)
     }
 
-    pub fn resolve_all_file_references(
+    pub fn resolve_all_canonical_path_references(
         &self,
         asset_id: AssetId,
     ) -> DataSetResult<HashMap<CanonicalPathReference, AssetId>> {
-        self.data_set.resolve_all_file_references(asset_id)
+        self.data_set.resolve_all_canonical_path_references(asset_id)
     }
 
-    pub fn get_all_file_reference_overrides(
+    pub fn get_all_path_reference_overrides(
         &mut self,
         asset_id: AssetId,
     ) -> Option<&HashMap<CanonicalPathReference, AssetId>> {
-        self.data_set.get_all_file_reference_overrides(asset_id)
+        self.data_set.get_all_path_reference_overrides(asset_id)
     }
 
-    pub fn set_file_reference_override(
+    pub fn set_path_reference_override(
         &mut self,
         asset_id: AssetId,
         path: CanonicalPathReference,
@@ -581,7 +581,7 @@ impl EditContext {
     ) -> DataSetResult<()> {
         self.track_existing_asset(asset_id)?;
         self.data_set
-            .set_file_reference_override(asset_id, path, referenced_asset_id)
+            .set_path_reference_override(asset_id, path, referenced_asset_id)
     }
 
     pub fn asset_prototype(

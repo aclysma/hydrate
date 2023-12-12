@@ -1,4 +1,4 @@
-use crate::{AssetId, HashMap, HashSet, OrderedSet, PathReferenceHash, Schema, SchemaFingerprint, SchemaRecord, SingleObject, Value};
+use crate::{AssetId, HashMap, HashSet, OrderedSet, PathReference, PathReferenceHash, Schema, SchemaFingerprint, SchemaRecord, SingleObject, Value};
 pub use crate::{DataSetError, DataSetResult};
 use crate::{NullOverride, SchemaSet};
 use std::cmp::Ordering;
@@ -734,14 +734,63 @@ impl DataSet {
             .flatten()
     }
 
-    fn do_resolve_all_hashed_file_references(
+    fn do_resolve_path_reference_into_canonical_path_reference<'a>(
+        &'a self,
+        asset: &'a DataSetAssetInfo,
+        path_reference_hash: PathReferenceHash
+    ) -> Option<&'a CanonicalPathReference> {
+        // Can we find the canonical path in our import info?
+        if let Some(import_info) = &asset.import_info {
+            if let Some(canonical_path) = import_info.file_references.get(&path_reference_hash) {
+                return Some(canonical_path);
+            }
+        }
+
+        // Otherwise follow our prototype chain
+        if let Some(prototype) = asset.prototype {
+            // Silently ignore a missing prototype, we treat broken prototype references as acting like there was
+            // no prototype reference
+            if let Some(prototype_asset) = self.assets.get(&prototype) {
+                return self.do_resolve_path_reference_into_canonical_path_reference(prototype_asset, path_reference_hash);
+            }
+        }
+
+        None
+    }
+
+    fn do_resolve_canonical_path_reference_into_asset_id(
         &self,
-        asset_id: AssetId,
+        asset: &DataSetAssetInfo,
+        canonical_path: &CanonicalPathReference
+    ) -> Option<AssetId> {
+        // Can we find the asset id in our build info?
+        if let Some(referenced_asset_id) = asset.build_info.file_reference_overrides.get(canonical_path) {
+            return Some(*referenced_asset_id);
+        }
+
+        // Otherwise follow our prototype chain
+        if let Some(prototype) = asset.prototype {
+            // Silently ignore a missing prototype, we treat broken prototype references as acting like there was
+            // no prototype reference
+            if let Some(prototype_asset) = self.assets.get(&prototype) {
+                return self.do_resolve_canonical_path_reference_into_asset_id(prototype_asset, canonical_path);
+            }
+        }
+
+        None
+    }
+
+    fn do_resolve_all_path_references(
+        &self,
+        asset: &DataSetAssetInfo,
         all_references: &mut HashMap<PathReferenceHash, CanonicalPathReference>,
     ) -> DataSetResult<()> {
-        let asset = self.assets.get(&asset_id).ok_or(DataSetError::AssetNotFound)?;
         if let Some(prototype) = asset.prototype {
-            self.do_resolve_all_hashed_file_references(prototype, all_references)?;
+            // Silently ignore a missing prototype, we treat broken prototype references as acting like there was
+            // no prototype reference
+            if let Some(prototype_asset) = self.assets.get(&prototype) {
+                self.do_resolve_all_path_references(prototype_asset, all_references)?;
+            }
         }
 
         if let Some(import_info) = &asset.import_info {
@@ -753,23 +802,17 @@ impl DataSet {
         Ok(())
     }
 
-    pub fn resolve_all_hashed_file_references(
+    fn do_resolve_all_canonical_path_references(
         &self,
-        asset_id: AssetId,
-    ) -> DataSetResult<HashMap<PathReferenceHash, CanonicalPathReference>> {
-        let mut all_references = HashMap::default();
-        self.do_resolve_all_hashed_file_references(asset_id, &mut all_references)?;
-        Ok(all_references)
-    }
-
-    fn do_resolve_all_file_references(
-        &self,
-        asset_id: AssetId,
+        asset: &DataSetAssetInfo,
         all_references: &mut HashMap<CanonicalPathReference, AssetId>,
     ) -> DataSetResult<()> {
-        let asset = self.assets.get(&asset_id).ok_or(DataSetError::AssetNotFound)?;
         if let Some(prototype) = asset.prototype {
-            self.do_resolve_all_file_references(prototype, all_references)?;
+            // Silently ignore a missing prototype, we treat broken prototype references as acting like there was
+            // no prototype reference
+            if let Some(prototype_asset) = self.assets.get(&prototype) {
+                self.do_resolve_all_canonical_path_references(prototype_asset, all_references)?;
+            }
         }
 
         for (k, v) in &asset.build_info.file_reference_overrides {
@@ -779,16 +822,54 @@ impl DataSet {
         Ok(())
     }
 
-    pub fn resolve_all_file_references(
+    pub fn resolve_path_reference<P: Into<PathReference>>(
         &self,
         asset_id: AssetId,
-    ) -> DataSetResult<HashMap<CanonicalPathReference, AssetId>> {
+        path: P
+    ) -> DataSetResult<Option<AssetId>> {
+        let asset = self.assets.get(&asset_id).ok_or(DataSetError::AssetNotFound)?;
+        Ok(if let Some(import_info) = &asset.import_info {
+            let canonical_path = self.do_resolve_path_reference_into_canonical_path_reference(asset, path.into().path_reference_hash());
+            if let Some(canonical_path) = canonical_path {
+                self.do_resolve_canonical_path_reference_into_asset_id(asset, canonical_path)
+            } else {
+                None
+            }
+        } else {
+            None
+        })
+    }
+
+    pub fn resolve_canonical_path_reference(
+        &self,
+        asset_id: AssetId,
+        canonical_path: &CanonicalPathReference
+    ) -> DataSetResult<Option<AssetId>> {
+        let asset = self.assets.get(&asset_id).ok_or(DataSetError::AssetNotFound)?;
+        Ok(self.do_resolve_canonical_path_reference_into_asset_id(asset, canonical_path))
+    }
+
+    pub fn resolve_all_path_references(
+        &self,
+        asset_id: AssetId,
+    ) -> DataSetResult<HashMap<PathReferenceHash, CanonicalPathReference>> {
+        let asset = self.assets.get(&asset_id).ok_or(DataSetError::AssetNotFound)?;
         let mut all_references = HashMap::default();
-        self.do_resolve_all_file_references(asset_id, &mut all_references)?;
+        self.do_resolve_all_path_references(asset, &mut all_references)?;
         Ok(all_references)
     }
 
-    pub fn get_all_file_reference_overrides(
+    pub fn resolve_all_canonical_path_references(
+        &self,
+        asset_id: AssetId,
+    ) -> DataSetResult<HashMap<CanonicalPathReference, AssetId>> {
+        let asset = self.assets.get(&asset_id).ok_or(DataSetError::AssetNotFound)?;
+        let mut all_references = HashMap::default();
+        self.do_resolve_all_canonical_path_references(asset, &mut all_references)?;
+        Ok(all_references)
+    }
+
+    pub fn get_all_path_reference_overrides(
         &mut self,
         asset_id: AssetId,
     ) -> Option<&HashMap<CanonicalPathReference, AssetId>> {
@@ -797,7 +878,7 @@ impl DataSet {
             .map(|x| &x.build_info.file_reference_overrides)
     }
 
-    pub fn set_file_reference_override(
+    pub fn set_path_reference_override(
         &mut self,
         asset_id: AssetId,
         path: CanonicalPathReference,

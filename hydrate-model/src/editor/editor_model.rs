@@ -67,7 +67,7 @@ impl<'a> DynEditorModel for EditorModelWithCache<'a> {
         //
         edit_context.set_import_info(asset_id, import_info)?;
         for (path_reference, referenced_asset_id) in canonical_path_references {
-            edit_context.set_file_reference_override(
+            edit_context.set_path_reference_override(
                 asset_id,
                 path_reference.clone(),
                 *referenced_asset_id,

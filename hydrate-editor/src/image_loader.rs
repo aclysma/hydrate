@@ -1,11 +1,7 @@
-use std::hash::Hash;
-use std::ops::Deref;
 use std::sync::{Arc, Mutex};
-use eframe::epaint::Color32;
 use egui::{ColorImage, Context, SizeHint, TextureHandle, TextureOptions};
 use egui::load::{ImageLoader, ImageLoadResult, ImagePoll, LoadError, SizedTexture, TextureLoader, TextureLoadResult, TexturePoll};
-use uuid::Uuid;
-use hydrate_model::{AssetId, HashMap};
+use hydrate_model::AssetId;
 use crate::lru_cache::LruCache;
 
 const THUMBNAIL_URI_PREFIX: &str = "thumbnail://";

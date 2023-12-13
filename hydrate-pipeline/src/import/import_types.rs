@@ -1,7 +1,6 @@
 use crate::{HydrateProjectConfiguration, ImporterRegistry, PipelineResult};
 use hydrate_data::{AssetId, CanonicalPathReference, HashMap, ImportableName, ImporterId, PathReference, PathReferenceHash, Record, SchemaRecord, SchemaSet, SingleObject};
 use std::cell::RefCell;
-use std::hash::Hash;
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
 use type_uuid::{TypeUuid, TypeUuidDynamic};

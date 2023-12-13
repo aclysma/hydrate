@@ -1,6 +1,5 @@
 use super::{JobId, JobTypeId};
-use crate::{import_jobs, PipelineResult};
-use crate::{AssetArtifactIdPair, BuiltArtifact, ImportData, ImportJobs};
+use crate::{PipelineResult};
 use hydrate_base::handle::DummySerdeContextHandle;
 use hydrate_base::hashing::HashMap;
 use hydrate_base::{ArtifactId, AssetId, BuiltArtifactHeaderData, Handle};
@@ -15,6 +14,8 @@ use std::hash::Hash;
 use std::rc::Rc;
 use std::sync::Arc;
 use type_uuid::{TypeUuid, TypeUuidDynamic};
+use crate::build::{AssetArtifactIdPair, BuiltArtifact};
+use crate::import::{ImportData, ImportJobs};
 
 pub trait ImportDataProvider {
     fn clone_import_data_metadata_hashes(&self) -> HashMap<AssetId, u64>;
@@ -36,7 +37,7 @@ impl ImportDataProvider for ImportJobs {
         schema_set: &SchemaSet,
         asset_id: AssetId,
     ) -> PipelineResult<ImportData> {
-        import_jobs::load_import_data(self.import_data_root_path(), schema_set, asset_id)
+        crate::import::load_import_data(self.import_data_root_path(), schema_set, asset_id)
     }
 }
 

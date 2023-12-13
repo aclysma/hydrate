@@ -34,7 +34,7 @@ impl<K: Clone + PartialEq + Eq + Hash, V> LruCache<K, V> {
         lru_list[size as usize - 1].next = u32::MAX;
 
         let mut lru_list_pairs = Vec::with_capacity(size as usize);
-        for i in 0..size {
+        for _ in 0..size {
             lru_list_pairs.push(None);
         }
 
@@ -72,7 +72,7 @@ impl<K: Clone + PartialEq + Eq + Hash, V> LruCache<K, V> {
 
     pub fn move_to_front(&mut self, node_index: u32) {
         self.check_list();
-        let node = self.lru_list[node_index as usize];;
+        let node = self.lru_list[node_index as usize];
 
         if node_index == self.lru_list_head {
             // Do nothing if already at head
@@ -107,7 +107,7 @@ impl<K: Clone + PartialEq + Eq + Hash, V> LruCache<K, V> {
 
     pub fn move_to_back(&mut self, node_index: u32) {
         self.check_list();
-        let node = self.lru_list[node_index as usize];;
+        let node = self.lru_list[node_index as usize];
 
         if node_index == self.lru_list_tail {
             // Do nothing if we are already the tail
@@ -152,7 +152,7 @@ impl<K: Clone + PartialEq + Eq + Hash, V> LruCache<K, V> {
         }
     }
 
-    fn get_mut(&mut self, k: &K) -> Option<&mut V> {
+    pub fn get_mut(&mut self, k: &K) -> Option<&mut V> {
         if let Some(&node_index) = self.lookup.get(k) {
             // move node to head
             self.move_to_front(node_index);
@@ -164,13 +164,13 @@ impl<K: Clone + PartialEq + Eq + Hash, V> LruCache<K, V> {
     }
 
     pub fn insert(&mut self, k: K, v: V) {
-        if let Some(key_to_remove) = self.lru_list_pairs[self.lru_list_tail as usize].as_ref().map(|(k, v)| k).cloned() {
+        if let Some(key_to_remove) = self.lru_list_pairs[self.lru_list_tail as usize].as_ref().map(|(k, _)| k).cloned() {
             self.remove(&key_to_remove);
         }
 
         // remove tail element if it exists
         let node_index = self.lru_list_tail;
-        if let Some((k, v)) = &self.lru_list_pairs[node_index as usize] {
+        if let Some((k, _)) = &self.lru_list_pairs[node_index as usize] {
             self.lookup.remove(k);
         }
 

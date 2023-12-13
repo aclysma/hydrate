@@ -1,6 +1,7 @@
-use crate::{JobApi, JobId, JobProcessor, PipelineResult};
+use super::{JobApi, JobId, JobProcessor};
 use hydrate_base::{ArtifactId, BuiltArtifactHeaderData};
 use hydrate_data::{AssetId, DataSet, SchemaSet};
+use crate::PipelineResult;
 
 pub struct BuiltAsset {
     pub asset_id: AssetId,

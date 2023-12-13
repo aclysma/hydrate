@@ -4,8 +4,7 @@ use crate::ui::modals::ConfirmQuitWithoutSaving;
 use crate::ui::modals::ConfirmRevertChanges;
 use crossbeam_channel::{Receiver, Sender};
 use hydrate_model::edit_context::EditContext;
-use hydrate_model::pipeline::import_util::ImportToQueue;
-use hydrate_model::pipeline::{AssetEngine, HydrateProjectConfiguration};
+use hydrate_model::pipeline::{AssetEngine, HydrateProjectConfiguration, ImportToQueue};
 use hydrate_model::{
     AssetId, AssetLocation, AssetName, DataSetError, DataSetResult, EditorModel,
     EndContextBehavior, NullOverride, OverrideBehavior, PropertyPath, Schema, SchemaFingerprint,

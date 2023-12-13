@@ -1,4 +1,3 @@
-use crate::{BuiltArtifact, ImportData, PipelineResult, WrittenArtifact};
 use crossbeam_channel::{Receiver, Sender};
 use hydrate_base::hashing::HashMap;
 use hydrate_base::uuid_path::uuid_and_hash_to_path;
@@ -11,6 +10,9 @@ use std::io::{BufWriter, Write};
 use std::path::PathBuf;
 use std::rc::Rc;
 use std::sync::Arc;
+use crate::build::{BuiltArtifact, WrittenArtifact};
+use crate::import::ImportData;
+use crate::PipelineResult;
 
 use super::*;
 
@@ -309,7 +311,7 @@ impl JobApi for JobApiImpl {
         &self,
         asset_id: AssetId,
     ) -> PipelineResult<ImportData> {
-        super::super::import_jobs::load_import_data(
+        crate::import::load_import_data(
             &self.inner.import_data_root_path,
             &self.inner.schema_set,
             asset_id,

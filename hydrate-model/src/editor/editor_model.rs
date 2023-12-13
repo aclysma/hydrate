@@ -6,11 +6,10 @@ use crate::{
     PathNode, PathNodeRoot, SchemaNamedType, SchemaSet,
 };
 use hydrate_data::{AssetLocation, AssetName, CanonicalPathReference, DataSetError, DataSetResult, ImportInfo, PathReferenceHash, SingleObject};
-use hydrate_pipeline::{import_util::ImportToQueue, DynEditorModel, ImporterRegistry, HydrateProjectConfiguration};
+use hydrate_pipeline::{DynEditorModel, HydrateProjectConfiguration, ImporterRegistry, ImportToQueue};
 use hydrate_schema::{SchemaFingerprint, SchemaRecord};
 use slotmap::DenseSlotMap;
 use std::path::PathBuf;
-use uuid::Uuid;
 slotmap::new_key_type! { pub struct EditContextKey; }
 
 pub struct EditorModel {

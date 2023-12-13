@@ -7,8 +7,7 @@ use crate::AssetId;
 
 mod file_system_path_based;
 pub use file_system_path_based::*;
-use hydrate_pipeline::HydrateProjectConfiguration;
-use hydrate_pipeline::import_util::ImportToQueue;
+use hydrate_pipeline::{HydrateProjectConfiguration, ImportToQueue};
 
 pub trait DataSource {
     // Replace memory with storage state

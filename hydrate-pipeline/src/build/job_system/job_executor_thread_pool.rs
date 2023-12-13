@@ -1,7 +1,6 @@
-use crate::job_system::job_system_traits::{FetchedAssetData, FetchedImportData};
-use crate::{
+use super::job_system_traits::{FetchedAssetData, FetchedImportData};
+use super::{
     JobApi, JobApiImpl, JobEnumeratedDependencies, JobId, JobProcessorRegistry, JobTypeId,
-    PipelineResult,
 };
 use crossbeam_channel::{Receiver, Sender};
 use hydrate_base::hashing::HashMap;
@@ -11,6 +10,7 @@ use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 use std::thread::JoinHandle;
+use crate::PipelineResult;
 
 // Ask the thread to gather build data from the asset
 pub(crate) struct JobExecutorThreadPoolRequestRunJob {

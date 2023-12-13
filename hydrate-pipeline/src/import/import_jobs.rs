@@ -6,15 +6,13 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use crossbeam_channel::Receiver;
 
-use crate::import_storage::ImportDataMetadata;
-use crate::import_thread_pool::{
-    ImportThreadOutcome, ImportThreadRequest, ImportThreadRequestImport, ImportWorkerThreadPool,
-};
-use crate::import_util::RequestedImportable;
 use crate::{DynEditorModel, HydrateProjectConfiguration, PipelineResult};
 use hydrate_base::uuid_path::{path_to_uuid, uuid_to_path};
 use hydrate_data::ImportableName;
 use hydrate_data::{ImporterId, SchemaSet, SingleObject};
+use crate::import::import_storage::ImportDataMetadata;
+use crate::import::import_thread_pool::{ImportThreadOutcome, ImportThreadRequest, ImportThreadRequestImport, ImportWorkerThreadPool};
+use crate::import::import_util::RequestedImportable;
 
 use super::import_types::*;
 use super::importer_registry::*;

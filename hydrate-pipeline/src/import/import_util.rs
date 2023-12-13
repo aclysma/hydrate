@@ -1,12 +1,12 @@
 use crate::{DynEditContext, HydrateProjectConfiguration, PipelineResult};
-use crate::{ImportType, ImporterRegistry};
-use crate::{Importer, ScanContext, ScannedImportable};
+use crate::{ImporterRegistry};
 use hydrate_data::{AssetId, AssetLocation, AssetName, CanonicalPathReference, HashMap, ImporterId, PathReferenceHash};
 use hydrate_data::{ImportableName, PathReference};
 use hydrate_schema::SchemaRecord;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use uuid::Uuid;
+use crate::import::{Importer, ImportType, ScanContext, ScannedImportable};
 
 #[derive(Debug, Clone)]
 pub struct RequestedImportable {

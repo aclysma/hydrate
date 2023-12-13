@@ -1,4 +1,3 @@
-use egui::Widget;
 use crate::action_queue::{UIAction, UIActionQueueSender};
 use crate::ui::modals::NewAssetModal;
 use crate::ui_state::EditorModelUiState;

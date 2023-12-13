@@ -828,13 +828,9 @@ impl DataSet {
         path: P
     ) -> DataSetResult<Option<AssetId>> {
         let asset = self.assets.get(&asset_id).ok_or(DataSetError::AssetNotFound)?;
-        Ok(if let Some(import_info) = &asset.import_info {
-            let canonical_path = self.do_resolve_path_reference_into_canonical_path_reference(asset, path.into().path_reference_hash());
-            if let Some(canonical_path) = canonical_path {
-                self.do_resolve_canonical_path_reference_into_asset_id(asset, canonical_path)
-            } else {
-                None
-            }
+        let canonical_path = self.do_resolve_path_reference_into_canonical_path_reference(asset, path.into().path_reference_hash());
+        Ok(if let Some(canonical_path) = canonical_path {
+            self.do_resolve_canonical_path_reference_into_asset_id(asset, canonical_path)
         } else {
             None
         })

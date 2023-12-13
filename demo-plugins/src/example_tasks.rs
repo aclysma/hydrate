@@ -1,6 +1,5 @@
 use hydrate_base::AssetId;
-use hydrate_model::pipeline::job_system::*;
-use hydrate_pipeline::PipelineResult;
+use hydrate_pipeline::{EnumerateDependenciesContext, JobEnumeratedDependencies, JobId, JobInput, JobOutput, JobProcessor, PipelineResult, RunContext};
 use serde::{Deserialize, Serialize};
 use std::hash::Hash;
 use type_uuid::TypeUuid;

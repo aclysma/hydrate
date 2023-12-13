@@ -1,12 +1,12 @@
 pub use super::*;
 use std::collections::VecDeque;
 use std::ops::Range;
-use std::path::{Path, PathBuf};
+use std::path::{PathBuf};
 
 use super::generated::GlslSourceFileImportedDataRecord;
 use crate::generated_wrapper::{GlslBuildTargetAssetRecord, GlslSourceFileAssetRecord};
 use demo_types::glsl::*;
-use hydrate_data::{CanonicalPathReference, PathReference, PathReferenceHash, Record};
+use hydrate_data::{PathReference, PathReferenceHash, Record};
 use hydrate_model::pipeline::Importer;
 use hydrate_model::pipeline::{AssetPlugin, Builder, ImportContext, ScanContext};
 use hydrate_pipeline::{

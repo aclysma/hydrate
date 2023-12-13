@@ -4,8 +4,7 @@ use crate::{PathNode, PathNodeRoot};
 use hydrate_base::hashing::HashSet;
 use hydrate_data::json_storage::{MetaFile, MetaFileJson};
 use hydrate_data::{AssetId, AssetLocation, AssetName, ImportableName, ImporterId, PathReference};
-use hydrate_pipeline::import_util::{ImportToQueue, RequestedImportable};
-use hydrate_pipeline::{import_util, ImportType, Importer, ImporterRegistry, ScanContext, ScannedImportable, HydrateProjectConfiguration};
+use hydrate_pipeline::{Importer, ImporterRegistry, HydrateProjectConfiguration, ImportToQueue, ScannedImportable, RequestedImportable, ImportType, ScanContext};
 use hydrate_schema::{HashMap, SchemaNamedType};
 use std::ffi::OsStr;
 use std::path::{Path, PathBuf};
@@ -785,7 +784,7 @@ impl DataSource for FileSystemPathBasedDataSource {
 
                     // Create an asset name for this asset
                     let asset_name =
-                        import_util::create_asset_name(source_file_path, scanned_importable);
+                        hydrate_pipeline::create_asset_name(source_file_path, scanned_importable);
 
                     let asset_file_exists = edit_context.has_asset(importable_asset_id);
 

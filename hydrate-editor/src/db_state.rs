@@ -1,5 +1,4 @@
-use hydrate_model::pipeline::import_util::ImportToQueue;
-use hydrate_model::pipeline::{HydrateProjectConfiguration, ImporterRegistry};
+use hydrate_model::pipeline::{HydrateProjectConfiguration, ImporterRegistry, ImportToQueue};
 use hydrate_model::{
     EditorModel,
     PathNode, PathNodeRoot, SchemaCacheSingleFile, SchemaLinker, SchemaSet, SchemaSetBuilder,

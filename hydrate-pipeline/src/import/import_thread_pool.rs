@@ -1,6 +1,4 @@
-use crate::import_jobs::ImportOp;
-use crate::import_storage::ImportDataMetadata;
-use crate::{ImportContext, ImportType, ImportableAsset, ImporterRegistry, PipelineResult, HydrateProjectConfiguration};
+use crate::{ImporterRegistry, PipelineResult, HydrateProjectConfiguration};
 use crossbeam_channel::{Receiver, Sender};
 use hydrate_base::hashing::HashMap;
 use hydrate_base::uuid_path::uuid_to_path;
@@ -13,6 +11,8 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 use std::thread::JoinHandle;
 use std::time::SystemTime;
+use crate::import::{ImportableAsset, ImportContext, ImportOp, ImportType};
+use crate::import::import_storage::ImportDataMetadata;
 
 // Ask the thread to gather import data from the asset
 #[derive(Debug)]
@@ -177,7 +177,7 @@ fn do_import(
                     assert!(old.is_none());
                 }
 
-                return Ok(cached_importables);
+                //return Ok(cached_importables);
             }
         }
     }

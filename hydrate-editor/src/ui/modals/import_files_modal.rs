@@ -108,7 +108,7 @@ impl ModalAction for ImportFilesModal {
                                 let importer = context.asset_engine.importer(handlers[0]).unwrap();
 
                                 log::info!("Starting import recursively on {:?}", file);
-                                hydrate_model::pipeline::import_util::recursively_gather_import_operations_and_create_assets(
+                                hydrate_model::pipeline::recursively_gather_import_operations_and_create_assets(
                                     &context.db_state.project_configuration,
                                     file,
                                     importer,

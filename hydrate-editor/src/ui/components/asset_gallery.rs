@@ -10,7 +10,6 @@ use hydrate_model::{
     AssetId, AssetLocation, DataSetAssetInfo, HashSet,
 };
 use std::sync::Arc;
-use crate::image_loader::AssetThumbnailImageLoader;
 
 #[derive(Default, PartialEq, Copy, Clone)]
 pub enum AssetGalleryViewMode {

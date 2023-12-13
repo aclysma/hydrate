@@ -2,10 +2,9 @@ use crate::edit_context::EditContext;
 use crate::{AssetId, AssetSourceId, DataSource, HashSet, PathNodeRoot};
 use hydrate_base::uuid_path::{path_to_uuid, uuid_to_path};
 use hydrate_data::AssetLocation;
-use hydrate_pipeline::import_util::ImportToQueue;
 use hydrate_schema::SchemaNamedType;
 use std::path::{Path, PathBuf};
-use hydrate_pipeline::HydrateProjectConfiguration;
+use hydrate_pipeline::{HydrateProjectConfiguration, ImportToQueue};
 
 fn load_asset_files(
     edit_context: &mut EditContext,

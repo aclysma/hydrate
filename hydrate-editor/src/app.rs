@@ -1,3 +1,4 @@
+use std::sync::Arc;
 use std::time::Duration;
 use crate::action_queue::{UIAction, UIActionQueueReceiver};
 use crate::db_state::DbState;
@@ -12,6 +13,7 @@ use egui::epaint::text::FontsImpl;
 use egui::{FontDefinitions, ViewportCommand};
 use hydrate_model::pipeline::{AssetEngine, AssetEngineState};
 use hydrate_model::EditorModelWithCache;
+use crate::image_loader::{AssetThumbnailImageLoader, AssetThumbnailTextureLoader};
 
 #[derive(Default)]
 pub struct UiState {
@@ -32,6 +34,7 @@ pub struct HydrateEditorApp {
     action_queue: UIActionQueueReceiver,
     modal_action: Option<Box<dyn ModalAction>>,
     inspector_registry: InspectorRegistry,
+    asset_thumbnail_image_loader: Arc<AssetThumbnailImageLoader>,
 }
 
 impl HydrateEditorApp {
@@ -58,6 +61,12 @@ impl HydrateEditorApp {
         let fonts = crate::fonts::load_custom_fonts();
         cc.egui_ctx.set_fonts(fonts);
 
+        let image_loader = Arc::new(AssetThumbnailImageLoader::new());
+        cc.egui_ctx.add_image_loader(image_loader.clone());
+
+        let texture_loader = Arc::new(AssetThumbnailTextureLoader::new());
+        cc.egui_ctx.add_texture_loader(texture_loader);
+
         HydrateEditorApp {
             db_state,
             asset_engine,
@@ -66,6 +75,7 @@ impl HydrateEditorApp {
             action_queue: UIActionQueueReceiver::default(),
             modal_action: None,
             inspector_registry,
+            asset_thumbnail_image_loader: image_loader.clone()
         }
     }
 }
@@ -87,6 +97,10 @@ impl eframe::App for HydrateEditorApp {
     ) {
         // Generate some profiling info
         profiling::scope!("Main Thread");
+
+        {
+            self.asset_thumbnail_image_loader.update();
+        }
 
         self.ui_state
             .editor_model_ui_state

@@ -12,6 +12,8 @@ mod egui_debug_ui;
 mod fonts;
 mod modal_action;
 mod ui_state;
+mod image_loader;
+mod lru_cache;
 
 pub use egui;
 pub use egui_extras;

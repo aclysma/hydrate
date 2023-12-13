@@ -10,11 +10,12 @@ use hydrate_model::{
     AssetId, AssetLocation, DataSetAssetInfo, HashSet,
 };
 use std::sync::Arc;
+use crate::image_loader::AssetThumbnailImageLoader;
 
 #[derive(Default, PartialEq, Copy, Clone)]
 pub enum AssetGalleryViewMode {
-    #[default]
     Table,
+    #[default]
     Grid,
 }
 
@@ -446,6 +447,7 @@ fn draw_asset_gallery_tile(
             //     ui.label("hi");
             // });
 
+
             let mut thumbnail_rect = rect;
             thumbnail_rect.max.y = thumbnail_rect
                 .max
@@ -459,7 +461,7 @@ fn draw_asset_gallery_tile(
                 asset_gallery_ui_state.selected_assets.insert(asset_id);
             }
 
-            if ui.is_visible() {
+            if ui.is_rect_visible(thumbnail_rect) {
                 //let visuals = ui.style().interact_selectable(&response, is_on);
                 let radius = 3.0;
 
@@ -467,6 +469,10 @@ fn draw_asset_gallery_tile(
                     ui.painter()
                         .rect_filled(rect, radius, ui.style().visuals.selection.bg_fill);
                 }
+
+                let thumbnail_uri = format!("thumbnail://{}", asset_id.as_uuid().to_string());
+                egui::Image::new(thumbnail_uri).paint_at(ui, thumbnail_rect);
+
                 ui.painter().rect_stroke(
                     thumbnail_rect,
                     radius,
@@ -501,8 +507,6 @@ fn draw_asset_gallery_tile(
                     font_id.clone(),
                     text_color,
                 );
-            } else {
-                println!("not visible");
             }
 
             let is_generated = is_generated;

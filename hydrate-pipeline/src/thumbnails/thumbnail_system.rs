@@ -3,6 +3,7 @@ use hydrate_base::AssetId;
 use hydrate_base::hashing::HashMap;
 use hydrate_base::lru_cache::LruCache;
 use hydrate_data::{DataSet, SchemaSet};
+use crate::{HydrateProjectConfiguration, ThumbnailApi};
 use crate::thumbnails::ThumbnailProviderRegistry;
 
 // Thumbnail providers are implemented per asset type
@@ -76,6 +77,7 @@ pub struct ThumbnailSystem {
     thumbnail_system_state: ThumbnailSystemState,
     thumbnail_provider_registry: ThumbnailProviderRegistry,
     default_image: Arc<ThumbnailImage>,
+    thumbnail_api: ThumbnailApi,
 }
 
 impl ThumbnailSystem {
@@ -83,7 +85,11 @@ impl ThumbnailSystem {
         &self.thumbnail_system_state
     }
 
-    pub fn new(thumbnail_provider_registry: ThumbnailProviderRegistry) -> Self {
+    pub fn new(
+        hydrate_config: &HydrateProjectConfiguration,
+        thumbnail_provider_registry: ThumbnailProviderRegistry,
+        schema_set: &SchemaSet
+    ) -> Self {
         let default_image = ThumbnailImage {
             width: 1,
             height: 1,
@@ -93,7 +99,8 @@ impl ThumbnailSystem {
         ThumbnailSystem {
             thumbnail_system_state: ThumbnailSystemState::default(),
             thumbnail_provider_registry,
-            default_image: Arc::new(default_image)
+            default_image: Arc::new(default_image),
+            thumbnail_api: ThumbnailApi::new(hydrate_config, schema_set),
         }
     }
 
@@ -116,7 +123,12 @@ impl ThumbnailSystem {
                 let asset_schema = data_set.asset_schema(asset_id).unwrap();
                 if let Some(provider) = self.thumbnail_provider_registry.provider_for_asset(asset_schema.fingerprint()) {
                     let dependencies = provider.gather_inner(asset_id, data_set, schema_set).unwrap();
-                    let image = provider.render_inner(asset_id, &*dependencies.gathered_data).unwrap();
+                    let image = provider.render_inner(
+                        asset_id,
+                        &*dependencies.gathered_data,
+                        schema_set,
+                        &self.thumbnail_api,
+                    ).unwrap();
 
                     thumbnail_state.image = Some(Arc::new(image));
                 } else {

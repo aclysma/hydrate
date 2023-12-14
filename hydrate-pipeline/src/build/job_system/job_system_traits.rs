@@ -150,8 +150,8 @@ pub(crate) struct FetchedAssetData {
 }
 
 pub(crate) struct FetchedImportDataInfo {
-    contents_hash: u64,
-    metadata_hash: u64,
+    pub(crate) contents_hash: u64,
+    pub(crate) metadata_hash: u64,
 }
 
 pub(crate) struct FetchedImportData {

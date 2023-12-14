@@ -164,6 +164,12 @@ impl AssetEngine {
             project_configuration.build_data_path.clone(),
         );
 
+        let thumbnail_system = ThumbnailSystem::new(
+            project_configuration,
+            registries.thumbnail_provider_registry,
+            schema_set
+        );
+
         //TODO: Consider looking at disk to determine previous combined build hash so we don't for a rebuild every time we open
 
         AssetEngine {
@@ -171,7 +177,7 @@ impl AssetEngine {
             import_jobs,
             builder_registry: registries.builder_registry,
             build_jobs,
-            thumbnail_system: ThumbnailSystem::new(registries.thumbnail_provider_registry),
+            thumbnail_system,
         }
     }
 

@@ -17,10 +17,11 @@ use serde::{Deserialize, Serialize};
 use siphasher::sip128::Hasher128;
 use type_uuid::TypeUuid;
 use hydrate_base::AssetId;
+use hydrate_base::hashing::HashMap;
 use hydrate_data::{DataSet, SchemaSet};
 use hydrate_schema::HashSet;
 use crate::{JobOutput, JobProcessor, PipelineResult};
-use crate::build::{JobApi, JobProcessorAbstract};
+use crate::build::{FetchedImportData, JobApi, JobProcessorAbstract};
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct ThumbnailProviderId(pub usize);
@@ -48,6 +49,8 @@ trait ThumbnailProviderAbstract {
         &self,
         asset_id: AssetId,
         gathered_data: &Vec<u8>,
+        schema_set: &SchemaSet,
+        thumbnail_api: &ThumbnailApi,
         // data_set: &DataSet,
         // schema_set: &SchemaSet,
         // job_api: &dyn JobApi,
@@ -110,14 +113,19 @@ impl<T: ThumbnailProvider + Send + Sync> ThumbnailProviderAbstract for Thumbnail
         gathered_data: &Vec<u8>,
         // input: &Vec<u8>,
         // data_set: &DataSet,
-        // schema_set: &SchemaSet,
+        schema_set: &SchemaSet,
+        thumbnail_api: &ThumbnailApi,
         // job_api: &dyn JobApi,
         // fetched_asset_data: &mut HashMap<AssetId, FetchedAssetData>,
         // fetched_import_data: &mut HashMap<AssetId, FetchedImportData>
     ) -> PipelineResult<ThumbnailImage> {
         let gathered_data: T::GatheredDataT = bincode::deserialize(&*gathered_data)?;
-        let image = self.0.render(ThumbnailProviderRenderContext {
+        let mut fetched_import_data = HashMap::<AssetId, FetchedImportData>::default();
+        let image = self.0.render(&ThumbnailProviderRenderContext {
             asset_id,
+            schema_set,
+            fetched_import_data: &Rc::new(RefCell::new(&mut fetched_import_data)),
+            thumbnail_api: thumbnail_api
         }, gathered_data).unwrap();
 
         Ok(image)

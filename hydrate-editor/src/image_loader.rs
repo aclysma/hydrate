@@ -142,7 +142,7 @@ impl AssetThumbnailTextureLoader {
 
 impl TextureLoader for AssetThumbnailTextureLoader {
     fn id(&self) -> &str {
-        ""
+        "hydrate_editor::AssetThumbnailTextureLoader"
     }
 
     fn load(

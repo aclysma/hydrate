@@ -211,9 +211,13 @@ impl AssetEngine {
                     return Ok(AssetEngineState::Importing(importing_state))
                 }
             }
+        }
 
+        if !self.build_jobs.is_building() {
+            assert!(!self.import_jobs.is_importing());
             self.thumbnail_system.update(editor_model.data_set(), editor_model.schema_set());
         }
+
         //
         // Process the in-flight build. It will be cancelled and restarted if any data is detected
         // as changing during the build.
@@ -241,13 +245,6 @@ impl AssetEngine {
     ) -> &ThumbnailSystemState {
         self.thumbnail_system.system_state()
     }
-
-    // pub fn set_requested_thumbnails(
-    //     &mut self,
-    //     requested_thumbnails: Vec<AssetId>
-    // ) {
-    //     self.thumbnail_system.set_requested_thumbnails(requested_thumbnails);
-    // }
 
     pub fn importers_for_file_extension(
         &self,

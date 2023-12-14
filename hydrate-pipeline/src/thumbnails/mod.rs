@@ -5,6 +5,8 @@ mod thumbnail_types;
 pub use thumbnail_types::*;
 
 mod thumbnail_system;
+mod thumbnail_thread_pool;
+
 pub use thumbnail_system::ThumbnailSystem;
 pub use thumbnail_system::ThumbnailSystemState;
 pub use thumbnail_system::ThumbnailImage;
@@ -16,6 +18,7 @@ use std::sync::Arc;
 use serde::{Deserialize, Serialize};
 use siphasher::sip128::Hasher128;
 use type_uuid::TypeUuid;
+use uuid::Uuid;
 use hydrate_base::AssetId;
 use hydrate_base::hashing::HashMap;
 use hydrate_data::{DataSet, SchemaSet};
@@ -23,16 +26,18 @@ use hydrate_schema::HashSet;
 use crate::{JobOutput, JobProcessor, PipelineResult};
 use crate::build::{FetchedImportData, JobApi, JobProcessorAbstract};
 
+crate::create_uuid_newtype!(ThumbnailInputHash, "ThumbnailInputHash");
+
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct ThumbnailProviderId(pub usize);
 
 pub(crate) struct ThumbnailEnumeratedDependencies {
-    pub(crate) thumbnail_input_hash: u128,
+    pub(crate) thumbnail_input_hash: ThumbnailInputHash,
     pub(crate) gathered_data: Arc<Vec<u8>>,
     pub(crate) import_data: HashSet<AssetId>,
 }
 
-trait ThumbnailProviderAbstract {
+trait ThumbnailProviderAbstract: Send + Sync {
     // The type of asset that this builder handles
     fn asset_type_inner(&self) -> &'static str;
 
@@ -100,6 +105,7 @@ impl<T: ThumbnailProvider + Send + Sync> ThumbnailProviderAbstract for Thumbnail
 
         let gathered_data = Arc::new(bincode::serialize(&gathered_data)?);
 
+        let thumbnail_input_hash = ThumbnailInputHash::from_u128(thumbnail_input_hash);
         Ok(ThumbnailEnumeratedDependencies {
             thumbnail_input_hash,
             gathered_data,

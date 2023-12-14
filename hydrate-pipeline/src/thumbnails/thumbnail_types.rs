@@ -138,5 +138,9 @@ pub trait ThumbnailProvider {
 
     // Can only read gathered data provided by gather(), import data, and build data. The import/build
     // data has to match the hash of what was requested by gather()
-    fn render<'a>(&'a self, context: &'a ThumbnailProviderRenderContext<'a>, gathered_data: Self::GatheredDataT) -> PipelineResult<ThumbnailImage>;  // return something?
+    fn render<'a>(
+        &'a self,
+        context: &'a ThumbnailProviderRenderContext<'a>,
+        gathered_data: Self::GatheredDataT
+    ) -> PipelineResult<ThumbnailImage>;
 }

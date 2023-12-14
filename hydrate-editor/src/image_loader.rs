@@ -1,8 +1,11 @@
 use std::sync::{Arc, Mutex};
+use eframe::epaint::Color32;
 use egui::{ColorImage, Context, SizeHint, TextureHandle, TextureOptions};
+use egui::ImageData::Color;
 use egui::load::{ImageLoader, ImageLoadResult, ImagePoll, LoadError, SizedTexture, TextureLoader, TextureLoadResult, TexturePoll};
 use hydrate_model::AssetId;
-use crate::lru_cache::LruCache;
+use hydrate_model::pipeline::{AssetEngine, ThumbnailSystemState};
+use hydrate_base::lru_cache::LruCache;
 
 const THUMBNAIL_URI_PREFIX: &str = "thumbnail://";
 const THUMBNAIL_CACHE_SIZE: u32 = 64;
@@ -19,31 +22,53 @@ struct ThumbnailInfo {
     load_state: LoadState,
 }
 
+struct AssetThumbnailImageLoaderInner {
+    //cache: LruCache<AssetId, ThumbnailInfo>,
+    //requested_thumbnails_list_needs_update: bool
+}
 
 pub struct AssetThumbnailImageLoader {
     dummy_image: Arc<ColorImage>,
-    cache: Mutex<LruCache<AssetId, ThumbnailInfo>>
+    //inner: Mutex<AssetThumbnailImageLoaderInner>
+    thumbnail_system_state: ThumbnailSystemState,
 }
 
 impl AssetThumbnailImageLoader {
-    pub fn new() -> Self {
+    pub fn new(thumbnail_system_state: &ThumbnailSystemState) -> Self {
         let dummy_image = ColorImage::example();
+        // let inner = AssetThumbnailImageLoaderInner {
+        //     // cache: LruCache::new(THUMBNAIL_CACHE_SIZE),
+        //     // requested_thumbnails_list_needs_update: false,
+        // };
+
         AssetThumbnailImageLoader {
             dummy_image: Arc::new(dummy_image),
-            cache: Mutex::new(LruCache::new(THUMBNAIL_CACHE_SIZE))
+            thumbnail_system_state: thumbnail_system_state.clone()
         }
     }
 
-    pub fn update(&self) {
-        let mut cache = self.cache.lock().unwrap();
-        for (asset_id, thumbnail_info) in cache.pairs_mut().iter_mut().filter_map(|x| x.as_mut()) {
-            if thumbnail_info.load_state == LoadState::Requesting {
-                thumbnail_info.count += 1;
-                if thumbnail_info.count > 100 {
-                    thumbnail_info.load_state = LoadState::Loaded(self.dummy_image.clone());
-                }
-            }
-        }
+    pub fn update(&self, asset_engine: &mut AssetEngine) {
+        // let mut inner = self.thumbnail_system_state.inner.lock().unwrap();
+        //
+        // for (_, thumbnail_info) in inner.cache.pairs_mut().iter_mut().filter_map(|x| x.as_mut()) {
+        //     if thumbnail_info.load_state == LoadState::Requesting {
+        //         // thumbnail_info.count += 1;
+        //         // if thumbnail_info.count > 100 {
+        //         //     thumbnail_info.load_state = LoadState::Loaded(self.dummy_image.clone());
+        //         // }
+        //     }
+        // }
+        //
+        // if inner.requested_thumbnails_list_needs_update {
+        //     inner.requested_thumbnails_list_needs_update = false;
+        //
+        //     let mut requested_thumbnails = Vec::new();
+        //     for (asset_id, _) in inner.cache.pairs_mut().iter().filter_map(|x| x.as_ref()) {
+        //         requested_thumbnails.push(*asset_id);
+        //     }
+        //
+        //     asset_engine.set_requested_thumbnails(requested_thumbnails);
+        // }
     }
 }
 
@@ -55,22 +80,15 @@ impl ImageLoader for AssetThumbnailImageLoader {
     fn load(&self, ctx: &Context, uri: &str, size_hint: SizeHint) -> ImageLoadResult {
         if uri.starts_with(THUMBNAIL_URI_PREFIX) {
             let asset_id = AssetId::parse_str(&uri[THUMBNAIL_URI_PREFIX.len()..]).unwrap();
-            let mut cache = self.cache.lock().unwrap();
-            if let Some(cached_entry) = cache.get(&asset_id) {
-                match &cached_entry.load_state {
-                    LoadState::Requesting => Ok(ImagePoll::Pending {
-                        size: None,
-                    }),
-                    LoadState::Loaded(image) => Ok(ImagePoll::Ready {
-                        image: image.clone()
-                    })
-                }
+            if let Some(cached_entry) = self.thumbnail_system_state.request(asset_id) {
+                let mut image = Arc::new(ColorImage::from_rgba_unmultiplied(
+                    [cached_entry.width as usize, cached_entry.height as usize], &cached_entry.pixel_data
+                ));
+
+                Ok(ImagePoll::Ready {
+                    image
+                })
             } else {
-                cache.insert(asset_id, ThumbnailInfo {
-                    asset_id,
-                    count: 0,
-                    load_state: LoadState::Requesting,
-                });
                 Ok(ImagePoll::Pending {
                     size: None,
                 })
@@ -79,20 +97,26 @@ impl ImageLoader for AssetThumbnailImageLoader {
         } else {
             Err(LoadError::NotSupported)
         }
-
     }
 
     fn forget(&self, uri: &str) {
         if uri.starts_with(THUMBNAIL_URI_PREFIX) {
             let asset_id = AssetId::parse_str(&uri[THUMBNAIL_URI_PREFIX.len()..]).unwrap();
-            let mut cache = self.cache.lock().unwrap();
-            cache.remove(&asset_id);
+            self.thumbnail_system_state.forget(asset_id);
         }
+        // if uri.starts_with(THUMBNAIL_URI_PREFIX) {
+        //     let asset_id = AssetId::parse_str(&uri[THUMBNAIL_URI_PREFIX.len()..]).unwrap();
+        //     let mut inner = self.inner.lock().unwrap();
+        //     inner.cache.remove(&asset_id);
+        //     inner.requested_thumbnails_list_needs_update = true;
+        // }
     }
 
     fn forget_all(&self) {
-        let mut cache = self.cache.lock().unwrap();
-        *cache = LruCache::new(THUMBNAIL_CACHE_SIZE)
+        self.thumbnail_system_state.forget_all();
+        // let mut inner = self.inner.lock().unwrap();
+        // inner.cache = LruCache::new(THUMBNAIL_CACHE_SIZE);
+        // inner.requested_thumbnails_list_needs_update = true;
     }
 
     fn byte_size(&self) -> usize {

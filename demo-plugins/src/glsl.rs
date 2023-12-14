@@ -9,11 +9,7 @@ use demo_types::glsl::*;
 use hydrate_data::{PathReference, PathReferenceHash, Record};
 use hydrate_model::pipeline::Importer;
 use hydrate_model::pipeline::{AssetPlugin, Builder, ImportContext, ScanContext};
-use hydrate_pipeline::{
-    AssetId, BuilderContext, BuilderRegistryBuilder, HashMap, HashSet, ImporterRegistryBuilder,
-    JobInput, JobOutput, JobProcessor, JobProcessorRegistryBuilder, PipelineResult, RunContext,
-
-};
+use hydrate_pipeline::{AssetId, AssetPluginSetupContext, BuilderContext, BuilderRegistryBuilder, HashMap, HashSet, ImporterRegistryBuilder, JobInput, JobOutput, JobProcessor, JobProcessorRegistryBuilder, PipelineResult, RunContext};
 use serde::{Deserialize, Serialize};
 use shaderc::IncludeType;
 use type_uuid::TypeUuid;
@@ -694,12 +690,10 @@ pub struct GlslAssetPlugin;
 
 impl AssetPlugin for GlslAssetPlugin {
     fn setup(
-        importer_registry: &mut ImporterRegistryBuilder,
-        builder_registry: &mut BuilderRegistryBuilder,
-        job_processor_registry: &mut JobProcessorRegistryBuilder,
+        context: AssetPluginSetupContext
     ) {
-        importer_registry.register_handler::<GlslSourceFileImporter>();
-        builder_registry.register_handler::<GlslBuildTargetBuilder>();
-        job_processor_registry.register_job_processor::<GlslBuildTargetJobProcessor>();
+        context.importer_registry.register_handler::<GlslSourceFileImporter>();
+        context.builder_registry.register_handler::<GlslBuildTargetBuilder>();
+        context.job_processor_registry.register_job_processor::<GlslBuildTargetJobProcessor>();
     }
 }

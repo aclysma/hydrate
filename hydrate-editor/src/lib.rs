@@ -13,7 +13,6 @@ mod fonts;
 mod modal_action;
 mod ui_state;
 mod image_loader;
-mod lru_cache;
 
 pub use egui;
 pub use egui_extras;
@@ -21,7 +20,7 @@ use hydrate_model::{AssetPathCache, EditorModelWithCache, SchemaSet};
 
 use crate::app::HydrateEditorApp;
 pub use crate::ui::components::inspector_system;
-use hydrate_model::pipeline::{AssetEngine, AssetPluginRegistry, HydrateProjectConfiguration};
+use hydrate_model::pipeline::{AssetEngine, AssetPluginRegistryBuilders, HydrateProjectConfiguration};
 use crate::inspector_system::InspectorRegistry;
 
 pub struct Editor {
@@ -41,7 +40,7 @@ impl Editor {
 
     pub fn new(
         project_configuration: HydrateProjectConfiguration,
-        asset_plugin_registry: AssetPluginRegistry
+        asset_plugin_registry: AssetPluginRegistryBuilders
     ) -> Self {
         profiling::scope!("Hydrate Initialization");
 
@@ -52,13 +51,13 @@ impl Editor {
             )
         };
 
-        let (importer_registry, builder_registry, job_processor_registry) =
+        let registries =
             asset_plugin_registry.finish(&schema_set);
 
         let mut imports_to_queue = Vec::default();
         let mut db_state = DbState::load(
             &schema_set,
-            &importer_registry,
+            &registries.importer_registry,
             &project_configuration,
             &mut imports_to_queue,
         );
@@ -73,9 +72,7 @@ impl Editor {
             profiling::scope!("Create Asset Engine");
             AssetEngine::new(
                 &schema_set,
-                importer_registry,
-                builder_registry,
-                job_processor_registry,
+                registries,
                 &mut editor_model_with_cache,
                 &project_configuration,
             )

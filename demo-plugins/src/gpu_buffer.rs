@@ -4,10 +4,7 @@ use crate::generated::GpuBufferAssetRecord;
 use demo_types::gpu_buffer::GpuBufferBuiltData;
 use hydrate_data::Record;
 use hydrate_model::pipeline::{AssetPlugin, Builder};
-use hydrate_pipeline::{
-    AssetId, BuilderContext, BuilderRegistryBuilder, ImporterRegistryBuilder, JobInput, JobOutput,
-    JobProcessor, JobProcessorRegistryBuilder, PipelineResult, RunContext,
-};
+use hydrate_pipeline::{AssetId, AssetPluginSetupContext, BuilderContext, BuilderRegistryBuilder, ImporterRegistryBuilder, JobInput, JobOutput, JobProcessor, JobProcessorRegistryBuilder, PipelineResult, RunContext};
 use serde::{Deserialize, Serialize};
 use type_uuid::TypeUuid;
 
@@ -84,11 +81,9 @@ pub struct GpuBufferAssetPlugin;
 
 impl AssetPlugin for GpuBufferAssetPlugin {
     fn setup(
-        _importer_registry: &mut ImporterRegistryBuilder,
-        builder_registry: &mut BuilderRegistryBuilder,
-        job_processor_registry: &mut JobProcessorRegistryBuilder,
+        context: AssetPluginSetupContext
     ) {
-        builder_registry.register_handler::<GpuBufferBuilder>();
-        job_processor_registry.register_job_processor::<GpuBufferJobProcessor>();
+        context.builder_registry.register_handler::<GpuBufferBuilder>();
+        context.job_processor_registry.register_job_processor::<GpuBufferJobProcessor>();
     }
 }

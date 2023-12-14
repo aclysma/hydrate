@@ -1,5 +1,5 @@
 use std::hash::Hash;
-use hydrate_model::HashMap;
+use crate::hashing::HashMap;
 
 #[derive(Copy, Clone)]
 struct LruCacheNode {

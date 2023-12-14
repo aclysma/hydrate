@@ -10,6 +10,9 @@ mod pipeline_error;
 mod project;
 mod build;
 mod import;
+mod thumbnails;
+pub use thumbnails::*;
+
 pub use import::{
     ImportToQueue, ScannedImportable, RequestedImportable, ImporterRegistry, Importer, ImporterRegistryBuilder,
     ImportJobs, ImportStatus, ImportStatusImporting, ImportType, ScanContext, import_util::create_asset_name, ImportContext,
@@ -22,52 +25,72 @@ pub use pipeline_error::*;
 pub use crate::build::{
     Builder, BuilderRegistry, BuilderRegistryBuilder, BuildJobs, BuildStatus, BuildStatusBuilding, JobProcessorRegistry, JobProcessorRegistryBuilder,
     BuilderContext, JobInput, JobOutput, JobId, JobProcessor, RunContext, HandleFactory, EnumerateDependenciesContext, JobEnumeratedDependencies, AssetArtifactIdPair
-
 };
 
-pub trait AssetPlugin {
-    fn setup(
-        importer_registry: &mut ImporterRegistryBuilder,
-        builder_registry: &mut BuilderRegistryBuilder,
-        job_processor_registry: &mut JobProcessorRegistryBuilder,
-    );
+mod uuid_newtype;
+
+pub struct AssetPluginRegistries {
+    pub importer_registry: ImporterRegistry,
+    pub builder_registry: BuilderRegistry,
+    pub job_processor_registry: JobProcessorRegistry,
+    pub thumbnail_provider_registry: ThumbnailProviderRegistry,
 }
 
-pub struct AssetPluginRegistry {
+pub struct AssetPluginSetupContext<'a> {
+    pub importer_registry: &'a mut ImporterRegistryBuilder,
+    pub builder_registry: &'a mut BuilderRegistryBuilder,
+    pub job_processor_registry: &'a mut JobProcessorRegistryBuilder,
+    pub thumbnail_provider_registry: &'a mut ThumbnailProviderRegistryBuilder,
+}
+
+pub trait AssetPlugin {
+    fn setup(context: AssetPluginSetupContext);
+}
+
+pub struct AssetPluginRegistryBuilders {
     importer_registry: ImporterRegistryBuilder,
     builder_registry: BuilderRegistryBuilder,
     job_processor_registry: JobProcessorRegistryBuilder,
+    thumbnail_provider_registry: ThumbnailProviderRegistryBuilder,
 }
 
-impl AssetPluginRegistry {
+impl AssetPluginRegistryBuilders {
     pub fn new() -> Self {
-        AssetPluginRegistry {
+        AssetPluginRegistryBuilders {
             importer_registry: Default::default(),
             builder_registry: Default::default(),
             job_processor_registry: Default::default(),
+            thumbnail_provider_registry: Default::default(),
         }
     }
 
     pub fn register_plugin<T: AssetPlugin>(
         mut self,
     ) -> Self {
-        T::setup(
-            &mut self.importer_registry,
-            &mut self.builder_registry,
-            &mut self.job_processor_registry,
-        );
+        T::setup(AssetPluginSetupContext {
+            importer_registry: &mut self.importer_registry,
+            builder_registry: &mut self.builder_registry,
+            job_processor_registry: &mut self.job_processor_registry,
+            thumbnail_provider_registry: &mut self.thumbnail_provider_registry,
+        });
         self
     }
 
     pub fn finish(
         self,
         schema_set: &SchemaSet,
-    ) -> (ImporterRegistry, BuilderRegistry, JobProcessorRegistry) {
+    ) -> AssetPluginRegistries {
         let importer_registry = self.importer_registry.build();
         let builder_registry = self.builder_registry.build(schema_set);
         let job_processor_registry = self.job_processor_registry.build();
+        let thumbnail_provider_registry = self.thumbnail_provider_registry.build(schema_set);
 
-        (importer_registry, builder_registry, job_processor_registry)
+        AssetPluginRegistries {
+            importer_registry,
+            builder_registry,
+            job_processor_registry,
+            thumbnail_provider_registry
+        }
     }
 }
 
@@ -116,27 +139,26 @@ pub struct AssetEngine {
     import_jobs: ImportJobs,
     builder_registry: BuilderRegistry,
     build_jobs: BuildJobs,
+    thumbnail_system: ThumbnailSystem,
 }
 
 impl AssetEngine {
     pub fn new(
         schema_set: &SchemaSet,
-        importer_registry: ImporterRegistry,
-        builder_registry: BuilderRegistry,
-        job_processor_registry: JobProcessorRegistry,
+        registries: AssetPluginRegistries,
         editor_model: &dyn DynEditorModel,
         project_configuration: &HydrateProjectConfiguration
     ) -> Self {
         let import_jobs = ImportJobs::new(
             project_configuration,
-            &importer_registry,
+            &registries.importer_registry,
             editor_model,
             &project_configuration.import_data_path,
         );
 
         let build_jobs = BuildJobs::new(
             schema_set,
-            &job_processor_registry,
+            &registries.job_processor_registry,
             project_configuration.import_data_path.clone(),
             project_configuration.job_data_path.clone(),
             project_configuration.build_data_path.clone(),
@@ -145,10 +167,11 @@ impl AssetEngine {
         //TODO: Consider looking at disk to determine previous combined build hash so we don't for a rebuild every time we open
 
         AssetEngine {
-            importer_registry,
+            importer_registry: registries.importer_registry,
             import_jobs,
-            builder_registry,
+            builder_registry: registries.builder_registry,
             build_jobs,
+            thumbnail_system: ThumbnailSystem::new(registries.thumbnail_provider_registry),
         }
     }
 
@@ -170,18 +193,21 @@ impl AssetEngine {
         //
         // If there are import jobs pending, cancel the in-flight build and execute them
         //
-        let import_state = self.import_jobs
-            .update(&self.importer_registry, editor_model)?;
+        if !self.build_jobs.is_building() {
+            let import_state = self.import_jobs
+                .update(&self.importer_registry, editor_model)?;
 
-        match import_state {
-            ImportStatus::Idle => {
-                // We can go to the next step
-            },
-            ImportStatus::Importing(importing_state) => {
-                return Ok(AssetEngineState::Importing(importing_state))
+            match import_state {
+                ImportStatus::Idle => {
+                    // We can go to the next step
+                },
+                ImportStatus::Importing(importing_state) => {
+                    return Ok(AssetEngineState::Importing(importing_state))
+                }
             }
-        }
 
+            self.thumbnail_system.update(editor_model.data_set(), editor_model.schema_set());
+        }
         //
         // Process the in-flight build. It will be cancelled and restarted if any data is detected
         // as changing during the build.
@@ -203,6 +229,19 @@ impl AssetEngine {
             }
         }
     }
+
+    pub fn thumbnail_system_state(
+        &self
+    ) -> &ThumbnailSystemState {
+        self.thumbnail_system.system_state()
+    }
+
+    // pub fn set_requested_thumbnails(
+    //     &mut self,
+    //     requested_thumbnails: Vec<AssetId>
+    // ) {
+    //     self.thumbnail_system.set_requested_thumbnails(requested_thumbnails);
+    // }
 
     pub fn importers_for_file_extension(
         &self,

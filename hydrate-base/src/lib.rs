@@ -22,3 +22,5 @@ mod string_hash;
 pub use string_hash::StringHash;
 
 pub mod b3f;
+
+pub mod lru_cache;

@@ -79,6 +79,10 @@ pub struct BuildJobs {
 }
 
 impl BuildJobs {
+    pub fn is_building(&self) -> bool {
+        self.current_build_task.is_some()
+    }
+
     pub fn new(
         schema_set: &SchemaSet,
         job_processor_registry: &JobProcessorRegistry,

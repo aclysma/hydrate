@@ -6,7 +6,7 @@ use super::generated::{GpuImageAssetRecord, GpuImageImportedDataRecord};
 use demo_types::image::*;
 use hydrate_data::Record;
 use hydrate_model::pipeline::{ImportContext, ScanContext};
-use hydrate_pipeline::Importer;
+use hydrate_pipeline::{AssetPluginSetupContext, Importer, ThumbnailImage, ThumbnailProvider, ThumbnailProviderGatherContext, ThumbnailProviderRenderContext};
 use hydrate_pipeline::{
     AssetId, BuilderContext, BuilderRegistryBuilder, ImporterRegistryBuilder, JobInput, JobOutput,
     JobProcessor, JobProcessorRegistryBuilder, PipelineResult, RunContext,
@@ -14,6 +14,7 @@ use hydrate_pipeline::{
 use hydrate_pipeline::{AssetPlugin, Builder};
 use serde::{Deserialize, Serialize};
 use type_uuid::TypeUuid;
+use ::image::{Pixel, Rgba};
 
 #[derive(TypeUuid, Default)]
 #[uuid = "e7c83acb-f73b-4b3c-b14d-fe5cc17c0fa3"]
@@ -184,16 +185,69 @@ impl Builder for GpuImageBuilder {
     }
 }
 
+#[derive(Default)]
+pub struct GpuImageThumbnailProvider {
+
+}
+
+impl ThumbnailProvider for GpuImageThumbnailProvider {
+    type GatheredDataT = ();
+
+    fn asset_type(&self) -> &'static str {
+        GpuImageAssetRecord::schema_name()
+    }
+
+    fn version(&self) -> u32 {
+        1
+    }
+
+    fn gather(&self, context: ThumbnailProviderGatherContext) -> Self::GatheredDataT {
+        println!("Gather data to make thumbnail for {}", context.asset_id);
+        context.add_import_data_dependency(context.asset_id);
+    }
+
+    fn render(&self, context: ThumbnailProviderRenderContext, gathered_data: Self::GatheredDataT) -> PipelineResult<ThumbnailImage> {
+        println!("Render thumbnail for {}", context.asset_id);
+
+        let mut image = ::image::RgbaImage::new(256, 256);
+        for (x, y, color) in image.enumerate_pixels_mut() {
+            *color = Rgba::from_channels(x as u8, 0, 0, 255);
+        }
+
+        // This is a very wasteful way to do this..
+        let mut pixel_data = Vec::default();
+        for (x, y, color) in image.enumerate_pixels_mut() {
+            let (r, g, b, a) = color.channels4();
+            pixel_data.push(r);
+            pixel_data.push(g);
+            pixel_data.push(b);
+            pixel_data.push(a);
+        }
+
+        // //
+        // let pixel_data: Vec<u8> = image.pixels()
+        // //
+        // let pixels_data: Vec<[u8]> = image.pixels().map(|x| {
+        //     x.ch
+        // }).collect();
+
+        Ok(ThumbnailImage {
+            width: 256,
+            height: 256,
+            pixel_data,
+        })
+    }
+}
+
 pub struct GpuImageAssetPlugin;
 
 impl AssetPlugin for GpuImageAssetPlugin {
     fn setup(
-        importer_registry: &mut ImporterRegistryBuilder,
-        builder_registry: &mut BuilderRegistryBuilder,
-        job_processor_registry: &mut JobProcessorRegistryBuilder,
+        context: AssetPluginSetupContext
     ) {
-        importer_registry.register_handler::<GpuImageImporter>();
-        builder_registry.register_handler::<GpuImageBuilder>();
-        job_processor_registry.register_job_processor::<GpuImageJobProcessor>();
+        context.importer_registry.register_handler::<GpuImageImporter>();
+        context.builder_registry.register_handler::<GpuImageBuilder>();
+        context.job_processor_registry.register_job_processor::<GpuImageJobProcessor>();
+        context.thumbnail_provider_registry.register_thumbnail_provider::<GpuImageThumbnailProvider>();
     }
 }

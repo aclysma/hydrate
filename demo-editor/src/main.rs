@@ -24,7 +24,7 @@ fn main() -> eframe::Result<()> {
     let project_configuration = HydrateProjectConfiguration::locate_project_file(&PathBuf::from(env!("CARGO_MANIFEST_DIR"))).unwrap();
 
     let asset_plugin_registry =
-        hydrate::pipeline::AssetPluginRegistry::new()
+        hydrate::pipeline::AssetPluginRegistryBuilders::new()
             .register_plugin::<GpuBufferAssetPlugin>()
             .register_plugin::<GpuImageAssetPlugin>()
             .register_plugin::<BlenderMaterialAssetPlugin>()

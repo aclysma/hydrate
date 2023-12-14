@@ -127,6 +127,10 @@ pub struct ImportJobs {
 }
 
 impl ImportJobs {
+    pub fn is_importing(&self) -> bool {
+        self.current_import_task.is_some()
+    }
+
     pub fn import_data_root_path(&self) -> &Path {
         &self.import_data_root_path
     }

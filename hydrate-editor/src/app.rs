@@ -61,7 +61,7 @@ impl HydrateEditorApp {
         let fonts = crate::fonts::load_custom_fonts();
         cc.egui_ctx.set_fonts(fonts);
 
-        let image_loader = Arc::new(AssetThumbnailImageLoader::new());
+        let image_loader = Arc::new(AssetThumbnailImageLoader::new(asset_engine.thumbnail_system_state()));
         cc.egui_ctx.add_image_loader(image_loader.clone());
 
         let texture_loader = Arc::new(AssetThumbnailTextureLoader::new());
@@ -99,7 +99,7 @@ impl eframe::App for HydrateEditorApp {
         profiling::scope!("Main Thread");
 
         {
-            self.asset_thumbnail_image_loader.update();
+            self.asset_thumbnail_image_loader.update(&mut self.asset_engine);
         }
 
         self.ui_state

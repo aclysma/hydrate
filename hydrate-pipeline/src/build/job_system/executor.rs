@@ -160,6 +160,11 @@ pub struct JobProcessorRegistryInner {
     job_processors: HashMap<JobTypeId, Arc<dyn JobProcessorAbstract>>,
 }
 
+#[derive(Clone)]
+pub struct JobProcessorRegistry {
+    inner: Arc<JobProcessorRegistryInner>,
+}
+
 impl JobProcessorRegistry {
     fn get(
         &self,
@@ -174,14 +179,7 @@ impl JobProcessorRegistry {
     ) -> bool {
         self.inner.job_processors.contains_key(&job_type_id)
     }
-}
 
-#[derive(Clone)]
-pub struct JobProcessorRegistry {
-    inner: Arc<JobProcessorRegistryInner>,
-}
-
-impl JobProcessorRegistry {
     pub(crate) fn get_processor(
         &self,
         job_type: JobTypeId,

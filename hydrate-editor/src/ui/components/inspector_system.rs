@@ -13,6 +13,8 @@ use std::hash::Hash;
 use std::ops::RangeInclusive;
 use std::sync::Arc;
 
+const ROW_HEIGHT:f32 = 20.0;
+
 pub fn show_property_action_menu(
     ctx: InspectorContext,
     ui: &mut egui::Ui,
@@ -185,10 +187,11 @@ pub fn create_clipped_left_child_ui_for_right_aligned_controls(
 pub fn create_clipped_right_child_ui_for_right_aligned_controls(
     ui: &mut egui::Ui,
     space_for_controls: f32,
+    vertical_align: egui::Align,
 ) -> egui::Ui {
     let mut clip_rect = ui.clip_rect();
     clip_rect.min.x = clip_rect.max.x - space_for_controls;
-    let mut child_ui = ui.child_ui(clip_rect, egui::Layout::left_to_right(egui::Align::Center));
+    let mut child_ui = ui.child_ui(clip_rect, egui::Layout::left_to_right(vertical_align));
     child_ui.set_clip_rect(clip_rect);
     child_ui
 }
@@ -198,10 +201,14 @@ pub fn draw_widgets_with_action_button<F: FnOnce(&mut egui::Ui, InspectorContext
     ctx: InspectorContext,
     f: F,
 ) {
-    let mut child_ui = create_clipped_left_child_ui_for_right_aligned_controls(ui, 45.0);
-    child_ui.allocate_space(ui.style().spacing.item_spacing);
-    f(&mut child_ui, ctx);
-    show_property_action_button(ctx, ui);
+    let space_for_controls = 45.0;
+    let mut left_ui = create_clipped_left_child_ui_for_right_aligned_controls(ui, space_for_controls);
+    left_ui.allocate_space(ui.style().spacing.item_spacing);
+    f(&mut left_ui, ctx);
+
+
+    let mut right_ui = create_clipped_right_child_ui_for_right_aligned_controls(ui, space_for_controls, egui::Align::Center);
+    show_property_action_button(ctx, &mut right_ui);
 }
 
 pub fn draw_inspector_value_and_action_button(
@@ -283,7 +290,7 @@ pub trait RecordInspector {
     ) {
         // Must implement either draw_inspector_rows, or implement draw_inspector_value
         assert!(self.can_draw_as_single_value());
-        table_body.row(20.0, |mut row| {
+        table_body.row(ROW_HEIGHT, |mut row| {
             row.col(|ui| {
                 draw_indented_label(ui, indent_level, ctx.display_name());
             });
@@ -328,7 +335,7 @@ impl RecordInspector for DefaultRecordInspector {
         ) {
             let mut visible = true;
             if let Some(category) = &category {
-                table_body.row(20.0, |mut row| {
+                table_body.row(ROW_HEIGHT, |mut row| {
                     row.col(|ui| {
                         ui.push_id(ctx.property_path.path(), |ui| {
                             visible = draw_indented_collapsible_label(
@@ -496,7 +503,17 @@ pub fn draw_basic_inspector_row<F: FnOnce(&mut egui::Ui, InspectorContext)>(
     indent_level: u32,
     f: F,
 ) {
-    body.row(20.0, |mut row| {
+    draw_basic_inspector_row_with_height(body, ctx, indent_level, ROW_HEIGHT, f);
+}
+
+pub fn draw_basic_inspector_row_with_height<F: FnOnce(&mut egui::Ui, InspectorContext)>(
+    body: &mut egui_extras::TableBody,
+    ctx: InspectorContext,
+    indent_level: u32,
+    row_height: f32,
+    f: F,
+) {
+    body.row(row_height, |mut row| {
         row.col(|ui| {
             ui.push_id(ctx.property_path.path(), |ui| {
                 draw_indented_label(ui, indent_level, ctx.display_name());
@@ -788,7 +805,12 @@ pub fn draw_inspector_value(
 
             let asset_ref = resolved_value.as_asset_ref().unwrap();
 
-            ui.horizontal(|ui| {
+            ui.with_layout(egui::Layout::left_to_right(egui::Align::Center), |ui| {
+                if !asset_ref.is_null() {
+                    let thumbnail_uri = format!("thumbnail://{}", asset_ref.as_uuid().to_string());
+                    ui.add_sized(egui::vec2(64.0, 64.0), egui::Image::new(thumbnail_uri));
+                }
+
                 set_override_text_color_for_has_override_status(ctx, ui);
 
                 // The GO TO ASSET button
@@ -953,7 +975,7 @@ pub fn draw_inspector_rows(
 
             let mut is_visible = false;
 
-            body.row(20.0, |mut row| {
+            body.row(ROW_HEIGHT, |mut row| {
                 row.col(|ui| {
                     ui.push_id(
                         format!("{} inspector_label_column", ctx.property_path.path()),
@@ -1075,7 +1097,7 @@ pub fn draw_inspector_rows(
         Schema::StaticArray(schema) => {
             let mut is_visible = false;
 
-            body.row(20.0, |mut row| {
+            body.row(ROW_HEIGHT, |mut row| {
                 row.col(|ui| {
                     ui.push_id(
                         format!("{} inspector_label_column", ctx.property_path.path()),
@@ -1112,7 +1134,7 @@ pub fn draw_inspector_rows(
                     let label = format!("[{}]", entry_index_as_string);
 
                     let mut is_override_visible = false;
-                    body.row(20.0, |mut row| {
+                    body.row(ROW_HEIGHT, |mut row| {
                         row.col(|ui| {
                             ui.push_id(
                                 format!("{} inspector_label_column", entry_index_as_string),
@@ -1140,6 +1162,7 @@ pub fn draw_inspector_rows(
                                     let mut right_child_ui =
                                         create_clipped_right_child_ui_for_right_aligned_controls(
                                             ui, 100.0,
+                                            egui::Align::Center,
                                         );
 
                                     // up arrow/down arrow/delete buttons
@@ -1226,7 +1249,7 @@ pub fn draw_inspector_rows(
                 .unwrap();
             let mut is_visible = false;
 
-            body.row(20.0, |mut row| {
+            body.row(ROW_HEIGHT, |mut row| {
                 row.col(|ui| {
                     ui.push_id(
                         format!("{} inspector_label_column", ctx.property_path.path()),
@@ -1308,7 +1331,7 @@ pub fn draw_inspector_rows(
                     let label = format!("[{}] (inherited)", entry_index);
 
                     let mut is_override_visible = false;
-                    body.row(20.0, |mut row| {
+                    body.row(ROW_HEIGHT, |mut row| {
                         row.col(|ui| {
                             ui.push_id(format!("{} inspector_label_column", entry_uuid), |ui| {
                                 if can_use_inline_values {
@@ -1362,7 +1385,7 @@ pub fn draw_inspector_rows(
                     let label = format!("[{}]", entry_index);
 
                     let mut is_override_visible = false;
-                    body.row(20.0, |mut row| {
+                    body.row(ROW_HEIGHT, |mut row| {
                         row.col(|ui| {
                             ui.push_id(format!("{} inspector_label_column", entry_uuid), |ui| {
                                 let mut left_child_ui =
@@ -1390,6 +1413,7 @@ pub fn draw_inspector_rows(
                                 let mut right_child_ui =
                                     create_clipped_right_child_ui_for_right_aligned_controls(
                                         ui, 100.0,
+                                        egui::Align::Center,
                                     );
 
                                 // up arrow/down arrow/delete buttons
@@ -1492,7 +1516,7 @@ pub fn draw_inspector_rows(
             let mut is_visible = false;
             let mut rendered_keys = HashSet::default();
 
-            body.row(20.0, |mut row| {
+            body.row(ROW_HEIGHT, |mut row| {
                 row.col(|ui| {
                     ui.push_id(
                         format!("{} inspector_label_column", ctx.property_path.path()),
@@ -1594,7 +1618,7 @@ pub fn draw_inspector_rows(
                     let label = format!("[{}] (inherited) {}", entry_index, &value_as_str);
 
                     let mut is_override_visible = false;
-                    body.row(20.0, |mut row| {
+                    body.row(ROW_HEIGHT, |mut row| {
                         row.col(|ui| {
                             ui.push_id(format!("{} inspector_label_column", entry_uuid), |ui| {
                                 let id_source =
@@ -1701,7 +1725,7 @@ pub fn draw_inspector_rows(
                     let label = format!("[{}] {}", entry_index, &value_as_str);
 
                     let mut is_override_visible = false;
-                    body.row(20.0, |mut row| {
+                    body.row(ROW_HEIGHT, |mut row| {
                         row.col(|ui| {
                             ui.push_id(format!("{} inspector_label_column", entry_uuid), |ui| {
                                 let mut left_child_ui =
@@ -1726,6 +1750,7 @@ pub fn draw_inspector_rows(
                                 let mut right_child_ui =
                                     create_clipped_right_child_ui_for_right_aligned_controls(
                                         ui, 44.0,
+                                        egui::Align::Center,
                                     );
 
                                 // up arrow/down arrow/delete buttons
@@ -1812,7 +1837,7 @@ pub fn draw_inspector_rows(
         }
 
         Schema::AssetRef(_) => {
-            draw_basic_inspector_row(body, ctx, indent_level, |ui, ctx| {
+            draw_basic_inspector_row_with_height(body, ctx, indent_level, 60.0, |ui, ctx| {
                 draw_inspector_value_and_action_button(ui, ctx);
             });
         }
@@ -1842,7 +1867,7 @@ pub fn draw_inspector_rows(
                             } else {
                                 // Otherwise draw a collapsible header
                                 let mut is_visible = false;
-                                body.row(20.0, |mut row| {
+                                body.row(ROW_HEIGHT, |mut row| {
                                     row.col(|ui| {
                                         let id_source = format!(
                                             "{}/{}",

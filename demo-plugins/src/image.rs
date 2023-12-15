@@ -202,14 +202,10 @@ impl ThumbnailProvider for GpuImageThumbnailProvider {
     }
 
     fn gather(&self, context: ThumbnailProviderGatherContext) -> Self::GatheredDataT {
-        println!("Gather data to make thumbnail for {}", context.asset_id);
         context.add_import_data_dependency(context.asset_id);
     }
 
     fn render<'a>(&'a self, context: &'a ThumbnailProviderRenderContext<'a>, gathered_data: Self::GatheredDataT) -> PipelineResult<ThumbnailImage> {
-        println!("Render thumbnail for {}", context.asset_id);
-
-
         let import_data = context.imported_data::<GpuImageImportedDataRecord>(context.asset_id)?;
         let width = import_data.width().get()?;
         let height = import_data.height().get()?;
@@ -223,12 +219,6 @@ impl ThumbnailProvider for GpuImageThumbnailProvider {
 
         let resized_image = ::image::imageops::resize(&image, 256, 256, ::image::imageops::FilterType::Lanczos3);
 
-
-        //let mut image = ::image::RgbaImage::new(256, 256);
-        // for (x, y, color) in resized_image.enumerate_pixels_mut() {
-        //     *color = Rgba::from_channels(x as u8, 0, 0, 255);
-        // }
-
         // This is a very wasteful way to do this..
         let mut pixel_data = Vec::default();
         for (x, y, color) in resized_image.enumerate_pixels() {
@@ -238,13 +228,6 @@ impl ThumbnailProvider for GpuImageThumbnailProvider {
             pixel_data.push(b);
             pixel_data.push(a);
         }
-
-        // //
-        // let pixel_data: Vec<u8> = image.pixels()
-        // //
-        // let pixels_data: Vec<[u8]> = image.pixels().map(|x| {
-        //     x.ch
-        // }).collect();
 
         Ok(ThumbnailImage {
             width: 256,

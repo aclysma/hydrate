@@ -167,7 +167,11 @@ impl ThumbnailSystem {
             }
 
             // Try to find a registered provider
-            let asset_schema = data_set.asset_schema(asset_id).unwrap();
+            let Some(asset_schema) = data_set.asset_schema(asset_id) else {
+                thumbnail_state.failed_to_load = true;
+                continue;
+            };
+
             let Some(provider) = self.thumbnail_provider_registry.provider_for_asset(asset_schema.fingerprint()) else {
                 thumbnail_state.image = Some(self.default_image.clone());
                 continue;

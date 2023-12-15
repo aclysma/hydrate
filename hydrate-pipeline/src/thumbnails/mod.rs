@@ -127,14 +127,12 @@ impl<T: ThumbnailProvider + Send + Sync> ThumbnailProviderAbstract for Thumbnail
     ) -> PipelineResult<ThumbnailImage> {
         let gathered_data: T::GatheredDataT = bincode::deserialize(&*gathered_data)?;
         let mut fetched_import_data = HashMap::<AssetId, FetchedImportData>::default();
-        let image = self.0.render(&ThumbnailProviderRenderContext {
+        self.0.render(&ThumbnailProviderRenderContext {
             asset_id,
             schema_set,
             fetched_import_data: &Rc::new(RefCell::new(&mut fetched_import_data)),
             thumbnail_api: thumbnail_api
-        }, gathered_data).unwrap();
-
-        Ok(image)
+        }, gathered_data)
     }
 }
 

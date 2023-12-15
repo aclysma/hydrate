@@ -20,7 +20,7 @@ use crate::thumbnails::ThumbnailProviderRegistry;
 // and the registry
 // Thumbnails need to be invalidated, we will use metadata returned from gather() to determine this
 
-const THUMBNAIL_CACHE_SIZE: u32 = 96;
+const THUMBNAIL_CACHE_SIZE: u32 = 1024;
 
 pub struct ThumbnailImage {
     pub width: u32,
@@ -37,6 +37,7 @@ pub struct ThumbnailState {
     current_input_hash: Option<ThumbnailInputHash>,
     // Set when the image request is queued and cleared when it completes
     queued_request_input_hash: Option<ThumbnailInputHash>,
+    failed_to_load: bool,
 }
 
 struct ThumbnailSystemStateInner {
@@ -161,6 +162,10 @@ impl ThumbnailSystem {
                 continue;
             }
 
+            if thumbnail_state.failed_to_load {
+                continue;
+            }
+
             // Try to find a registered provider
             let asset_schema = data_set.asset_schema(asset_id).unwrap();
             let Some(provider) = self.thumbnail_provider_registry.provider_for_asset(asset_schema.fingerprint()) else {
@@ -194,9 +199,16 @@ impl ThumbnailSystem {
                 ThumbnailThreadPoolOutcome::RunJobComplete(msg) => {
                     self.current_requests.remove(&msg.request.dependencies.thumbnail_input_hash);
                     if let Some(thumbnail_state) = state.cache.get_mut(&msg.request.asset_id) {
-                        thumbnail_state.queued_request_input_hash = None;
-                        thumbnail_state.current_input_hash = Some(msg.request.dependencies.thumbnail_input_hash);
-                        thumbnail_state.image = Some(Arc::new(msg.result.unwrap()));
+                        match msg.result {
+                            Ok(image) => {
+                                thumbnail_state.queued_request_input_hash = None;
+                                thumbnail_state.current_input_hash = Some(msg.request.dependencies.thumbnail_input_hash);
+                                thumbnail_state.image = Some(Arc::new(image));
+                            }
+                            Err(e) => {
+                                thumbnail_state.failed_to_load = true;
+                            }
+                        }
                     }
                 }
             }

@@ -11,6 +11,7 @@ pub enum PipelineError {
     BincodeError(Arc<bincode::Error>),
     JsonError(Arc<serde_json::Error>),
     UuidError(uuid::Error),
+    ThumbnailUnavailable,
 }
 
 impl std::error::Error for PipelineError {
@@ -22,6 +23,7 @@ impl std::error::Error for PipelineError {
             PipelineError::BincodeError(ref e) => Some(&**e),
             PipelineError::JsonError(ref e) => Some(&**e),
             PipelineError::UuidError(ref e) => Some(e),
+            PipelineError::ThumbnailUnavailable => None,
         }
     }
 }
@@ -41,6 +43,7 @@ impl core::fmt::Display for PipelineError {
             PipelineError::BincodeError(ref e) => e.fmt(fmt),
             PipelineError::JsonError(ref e) => e.fmt(fmt),
             PipelineError::UuidError(ref e) => e.fmt(fmt),
+            PipelineError::ThumbnailUnavailable => "ThumbnailUnavailable".fmt(fmt),
         }
     }
 }

@@ -21,6 +21,7 @@ use crate::thumbnails::ThumbnailProviderRegistry;
 // Thumbnails need to be invalidated, we will use metadata returned from gather() to determine this
 
 const THUMBNAIL_CACHE_SIZE: u32 = 1024;
+const STALENESS_CHECK_TIME_MILLISECONDS: u128 = 1000;
 
 pub struct ThumbnailImage {
     pub width: u32,
@@ -39,6 +40,7 @@ pub struct ThumbnailState {
     // Set when the image request is queued and cleared when it completes
     queued_request_input_hash: Option<ThumbnailInputHash>,
     failed_to_load: bool,
+    last_staleness_check: Option<std::time::Instant>,
 }
 
 struct ThumbnailSystemStateInner {
@@ -63,7 +65,7 @@ impl Default for ThumbnailSystemState {
 impl ThumbnailSystemState {
     pub fn request(&self, asset_id: AssetId) -> Option<Arc<ThumbnailImage>> {
         let mut inner = self.inner.lock().unwrap();
-        if let Some(thumbnail_state) = inner.cache.get(&asset_id) {
+        if let Some(thumbnail_state) = inner.cache.get(&asset_id, true) {
             thumbnail_state.image.clone()
         } else {
             inner.cache.insert(asset_id, ThumbnailState::default());
@@ -148,6 +150,7 @@ impl ThumbnailSystem {
         data_set: &DataSet,
         schema_set: &SchemaSet
     ) {
+        let now = std::time::Instant::now();
         let mut state = self.thumbnail_system_state.inner.lock().unwrap();
         for (asset_id, thumbnail_state) in state.cache.pairs_mut().iter_mut().filter_map(|x| x.as_mut()) {
             // No more than 50 requests in flight at a time
@@ -169,6 +172,12 @@ impl ThumbnailSystem {
 
             if thumbnail_state.failed_to_load {
                 continue;
+            }
+
+            if let Some(last_staleness_check) = thumbnail_state.last_staleness_check {
+                if (now - last_staleness_check).as_millis() > STALENESS_CHECK_TIME_MILLISECONDS {
+                    continue;
+                }
             }
 
             // Try to find a registered provider
@@ -207,7 +216,7 @@ impl ThumbnailSystem {
             match result {
                 ThumbnailThreadPoolOutcome::RunJobComplete(msg) => {
                     self.current_requests.remove(&msg.request.dependencies.thumbnail_input_hash);
-                    if let Some(thumbnail_state) = state.cache.get_mut(&msg.request.asset_id) {
+                    if let Some(thumbnail_state) = state.cache.get_mut(&msg.request.asset_id, false) {
                         match msg.result {
                             Ok(image) => {
                                 thumbnail_state.queued_request_input_hash = None;

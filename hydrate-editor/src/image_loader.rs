@@ -23,12 +23,6 @@ enum LoadState {
     Loaded(Arc<ColorImage>)
 }
 
-struct ThumbnailInfo {
-    asset_id: AssetId,
-    count: usize,
-    load_state: LoadState,
-}
-
 pub struct AssetThumbnailImageLoader {
     dummy_image: Arc<ColorImage>,
     thumbnail_cache: Mutex<LruCache<AssetId, Arc<ColorImage>>>,
@@ -145,7 +139,7 @@ impl ImageLoader for AssetThumbnailImageLoader {
         } else if uri.starts_with(THUMBNAIL_ASSET_URI_PREFIX) {
             let asset_id = AssetId::parse_str(&uri[THUMBNAIL_ASSET_URI_PREFIX.len()..]).unwrap();
             let mut cache = self.thumbnail_cache.lock().unwrap();
-            if let Some(image) = cache.get(&asset_id) {
+            if let Some(image) = cache.get(&asset_id, true) {
                 Ok(ImagePoll::Ready {
                     image: image.clone()
                 })
@@ -171,20 +165,15 @@ impl ImageLoader for AssetThumbnailImageLoader {
         if uri.starts_with(THUMBNAIL_ASSET_URI_PREFIX) {
             let asset_id = AssetId::parse_str(&uri[THUMBNAIL_ASSET_URI_PREFIX.len()..]).unwrap();
             self.thumbnail_system_state.forget(asset_id);
+            let mut cache = self.thumbnail_cache.lock().unwrap();
+            cache.remove(&asset_id);
         }
-        // if uri.starts_with(THUMBNAIL_URI_PREFIX) {
-        //     let asset_id = AssetId::parse_str(&uri[THUMBNAIL_URI_PREFIX.len()..]).unwrap();
-        //     let mut inner = self.inner.lock().unwrap();
-        //     inner.cache.remove(&asset_id);
-        //     inner.requested_thumbnails_list_needs_update = true;
-        // }
     }
 
     fn forget_all(&self) {
         self.thumbnail_system_state.forget_all();
-        // let mut inner = self.inner.lock().unwrap();
-        // inner.cache = LruCache::new(THUMBNAIL_CACHE_SIZE);
-        // inner.requested_thumbnails_list_needs_update = true;
+        let mut cache = self.thumbnail_cache.lock().unwrap();
+        *cache = LruCache::new(THUMBNAIL_CACHE_SIZE);
     }
 
     fn byte_size(&self) -> usize {
@@ -221,7 +210,7 @@ impl TextureLoader for AssetThumbnailTextureLoader {
         size_hint: SizeHint,
     ) -> TextureLoadResult {
         let mut cache = self.cache.lock().unwrap();
-        if let Some(handle) = cache.get(&(uri.into(), texture_options)) {
+        if let Some(handle) = cache.get(&(uri.into(), texture_options), true) {
             let texture = SizedTexture::from_handle(handle);
             Ok(TexturePoll::Ready { texture })
         } else {

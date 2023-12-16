@@ -70,8 +70,8 @@ impl<K: Clone + PartialEq + Eq + Hash, V> LruCache<K, V> {
         &mut self.lru_list_pairs
     }
 
-    pub fn move_to_front(&mut self, node_index: u32) {
-        self.check_list();
+    fn move_to_front(&mut self, node_index: u32) {
+        //self.check_list();
         let node = self.lru_list[node_index as usize];
 
         if node_index == self.lru_list_head {
@@ -102,11 +102,11 @@ impl<K: Clone + PartialEq + Eq + Hash, V> LruCache<K, V> {
         self.lru_list[node_index as usize].next = self.lru_list_head;
         self.lru_list_head = node_index;
 
-        self.check_list();
+        //self.check_list();
     }
 
-    pub fn move_to_back(&mut self, node_index: u32) {
-        self.check_list();
+    fn move_to_back(&mut self, node_index: u32) {
+        //self.check_list();
         let node = self.lru_list[node_index as usize];
 
         if node_index == self.lru_list_tail {
@@ -138,13 +138,15 @@ impl<K: Clone + PartialEq + Eq + Hash, V> LruCache<K, V> {
         self.lru_list[node_index as usize].next = u32::MAX;
         self.lru_list_tail = node_index;
 
-        self.check_list();
+        //self.check_list();
     }
 
-    pub fn get(&mut self, k: &K) -> Option<&V> {
+    pub fn get(&mut self, k: &K, mark_as_recently_used: bool) -> Option<&V> {
         if let Some(&node_index) = self.lookup.get(k) {
-            // move node to head
-            self.move_to_front(node_index);
+            if mark_as_recently_used {
+                // move node to head
+                self.move_to_front(node_index);
+            }
             // return the value
             self.lru_list_pairs[node_index as usize].as_ref().map(|(_, v)| v)
         } else {
@@ -152,10 +154,12 @@ impl<K: Clone + PartialEq + Eq + Hash, V> LruCache<K, V> {
         }
     }
 
-    pub fn get_mut(&mut self, k: &K) -> Option<&mut V> {
+    pub fn get_mut(&mut self, k: &K, mark_as_recently_used: bool) -> Option<&mut V> {
         if let Some(&node_index) = self.lookup.get(k) {
-            // move node to head
-            self.move_to_front(node_index);
+            if mark_as_recently_used {
+                // move node to head
+                self.move_to_front(node_index);
+            }
             // return the value
             self.lru_list_pairs[node_index as usize].as_mut().map(|(_, v)| v)
         } else {

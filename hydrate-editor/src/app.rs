@@ -144,7 +144,9 @@ impl eframe::App for HydrateEditorApp {
         };
 
         match asset_engine_state {
-            AssetEngineState::Idle => ctx.request_repaint_after(Duration::from_millis(1000)),
+            // App still seems to spin even when just requesting a 1hz update
+            //AssetEngineState::Idle => ctx.request_repaint_after(Duration::from_millis(1000)),
+            AssetEngineState::Idle => {},
             _ => ctx.request_repaint(),
         }
 

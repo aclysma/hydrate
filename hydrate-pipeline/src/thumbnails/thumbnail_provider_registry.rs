@@ -1,14 +1,17 @@
 use std::hash::Hash;
 use std::sync::Arc;
+use hydrate_base::AssetId;
 use hydrate_base::hashing::HashMap;
 use hydrate_data::{BuilderId, SchemaSet};
 use hydrate_schema::SchemaFingerprint;
-use crate::Builder;
+use crate::{Builder, ThumbnailImage};
+use hydrate_data::Record;
 use crate::thumbnails::{ThumbnailProvider, ThumbnailProviderAbstract, ThumbnailProviderId, ThumbnailProviderWrapper};
 
 #[derive(Default)]
 pub struct ThumbnailProviderRegistryBuilder {
     thumbnail_providers: Vec<Arc<dyn ThumbnailProviderAbstract>>,
+    default_thumbnails: HashMap<String, Arc<ThumbnailImage>>,
 }
 
 impl ThumbnailProviderRegistryBuilder {
@@ -32,6 +35,10 @@ impl ThumbnailProviderRegistryBuilder {
         );
     }
 
+    pub fn register_default_thumbnail<T: Record>(&mut self, thumbnail_image: Arc<ThumbnailImage>) {
+        self.default_thumbnails.insert(T::schema_name().to_string(), thumbnail_image);
+    }
+
     pub fn build(self, schema_set: &SchemaSet) -> ThumbnailProviderRegistry {
         let mut asset_type_to_provider = HashMap::default();
 
@@ -52,9 +59,16 @@ impl ThumbnailProviderRegistryBuilder {
             }
         }
 
+        let mut default_thumbnails = HashMap::default();
+        for (k, v) in self.default_thumbnails {
+            let named_type = schema_set.find_named_type(k).unwrap().fingerprint();
+            default_thumbnails.insert(named_type, v);
+        }
+
         let inner = ThumbnailProviderRegistryInner {
             asset_type_to_provider,
             thumbnail_providers: self.thumbnail_providers,
+            default_thumbnails,
         };
 
         ThumbnailProviderRegistry {
@@ -66,6 +80,7 @@ impl ThumbnailProviderRegistryBuilder {
 pub struct ThumbnailProviderRegistryInner {
     thumbnail_providers: Vec<Arc<dyn ThumbnailProviderAbstract>>,
     asset_type_to_provider: HashMap<SchemaFingerprint, ThumbnailProviderId>,
+    default_thumbnails: HashMap<SchemaFingerprint, Arc<ThumbnailImage>>,
 
 }
 
@@ -75,6 +90,26 @@ pub struct ThumbnailProviderRegistry {
 }
 
 impl ThumbnailProviderRegistry {
+    pub fn default_thumbnails(&self) -> &HashMap<SchemaFingerprint, Arc<ThumbnailImage>> {
+        &self.inner.default_thumbnails
+    }
+
+    pub fn has_provider_for_asset(
+        &self,
+        fingerprint: SchemaFingerprint,
+    ) -> bool {
+        self.inner
+            .asset_type_to_provider
+            .contains_key(&fingerprint)
+    }
+
+    pub fn has_default_thumbnail_for_asset_type(
+        &self,
+        fingerprint: SchemaFingerprint,
+    ) -> bool {
+        self.inner.default_thumbnails.contains_key(&fingerprint)
+    }
+
     pub fn provider_for_asset(
         &self,
         fingerprint: SchemaFingerprint,
@@ -84,5 +119,14 @@ impl ThumbnailProviderRegistry {
             .get(&fingerprint)
             .copied()
             .map(|x| &self.inner.thumbnail_providers[x.0])
+    }
+
+    pub fn default_thumbnail_for_asset_type(
+        &self,
+        fingerprint: SchemaFingerprint,
+    ) -> Option<&Arc<ThumbnailImage>> {
+        self.inner
+            .default_thumbnails
+            .get(&fingerprint)
     }
 }

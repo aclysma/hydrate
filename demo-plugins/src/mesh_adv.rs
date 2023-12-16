@@ -1,3 +1,4 @@
+use std::sync::Arc;
 pub use super::*;
 use glam::Vec3;
 use rafx_api::RafxResourceType;
@@ -9,7 +10,7 @@ use crate::push_buffer::PushBuffer;
 use demo_types::mesh_adv::*;
 use hydrate_data::Record;
 use hydrate_model::pipeline::{AssetPlugin, Builder};
-use hydrate_pipeline::{AssetId, AssetPluginSetupContext, BuilderContext, BuilderRegistryBuilder, ImporterRegistryBuilder, JobInput, JobOutput, JobProcessor, JobProcessorRegistryBuilder, PipelineResult, RunContext};
+use hydrate_pipeline::{AssetId, AssetPluginSetupContext, BuilderContext, BuilderRegistryBuilder, ImporterRegistryBuilder, JobInput, JobOutput, JobProcessor, JobProcessorRegistryBuilder, PipelineResult, RunContext, ThumbnailImage};
 use serde::{Deserialize, Serialize};
 use type_uuid::TypeUuid;
 
@@ -390,5 +391,17 @@ impl AssetPlugin for MeshAdvAssetPlugin {
 
         context.builder_registry.register_handler::<MeshAdvMeshBuilder>();
         context.job_processor_registry.register_job_processor::<MeshAdvMeshPreprocessJobProcessor>();
+
+        let thumbnail_image = crate::create_thumbnail_image_from_bytes(
+            include_bytes!("../thumbnail_images/mesh.png"),
+            ::image::ImageFormat::Png
+        );
+        context.thumbnail_provider_registry.register_default_thumbnail::<MeshAdvMeshAssetRecord>(thumbnail_image);
+
+        let thumbnail_image = crate::create_thumbnail_image_from_bytes(
+            include_bytes!("../thumbnail_images/material-params.png"),
+            ::image::ImageFormat::Png
+        );
+        context.thumbnail_provider_registry.register_default_thumbnail::<MeshAdvMaterialAssetRecord>(thumbnail_image);
     }
 }

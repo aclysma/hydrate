@@ -80,6 +80,8 @@ impl<'a> ThumbnailProviderGatherContext<'a> {
 }
 
 pub struct ThumbnailProviderRenderContext<'a> {
+    pub desired_thumbnail_width: u32,
+    pub desired_thumbnail_height: u32,
     pub asset_id: AssetId,
     pub schema_set: &'a SchemaSet,
     pub(crate) fetched_import_data: &'a Rc<RefCell<&'a mut HashMap<AssetId, FetchedImportData>>>,

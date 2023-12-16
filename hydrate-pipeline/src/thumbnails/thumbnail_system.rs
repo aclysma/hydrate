@@ -4,7 +4,7 @@ use hydrate_base::AssetId;
 use hydrate_base::hashing::HashMap;
 use hydrate_base::lru_cache::LruCache;
 use hydrate_data::{DataSet, SchemaSet};
-use hydrate_schema::HashSet;
+use hydrate_schema::{HashSet, SchemaFingerprint};
 use crate::{HydrateProjectConfiguration, ThumbnailApi, ThumbnailInputHash};
 use crate::build::JobExecutor;
 use crate::thumbnails::thumbnail_thread_pool::{ThumbnailThreadPool, ThumbnailThreadPoolOutcome, ThumbnailThreadPoolRequest, ThumbnailThreadPoolRequestRunJob};
@@ -25,6 +25,7 @@ const THUMBNAIL_CACHE_SIZE: u32 = 1024;
 pub struct ThumbnailImage {
     pub width: u32,
     pub height: u32,
+    // Basic 8-bit RBGA
     pub pixel_data: Vec<u8>,
 }
 
@@ -102,6 +103,10 @@ impl Drop for ThumbnailSystem {
 impl ThumbnailSystem {
     pub fn system_state(&self) -> &ThumbnailSystemState {
         &self.thumbnail_system_state
+    }
+
+    pub fn thumbnail_provider_registry(&self) -> &ThumbnailProviderRegistry {
+        &self.thumbnail_provider_registry
     }
 
     pub fn new(

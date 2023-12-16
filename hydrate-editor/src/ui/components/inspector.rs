@@ -2,6 +2,8 @@ use crate::action_queue::{UIAction, UIActionQueueSender};
 use crate::ui::modals::NewAssetModal;
 use crate::ui_state::EditorModelUiState;
 use hydrate_model::{AssetId, EditorModel, PropertyPath, Schema, SchemaDefRecordFieldMarkup};
+use hydrate_model::pipeline::ThumbnailProviderRegistry;
+use crate::image_loader::AssetThumbnailImageLoader;
 
 use super::inspector_system::*;
 
@@ -15,6 +17,7 @@ pub fn draw_inspector(
     editor_model_ui_state: &EditorModelUiState,
     asset_id: Option<AssetId>,
     inspector_registry: &InspectorRegistry,
+    thumbnail_image_loader: &AssetThumbnailImageLoader,
 ) {
     egui::ScrollArea::vertical()
         .max_width(f32::INFINITY)
@@ -157,6 +160,7 @@ pub fn draw_inspector(
                                     editor_model.root_edit_context().data_set().asset_schema(asset_id).unwrap().fingerprint()
                                 ),
                                 inspector_registry,
+                                thumbnail_image_loader,
                                 read_only,
                             },
                             0,

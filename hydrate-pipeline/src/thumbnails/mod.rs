@@ -117,17 +117,14 @@ impl<T: ThumbnailProvider + Send + Sync> ThumbnailProviderAbstract for Thumbnail
         &self,
         asset_id: AssetId,
         gathered_data: &Vec<u8>,
-        // input: &Vec<u8>,
-        // data_set: &DataSet,
         schema_set: &SchemaSet,
         thumbnail_api: &ThumbnailApi,
-        // job_api: &dyn JobApi,
-        // fetched_asset_data: &mut HashMap<AssetId, FetchedAssetData>,
-        // fetched_import_data: &mut HashMap<AssetId, FetchedImportData>
     ) -> PipelineResult<ThumbnailImage> {
         let gathered_data: T::GatheredDataT = bincode::deserialize(&*gathered_data)?;
         let mut fetched_import_data = HashMap::<AssetId, FetchedImportData>::default();
         self.0.render(&ThumbnailProviderRenderContext {
+            desired_thumbnail_width: 256,
+            desired_thumbnail_height: 256,
             asset_id,
             schema_set,
             fetched_import_data: &Rc::new(RefCell::new(&mut fetched_import_data)),

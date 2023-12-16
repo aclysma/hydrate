@@ -181,6 +181,10 @@ impl AssetEngine {
         }
     }
 
+    pub fn thumbnail_provider_registry(&self) -> &ThumbnailProviderRegistry {
+        self.thumbnail_system.thumbnail_provider_registry()
+    }
+
     pub fn importer_registry(&self) -> &ImporterRegistry {
         &self.importer_registry
     }

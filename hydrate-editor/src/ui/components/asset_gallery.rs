@@ -10,6 +10,8 @@ use hydrate_model::{
     AssetId, AssetLocation, DataSetAssetInfo, HashSet,
 };
 use std::sync::Arc;
+use hydrate_model::pipeline::ThumbnailProviderRegistry;
+use crate::image_loader::AssetThumbnailImageLoader;
 
 #[derive(Default, PartialEq, Copy, Clone)]
 pub enum AssetGalleryViewMode {
@@ -54,6 +56,7 @@ pub fn draw_asset_gallery(
     asset_tree_ui_state: &AssetTreeUiState,
     asset_gallery_ui_state: &mut AssetGalleryUiState,
     action_queue: &UIActionQueueSender,
+    thumbnail_image_loader: &AssetThumbnailImageLoader,
 ) {
     //ui.label("asset gallery");
 
@@ -237,6 +240,7 @@ pub fn draw_asset_gallery(
                         asset_gallery_ui_state,
                         action_queue,
                         &all_assets,
+                        thumbnail_image_loader,
                     );
                 });
         }
@@ -369,6 +373,7 @@ fn draw_asset_gallery_tile_grid(
     asset_gallery_ui_state: &mut AssetGalleryUiState,
     action_queue: &UIActionQueueSender,
     all_assets: &Vec<(&AssetId, &DataSetAssetInfo)>,
+    thumbnail_image_loader: &AssetThumbnailImageLoader,
 ) {
     ui.with_layout(
         Layout::left_to_right(egui::Align::TOP).with_main_wrap(true),
@@ -395,6 +400,7 @@ fn draw_asset_gallery_tile_grid(
                     **asset_id,
                     *asset_info,
                     action_queue,
+                    thumbnail_image_loader,
                 );
             }
         },
@@ -411,6 +417,7 @@ fn draw_asset_gallery_tile(
     asset_id: AssetId,
     asset_info: &DataSetAssetInfo,
     action_queue: &UIActionQueueSender,
+    thumbnail_image_loader: &AssetThumbnailImageLoader,
 ) {
     let short_name = db_state
         .editor_model
@@ -469,7 +476,7 @@ fn draw_asset_gallery_tile(
                         .rect_filled(rect, radius, ui.style().visuals.selection.bg_fill);
                 }
 
-                let thumbnail_uri = format!("thumbnail://{}", asset_id.as_uuid().to_string());
+                let thumbnail_uri = thumbnail_image_loader.thumbnail_uri_for_asset(asset_info.schema().fingerprint(), asset_id);
                 egui::Image::new(thumbnail_uri).paint_at(ui, thumbnail_rect);
 
                 ui.painter().rect_stroke(

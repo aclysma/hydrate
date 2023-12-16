@@ -11,7 +11,7 @@ use crate::ui::modals::ImportFilesModal;
 use crate::ui_state::EditorModelUiState;
 use egui::epaint::text::FontsImpl;
 use egui::{FontDefinitions, ViewportCommand};
-use hydrate_model::pipeline::{AssetEngine, AssetEngineState};
+use hydrate_model::pipeline::{AssetEngine, AssetEngineState, ThumbnailProviderRegistry};
 use hydrate_model::EditorModelWithCache;
 use crate::image_loader::{AssetThumbnailImageLoader, AssetThumbnailTextureLoader};
 
@@ -61,12 +61,16 @@ impl HydrateEditorApp {
         let fonts = crate::fonts::load_custom_fonts();
         cc.egui_ctx.set_fonts(fonts);
 
-        let image_loader = Arc::new(AssetThumbnailImageLoader::new(asset_engine.thumbnail_system_state()));
+        let image_loader = Arc::new(AssetThumbnailImageLoader::new(
+            asset_engine.thumbnail_provider_registry(),
+            asset_engine.thumbnail_system_state())
+        );
         cc.egui_ctx.add_image_loader(image_loader.clone());
 
         let texture_loader = Arc::new(AssetThumbnailTextureLoader::new());
         cc.egui_ctx.add_texture_loader(texture_loader);
 
+        let thumbnail_provider_registry = asset_engine.thumbnail_provider_registry().clone();
         HydrateEditorApp {
             db_state,
             asset_engine,
@@ -240,6 +244,7 @@ impl eframe::App for HydrateEditorApp {
                     &self.ui_state.editor_model_ui_state,
                     first_selected,
                     &self.inspector_registry,
+                    &self.asset_thumbnail_image_loader,
                 );
             });
 
@@ -272,6 +277,7 @@ impl eframe::App for HydrateEditorApp {
                     &self.ui_state.asset_tree_ui_state,
                     &mut self.ui_state.asset_gallery_ui_state,
                     &action_queue_sender,
+                    &self.asset_thumbnail_image_loader,
                 );
             });
 

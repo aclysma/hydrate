@@ -12,8 +12,11 @@ use hydrate_model::{
 use std::hash::Hash;
 use std::ops::RangeInclusive;
 use std::sync::Arc;
+use hydrate_model::pipeline::ThumbnailProviderRegistry;
+use crate::image_loader::AssetThumbnailImageLoader;
 
-const ROW_HEIGHT:f32 = 20.0;
+const ROW_HEIGHT: f32 = 20.0;
+const ASSET_REF_ROW_HEIGHT: f32 = 60.0;
 
 pub fn show_property_action_menu(
     ctx: InspectorContext,
@@ -241,6 +244,7 @@ pub struct InspectorContext<'a> {
     pub field_markup: &'a SchemaDefRecordFieldMarkup,
     pub schema: &'a Schema,
     pub inspector_registry: &'a InspectorRegistry,
+    pub thumbnail_image_loader: &'a AssetThumbnailImageLoader,
     pub read_only: bool,
 }
 
@@ -273,6 +277,12 @@ pub trait RecordInspector {
         false
     }
 
+    fn value_row_height(
+        &self
+    ) -> f32 {
+        ROW_HEIGHT
+    }
+
     fn draw_inspector_value(
         &self,
         ui: &mut egui::Ui,
@@ -290,7 +300,8 @@ pub trait RecordInspector {
     ) {
         // Must implement either draw_inspector_rows, or implement draw_inspector_value
         assert!(self.can_draw_as_single_value());
-        table_body.row(ROW_HEIGHT, |mut row| {
+        let row_height = row_height_for_schema_value(ctx.schema, ctx.inspector_registry);
+        table_body.row(row_height, |mut row| {
             row.col(|ui| {
                 draw_indented_label(ui, indent_level, ctx.display_name());
             });
@@ -301,9 +312,6 @@ pub trait RecordInspector {
             });
         });
     }
-    //{
-    //    DefaultRecordInspector::draw_inspector_rows(table_body, ctx, record, indent_level)
-    //}
 }
 
 #[derive(Default)]
@@ -333,9 +341,10 @@ impl RecordInspector for DefaultRecordInspector {
             record: &SchemaRecord,
             mut indent_level: u32,
         ) {
+            let row_height = row_height_for_schema_value(ctx.schema, ctx.inspector_registry);
             let mut visible = true;
             if let Some(category) = &category {
-                table_body.row(ROW_HEIGHT, |mut row| {
+                table_body.row(row_height, |mut row| {
                     row.col(|ui| {
                         ui.push_id(ctx.property_path.path(), |ui| {
                             visible = draw_indented_collapsible_label(
@@ -503,7 +512,8 @@ pub fn draw_basic_inspector_row<F: FnOnce(&mut egui::Ui, InspectorContext)>(
     indent_level: u32,
     f: F,
 ) {
-    draw_basic_inspector_row_with_height(body, ctx, indent_level, ROW_HEIGHT, f);
+    let row_height = row_height_for_schema_value(ctx.schema, ctx.inspector_registry);
+    draw_basic_inspector_row_with_height(body, ctx, indent_level, row_height, f);
 }
 
 pub fn draw_basic_inspector_row_with_height<F: FnOnce(&mut egui::Ui, InspectorContext)>(
@@ -547,6 +557,20 @@ fn can_draw_as_single_value(
             .get_override(*fingerprint)
             .can_draw_as_single_value(),
         _ => false,
+    }
+}
+
+pub fn row_height_for_schema_value(
+    schema: &Schema,
+    inspector_registry: &InspectorRegistry
+) -> f32 {
+    match schema {
+        Schema::AssetRef(_) => ASSET_REF_ROW_HEIGHT,
+        Schema::Record(fingerprint) => {
+            inspector_registry.get_override(*fingerprint)
+                .value_row_height()
+        }
+        _ => ROW_HEIGHT
     }
 }
 
@@ -806,8 +830,8 @@ pub fn draw_inspector_value(
             let asset_ref = resolved_value.as_asset_ref().unwrap();
 
             ui.with_layout(egui::Layout::left_to_right(egui::Align::Center), |ui| {
-                if !asset_ref.is_null() {
-                    let thumbnail_uri = format!("thumbnail://{}", asset_ref.as_uuid().to_string());
+                if let Some(asset_ref_schema) = ctx.editor_model.root_edit_context().asset_schema(asset_ref) {
+                    let thumbnail_uri = ctx.thumbnail_image_loader.thumbnail_uri_for_asset(asset_ref_schema.fingerprint(), asset_ref);
                     ui.add_sized(egui::vec2(64.0, 64.0), egui::Image::new(thumbnail_uri));
                 }
 
@@ -960,6 +984,9 @@ pub fn draw_inspector_rows(
             ui.label(format!("Too many nested rows, returning."));
         });
     }
+
+    let row_height = row_height_for_schema_value(ctx.schema, ctx.inspector_registry);
+
     match ctx.schema {
         Schema::Nullable(inner_schema) => {
             let null_override = ctx
@@ -975,7 +1002,7 @@ pub fn draw_inspector_rows(
 
             let mut is_visible = false;
 
-            body.row(ROW_HEIGHT, |mut row| {
+            body.row(row_height, |mut row| {
                 row.col(|ui| {
                     ui.push_id(
                         format!("{} inspector_label_column", ctx.property_path.path()),
@@ -1097,7 +1124,7 @@ pub fn draw_inspector_rows(
         Schema::StaticArray(schema) => {
             let mut is_visible = false;
 
-            body.row(ROW_HEIGHT, |mut row| {
+            body.row(row_height, |mut row| {
                 row.col(|ui| {
                     ui.push_id(
                         format!("{} inspector_label_column", ctx.property_path.path()),
@@ -1126,6 +1153,7 @@ pub fn draw_inspector_rows(
 
             let can_use_inline_values =
                 can_draw_as_single_value(schema.item_type(), ctx.inspector_registry);
+            let row_height = row_height_for_schema_value(schema.item_type(), ctx.inspector_registry);
 
             if is_visible {
                 for entry_index in 0..schema.length() {
@@ -1134,7 +1162,7 @@ pub fn draw_inspector_rows(
                     let label = format!("[{}]", entry_index_as_string);
 
                     let mut is_override_visible = false;
-                    body.row(ROW_HEIGHT, |mut row| {
+                    body.row(row_height, |mut row| {
                         row.col(|ui| {
                             ui.push_id(
                                 format!("{} inspector_label_column", entry_index_as_string),
@@ -1249,7 +1277,7 @@ pub fn draw_inspector_rows(
                 .unwrap();
             let mut is_visible = false;
 
-            body.row(ROW_HEIGHT, |mut row| {
+            body.row(row_height, |mut row| {
                 row.col(|ui| {
                     ui.push_id(
                         format!("{} inspector_label_column", ctx.property_path.path()),
@@ -1322,6 +1350,7 @@ pub fn draw_inspector_rows(
 
             let can_use_inline_values =
                 can_draw_as_single_value(schema.item_type(), ctx.inspector_registry);
+            let row_height = row_height_for_schema_value(schema.item_type(), ctx.inspector_registry);
 
             if is_visible {
                 let mut entry_index = 0;
@@ -1331,7 +1360,7 @@ pub fn draw_inspector_rows(
                     let label = format!("[{}] (inherited)", entry_index);
 
                     let mut is_override_visible = false;
-                    body.row(ROW_HEIGHT, |mut row| {
+                    body.row(row_height, |mut row| {
                         row.col(|ui| {
                             ui.push_id(format!("{} inspector_label_column", entry_uuid), |ui| {
                                 if can_use_inline_values {
@@ -1385,7 +1414,7 @@ pub fn draw_inspector_rows(
                     let label = format!("[{}]", entry_index);
 
                     let mut is_override_visible = false;
-                    body.row(ROW_HEIGHT, |mut row| {
+                    body.row(row_height, |mut row| {
                         row.col(|ui| {
                             ui.push_id(format!("{} inspector_label_column", entry_uuid), |ui| {
                                 let mut left_child_ui =
@@ -1516,7 +1545,7 @@ pub fn draw_inspector_rows(
             let mut is_visible = false;
             let mut rendered_keys = HashSet::default();
 
-            body.row(ROW_HEIGHT, |mut row| {
+            body.row(row_height, |mut row| {
                 row.col(|ui| {
                     ui.push_id(
                         format!("{} inspector_label_column", ctx.property_path.path()),
@@ -1618,7 +1647,12 @@ pub fn draw_inspector_rows(
                     let label = format!("[{}] (inherited) {}", entry_index, &value_as_str);
 
                     let mut is_override_visible = false;
-                    body.row(ROW_HEIGHT, |mut row| {
+                    let row_height = if is_override_visible {
+                        row_height_for_schema_value(schema.key_type(), ctx.inspector_registry)
+                    } else {
+                        row_height_for_schema_value(schema.value_type(), ctx.inspector_registry)
+                    };
+                    body.row(row_height, |mut row| {
                         row.col(|ui| {
                             ui.push_id(format!("{} inspector_label_column", entry_uuid), |ui| {
                                 let id_source =
@@ -1725,7 +1759,12 @@ pub fn draw_inspector_rows(
                     let label = format!("[{}] {}", entry_index, &value_as_str);
 
                     let mut is_override_visible = false;
-                    body.row(ROW_HEIGHT, |mut row| {
+                    let row_height = if is_override_visible {
+                        row_height_for_schema_value(schema.key_type(), ctx.inspector_registry)
+                    } else {
+                        row_height_for_schema_value(schema.value_type(), ctx.inspector_registry)
+                    };
+                    body.row(row_height, |mut row| {
                         row.col(|ui| {
                             ui.push_id(format!("{} inspector_label_column", entry_uuid), |ui| {
                                 let mut left_child_ui =
@@ -1837,7 +1876,7 @@ pub fn draw_inspector_rows(
         }
 
         Schema::AssetRef(_) => {
-            draw_basic_inspector_row_with_height(body, ctx, indent_level, 60.0, |ui, ctx| {
+            draw_basic_inspector_row_with_height(body, ctx, indent_level, row_height, |ui, ctx| {
                 draw_inspector_value_and_action_button(ui, ctx);
             });
         }
@@ -1867,7 +1906,7 @@ pub fn draw_inspector_rows(
                             } else {
                                 // Otherwise draw a collapsible header
                                 let mut is_visible = false;
-                                body.row(ROW_HEIGHT, |mut row| {
+                                body.row(row_height, |mut row| {
                                     row.col(|ui| {
                                         let id_source = format!(
                                             "{}/{}",

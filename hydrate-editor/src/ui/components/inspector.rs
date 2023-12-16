@@ -1,3 +1,4 @@
+use image::imageops::contrast;
 use crate::action_queue::{UIAction, UIActionQueueSender};
 use crate::ui::modals::NewAssetModal;
 use crate::ui_state::EditorModelUiState;
@@ -39,18 +40,27 @@ pub fn draw_inspector(
             //
             let is_generated = editor_model.is_generated_asset(asset_id);
 
-            ui.horizontal(|ui| {
-                let mut left_side = ui.available_size();
-                left_side.x = (10.0f32).max(left_side.x - 30.0);
+            let (_, header_rect) = ui.allocate_space(egui::vec2(ui.available_width(), 64.0));
+            let mut header_left_rect = header_rect;
+            header_left_rect.max.x = 5f32.max(header_left_rect.max.x - 64.0);
 
-                ui.allocate_ui_with_layout(left_side, egui::Layout::left_to_right(egui::Align::Min), |ui| {
-                    ui.add(egui::Label::new(egui::RichText::new(format!(
-                        "{}",
-                        edit_context.asset_name_or_id_string(asset_id).unwrap()
-                    )).heading()).truncate(true))
-                });
+            let mut header_right_rect = header_rect;
+            header_right_rect.min.x = header_left_rect.max.x;
 
-                ui.menu_button("...", |ui| {
+
+            let mut header_left = ui.child_ui(header_left_rect, egui::Layout::right_to_left(egui::Align::Min));
+            header_left.set_clip_rect(header_left_rect);
+
+            let mut header_right = ui.child_ui(header_right_rect, egui::Layout::right_to_left(egui::Align::Min));
+            header_right.add(egui::Image::new(thumbnail_image_loader.thumbnail_uri_for_asset(edit_context, asset_id)).max_size(egui::vec2(64.0, 64.0)));
+
+            header_left.vertical(|ui| {
+                ui.add(egui::Label::new(egui::RichText::new(format!(
+                    "{}",
+                    edit_context.asset_name_or_id_string(asset_id).unwrap()
+                )).heading()).truncate(true));
+
+                ui.menu_button("Actions...", |ui| {
                     //
                     // Some actions that can be taken (TODO: Make a context menu?)
                     //

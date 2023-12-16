@@ -5,7 +5,7 @@ use crate::ui::modals::NewAssetModal;
 use crate::ui_state::EditorModelUiState;
 use crate::DbState;
 use egui::epaint::text::FontsImpl;
-use egui::{FontId, Layout, Widget};
+use egui::{Color32, FontId, Layout, Widget};
 use hydrate_model::{
     AssetId, AssetLocation, DataSetAssetInfo, HashSet,
 };
@@ -42,7 +42,7 @@ impl Default for AssetGalleryUiState {
             selected_assets: Default::default(),
             view_mode: Default::default(),
             location_filtering_mode: Default::default(),
-            tile_size: 150.0,
+            tile_size: 128.0,
         }
     }
 }
@@ -375,6 +375,7 @@ fn draw_asset_gallery_tile_grid(
     all_assets: &Vec<(&AssetId, &DataSetAssetInfo)>,
     thumbnail_image_loader: &AssetThumbnailImageLoader,
 ) {
+    ui.style_mut().spacing.item_spacing = egui::vec2(12.0, 12.0);
     ui.with_layout(
         Layout::left_to_right(egui::Align::TOP).with_main_wrap(true),
         |ui| {
@@ -447,6 +448,7 @@ fn draw_asset_gallery_tile(
                 asset_gallery_ui_state.tile_size,
             );
 
+            let is_selected = asset_gallery_ui_state.selected_assets.contains(&asset_id);
             let (rect, response) = ui.allocate_exact_size(desired_size, egui::Sense::click());
             // ui.allocate_ui(desired_size, |ui| {
             //     ui.painter().rect_stroke(thumbnail_size, 3.0, egui::Stroke::new(2.0, egui::Color32::from_gray(50)));
@@ -471,7 +473,8 @@ fn draw_asset_gallery_tile(
                 //let visuals = ui.style().interact_selectable(&response, is_on);
                 let radius = 3.0;
 
-                if asset_gallery_ui_state.selected_assets.contains(&asset_id) {
+                // Paint the selection background
+                if is_selected {
                     ui.painter()
                         .rect_filled(rect, radius, ui.style().visuals.selection.bg_fill);
                 }
@@ -479,14 +482,19 @@ fn draw_asset_gallery_tile(
                 let thumbnail_uri = thumbnail_image_loader.thumbnail_uri_for_asset_with_fingerprint(asset_id, asset_info.schema().fingerprint());
                 egui::Image::new(thumbnail_uri).paint_at(ui, thumbnail_rect);
 
+                let border_color = if is_selected {
+                    egui::Color32::from_rgb(255, 255, 255)
+                } else {
+                    egui::Color32::from_gray(50)
+                };
+
                 ui.painter().rect_stroke(
                     thumbnail_rect,
                     radius,
-                    egui::Stroke::new(2.0, egui::Color32::from_gray(50)),
+                    egui::Stroke::new(3.0, border_color),
                 );
-
                 let anchor =
-                    egui::Pos2::new((text_rect.min.x + text_rect.max.x) / 2.0, text_rect.min.y);
+                    egui::Pos2::new((text_rect.min.x + text_rect.max.x) / 2.0, text_rect.min.y + 8.0);
 
                 let text_color = if is_dirty {
                     egui::Color32::from_rgb(255, 255, 100)

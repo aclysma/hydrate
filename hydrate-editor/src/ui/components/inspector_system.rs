@@ -830,10 +830,35 @@ pub fn draw_inspector_value(
             let asset_ref = resolved_value.as_asset_ref().unwrap();
 
             ui.with_layout(egui::Layout::left_to_right(egui::Align::Center), |ui| {
-                if let Some(asset_ref_schema) = ctx.editor_model.root_edit_context().asset_schema(asset_ref) {
-                    let thumbnail_uri = ctx.thumbnail_image_loader.thumbnail_uri_for_asset(asset_ref_schema.fingerprint(), asset_ref);
-                    ui.add_sized(egui::vec2(64.0, 64.0), egui::Image::new(thumbnail_uri));
+                let can_accept_what_is_being_dragged = !ctx.read_only;
+
+                fn handle_asset_ref_drop(ctx: InspectorContext, ui: &mut egui::Ui, response: &Response) {
+                    if let Some(payload) =
+                        crate::ui::drag_drop::try_take_dropped_payload(ui, response)
+                    {
+                        match payload {
+                            DragDropPayload::AssetReference(payload_asset_id) => {
+                                ctx.action_sender.queue_action(UIAction::SetProperty(
+                                    ctx.asset_id,
+                                    ctx.property_path.clone(),
+                                    Some(Value::AssetRef(payload_asset_id)),
+                                    EndContextBehavior::Finish
+                                ));
+                            }
+                            _ => log::error!("Payload type not expected when dropping onto a asset reference text field"),
+                        }
+                    }
                 }
+
+                let response = crate::ui::drag_drop::drop_target(
+                    ui,
+                    can_accept_what_is_being_dragged,
+                |ui| {
+                    let thumbnail_uri = ctx.thumbnail_image_loader.thumbnail_uri_for_asset(ctx.editor_model.root_edit_context(), asset_ref);
+                    ui.add_sized(egui::vec2(64.0, 64.0), egui::Image::new(thumbnail_uri));
+                }).response;
+
+                handle_asset_ref_drop(ctx, ui, &response);
 
                 set_override_text_color_for_has_override_status(ctx, ui);
 
@@ -846,7 +871,6 @@ pub fn draw_inspector_value(
                 ui.set_enabled(!ctx.read_only);
 
                 // Draw the text field and enable it as a drop target
-                let can_accept_what_is_being_dragged = !ctx.read_only;
                 let response = crate::ui::drag_drop::drop_target(
                     ui,
                     can_accept_what_is_being_dragged,
@@ -863,23 +887,7 @@ pub fn draw_inspector_value(
                         })
                     },
                 ).response;
-
-                // Handle dropping an asset onto the text field
-                if let Some(payload) =
-                    crate::ui::drag_drop::try_take_dropped_payload(ui, &response)
-                {
-                    match payload {
-                        DragDropPayload::AssetReference(payload_asset_id) => {
-                            ctx.action_sender.queue_action(UIAction::SetProperty(
-                                ctx.asset_id,
-                                ctx.property_path.clone(),
-                                Some(Value::AssetRef(payload_asset_id)),
-                                EndContextBehavior::Finish
-                            ));
-                        }
-                        _ => log::error!("Payload type not expected when dropping onto a asset reference text field"),
-                    }
-                }
+                handle_asset_ref_drop(ctx, ui, &response);
 
                 // Button to clear the asset ref field
                 if ui.add_enabled(!asset_ref.is_null(), egui::Button::new("X")).clicked() {

@@ -38,11 +38,18 @@ pub fn draw_inspector(
             // Some basic info
             //
             let is_generated = editor_model.is_generated_asset(asset_id);
+
             ui.horizontal(|ui| {
-                ui.heading(format!(
-                    "{}",
-                    edit_context.asset_name_or_id_string(asset_id).unwrap()
-                ));
+                let mut left_side = ui.available_size();
+                left_side.x = (10.0f32).max(left_side.x - 30.0);
+
+                ui.allocate_ui_with_layout(left_side, egui::Layout::left_to_right(egui::Align::Min), |ui| {
+                    ui.add(egui::Label::new(egui::RichText::new(format!(
+                        "{}",
+                        edit_context.asset_name_or_id_string(asset_id).unwrap()
+                    )).heading()).truncate(true))
+                });
+
                 ui.menu_button("...", |ui| {
                     //
                     // Some actions that can be taken (TODO: Make a context menu?)
@@ -122,9 +129,7 @@ pub fn draw_inspector(
                 ui.label(format!("This asset is generated from a source file and can't be modified unless it is persisted to disk. A new asset file will be created and source file changes will no longer affect it."));
             }
 
-
             ui.separator();
-
 
             egui::ScrollArea::vertical()
                 .max_width(f32::INFINITY)

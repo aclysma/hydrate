@@ -476,7 +476,7 @@ fn draw_asset_gallery_tile(
                         .rect_filled(rect, radius, ui.style().visuals.selection.bg_fill);
                 }
 
-                let thumbnail_uri = thumbnail_image_loader.thumbnail_uri_for_asset(asset_info.schema().fingerprint(), asset_id);
+                let thumbnail_uri = thumbnail_image_loader.thumbnail_uri_for_asset_with_fingerprint(asset_id, asset_info.schema().fingerprint());
                 egui::Image::new(thumbnail_uri).paint_at(ui, thumbnail_rect);
 
                 ui.painter().rect_stroke(

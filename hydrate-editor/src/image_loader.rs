@@ -1,11 +1,12 @@
+use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use eframe::epaint::Color32;
 use egui::{ColorImage, Context, SizeHint, TextureHandle, TextureOptions};
 use egui::ImageData::Color;
 use egui::load::{ImageLoader, ImageLoadResult, ImagePoll, LoadError, SizedTexture, TextureLoader, TextureLoadResult, TexturePoll};
 use uuid::Uuid;
-use hydrate_model::{AssetId, HashMap, SchemaFingerprint};
-use hydrate_model::pipeline::{AssetEngine, ThumbnailProviderRegistry, ThumbnailSystemState};
+use hydrate_model::{AssetId, HashMap, SchemaFingerprint, SchemaSet};
+use hydrate_model::pipeline::{AssetEngine, ThumbnailImage, ThumbnailProviderRegistry, ThumbnailSystemState};
 use hydrate_base::lru_cache::LruCache;
 
 const THUMBNAIL_ASSET_URI_PREFIX: &str = "thumbnail-asset://";
@@ -25,39 +26,47 @@ struct ThumbnailInfo {
     load_state: LoadState,
 }
 
-struct AssetThumbnailImageLoaderInner {
-    //cache: LruCache<AssetId, ThumbnailInfo>,
-    //requested_thumbnails_list_needs_update: bool
-}
-
 pub struct AssetThumbnailImageLoader {
     dummy_image: Arc<ColorImage>,
-    //inner: Mutex<AssetThumbnailImageLoaderInner>
+    thumbnail_cache: Mutex<LruCache<AssetId, Arc<ColorImage>>>,
     thumbnail_system_state: ThumbnailSystemState,
     thumbnail_provider_registry: ThumbnailProviderRegistry,
     default_thumbnails: HashMap<SchemaFingerprint, Arc<ColorImage>>,
+    schema_set: SchemaSet,
 }
 
 impl AssetThumbnailImageLoader {
-    pub fn new(thumbnail_provider_registry: &ThumbnailProviderRegistry, thumbnail_system_state: &ThumbnailSystemState) -> Self {
+    pub fn new(
+        schema_set: &SchemaSet,
+        thumbnail_provider_registry: &ThumbnailProviderRegistry,
+        thumbnail_system_state: &ThumbnailSystemState
+    ) -> Self {
         let dummy_image = ColorImage::example();
-        // let inner = AssetThumbnailImageLoaderInner {
-        //     // cache: LruCache::new(THUMBNAIL_CACHE_SIZE),
-        //     // requested_thumbnails_list_needs_update: false,
-        // };
-
+        let mut loaded_images = HashMap::<PathBuf, Arc<ColorImage>>::default();
         let mut default_thumbnails = HashMap::default();
-        for (k, v) in thumbnail_provider_registry.default_thumbnails() {
-            let mut image = Arc::new(ColorImage::from_rgba_unmultiplied(
-                [v.width as usize, v.height as usize], &v.pixel_data
-            ));
 
-            default_thumbnails.insert(*k, image);
+        for (k, v) in schema_set.schemas() {
+            if let Some(record) = v.try_as_record() {
+                if let Some(path) = &record.markup().default_thumbnail {
+                    if let Some(loaded_image) = loaded_images.get(path) {
+                        default_thumbnails.insert(*k, loaded_image.clone());
+                    } else {
+                        println!("open path {:?}", path);
+                        let image = image::open(path).unwrap().into_rgba8();
+                        let image = Arc::new(ColorImage::from_rgba_unmultiplied([image.width() as usize, image.height() as usize], &image.into_raw()));
+                        loaded_images.insert(path.clone(), image.clone());
+                        default_thumbnails.insert(*k, image);
+                    }
+
+
+                }
+            }
         }
 
-
         AssetThumbnailImageLoader {
+            schema_set: schema_set.clone(),
             dummy_image: Arc::new(dummy_image),
+            thumbnail_cache: Mutex::new(LruCache::new(THUMBNAIL_CACHE_SIZE)),
             thumbnail_system_state: thumbnail_system_state.clone(),
             thumbnail_provider_registry: thumbnail_provider_registry.clone(),
             default_thumbnails,
@@ -67,35 +76,11 @@ impl AssetThumbnailImageLoader {
     pub fn thumbnail_uri_for_asset(&self, schema_fingerprint: SchemaFingerprint, asset_id: AssetId) -> String {
         if self.thumbnail_provider_registry.has_provider_for_asset(schema_fingerprint) {
             format!("thumbnail-asset://{}", asset_id.as_uuid().to_string())
-        } else if self.thumbnail_provider_registry.has_default_thumbnail_for_asset_type(schema_fingerprint) {
+        } else if self.default_thumbnails.contains_key(&schema_fingerprint) {
             format!("thumbnail-asset-type://{}", schema_fingerprint.as_uuid().to_string())
         } else {
             "thumbnail-special://unknown".to_string()
         }
-    }
-
-    pub fn update(&self, asset_engine: &mut AssetEngine) {
-        // let mut inner = self.thumbnail_system_state.inner.lock().unwrap();
-        //
-        // for (_, thumbnail_info) in inner.cache.pairs_mut().iter_mut().filter_map(|x| x.as_mut()) {
-        //     if thumbnail_info.load_state == LoadState::Requesting {
-        //         // thumbnail_info.count += 1;
-        //         // if thumbnail_info.count > 100 {
-        //         //     thumbnail_info.load_state = LoadState::Loaded(self.dummy_image.clone());
-        //         // }
-        //     }
-        // }
-        //
-        // if inner.requested_thumbnails_list_needs_update {
-        //     inner.requested_thumbnails_list_needs_update = false;
-        //
-        //     let mut requested_thumbnails = Vec::new();
-        //     for (asset_id, _) in inner.cache.pairs_mut().iter().filter_map(|x| x.as_ref()) {
-        //         requested_thumbnails.push(*asset_id);
-        //     }
-        //
-        //     asset_engine.set_requested_thumbnails(requested_thumbnails);
-        // }
     }
 }
 
@@ -118,7 +103,12 @@ impl ImageLoader for AssetThumbnailImageLoader {
             }
         } else if uri.starts_with(THUMBNAIL_ASSET_URI_PREFIX) {
             let asset_id = AssetId::parse_str(&uri[THUMBNAIL_ASSET_URI_PREFIX.len()..]).unwrap();
-            if let Some(cached_entry) = self.thumbnail_system_state.request(asset_id) {
+            let mut cache = self.thumbnail_cache.lock().unwrap();
+            if let Some(image) = cache.get(&asset_id) {
+                Ok(ImagePoll::Ready {
+                    image: image.clone()
+                })
+            } else if let Some(cached_entry) = self.thumbnail_system_state.request(asset_id) {
                 let mut image = Arc::new(ColorImage::from_rgba_unmultiplied(
                     [cached_entry.width as usize, cached_entry.height as usize], &cached_entry.pixel_data
                 ));

@@ -14,6 +14,7 @@
     "name": "GlslSourceFileAsset",
     "tags": ["asset", "has_import_data"],
     "display_name": "GLSL Source File",
+    "default_thumbnail": "thumbnail_images/shader-package.png",
     "fields": [
 
     ]

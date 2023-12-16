@@ -62,6 +62,7 @@ impl HydrateEditorApp {
         cc.egui_ctx.set_fonts(fonts);
 
         let image_loader = Arc::new(AssetThumbnailImageLoader::new(
+            db_state.editor_model.schema_set(),
             asset_engine.thumbnail_provider_registry(),
             asset_engine.thumbnail_system_state())
         );
@@ -101,10 +102,6 @@ impl eframe::App for HydrateEditorApp {
     ) {
         // Generate some profiling info
         profiling::scope!("Main Thread");
-
-        {
-            self.asset_thumbnail_image_loader.update(&mut self.asset_engine);
-        }
 
         self.ui_state
             .editor_model_ui_state

@@ -36,6 +36,7 @@
     "name": "MeshAdvMaterialAsset",
     "tags": ["asset"],
     "display_name": "Material",
+    "default_thumbnail": "thumbnail_images/material-params.png",
     "fields": [
       {
         "name": "base_color_factor",
@@ -150,6 +151,7 @@
     "name": "MeshAdvMeshAsset",
     "tags": ["asset", "has_import_data"],
     "display_name": "Mesh",
+    "default_thumbnail": "thumbnail_images/mesh.png",
     "fields": [
       {
         "name": "material_slots",

@@ -4,6 +4,7 @@ use crate::{
 };
 use std::fmt::Formatter;
 use std::hash::{Hash, Hasher};
+use std::path::PathBuf;
 
 #[derive(Debug)]
 pub enum SchemaDefValidationError {
@@ -333,6 +334,8 @@ impl SchemaDefRecordField {
 pub struct SchemaDefRecordMarkup {
     // If set, we use this name instead of the class name in most UI
     pub display_name: Option<String>,
+
+    pub default_thumbnail: Option<PathBuf>,
 
     // Tags can be used to query for a list of records that meet some criteria
     pub tags: HashSet<String>,

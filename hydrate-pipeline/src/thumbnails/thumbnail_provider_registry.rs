@@ -35,10 +35,6 @@ impl ThumbnailProviderRegistryBuilder {
         );
     }
 
-    pub fn register_default_thumbnail<T: Record>(&mut self, thumbnail_image: Arc<ThumbnailImage>) {
-        self.default_thumbnails.insert(T::schema_name().to_string(), thumbnail_image);
-    }
-
     pub fn build(self, schema_set: &SchemaSet) -> ThumbnailProviderRegistry {
         let mut asset_type_to_provider = HashMap::default();
 
@@ -68,7 +64,6 @@ impl ThumbnailProviderRegistryBuilder {
         let inner = ThumbnailProviderRegistryInner {
             asset_type_to_provider,
             thumbnail_providers: self.thumbnail_providers,
-            default_thumbnails,
         };
 
         ThumbnailProviderRegistry {
@@ -80,7 +75,6 @@ impl ThumbnailProviderRegistryBuilder {
 pub struct ThumbnailProviderRegistryInner {
     thumbnail_providers: Vec<Arc<dyn ThumbnailProviderAbstract>>,
     asset_type_to_provider: HashMap<SchemaFingerprint, ThumbnailProviderId>,
-    default_thumbnails: HashMap<SchemaFingerprint, Arc<ThumbnailImage>>,
 
 }
 
@@ -90,10 +84,6 @@ pub struct ThumbnailProviderRegistry {
 }
 
 impl ThumbnailProviderRegistry {
-    pub fn default_thumbnails(&self) -> &HashMap<SchemaFingerprint, Arc<ThumbnailImage>> {
-        &self.inner.default_thumbnails
-    }
-
     pub fn has_provider_for_asset(
         &self,
         fingerprint: SchemaFingerprint,
@@ -101,13 +91,6 @@ impl ThumbnailProviderRegistry {
         self.inner
             .asset_type_to_provider
             .contains_key(&fingerprint)
-    }
-
-    pub fn has_default_thumbnail_for_asset_type(
-        &self,
-        fingerprint: SchemaFingerprint,
-    ) -> bool {
-        self.inner.default_thumbnails.contains_key(&fingerprint)
     }
 
     pub fn provider_for_asset(
@@ -119,14 +102,5 @@ impl ThumbnailProviderRegistry {
             .get(&fingerprint)
             .copied()
             .map(|x| &self.inner.thumbnail_providers[x.0])
-    }
-
-    pub fn default_thumbnail_for_asset_type(
-        &self,
-        fingerprint: SchemaFingerprint,
-    ) -> Option<&Arc<ThumbnailImage>> {
-        self.inner
-            .default_thumbnails
-            .get(&fingerprint)
     }
 }

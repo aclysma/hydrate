@@ -139,11 +139,15 @@ impl SchemaLinker {
                 SchemaLinkerError::Str("Schema file must be an array of json objects")
             })?;
 
+            let base_path = file.path().canonicalize().unwrap();
+
             for json_object in json_objects {
-                let named_type = super::json_schema::parse_json_schema_def(
+                let mut named_type = super::json_schema::parse_json_schema_def(
                     &json_object,
                     &format!("[{}]", file.path().display()),
+                    &base_path,
                 )?;
+
                 self.add_named_type(named_type)?;
             }
         }

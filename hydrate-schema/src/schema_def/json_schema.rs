@@ -1,3 +1,4 @@
+use std::path::{Path, PathBuf};
 use super::*;
 
 fn parse_json_schema_type_ref(
@@ -319,6 +320,7 @@ fn parse_json_schema_def_record_field(
 fn parse_json_schema_def_record(
     json_object: &serde_json::Map<String, serde_json::Value>,
     error_prefix: &str,
+    json_file_absolute_path: &Path,
 ) -> SchemaDefParserResult<SchemaDefRecord> {
     let name = json_object.get("name").ok_or_else(|| {
         SchemaDefParserError::String(format!("{}Records must have a name", error_prefix))
@@ -377,6 +379,26 @@ fn parse_json_schema_def_record(
                 })?
                 .to_string(),
         );
+    }
+
+    if let Some(default_thumbnail) = json_object.get("default_thumbnail") {
+        let default_thumbnail_str = Some(
+            default_thumbnail
+                .as_str()
+                .ok_or_else(|| {
+                    SchemaDefParserError::String("default_thumbnail must be a string".to_string())
+                })?
+                .to_string(),
+        );
+
+        if let Some(default_thumbnail_str) = default_thumbnail_str {
+            let mut default_thumbnail_path = Path::new(&default_thumbnail_str);
+            markup.default_thumbnail = Some(if default_thumbnail_path.is_relative() {
+                json_file_absolute_path.parent().unwrap().join(default_thumbnail_path)
+            } else {
+                default_thumbnail_path.to_path_buf()
+            });
+        }
     }
 
     if let Some(tags) = json_object.get("tags") {
@@ -515,7 +537,10 @@ fn parse_json_schema_def_enum(
 pub(super) fn parse_json_schema_def(
     json_value: &serde_json::Value,
     error_prefix: &str,
+    json_file_absolute_path: &Path,
 ) -> SchemaDefParserResult<SchemaDefNamedType> {
+    assert!(json_file_absolute_path.is_absolute());
+
     let object = json_value.as_object().ok_or_else(|| {
         SchemaDefParserError::String(format!(
             "{}Schema file must be an array of json objects",
@@ -537,7 +562,7 @@ pub(super) fn parse_json_schema_def(
     })?;
     match object_type_str {
         "record" => {
-            let record = parse_json_schema_def_record(object, error_prefix)?;
+            let record = parse_json_schema_def_record(object, error_prefix, json_file_absolute_path)?;
             Ok(SchemaDefNamedType::Record(record))
         }
         "enum" => {

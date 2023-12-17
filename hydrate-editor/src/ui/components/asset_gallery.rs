@@ -10,8 +10,9 @@ use hydrate_model::{
     AssetId, AssetLocation, DataSetAssetInfo, HashSet,
 };
 use std::sync::Arc;
+use egui::text::LayoutJob;
 use hydrate_model::pipeline::ThumbnailProviderRegistry;
-use crate::image_loader::AssetThumbnailImageLoader;
+use crate::image_loader::ThumbnailImageLoader;
 
 #[derive(Default, PartialEq, Copy, Clone)]
 pub enum AssetGalleryViewMode {
@@ -134,14 +135,12 @@ impl AssetGalleryUiState {
 
 pub fn draw_asset_gallery(
     ui: &mut egui::Ui,
-    fonts_impl: &mut FontsImpl,
-    font_id: &FontId,
     db_state: &DbState,
     ui_state: &EditorModelUiState,
     asset_tree_ui_state: &AssetTreeUiState,
     asset_gallery_ui_state: &mut AssetGalleryUiState,
     action_queue: &UIActionQueueSender,
-    thumbnail_image_loader: &AssetThumbnailImageLoader,
+    thumbnail_image_loader: &ThumbnailImageLoader,
 ) {
     //ui.label("asset gallery");
 
@@ -285,8 +284,6 @@ pub fn draw_asset_gallery(
                 .show(ui, |ui| {
                     draw_asset_gallery_list(
                         ui,
-                        fonts_impl,
-                        font_id,
                         db_state,
                         ui_state,
                         asset_gallery_ui_state,
@@ -304,8 +301,6 @@ pub fn draw_asset_gallery(
                 .show(ui, |ui| {
                     draw_asset_gallery_tile_grid(
                         ui,
-                        fonts_impl,
-                        font_id,
                         db_state,
                         ui_state,
                         asset_gallery_ui_state,
@@ -320,14 +315,12 @@ pub fn draw_asset_gallery(
 
 fn draw_asset_gallery_list(
     ui: &mut egui::Ui,
-    fonts_impl: &mut FontsImpl,
-    font_id: &FontId,
     db_state: &DbState,
     ui_state: &EditorModelUiState,
     asset_gallery_ui_state: &mut AssetGalleryUiState,
     action_queue: &UIActionQueueSender,
     all_assets: &Vec<(&AssetId, &DataSetAssetInfo)>,
-    thumbnail_image_loader: &AssetThumbnailImageLoader,
+    thumbnail_image_loader: &ThumbnailImageLoader,
 ) {
     ui.style_mut().spacing.item_spacing = egui::vec2(8.0, 2.0);
 
@@ -450,35 +443,20 @@ fn create_drag_payload(asset_gallery_ui_state: &mut AssetGalleryUiState, asset_i
 
 fn draw_asset_gallery_tile_grid(
     ui: &mut egui::Ui,
-    fonts_impl: &mut FontsImpl,
-    font_id: &FontId,
     db_state: &DbState,
     ui_state: &EditorModelUiState,
     asset_gallery_ui_state: &mut AssetGalleryUiState,
     action_queue: &UIActionQueueSender,
     all_assets: &Vec<(&AssetId, &DataSetAssetInfo)>,
-    thumbnail_image_loader: &AssetThumbnailImageLoader,
+    thumbnail_image_loader: &ThumbnailImageLoader,
 ) {
     ui.style_mut().spacing.item_spacing = egui::vec2(12.0, 12.0);
     ui.with_layout(
         Layout::left_to_right(egui::Align::TOP).with_main_wrap(true),
         |ui| {
-            // for (_, asset_info) in &ui_state.all_asset_info {
-            //     draw_asset_gallery_tile(
-            //         ui,
-            //         fonts_impl,
-            //         font_id,
-            //         asset_gallery_ui_state,
-            //         asset_info,
-            //         action_queue,
-            //         all_assets,
-            //     );
-            // }
             for (asset_id, asset_info) in all_assets {
                 draw_asset_gallery_tile(
                     ui,
-                    fonts_impl,
-                    font_id,
                     db_state,
                     ui_state,
                     asset_gallery_ui_state,
@@ -495,8 +473,6 @@ fn draw_asset_gallery_tile_grid(
 
 fn draw_asset_gallery_tile(
     ui: &mut egui::Ui,
-    fonts_impl: &mut FontsImpl,
-    font_id: &FontId,
     db_state: &DbState,
     ui_state: &EditorModelUiState,
     asset_gallery_ui_state: &mut AssetGalleryUiState,
@@ -504,7 +480,7 @@ fn draw_asset_gallery_tile(
     asset_info: &DataSetAssetInfo,
     action_queue: &UIActionQueueSender,
     all_assets: &Vec<(&AssetId, &DataSetAssetInfo)>,
-    thumbnail_image_loader: &AssetThumbnailImageLoader,
+    thumbnail_image_loader: &ThumbnailImageLoader,
 ) {
     let short_name = db_state
         .editor_model
@@ -598,14 +574,19 @@ fn draw_asset_gallery_tile(
                     egui::Color32::from_rgb(230, 230, 230)
                 };
 
-                let mut layout_job = egui::epaint::text::LayoutJob::single_section(
-                    short_name.clone(),
-                    egui::epaint::text::TextFormat::simple(font_id.clone(), text_color),
-                );
-                layout_job.wrap.max_width = text_rect.max.x - text_rect.min.x;
-                layout_job.wrap.max_rows = 1;
-                layout_job.wrap.break_anywhere = false;
-                let galley = egui::epaint::text::layout(fonts_impl, Arc::new(layout_job));
+                let font_id = ui.ctx().style().text_styles.get(&egui::TextStyle::Body).unwrap().clone();
+                let galley = ui.fonts(|x| {
+                    let mut layout_job = LayoutJob::single_section(
+                        short_name.clone(),
+                        egui::epaint::text::TextFormat::simple(font_id.clone(), text_color)
+                    );
+                    layout_job.wrap.max_width = text_rect.max.x - text_rect.min.x;
+                    layout_job.wrap.max_rows = 1;
+                    layout_job.wrap.break_anywhere = false;
+
+                    x.layout_job(layout_job)
+                });
+
                 let text = galley.rows[0].text();
 
                 ui.painter().text(

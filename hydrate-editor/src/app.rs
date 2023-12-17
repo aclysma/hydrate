@@ -1,6 +1,5 @@
 use std::sync::Arc;
-use std::time::Duration;
-use crate::action_queue::{UIAction, UIActionQueueReceiver};
+use crate::action_queue::{UIAction, UIActionQueueReceiver, UIActionQueueSender};
 use crate::db_state::DbState;
 use crate::egui_debug_ui::EguiDebugUiState;
 use crate::modal_action::{ModalAction, ModalActionControlFlow, ModalContext};
@@ -9,11 +8,90 @@ use crate::ui::components::inspector_system::{InspectorRegistry};
 use crate::ui::components::{AssetGalleryUiState, AssetTreeUiState, InspectorUiState};
 use crate::ui::modals::ImportFilesModal;
 use crate::ui_state::EditorModelUiState;
-use egui::epaint::text::FontsImpl;
-use egui::{FontDefinitions, ViewportCommand};
-use hydrate_model::pipeline::{AssetEngine, AssetEngineState, ThumbnailProviderRegistry};
+use egui::{Ui, ViewportCommand, WidgetText};
+use egui_tiles::{SimplificationOptions, TileId};
+use hydrate_model::pipeline::{AssetEngine, AssetEngineState};
 use hydrate_model::EditorModelWithCache;
-use crate::image_loader::{AssetThumbnailImageLoader, AssetThumbnailTextureLoader};
+use crate::image_loader::{ThumbnailImageLoader, AssetThumbnailTextureLoader};
+
+#[derive(Debug, Copy, Clone, PartialEq)]
+enum DockingPanelKind {
+    AssetTree,
+    AssetGallery,
+    Inspector,
+    ErrorList
+}
+
+struct MainUiContext<'a> {
+    action_queue_sender: &'a UIActionQueueSender,
+    db_state: &'a mut DbState,
+    ui_state: &'a mut UiState,
+    inspector_registry: &'a InspectorRegistry,
+    thumbnail_image_loader: &'a ThumbnailImageLoader,
+}
+
+impl<'a> egui_tiles::Behavior<DockingPanelKind> for MainUiContext<'a> {
+    // Ensures all windows have tabs
+    fn simplification_options(&self) -> SimplificationOptions {
+        let mut simplification_options = SimplificationOptions::default();
+        simplification_options.all_panes_must_have_tabs = true;
+        simplification_options
+    }
+
+    fn tab_title_for_pane(&mut self, pane: &DockingPanelKind) -> WidgetText {
+        format!("{:?}", pane).into()
+    }
+
+    fn pane_ui(&mut self, ui: &mut Ui, tile_id: TileId, pane: &mut DockingPanelKind) -> egui_tiles::UiResponse {
+        match *pane {
+            DockingPanelKind::AssetTree => draw_asset_tree(ui, self),
+            DockingPanelKind::AssetGallery => draw_asset_gallery(ui, self),
+            DockingPanelKind::Inspector => draw_property_inspector(ui, self),
+            DockingPanelKind::ErrorList => {
+                ui.label("todo");
+            }
+        }
+
+        egui_tiles::UiResponse::None
+    }
+}
+
+fn draw_asset_tree(ui: &mut egui::Ui, ui_context: &mut MainUiContext) {
+    crate::ui::components::draw_asset_tree(
+        ui,
+        &ui_context.db_state.editor_model,
+        &ui_context.thumbnail_image_loader,
+        ui_context.action_queue_sender,
+        &ui_context.ui_state.editor_model_ui_state,
+        &mut ui_context.ui_state.asset_tree_ui_state,
+    );
+}
+
+fn draw_asset_gallery(ui: &mut egui::Ui, ui_context: &mut MainUiContext) {
+    crate::ui::components::draw_asset_gallery(
+        ui,
+        ui_context.db_state,
+        &ui_context.ui_state.editor_model_ui_state,
+        &ui_context.ui_state.asset_tree_ui_state,
+        &mut ui_context.ui_state.asset_gallery_ui_state,
+        ui_context.action_queue_sender,
+        ui_context.thumbnail_image_loader,
+    );
+}
+
+fn draw_property_inspector(ui: &mut egui::Ui, ui_context: &mut MainUiContext) {
+    crate::ui::components::draw_inspector(
+        ui,
+        &ui_context.db_state.editor_model,
+        &ui_context.action_queue_sender,
+        &ui_context.ui_state.editor_model_ui_state,
+        &mut ui_context.ui_state.inspector_ui_state,
+        ui_context.ui_state.asset_gallery_ui_state.selected_assets(),
+        ui_context.ui_state.asset_gallery_ui_state.primary_selected_asset(),
+        ui_context.inspector_registry,
+        ui_context.thumbnail_image_loader,
+    );
+}
 
 #[derive(Default)]
 pub struct UiState {
@@ -34,7 +112,8 @@ pub struct HydrateEditorApp {
     action_queue: UIActionQueueReceiver,
     modal_action: Option<Box<dyn ModalAction>>,
     inspector_registry: InspectorRegistry,
-    asset_thumbnail_image_loader: Arc<AssetThumbnailImageLoader>,
+    thumbnail_image_loader: Arc<ThumbnailImageLoader>,
+    dock_state: egui_tiles::Tree<DockingPanelKind>,
 }
 
 impl HydrateEditorApp {
@@ -61,7 +140,7 @@ impl HydrateEditorApp {
         let fonts = crate::fonts::load_custom_fonts();
         cc.egui_ctx.set_fonts(fonts);
 
-        let image_loader = Arc::new(AssetThumbnailImageLoader::new(
+        let image_loader = Arc::new(ThumbnailImageLoader::new(
             db_state.editor_model.schema_set(),
             asset_engine.thumbnail_provider_registry(),
             asset_engine.thumbnail_system_state())
@@ -71,7 +150,22 @@ impl HydrateEditorApp {
         let texture_loader = Arc::new(AssetThumbnailTextureLoader::new());
         cc.egui_ctx.add_texture_loader(texture_loader);
 
-        let thumbnail_provider_registry = asset_engine.thumbnail_provider_registry().clone();
+        let mut tiles = egui_tiles::Tiles::default();
+
+        // let mut center_tabs = vec![];
+        // center_tabs.push(tiles.insert_pane(DockingPanelKind::AssetGallery));
+        // center_tabs.push(tiles.insert_pane(DockingPanelKind::ErrorList));
+        // let central_tabs = tiles.insert_tab_tile(center_tabs);
+
+        let mut root_tabs = vec![];
+        root_tabs.push(tiles.insert_pane(DockingPanelKind::AssetTree));
+        //root_tabs.push(central_tabs);
+        root_tabs.push(tiles.insert_pane(DockingPanelKind::AssetGallery));
+        root_tabs.push(tiles.insert_pane(DockingPanelKind::Inspector));
+        let root = tiles.insert_tab_tile(root_tabs);
+
+        let dock_state = egui_tiles::Tree::new("tree", root, tiles);
+
         HydrateEditorApp {
             db_state,
             asset_engine,
@@ -80,7 +174,8 @@ impl HydrateEditorApp {
             action_queue: UIActionQueueReceiver::default(),
             modal_action: None,
             inspector_registry,
-            asset_thumbnail_image_loader: image_loader.clone()
+            thumbnail_image_loader: image_loader.clone(),
+            dock_state
         }
     }
 }
@@ -100,15 +195,19 @@ impl eframe::App for HydrateEditorApp {
         ctx: &egui::Context,
         _frame: &mut eframe::Frame,
     ) {
-        // Generate some profiling info
         profiling::scope!("Main Thread");
 
+        //
+        // Main work here is caching information the rest of the UI is going to want to have (AssetId -> string path)
+        //
         self.ui_state
             .editor_model_ui_state
             .update(&self.db_state.editor_model);
 
+        //
+        // Intercept window close to ask to save changes
+        //
         let action_queue_sender = self.action_queue.sender();
-
         if ctx.input(|x| x.viewport().close_requested()) {
             if !self.ui_state.user_confirmed_should_quit {
                 // If we haven't confirmed quit, intercept and send through a "confirm to quit" flow
@@ -117,6 +216,9 @@ impl eframe::App for HydrateEditorApp {
             }
         }
 
+        //
+        // Intercept files being dropped into the window to start an import UI flow
+        //
         ctx.input(|input| {
             if !input.raw.dropped_files.is_empty() {
                 let dropped_files: Vec<_> = input
@@ -132,6 +234,9 @@ impl eframe::App for HydrateEditorApp {
             }
         });
 
+        //
+        // Handle any import, build, and thumbnail generation operations
+        //
         let asset_engine_state = {
             let mut editor_model_with_cache = EditorModelWithCache {
                 editor_model: &mut self.db_state.editor_model,
@@ -143,6 +248,10 @@ impl eframe::App for HydrateEditorApp {
                 .unwrap()
         };
 
+        //
+        // If we are in the middle of a build, we should repaint the UI so progress bars etc. update and any work that
+        // is main-thread-only can happen promptly
+        //
         match asset_engine_state {
             // App still seems to spin even when just requesting a 1hz update
             //AssetEngineState::Idle => ctx.request_repaint_after(Duration::from_millis(1000)),
@@ -150,6 +259,9 @@ impl eframe::App for HydrateEditorApp {
             _ => ctx.request_repaint(),
         }
 
+        //
+        // If we have an active modal window open, draw it now
+        //
         let clear_modal_action = if let Some(modal_action) = &mut self.modal_action {
             let context = ModalContext {
                 egui_ctx: ctx,
@@ -171,15 +283,9 @@ impl eframe::App for HydrateEditorApp {
             self.modal_action = None;
         }
 
-        let default_font = ctx
-            .style()
-            .text_styles
-            .get(&egui::TextStyle::Body)
-            .unwrap()
-            .clone();
-
-        //if self.asset_engine.update()
-
+        //
+        // Draw the status bar, which is mainly a progress indicator for import/build
+        //
         egui::TopBottomPanel::bottom("bottom_panel").show(ctx, |ui| {
             match asset_engine_state {
                 AssetEngineState::Importing(import_state) => {
@@ -202,16 +308,14 @@ impl eframe::App for HydrateEditorApp {
                                 self.asset_engine.queue_build_all();
                             }
                         });
-
-                        // ui.layout(egui::Layout::right_to_left(egui::Align::TOP))
-                        //
-                        // ui.label("Ready");
-                        // ui.separator();
                     });
                 }
             }
         });
 
+        //
+        // Draw the menu bar on top
+        //
         egui::TopBottomPanel::top("top_panel").show(ctx, |ui| {
             ui.set_enabled(self.modal_action.is_none());
 
@@ -224,58 +328,24 @@ impl eframe::App for HydrateEditorApp {
             );
         });
 
-        egui::SidePanel::right("right_panel")
-            .resizable(true)
-            .show(ctx, |ui| {
-                ui.set_enabled(self.modal_action.is_none());
+        //
+        // Now the content all in dockable tabs
+        //
+        egui::CentralPanel::default().show(ctx, |ui| {
+            let mut ui_context = MainUiContext {
+                action_queue_sender: &action_queue_sender,
+                db_state: &mut self.db_state,
+                ui_state: &mut self.ui_state,
+                inspector_registry: &self.inspector_registry,
+                thumbnail_image_loader: &self.thumbnail_image_loader,
+            };
 
-                crate::ui::components::draw_inspector(
-                    ui,
-                    &self.db_state.editor_model,
-                    &action_queue_sender,
-                    &self.ui_state.editor_model_ui_state,
-                    &mut self.ui_state.inspector_ui_state,
-                    self.ui_state.asset_gallery_ui_state.selected_assets(),
-                    self.ui_state.asset_gallery_ui_state.primary_selected_asset(),
-                    &self.inspector_registry,
-                    &self.asset_thumbnail_image_loader,
-                );
-            });
+            self.dock_state.ui(&mut ui_context, ui);
+        });
 
-        egui::SidePanel::left("left_panel")
-            .resizable(true)
-            .show(ctx, |ui| {
-                ui.set_enabled(self.modal_action.is_none());
-
-                crate::ui::components::draw_asset_tree(
-                    ui,
-                    &self.db_state.editor_model,
-                    &self.asset_thumbnail_image_loader,
-                    &action_queue_sender,
-                    &self.ui_state.editor_model_ui_state,
-                    &mut self.ui_state.asset_tree_ui_state,
-                );
-            });
-
-        //let mut frame = Frame::central_panel(&*ctx.style());
-        egui::CentralPanel::default() /*.frame(frame)*/
-            .show(ctx, |ui| {
-                ui.set_enabled(self.modal_action.is_none());
-
-                let mut fonts = FontsImpl::new(1.0, 1024, FontDefinitions::default());
-                crate::ui::components::draw_asset_gallery(
-                    ui,
-                    &mut fonts,
-                    &default_font,
-                    &self.db_state,
-                    &self.ui_state.editor_model_ui_state,
-                    &self.ui_state.asset_tree_ui_state,
-                    &mut self.ui_state.asset_gallery_ui_state,
-                    &action_queue_sender,
-                    &self.asset_thumbnail_image_loader,
-                );
-            });
-
+        //
+        // Handle any actions that were prompted by the UI
+        //
         self.action_queue.process(
             &self.db_state.project_configuration,
             &mut self.db_state.editor_model,
@@ -285,9 +355,14 @@ impl eframe::App for HydrateEditorApp {
             ctx,
         );
 
+        //
+        // Draw egui debug ui if it's enabled
+        //
         super::egui_debug_ui::show_egui_debug_ui(ctx, &mut self.ui_state.egui_debug_ui_state);
 
+        //
         // Finish the frame.
+        //
         profiling::finish_frame!();
     }
 }

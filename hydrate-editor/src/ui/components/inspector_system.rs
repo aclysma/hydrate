@@ -13,7 +13,7 @@ use std::hash::Hash;
 use std::ops::RangeInclusive;
 use std::sync::Arc;
 use hydrate_model::pipeline::ThumbnailProviderRegistry;
-use crate::image_loader::AssetThumbnailImageLoader;
+use crate::image_loader::ThumbnailImageLoader;
 
 const ROW_HEIGHT: f32 = 20.0;
 const ASSET_REF_ROW_HEIGHT: f32 = 60.0;
@@ -280,7 +280,7 @@ pub struct InspectorContext<'a> {
     pub field_markup: &'a SchemaDefRecordFieldMarkup,
     pub schema: &'a Schema,
     pub inspector_registry: &'a InspectorRegistry,
-    pub thumbnail_image_loader: &'a AssetThumbnailImageLoader,
+    pub thumbnail_image_loader: &'a ThumbnailImageLoader,
     pub read_only: bool,
 }
 

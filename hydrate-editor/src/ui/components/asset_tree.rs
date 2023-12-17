@@ -5,7 +5,7 @@ use crate::ui_state::EditorModelUiState;
 use egui::{InnerResponse, Response, Ui};
 use image::imageops::contrast;
 use hydrate_model::{AssetLocation, EditorModel, LocationTreeNode};
-use crate::image_loader::AssetThumbnailImageLoader;
+use crate::image_loader::ThumbnailImageLoader;
 
 #[derive(Default)]
 pub struct AssetTreeUiState {
@@ -16,7 +16,7 @@ fn draw_tree_node(
     ui: &mut egui::Ui,
     editor_model: &EditorModel,
     editor_model_ui_state: &EditorModelUiState,
-    thumbnail_image_loader: &AssetThumbnailImageLoader,
+    thumbnail_image_loader: &ThumbnailImageLoader,
     action_sender: &UIActionQueueSender,
     asset_tree_ui_state: &mut AssetTreeUiState,
     tree_node: &LocationTreeNode,
@@ -173,7 +173,7 @@ fn handle_drop_on_asset_tree_node(
 pub fn draw_asset_tree(
     ui: &mut egui::Ui,
     editor_model: &EditorModel,
-    thumbnail_image_loader: &AssetThumbnailImageLoader,
+    thumbnail_image_loader: &ThumbnailImageLoader,
     action_sender: &UIActionQueueSender,
     editor_model_ui_state: &EditorModelUiState,
     asset_tree_ui_state: &mut AssetTreeUiState,

@@ -23,7 +23,7 @@ enum LoadState {
     Loaded(Arc<ColorImage>)
 }
 
-pub struct AssetThumbnailImageLoader {
+pub struct ThumbnailImageLoader {
     dummy_image: Arc<ColorImage>,
     thumbnail_cache: Mutex<LruCache<AssetId, Arc<ColorImage>>>,
     thumbnail_system_state: ThumbnailSystemState,
@@ -34,7 +34,7 @@ pub struct AssetThumbnailImageLoader {
     special_thumbnail_no_reference: Arc<ColorImage>,
 }
 
-impl AssetThumbnailImageLoader {
+impl ThumbnailImageLoader {
     pub fn new(
         schema_set: &SchemaSet,
         thumbnail_provider_registry: &ThumbnailProviderRegistry,
@@ -68,7 +68,7 @@ impl AssetThumbnailImageLoader {
             }
         }
 
-        AssetThumbnailImageLoader {
+        ThumbnailImageLoader {
             schema_set: schema_set.clone(),
             dummy_image: Arc::new(dummy_image),
             thumbnail_cache: Mutex::new(LruCache::new(THUMBNAIL_CACHE_SIZE)),
@@ -111,7 +111,7 @@ impl AssetThumbnailImageLoader {
     }
 }
 
-impl ImageLoader for AssetThumbnailImageLoader {
+impl ImageLoader for ThumbnailImageLoader {
     fn id(&self) -> &str {
         "hydrate_editor::AssetThumbnailImageLoader"
     }

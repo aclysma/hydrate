@@ -1,6 +1,6 @@
 use hydrate_base::AssetId;
 use hydrate_model::EditorModel;
-use crate::image_loader::AssetThumbnailImageLoader;
+use crate::image_loader::ThumbnailImageLoader;
 
 pub mod components;
 pub mod drag_drop;
@@ -38,7 +38,7 @@ fn thumbnail_stack_size() -> egui::Vec2 {
 fn draw_thumbnail_stack(
     ui: &mut egui::Ui,
     editor_model: &EditorModel,
-    thumbnail_image_loader: &AssetThumbnailImageLoader,
+    thumbnail_image_loader: &ThumbnailImageLoader,
     primary_asset_id: AssetId,
     all_asset_ids: impl Iterator<Item = AssetId>,
 ) {

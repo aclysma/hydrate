@@ -1,7 +1,7 @@
 use egui::*;
 use hydrate_model::{AssetId, EditorModel};
 use std::sync::Mutex;
-use crate::image_loader::AssetThumbnailImageLoader;
+use crate::image_loader::ThumbnailImageLoader;
 use crate::ui::draw_thumbnail_stack;
 use crate::ui_state::EditorModelUiState;
 
@@ -21,7 +21,7 @@ pub fn render_payload(
     payload: &DragDropPayload,
     editor_model: &EditorModel,
     editor_model_ui_state: &EditorModelUiState,
-    thumbnail_image_loader: &AssetThumbnailImageLoader
+    thumbnail_image_loader: &ThumbnailImageLoader
 ) {
     match payload {
         DragDropPayload::AssetReferences(primary_asset_id, all_asset_ids) => {
@@ -59,7 +59,7 @@ pub fn drag_source<ParamsT>(
     //payload: DragDropPayload,
     editor_model: &EditorModel,
     editor_model_ui_state: &EditorModelUiState,
-    thumbnail_image_loader: &AssetThumbnailImageLoader,
+    thumbnail_image_loader: &ThumbnailImageLoader,
     params: &mut ParamsT,
     create_payload_fn: impl FnOnce(&mut ParamsT) -> DragDropPayload,
     body: impl FnOnce(&mut Ui, &mut ParamsT) -> Response,

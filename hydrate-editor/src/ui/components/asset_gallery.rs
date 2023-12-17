@@ -5,7 +5,7 @@ use crate::ui::modals::NewAssetModal;
 use crate::ui_state::EditorModelUiState;
 use crate::DbState;
 use egui::epaint::text::FontsImpl;
-use egui::{Color32, FontId, Layout, Widget};
+use egui::{Color32, FontId, Layout, Ui, Widget};
 use hydrate_model::{
     AssetId, AssetLocation, DataSetAssetInfo, HashSet,
 };
@@ -30,6 +30,9 @@ pub enum AssetGalleryViewLocationFilteringMode {
 pub struct AssetGalleryUiState {
     search_string: String,
     pub selected_assets: HashSet<AssetId>,
+    pub primary_selected_asset: Option<AssetId>,
+    previous_shift_select_range_begin: Option<AssetId>,
+    previous_shift_select_range_end: Option<AssetId>,
     view_mode: AssetGalleryViewMode,
     location_filtering_mode: AssetGalleryViewLocationFilteringMode,
     tile_size: f32,
@@ -40,6 +43,9 @@ impl Default for AssetGalleryUiState {
         AssetGalleryUiState {
             search_string: String::default(),
             selected_assets: Default::default(),
+            primary_selected_asset: None,
+            previous_shift_select_range_begin: None,
+            previous_shift_select_range_end: None,
             view_mode: Default::default(),
             location_filtering_mode: Default::default(),
             tile_size: 128.0,
@@ -330,9 +336,9 @@ fn draw_asset_gallery_list(
 
                                 let response =
                                     egui::SelectableLabel::new(is_selected, &short_name).ui(ui);
+
                                 if response.clicked() {
-                                    asset_gallery_ui_state.selected_assets.clear();
-                                    asset_gallery_ui_state.selected_assets.insert(asset_id);
+                                    handle_asset_selection(asset_gallery_ui_state, asset_id, ui, is_selected, all_assets);
                                 }
                                 response.context_menu(|ui| {
                                     asset_context_menu(
@@ -401,6 +407,7 @@ fn draw_asset_gallery_tile_grid(
                     **asset_id,
                     *asset_info,
                     action_queue,
+                    all_assets,
                     thumbnail_image_loader,
                 );
             }
@@ -418,6 +425,7 @@ fn draw_asset_gallery_tile(
     asset_id: AssetId,
     asset_info: &DataSetAssetInfo,
     action_queue: &UIActionQueueSender,
+    all_assets: &Vec<(&AssetId, &DataSetAssetInfo)>,
     thumbnail_image_loader: &AssetThumbnailImageLoader,
 ) {
     let short_name = db_state
@@ -449,6 +457,7 @@ fn draw_asset_gallery_tile(
             );
 
             let is_selected = asset_gallery_ui_state.selected_assets.contains(&asset_id);
+            let is_primary_selected = asset_gallery_ui_state.primary_selected_asset == Some(asset_id);
             let (rect, response) = ui.allocate_exact_size(desired_size, egui::Sense::click());
             // ui.allocate_ui(desired_size, |ui| {
             //     ui.painter().rect_stroke(thumbnail_size, 3.0, egui::Stroke::new(2.0, egui::Color32::from_gray(50)));
@@ -465,8 +474,7 @@ fn draw_asset_gallery_tile(
             text_rect.min.y = thumbnail_rect.max.y;
 
             if response.clicked() {
-                asset_gallery_ui_state.selected_assets.clear();
-                asset_gallery_ui_state.selected_assets.insert(asset_id);
+                handle_asset_selection(asset_gallery_ui_state, asset_id, ui, is_selected, all_assets);
             }
 
             if ui.is_rect_visible(thumbnail_rect) {
@@ -480,9 +488,13 @@ fn draw_asset_gallery_tile(
                 }
 
                 let thumbnail_uri = thumbnail_image_loader.thumbnail_uri_for_asset_with_fingerprint(asset_id, asset_info.schema().fingerprint());
-                egui::Image::new(thumbnail_uri).paint_at(ui, thumbnail_rect);
+                //egui::Image::new(thumbnail_uri).max_size(thumbnail_size).paint_at(ui, thumbnail_rect);
+                let mut thumbnail_ui = ui.child_ui(thumbnail_rect, egui::Layout::centered_and_justified(egui::Direction::LeftToRight));
+                thumbnail_ui.add(egui::Image::new(thumbnail_uri).max_size(thumbnail_size));
 
-                let border_color = if is_selected {
+                let border_color = if is_primary_selected {
+                    egui::Color32::from_rgb(255, 255, 0)
+                } else if is_selected {
                     egui::Color32::from_rgb(255, 255, 255)
                 } else {
                     egui::Color32::from_gray(50)
@@ -563,5 +575,125 @@ fn asset_context_menu(
         action_queue
             .try_set_modal_action(NewAssetModal::new_with_prototype(Some(location), asset_id));
         ui.close_menu();
+    }
+}
+
+fn handle_asset_selection(
+    asset_gallery_ui_state: &mut AssetGalleryUiState,
+    asset_id: AssetId,
+    ui: &mut Ui,
+    is_selected: bool,
+    all_assets: &Vec<(&AssetId, &DataSetAssetInfo)>
+) {
+    let mut primary_index = None;
+    let mut selected_index = None;
+    let mut shift_select_begin_index = None;
+    let mut shift_select_end_index = None;
+
+    for (i, (id, _)) in all_assets.iter().enumerate() {
+        if Some(**id) == asset_gallery_ui_state.primary_selected_asset {
+            primary_index = Some(i);
+        }
+
+        if Some(**id) == asset_gallery_ui_state.previous_shift_select_range_begin {
+            shift_select_begin_index = Some(i);
+        }
+
+        if Some(**id) == asset_gallery_ui_state.previous_shift_select_range_end {
+            shift_select_end_index = Some(i);
+        }
+
+        if **id == asset_id {
+            selected_index = Some(i);
+        }
+    }
+
+    // selected index should exist but primary index might be none
+    let selected_index = selected_index.unwrap();
+
+    let (shift_held, command_held) = ui.input(|input| (input.modifiers.shift, input.modifiers.command));
+
+    if command_held {
+        // Command-clicking toggles selection
+        if command_held && is_selected {
+            // make something else primary?
+            asset_gallery_ui_state.selected_assets.remove(&asset_id);
+            asset_gallery_ui_state.primary_selected_asset = None;
+            if let Some(shift_select_end_index) = shift_select_end_index {
+                // If we deselect an item while we have a shift select range, we adjust the shift select range start
+                // and maybe end position
+                if shift_select_end_index > selected_index {
+                    asset_gallery_ui_state.previous_shift_select_range_begin = Some(*all_assets[selected_index + 1].0);
+                } else if shift_select_end_index < selected_index {
+                    asset_gallery_ui_state.previous_shift_select_range_begin = Some(*all_assets[selected_index - 1].0);
+                } else {
+                    // Assumed not none is end index is set
+                    let shift_select_begin_index = shift_select_begin_index.unwrap();
+                    if selected_index > shift_select_begin_index {
+                        asset_gallery_ui_state.previous_shift_select_range_begin = Some(*all_assets[selected_index - 1].0);
+                        asset_gallery_ui_state.previous_shift_select_range_end = Some(*all_assets[selected_index - 1].0);
+                    } else if selected_index < shift_select_begin_index{
+                        asset_gallery_ui_state.previous_shift_select_range_begin = Some(*all_assets[selected_index + 1].0);
+                        asset_gallery_ui_state.previous_shift_select_range_end = Some(*all_assets[selected_index + 1].0);
+                    }
+                }
+            }
+        } else {
+            asset_gallery_ui_state.selected_assets.insert(asset_id);
+            asset_gallery_ui_state.primary_selected_asset = Some(asset_id);
+            asset_gallery_ui_state.previous_shift_select_range_begin = Some(asset_id);
+            asset_gallery_ui_state.previous_shift_select_range_end = None;
+        }
+    } else if shift_held {
+        // Shift-clicking adds/removes a range of objects to the selection
+        if let Some(shift_select_begin_index) = shift_select_begin_index {
+            // Undo the previous range selection
+            if let Some(shift_select_end_index) = shift_select_end_index {
+                let remove_selection_range = if shift_select_begin_index < shift_select_end_index {
+                    shift_select_begin_index..=shift_select_end_index
+                } else {
+                    shift_select_end_index..=shift_select_begin_index
+                };
+
+                for i in remove_selection_range {
+                    let (&asset_id_in_range, _) = all_assets[i];
+                    asset_gallery_ui_state.selected_assets.remove(&asset_id_in_range);
+                }
+            }
+
+            // Add the new range selection
+            let add_selection_range = if shift_select_begin_index < selected_index {
+                shift_select_begin_index..=selected_index
+            } else {
+                selected_index..=shift_select_begin_index
+            };
+
+            for i in add_selection_range {
+                let (&asset_id_in_range, _) = all_assets[i];
+                asset_gallery_ui_state.selected_assets.insert(asset_id_in_range);
+            }
+
+            let (&clicked_asset_id, _) = all_assets[selected_index];
+            asset_gallery_ui_state.previous_shift_select_range_end = Some(clicked_asset_id);
+            asset_gallery_ui_state.primary_selected_asset = Some(clicked_asset_id);
+        } else {
+            // We don't have a begin range so treat this as a plain click
+            asset_gallery_ui_state.selected_assets.insert(asset_id);
+            asset_gallery_ui_state.primary_selected_asset = Some(asset_id);
+            asset_gallery_ui_state.previous_shift_select_range_begin = Some(asset_id);
+        }
+    } else {
+        // Normal clicks clear current selection and then select the clicked asset
+        asset_gallery_ui_state.selected_assets.clear();
+        asset_gallery_ui_state.primary_selected_asset = None;
+
+        asset_gallery_ui_state.selected_assets.insert(asset_id);
+        asset_gallery_ui_state.primary_selected_asset = Some(asset_id);
+        asset_gallery_ui_state.previous_shift_select_range_begin = Some(asset_id);
+        asset_gallery_ui_state.previous_shift_select_range_end = None;
+    }
+
+    if asset_gallery_ui_state.previous_shift_select_range_end.is_some() {
+        assert!(asset_gallery_ui_state.previous_shift_select_range_begin.is_some());
     }
 }

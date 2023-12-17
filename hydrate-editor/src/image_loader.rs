@@ -147,6 +147,7 @@ impl ImageLoader for AssetThumbnailImageLoader {
                 let mut image = Arc::new(ColorImage::from_rgba_unmultiplied(
                     [cached_entry.width as usize, cached_entry.height as usize], &cached_entry.pixel_data
                 ));
+                cache.insert(asset_id, image.clone());
 
                 Ok(ImagePoll::Ready {
                     image

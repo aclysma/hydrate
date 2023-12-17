@@ -229,19 +229,13 @@ impl eframe::App for HydrateEditorApp {
             .show(ctx, |ui| {
                 ui.set_enabled(self.modal_action.is_none());
 
-                //TODO: Temp hack
-                let mut first_selected = None;
-                for selected in &self.ui_state.asset_gallery_ui_state.selected_assets {
-                    first_selected = Some(*selected);
-                    break;
-                }
-
                 crate::ui::components::draw_inspector(
                     ui,
                     &self.db_state.editor_model,
                     &action_queue_sender,
                     &self.ui_state.editor_model_ui_state,
-                    first_selected,
+                    &self.ui_state.asset_gallery_ui_state.selected_assets,
+                    self.ui_state.asset_gallery_ui_state.primary_selected_asset,
                     &self.inspector_registry,
                     &self.asset_thumbnail_image_loader,
                 );

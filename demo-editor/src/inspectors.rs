@@ -138,28 +138,28 @@ impl RecordInspector for ColorRgbaU8RecordInspector {
         let r = ctx
             .editor_model
             .root_edit_context()
-            .resolve_property(ctx.asset_id, r_field_path.path())
+            .resolve_property(ctx.primary_asset_id, r_field_path.path())
             .unwrap()
             .as_u32()
             .unwrap();
         let g = ctx
             .editor_model
             .root_edit_context()
-            .resolve_property(ctx.asset_id, g_field_path.path())
+            .resolve_property(ctx.primary_asset_id, g_field_path.path())
             .unwrap()
             .as_u32()
             .unwrap();
         let b = ctx
             .editor_model
             .root_edit_context()
-            .resolve_property(ctx.asset_id, b_field_path.path())
+            .resolve_property(ctx.primary_asset_id, b_field_path.path())
             .unwrap()
             .as_u32()
             .unwrap();
         let a = ctx
             .editor_model
             .root_edit_context()
-            .resolve_property(ctx.asset_id, a_field_path.path())
+            .resolve_property(ctx.primary_asset_id, a_field_path.path())
             .unwrap()
             .as_u32()
             .unwrap();
@@ -180,25 +180,25 @@ impl RecordInspector for ColorRgbaU8RecordInspector {
         //
         if response.changed() {
             ctx.action_sender.queue_action(UIAction::SetProperty(
-                ctx.asset_id,
+                ctx.primary_asset_id,
                 r_field_path,
                 Some(Value::U32(color.r() as u32)),
                 EndContextBehavior::AllowResume,
             ));
             ctx.action_sender.queue_action(UIAction::SetProperty(
-                ctx.asset_id,
+                ctx.primary_asset_id,
                 g_field_path,
                 Some(Value::U32(color.g() as u32)),
                 EndContextBehavior::AllowResume,
             ));
             ctx.action_sender.queue_action(UIAction::SetProperty(
-                ctx.asset_id,
+                ctx.primary_asset_id,
                 b_field_path,
                 Some(Value::U32(color.b() as u32)),
                 EndContextBehavior::AllowResume,
             ));
             ctx.action_sender.queue_action(UIAction::SetProperty(
-                ctx.asset_id,
+                ctx.primary_asset_id,
                 a_field_path,
                 Some(Value::U32(color.a() as u32)),
                 EndContextBehavior::AllowResume,

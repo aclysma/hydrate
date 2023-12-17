@@ -22,7 +22,7 @@ pub fn show_property_action_menu(
     ctx: InspectorContext,
     ui: &mut egui::Ui,
 ) {
-    let asset_id = ctx.asset_id;
+    let asset_id = ctx.primary_asset_id;
 
     let has_prototype = ctx
         .editor_model
@@ -238,7 +238,8 @@ pub struct InspectorContext<'a> {
     pub editor_model: &'a EditorModel,
     pub editor_model_ui_state: &'a EditorModelUiState,
     pub action_sender: &'a UIActionQueueSender,
-    pub asset_id: AssetId,
+    pub selected_assets: &'a HashSet<AssetId>,
+    pub primary_asset_id: AssetId,
     pub property_path: &'a PropertyPath,
     pub property_default_display_name: &'a str,
     pub field_markup: &'a SchemaDefRecordFieldMarkup,
@@ -431,7 +432,7 @@ fn set_override_text_color_for_has_override_status(
     let has_override = ctx
         .editor_model
         .root_edit_context()
-        .has_property_override(ctx.asset_id, ctx.property_path.path())
+        .has_property_override(ctx.primary_asset_id, ctx.property_path.path())
         .unwrap();
 
     if !has_override {
@@ -454,7 +455,7 @@ pub fn simple_value_property<
 
         if let Some((new_value, end_context_behavior)) = f(ui, ctx) {
             ctx.action_sender.queue_action(UIAction::SetProperty(
-                ctx.asset_id,
+                ctx.primary_asset_id,
                 ctx.property_path.clone(),
                 Some(new_value),
                 end_context_behavior,
@@ -583,7 +584,7 @@ pub fn draw_inspector_value(
             let mut value = ctx
                 .editor_model
                 .root_edit_context()
-                .resolve_property(ctx.asset_id, ctx.property_path.path())
+                .resolve_property(ctx.primary_asset_id, ctx.property_path.path())
                 .unwrap()
                 .as_boolean()
                 .unwrap();
@@ -600,7 +601,7 @@ pub fn draw_inspector_value(
             let mut value = ctx
                 .editor_model
                 .root_edit_context()
-                .resolve_property(ctx.asset_id, ctx.property_path.path())
+                .resolve_property(ctx.primary_asset_id, ctx.property_path.path())
                 .unwrap()
                 .as_i32()
                 .unwrap();
@@ -633,7 +634,7 @@ pub fn draw_inspector_value(
             let mut value = ctx
                 .editor_model
                 .root_edit_context()
-                .resolve_property(ctx.asset_id, ctx.property_path.path())
+                .resolve_property(ctx.primary_asset_id, ctx.property_path.path())
                 .unwrap()
                 .as_i64()
                 .unwrap();
@@ -666,7 +667,7 @@ pub fn draw_inspector_value(
             let mut value = ctx
                 .editor_model
                 .root_edit_context()
-                .resolve_property(ctx.asset_id, ctx.property_path.path())
+                .resolve_property(ctx.primary_asset_id, ctx.property_path.path())
                 .unwrap()
                 .as_u32()
                 .unwrap();
@@ -699,7 +700,7 @@ pub fn draw_inspector_value(
             let mut value = ctx
                 .editor_model
                 .root_edit_context()
-                .resolve_property(ctx.asset_id, ctx.property_path.path())
+                .resolve_property(ctx.primary_asset_id, ctx.property_path.path())
                 .unwrap()
                 .as_u64()
                 .unwrap();
@@ -732,7 +733,7 @@ pub fn draw_inspector_value(
             let mut value = ctx
                 .editor_model
                 .root_edit_context()
-                .resolve_property(ctx.asset_id, ctx.property_path.path())
+                .resolve_property(ctx.primary_asset_id, ctx.property_path.path())
                 .unwrap()
                 .as_f32()
                 .unwrap();
@@ -765,7 +766,7 @@ pub fn draw_inspector_value(
             let mut value = ctx
                 .editor_model
                 .root_edit_context()
-                .resolve_property(ctx.asset_id, ctx.property_path.path())
+                .resolve_property(ctx.primary_asset_id, ctx.property_path.path())
                 .unwrap()
                 .as_f64()
                 .unwrap();
@@ -801,7 +802,7 @@ pub fn draw_inspector_value(
             let mut value = ctx
                 .editor_model
                 .root_edit_context()
-                .resolve_property(ctx.asset_id, ctx.property_path.path())
+                .resolve_property(ctx.primary_asset_id, ctx.property_path.path())
                 .unwrap()
                 .as_string()
                 .unwrap()
@@ -824,7 +825,7 @@ pub fn draw_inspector_value(
             let resolved_value = ctx
                 .editor_model
                 .root_edit_context()
-                .resolve_property(ctx.asset_id, ctx.property_path.path())
+                .resolve_property(ctx.primary_asset_id, ctx.property_path.path())
                 .unwrap();
 
             let asset_ref = resolved_value.as_asset_ref().unwrap();
@@ -839,7 +840,7 @@ pub fn draw_inspector_value(
                         match payload {
                             DragDropPayload::AssetReference(payload_asset_id) => {
                                 ctx.action_sender.queue_action(UIAction::SetProperty(
-                                    ctx.asset_id,
+                                    ctx.primary_asset_id,
                                     ctx.property_path.clone(),
                                     Some(Value::AssetRef(payload_asset_id)),
                                     EndContextBehavior::Finish
@@ -891,7 +892,7 @@ pub fn draw_inspector_value(
 
                 // Button to clear the asset ref field
                 if ui.add_enabled(!asset_ref.is_null(), egui::Button::new("X")).clicked() {
-                    ctx.action_sender.queue_action(UIAction::SetProperty(ctx.asset_id, ctx.property_path.clone(), None, EndContextBehavior::Finish));
+                    ctx.action_sender.queue_action(UIAction::SetProperty(ctx.primary_asset_id, ctx.property_path.clone(), None, EndContextBehavior::Finish));
                 }
             });
         }
@@ -910,12 +911,12 @@ pub fn draw_inspector_value(
                     let resolved = ctx
                         .editor_model
                         .root_edit_context()
-                        .resolve_property(ctx.asset_id, ctx.property_path.path())
+                        .resolve_property(ctx.primary_asset_id, ctx.property_path.path())
                         .unwrap();
 
                     let old_symbol_name = resolved.as_enum().unwrap().symbol_name().to_string();
                     let mut selected_symbol_name = old_symbol_name.clone();
-                    let asset_id = ctx.asset_id;
+                    let asset_id = ctx.primary_asset_id;
 
                     ui.horizontal(|ui| {
                         ui.set_enabled(!ctx.read_only);
@@ -1000,12 +1001,12 @@ pub fn draw_inspector_rows(
             let null_override = ctx
                 .editor_model
                 .root_edit_context()
-                .get_null_override(ctx.asset_id, ctx.property_path.path())
+                .get_null_override(ctx.primary_asset_id, ctx.property_path.path())
                 .unwrap();
             let resolved_null_override = ctx
                 .editor_model
                 .root_edit_context()
-                .resolve_null_override(ctx.asset_id, ctx.property_path.path())
+                .resolve_null_override(ctx.primary_asset_id, ctx.property_path.path())
                 .unwrap();
 
             let mut is_visible = false;
@@ -1075,7 +1076,7 @@ pub fn draw_inspector_rows(
 
                             if let Some(new_null_override) = new_null_override {
                                 ctx.action_sender.queue_action(UIAction::SetNullOverride(
-                                    ctx.asset_id,
+                                    ctx.primary_asset_id,
                                     ctx.property_path.clone(),
                                     new_null_override,
                                 ));
@@ -1218,7 +1219,7 @@ pub fn draw_inspector_rows(
                                     {
                                         ctx.action_sender.queue_action(
                                             UIAction::MoveStaticArrayOverrideUp(
-                                                ctx.asset_id,
+                                                ctx.primary_asset_id,
                                                 ctx.property_path.clone(),
                                                 entry_index,
                                             ),
@@ -1235,7 +1236,7 @@ pub fn draw_inspector_rows(
                                     {
                                         ctx.action_sender.queue_action(
                                             UIAction::MoveStaticArrayOverrideDown(
-                                                ctx.asset_id,
+                                                ctx.primary_asset_id,
                                                 ctx.property_path.clone(),
                                                 entry_index,
                                             ),
@@ -1276,12 +1277,12 @@ pub fn draw_inspector_rows(
             let resolved = ctx
                 .editor_model
                 .root_edit_context()
-                .resolve_dynamic_array_entries(ctx.asset_id, ctx.property_path.path())
+                .resolve_dynamic_array_entries(ctx.primary_asset_id, ctx.property_path.path())
                 .unwrap();
             let overrides = ctx
                 .editor_model
                 .root_edit_context()
-                .get_dynamic_array_entries(ctx.asset_id, ctx.property_path.path())
+                .get_dynamic_array_entries(ctx.primary_asset_id, ctx.property_path.path())
                 .unwrap();
             let mut is_visible = false;
 
@@ -1311,7 +1312,7 @@ pub fn draw_inspector_rows(
                             if ui.button("Add Item").clicked() {
                                 ctx.action_sender
                                     .queue_action(UIAction::AddDynamicArrayEntry(
-                                        ctx.asset_id,
+                                        ctx.primary_asset_id,
                                         ctx.property_path.clone(),
                                     ));
                             }
@@ -1319,7 +1320,7 @@ pub fn draw_inspector_rows(
                             if ctx
                                 .editor_model
                                 .root_edit_context()
-                                .asset_prototype(ctx.asset_id)
+                                .asset_prototype(ctx.primary_asset_id)
                                 .is_some()
                             {
                                 ui.separator();
@@ -1327,13 +1328,13 @@ pub fn draw_inspector_rows(
                                 let is_append_mode = ctx
                                     .editor_model
                                     .root_edit_context()
-                                    .get_override_behavior(ctx.asset_id, ctx.property_path.path())
+                                    .get_override_behavior(ctx.primary_asset_id, ctx.property_path.path())
                                     .unwrap()
                                     == OverrideBehavior::Append;
                                 if ui.selectable_label(is_append_mode, "Inherit").clicked() {
                                     ctx.action_sender
                                         .queue_action(UIAction::SetOverrideBehavior(
-                                            ctx.asset_id,
+                                            ctx.primary_asset_id,
                                             ctx.property_path.clone(),
                                             OverrideBehavior::Append,
                                         ));
@@ -1345,7 +1346,7 @@ pub fn draw_inspector_rows(
                                 {
                                     ctx.action_sender
                                         .queue_action(UIAction::SetOverrideBehavior(
-                                            ctx.asset_id,
+                                            ctx.primary_asset_id,
                                             ctx.property_path.clone(),
                                             OverrideBehavior::Replace,
                                         ));
@@ -1470,7 +1471,7 @@ pub fn draw_inspector_rows(
                                 {
                                     ctx.action_sender.queue_action(
                                         UIAction::MoveDynamicArrayEntryUp(
-                                            ctx.asset_id,
+                                            ctx.primary_asset_id,
                                             ctx.property_path.clone(),
                                             *entry_uuid,
                                         ),
@@ -1487,7 +1488,7 @@ pub fn draw_inspector_rows(
                                 {
                                     ctx.action_sender.queue_action(
                                         UIAction::MoveDynamicArrayEntryDown(
-                                            ctx.asset_id,
+                                            ctx.primary_asset_id,
                                             ctx.property_path.clone(),
                                             *entry_uuid,
                                         ),
@@ -1501,7 +1502,7 @@ pub fn draw_inspector_rows(
                                 {
                                     ctx.action_sender.queue_action(
                                         UIAction::RemoveDynamicArrayEntry(
-                                            ctx.asset_id,
+                                            ctx.primary_asset_id,
                                             ctx.property_path.clone(),
                                             *entry_uuid,
                                         ),
@@ -1543,12 +1544,12 @@ pub fn draw_inspector_rows(
             let resolved = ctx
                 .editor_model
                 .root_edit_context()
-                .resolve_map_entries(ctx.asset_id, ctx.property_path.path())
+                .resolve_map_entries(ctx.primary_asset_id, ctx.property_path.path())
                 .unwrap();
             let overrides = ctx
                 .editor_model
                 .root_edit_context()
-                .get_map_entries(ctx.asset_id, ctx.property_path.path())
+                .get_map_entries(ctx.primary_asset_id, ctx.property_path.path())
                 .unwrap();
             let mut is_visible = false;
             let mut rendered_keys = HashSet::default();
@@ -1578,7 +1579,7 @@ pub fn draw_inspector_rows(
                             );
                             if ui.button("Add Item").clicked() {
                                 ctx.action_sender.queue_action(UIAction::AddMapEntry(
-                                    ctx.asset_id,
+                                    ctx.primary_asset_id,
                                     ctx.property_path.clone(),
                                 ));
                             }
@@ -1586,7 +1587,7 @@ pub fn draw_inspector_rows(
                             if ctx
                                 .editor_model
                                 .root_edit_context()
-                                .asset_prototype(ctx.asset_id)
+                                .asset_prototype(ctx.primary_asset_id)
                                 .is_some()
                             {
                                 ui.separator();
@@ -1594,13 +1595,13 @@ pub fn draw_inspector_rows(
                                 let is_append_mode = ctx
                                     .editor_model
                                     .root_edit_context()
-                                    .get_override_behavior(ctx.asset_id, ctx.property_path.path())
+                                    .get_override_behavior(ctx.primary_asset_id, ctx.property_path.path())
                                     .unwrap()
                                     == OverrideBehavior::Append;
                                 if ui.selectable_label(is_append_mode, "Inherit").clicked() {
                                     ctx.action_sender
                                         .queue_action(UIAction::SetOverrideBehavior(
-                                            ctx.asset_id,
+                                            ctx.primary_asset_id,
                                             ctx.property_path.clone(),
                                             OverrideBehavior::Append,
                                         ));
@@ -1612,7 +1613,7 @@ pub fn draw_inspector_rows(
                                 {
                                     ctx.action_sender
                                         .queue_action(UIAction::SetOverrideBehavior(
-                                            ctx.asset_id,
+                                            ctx.primary_asset_id,
                                             ctx.property_path.clone(),
                                             OverrideBehavior::Replace,
                                         ));
@@ -1636,7 +1637,7 @@ pub fn draw_inspector_rows(
                     let value = ctx
                         .editor_model
                         .root_edit_context()
-                        .resolve_property(ctx.asset_id, key_path.path())
+                        .resolve_property(ctx.primary_asset_id, key_path.path())
                         .unwrap();
                     let value_as_str = match value {
                         Value::Boolean(x) => x.to_string(),
@@ -1748,7 +1749,7 @@ pub fn draw_inspector_rows(
                     let value = ctx
                         .editor_model
                         .root_edit_context()
-                        .resolve_property(ctx.asset_id, key_path.path())
+                        .resolve_property(ctx.primary_asset_id, key_path.path())
                         .unwrap();
                     let value_as_str = match value {
                         Value::Boolean(x) => x.to_string(),
@@ -1813,7 +1814,7 @@ pub fn draw_inspector_rows(
                                     .clicked()
                                 {
                                     ctx.action_sender.queue_action(UIAction::RemoveMapEntry(
-                                        ctx.asset_id,
+                                        ctx.primary_asset_id,
                                         ctx.property_path.clone(),
                                         *entry_uuid,
                                     ));

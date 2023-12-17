@@ -217,22 +217,18 @@ impl ThumbnailProvider for GpuImageThumbnailProvider {
             (*image_bytes).clone(),
         ).unwrap();
 
-        let resized_image = ::image::imageops::resize(&image, context.desired_thumbnail_width, context.desired_thumbnail_height, ::image::imageops::FilterType::Lanczos3);
+        let resize_ratio_x = width as f32 / context.desired_thumbnail_width as f32;
+        let resize_ratio_y = height as f32 / context.desired_thumbnail_height as f32;
 
-        // This is a very wasteful way to do this..
-        let mut pixel_data = Vec::default();
-        for (x, y, color) in resized_image.enumerate_pixels() {
-            let (r, g, b, a) = color.channels4();
-            pixel_data.push(r);
-            pixel_data.push(g);
-            pixel_data.push(b);
-            pixel_data.push(a);
-        }
+        let resize_ratio = resize_ratio_x.max(resize_ratio_y);
+        let new_size_x = ((width as f32 / resize_ratio).round() as u32).max(1);
+        let new_size_y = ((height as f32 / resize_ratio).round() as u32).max(1);
 
+        let resized_image = ::image::imageops::resize(&image, new_size_x, new_size_y, ::image::imageops::FilterType::Lanczos3);
         Ok(ThumbnailImage {
-            width: context.desired_thumbnail_width,
-            height: context.desired_thumbnail_height,
-            pixel_data,
+            width: resized_image.width(),
+            height: resized_image.height(),
+            pixel_data: resized_image.into_raw().clone(),
         })
     }
 }

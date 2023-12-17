@@ -1,3 +1,4 @@
+use std::sync::Arc;
 use image::imageops::contrast;
 use crate::action_queue::{UIAction, UIActionQueueSender};
 use crate::ui::modals::NewAssetModal;
@@ -9,15 +10,18 @@ use crate::image_loader::AssetThumbnailImageLoader;
 use super::inspector_system::*;
 
 #[derive(Default)]
-pub struct InspectorUiState {}
+pub struct InspectorUiState {
+    pinned_selection: Option<(AssetId, Arc<HashSet<AssetId>>)>,
+}
 
 pub fn draw_inspector(
     ui: &mut egui::Ui,
     editor_model: &EditorModel,
     action_sender: &UIActionQueueSender,
     editor_model_ui_state: &EditorModelUiState,
-    selected_assets: &HashSet<AssetId>,
-    primary_asset_id: Option<AssetId>,
+    inspector_ui_state: &mut InspectorUiState,
+    selected_assets_unpinned: &HashSet<AssetId>,
+    primary_asset_id_unpinned: Option<AssetId>,
     inspector_registry: &InspectorRegistry,
     thumbnail_image_loader: &AssetThumbnailImageLoader,
 ) {
@@ -25,9 +29,23 @@ pub fn draw_inspector(
         .max_width(f32::INFINITY)
         .auto_shrink([false, false])
         .show(ui, |ui| {
-            // Bail if nothing selected
-            let Some(primary_asset_id) = primary_asset_id else {
-                return;
+            //
+            // This bit of code just lets us pick between using a pinned selection vs. whatever is currently selected.
+            // The main complication here is we want a reference to the contents of the Arc<HashSet<AssetId>> in the
+            // inspector_ui_state but also be able to mutate inspector_ui_state
+            //
+            let mut selected_assets_arc = None;
+            let (primary_asset_id, selected_assets) = if let Some((primary_asset_id, selected_assets)) = &inspector_ui_state.pinned_selection {
+                selected_assets_arc = Some(selected_assets.clone());
+                let selected_assets = &**selected_assets_arc.as_ref().unwrap();
+                (*primary_asset_id, selected_assets)
+            } else {
+                if let Some(primary_asset_id) = primary_asset_id_unpinned {
+                    (primary_asset_id, selected_assets_unpinned)
+                } else {
+                    // Bail if nothing selected
+                    return;
+                }
             };
 
             assert!(selected_assets.contains(&primary_asset_id));
@@ -54,10 +72,6 @@ pub fn draw_inspector(
 
                 }
             }
-
-
-
-
 
             //
             // Some basic info
@@ -95,26 +109,36 @@ pub fn draw_inspector(
                 };
                 ui.add(egui::Label::new(egui::RichText::new(header_text).heading()).truncate(true));
 
-                ui.menu_button("Actions...", |ui| {
-                    //
-                    // Some actions that can be taken (TODO: Make a context menu?)
-                    //
-                    if are_any_generated {
-                        if ui.button("Persist Asset").clicked() {
-                            action_sender.queue_action(UIAction::PersistAssets(selected_assets.iter().copied().collect()));
+                ui.horizontal(|ui| {
+                    if ui.selectable_label(inspector_ui_state.pinned_selection.is_some(), "Pin Selection").clicked() {
+                        if inspector_ui_state.pinned_selection.is_some() {
+                            inspector_ui_state.pinned_selection = None;
+                        } else {
+                            inspector_ui_state.pinned_selection = Some((primary_asset_id, Arc::new(selected_assets.clone())));
                         }
                     }
 
-                    if ui.add_enabled(selected_assets.len() == 1, egui::Button::new("Use as prototype")).clicked() {
-                        action_sender.try_set_modal_action(NewAssetModal::new_with_prototype(
-                            Some(editor_model.root_edit_context().asset_location(primary_asset_id).unwrap()),
-                            primary_asset_id)
-                        );
-                    }
+                    ui.menu_button("Actions...", |ui| {
+                        //
+                        // Some actions that can be taken (TODO: Make a context menu?)
+                        //
+                        if are_any_generated {
+                            if ui.button("Persist Asset").clicked() {
+                                action_sender.queue_action(UIAction::PersistAssets(selected_assets.iter().copied().collect()));
+                            }
+                        }
 
-                    if ui.button("Rebuild").clicked() {
-                        action_sender.queue_action(UIAction::ForceRebuild(selected_assets.iter().copied().collect()));
-                    }
+                        if ui.add_enabled(selected_assets.len() == 1, egui::Button::new("Use as prototype")).clicked() {
+                            action_sender.try_set_modal_action(NewAssetModal::new_with_prototype(
+                                Some(editor_model.root_edit_context().asset_location(primary_asset_id).unwrap()),
+                                primary_asset_id)
+                            );
+                        }
+
+                        if ui.button("Rebuild").clicked() {
+                            action_sender.queue_action(UIAction::ForceRebuild(selected_assets.iter().copied().collect()));
+                        }
+                    });
                 });
             });
 

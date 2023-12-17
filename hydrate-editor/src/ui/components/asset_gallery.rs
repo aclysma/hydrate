@@ -29,6 +29,7 @@ pub enum AssetGalleryViewLocationFilteringMode {
 
 pub struct AssetGalleryUiState {
     search_string: String,
+    all_selectable_assets: HashSet<AssetId>,
     selected_assets: HashSet<AssetId>,
     primary_selected_asset: Option<AssetId>,
     previous_shift_select_range_begin: Option<AssetId>,
@@ -42,6 +43,7 @@ impl Default for AssetGalleryUiState {
     fn default() -> Self {
         AssetGalleryUiState {
             search_string: String::default(),
+            all_selectable_assets: HashSet::default(),
             selected_assets: Default::default(),
             primary_selected_asset: None,
             previous_shift_select_range_begin: None,
@@ -54,6 +56,11 @@ impl Default for AssetGalleryUiState {
 }
 
 impl AssetGalleryUiState {
+    // All the assets that are not being filtered out.
+    pub fn all_selectable_assets(&self) -> &HashSet<AssetId> {
+        &self.all_selectable_assets
+    }
+
     pub fn selected_assets(&self) -> &HashSet<AssetId> {
         &self.selected_assets
     }
@@ -73,6 +80,26 @@ impl AssetGalleryUiState {
             self.primary_selected_asset = Some(asset_id);
             self.previous_shift_select_range_begin = Some(asset_id);
         }
+    }
+
+    pub fn select_all(&mut self) {
+        // If we had something as our primary selection and it's not selectable, and we select all, stop selecting it
+        if let Some(primary_selected_asset) = self.primary_selected_asset {
+            if !self.all_selectable_assets.contains(&primary_selected_asset) {
+                self.primary_selected_asset = None;
+            }
+        }
+
+        self.selected_assets = self.all_selectable_assets.clone();
+        if self.primary_selected_asset.is_none() {
+            for &asset_id in &self.selected_assets {
+                self.primary_selected_asset = Some(asset_id);
+                break;
+            }
+        }
+
+        self.previous_shift_select_range_begin = None;
+        self.previous_shift_select_range_begin = None;
     }
 }
 
@@ -149,32 +176,12 @@ pub fn draw_asset_gallery(
         .desired_width(250.0)
         .show(&mut toolbar_ui_left);
 
-    // let mut selected = "First";
-    // egui::ComboBox::from_label("Select one!")
-    //     .selected_text(format!("{:?}", selected))
-    //     .show_ui(&mut child_ui, |ui| {
-    //         ui.selectable_value(&mut selected, "First", "First");
-    //         ui.selectable_value(&mut selected, "Second", "Second");
-    //         ui.selectable_value(&mut selected, "Third", "Third");
-    //     });
-
-    // if toolbar_ui_left.available_width() > 200.0 {
-    //     let mut toolbar_ui_right = ui.child_ui(
-    //         toolbar_rect,
-    //         egui::Layout::right_to_left(egui::Align::Center),
-    //     );
-    //
-    //     ui.with_layout(Layout::right_to_left(egui::Align::TOP), |ui| {
-
-
-            toolbar_ui_left.add_visible(
-                asset_gallery_ui_state.view_mode == AssetGalleryViewMode::Grid,
-                egui::Slider::new(&mut asset_gallery_ui_state.tile_size, 50.0..=150.0)
-                    .clamp_to_range(true)
-                    .show_value(false),
-            );
-    //     });
-    // }
+    toolbar_ui_left.add_visible(
+        asset_gallery_ui_state.view_mode == AssetGalleryViewMode::Grid,
+        egui::Slider::new(&mut asset_gallery_ui_state.tile_size, 50.0..=150.0)
+            .clamp_to_range(true)
+            .show_value(false),
+    );
 
     ui.separator();
 
@@ -233,6 +240,11 @@ pub fn draw_asset_gallery(
         .collect();
 
     all_assets.sort_by(|(_, lhs), (_, rhs)| lhs.asset_name().cmp(&rhs.asset_name()));
+
+    asset_gallery_ui_state.all_selectable_assets.clear();
+    for (&asset_id, _) in &all_assets {
+        asset_gallery_ui_state.all_selectable_assets.insert(asset_id);
+    }
 
     let view_mode = asset_gallery_ui_state.view_mode;
     match view_mode {

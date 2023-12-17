@@ -11,6 +11,7 @@ use hydrate_model::{
     SchemaRecord, Value,
 };
 use std::sync::Arc;
+use egui::KeyboardShortcut;
 use uuid::Uuid;
 
 pub enum UIAction {
@@ -37,6 +38,8 @@ pub enum UIAction {
     CommitPendingUndoContext,
     ApplyPropertyOverrideToPrototype(Vec<AssetId>, PropertyPath),
     ApplyPropertyOverrideToPrototypeForRecord(Vec<AssetId>, PropertyPath, SchemaFingerprint),
+    ApplyResolvedPropertyToAllSelected(AssetId, Vec<AssetId>, PropertyPath),
+    ApplyResolvedPropertyToAllSelectedForRecord(AssetId, Vec<AssetId>, PropertyPath, SchemaFingerprint),
     SetNullOverride(Vec<AssetId>, PropertyPath, NullOverride),
     AddDynamicArrayEntry(AssetId, PropertyPath),
     AddMapEntry(AssetId, PropertyPath),
@@ -49,6 +52,7 @@ pub enum UIAction {
     MoveStaticArrayOverrideDown(Vec<AssetId>, PropertyPath, usize),
     OverrideWithDefault(Vec<AssetId>, PropertyPath),
     SetOverrideBehavior(Vec<AssetId>, PropertyPath, OverrideBehavior),
+    SelectAllAssetGallery,
 }
 
 impl UIAction {
@@ -147,9 +151,38 @@ impl UIActionQueueReceiver {
         modal_action: &mut Option<Box<dyn ModalAction>>,
         ctx: &egui::Context,
     ) {
+        {
+            // If we are editing a text field, it is the focus and we should not try to listen for hotkeys
+            let anything_has_focus = ctx.memory(|mem| mem.focus().is_some());
+            if !anything_has_focus {
+                ctx.input_mut(|input| {
+                    //for command in UICommand::iter() {
+                    //     if let Some(kb_shortcut) = command.kb_shortcut() {
+                    //         if input.consume_shortcut(&kb_shortcut) {
+                    //             return Some(command);
+                    //         }
+                    //     }
+                    //}
+                    //None
+
+                    if input.consume_shortcut(&KeyboardShortcut {
+                        key: egui::Key::A,
+                        modifiers: egui::Modifiers::COMMAND
+                    }) {
+                        // Select All
+                        self.action_queue_tx.send(UIAction::SelectAllAssetGallery).unwrap();
+                    }
+                });
+            }
+
+        }
+
         let mut imports_to_queue = Vec::<ImportToQueue>::default();
         while let Ok(action) = self.action_queue_rx.try_recv() {
             match action {
+                UIAction::SelectAllAssetGallery => {
+                    ui_state.asset_gallery_ui_state.select_all();
+                }
                 UIAction::SaveAll => editor_model.save_root_edit_context(),
                 UIAction::RevertAll => {
                     if editor_model.any_edit_context_has_unsaved_changes() {
@@ -350,6 +383,59 @@ impl UIActionQueueReceiver {
                         },
                     );
                 }
+
+                UIAction::ApplyResolvedPropertyToAllSelected(src_asset_id, selected_asset_ids, property_path) => {
+                    editor_model.root_edit_context_mut().with_undo_context(
+                        "apply override",
+                        |edit_context| {
+                            let value = edit_context.resolve_property(src_asset_id, property_path.path()).unwrap().clone();
+
+                            for &asset_id in &selected_asset_ids {
+                                edit_context
+                                    .set_property_override(
+                                        asset_id,
+                                        property_path.path(),
+                                        Some(value.clone())
+                                    )
+                                    .unwrap();
+                            }
+                            EndContextBehavior::Finish
+                        },
+                    );
+                }
+                UIAction::ApplyResolvedPropertyToAllSelectedForRecord(src_asset_id, selected_asset_ids, property_path, record_schema_fingerprint) => {
+                    editor_model.root_edit_context_mut().with_undo_context(
+                        "apply override",
+                        |edit_context| {
+                            let record_schema = edit_context
+                                .schema_set()
+                                .find_named_type_by_fingerprint(record_schema_fingerprint)
+                                .unwrap()
+                                .as_record()
+                                .unwrap()
+                                .clone();
+
+                            for field in record_schema.fields() {
+                                let field_path = property_path.push(field.name());
+                                let value = edit_context.resolve_property(src_asset_id, field_path.path()).unwrap().clone();
+
+                                for &asset_id in &selected_asset_ids {
+                                    edit_context
+                                        .set_property_override(
+                                            asset_id,
+                                            field_path.path(),
+                                            Some(value.clone())
+                                        )
+                                        .unwrap();
+                                }
+
+                            }
+
+                            EndContextBehavior::Finish
+                        },
+                    );
+                }
+
                 UIAction::SetNullOverride(asset_ids, property_path, null_override) => {
                     editor_model.root_edit_context_mut().with_undo_context(
                         "set null override",

@@ -94,7 +94,7 @@ pub fn show_property_action_menu(
             if ui
                 .add_enabled(
                     any_has_prototype && !ctx.read_only,
-                    egui::Button::new("Apply Override"),
+                    egui::Button::new("Move Override Up to Prototype"),
                 )
                 .clicked()
             {
@@ -106,6 +106,18 @@ pub fn show_property_action_menu(
                     ),
                 );
                 ui.close_menu();
+            }
+
+            if ctx.selected_assets.len() > 1 {
+                if ui.button("Override All Selected With This Value").clicked() {
+                    ctx.action_sender.queue_action(UIAction::ApplyResolvedPropertyToAllSelectedForRecord(
+                        ctx.primary_asset_id,
+                        ctx.selected_assets.iter().copied().collect(),
+                        ctx.property_path.clone(),
+                        *record
+                    ));
+                    ui.close_menu();
+                }
             }
         }
         _ => {
@@ -151,7 +163,7 @@ pub fn show_property_action_menu(
             if ui
                 .add_enabled(
                     any_has_override && !ctx.read_only,
-                    egui::Button::new("Apply Override"),
+                    egui::Button::new("Move Override Up to Prototype"),
                 )
                 .clicked()
             {
@@ -161,6 +173,17 @@ pub fn show_property_action_menu(
                         ctx.property_path.clone(),
                     ));
                 ui.close_menu();
+            }
+
+            if ctx.selected_assets.len() > 1 {
+                if ui.button("Override All Selected With This Value").clicked() {
+                    ctx.action_sender.queue_action(UIAction::ApplyResolvedPropertyToAllSelected(
+                        ctx.primary_asset_id,
+                        ctx.selected_assets.iter().copied().collect(),
+                        ctx.property_path.clone()
+                    ));
+                    ui.close_menu();
+                }
             }
         }
     }

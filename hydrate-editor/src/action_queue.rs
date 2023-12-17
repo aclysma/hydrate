@@ -32,13 +32,12 @@ pub enum UIAction {
     MoveAsset(AssetId, AssetLocation),
     NewAsset(AssetName, AssetLocation, SchemaRecord, Option<AssetId>),
     DeleteAsset(AssetId),
-    SetProperty(AssetId, PropertyPath, Option<Value>, EndContextBehavior),
-    SetPropertyMany(Vec<AssetId>, PropertyPath, Option<Value>, EndContextBehavior),
+    SetProperty(Vec<AssetId>, PropertyPath, Option<Value>, EndContextBehavior),
     ClearPropertiesForRecord(Vec<AssetId>, PropertyPath, SchemaFingerprint),
     CommitPendingUndoContext,
     ApplyPropertyOverrideToPrototype(Vec<AssetId>, PropertyPath),
     ApplyPropertyOverrideToPrototypeForRecord(Vec<AssetId>, PropertyPath, SchemaFingerprint),
-    SetNullOverride(AssetId, PropertyPath, NullOverride),
+    SetNullOverride(Vec<AssetId>, PropertyPath, NullOverride),
     AddDynamicArrayEntry(AssetId, PropertyPath),
     AddMapEntry(AssetId, PropertyPath),
     RemoveDynamicArrayEntry(AssetId, PropertyPath, Uuid),
@@ -46,10 +45,10 @@ pub enum UIAction {
     MoveDynamicArrayEntryUp(AssetId, PropertyPath, Uuid),
     MoveDynamicArrayEntryDown(AssetId, PropertyPath, Uuid),
     // This moves values, not entries, that's why it's named differently
-    MoveStaticArrayOverrideUp(AssetId, PropertyPath, usize),
-    MoveStaticArrayOverrideDown(AssetId, PropertyPath, usize),
+    MoveStaticArrayOverrideUp(Vec<AssetId>, PropertyPath, usize),
+    MoveStaticArrayOverrideDown(Vec<AssetId>, PropertyPath, usize),
     OverrideWithDefault(Vec<AssetId>, PropertyPath),
-    SetOverrideBehavior(AssetId, PropertyPath, OverrideBehavior),
+    SetOverrideBehavior(Vec<AssetId>, PropertyPath, OverrideBehavior),
 }
 
 impl UIAction {
@@ -255,18 +254,7 @@ impl UIActionQueueReceiver {
                         },
                     );
                 }
-                UIAction::SetProperty(asset_id, property_path, value, end_context_behavior) => {
-                    editor_model.root_edit_context_mut().with_undo_context(
-                        "set property",
-                        |edit_context| {
-                            edit_context
-                                .set_property_override(asset_id, property_path.path(), value)
-                                .unwrap();
-                            end_context_behavior
-                        },
-                    );
-                },
-                UIAction::SetPropertyMany(asset_ids, property_path, value, end_context_behavior) => {
+                UIAction::SetProperty(asset_ids, property_path, value, end_context_behavior) => {
                     editor_model.root_edit_context_mut().with_undo_context(
                         "set property",
                         |edit_context| {
@@ -362,13 +350,15 @@ impl UIActionQueueReceiver {
                         },
                     );
                 }
-                UIAction::SetNullOverride(asset_id, property_path, null_override) => {
+                UIAction::SetNullOverride(asset_ids, property_path, null_override) => {
                     editor_model.root_edit_context_mut().with_undo_context(
                         "set null override",
                         |edit_context| {
-                            edit_context
-                                .set_null_override(asset_id, property_path.path(), null_override)
-                                .unwrap();
+                            for &asset_id in &asset_ids {
+                                edit_context
+                                    .set_null_override(asset_id, property_path.path(), null_override)
+                                    .unwrap();
+                            }
                             EndContextBehavior::Finish
                         },
                     );
@@ -495,94 +485,97 @@ impl UIActionQueueReceiver {
                 // UIAction::ClearStaticArrayOverride(asset_id, property_path, entry_index) => {
                 //
                 // }
-                UIAction::MoveStaticArrayOverrideUp(asset_id, property_path, entry_index) => {
+                UIAction::MoveStaticArrayOverrideUp(asset_ids, property_path, entry_index) => {
                     editor_model.root_edit_context_mut().with_undo_context(
                         "MoveStaticArrayOverrideUp",
                         |edit_context| {
-                            let schema_set = edit_context.schema_set().clone();
-                            let index_a = entry_index;
-                            let property_path_a = property_path.push(&index_a.to_string());
-                            let bundle_a = edit_context
-                                .read_properties_bundle(
-                                    &schema_set,
-                                    asset_id,
-                                    property_path_a.path(),
-                                )
-                                .unwrap();
+                            for &asset_id in &asset_ids {
+                                let schema_set = edit_context.schema_set().clone();
+                                let index_a = entry_index;
+                                let property_path_a = property_path.push(&index_a.to_string());
+                                let bundle_a = edit_context
+                                    .read_properties_bundle(
+                                        &schema_set,
+                                        asset_id,
+                                        property_path_a.path(),
+                                    )
+                                    .unwrap();
 
-                            let index_b = entry_index - 1;
-                            let property_path_b = property_path.push(&index_b.to_string());
-                            let bundle_b = edit_context
-                                .read_properties_bundle(
-                                    &schema_set,
-                                    asset_id,
-                                    property_path_b.path(),
-                                )
-                                .unwrap();
+                                let index_b = entry_index - 1;
+                                let property_path_b = property_path.push(&index_b.to_string());
+                                let bundle_b = edit_context
+                                    .read_properties_bundle(
+                                        &schema_set,
+                                        asset_id,
+                                        property_path_b.path(),
+                                    )
+                                    .unwrap();
 
-                            edit_context
-                                .write_properties_bundle(
-                                    &schema_set,
-                                    asset_id,
-                                    property_path_a.path(),
-                                    &bundle_b,
-                                )
-                                .unwrap();
-                            edit_context
-                                .write_properties_bundle(
-                                    &schema_set,
-                                    asset_id,
-                                    property_path_b.path(),
-                                    &bundle_a,
-                                )
-                                .unwrap();
+                                edit_context
+                                    .write_properties_bundle(
+                                        &schema_set,
+                                        asset_id,
+                                        property_path_a.path(),
+                                        &bundle_b,
+                                    )
+                                    .unwrap();
+                                edit_context
+                                    .write_properties_bundle(
+                                        &schema_set,
+                                        asset_id,
+                                        property_path_b.path(),
+                                        &bundle_a,
+                                    )
+                                    .unwrap();
+                            }
 
                             EndContextBehavior::Finish
                         },
                     );
                 }
-                UIAction::MoveStaticArrayOverrideDown(asset_id, property_path, entry_index) => {
+                UIAction::MoveStaticArrayOverrideDown(asset_ids, property_path, entry_index) => {
                     editor_model.root_edit_context_mut().with_undo_context(
                         "MoveStaticArrayOverrideDown",
                         |edit_context| {
-                            let schema_set = edit_context.schema_set().clone();
-                            let index_a = entry_index;
-                            let property_path_a = property_path.push(&index_a.to_string());
-                            let bundle_a = edit_context
-                                .read_properties_bundle(
-                                    &schema_set,
-                                    asset_id,
-                                    property_path_a.path(),
-                                )
-                                .unwrap();
+                            for &asset_id in &asset_ids {
+                                let schema_set = edit_context.schema_set().clone();
+                                let index_a = entry_index;
+                                let property_path_a = property_path.push(&index_a.to_string());
+                                let bundle_a = edit_context
+                                    .read_properties_bundle(
+                                        &schema_set,
+                                        asset_id,
+                                        property_path_a.path(),
+                                    )
+                                    .unwrap();
 
-                            let index_b = entry_index + 1;
-                            let property_path_b = property_path.push(&index_b.to_string());
-                            let bundle_b = edit_context
-                                .read_properties_bundle(
-                                    &schema_set,
-                                    asset_id,
-                                    property_path_b.path(),
-                                )
-                                .unwrap();
+                                let index_b = entry_index + 1;
+                                let property_path_b = property_path.push(&index_b.to_string());
+                                let bundle_b = edit_context
+                                    .read_properties_bundle(
+                                        &schema_set,
+                                        asset_id,
+                                        property_path_b.path(),
+                                    )
+                                    .unwrap();
 
-                            edit_context
-                                .write_properties_bundle(
-                                    &schema_set,
-                                    asset_id,
-                                    property_path_a.path(),
-                                    &bundle_b,
-                                )
-                                .unwrap();
-                            edit_context
-                                .write_properties_bundle(
-                                    &schema_set,
-                                    asset_id,
-                                    property_path_b.path(),
-                                    &bundle_a,
-                                )
-                                .unwrap();
-
+                                edit_context
+                                    .write_properties_bundle(
+                                        &schema_set,
+                                        asset_id,
+                                        property_path_a.path(),
+                                        &bundle_b,
+                                    )
+                                    .unwrap();
+                                edit_context
+                                    .write_properties_bundle(
+                                        &schema_set,
+                                        asset_id,
+                                        property_path_b.path(),
+                                        &bundle_a,
+                                    )
+                                    .unwrap();
+                            }
                             EndContextBehavior::Finish
                         },
                     );
@@ -632,17 +625,19 @@ impl UIActionQueueReceiver {
                         },
                     );
                 }
-                UIAction::SetOverrideBehavior(asset_id, property_path, override_behavior) => {
+                UIAction::SetOverrideBehavior(asset_ids, property_path, override_behavior) => {
                     editor_model.root_edit_context_mut().with_undo_context(
                         "SetOverrideBehavior",
                         |edit_context| {
-                            edit_context
-                                .set_override_behavior(
-                                    asset_id,
-                                    property_path.path(),
-                                    override_behavior,
-                                )
-                                .unwrap();
+                            for &asset_id in &asset_ids {
+                                edit_context
+                                    .set_override_behavior(
+                                        asset_id,
+                                        property_path.path(),
+                                        override_behavior,
+                                    )
+                                    .unwrap();
+                            }
                             EndContextBehavior::Finish
                         },
                     );

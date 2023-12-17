@@ -180,25 +180,25 @@ impl RecordInspector for ColorRgbaU8RecordInspector {
         //
         if response.changed() {
             ctx.action_sender.queue_action(UIAction::SetProperty(
-                ctx.primary_asset_id,
+                ctx.selected_assets.iter().copied().collect(),
                 r_field_path,
                 Some(Value::U32(color.r() as u32)),
                 EndContextBehavior::AllowResume,
             ));
             ctx.action_sender.queue_action(UIAction::SetProperty(
-                ctx.primary_asset_id,
+                ctx.selected_assets.iter().copied().collect(),
                 g_field_path,
                 Some(Value::U32(color.g() as u32)),
                 EndContextBehavior::AllowResume,
             ));
             ctx.action_sender.queue_action(UIAction::SetProperty(
-                ctx.primary_asset_id,
+                ctx.selected_assets.iter().copied().collect(),
                 b_field_path,
                 Some(Value::U32(color.b() as u32)),
                 EndContextBehavior::AllowResume,
             ));
             ctx.action_sender.queue_action(UIAction::SetProperty(
-                ctx.primary_asset_id,
+                ctx.selected_assets.iter().copied().collect(),
                 a_field_path,
                 Some(Value::U32(color.a() as u32)),
                 EndContextBehavior::AllowResume,

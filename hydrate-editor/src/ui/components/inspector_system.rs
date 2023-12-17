@@ -127,7 +127,7 @@ pub fn show_property_action_menu(
                 )
                 .clicked()
             {
-                ctx.action_sender.queue_action(UIAction::SetPropertyMany(
+                ctx.action_sender.queue_action(UIAction::SetProperty(
                     ctx.selected_assets.iter().copied().collect(),
                     ctx.property_path.clone(),
                     None,
@@ -487,7 +487,7 @@ pub fn simple_value_property<
         set_override_text_color_for_has_override_status(ctx, ui);
 
         if let Some((new_value, end_context_behavior)) = f(ui, ctx) {
-            ctx.action_sender.queue_action(UIAction::SetPropertyMany(
+            ctx.action_sender.queue_action(UIAction::SetProperty(
                 ctx.selected_assets.iter().copied().collect(),
                 ctx.property_path.clone(),
                 Some(new_value),
@@ -882,7 +882,7 @@ pub fn draw_inspector_value(
                     {
                         match payload {
                             DragDropPayload::AssetReference(payload_asset_id) => {
-                                ctx.action_sender.queue_action(UIAction::SetPropertyMany(
+                                ctx.action_sender.queue_action(UIAction::SetProperty(
                                     ctx.selected_assets.iter().copied().collect(),
                                     ctx.property_path.clone(),
                                     Some(Value::AssetRef(payload_asset_id)),
@@ -935,7 +935,7 @@ pub fn draw_inspector_value(
 
                 // Button to clear the asset ref field
                 if ui.add_enabled(!asset_ref.is_null(), egui::Button::new("X")).clicked() {
-                    ctx.action_sender.queue_action(UIAction::SetPropertyMany(ctx.selected_assets.iter().copied().collect(), ctx.property_path.clone(), None, EndContextBehavior::Finish));
+                    ctx.action_sender.queue_action(UIAction::SetProperty(ctx.selected_assets.iter().copied().collect(), ctx.property_path.clone(), None, EndContextBehavior::Finish));
                 }
             });
         }
@@ -979,7 +979,7 @@ pub fn draw_inspector_value(
 
                         if old_symbol_name != selected_symbol_name {
                             let new_value = Value::Enum(ValueEnum::new(selected_symbol_name));
-                            ctx.action_sender.queue_action(UIAction::SetPropertyMany(
+                            ctx.action_sender.queue_action(UIAction::SetProperty(
                                 ctx.selected_assets.iter().copied().collect(),
                                 ctx.property_path.clone(),
                                 Some(new_value),
@@ -1130,7 +1130,7 @@ pub fn draw_inspector_rows(
 
                             if let Some(new_null_override) = new_null_override {
                                 ctx.action_sender.queue_action(UIAction::SetNullOverride(
-                                    ctx.primary_asset_id,
+                                    ctx.selected_assets.iter().copied().collect(),
                                     ctx.property_path.clone(),
                                     new_null_override,
                                 ));
@@ -1281,7 +1281,7 @@ pub fn draw_inspector_rows(
                                         {
                                             ctx.action_sender.queue_action(
                                                 UIAction::MoveStaticArrayOverrideUp(
-                                                    ctx.primary_asset_id,
+                                                    ctx.selected_assets.iter().copied().collect(),
                                                     ctx.property_path.clone(),
                                                     entry_index,
                                                 ),
@@ -1298,7 +1298,7 @@ pub fn draw_inspector_rows(
                                         {
                                             ctx.action_sender.queue_action(
                                                 UIAction::MoveStaticArrayOverrideDown(
-                                                    ctx.primary_asset_id,
+                                                    ctx.selected_assets.iter().copied().collect(),
                                                     ctx.property_path.clone(),
                                                     entry_index,
                                                 ),
@@ -1380,11 +1380,19 @@ pub fn draw_inspector_rows(
                                     ));
                             }
 
-                            if ctx
-                                .editor_model
-                                .root_edit_context()
-                                .asset_prototype(ctx.primary_asset_id)
-                                .is_some()
+                            let mut any_has_prototype = false;
+                            for &asset_id in ctx.selected_assets {
+                                if ctx
+                                    .editor_model
+                                    .root_edit_context()
+                                    .asset_prototype(asset_id)
+                                    .is_some() {
+                                    any_has_prototype = true;
+                                    break;
+                                }
+                            }
+
+                            if any_has_prototype
                             {
                                 ui.separator();
 
@@ -1397,7 +1405,7 @@ pub fn draw_inspector_rows(
                                 if ui.selectable_label(is_append_mode, "Inherit").clicked() {
                                     ctx.action_sender
                                         .queue_action(UIAction::SetOverrideBehavior(
-                                            ctx.primary_asset_id,
+                                            ctx.selected_assets.iter().copied().collect(),
                                             ctx.property_path.clone(),
                                             OverrideBehavior::Append,
                                         ));
@@ -1409,7 +1417,7 @@ pub fn draw_inspector_rows(
                                 {
                                     ctx.action_sender
                                         .queue_action(UIAction::SetOverrideBehavior(
-                                            ctx.primary_asset_id,
+                                            ctx.selected_assets.iter().copied().collect(),
                                             ctx.property_path.clone(),
                                             OverrideBehavior::Replace,
                                         ));
@@ -1669,7 +1677,7 @@ pub fn draw_inspector_rows(
                                 if ui.selectable_label(is_append_mode, "Inherit").clicked() {
                                     ctx.action_sender
                                         .queue_action(UIAction::SetOverrideBehavior(
-                                            ctx.primary_asset_id,
+                                            ctx.selected_assets.iter().copied().collect(),
                                             ctx.property_path.clone(),
                                             OverrideBehavior::Append,
                                         ));
@@ -1681,7 +1689,7 @@ pub fn draw_inspector_rows(
                                 {
                                     ctx.action_sender
                                         .queue_action(UIAction::SetOverrideBehavior(
-                                            ctx.primary_asset_id,
+                                            ctx.selected_assets.iter().copied().collect(),
                                             ctx.property_path.clone(),
                                             OverrideBehavior::Replace,
                                         ));

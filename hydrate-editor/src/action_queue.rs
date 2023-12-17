@@ -28,6 +28,7 @@ pub enum UIAction {
     Quit,
     QuitNoConfirm,
     PersistAssets(Vec<AssetId>),
+    BuildAll,
     ForceRebuild(Vec<AssetId>),
     ShowAssetInAssetGallery(AssetId),
     MoveAsset(AssetId, AssetLocation),
@@ -52,7 +53,7 @@ pub enum UIAction {
     MoveStaticArrayOverrideDown(Vec<AssetId>, PropertyPath, usize),
     OverrideWithDefault(Vec<AssetId>, PropertyPath),
     SetOverrideBehavior(Vec<AssetId>, PropertyPath, OverrideBehavior),
-    SelectAllAssetGallery,
+    ToggleSelectAllAssetGallery,
 }
 
 impl UIAction {
@@ -108,6 +109,7 @@ pub struct UIActionQueueReceiver {
     sender: UIActionQueueSender,
     action_queue_tx: Sender<UIAction>,
     action_queue_rx: Receiver<UIAction>,
+    anything_has_focus_last_frame: bool,
 }
 
 impl Default for UIActionQueueReceiver {
@@ -126,6 +128,7 @@ impl Default for UIActionQueueReceiver {
             sender,
             action_queue_tx,
             action_queue_rx,
+            anything_has_focus_last_frame: false,
         }
     }
 }
@@ -143,7 +146,7 @@ impl UIActionQueueReceiver {
     }
 
     pub fn process(
-        &self,
+        &mut self,
         project_config: &HydrateProjectConfiguration,
         editor_model: &mut EditorModel,
         asset_engine: &mut AssetEngine,
@@ -154,7 +157,7 @@ impl UIActionQueueReceiver {
         {
             // If we are editing a text field, it is the focus and we should not try to listen for hotkeys
             let anything_has_focus = ctx.memory(|mem| mem.focus().is_some());
-            if !anything_has_focus {
+            if !anything_has_focus && !self.anything_has_focus_last_frame {
                 ctx.input_mut(|input| {
                     //for command in UICommand::iter() {
                     //     if let Some(kb_shortcut) = command.kb_shortcut() {
@@ -170,18 +173,48 @@ impl UIActionQueueReceiver {
                         modifiers: egui::Modifiers::COMMAND
                     }) {
                         // Select All
-                        self.action_queue_tx.send(UIAction::SelectAllAssetGallery).unwrap();
+                        self.action_queue_tx.send(UIAction::ToggleSelectAllAssetGallery).unwrap();
+                    }
+
+                    if input.consume_shortcut(&KeyboardShortcut {
+                        key: egui::Key::B,
+                        modifiers: egui::Modifiers::COMMAND | egui::Modifiers::SHIFT
+                    }) {
+                        self.action_queue_tx.send(UIAction::BuildAll).unwrap();
+                    }
+
+                    if input.consume_shortcut(&KeyboardShortcut {
+                        key: egui::Key::S,
+                        modifiers: egui::Modifiers::COMMAND
+                    }) {
+                        self.action_queue_tx.send(UIAction::SaveAll).unwrap();
+                    }
+
+                    if input.consume_shortcut(&KeyboardShortcut {
+                        key: egui::Key::Z,
+                        modifiers: egui::Modifiers::COMMAND
+                    }) {
+                        self.action_queue_tx.send(UIAction::Undo).unwrap();
+                    }
+
+                    if input.consume_shortcut(&KeyboardShortcut {
+                        key: egui::Key::Z,
+                        modifiers: egui::Modifiers::COMMAND | egui::Modifiers::SHIFT
+                    }) {
+                        self.action_queue_tx.send(UIAction::Redo).unwrap();
                     }
                 });
             }
+
+            self.anything_has_focus_last_frame = anything_has_focus;
 
         }
 
         let mut imports_to_queue = Vec::<ImportToQueue>::default();
         while let Ok(action) = self.action_queue_rx.try_recv() {
             match action {
-                UIAction::SelectAllAssetGallery => {
-                    ui_state.asset_gallery_ui_state.select_all();
+                UIAction::ToggleSelectAllAssetGallery => {
+                    ui_state.asset_gallery_ui_state.toggle_select_all();
                 }
                 UIAction::SaveAll => editor_model.save_root_edit_context(),
                 UIAction::RevertAll => {
@@ -219,6 +252,9 @@ impl UIActionQueueReceiver {
                     for asset_id in asset_ids {
                         editor_model.persist_generated_asset(asset_id);
                     }
+                }
+                UIAction::BuildAll => {
+                    asset_engine.queue_build_all();
                 }
                 UIAction::ForceRebuild(asset_ids) => {
                     for asset_id in asset_ids {

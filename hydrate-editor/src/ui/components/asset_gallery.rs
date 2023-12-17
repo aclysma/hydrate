@@ -82,6 +82,28 @@ impl AssetGalleryUiState {
         }
     }
 
+    pub fn all_selected(&mut self) -> bool {
+        if self.all_selectable_assets.len() != self.selected_assets.len() {
+            return false;
+        }
+
+        for asset_id in &self.all_selectable_assets {
+            if !self.selected_assets.contains(asset_id) {
+                return false;
+            }
+        }
+
+        true
+    }
+
+    pub fn toggle_select_all(&mut self) {
+        if !self.all_selected() {
+            self.select_all();
+        } else {
+            self.select_none();
+        }
+    }
+
     pub fn select_all(&mut self) {
         // If we had something as our primary selection and it's not selectable, and we select all, stop selecting it
         if let Some(primary_selected_asset) = self.primary_selected_asset {
@@ -98,6 +120,13 @@ impl AssetGalleryUiState {
             }
         }
 
+        self.previous_shift_select_range_begin = None;
+        self.previous_shift_select_range_begin = None;
+    }
+
+    pub fn select_none(&mut self) {
+        self.primary_selected_asset = None;
+        self.selected_assets.clear();
         self.previous_shift_select_range_begin = None;
         self.previous_shift_select_range_begin = None;
     }

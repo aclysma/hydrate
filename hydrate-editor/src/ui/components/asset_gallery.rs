@@ -29,8 +29,8 @@ pub enum AssetGalleryViewLocationFilteringMode {
 
 pub struct AssetGalleryUiState {
     search_string: String,
-    pub selected_assets: HashSet<AssetId>,
-    pub primary_selected_asset: Option<AssetId>,
+    selected_assets: HashSet<AssetId>,
+    primary_selected_asset: Option<AssetId>,
     previous_shift_select_range_begin: Option<AssetId>,
     previous_shift_select_range_end: Option<AssetId>,
     view_mode: AssetGalleryViewMode,
@@ -49,6 +49,29 @@ impl Default for AssetGalleryUiState {
             view_mode: Default::default(),
             location_filtering_mode: Default::default(),
             tile_size: 128.0,
+        }
+    }
+}
+
+impl AssetGalleryUiState {
+    pub fn selected_assets(&self) -> &HashSet<AssetId> {
+        &self.selected_assets
+    }
+
+    pub fn primary_selected_asset(&self) -> Option<AssetId> {
+        self.primary_selected_asset
+    }
+
+    pub fn set_selection(&mut self, asset_id: Option<AssetId>) {
+        self.selected_assets.clear();
+        self.primary_selected_asset = None;
+        self.previous_shift_select_range_begin = None;
+        self.previous_shift_select_range_end = None;
+
+        if let Some(asset_id) = asset_id {
+            self.selected_assets.insert(asset_id);
+            self.primary_selected_asset = Some(asset_id);
+            self.previous_shift_select_range_begin = Some(asset_id);
         }
     }
 }

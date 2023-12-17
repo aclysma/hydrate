@@ -33,10 +33,11 @@ pub enum UIAction {
     NewAsset(AssetName, AssetLocation, SchemaRecord, Option<AssetId>),
     DeleteAsset(AssetId),
     SetProperty(AssetId, PropertyPath, Option<Value>, EndContextBehavior),
-    ClearPropertiesForRecord(AssetId, PropertyPath, SchemaFingerprint),
+    SetPropertyMany(Vec<AssetId>, PropertyPath, Option<Value>, EndContextBehavior),
+    ClearPropertiesForRecord(Vec<AssetId>, PropertyPath, SchemaFingerprint),
     CommitPendingUndoContext,
-    ApplyPropertyOverrideToPrototype(AssetId, PropertyPath),
-    ApplyPropertyOverrideToPrototypeForRecord(AssetId, PropertyPath, SchemaFingerprint),
+    ApplyPropertyOverrideToPrototype(Vec<AssetId>, PropertyPath),
+    ApplyPropertyOverrideToPrototypeForRecord(Vec<AssetId>, PropertyPath, SchemaFingerprint),
     SetNullOverride(AssetId, PropertyPath, NullOverride),
     AddDynamicArrayEntry(AssetId, PropertyPath),
     AddMapEntry(AssetId, PropertyPath),
@@ -47,7 +48,7 @@ pub enum UIAction {
     // This moves values, not entries, that's why it's named differently
     MoveStaticArrayOverrideUp(AssetId, PropertyPath, usize),
     MoveStaticArrayOverrideDown(AssetId, PropertyPath, usize),
-    OverrideWithDefault(AssetId, PropertyPath),
+    OverrideWithDefault(Vec<AssetId>, PropertyPath),
     SetOverrideBehavior(AssetId, PropertyPath, OverrideBehavior),
 }
 
@@ -193,11 +194,7 @@ impl UIActionQueueReceiver {
                     }
                 }
                 UIAction::ShowAssetInAssetGallery(asset_id) => {
-                    ui_state.asset_gallery_ui_state.selected_assets.clear();
-                    ui_state
-                        .asset_gallery_ui_state
-                        .selected_assets
-                        .insert(asset_id);
+                    ui_state.asset_gallery_ui_state.set_selection(Some(asset_id));
 
                     if let Some(location) =
                         editor_model.root_edit_context().asset_location(asset_id)
@@ -268,9 +265,22 @@ impl UIActionQueueReceiver {
                             end_context_behavior
                         },
                     );
+                },
+                UIAction::SetPropertyMany(asset_ids, property_path, value, end_context_behavior) => {
+                    editor_model.root_edit_context_mut().with_undo_context(
+                        "set property",
+                        |edit_context| {
+                            for asset_id in asset_ids {
+                                edit_context
+                                    .set_property_override(asset_id, property_path.path(), value.clone())
+                                    .unwrap();
+                            }
+                            end_context_behavior
+                        },
+                    );
                 }
                 UIAction::ClearPropertiesForRecord(
-                    asset_id,
+                    asset_ids,
                     property_path,
                     record_schema_fingerprint,
                 ) => {
@@ -287,9 +297,11 @@ impl UIActionQueueReceiver {
 
                             for field in record_schema.fields() {
                                 let field_path = property_path.push(field.name());
-                                edit_context
-                                    .set_property_override(asset_id, field_path.path(), None)
-                                    .unwrap();
+                                for &asset_id in &asset_ids {
+                                    edit_context
+                                        .set_property_override(asset_id, field_path.path(), None)
+                                        .unwrap();
+                                }
                             }
 
                             EndContextBehavior::Finish
@@ -301,23 +313,25 @@ impl UIActionQueueReceiver {
                         .root_edit_context_mut()
                         .commit_pending_undo_context();
                 }
-                UIAction::ApplyPropertyOverrideToPrototype(asset_id, property_path) => {
+                UIAction::ApplyPropertyOverrideToPrototype(asset_ids, property_path) => {
                     editor_model.root_edit_context_mut().with_undo_context(
                         "apply override",
                         |edit_context| {
-                            edit_context
-                                .apply_property_override_to_prototype(
-                                    asset_id,
-                                    property_path.path(),
-                                )
-                                .unwrap();
+                            for asset_id in asset_ids {
+                                edit_context
+                                    .apply_property_override_to_prototype(
+                                        asset_id,
+                                        property_path.path(),
+                                    )
+                                    .unwrap();
+                            }
                             EndContextBehavior::Finish
                         },
                     );
                 }
 
                 UIAction::ApplyPropertyOverrideToPrototypeForRecord(
-                    asset_id,
+                    asset_ids,
                     property_path,
                     record_schema_fingerprint,
                 ) => {
@@ -334,12 +348,14 @@ impl UIActionQueueReceiver {
 
                             for field in record_schema.fields() {
                                 let field_path = property_path.push(field.name());
-                                edit_context
-                                    .apply_property_override_to_prototype(
-                                        asset_id,
-                                        field_path.path(),
-                                    )
-                                    .unwrap();
+                                for &asset_id in &asset_ids {
+                                    edit_context
+                                        .apply_property_override_to_prototype(
+                                            asset_id,
+                                            field_path.path(),
+                                        )
+                                        .unwrap();
+                                }
                             }
 
                             EndContextBehavior::Finish
@@ -571,31 +587,33 @@ impl UIActionQueueReceiver {
                         },
                     );
                 }
-                UIAction::OverrideWithDefault(asset_id, property_path) => {
+                UIAction::OverrideWithDefault(asset_ids, property_path) => {
                     editor_model.root_edit_context_mut().with_undo_context(
                         "OverrideWithDefault",
                         |edit_context| {
                             //let schema = edit_context.asset_schema(asset_id).unwrap().clone();
 
-                            let schema = edit_context
-                                .asset_schema(asset_id)
-                                .unwrap()
-                                .find_property_schema(
-                                    property_path.path(),
-                                    edit_context.schema_set().schemas(),
-                                )
-                                .unwrap();
-                            println!(
-                                "find schema {:?} for property {:?}",
-                                schema,
-                                property_path.path()
-                            );
-                            override_with_default_values_recursively(
-                                asset_id,
-                                property_path,
-                                schema,
-                                edit_context,
-                            );
+                            for asset_id in asset_ids {
+                                let schema = edit_context
+                                    .asset_schema(asset_id)
+                                    .unwrap()
+                                    .find_property_schema(
+                                        property_path.path(),
+                                        edit_context.schema_set().schemas(),
+                                    )
+                                    .unwrap();
+                                println!(
+                                    "find schema {:?} for property {:?}",
+                                    schema,
+                                    property_path.path()
+                                );
+                                override_with_default_values_recursively(
+                                    asset_id,
+                                    &property_path,
+                                    schema,
+                                    edit_context,
+                                );
+                            }
 
                             //let schema_set = edit_context.schema_set().clone();
                             // let schema = edit_context.asset_schema(asset_id).unwrap().clone();
@@ -645,7 +663,7 @@ impl UIActionQueueReceiver {
 
 fn override_with_default_values_recursively(
     asset_id: AssetId,
-    property_path: PropertyPath,
+    property_path: &PropertyPath,
     schema: Schema,
     edit_context: &mut EditContext,
 ) {
@@ -681,7 +699,7 @@ fn override_with_default_values_recursively(
                 let element_path = property_path.push(&i.to_string());
                 override_with_default_values_recursively(
                     asset_id,
-                    element_path,
+                    &element_path,
                     schema.item_type().clone(),
                     edit_context,
                 );
@@ -715,7 +733,7 @@ fn override_with_default_values_recursively(
                 let field_schema = record_schema.field_schema(field.name()).unwrap();
                 override_with_default_values_recursively(
                     asset_id,
-                    field_path,
+                    &field_path,
                     field_schema.clone(),
                     edit_context,
                 );

@@ -292,6 +292,7 @@ pub fn draw_asset_gallery(
                         asset_gallery_ui_state,
                         action_queue,
                         &all_assets,
+                        thumbnail_image_loader
                     );
                 });
         }
@@ -326,6 +327,7 @@ fn draw_asset_gallery_list(
     asset_gallery_ui_state: &mut AssetGalleryUiState,
     action_queue: &UIActionQueueSender,
     all_assets: &Vec<(&AssetId, &DataSetAssetInfo)>,
+    thumbnail_image_loader: &AssetThumbnailImageLoader,
 ) {
     ui.style_mut().spacing.item_spacing = egui::vec2(8.0, 2.0);
 
@@ -384,8 +386,12 @@ fn draw_asset_gallery_list(
                         crate::ui::drag_drop::drag_source(
                             ui,
                             egui::Id::new(asset_id),
-                            DragDropPayload::AssetReference(asset_id),
-                            |ui| {
+                            &db_state.editor_model,
+                            ui_state,
+                            thumbnail_image_loader,
+                            asset_gallery_ui_state,
+                            |asset_gallery_ui_state| create_drag_payload(asset_gallery_ui_state, asset_id),
+                            |ui, asset_gallery_ui_state| {
                                 let is_selected =
                                     asset_gallery_ui_state.selected_assets.contains(&asset_id);
 
@@ -432,6 +438,14 @@ fn draw_asset_gallery_list(
                 });
             }
         });
+}
+
+fn create_drag_payload(asset_gallery_ui_state: &mut AssetGalleryUiState, asset_id: AssetId) -> DragDropPayload {
+    if asset_gallery_ui_state.selected_assets.contains(&asset_id) {
+        DragDropPayload::AssetReferences(asset_id, asset_gallery_ui_state.selected_assets.iter().copied().collect())
+    } else {
+        DragDropPayload::AssetReferences(asset_id, vec![asset_id])
+    }
 }
 
 fn draw_asset_gallery_tile_grid(
@@ -507,8 +521,12 @@ fn draw_asset_gallery_tile(
     crate::ui::drag_drop::drag_source(
         ui,
         egui::Id::new(asset_id),
-        DragDropPayload::AssetReference(asset_id),
-        |ui| {
+        &db_state.editor_model,
+        ui_state,
+        thumbnail_image_loader,
+        asset_gallery_ui_state,
+        |asset_gallery_ui_state| create_drag_payload(asset_gallery_ui_state, asset_id),
+        |ui, asset_gallery_ui_state| {
             let is_on = false;
 
             let desired_size = egui::vec2(

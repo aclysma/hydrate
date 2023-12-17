@@ -64,9 +64,10 @@ pub fn draw_inspector(
             //
             //let is_generated = editor_model.is_generated_asset(asset_id);
 
-            let (_, header_rect) = ui.allocate_space(egui::vec2(ui.available_width(), 64.0));
+            let thumbnail_stack_size = crate::ui::thumbnail_stack_size();
+            let (_, header_rect) = ui.allocate_space(egui::vec2(ui.available_width(), thumbnail_stack_size.y));
             let mut header_left_rect = header_rect;
-            header_left_rect.max.x = 5f32.max(header_left_rect.max.x - 64.0);
+            header_left_rect.max.x = 5f32.max(header_left_rect.max.x - thumbnail_stack_size.x);
             let header_left_clip_rect = header_left_rect;
             header_left_rect.min.x = header_left_rect.max.x.min(header_left_rect.min.x + 5.0);
 
@@ -77,9 +78,8 @@ pub fn draw_inspector(
             header_left.set_clip_rect(header_left_clip_rect);
 
             let mut header_right = ui.child_ui(header_right_rect, egui::Layout::right_to_left(egui::Align::Min));
-            if selected_assets.len() == 1 {
-                header_right.add(egui::Image::new(thumbnail_image_loader.thumbnail_uri_for_asset(edit_context, primary_asset_id)).max_size(egui::vec2(64.0, 64.0)));
-            }
+
+            crate::ui::draw_thumbnail_stack(&mut header_right, editor_model, thumbnail_image_loader, primary_asset_id, selected_assets.iter().copied());
 
             header_left.vertical(|ui| {
                 let header_text = if selected_assets.len() > 1 {

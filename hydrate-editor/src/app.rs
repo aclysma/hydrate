@@ -249,6 +249,7 @@ impl eframe::App for HydrateEditorApp {
                 crate::ui::components::draw_asset_tree(
                     ui,
                     &self.db_state.editor_model,
+                    &self.asset_thumbnail_image_loader,
                     &action_queue_sender,
                     &self.ui_state.editor_model_ui_state,
                     &mut self.ui_state.asset_tree_ui_state,

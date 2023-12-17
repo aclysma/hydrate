@@ -31,7 +31,7 @@ pub enum UIAction {
     BuildAll,
     ForceRebuild(Vec<AssetId>),
     ShowAssetInAssetGallery(AssetId),
-    MoveAsset(AssetId, AssetLocation),
+    MoveAssets(Vec<AssetId>, AssetLocation),
     NewAsset(AssetName, AssetLocation, SchemaRecord, Option<AssetId>),
     DeleteAsset(AssetId),
     SetProperty(Vec<AssetId>, PropertyPath, Option<Value>, EndContextBehavior),
@@ -270,21 +270,23 @@ impl UIActionQueueReceiver {
                         ui_state.asset_tree_ui_state.selected_tree_node = Some(location);
                     }
                 }
-                UIAction::MoveAsset(moving_asset, new_location) => {
+                UIAction::MoveAssets(moving_assets, new_location) => {
                     editor_model.root_edit_context_mut().with_undo_context(
                         "move asset",
                         |edit_context| {
-                            let result =
-                                edit_context.set_asset_location(moving_asset, new_location);
-                            match result {
-                                Ok(_) => {
-                                    // do nothing
-                                }
-                                Err(DataSetError::NewLocationIsChildOfCurrentAsset) => {
-                                    // do nothing
-                                }
-                                _ => {
-                                    unimplemented!()
+                            for &moving_asset in &moving_assets {
+                                let result =
+                                    edit_context.set_asset_location(moving_asset, new_location);
+                                match result {
+                                    Ok(_) => {
+                                        // do nothing
+                                    }
+                                    Err(DataSetError::NewLocationIsChildOfCurrentAsset) => {
+                                        // do nothing
+                                    }
+                                    _ => {
+                                        unimplemented!()
+                                    }
                                 }
                             }
 

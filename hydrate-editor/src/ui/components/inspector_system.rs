@@ -904,11 +904,11 @@ pub fn draw_inspector_value(
                         crate::ui::drag_drop::try_take_dropped_payload(ui, response)
                     {
                         match payload {
-                            DragDropPayload::AssetReference(payload_asset_id) => {
+                            DragDropPayload::AssetReferences(primary_dragged_asset_id, all_dragged_asset_ids) => {
                                 ctx.action_sender.queue_action(UIAction::SetProperty(
                                     ctx.selected_assets.iter().copied().collect(),
                                     ctx.property_path.clone(),
-                                    Some(Value::AssetRef(payload_asset_id)),
+                                    Some(Value::AssetRef(primary_dragged_asset_id)),
                                     EndContextBehavior::Finish
                                 ));
                             }

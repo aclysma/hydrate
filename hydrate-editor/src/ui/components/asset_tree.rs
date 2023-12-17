@@ -3,7 +3,9 @@ use crate::ui::drag_drop::DragDropPayload;
 use crate::ui::modals::NewAssetModal;
 use crate::ui_state::EditorModelUiState;
 use egui::{InnerResponse, Response, Ui};
+use image::imageops::contrast;
 use hydrate_model::{AssetLocation, EditorModel, LocationTreeNode};
+use crate::image_loader::AssetThumbnailImageLoader;
 
 #[derive(Default)]
 pub struct AssetTreeUiState {
@@ -13,6 +15,8 @@ pub struct AssetTreeUiState {
 fn draw_tree_node(
     ui: &mut egui::Ui,
     editor_model: &EditorModel,
+    editor_model_ui_state: &EditorModelUiState,
+    thumbnail_image_loader: &AssetThumbnailImageLoader,
     action_sender: &UIActionQueueSender,
     asset_tree_ui_state: &mut AssetTreeUiState,
     tree_node: &LocationTreeNode,
@@ -35,14 +39,18 @@ fn draw_tree_node(
     crate::ui::drag_drop::drag_source(
         ui,
         egui::Id::new(path_node_asset_id),
-        DragDropPayload::AssetReference(path_node_asset_id),
-        |ui| {
+        editor_model,
+        editor_model_ui_state,
+        thumbnail_image_loader,
+        &mut (),
+        |_| DragDropPayload::AssetReferences(path_node_asset_id, vec![path_node_asset_id]),
+        |ui, _| {
             //Reject drop if asset is dropped on itself
             //TODO: Make this also reject if dragged is already a child of this node
             let can_accept = match crate::ui::drag_drop::peek_payload() {
                 None => false,
-                Some(DragDropPayload::AssetReference(payload_asset_id)) => {
-                    payload_asset_id != path_node_asset_id
+                Some(DragDropPayload::AssetReferences(primary_dragged_asset_id, all_dragged_asset_ids)) => {
+                    primary_dragged_asset_id != path_node_asset_id && !all_dragged_asset_ids.contains(&path_node_asset_id)
                 }
             };
 
@@ -87,6 +95,8 @@ fn draw_tree_node(
                                         draw_tree_node(
                                             ui,
                                             editor_model,
+                                            editor_model_ui_state,
+                                            thumbnail_image_loader,
                                             action_sender,
                                             asset_tree_ui_state,
                                             child_tree_node,
@@ -150,14 +160,9 @@ fn handle_drop_on_asset_tree_node(
 ) {
     if let Some(payload) = crate::ui::drag_drop::try_take_dropped_payload(ui, &response.response) {
         match payload {
-            DragDropPayload::AssetReference(payload_asset_id) => {
-                println!(
-                    "DROPPED ASSET {:?} ON {:?}",
-                    payload_asset_id,
-                    dropped_on_tree_node.location.path_node_id()
-                );
-                action_sender.queue_action(UIAction::MoveAsset(
-                    payload_asset_id,
+            DragDropPayload::AssetReferences(primary_dragged_asset_id, all_dragged_asset_ids) => {
+                action_sender.queue_action(UIAction::MoveAssets(
+                    all_dragged_asset_ids,
                     dropped_on_tree_node.location,
                 ));
             }
@@ -168,6 +173,7 @@ fn handle_drop_on_asset_tree_node(
 pub fn draw_asset_tree(
     ui: &mut egui::Ui,
     editor_model: &EditorModel,
+    thumbnail_image_loader: &AssetThumbnailImageLoader,
     action_sender: &UIActionQueueSender,
     editor_model_ui_state: &EditorModelUiState,
     asset_tree_ui_state: &mut AssetTreeUiState,
@@ -192,6 +198,8 @@ pub fn draw_asset_tree(
                     draw_tree_node(
                         ui,
                         editor_model,
+                        editor_model_ui_state,
+                        thumbnail_image_loader,
                         action_sender,
                         asset_tree_ui_state,
                         tree_node,

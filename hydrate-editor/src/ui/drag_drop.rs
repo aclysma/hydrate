@@ -1,10 +1,13 @@
 use egui::*;
-use hydrate_model::AssetId;
+use hydrate_model::{AssetId, EditorModel};
 use std::sync::Mutex;
+use crate::image_loader::AssetThumbnailImageLoader;
+use crate::ui::draw_thumbnail_stack;
+use crate::ui_state::EditorModelUiState;
 
 #[derive(Clone)]
 pub enum DragDropPayload {
-    AssetReference(AssetId),
+    AssetReferences(AssetId, Vec<AssetId>),
 }
 
 lazy_static::lazy_static! {
@@ -16,10 +19,24 @@ lazy_static::lazy_static! {
 pub fn render_payload(
     ui: &mut egui::Ui,
     payload: &DragDropPayload,
+    editor_model: &EditorModel,
+    editor_model_ui_state: &EditorModelUiState,
+    thumbnail_image_loader: &AssetThumbnailImageLoader
 ) {
     match payload {
-        DragDropPayload::AssetReference(asset_id) => {
-            ui.label(asset_id.to_string());
+        DragDropPayload::AssetReferences(primary_asset_id, all_asset_ids) => {
+            if all_asset_ids.len() > 1 {
+                ui.label(format!("{} selected assets", all_asset_ids.len()));
+            } else {
+                let path = editor_model.asset_path(*primary_asset_id, &editor_model_ui_state.asset_path_cache);
+                if let Some(path) = path {
+                    ui.label(format!("{}", path.as_str()));
+                } else {
+                    ui.label(primary_asset_id.to_string());
+                }
+            }
+
+            draw_thumbnail_stack(ui, editor_model, thumbnail_image_loader, *primary_asset_id, all_asset_ids.iter().copied());
         }
     }
 }
@@ -36,17 +53,22 @@ pub fn take_payload() -> Option<DragDropPayload> {
     DRAG_DROP_PAYLOAD.lock().unwrap().take()
 }
 
-pub fn drag_source(
+pub fn drag_source<ParamsT>(
     ui: &mut Ui,
     id: Id,
-    payload: DragDropPayload,
-    body: impl FnOnce(&mut Ui) -> Response,
+    //payload: DragDropPayload,
+    editor_model: &EditorModel,
+    editor_model_ui_state: &EditorModelUiState,
+    thumbnail_image_loader: &AssetThumbnailImageLoader,
+    params: &mut ParamsT,
+    create_payload_fn: impl FnOnce(&mut ParamsT) -> DragDropPayload,
+    body: impl FnOnce(&mut Ui, &mut ParamsT) -> Response,
 ) {
     let is_being_dragged = ui.memory(|mem| mem.is_being_dragged(id));
 
     if !is_being_dragged {
         //let response = ui.scope(body).response;
-        let response = body(ui);
+        let response = body(ui, params);
 
         // Check for drags:
         let mut allow_check_for_drag = false;
@@ -61,14 +83,14 @@ pub fn drag_source(
         });
         if allow_check_for_drag && response.hovered() {
             ui.memory_mut(|mem| mem.set_dragged_id(id));
-            set_payload(payload);
+            set_payload(create_payload_fn(params));
         }
     } else {
         ui.ctx().set_cursor_icon(CursorIcon::Grabbing);
         let pointer_pos = ui.ctx().input(|input| input.pointer.latest_pos());
 
         // Paint the widget in-place
-        body(ui);
+        body(ui, params);
 
         // Paint the widget floating under cursor and still allocate the space in the dragged widget's
         // container
@@ -93,7 +115,7 @@ pub fn drag_source(
                 .fixed_pos(pointer_pos)
                 .show(ui.ctx(), |ui| {
                     //ui.label("dragged")
-                    render_payload(ui, &payload);
+                    render_payload(ui, &create_payload_fn(params), editor_model, editor_model_ui_state, thumbnail_image_loader);
                     //body(ui);
                 });
         }

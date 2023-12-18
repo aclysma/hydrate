@@ -62,6 +62,7 @@ fn draw_log_event_view(ui: &mut egui::Ui, ui_context: &mut MainUiContext) {
         &ui_context.ui_state.editor_model_ui_state,
         &ui_context.asset_engine,
         &mut ui_context.ui_state.log_event_view_ui_state,
+        ui_context.action_queue_sender,
     );
 }
 

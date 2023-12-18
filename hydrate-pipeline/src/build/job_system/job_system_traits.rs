@@ -1,5 +1,5 @@
 use super::{JobId, JobTypeId};
-use crate::{LogEvent, LogEventLevel, PipelineResult};
+use crate::{BuildLogEvent, LogEventLevel, PipelineResult};
 use hydrate_base::handle::DummySerdeContextHandle;
 use hydrate_base::hashing::HashMap;
 use hydrate_base::{ArtifactId, AssetId, BuiltArtifactHeaderData, Handle};
@@ -79,7 +79,7 @@ pub trait JobApi: Send + Sync {
         schema_set: &SchemaSet,
         job: NewJob,
         debug_name: String,
-        log_events: &mut Vec<LogEvent>,
+        log_events: &mut Vec<BuildLogEvent>,
     ) -> PipelineResult<JobId>;
 
     fn artifact_handle_created(
@@ -136,7 +136,7 @@ pub(crate) trait JobProcessorAbstract: Send + Sync {
         input: &Vec<u8>,
         data_set: &DataSet,
         schema_set: &SchemaSet,
-        log_events: &mut Vec<LogEvent>,
+        log_events: &mut Vec<BuildLogEvent>,
     ) -> PipelineResult<JobEnumeratedDependencies>;
 
     fn run_inner(
@@ -148,7 +148,7 @@ pub(crate) trait JobProcessorAbstract: Send + Sync {
         job_api: &dyn JobApi,
         fetched_asset_data: &mut HashMap<AssetId, FetchedAssetData>,
         fetched_import_data: &mut HashMap<AssetId, FetchedImportData>,
-        log_events: &mut Vec<LogEvent>,
+        log_events: &mut Vec<BuildLogEvent>,
     ) -> PipelineResult<Arc<Vec<u8>>>;
 }
 
@@ -158,7 +158,7 @@ pub struct EnumerateDependenciesContext<'a, InputT> {
     pub input: &'a InputT,
     pub data_set: &'a DataSet,
     pub schema_set: &'a SchemaSet,
-    pub(crate) log_events: &'a Rc<RefCell<&'a mut Vec<LogEvent>>>,
+    pub(crate) log_events: &'a Rc<RefCell<&'a mut Vec<BuildLogEvent>>>,
 }
 
 impl<'a, InputT> EnumerateDependenciesContext<'a, InputT> {
@@ -169,7 +169,7 @@ impl<'a, InputT> EnumerateDependenciesContext<'a, InputT> {
         };
 
         let mut log_events = self.log_events.borrow_mut();
-        log_events.push(LogEvent {
+        log_events.push(BuildLogEvent {
             asset_id,
             job_id,
             level: LogEventLevel::Warning,
@@ -184,7 +184,7 @@ impl<'a, InputT> EnumerateDependenciesContext<'a, InputT> {
         };
 
         let mut log_events = self.log_events.borrow_mut();
-        log_events.push(LogEvent {
+        log_events.push(BuildLogEvent {
             asset_id: None,
             job_id: Some(self.job_id),
             level: LogEventLevel::Error,
@@ -216,14 +216,14 @@ pub struct RunContext<'a, InputT> {
     pub(crate) fetched_asset_data: &'a Rc<RefCell<&'a mut HashMap<AssetId, FetchedAssetData>>>,
     pub(crate) fetched_import_data: &'a Rc<RefCell<&'a mut HashMap<AssetId, FetchedImportData>>>,
     pub(crate) job_api: &'a dyn JobApi,
-    pub(crate) log_events: &'a Rc<RefCell<&'a mut Vec<LogEvent>>>,
+    pub(crate) log_events: &'a Rc<RefCell<&'a mut Vec<BuildLogEvent>>>,
 
 }
 
 impl<'a, InputT> RunContext<'a, InputT> {
     pub fn warn<T: Into<String>>(&self, message: T) {
         let mut log_events = self.log_events.borrow_mut();
-        log_events.push(LogEvent{
+        log_events.push(BuildLogEvent {
             asset_id: None,
             job_id: Some(self.job_id),
             level: LogEventLevel::Warning,
@@ -233,7 +233,7 @@ impl<'a, InputT> RunContext<'a, InputT> {
 
     pub fn error<T: Into<String>>(&self, message: T) {
         let mut log_events = self.log_events.borrow_mut();
-        log_events.push(LogEvent{
+        log_events.push(BuildLogEvent {
             asset_id: None,
             job_id: Some(self.job_id),
             level: LogEventLevel::Error,
@@ -377,7 +377,7 @@ pub(crate) fn enqueue_job<T: JobProcessor>(
     schema_set: &SchemaSet,
     job_api: &dyn JobApi,
     input: <T as JobProcessor>::InputT,
-    log_events: &mut Vec<LogEvent>,
+    log_events: &mut Vec<BuildLogEvent>,
 ) -> PipelineResult<JobId> {
     let mut hasher = siphasher::sip128::SipHasher::default();
     input.hash(&mut hasher);

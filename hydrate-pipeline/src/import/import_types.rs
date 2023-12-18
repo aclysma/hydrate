@@ -1,4 +1,4 @@
-use crate::{HydrateProjectConfiguration, ImporterRegistry, PipelineResult};
+use crate::{BuildLogEvent, HydrateProjectConfiguration, ImporterRegistry, ImportLogEvent, LogEventLevel, PipelineResult};
 use hydrate_data::{AssetId, CanonicalPathReference, HashMap, ImportableName, ImporterId, PathReference, PathReferenceHash, Record, SchemaRecord, SchemaSet, SingleObject};
 use std::cell::RefCell;
 use std::path::{Path, PathBuf};
@@ -49,6 +49,7 @@ pub struct ScanContext<'a> {
     pub importer_registry: &'a ImporterRegistry,
     project_config: &'a HydrateProjectConfiguration,
     pub(crate) scanned_importables: Rc<RefCell<&'a mut HashMap<ImportableName, ScannedImportable>>>,
+    pub(crate) log_events: Rc<RefCell<&'a mut Vec<ImportLogEvent>>>,
 }
 
 pub struct ScanContextImportable<'a> {
@@ -63,6 +64,7 @@ impl<'a> ScanContext<'a> {
         importer_registry: &'a ImporterRegistry,
         project_config: &'a HydrateProjectConfiguration,
         scanned_importables: &'a mut HashMap<ImportableName, ScannedImportable>,
+        log_events: &'a mut Vec<ImportLogEvent>,
     ) -> ScanContext<'a> {
         ScanContext {
             path,
@@ -70,7 +72,28 @@ impl<'a> ScanContext<'a> {
             importer_registry,
             project_config,
             scanned_importables: Rc::new(RefCell::new(scanned_importables)),
+            log_events: Rc::new(RefCell::new(log_events)),
         }
+    }
+
+    pub fn warn<T: Into<String>>(&self, message: T) {
+        let mut log_events = self.log_events.borrow_mut();
+        log_events.push(ImportLogEvent {
+            path: self.path.to_path_buf(),
+            asset_id: None,
+            level: LogEventLevel::Warning,
+            message: message.into()
+        });
+    }
+
+    pub fn error<T: Into<String>>(&self, message: T) {
+        let mut log_events = self.log_events.borrow_mut();
+        log_events.push(ImportLogEvent {
+            path: self.path.to_path_buf(),
+            asset_id: None,
+            level: LogEventLevel::Error,
+            message: message.into()
+        });
     }
 
     pub fn add_importable<T: Record>(
@@ -231,6 +254,7 @@ pub struct ImportContext<'a> {
     pub schema_set: &'a SchemaSet,
     project_config: &'a HydrateProjectConfiguration,
     imported_importables: Rc<RefCell<&'a mut HashMap<ImportableName, ImportedImportable>>>,
+    pub(crate) log_events: Rc<RefCell<&'a mut Vec<ImportLogEvent>>>,
 }
 
 impl<'a> ImportContext<'a> {
@@ -240,6 +264,7 @@ impl<'a> ImportContext<'a> {
         schema_set: &'a SchemaSet,
         project_config: &'a HydrateProjectConfiguration,
         imported_importables: &'a mut HashMap<ImportableName, ImportedImportable>,
+        log_events: &'a mut Vec<ImportLogEvent>,
     ) -> ImportContext<'a> {
         ImportContext {
             path,
@@ -247,7 +272,28 @@ impl<'a> ImportContext<'a> {
             schema_set,
             project_config,
             imported_importables: Rc::new(RefCell::new(imported_importables)),
+            log_events: Rc::new(RefCell::new(log_events)),
         }
+    }
+
+    pub fn warn<T: Into<String>>(&self, message: T) {
+        let mut log_events = self.log_events.borrow_mut();
+        log_events.push(ImportLogEvent {
+            path: self.path.to_path_buf(),
+            asset_id: None,
+            level: LogEventLevel::Warning,
+            message: message.into()
+        });
+    }
+
+    pub fn error<T: Into<String>>(&self, message: T) {
+        let mut log_events = self.log_events.borrow_mut();
+        log_events.push(ImportLogEvent {
+            path: self.path.to_path_buf(),
+            asset_id: None,
+            level: LogEventLevel::Error,
+            message: message.into()
+        });
     }
 
     pub fn add_importable(

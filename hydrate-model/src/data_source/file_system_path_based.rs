@@ -699,6 +699,7 @@ impl DataSource for FileSystemPathBasedDataSource {
                                 &self.importer_registry,
                                 project_config,
                                 &mut scanned_importables,
+                                &mut log_events,
                             ))
                             .unwrap()
                     };

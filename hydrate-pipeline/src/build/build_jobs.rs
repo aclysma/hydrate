@@ -1,5 +1,5 @@
 use std::cell::RefCell;
-use crate::{DynEditorModel, LogEvent, LogEventLevel, PipelineResult};
+use crate::{DynEditorModel, BuildLogEvent, LogEventLevel, PipelineResult};
 use hydrate_base::{hashing::HashMap, AssetId};
 use hydrate_base::{
     ArtifactId, BuiltArtifactHeaderData, DebugArtifactManifestDataJson, DebugManifestFileJson,
@@ -56,12 +56,12 @@ struct BuiltArtifactInfo {
 
 #[derive(Default)]
 pub struct BuildLogData {
-    pub(crate) log_events: Vec<LogEvent>,
+    pub(crate) log_events: Vec<BuildLogEvent>,
     pub(crate) requestors: HashMap<JobId, Vec<JobRequestor>>,
 }
 
 impl BuildLogData {
-    pub fn log_events(&self) -> &[LogEvent] {
+    pub fn log_events(&self) -> &[BuildLogEvent] {
         &self.log_events
     }
 

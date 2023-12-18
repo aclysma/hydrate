@@ -21,6 +21,10 @@ pub struct RequestedImportable {
     pub replace_with_default_asset: bool,
 }
 
+pub struct ImportJobToQueue {
+
+}
+
 #[derive(Debug)]
 pub struct ImportToQueue {
     pub source_file_path: PathBuf,
@@ -85,6 +89,7 @@ pub fn recursively_gather_import_operations_and_create_assets(
     let mut imported_asset_ids = HashMap::default();
 
     let mut scanned_importables = HashMap::default();
+    let mut log_events = Vec::default();
 
     importer.scan_file(ScanContext::new(
         &source_file_path,
@@ -92,6 +97,7 @@ pub fn recursively_gather_import_operations_and_create_assets(
         importer_registry,
         project_config,
         &mut scanned_importables,
+        &mut log_events
     ))?;
 
     for (scanned_importable_name, scanned_importable) in &scanned_importables {

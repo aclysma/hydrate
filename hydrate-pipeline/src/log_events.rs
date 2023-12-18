@@ -1,3 +1,4 @@
+use std::path::PathBuf;
 use hydrate_base::AssetId;
 use crate::JobId;
 
@@ -7,7 +8,14 @@ pub enum LogEventLevel {
     Error
 }
 
-pub struct LogEvent {
+pub struct ImportLogEvent {
+    pub path: PathBuf,
+    pub asset_id: Option<AssetId>,
+    pub level: LogEventLevel,
+    pub message: String,
+}
+
+pub struct BuildLogEvent {
     pub asset_id: Option<AssetId>,
     pub job_id: Option<JobId>,
     pub level: LogEventLevel,

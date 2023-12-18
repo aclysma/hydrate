@@ -184,6 +184,7 @@ fn do_import(
 
     let importer_id = msg.import_op.importer_id;
     let importer = importer_registry.importer(importer_id).unwrap();
+    let mut log_events = Vec::default();
     let mut imported_importables = HashMap::default();
 
     //
@@ -197,6 +198,7 @@ fn do_import(
             schema_set,
             project_config,
             &mut imported_importables,
+            &mut log_events,
         ))?
     }
 

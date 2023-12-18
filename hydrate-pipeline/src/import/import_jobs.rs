@@ -6,7 +6,7 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use crossbeam_channel::Receiver;
 
-use crate::{DynEditorModel, HydrateProjectConfiguration, PipelineResult};
+use crate::{DynEditorModel, HydrateProjectConfiguration, BuildLogEvent, PipelineResult, ImportLogEvent};
 use hydrate_base::uuid_path::{path_to_uuid, uuid_to_path};
 use hydrate_data::ImportableName;
 use hydrate_data::{ImporterId, SchemaSet, SingleObject};
@@ -84,6 +84,7 @@ struct ImportJob {
     //imported_data_stale: bool, // how to know it's stale? (we need timestamp/filesize stored along with import data, and paths to file it included) We may not know until we try to open it
     //imported_data_invalid: bool, // how to know it's valid? (does it parse? does it have errors? we may not know until we try to open it)
     imported_data_hash: Option<u64>,
+    log_events: Vec<ImportLogEvent>
 }
 
 impl ImportJob {
@@ -94,6 +95,7 @@ impl ImportJob {
             //imported_data_stale: false,
             //imported_data_invalid: false,
             imported_data_hash: None,
+            log_events: Vec::default(),
         }
     }
 }
@@ -124,6 +126,7 @@ pub struct ImportJobs {
     import_jobs: HashMap<AssetId, ImportJob>,
     import_operations: Vec<ImportOp>,
     current_import_task: Option<ImportTask>,
+    previous_log_events: Option<Vec<ImportLogEvent>>
 }
 
 impl ImportJobs {
@@ -150,6 +153,7 @@ impl ImportJobs {
             import_jobs,
             import_operations: Default::default(),
             current_import_task: None,
+            previous_log_events: None,
         }
     }
 

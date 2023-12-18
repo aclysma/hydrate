@@ -274,14 +274,19 @@ pub fn draw_asset_gallery(
         asset_gallery_ui_state.all_selectable_assets.insert(asset_id);
     }
 
+    let (_, mut next_rect) = ui.allocate_space(ui.available_size());
+    next_rect.min.x += 8.0;
+    next_rect.max.x -= 8.0;
+    let mut child_ui = ui.child_ui(next_rect, egui::Layout::top_down(egui::Align::Center));
+
     let view_mode = asset_gallery_ui_state.view_mode;
     match view_mode {
         AssetGalleryViewMode::Table => {
             egui::ScrollArea::both()
-                .max_width(f32::INFINITY)
+                .max_width(child_ui.available_width())
                 .max_height(f32::INFINITY)
                 .auto_shrink([false, false])
-                .show(ui, |ui| {
+                .show(&mut child_ui, |ui| {
                     draw_asset_gallery_list(
                         ui,
                         db_state,
@@ -295,10 +300,10 @@ pub fn draw_asset_gallery(
         }
         AssetGalleryViewMode::Grid => {
             egui::ScrollArea::vertical()
-                .max_width(f32::INFINITY)
+                .max_width(child_ui.available_width())
                 .max_height(f32::INFINITY)
                 .auto_shrink([false, false])
-                .show(ui, |ui| {
+                .show(&mut child_ui, |ui| {
                     draw_asset_gallery_tile_grid(
                         ui,
                         db_state,

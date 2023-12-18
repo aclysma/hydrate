@@ -10,7 +10,7 @@ use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 use std::thread::JoinHandle;
-use crate::{LogEvent, PipelineResult};
+use crate::{BuildLogEvent, PipelineResult};
 
 // Ask the thread to gather build data from the asset
 pub(crate) struct JobExecutorThreadPoolRequestRunJob {
@@ -32,7 +32,7 @@ pub(crate) struct JobExecutorThreadPoolOutcomeRunJobComplete {
     pub result: PipelineResult<Arc<Vec<u8>>>,
     pub fetched_asset_data: HashMap<AssetId, FetchedAssetData>,
     pub fetched_import_data: HashMap<AssetId, FetchedImportData>,
-    pub log_events: Vec<LogEvent>,
+    pub log_events: Vec<BuildLogEvent>,
     //asset: SingleObject,
     //import_data: SingleObject,
 }

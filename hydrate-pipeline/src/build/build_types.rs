@@ -3,7 +3,7 @@ use std::rc::Rc;
 use super::{JobApi, JobId, JobProcessor, JobRequestor};
 use hydrate_base::{ArtifactId, BuiltArtifactHeaderData};
 use hydrate_data::{AssetId, DataSet, SchemaSet};
-use crate::{LogEvent, LogEventLevel, PipelineResult};
+use crate::{BuildLogEvent, LogEventLevel, PipelineResult};
 
 pub struct BuiltAsset {
     pub asset_id: AssetId,
@@ -32,13 +32,13 @@ pub struct BuilderContext<'a> {
     pub data_set: &'a DataSet,
     pub schema_set: &'a SchemaSet,
     pub job_api: &'a dyn JobApi,
-    pub(crate) log_events: &'a Rc<RefCell<&'a mut Vec<LogEvent>>>,
+    pub(crate) log_events: &'a Rc<RefCell<&'a mut Vec<BuildLogEvent>>>,
 }
 
 impl<'a> BuilderContext<'a> {
     pub fn warn<T: Into<String>>(&self, message: T) {
         let mut log_events = self.log_events.borrow_mut();
-        log_events.push(LogEvent {
+        log_events.push(BuildLogEvent {
             asset_id: Some(self.asset_id),
             job_id: None,
             level: LogEventLevel::Warning,
@@ -48,7 +48,7 @@ impl<'a> BuilderContext<'a> {
 
     pub fn error<T: Into<String>>(&self, message: T) {
         let mut log_events = self.log_events.borrow_mut();
-        log_events.push(LogEvent {
+        log_events.push(BuildLogEvent {
             asset_id: Some(self.asset_id),
             job_id: None,
             level: LogEventLevel::Error,

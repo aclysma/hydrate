@@ -13,7 +13,7 @@ use std::sync::Arc;
 use log::Log;
 use crate::build::{BuildLogData, BuiltArtifact, WrittenArtifact};
 use crate::import::ImportData;
-use crate::{LogEvent, LogEventLevel, PipelineResult};
+use crate::{BuildLogEvent, LogEventLevel, PipelineResult};
 
 use super::*;
 
@@ -35,7 +35,7 @@ where
         input: &Vec<u8>,
         data_set: &DataSet,
         schema_set: &SchemaSet,
-        log_events: &mut Vec<LogEvent>,
+        log_events: &mut Vec<BuildLogEvent>,
     ) -> PipelineResult<JobEnumeratedDependencies> {
         let data: <T as JobProcessor>::InputT = bincode::deserialize(input.as_slice()).unwrap();
         self.0.enumerate_dependencies(EnumerateDependenciesContext {
@@ -57,7 +57,7 @@ where
         job_api: &dyn JobApi,
         fetched_asset_data: &mut HashMap<AssetId, FetchedAssetData>,
         fetched_import_data: &mut HashMap<AssetId, FetchedImportData>,
-        log_events: &mut Vec<LogEvent>,
+        log_events: &mut Vec<BuildLogEvent>,
     ) -> PipelineResult<Arc<Vec<u8>>> {
         let data: <T as JobProcessor>::InputT = bincode::deserialize(input.as_slice()).unwrap();
         let output = {
@@ -223,7 +223,7 @@ impl JobApi for JobApiImpl {
         schema_set: &SchemaSet,
         new_job: NewJob,
         debug_name: String,
-        log_events: &mut Vec<LogEvent>,
+        log_events: &mut Vec<BuildLogEvent>,
     ) -> PipelineResult<JobId> {
         // Dependencies:
         // - Job Versioning - so if logic changes we can bump version of the processor and kick jobs to rerun
@@ -529,7 +529,7 @@ impl JobExecutor {
         }
     }
 
-    fn handle_completed_queue(&mut self, log_events: &mut Vec<LogEvent>) {
+    fn handle_completed_queue(&mut self, log_events: &mut Vec<BuildLogEvent>) {
         while let Ok(result) = self.thread_pool_result_rx.try_recv() {
             match result {
                 JobExecutorThreadPoolOutcome::RunJobComplete(msg) => {
@@ -683,7 +683,7 @@ impl JobExecutor {
         self.current_jobs.len()
     }
 
-    pub fn stop(&mut self, log_events: &mut Vec<LogEvent>) {
+    pub fn stop(&mut self, log_events: &mut Vec<BuildLogEvent>) {
         //TODO: If we have a thread pool do we need to notify them to stop?
         self.clear_create_queue();
         self.handle_completed_queue(log_events);

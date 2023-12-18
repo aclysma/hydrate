@@ -10,7 +10,6 @@ use job_executor_thread_pool::*;
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
 use std::hash::Hash;
-use uuid::Uuid;
 
 crate::create_uuid_newtype!(JobId, "JobId");
 crate::create_uuid_newtype!(JobTypeId, "JobTypeId");

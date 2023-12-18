@@ -10,7 +10,7 @@ use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 use std::thread::JoinHandle;
-use crate::PipelineResult;
+use crate::{LogEvent, PipelineResult};
 
 // Ask the thread to gather build data from the asset
 pub(crate) struct JobExecutorThreadPoolRequestRunJob {
@@ -32,6 +32,7 @@ pub(crate) struct JobExecutorThreadPoolOutcomeRunJobComplete {
     pub result: PipelineResult<Arc<Vec<u8>>>,
     pub fetched_asset_data: HashMap<AssetId, FetchedAssetData>,
     pub fetched_import_data: HashMap<AssetId, FetchedImportData>,
+    pub log_events: Vec<LogEvent>,
     //asset: SingleObject,
     //import_data: SingleObject,
 }
@@ -56,6 +57,7 @@ fn do_build(
 
     let mut fetched_asset_data = HashMap::<AssetId, FetchedAssetData>::default();
     let mut fetched_import_data = HashMap::<AssetId, FetchedImportData>::default();
+    let mut log_events = Vec::default();
 
     // Execute the job
     let job_processor = job_processor_registry
@@ -64,12 +66,14 @@ fn do_build(
     let result = {
         profiling::scope!(&format!("JobProcessor::run_inner"));
         job_processor.run_inner(
+            request.job_id,
             &request.input_data,
             &*request.data_set,
             schema_set,
             job_api,
             &mut fetched_asset_data,
             &mut fetched_import_data,
+            &mut log_events,
         )
     };
 
@@ -78,6 +82,7 @@ fn do_build(
         result,
         fetched_asset_data,
         fetched_import_data,
+        log_events,
     })
 
     //TODO: Write to file

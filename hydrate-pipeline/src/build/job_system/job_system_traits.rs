@@ -1,5 +1,5 @@
 use super::{JobId, JobTypeId};
-use crate::{PipelineResult};
+use crate::{LogEvent, LogEventLevel, PipelineResult};
 use hydrate_base::handle::DummySerdeContextHandle;
 use hydrate_base::hashing::HashMap;
 use hydrate_base::{ArtifactId, AssetId, BuiltArtifactHeaderData, Handle};
@@ -62,12 +62,19 @@ fn create_artifact_id<T: Hash>(
     }
 }
 
+#[derive(Debug, Copy, Clone)]
+pub enum JobRequestor {
+    Builder(AssetId),
+    Job(JobId),
+}
+
 //
 // API Design
 //
 pub trait JobApi: Send + Sync {
     fn enqueue_job(
         &self,
+        job_requestor: JobRequestor,
         data_set: &DataSet,
         schema_set: &SchemaSet,
         job: NewJob,
@@ -130,12 +137,14 @@ pub(crate) trait JobProcessorAbstract: Send + Sync {
 
     fn run_inner(
         &self,
+        job_id: JobId,
         input: &Vec<u8>,
         data_set: &DataSet,
         schema_set: &SchemaSet,
         job_api: &dyn JobApi,
         fetched_asset_data: &mut HashMap<AssetId, FetchedAssetData>,
         fetched_import_data: &mut HashMap<AssetId, FetchedImportData>,
+        log_events: &mut Vec<LogEvent>,
     ) -> PipelineResult<Arc<Vec<u8>>>;
 }
 
@@ -161,15 +170,46 @@ pub(crate) struct FetchedImportData {
 
 #[derive(Copy, Clone)]
 pub struct RunContext<'a, InputT> {
+    pub job_id: JobId,
     pub input: &'a InputT,
     pub data_set: &'a DataSet,
     pub schema_set: &'a SchemaSet,
     pub(crate) fetched_asset_data: &'a Rc<RefCell<&'a mut HashMap<AssetId, FetchedAssetData>>>,
     pub(crate) fetched_import_data: &'a Rc<RefCell<&'a mut HashMap<AssetId, FetchedImportData>>>,
     pub(crate) job_api: &'a dyn JobApi,
+    pub(crate) log_events: &'a Rc<RefCell<&'a mut Vec<LogEvent>>>,
+
 }
 
 impl<'a, InputT> RunContext<'a, InputT> {
+    // pub fn add_trace<T: Into<String>>(warning: T) {
+    //
+    // }
+
+    pub fn add_warning<T: Into<String>>(&self, message: T) {
+        let mut log_events = self.log_events.borrow_mut();
+        log_events.push(LogEvent{
+            asset_id: None,
+            job_id: Some(self.job_id),
+            level: LogEventLevel::Warning,
+            message: message.into()
+        });
+    }
+
+    pub fn add_error<T: Into<String>>(&self, message: T) {
+        let mut log_events = self.log_events.borrow_mut();
+        log_events.push(LogEvent{
+            asset_id: None,
+            job_id: Some(self.job_id),
+            level: LogEventLevel::Error,
+            message: message.into()
+        });
+    }
+
+    // pub fn add_fatal<T: Into<String>>(warning: T) {
+    //
+    // }
+
     pub fn asset<T: Record>(
         &'a self,
         asset_id: AssetId,
@@ -236,7 +276,7 @@ impl<'a, InputT> RunContext<'a, InputT> {
         &self,
         input: <JobProcessorT as JobProcessor>::InputT,
     ) -> PipelineResult<JobId> {
-        enqueue_job::<JobProcessorT>(self.data_set, self.schema_set, self.job_api, input)
+        enqueue_job::<JobProcessorT>(JobRequestor::Job(self.job_id), self.data_set, self.schema_set, self.job_api, input)
     }
 
     pub fn produce_artifact<KeyT: Hash + std::fmt::Display, ArtifactT: TypeUuid + Serialize>(
@@ -301,6 +341,7 @@ pub trait JobProcessor: TypeUuid {
 }
 
 pub(crate) fn enqueue_job<T: JobProcessor>(
+    job_requestor: JobRequestor,
     data_set: &DataSet,
     schema_set: &SchemaSet,
     job_api: &dyn JobApi,
@@ -319,7 +360,7 @@ pub(crate) fn enqueue_job<T: JobProcessor>(
     };
 
     let debug_name = format!("{}", std::any::type_name::<T>());
-    job_api.enqueue_job(data_set, schema_set, queued_job, debug_name)
+    job_api.enqueue_job(job_requestor, data_set, schema_set, queued_job, debug_name)
 }
 
 fn produce_default_artifact<T: TypeUuid + Serialize>(

@@ -19,7 +19,7 @@ enum DockingPanelKind {
     AssetTree,
     AssetGallery,
     Inspector,
-    ErrorList
+    LogEventView,
 }
 
 struct MainUiContext<'a> {
@@ -28,6 +28,7 @@ struct MainUiContext<'a> {
     ui_state: &'a mut UiState,
     inspector_registry: &'a InspectorRegistry,
     thumbnail_image_loader: &'a ThumbnailImageLoader,
+    asset_engine: &'a AssetEngine,
 }
 
 impl<'a> egui_tiles::Behavior<DockingPanelKind> for MainUiContext<'a> {
@@ -42,18 +43,25 @@ impl<'a> egui_tiles::Behavior<DockingPanelKind> for MainUiContext<'a> {
         format!("{:?}", pane).into()
     }
 
-    fn pane_ui(&mut self, ui: &mut Ui, tile_id: TileId, pane: &mut DockingPanelKind) -> egui_tiles::UiResponse {
+    fn pane_ui(&mut self, ui: &mut Ui, _tile_id: TileId, pane: &mut DockingPanelKind) -> egui_tiles::UiResponse {
         match *pane {
             DockingPanelKind::AssetTree => draw_asset_tree(ui, self),
             DockingPanelKind::AssetGallery => draw_asset_gallery(ui, self),
             DockingPanelKind::Inspector => draw_property_inspector(ui, self),
-            DockingPanelKind::ErrorList => {
-                ui.label("todo");
-            }
+            DockingPanelKind::LogEventView => draw_log_event_view(ui, self),
         }
 
         egui_tiles::UiResponse::None
     }
+}
+
+fn draw_log_event_view(ui: &mut egui::Ui, ui_context: &mut MainUiContext) {
+    crate::ui::components::draw_log_event_view(
+        ui,
+        &ui_context.db_state.editor_model,
+        &ui_context.ui_state.editor_model_ui_state,
+        &ui_context.asset_engine,
+    );
 }
 
 fn draw_asset_tree(ui: &mut egui::Ui, ui_context: &mut MainUiContext) {
@@ -154,7 +162,7 @@ impl HydrateEditorApp {
 
         let mut center_tabs = vec![];
         center_tabs.push(tiles.insert_pane(DockingPanelKind::AssetGallery));
-        center_tabs.push(tiles.insert_pane(DockingPanelKind::ErrorList));
+        center_tabs.push(tiles.insert_pane(DockingPanelKind::LogEventView));
         let central_tabs = tiles.insert_tab_tile(center_tabs);
 
         let asset_tree_pane = tiles.insert_pane(DockingPanelKind::AssetTree);
@@ -306,6 +314,9 @@ impl eframe::App for HydrateEditorApp {
                             let needs_build = true;
                             if ui.add_enabled(needs_build, egui::Button::new("Build")).clicked() {
                                 self.asset_engine.queue_build_all();
+                                self.dock_state.make_active(|x| {
+                                    *x == egui_tiles::Tile::Pane(DockingPanelKind::LogEventView)
+                                });
                             }
                         });
                     });
@@ -338,6 +349,7 @@ impl eframe::App for HydrateEditorApp {
                 ui_state: &mut self.ui_state,
                 inspector_registry: &self.inspector_registry,
                 thumbnail_image_loader: &self.thumbnail_image_loader,
+                asset_engine: &self.asset_engine,
             };
 
             self.dock_state.ui(&mut ui_context, ui);

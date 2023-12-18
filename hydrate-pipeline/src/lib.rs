@@ -28,6 +28,9 @@ pub use crate::build::{
 };
 
 mod uuid_newtype;
+mod log_events;
+pub use log_events::*;
+use crate::build::BuildLogData;
 
 pub struct AssetPluginRegistries {
     pub importer_registry: ImporterRegistry,
@@ -179,6 +182,10 @@ impl AssetEngine {
             build_jobs,
             thumbnail_system,
         }
+    }
+
+    pub fn most_recent_build_log_data(&self) -> Option<&BuildLogData> {
+        self.build_jobs.most_recent_build_log_data()
     }
 
     pub fn thumbnail_provider_registry(&self) -> &ThumbnailProviderRegistry {

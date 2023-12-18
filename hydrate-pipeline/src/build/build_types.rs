@@ -1,4 +1,4 @@
-use super::{JobApi, JobId, JobProcessor};
+use super::{JobApi, JobId, JobProcessor, JobRequestor};
 use hydrate_base::{ArtifactId, BuiltArtifactHeaderData};
 use hydrate_data::{AssetId, DataSet, SchemaSet};
 use crate::PipelineResult;
@@ -40,7 +40,7 @@ impl<'a> BuilderContext<'a> {
         job_api: &dyn JobApi,
         input: <JobProcessorT as JobProcessor>::InputT,
     ) -> PipelineResult<JobId> {
-        super::job_system::enqueue_job::<JobProcessorT>(data_set, schema_set, job_api, input)
+        super::job_system::enqueue_job::<JobProcessorT>(JobRequestor::Builder(self.asset_id), data_set, schema_set, job_api, input)
     }
 }
 

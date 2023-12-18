@@ -10,9 +10,10 @@ use std::io::{BufWriter, Write};
 use std::path::PathBuf;
 use std::rc::Rc;
 use std::sync::Arc;
-use crate::build::{BuiltArtifact, WrittenArtifact};
+use log::Log;
+use crate::build::{BuildLogData, BuiltArtifact, WrittenArtifact};
 use crate::import::ImportData;
-use crate::PipelineResult;
+use crate::{LogEvent, LogEventLevel, PipelineResult};
 
 use super::*;
 
@@ -43,23 +44,27 @@ where
 
     fn run_inner(
         &self,
+        job_id: JobId,
         input: &Vec<u8>,
         data_set: &DataSet,
         schema_set: &SchemaSet,
         job_api: &dyn JobApi,
         fetched_asset_data: &mut HashMap<AssetId, FetchedAssetData>,
         fetched_import_data: &mut HashMap<AssetId, FetchedImportData>,
+        log_events: &mut Vec<LogEvent>,
     ) -> PipelineResult<Arc<Vec<u8>>> {
         let data: <T as JobProcessor>::InputT = bincode::deserialize(input.as_slice()).unwrap();
         let output = {
             profiling::scope!(&format!("{:?}::run", std::any::type_name::<T>()));
             self.0.run(&RunContext {
+                job_id,
                 input: &data,
                 data_set,
                 schema_set,
                 fetched_asset_data: &Rc::new(RefCell::new(fetched_asset_data)),
                 fetched_import_data: &Rc::new(RefCell::new(fetched_import_data)),
                 job_api,
+                log_events: &Rc::new(RefCell::new(log_events)),
             })
         }?;
         Ok(Arc::new(bincode::serialize(&output)?))
@@ -103,6 +108,7 @@ struct JobStateOuput {
 #[derive(Clone)]
 struct QueuedJob {
     job_id: JobId,
+    job_requestor: JobRequestor,
     job_type: JobTypeId,
     input_data: Arc<Vec<u8>>,
     dependencies: Arc<JobEnumeratedDependencies>,
@@ -206,6 +212,7 @@ pub struct JobApiImpl {
 impl JobApi for JobApiImpl {
     fn enqueue_job(
         &self,
+        job_requestor: JobRequestor,
         data_set: &DataSet,
         schema_set: &SchemaSet,
         new_job: NewJob,
@@ -230,6 +237,7 @@ impl JobApi for JobApiImpl {
             .job_create_queue_tx
             .send(QueuedJob {
                 job_id,
+                job_requestor,
                 job_type: new_job.job_type,
                 input_data: Arc::new(new_job.input_data),
                 dependencies: Arc::new(dependencies),
@@ -356,6 +364,15 @@ impl Drop for JobExecutor {
 }
 
 impl JobExecutor {
+    // pub fn all_build_event_logs(&self, ) {
+    //     for (job_id, job_state) in &self.current_jobs {
+    //         if let Some(output_data) = job_state.output_data {
+    //             for log_event in &output_data.log_events {
+    //
+    //             }
+    //         }
+    //     }
+    // }
 
     pub fn reset(&mut self) {
         assert!(self.is_idle());
@@ -479,8 +496,9 @@ impl JobExecutor {
         }
     }
 
-    fn handle_create_queue(&mut self) {
+    fn handle_create_queue(&mut self, log_data: &mut BuildLogData) {
         while let Ok(queued_job) = self.job_create_queue_rx.try_recv() {
+            log_data.requestors.entry(queued_job.job_id).or_default().push(queued_job.job_requestor);
             // If key exists, we already queued a job with these exact inputs and we can reuse the outputs
             if !self.current_jobs.contains_key(&queued_job.job_id) {
                 assert!(self
@@ -502,7 +520,7 @@ impl JobExecutor {
         }
     }
 
-    fn handle_completed_queue(&mut self) {
+    fn handle_completed_queue(&mut self, log_events: &mut Vec<LogEvent>) {
         while let Ok(result) = self.thread_pool_result_rx.try_recv() {
             match result {
                 JobExecutorThreadPoolOutcome::RunJobComplete(msg) => {
@@ -513,6 +531,10 @@ impl JobExecutor {
                         fetched_import_data: msg.fetched_import_data,
                     });
                     self.completed_job_count += 1;
+
+                    for log_event in msg.log_events {
+                        log_events.push(log_event);
+                    }
 
                     // When we a
                     //TODO: do we hash stuff here and do anything with it?
@@ -525,11 +547,12 @@ impl JobExecutor {
     pub fn update(
         &mut self,
         data_set: &Arc<DataSet>,
+        log_data: &mut BuildLogData,
     ) {
         //
         // Pull jobs off the create queue. Determine their dependencies and prepare them to run.
         //
-        self.handle_create_queue();
+        self.handle_create_queue(log_data);
 
         let mut started_jobs = Vec::default();
 
@@ -623,7 +646,7 @@ impl JobExecutor {
                 .has_been_scheduled = true;
         }
 
-        self.handle_completed_queue();
+        self.handle_completed_queue(&mut log_data.log_events);
 
         let now = std::time::Instant::now();
         let mut print_progress = true;
@@ -651,10 +674,10 @@ impl JobExecutor {
         self.current_jobs.len()
     }
 
-    pub fn stop(&mut self) {
+    pub fn stop(&mut self, log_events: &mut Vec<LogEvent>) {
         //TODO: If we have a thread pool do we need to notify them to stop?
         self.clear_create_queue();
-        self.handle_completed_queue();
+        self.handle_completed_queue(log_events);
 
         self.current_jobs.clear();
     }

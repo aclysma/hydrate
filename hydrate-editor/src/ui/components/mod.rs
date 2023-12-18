@@ -19,5 +19,5 @@ mod location_selector;
 pub use location_selector::draw_location_selector;
 
 mod log_event_view;
-pub use log_event_view::draw_log_event_view;
+pub use log_event_view::{draw_log_event_view, LogEventViewUiState};
 

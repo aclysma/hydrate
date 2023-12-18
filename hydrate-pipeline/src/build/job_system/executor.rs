@@ -30,15 +30,21 @@ where
 
     fn enumerate_dependencies_inner(
         &self,
+        job_id: JobId,
+        job_requestor: JobRequestor,
         input: &Vec<u8>,
         data_set: &DataSet,
         schema_set: &SchemaSet,
+        log_events: &mut Vec<LogEvent>,
     ) -> PipelineResult<JobEnumeratedDependencies> {
         let data: <T as JobProcessor>::InputT = bincode::deserialize(input.as_slice()).unwrap();
         self.0.enumerate_dependencies(EnumerateDependenciesContext {
+            job_id,
+            job_requestor,
             input: &data,
             data_set,
             schema_set,
+            log_events: &Rc::new(RefCell::new(log_events)),
         })
     }
 
@@ -217,6 +223,7 @@ impl JobApi for JobApiImpl {
         schema_set: &SchemaSet,
         new_job: NewJob,
         debug_name: String,
+        log_events: &mut Vec<LogEvent>,
     ) -> PipelineResult<JobId> {
         // Dependencies:
         // - Job Versioning - so if logic changes we can bump version of the processor and kick jobs to rerun
@@ -231,8 +238,10 @@ impl JobApi for JobApiImpl {
             .job_processor_registry
             .get(new_job.job_type)
             .unwrap();
+        //TODO: Currently if this fails, we add a log event to the caller using the job ID of the new job that never
+        // runs and is never reported. So we can't trace this error to the original asset(s).
         let dependencies =
-            processor.enumerate_dependencies_inner(&new_job.input_data, data_set, schema_set)?;
+            processor.enumerate_dependencies_inner(job_id, job_requestor, &new_job.input_data, data_set, schema_set, log_events)?;
         self.inner
             .job_create_queue_tx
             .send(QueuedJob {

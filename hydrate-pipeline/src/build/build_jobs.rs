@@ -1,3 +1,4 @@
+use std::cell::RefCell;
 use crate::{DynEditorModel, LogEvent, LogEventLevel, PipelineResult};
 use hydrate_base::{hashing::HashMap, AssetId};
 use hydrate_base::{
@@ -12,6 +13,7 @@ use std::sync::Arc;
 use hydrate_base::hashing::HashSet;
 use hydrate_data::{DataSet, SchemaSet};
 use crate::import::ImportJobs;
+use std::rc::Rc;
 
 use super::*;
 
@@ -207,6 +209,7 @@ impl BuildJobs {
                         data_set: &build_task.data_set,
                         schema_set: &build_task.schema_set,
                         job_api: self.job_executor.job_api(),
+                        log_events: &Rc::new(RefCell::new(&mut build_task.log_data.log_events))
                     })?;
                 }
             }

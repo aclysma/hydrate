@@ -79,6 +79,7 @@ pub trait JobApi: Send + Sync {
         schema_set: &SchemaSet,
         job: NewJob,
         debug_name: String,
+        log_events: &mut Vec<LogEvent>,
     ) -> PipelineResult<JobId>;
 
     fn artifact_handle_created(
@@ -130,9 +131,12 @@ pub(crate) trait JobProcessorAbstract: Send + Sync {
 
     fn enumerate_dependencies_inner(
         &self,
+        job_id: JobId,
+        job_requestor: JobRequestor,
         input: &Vec<u8>,
         data_set: &DataSet,
         schema_set: &SchemaSet,
+        log_events: &mut Vec<LogEvent>,
     ) -> PipelineResult<JobEnumeratedDependencies>;
 
     fn run_inner(
@@ -149,9 +153,44 @@ pub(crate) trait JobProcessorAbstract: Send + Sync {
 }
 
 pub struct EnumerateDependenciesContext<'a, InputT> {
+    pub job_id: JobId,
+    pub(crate) job_requestor: JobRequestor,
     pub input: &'a InputT,
     pub data_set: &'a DataSet,
     pub schema_set: &'a SchemaSet,
+    pub(crate) log_events: &'a Rc<RefCell<&'a mut Vec<LogEvent>>>,
+}
+
+impl<'a, InputT> EnumerateDependenciesContext<'a, InputT> {
+    pub fn warn<T: Into<String>>(&self, message: T) {
+        let (asset_id, job_id) = match self.job_requestor {
+            JobRequestor::Builder(asset_id) => (Some(asset_id), None),
+            JobRequestor::Job(job_id) => (None, Some(job_id)),
+        };
+
+        let mut log_events = self.log_events.borrow_mut();
+        log_events.push(LogEvent {
+            asset_id,
+            job_id,
+            level: LogEventLevel::Warning,
+            message: format!("While enumerating dependencies for new job {}: {}", self.job_id.as_uuid(), message.into())
+        });
+    }
+
+    pub fn error<T: Into<String>>(&self, message: T) {
+        let (asset_id, job_id) = match self.job_requestor {
+            JobRequestor::Builder(asset_id) => (Some(asset_id), None),
+            JobRequestor::Job(job_id) => (None, Some(job_id)),
+        };
+
+        let mut log_events = self.log_events.borrow_mut();
+        log_events.push(LogEvent {
+            asset_id: None,
+            job_id: Some(self.job_id),
+            level: LogEventLevel::Error,
+            message: format!("While enumerating dependencies for new job {}: {}", self.job_id.as_uuid(), message.into())
+        });
+    }
 }
 
 pub(crate) struct FetchedAssetData {
@@ -182,11 +221,7 @@ pub struct RunContext<'a, InputT> {
 }
 
 impl<'a, InputT> RunContext<'a, InputT> {
-    // pub fn add_trace<T: Into<String>>(warning: T) {
-    //
-    // }
-
-    pub fn add_warning<T: Into<String>>(&self, message: T) {
+    pub fn warn<T: Into<String>>(&self, message: T) {
         let mut log_events = self.log_events.borrow_mut();
         log_events.push(LogEvent{
             asset_id: None,
@@ -196,7 +231,7 @@ impl<'a, InputT> RunContext<'a, InputT> {
         });
     }
 
-    pub fn add_error<T: Into<String>>(&self, message: T) {
+    pub fn error<T: Into<String>>(&self, message: T) {
         let mut log_events = self.log_events.borrow_mut();
         log_events.push(LogEvent{
             asset_id: None,
@@ -205,10 +240,6 @@ impl<'a, InputT> RunContext<'a, InputT> {
             message: message.into()
         });
     }
-
-    // pub fn add_fatal<T: Into<String>>(warning: T) {
-    //
-    // }
 
     pub fn asset<T: Record>(
         &'a self,
@@ -276,7 +307,7 @@ impl<'a, InputT> RunContext<'a, InputT> {
         &self,
         input: <JobProcessorT as JobProcessor>::InputT,
     ) -> PipelineResult<JobId> {
-        enqueue_job::<JobProcessorT>(JobRequestor::Job(self.job_id), self.data_set, self.schema_set, self.job_api, input)
+        enqueue_job::<JobProcessorT>(JobRequestor::Job(self.job_id), self.data_set, self.schema_set, self.job_api, input, &mut self.log_events.borrow_mut())
     }
 
     pub fn produce_artifact<KeyT: Hash + std::fmt::Display, ArtifactT: TypeUuid + Serialize>(
@@ -346,6 +377,7 @@ pub(crate) fn enqueue_job<T: JobProcessor>(
     schema_set: &SchemaSet,
     job_api: &dyn JobApi,
     input: <T as JobProcessor>::InputT,
+    log_events: &mut Vec<LogEvent>,
 ) -> PipelineResult<JobId> {
     let mut hasher = siphasher::sip128::SipHasher::default();
     input.hash(&mut hasher);
@@ -360,7 +392,7 @@ pub(crate) fn enqueue_job<T: JobProcessor>(
     };
 
     let debug_name = format!("{}", std::any::type_name::<T>());
-    job_api.enqueue_job(job_requestor, data_set, schema_set, queued_job, debug_name)
+    job_api.enqueue_job(job_requestor, data_set, schema_set, queued_job, debug_name, log_events)
 }
 
 fn produce_default_artifact<T: TypeUuid + Serialize>(
@@ -489,42 +521,3 @@ impl<'a> HandleFactory<'a> {
         hydrate_base::handle::make_handle_within_serde_context::<T>(artifact_id)
     }
 }
-
-/*
-fn make_handle_to_default_artifact<T>(
-    job_api: &dyn JobApi,
-    asset_id: AssetId,
-) -> Handle<T> {
-    make_handle_to_artifact_key(job_api, asset_id, None::<u32>)
-}
-
-// pub fn make_handle_to_artifact<T>(
-//     job_api: &dyn JobApi,
-//     asset_artifact_id_pair: AssetArtifactIdPair,
-// ) -> Handle<T> {
-//     job_api.artifact_handle_created(
-//         asset_artifact_id_pair.asset_id,
-//         asset_artifact_id_pair.artifact_id,
-//     );
-//     hydrate_base::handle::make_handle_within_serde_context::<T>(asset_artifact_id_pair.artifact_id)
-// }
-
-fn make_handle_to_artifact_raw<T>(
-    job_api: &dyn JobApi,
-    asset_id: AssetId,
-    artifact_id: ArtifactId,
-) -> Handle<T> {
-    job_api.artifact_handle_created(asset_id, artifact_id);
-    hydrate_base::handle::make_handle_within_serde_context::<T>(artifact_id)
-}
-
-fn make_handle_to_artifact_key<T, K: Hash>(
-    job_api: &dyn JobApi,
-    asset_id: AssetId,
-    artifact_key: Option<K>,
-) -> Handle<T> {
-    let artifact_id = create_artifact_id(asset_id, artifact_key);
-    job_api.artifact_handle_created(asset_id, artifact_id);
-    hydrate_base::handle::make_handle_within_serde_context::<T>(artifact_id)
-}
-*/

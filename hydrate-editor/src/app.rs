@@ -5,7 +5,7 @@ use crate::egui_debug_ui::EguiDebugUiState;
 use crate::modal_action::{ModalAction, ModalActionControlFlow, ModalContext};
 use crate::persistent_app_state::PersistentAppState;
 use crate::ui::components::inspector_system::{InspectorRegistry};
-use crate::ui::components::{AssetGalleryUiState, AssetTreeUiState, InspectorUiState};
+use crate::ui::components::{AssetGalleryUiState, AssetTreeUiState, InspectorUiState, LogEventViewUiState};
 use crate::ui::modals::ImportFilesModal;
 use crate::ui_state::EditorModelUiState;
 use egui::{Ui, ViewportCommand, WidgetText};
@@ -61,6 +61,7 @@ fn draw_log_event_view(ui: &mut egui::Ui, ui_context: &mut MainUiContext) {
         &ui_context.db_state.editor_model,
         &ui_context.ui_state.editor_model_ui_state,
         &ui_context.asset_engine,
+        &mut ui_context.ui_state.log_event_view_ui_state,
     );
 }
 
@@ -107,6 +108,7 @@ pub struct UiState {
     pub asset_gallery_ui_state: AssetGalleryUiState,
     pub inspector_ui_state: InspectorUiState,
     pub editor_model_ui_state: EditorModelUiState,
+    pub log_event_view_ui_state: LogEventViewUiState,
     pub egui_debug_ui_state: EguiDebugUiState,
     pub user_confirmed_should_quit: bool,
 }

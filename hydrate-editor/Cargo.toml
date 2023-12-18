@@ -30,6 +30,7 @@ winit = "0.24"
 glam = "0.18.0"
 globwalk = "0.8.1"
 dunce = "1.0.4"
+time = { version = "0.3.30", features = ["formatting"] }
 
 serde = { default-features = false, version = "1.0.145", features = ["derive"] }
 serde_json = { default-features = false, version = "1.0.85", features = ["std"] }

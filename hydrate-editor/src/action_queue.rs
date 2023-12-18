@@ -4,7 +4,7 @@ use crate::ui::modals::ConfirmQuitWithoutSaving;
 use crate::ui::modals::ConfirmRevertChanges;
 use crossbeam_channel::{Receiver, Sender};
 use hydrate_model::edit_context::EditContext;
-use hydrate_model::pipeline::{AssetEngine, HydrateProjectConfiguration, ImportToQueue};
+use hydrate_model::pipeline::{AssetEngine, HydrateProjectConfiguration, ImportJobSourceFile, ImportJobToQueue};
 use hydrate_model::{
     AssetId, AssetLocation, AssetName, DataSetError, DataSetResult, EditorModel,
     EndContextBehavior, NullOverride, OverrideBehavior, PropertyPath, Schema, SchemaFingerprint,
@@ -210,7 +210,7 @@ impl UIActionQueueReceiver {
 
         }
 
-        let mut imports_to_queue = Vec::<ImportToQueue>::default();
+        let mut import_job_to_queue = ImportJobToQueue::default();
         while let Ok(action) = self.action_queue_rx.try_recv() {
             match action {
                 UIAction::ToggleSelectAllAssetGallery => {
@@ -223,7 +223,7 @@ impl UIActionQueueReceiver {
                     }
                 }
                 UIAction::RevertAllNoConfirm => {
-                    editor_model.revert_root_edit_context(project_config, &mut imports_to_queue)
+                    editor_model.revert_root_edit_context(project_config, &mut import_job_to_queue)
                 }
                 UIAction::Undo => editor_model.undo().unwrap(),
                 UIAction::Redo => editor_model.redo().unwrap(),
@@ -769,13 +769,8 @@ impl UIActionQueueReceiver {
             }
         }
 
-        for import_to_queue in imports_to_queue {
-            asset_engine.queue_import_operation(
-                import_to_queue.requested_importables,
-                import_to_queue.importer_id,
-                import_to_queue.source_file_path,
-                import_to_queue.import_type,
-            );
+        if !import_job_to_queue.is_empty() {
+            asset_engine.queue_import_operation(import_job_to_queue);
         }
     }
 }

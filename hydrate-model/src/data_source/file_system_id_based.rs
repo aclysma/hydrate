@@ -4,7 +4,7 @@ use hydrate_base::uuid_path::{path_to_uuid, uuid_to_path};
 use hydrate_data::AssetLocation;
 use hydrate_schema::SchemaNamedType;
 use std::path::{Path, PathBuf};
-use hydrate_pipeline::{HydrateProjectConfiguration, ImportToQueue};
+use hydrate_pipeline::{HydrateProjectConfiguration, ImportJobSourceFile, ImportJobToQueue};
 
 fn load_asset_files(
     edit_context: &mut EditContext,
@@ -157,7 +157,7 @@ impl DataSource for FileSystemIdBasedDataSource {
         &mut self,
         _project_config: &HydrateProjectConfiguration,
         edit_context: &mut EditContext,
-        _imports_to_queue: &mut Vec<ImportToQueue>,
+        _import_job_to_queue: &mut ImportJobToQueue,
     ) {
         profiling::scope!(&format!(
             "load_from_storage {:?}",

@@ -1,3 +1,4 @@
+use std::collections::VecDeque;
 use hydrate_base::hashing::HashMap;
 use hydrate_base::AssetId;
 use std::hash::{Hash, Hasher};
@@ -6,10 +7,11 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use crossbeam_channel::Receiver;
 
-use crate::{DynEditorModel, HydrateProjectConfiguration, BuildLogEvent, PipelineResult, ImportLogEvent};
+use crate::{DynEditorModel, HydrateProjectConfiguration, BuildLogEvent, PipelineResult, ImportLogEvent, ImportJobToQueue, JobId, ImportLogData, BuildLogData};
 use hydrate_base::uuid_path::{path_to_uuid, uuid_to_path};
 use hydrate_data::ImportableName;
 use hydrate_data::{ImporterId, SchemaSet, SingleObject};
+use crate::build::JobRequestor;
 use crate::import::import_storage::ImportDataMetadata;
 use crate::import::import_thread_pool::{ImportThreadOutcome, ImportThreadRequest, ImportThreadRequestImport, ImportWorkerThreadPool};
 use crate::import::import_util::RequestedImportable;
@@ -84,7 +86,6 @@ struct ImportJob {
     //imported_data_stale: bool, // how to know it's stale? (we need timestamp/filesize stored along with import data, and paths to file it included) We may not know until we try to open it
     //imported_data_invalid: bool, // how to know it's valid? (does it parse? does it have errors? we may not know until we try to open it)
     imported_data_hash: Option<u64>,
-    log_events: Vec<ImportLogEvent>
 }
 
 impl ImportJob {
@@ -95,7 +96,6 @@ impl ImportJob {
             //imported_data_stale: false,
             //imported_data_invalid: false,
             imported_data_hash: None,
-            log_events: Vec::default(),
         }
     }
 }
@@ -107,13 +107,15 @@ pub struct ImportStatusImporting {
 
 pub enum ImportStatus {
     Idle,
-    Importing(ImportStatusImporting)
+    Importing(ImportStatusImporting),
+    Completed(Arc<ImportLogData>),
 }
 
 struct ImportTask {
     thread_pool: ImportWorkerThreadPool,
     job_count: usize,
     result_rx: Receiver<ImportThreadOutcome>,
+    log_data: ImportLogData,
 }
 
 // Cache of all known import jobs. This includes imports that are complete, in progress, or not started.
@@ -124,12 +126,16 @@ pub struct ImportJobs {
     project_config: HydrateProjectConfiguration,
     import_data_root_path: PathBuf,
     import_jobs: HashMap<AssetId, ImportJob>,
-    import_operations: Vec<ImportOp>,
+    import_operations: VecDeque<ImportJobToQueue>,
     current_import_task: Option<ImportTask>,
     previous_log_events: Option<Vec<ImportLogEvent>>
 }
 
 impl ImportJobs {
+    pub fn current_import_log(&self) -> Option<&ImportLogData> {
+        self.current_import_task.as_ref().map(|x| &x.log_data)
+    }
+
     pub fn is_importing(&self) -> bool {
         self.current_import_task.is_some()
     }
@@ -159,17 +165,13 @@ impl ImportJobs {
 
     pub fn queue_import_operation(
         &mut self,
-        asset_ids: HashMap<ImportableName, RequestedImportable>,
-        importer_id: ImporterId,
-        path: PathBuf,
-        import_type: ImportType,
+        import_job_to_queue: ImportJobToQueue,
     ) {
-        self.import_operations.push(ImportOp {
-            requested_importables: asset_ids,
-            importer_id,
-            path,
-            import_type,
-        })
+        if import_job_to_queue.is_empty() {
+            log::warn!("Dropping empty import job")
+        } else {
+            self.import_operations.push_back(import_job_to_queue);
+        }
     }
 
     pub fn load_import_data_hash(
@@ -199,14 +201,33 @@ impl ImportJobs {
     #[profiling::function]
     pub fn start_import_task(
         &mut self,
+        import_job_to_queue: ImportJobToQueue,
         importer_registry: &ImporterRegistry,
         editor_model: &mut dyn DynEditorModel,
     ) -> PipelineResult<ImportTask> {
+        log::info!("Starting import task for {} source files", import_job_to_queue.import_job_source_files.len());
+
         //
         // Take the import operations
         //
-        let mut import_operations = Vec::default();
-        std::mem::swap(&mut self.import_operations, &mut import_operations);
+        // let Some(queued_import_job) = self.import_operations.pop_front() else {
+        //     return Ok(());
+        // };
+        //
+        // for source_file in queued_import_job.import_job_source_files {
+        //
+        // }
+        // let mut import_operations = queued_import_job.import_job_source_files;
+
+        let import_operations: Vec<_> = import_job_to_queue.import_job_source_files.into_iter().map(|x| ImportOp {
+                requested_importables: x.requested_importables,
+                importer_id: x.importer_id,
+                path: x.source_file_path,
+                import_type: x.import_type,
+            }).collect();
+
+
+        //for x in import_operations.sour
 
         //
         // Cache the import info for all assets
@@ -287,7 +308,8 @@ impl ImportJobs {
         Ok(ImportTask {
             thread_pool,
             job_count,
-            result_rx
+            result_rx,
+            log_data: import_job_to_queue.log_data,
         })
     }
 
@@ -342,20 +364,22 @@ impl ImportJobs {
                     }
                 }
             }
+
+            return Ok(ImportStatus::Completed(Arc::new(finished_import_task.log_data)));
         }
 
         //
         // Check if we have pending imports/should start a new import task
         //
-        if self.import_operations.is_empty() {
+        let Some(import_job_to_queue) = self.import_operations.pop_front() else {
             // Nothing is pending import
             return Ok(ImportStatus::Idle);
-        }
+        };
 
         //
         // Start a new import task with all pending imports
         //
-        let import_task = self.start_import_task(importer_registry, editor_model)?;
+        let import_task = self.start_import_task(import_job_to_queue, importer_registry, editor_model)?;
         let status = ImportStatus::Importing(ImportStatusImporting {
             total_job_count: import_task.job_count,
             completed_job_count: 0

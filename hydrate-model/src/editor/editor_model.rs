@@ -6,7 +6,7 @@ use crate::{
     PathNode, PathNodeRoot, SchemaNamedType, SchemaSet,
 };
 use hydrate_data::{AssetLocation, AssetName, CanonicalPathReference, DataSetError, DataSetResult, ImportInfo, PathReferenceHash, SingleObject};
-use hydrate_pipeline::{DynEditorModel, HydrateProjectConfiguration, ImporterRegistry, ImportToQueue};
+use hydrate_pipeline::{DynEditorModel, HydrateProjectConfiguration, ImporterRegistry, ImportJobSourceFile, ImportJobToQueue};
 use hydrate_schema::{SchemaFingerprint, SchemaRecord};
 use slotmap::DenseSlotMap;
 use std::path::PathBuf;
@@ -277,7 +277,7 @@ impl EditorModel {
         project_config: &HydrateProjectConfiguration,
         data_source_name: &str,
         file_system_root_path: RootPathT,
-        imports_to_queue: &mut Vec<ImportToQueue>,
+        import_job_to_queue: &mut ImportJobToQueue,
     ) -> AssetSourceId {
         let file_system_root_path = dunce::canonicalize(&file_system_root_path.into()).unwrap();
         let path_node_root_schema = self.path_node_root_schema.as_record().unwrap().clone();
@@ -312,7 +312,7 @@ impl EditorModel {
             root_edit_context,
             asset_source_id,
         );
-        fs.load_from_storage(project_config, root_edit_context, imports_to_queue);
+        fs.load_from_storage(project_config, root_edit_context, import_job_to_queue);
 
         self.data_sources.insert(asset_source_id, Box::new(fs));
 
@@ -325,7 +325,7 @@ impl EditorModel {
         data_source_name: &str,
         file_system_root_path: RootPathT,
         importer_registry: &ImporterRegistry,
-        imports_to_queue: &mut Vec<ImportToQueue>,
+        import_jobs_to_queue: &mut ImportJobToQueue,
     ) -> AssetSourceId {
         let file_system_root_path = dunce::canonicalize(&file_system_root_path.into()).unwrap();
         let path_node_root_schema = self.path_node_root_schema.as_record().unwrap().clone();
@@ -361,7 +361,7 @@ impl EditorModel {
             asset_source_id,
             importer_registry,
         );
-        fs.load_from_storage(project_config, root_edit_context, imports_to_queue);
+        fs.load_from_storage(project_config, root_edit_context, import_jobs_to_queue);
 
         self.data_sources.insert(asset_source_id, Box::new(fs));
 
@@ -391,7 +391,7 @@ impl EditorModel {
     pub fn revert_root_edit_context(
         &mut self,
         project_config: &HydrateProjectConfiguration,
-        imports_to_queue: &mut Vec<ImportToQueue>,
+        import_job_to_queue: &mut ImportJobToQueue,
     ) {
         //
         // Ensure pending edits are cleared
@@ -413,7 +413,7 @@ impl EditorModel {
         );
 
         for (_id, data_source) in &mut self.data_sources {
-            data_source.load_from_storage(project_config, root_edit_context, imports_to_queue);
+            data_source.load_from_storage(project_config, root_edit_context, import_job_to_queue);
         }
 
         //

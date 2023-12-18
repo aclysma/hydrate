@@ -1,4 +1,4 @@
-use hydrate_model::pipeline::{HydrateProjectConfiguration, ImporterRegistry, ImportToQueue};
+use hydrate_model::pipeline::{HydrateProjectConfiguration, ImporterRegistry, ImportJobs, ImportJobSourceFile, ImportJobToQueue};
 use hydrate_model::{
     EditorModel,
     PathNode, PathNodeRoot, SchemaCacheSingleFile, SchemaLinker, SchemaSet, SchemaSetBuilder,
@@ -14,7 +14,7 @@ impl DbState {
         schema_set: SchemaSet,
         importer_registry: &ImporterRegistry,
         project_configuration: &HydrateProjectConfiguration,
-        imports_to_queue: &mut Vec<ImportToQueue>,
+        import_job_to_queue: &mut ImportJobToQueue,
     ) -> EditorModel {
         let mut editor_model = EditorModel::new(project_configuration.clone(), schema_set);
         for pair in &project_configuration.id_based_asset_sources {
@@ -22,7 +22,7 @@ impl DbState {
                 project_configuration,
                 &pair.name,
                 &pair.path,
-                imports_to_queue,
+                import_job_to_queue,
             );
         }
         for pair in &project_configuration.path_based_asset_sources {
@@ -31,7 +31,7 @@ impl DbState {
                 &pair.name,
                 &pair.path,
                 importer_registry,
-                imports_to_queue,
+                import_job_to_queue,
             );
         }
 
@@ -65,13 +65,13 @@ impl DbState {
         schema_set: &SchemaSet,
         importer_registry: &ImporterRegistry,
         project_configuration: &HydrateProjectConfiguration,
-        imports_to_queue: &mut Vec<ImportToQueue>,
+        import_job_to_queue: &mut ImportJobToQueue,
     ) -> Self {
         let editor_model = Self::do_load(
             schema_set.clone(),
             importer_registry,
             &project_configuration,
-            imports_to_queue,
+            import_job_to_queue,
         );
 
         DbState {

@@ -14,9 +14,9 @@ mod thumbnails;
 pub use thumbnails::*;
 
 pub use import::{
-    ImportToQueue, ScannedImportable, RequestedImportable, ImporterRegistry, Importer, ImporterRegistryBuilder,
+    ImportJobSourceFile, ScannedImportable, RequestedImportable, ImporterRegistry, Importer, ImporterRegistryBuilder,
     ImportJobs, ImportStatus, ImportStatusImporting, ImportType, ScanContext, import_util::create_asset_name, ImportContext,
-    import_util::recursively_gather_import_operations_and_create_assets
+    import_util::recursively_gather_import_operations_and_create_assets, ImportJobToQueue,
 };
 
 pub use project::{HydrateProjectConfiguration, NamePathPair};
@@ -24,13 +24,12 @@ pub use project::{HydrateProjectConfiguration, NamePathPair};
 pub use pipeline_error::*;
 pub use crate::build::{
     Builder, BuilderRegistry, BuilderRegistryBuilder, BuildJobs, BuildStatus, BuildStatusBuilding, JobProcessorRegistry, JobProcessorRegistryBuilder,
-    BuilderContext, JobInput, JobOutput, JobId, JobProcessor, RunContext, HandleFactory, EnumerateDependenciesContext, JobEnumeratedDependencies, AssetArtifactIdPair
+    BuilderContext, JobInput, JobOutput, JobId, JobProcessor, RunContext, HandleFactory, EnumerateDependenciesContext, JobEnumeratedDependencies, AssetArtifactIdPair,
 };
 
 mod uuid_newtype;
 mod log_events;
 pub use log_events::*;
-use crate::build::BuildLogData;
 
 pub struct AssetPluginRegistries {
     pub importer_registry: ImporterRegistry,
@@ -135,6 +134,8 @@ pub enum AssetEngineState {
     Idle,
     Importing(ImportStatusImporting),
     Building(BuildStatusBuilding),
+    ImportCompleted(Arc<ImportLogData>),
+    BuildCompleted(Arc<BuildLogData>),
 }
 
 pub struct AssetEngine {
@@ -184,8 +185,14 @@ impl AssetEngine {
         }
     }
 
-    pub fn most_recent_build_log_data(&self) -> Option<&BuildLogData> {
-        self.build_jobs.most_recent_build_log_data()
+    pub fn current_task_log_data(&self) -> LogDataRef {
+        if let Some(build_log) = self.build_jobs.current_build_log() {
+            LogDataRef::Build(build_log)
+        } else if let Some(import_log) = self.import_jobs.current_import_log() {
+            LogDataRef::Import(import_log)
+        } else {
+            LogDataRef::None
+        }
     }
 
     pub fn thumbnail_provider_registry(&self) -> &ThumbnailProviderRegistry {
@@ -220,6 +227,9 @@ impl AssetEngine {
                 },
                 ImportStatus::Importing(importing_state) => {
                     return Ok(AssetEngineState::Importing(importing_state))
+                },
+                ImportStatus::Completed(import_log_data) => {
+                    return Ok(AssetEngineState::ImportCompleted(import_log_data))
                 }
             }
         }
@@ -247,6 +257,9 @@ impl AssetEngine {
             }
             BuildStatus::Building(building_state) => {
                 return Ok(AssetEngineState::Building(building_state))
+            }
+            BuildStatus::Completed(build_log_data) => {
+                return Ok(AssetEngineState::BuildCompleted(build_log_data))
             }
         }
     }
@@ -285,13 +298,15 @@ impl AssetEngine {
 
     pub fn queue_import_operation(
         &mut self,
-        asset_ids: HashMap<ImportableName, RequestedImportable>,
-        importer_id: ImporterId,
-        path: PathBuf,
-        import_type: ImportType,
+        import_job_to_queue: ImportJobToQueue,
+        // asset_ids: HashMap<ImportableName, RequestedImportable>,
+        // importer_id: ImporterId,
+        // path: PathBuf,
+        // import_type: ImportType,
     ) {
         self.import_jobs
-            .queue_import_operation(asset_ids, importer_id, path, import_type);
+            //.queue_import_operation(asset_ids, importer_id, path, import_type);
+            .queue_import_operation(import_job_to_queue);
     }
 
     pub fn queue_build_asset(

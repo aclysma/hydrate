@@ -4,7 +4,7 @@ use crate::{PathNode, PathNodeRoot};
 use hydrate_base::hashing::HashSet;
 use hydrate_data::json_storage::{MetaFile, MetaFileJson};
 use hydrate_data::{AssetId, AssetLocation, AssetName, ImportableName, ImporterId, PathReference};
-use hydrate_pipeline::{Importer, ImporterRegistry, HydrateProjectConfiguration, ImportToQueue, ScannedImportable, RequestedImportable, ImportType, ScanContext};
+use hydrate_pipeline::{Importer, ImporterRegistry, HydrateProjectConfiguration, ImportJobSourceFile, ScannedImportable, RequestedImportable, ImportType, ScanContext, ImportJobToQueue};
 use hydrate_schema::{HashMap, SchemaNamedType};
 use std::ffi::OsStr;
 use std::path::{Path, PathBuf};
@@ -491,7 +491,7 @@ impl DataSource for FileSystemPathBasedDataSource {
         &mut self,
         project_config: &HydrateProjectConfiguration,
         edit_context: &mut EditContext,
-        imports_to_queue: &mut Vec<ImportToQueue>,
+        import_job_to_queue: &mut ImportJobToQueue,
     ) {
         profiling::scope!(&format!(
             "load_from_storage {:?}",
@@ -699,7 +699,7 @@ impl DataSource for FileSystemPathBasedDataSource {
                                 &self.importer_registry,
                                 project_config,
                                 &mut scanned_importables,
-                                &mut log_events,
+                                &mut import_job_to_queue.log_data.log_events,
                             ))
                             .unwrap()
                     };
@@ -881,7 +881,7 @@ impl DataSource for FileSystemPathBasedDataSource {
                         .insert(scanned_importable.name.clone(), requested_importable);
                 }
 
-                imports_to_queue.push(ImportToQueue {
+                import_job_to_queue.import_job_source_files.push(ImportJobSourceFile {
                     source_file_path: source_file_path.to_path_buf(),
                     importer_id: scanned_source_file.importer.importer_id(),
                     requested_importables,

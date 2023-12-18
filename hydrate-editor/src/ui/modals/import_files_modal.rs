@@ -2,7 +2,7 @@ use crate::modal_action::{
     default_modal_window, ModalAction, ModalActionControlFlow, ModalContext,
 };
 use crate::ui::components::draw_location_selector;
-use hydrate_model::pipeline::{ImportType, ImporterRegistry};
+use hydrate_model::pipeline::{ImportType, ImporterRegistry, ImportJobToQueue};
 use hydrate_model::{AssetLocation, HashSet};
 use std::path::PathBuf;
 
@@ -94,7 +94,7 @@ impl ModalAction for ImportFilesModal {
 
                 //TODO: Make this disable if location not set
                 if ui.add_enabled(self.selected_location.is_some(), egui::Button::new("Import")).clicked() {
-                    let mut imports_to_queue = Vec::default();
+                    let mut import_job_to_queue = ImportJobToQueue::default();
                     for file in &self.files_to_import {
                         let extension = file.extension();
                         if let Some(extension) = extension {
@@ -115,19 +115,14 @@ impl ModalAction for ImportFilesModal {
                                     context.db_state.editor_model.root_edit_context(),
                                     context.asset_engine.importer_registry(),
                                     &self.selected_location.unwrap(),
-                                    &mut imports_to_queue,
+                                    &mut import_job_to_queue,
                                 ).unwrap();
                             }
                         }
                     }
 
-                    for import_to_queue in imports_to_queue {
-                        context.asset_engine.queue_import_operation(
-                            import_to_queue.requested_importables,
-                            import_to_queue.importer_id,
-                            import_to_queue.source_file_path,
-                            ImportType::ImportIfImportDataStale,
-                        );
+                    if !import_job_to_queue.is_empty() {
+                        context.asset_engine.queue_import_operation(import_job_to_queue);
                     }
 
                     control_flow = ModalActionControlFlow::End;

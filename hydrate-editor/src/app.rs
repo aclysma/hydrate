@@ -10,7 +10,7 @@ use crate::ui::modals::ImportFilesModal;
 use crate::ui_state::EditorModelUiState;
 use egui::{Ui, ViewportCommand, WidgetText};
 use egui_tiles::{SimplificationOptions, TileId};
-use hydrate_model::pipeline::{AssetEngine, AssetEngineState};
+use hydrate_model::pipeline::{AssetEngine, AssetEngineState, BuildLogData, ImportLogData, LogData};
 use hydrate_model::EditorModelWithCache;
 use crate::image_loader::{ThumbnailImageLoader, AssetThumbnailTextureLoader};
 
@@ -63,6 +63,7 @@ fn draw_log_event_view(ui: &mut egui::Ui, ui_context: &mut MainUiContext) {
         &ui_context.asset_engine,
         &mut ui_context.ui_state.log_event_view_ui_state,
         ui_context.action_queue_sender,
+        &ui_context.ui_state.previous_logs,
     );
 }
 
@@ -112,6 +113,7 @@ pub struct UiState {
     pub log_event_view_ui_state: LogEventViewUiState,
     pub egui_debug_ui_state: EguiDebugUiState,
     pub user_confirmed_should_quit: bool,
+    pub previous_logs: Vec<LogData>,
 }
 
 /// We derive Deserialize/Serialize so we can persist app state on shutdown.
@@ -260,15 +262,57 @@ impl eframe::App for HydrateEditorApp {
         };
 
         //
+        // If we have any completed logs, store them
+        //
+        match &asset_engine_state {
+            AssetEngineState::ImportCompleted(import_data) => self.ui_state.previous_logs.push(LogData::Import(import_data.clone())),
+            AssetEngineState::BuildCompleted(build_data) => self.ui_state.previous_logs.push(LogData::Build(build_data.clone())),
+            _ => {}
+        }
+
+        //
         // If we are in the middle of a build, we should repaint the UI so progress bars etc. update and any work that
         // is main-thread-only can happen promptly
         //
-        match asset_engine_state {
+        match &asset_engine_state {
             // App still seems to spin even when just requesting a 1hz update
             //AssetEngineState::Idle => ctx.request_repaint_after(Duration::from_millis(1000)),
             AssetEngineState::Idle => {},
             _ => ctx.request_repaint(),
         }
+
+        //
+        // Draw the status bar, which is mainly a progress indicator for import/build
+        //
+        egui::TopBottomPanel::bottom("bottom_panel").show(ctx, |ui| {
+            match asset_engine_state {
+                AssetEngineState::Importing(import_state) => {
+                    let text = format!("Importing {}/{} assets", import_state.completed_job_count, import_state.total_job_count);
+                    ui.add(egui::ProgressBar::new(import_state.completed_job_count as f32 / import_state.total_job_count as f32).text(text));
+                },
+                AssetEngineState::Building(build_state) => {
+                    let text = format!("Building {}/{} assets", build_state.completed_job_count, build_state.total_job_count);
+                    ui.add(egui::ProgressBar::new(build_state.completed_job_count as f32 / build_state.total_job_count as f32).text(text));
+
+                }
+                _ => {
+                    ui.horizontal(|ui| {
+                        ui.label("Ready");
+
+                        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                            //let needs_build = self.asset_engine.needs_build();
+                            let needs_build = true;
+                            if ui.add_enabled(needs_build, egui::Button::new("Build")).clicked() {
+                                self.asset_engine.queue_build_all();
+                                self.dock_state.make_active(|x| {
+                                    *x == egui_tiles::Tile::Pane(DockingPanelKind::LogEventView)
+                                });
+                            }
+                        });
+                    });
+                }
+            }
+        });
 
         //
         // If we have an active modal window open, draw it now
@@ -293,39 +337,6 @@ impl eframe::App for HydrateEditorApp {
         if clear_modal_action {
             self.modal_action = None;
         }
-
-        //
-        // Draw the status bar, which is mainly a progress indicator for import/build
-        //
-        egui::TopBottomPanel::bottom("bottom_panel").show(ctx, |ui| {
-            match asset_engine_state {
-                AssetEngineState::Importing(import_state) => {
-                    let text = format!("Importing {}/{} assets", import_state.completed_job_count, import_state.total_job_count);
-                    ui.add(egui::ProgressBar::new(import_state.completed_job_count as f32 / import_state.total_job_count as f32).text(text));
-                },
-                AssetEngineState::Building(build_state) => {
-                    let text = format!("Building {}/{} assets", build_state.completed_job_count, build_state.total_job_count);
-                    ui.add(egui::ProgressBar::new(build_state.completed_job_count as f32 / build_state.total_job_count as f32).text(text));
-
-                }
-                AssetEngineState::Idle => {
-                    ui.horizontal(|ui| {
-                        ui.label("Ready");
-
-                        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                            //let needs_build = self.asset_engine.needs_build();
-                            let needs_build = true;
-                            if ui.add_enabled(needs_build, egui::Button::new("Build")).clicked() {
-                                self.asset_engine.queue_build_all();
-                                self.dock_state.make_active(|x| {
-                                    *x == egui_tiles::Tile::Pane(DockingPanelKind::LogEventView)
-                                });
-                            }
-                        });
-                    });
-                }
-            }
-        });
 
         //
         // Draw the menu bar on top

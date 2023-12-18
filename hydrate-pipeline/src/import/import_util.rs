@@ -1,10 +1,11 @@
-use crate::{DynEditContext, HydrateProjectConfiguration, PipelineResult};
+use crate::{DynEditContext, HydrateProjectConfiguration, ImportLogData, ImportLogEvent, PipelineResult};
 use crate::{ImporterRegistry};
 use hydrate_data::{AssetId, AssetLocation, AssetName, CanonicalPathReference, HashMap, ImporterId, PathReferenceHash};
 use hydrate_data::{ImportableName, PathReference};
 use hydrate_schema::SchemaRecord;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
+use log::log_enabled;
 use uuid::Uuid;
 use crate::import::{Importer, ImportType, ScanContext, ScannedImportable};
 
@@ -21,12 +22,20 @@ pub struct RequestedImportable {
     pub replace_with_default_asset: bool,
 }
 
+#[derive(Default)]
 pub struct ImportJobToQueue {
+    pub import_job_source_files: Vec<ImportJobSourceFile>,
+    pub log_data: ImportLogData,
+}
 
+impl ImportJobToQueue {
+    pub fn is_empty(&self) -> bool {
+        self.log_data.log_events.is_empty() && self.import_job_source_files.is_empty()
+    }
 }
 
 #[derive(Debug)]
-pub struct ImportToQueue {
+pub struct ImportJobSourceFile {
     pub source_file_path: PathBuf,
     pub importer_id: ImporterId,
     pub requested_importables: HashMap<ImportableName, RequestedImportable>,
@@ -60,7 +69,7 @@ pub fn recursively_gather_import_operations_and_create_assets(
 
     // In addition to being the imports that need to be queued, this is also the assets that were
     // created. Pre-existing but referenced assets won't be in this list
-    imports_to_queue: &mut Vec<ImportToQueue>,
+    import_job_to_queue: &mut ImportJobToQueue,
 ) -> PipelineResult<HashMap<ImportableName, AssetId>> {
     assert!(source_file_path.is_absolute());
     let source_file_path = source_file_path.canonicalize().unwrap();
@@ -68,10 +77,10 @@ pub fn recursively_gather_import_operations_and_create_assets(
     //
     // If we request to import a file we already processed, just return the name/id pairs again
     //
-    for import_to_queue in &*imports_to_queue {
-        if import_to_queue.source_file_path == source_file_path {
+    for import_job_source_file in &import_job_to_queue.import_job_source_files {
+        if import_job_source_file.source_file_path == source_file_path {
             let mut imported_asset_ids = HashMap::default();
-            for (k, v) in &import_to_queue.requested_importables {
+            for (k, v) in &import_job_source_file.requested_importables {
                 imported_asset_ids.insert(k.clone(), v.asset_id);
             }
             return Ok(imported_asset_ids);
@@ -89,7 +98,6 @@ pub fn recursively_gather_import_operations_and_create_assets(
     let mut imported_asset_ids = HashMap::default();
 
     let mut scanned_importables = HashMap::default();
-    let mut log_events = Vec::default();
 
     importer.scan_file(ScanContext::new(
         &source_file_path,
@@ -97,7 +105,7 @@ pub fn recursively_gather_import_operations_and_create_assets(
         importer_registry,
         project_config,
         &mut scanned_importables,
-        &mut log_events
+        &mut import_job_to_queue.log_data.log_events,
     ))?;
 
     for (scanned_importable_name, scanned_importable) in &scanned_importables {
@@ -123,8 +131,8 @@ pub fn recursively_gather_import_operations_and_create_assets(
             let mut found = None;
 
             // Have we already iterated over it and will be creating it later?
-            for import_to_queue in &*imports_to_queue {
-                for (_, requested_importable) in &import_to_queue.requested_importables {
+            for import_job_source_file in &import_job_to_queue.import_job_source_files {
+                for (_, requested_importable) in &import_job_source_file.requested_importables {
                     if requested_importable.source_file == referenced_file_canonical {
                         found = Some(requested_importable.asset_id);
                     }
@@ -155,7 +163,7 @@ pub fn recursively_gather_import_operations_and_create_assets(
                     editor_context,
                     importer_registry,
                     selected_import_location,
-                    imports_to_queue,
+                    import_job_to_queue
                 )?
                 .get(referenced_source_file.importable_name())
                 .copied();
@@ -200,7 +208,7 @@ pub fn recursively_gather_import_operations_and_create_assets(
 
     //asset_engine.queue_import_operation(asset_ids, importer.importer_id(), file.to_path_buf());
     //(asset_ids, importer.importer_id(), file.to_path_buf())
-    imports_to_queue.push(ImportToQueue {
+    import_job_to_queue.import_job_source_files.push(ImportJobSourceFile {
         source_file_path: source_file_path.to_path_buf(),
         importer_id: importer.importer_id(),
         requested_importables,

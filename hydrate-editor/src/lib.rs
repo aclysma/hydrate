@@ -20,7 +20,7 @@ use hydrate_model::{AssetPathCache, EditorModelWithCache, SchemaSet};
 
 use crate::app::HydrateEditorApp;
 pub use crate::ui::components::inspector_system;
-use hydrate_model::pipeline::{AssetEngine, AssetPluginRegistryBuilders, HydrateProjectConfiguration};
+use hydrate_model::pipeline::{AssetEngine, AssetPluginRegistryBuilders, HydrateProjectConfiguration, ImportJobToQueue};
 use crate::inspector_system::InspectorRegistry;
 
 pub struct Editor {
@@ -54,12 +54,12 @@ impl Editor {
         let registries =
             asset_plugin_registry.finish(&schema_set);
 
-        let mut imports_to_queue = Vec::default();
+        let mut import_job_to_queue = ImportJobToQueue::default();
         let mut db_state = DbState::load(
             &schema_set,
             &registries.importer_registry,
             &project_configuration,
-            &mut imports_to_queue,
+            &mut import_job_to_queue,
         );
 
         let asset_path_cache = AssetPathCache::build(&db_state.editor_model).unwrap();
@@ -80,15 +80,10 @@ impl Editor {
 
         {
             profiling::scope!("Queue import operations");
-            for import_to_queue in imports_to_queue {
-                //println!("Queueing import operation {:?}", import_to_queue);
-                asset_engine.queue_import_operation(
-                    import_to_queue.requested_importables,
-                    import_to_queue.importer_id,
-                    import_to_queue.source_file_path,
-                    import_to_queue.import_type,
-                );
+            if !import_job_to_queue.is_empty() {
+                asset_engine.queue_import_operation(import_job_to_queue);
             }
+
         }
         let inspector_registry = InspectorRegistry::default();
 

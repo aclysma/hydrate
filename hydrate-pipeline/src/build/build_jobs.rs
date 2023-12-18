@@ -1,5 +1,5 @@
 use std::cell::RefCell;
-use crate::{DynEditorModel, BuildLogEvent, LogEventLevel, PipelineResult};
+use crate::{DynEditorModel, BuildLogEvent, LogEventLevel, PipelineResult, BuildLogData};
 use hydrate_base::{hashing::HashMap, AssetId};
 use hydrate_base::{
     ArtifactId, BuiltArtifactHeaderData, DebugArtifactManifestDataJson, DebugManifestFileJson,
@@ -45,7 +45,8 @@ pub struct BuildStatusBuilding {
 
 pub enum BuildStatus {
     Idle,
-    Building(BuildStatusBuilding)
+    Building(BuildStatusBuilding),
+    Completed(Arc<BuildLogData>)
 }
 
 struct BuiltArtifactInfo {
@@ -54,38 +55,6 @@ struct BuiltArtifactInfo {
     metadata: BuiltArtifactHeaderData,
 }
 
-#[derive(Default)]
-pub struct BuildLogData {
-    pub(crate) log_events: Vec<BuildLogEvent>,
-    pub(crate) requestors: HashMap<JobId, Vec<JobRequestor>>,
-}
-
-impl BuildLogData {
-    pub fn log_events(&self) -> &[BuildLogEvent] {
-        &self.log_events
-    }
-
-    pub fn assets_relying_on_job(&self, job_id: JobId) -> Vec<AssetId> {
-        let mut assets = vec![];
-        let mut checked_requestors = HashSet::<JobId>::default();
-        let mut requestor_check_queue = vec![job_id];
-
-        while let Some(requestor) = requestor_check_queue.pop() {
-            for requestor in self.requestors.get(&requestor).unwrap() {
-                match requestor {
-                    JobRequestor::Builder(asset_id) => assets.push(*asset_id),
-                    JobRequestor::Job(job_id) => {
-                        if !checked_requestors.contains(job_id) {
-                            requestor_check_queue.push(*job_id)
-                        }
-                    }
-                }
-            }
-        }
-
-        assets
-    }
-}
 
 struct BuildTask {
     requested_build_ops: VecDeque<BuildRequest>,
@@ -109,15 +78,14 @@ pub struct BuildJobs {
     //force_rebuild_operations: Vec<BuildOp>
     current_build_task: Option<BuildTask>,
     previous_combined_build_hash: Option<u64>,
-    previous_log_data: Option<BuildLogData>,
     request_build: bool,
     needs_build: bool,
     force_build_queue: HashSet<AssetId>,
 }
 
 impl BuildJobs {
-    pub fn most_recent_build_log_data(&self) -> Option<&BuildLogData> {
-        self.current_build_task.as_ref().map(|x| &x.log_data).or(self.previous_log_data.as_ref())
+    pub fn current_build_log(&self) -> Option<&BuildLogData> {
+        self.current_build_task.as_ref().map(|x| &x.log_data)
     }
 
     pub fn is_building(&self) -> bool {
@@ -148,7 +116,6 @@ impl BuildJobs {
             //force_rebuild_operations: Default::default()
             current_build_task: None,
             previous_combined_build_hash: None,
-            previous_log_data: None,
             request_build: false,
             needs_build: false,
             force_build_queue: Default::default(),
@@ -395,8 +362,8 @@ impl BuildJobs {
 
             std::fs::write(toc_path, format!("{:0>16x}", build_task.combined_build_hash)).unwrap();
 
-            self.previous_log_data = Some(build_task.log_data);
             self.previous_combined_build_hash = Some(build_task.combined_build_hash);
+            return Ok(BuildStatus::Completed(Arc::new(build_task.log_data)));
         }
 
 

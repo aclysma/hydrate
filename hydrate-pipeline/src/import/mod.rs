@@ -11,7 +11,8 @@ pub use importer_registry::*;
 mod import_thread_pool;
 
 pub mod import_util;
-pub use import_util::ImportToQueue;
+pub use import_util::ImportJobToQueue;
+pub use import_util::ImportJobSourceFile;
 pub use import_util::RequestedImportable;
 pub use import_util::create_asset_name;
 

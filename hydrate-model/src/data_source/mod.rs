@@ -7,7 +7,7 @@ use crate::AssetId;
 
 mod file_system_path_based;
 pub use file_system_path_based::*;
-use hydrate_pipeline::{HydrateProjectConfiguration, ImportToQueue};
+use hydrate_pipeline::{HydrateProjectConfiguration, ImportJobSourceFile, ImportJobToQueue};
 
 pub trait DataSource {
     // Replace memory with storage state
@@ -17,7 +17,7 @@ pub trait DataSource {
         &mut self,
         project_config: &HydrateProjectConfiguration,
         edit_context: &mut EditContext,
-        imports_to_queue: &mut Vec<ImportToQueue>,
+        import_job_to_queue: &mut ImportJobToQueue,
     );
 
     // Replace storage state with memory state
@@ -45,7 +45,7 @@ pub trait DataSource {
     // fn revert_all_modified(
     //     &mut self,
     //     edit_context: &mut EditContext,
-    //     imports_to_queue: &mut Vec<ImportToQueue>,
+    //     import_jobs_to_queue: &mut Vec<ImportJobToQueue>,
     // );
 
     // fn get_file_operations_required_to_save();

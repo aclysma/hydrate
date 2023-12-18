@@ -11,9 +11,9 @@ use std::path::PathBuf;
 use std::rc::Rc;
 use std::sync::Arc;
 use log::Log;
-use crate::build::{BuildLogData, BuiltArtifact, WrittenArtifact};
+use crate::build::{BuiltArtifact, WrittenArtifact};
 use crate::import::ImportData;
-use crate::{BuildLogEvent, LogEventLevel, PipelineResult};
+use crate::{BuildLogData, BuildLogEvent, LogEventLevel, PipelineResult};
 
 use super::*;
 

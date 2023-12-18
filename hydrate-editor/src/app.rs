@@ -152,19 +152,19 @@ impl HydrateEditorApp {
 
         let mut tiles = egui_tiles::Tiles::default();
 
-        // let mut center_tabs = vec![];
-        // center_tabs.push(tiles.insert_pane(DockingPanelKind::AssetGallery));
-        // center_tabs.push(tiles.insert_pane(DockingPanelKind::ErrorList));
-        // let central_tabs = tiles.insert_tab_tile(center_tabs);
+        let mut center_tabs = vec![];
+        center_tabs.push(tiles.insert_pane(DockingPanelKind::AssetGallery));
+        center_tabs.push(tiles.insert_pane(DockingPanelKind::ErrorList));
+        let central_tabs = tiles.insert_tab_tile(center_tabs);
 
-        let mut root_tabs = vec![];
-        root_tabs.push(tiles.insert_pane(DockingPanelKind::AssetTree));
-        //root_tabs.push(central_tabs);
-        root_tabs.push(tiles.insert_pane(DockingPanelKind::AssetGallery));
-        root_tabs.push(tiles.insert_pane(DockingPanelKind::Inspector));
-        let root = tiles.insert_tab_tile(root_tabs);
+        let asset_tree_pane = tiles.insert_pane(DockingPanelKind::AssetTree);
+        let inspector_pane = tiles.insert_pane(DockingPanelKind::Inspector);
 
-        let dock_state = egui_tiles::Tree::new("tree", root, tiles);
+        let mut root_container = egui_tiles::Linear::new(egui_tiles::LinearDir::Horizontal, vec![asset_tree_pane, central_tabs, inspector_pane]);
+        root_container.shares.set_share(central_tabs, 3.0);
+        let root = tiles.insert_container(root_container);
+
+        let mut dock_state = egui_tiles::Tree::new("tree", root, tiles);
 
         HydrateEditorApp {
             db_state,

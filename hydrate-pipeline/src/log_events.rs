@@ -9,7 +9,8 @@ use crate::JobId;
 #[derive(Debug, Copy, Clone)]
 pub enum LogEventLevel {
     Warning,
-    Error
+    Error,
+    FatalError,
 }
 
 pub struct ImportLogEvent {

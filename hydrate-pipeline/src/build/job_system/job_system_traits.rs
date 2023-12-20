@@ -11,6 +11,7 @@ use serde::{Deserialize, Serialize};
 use siphasher::sip128::Hasher128;
 use std::cell::RefCell;
 use std::hash::Hash;
+use std::panic::RefUnwindSafe;
 use std::rc::Rc;
 use std::sync::Arc;
 use type_uuid::{TypeUuid, TypeUuidDynamic};
@@ -126,7 +127,7 @@ pub struct JobEnumeratedDependencies {
     pub upstream_jobs: Vec<JobId>,
 }
 
-pub(crate) trait JobProcessorAbstract: Send + Sync {
+pub(crate) trait JobProcessorAbstract: Send + Sync + RefUnwindSafe {
     fn version_inner(&self) -> u32;
 
     fn enumerate_dependencies_inner(

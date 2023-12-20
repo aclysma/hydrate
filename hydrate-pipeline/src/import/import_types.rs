@@ -1,6 +1,7 @@
 use crate::{BuildLogEvent, HydrateProjectConfiguration, ImporterRegistry, ImportLogEvent, LogEventLevel, PipelineResult};
 use hydrate_data::{AssetId, CanonicalPathReference, HashMap, ImportableName, ImporterId, PathReference, PathReferenceHash, Record, SchemaRecord, SchemaSet, SingleObject};
 use std::cell::RefCell;
+use std::panic::RefUnwindSafe;
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
 use type_uuid::{TypeUuid, TypeUuidDynamic};
@@ -364,7 +365,7 @@ impl<'a> ImportContext<'a> {
 }
 
 // Interface all importers must implement
-pub trait Importer: TypeUuidDynamic + Sync + Send + 'static {
+pub trait Importer: TypeUuidDynamic + Sync + Send + RefUnwindSafe + 'static {
     fn importer_id(&self) -> ImporterId {
         ImporterId(Uuid::from_bytes(self.uuid()))
     }

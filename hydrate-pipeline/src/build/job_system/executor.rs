@@ -7,19 +7,20 @@ use serde::{Deserialize, Serialize};
 use std::cell::RefCell;
 use std::hash::Hasher;
 use std::io::{BufWriter, Write};
+use std::panic::RefUnwindSafe;
 use std::path::PathBuf;
 use std::rc::Rc;
 use std::sync::Arc;
 use log::Log;
 use crate::build::{BuiltArtifact, WrittenArtifact};
 use crate::import::ImportData;
-use crate::{BuildLogData, BuildLogEvent, LogEventLevel, PipelineResult};
+use crate::{BuildLogData, BuildLogEvent, LogEventLevel, PipelineError, PipelineResult};
 
 use super::*;
 
 struct JobWrapper<T: JobProcessor>(T);
 
-impl<T: JobProcessor + Send + Sync> JobProcessorAbstract for JobWrapper<T>
+impl<T: JobProcessor + Send + Sync + RefUnwindSafe> JobProcessorAbstract for JobWrapper<T>
 where
     <T as JobProcessor>::InputT: for<'a> Deserialize<'a> + 'static,
     <T as JobProcessor>::OutputT: Serialize + 'static,
@@ -100,10 +101,10 @@ struct JobState {
     // When we send the job to the thread pool, this is set to true
     has_been_scheduled: bool,
     // This would eventually be stored on file system
-    output_data: Option<JobStateOuput>,
+    output_data: Option<JobStateOutput>,
 }
 
-struct JobStateOuput {
+struct JobStateOutput {
     output_data: PipelineResult<Arc<Vec<u8>>>,
     fetched_asset_data: HashMap<AssetId, FetchedAssetData>,
     fetched_import_data: HashMap<AssetId, FetchedImportData>,
@@ -117,7 +118,7 @@ struct QueuedJob {
     job_requestor: JobRequestor,
     job_type: JobTypeId,
     input_data: Arc<Vec<u8>>,
-    dependencies: Arc<JobEnumeratedDependencies>,
+    dependencies: PipelineResult<JobEnumeratedDependencies>,
     debug_name: Arc<String>,
 }
 
@@ -127,7 +128,7 @@ pub struct JobProcessorRegistryBuilder {
 }
 
 impl JobProcessorRegistryBuilder {
-    pub fn register_job_processor<T: JobProcessor + Send + Sync + Default + 'static>(&mut self)
+    pub fn register_job_processor<T: JobProcessor + Send + Sync + RefUnwindSafe + Default + 'static>(&mut self)
     where
         <T as JobProcessor>::InputT: for<'a> Deserialize<'a>,
         <T as JobProcessor>::OutputT: Serialize,
@@ -141,7 +142,7 @@ impl JobProcessorRegistryBuilder {
         }
     }
 
-    pub fn register_job_processor_instance<T: JobProcessor + Send + Sync + 'static>(
+    pub fn register_job_processor_instance<T: JobProcessor + Send + Sync + RefUnwindSafe + 'static>(
         &mut self,
         job_processor: T,
     ) where
@@ -238,10 +239,10 @@ impl JobApi for JobApiImpl {
             .job_processor_registry
             .get(new_job.job_type)
             .unwrap();
-        //TODO: Currently if this fails, we add a log event to the caller using the job ID of the new job that never
-        // runs and is never reported. So we can't trace this error to the original asset(s).
+
         let dependencies =
-            processor.enumerate_dependencies_inner(job_id, job_requestor, &new_job.input_data, data_set, schema_set, log_events)?;
+            processor.enumerate_dependencies_inner(job_id, job_requestor, &new_job.input_data, data_set, schema_set, log_events);
+
         self.inner
             .job_create_queue_tx
             .send(QueuedJob {
@@ -249,10 +250,11 @@ impl JobApi for JobApiImpl {
                 job_requestor,
                 job_type: new_job.job_type,
                 input_data: Arc::new(new_job.input_data),
-                dependencies: Arc::new(dependencies),
+                dependencies,
                 debug_name: Arc::new(debug_name),
             })
             .unwrap();
+
         Ok(job_id)
     }
 
@@ -514,17 +516,41 @@ impl JobExecutor {
                     .job_processor_registry
                     .contains_key(queued_job.job_type));
 
-                self.current_jobs.insert(
-                    queued_job.job_id,
-                    JobState {
-                        job_type: queued_job.job_type,
-                        dependencies: queued_job.dependencies,
-                        input_data: queued_job.input_data,
-                        debug_name: queued_job.debug_name,
-                        has_been_scheduled: false,
-                        output_data: None,
-                    },
-                );
+                let job_state = match queued_job.dependencies {
+                    Ok(dependencies) => {
+                        JobState {
+                            job_type: queued_job.job_type,
+                            dependencies: Arc::new(dependencies),
+                            input_data: queued_job.input_data,
+                            debug_name: queued_job.debug_name,
+                            has_been_scheduled: false,
+                            output_data: None,
+                        }
+                    }
+                    Err(e) => {
+                        log_data.log_events.push(BuildLogEvent {
+                            job_id: Some(queued_job.job_id),
+                            asset_id: None,
+                            level: LogEventLevel::FatalError,
+                            message: format!("enumerate_dependencies returned error: {}", e.to_string())
+                        });
+
+                        JobState {
+                            job_type: queued_job.job_type,
+                            dependencies: Arc::new(JobEnumeratedDependencies::default()),
+                            input_data: queued_job.input_data,
+                            debug_name: queued_job.debug_name,
+                            has_been_scheduled: true,
+                            output_data: Some(JobStateOutput {
+                                output_data: Err(e),
+                                fetched_asset_data: Default::default(),
+                                fetched_import_data: Default::default(),
+                            }),
+                        }
+                    }
+                };
+
+                self.current_jobs.insert(queued_job.job_id, job_state);
             }
         }
     }
@@ -534,16 +560,34 @@ impl JobExecutor {
             match result {
                 JobExecutorThreadPoolOutcome::RunJobComplete(msg) => {
                     let job = self.current_jobs.get_mut(&msg.request.job_id).unwrap();
-                    job.output_data = Some(JobStateOuput {
-                        output_data: msg.result,
-                        fetched_asset_data: msg.fetched_asset_data,
-                        fetched_import_data: msg.fetched_import_data,
-                    });
-                    self.completed_job_count += 1;
+                    match msg.result {
+                        Ok(data) => {
+                            job.output_data = Some(JobStateOutput {
+                                output_data: Ok(data.output_data),
+                                fetched_asset_data: data.fetched_asset_data,
+                                fetched_import_data: data.fetched_import_data,
+                            });
 
-                    for log_event in msg.log_events {
-                        log_events.push(log_event);
+                            for log_event in data.log_events {
+                                log_events.push(log_event);
+                            }
+                        }
+                        Err(e) => {
+                            log_events.push(BuildLogEvent {
+                                job_id: Some(msg.request.job_id),
+                                asset_id: None,
+                                level: LogEventLevel::FatalError,
+                                message: format!("Build job returned error: {}", e.to_string())
+                            });
+
+                            job.output_data = Some(JobStateOutput {
+                                output_data: Err(e),
+                                fetched_asset_data: Default::default(),
+                                fetched_import_data: Default::default(),
+                            });
+                        }
                     }
+                    self.completed_job_count += 1;
 
                     // When we a
                     //TODO: do we hash stuff here and do anything with it?

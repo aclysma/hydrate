@@ -7,7 +7,7 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use crossbeam_channel::Receiver;
 
-use crate::{DynEditorModel, HydrateProjectConfiguration, BuildLogEvent, PipelineResult, ImportLogEvent, ImportJobToQueue, JobId, ImportLogData, BuildLogData};
+use crate::{DynEditorModel, HydrateProjectConfiguration, BuildLogEvent, PipelineResult, ImportLogEvent, ImportJobToQueue, JobId, ImportLogData, BuildLogData, LogEventLevel};
 use hydrate_base::uuid_path::{path_to_uuid, uuid_to_path};
 use hydrate_data::ImportableName;
 use hydrate_data::{ImporterId, SchemaSet, SingleObject};
@@ -336,7 +336,7 @@ impl ImportJobs {
         //
         // If we have a completed import task, merge results back into the editor model
         //
-        if let Some(finished_import_task) = self.current_import_task.take() {
+        if let Some(mut finished_import_task) = self.current_import_task.take() {
             finished_import_task.thread_pool.finish();
 
             //
@@ -345,20 +345,32 @@ impl ImportJobs {
             for outcome in finished_import_task.result_rx.try_iter() {
                 match outcome {
                     ImportThreadOutcome::Complete(msg) => {
-                        for (name, imported_asset) in msg.result? {
-                            if let Some(requested_importable) =
-                                msg.request.import_op.requested_importables.get(&name)
-                            {
-                                editor_model.handle_import_complete(
-                                    requested_importable.asset_id,
-                                    requested_importable.asset_name.clone(),
-                                    requested_importable.asset_location.clone(),
-                                    &imported_asset.default_asset,
-                                    requested_importable.replace_with_default_asset,
-                                    imported_asset.import_info,
-                                    &requested_importable.canonical_path_references,
-                                    &requested_importable.path_references,
-                                )?;
+                        match msg.result {
+                            Ok(result) => {
+                                for (name, imported_asset) in result {
+                                    if let Some(requested_importable) =
+                                        msg.request.import_op.requested_importables.get(&name)
+                                    {
+                                        editor_model.handle_import_complete(
+                                            requested_importable.asset_id,
+                                            requested_importable.asset_name.clone(),
+                                            requested_importable.asset_location.clone(),
+                                            &imported_asset.default_asset,
+                                            requested_importable.replace_with_default_asset,
+                                            imported_asset.import_info,
+                                            &requested_importable.canonical_path_references,
+                                            &requested_importable.path_references,
+                                        )?;
+                                    }
+                                }
+                            },
+                            Err(e) => {
+                                finished_import_task.log_data.log_events.push(ImportLogEvent {
+                                    path: msg.request.import_op.path.clone(),
+                                    asset_id: None,
+                                    level: LogEventLevel::FatalError,
+                                    message: format!("Importer returned error: {}", e.to_string())
+                                })
                             }
                         }
                     }

@@ -3,12 +3,13 @@ use crate::{AssetSourceId, DataSource};
 use crate::{PathNode, PathNodeRoot};
 use hydrate_base::hashing::HashSet;
 use hydrate_data::json_storage::{MetaFile, MetaFileJson};
-use hydrate_data::{AssetId, AssetLocation, AssetName, ImportableName, ImporterId, PathReference};
-use hydrate_pipeline::{Importer, ImporterRegistry, HydrateProjectConfiguration, ImportJobSourceFile, ScannedImportable, RequestedImportable, ImportType, ScanContext, ImportJobToQueue};
+use hydrate_data::{AssetId, AssetLocation, AssetName, CanonicalPathReference, ImportableName, ImporterId, PathReference};
+use hydrate_pipeline::{Importer, ImporterRegistry, HydrateProjectConfiguration, ImportJobSourceFile, ScannedImportable, RequestedImportable, ImportType, ScanContext, ImportJobToQueue, ImportLogEvent, LogEventLevel, PipelineResult};
 use hydrate_schema::{HashMap, SchemaNamedType};
 use std::ffi::OsStr;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
+use ahash::RandomState;
 use uuid::Uuid;
 
 // New trait design
@@ -33,6 +34,13 @@ use uuid::Uuid;
 //
 // IDEA: The database should store paths as strings and ID/Path based systems have to deal with
 // conversion to ID if needed? Means renames touch lots of assets in memory.
+
+
+struct ScannedSourceFile<'a> {
+    meta_file: MetaFile,
+    importer: &'a Arc<dyn Importer>,
+    scanned_importables: Vec<ScannedImportable>,
+}
 
 struct FileMetadata {
     // size_in_bytes: u64,
@@ -408,6 +416,50 @@ impl FileSystemPathBasedDataSource {
 
         AssetLocation::new(previous_asset_id)
     }
+
+    fn find_canonical_path_references(
+        project_config: &HydrateProjectConfiguration,
+        source_file_path: &PathBuf,
+        scanned_importable: &ScannedImportable,
+        scanned_source_files: &HashMap<PathBuf, ScannedSourceFile>
+    ) -> PipelineResult<HashMap<CanonicalPathReference, AssetId>> {
+        // For any referenced file, locate the AssetID at that path. It must be in this data source,
+        // and at this point must exist in the meta file.
+        let mut canonical_path_references = HashMap::default();
+
+        for (path_reference, &importer_id) in &scanned_importable.referenced_source_file_info {
+            let path_reference_absolute = path_reference.canonicalized_absolute_path(
+                project_config,
+                source_file_path,
+            ).unwrap();
+
+            //println!("referenced {:?} {:?}", path_reference_absolute_path, scanned_source_files.keys());
+            //println!("pull from {:?}", scanned_source_files.keys());
+            //println!("referenced {:?}", path_reference_absolute_path);
+            let referenced_scanned_source_file = scanned_source_files
+                .get(&PathBuf::from(path_reference_absolute.path()))
+                .ok_or_else(|| format!("{:?} is referencing source file {:?} but it does not exist or failed to import", source_file_path, path_reference.path()))?;
+            assert_eq!(
+                importer_id,
+                referenced_scanned_source_file.importer.importer_id()
+            );
+            canonical_path_references.insert(
+                path_reference.clone(),
+                *referenced_scanned_source_file
+                    .meta_file
+                    .past_id_assignments
+                    .get(path_reference.importable_name())
+                    .ok_or_else(|| format!(
+                        "{:?} is referencing importable {:?} in {:?} but it was not found when the file was scanned",
+                        source_file_path,
+                        path_reference.path(),
+                        path_reference.importable_name())
+                    )
+                    .unwrap()
+            );
+        }
+        Ok(canonical_path_references)
+    }
 }
 
 impl DataSource for FileSystemPathBasedDataSource {
@@ -653,11 +705,6 @@ impl DataSource for FileSystemPathBasedDataSource {
         // a first pass, and a second pass will actually create the assets and ensure references in
         // the file are satisfied and pointing to the correct asset
         //
-        struct ScannedSourceFile<'a> {
-            meta_file: MetaFile,
-            importer: &'a Arc<dyn Importer>,
-            scanned_importables: Vec<ScannedImportable>,
-        }
         let mut scanned_source_files = HashMap::<PathBuf, ScannedSourceFile>::default();
 
         {
@@ -692,7 +739,7 @@ impl DataSource for FileSystemPathBasedDataSource {
                             "Importer::scan_file {}",
                             source_file.to_string_lossy()
                         ));
-                        importer
+                        let scan_result = importer
                             .scan_file(ScanContext::new(
                                 &source_file,
                                 edit_context.schema_set(),
@@ -700,8 +747,21 @@ impl DataSource for FileSystemPathBasedDataSource {
                                 project_config,
                                 &mut scanned_importables,
                                 &mut import_job_to_queue.log_data.log_events,
-                            ))
-                            .unwrap()
+                            ));
+
+                        match scan_result {
+                            Ok(result) => result,
+                            Err(e) => {
+                                import_job_to_queue.log_data.log_events.push(ImportLogEvent {
+                                    path: source_file.clone(),
+                                    asset_id: None,
+                                    level: LogEventLevel::FatalError,
+                                    message: format!("scan_file returned error: {}", e.to_string())
+                                });
+
+                                continue;
+                            }
+                        }
                     };
 
                     //println!("  find meta file {:?}", source_file);
@@ -821,64 +881,41 @@ impl DataSource for FileSystemPathBasedDataSource {
                             .insert(importable_asset_id);
                     }
 
-                    // For any referenced file, locate the AssetID at that path. It must be in this data source,
-                    // and at this point must exist in the meta file.
-                    let mut canonical_path_references = HashMap::default();
+                    let canonical_path_references = Self::find_canonical_path_references(project_config, source_file_path, &scanned_importable, &scanned_source_files);
+                    match canonical_path_references {
+                        Ok(canonical_path_references) => {
+                            let source_file = PathReference::new(
+                                "".to_string(),
+                                source_file_path.to_string_lossy().to_string(),
+                                scanned_importable.name.clone(),
+                            ).simplify(project_config);
 
-                    for (path_reference, &importer_id) in &scanned_importable.referenced_source_file_info {
-                        let path_reference_absolute = path_reference.canonicalized_absolute_path(
-                            project_config,
-                            source_file_path,
-                        ).unwrap();
+                            let requested_importable = RequestedImportable {
+                                asset_id: importable_asset_id,
+                                schema: scanned_importable.asset_type.clone(),
+                                asset_name,
+                                asset_location: import_location,
+                                //importer_id: scanned_source_file.importer.importer_id(),
+                                source_file,
+                                canonical_path_references,
+                                path_references: scanned_importable
+                                    .referenced_source_files
+                                    .clone(),
+                                replace_with_default_asset: !asset_file_exists,
+                            };
 
-                        //println!("referenced {:?} {:?}", path_reference_absolute_path, scanned_source_files.keys());
-                        //println!("pull from {:?}", scanned_source_files.keys());
-                        //println!("referenced {:?}", path_reference_absolute_path);
-                        let referenced_scanned_source_file = scanned_source_files
-                            .get(&PathBuf::from(path_reference_absolute.path()))
-                            .unwrap();
-                        assert_eq!(
-                            importer_id,
-                            referenced_scanned_source_file.importer.importer_id()
-                        );
-                        canonical_path_references.insert(
-                            path_reference.clone(),
-                            *referenced_scanned_source_file
-                                .meta_file
-                                .past_id_assignments
-                                .get(path_reference.importable_name())
-                                .ok_or_else(|| format!(
-                                    "{:?} is referencing importable {:?} in {:?} but it was not found when the file was scanned",
-                                    source_file_path,
-                                    path_reference.path(),
-                                    path_reference.importable_name())
-                                )
-                                .unwrap()
-                        );
+                            requested_importables
+                                .insert(scanned_importable.name.clone(), requested_importable);
+                        }
+                        Err(e) => {
+                            import_job_to_queue.log_data.log_events.push(ImportLogEvent {
+                                path: source_file_path.clone(),
+                                asset_id: Some(importable_asset_id),
+                                level: LogEventLevel::FatalError,
+                                message: format!("While resolving references to other assets: {}", e.to_string())
+                            });
+                        }
                     }
-
-                    let source_file = PathReference::new(
-                        "".to_string(),
-                        source_file_path.to_string_lossy().to_string(),
-                        scanned_importable.name.clone(),
-                    ).simplify(project_config);
-
-                    let requested_importable = RequestedImportable {
-                        asset_id: importable_asset_id,
-                        schema: scanned_importable.asset_type.clone(),
-                        asset_name,
-                        asset_location: import_location,
-                        //importer_id: scanned_source_file.importer.importer_id(),
-                        source_file,
-                        canonical_path_references,
-                        path_references: scanned_importable
-                            .referenced_source_files
-                            .clone(),
-                        replace_with_default_asset: !asset_file_exists,
-                    };
-
-                    requested_importables
-                        .insert(scanned_importable.name.clone(), requested_importable);
                 }
 
                 import_job_to_queue.import_job_source_files.push(ImportJobSourceFile {

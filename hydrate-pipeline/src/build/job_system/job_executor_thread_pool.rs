@@ -26,13 +26,17 @@ pub(crate) enum JobExecutorThreadPoolRequest {
     RunJob(JobExecutorThreadPoolRequestRunJob),
 }
 
-// Results from successful build
-pub(crate) struct JobExecutorThreadPoolOutcomeRunJobComplete {
-    pub request: JobExecutorThreadPoolRequestRunJob,
-    pub result: PipelineResult<Arc<Vec<u8>>>,
+pub struct JobExecutorThreadPoolOutcomeRunJobCompleteData {
+    pub output_data: Arc<Vec<u8>>,
     pub fetched_asset_data: HashMap<AssetId, FetchedAssetData>,
     pub fetched_import_data: HashMap<AssetId, FetchedImportData>,
     pub log_events: Vec<BuildLogEvent>,
+}
+
+// Results from successful build
+pub(crate) struct JobExecutorThreadPoolOutcomeRunJobComplete {
+    pub request: JobExecutorThreadPoolRequestRunJob,
+    pub result: PipelineResult<JobExecutorThreadPoolOutcomeRunJobCompleteData>,
     //asset: SingleObject,
     //import_data: SingleObject,
 }
@@ -51,8 +55,8 @@ fn do_build(
     job_processor_registry: &JobProcessorRegistry,
     schema_set: &SchemaSet,
     job_api: &dyn JobApi,
-    request: JobExecutorThreadPoolRequestRunJob,
-) -> JobExecutorThreadPoolOutcome {
+    request: &JobExecutorThreadPoolRequestRunJob,
+) -> PipelineResult<JobExecutorThreadPoolOutcomeRunJobCompleteData> {
     profiling::scope!(&format!("Handle Job {}", request.debug_name));
 
     let mut fetched_asset_data = HashMap::<AssetId, FetchedAssetData>::default();
@@ -63,7 +67,7 @@ fn do_build(
     let job_processor = job_processor_registry
         .get_processor(request.job_type)
         .unwrap();
-    let result = {
+    let output_data = {
         profiling::scope!(&format!("JobProcessor::run_inner"));
         job_processor.run_inner(
             request.job_id,
@@ -75,11 +79,10 @@ fn do_build(
             &mut fetched_import_data,
             &mut log_events,
         )
-    };
+    }?;
 
-    JobExecutorThreadPoolOutcome::RunJobComplete(JobExecutorThreadPoolOutcomeRunJobComplete {
-        request,
-        result,
+    Ok(JobExecutorThreadPoolOutcomeRunJobCompleteData {
+        output_data,
         fetched_asset_data,
         fetched_import_data,
         log_events,
@@ -110,16 +113,31 @@ impl JobExecutorWorkerThread {
                         recv(request_rx) -> msg => {
                             match msg.unwrap() {
                                 JobExecutorThreadPoolRequest::RunJob(msg) => {
-                                    profiling::scope!("JobExecutorThreadPoolRequest::RequestBuild");
+                                    let result = std::panic::catch_unwind(|| {
+                                        profiling::scope!("JobExecutorThreadPoolRequest::RequestBuild");
+                                        do_build(
+                                            &job_processor_registry,
+                                            &schema_set,
+                                            &job_api,
+                                            &msg
+                                        )
+                                    });
 
-                                    let result = do_build(
-                                        &job_processor_registry,
-                                        &schema_set,
-                                        &job_api,
-                                        msg
-                                    );
+                                    match result {
+                                        Ok(result) => {
+                                            outcome_tx.send(JobExecutorThreadPoolOutcome::RunJobComplete(JobExecutorThreadPoolOutcomeRunJobComplete {
+                                                request: msg,
+                                                result,
+                                            })).unwrap();
+                                        },
+                                        Err(e) => {
+                                            outcome_tx.send(JobExecutorThreadPoolOutcome::RunJobComplete(JobExecutorThreadPoolOutcomeRunJobComplete {
+                                                request: msg,
+                                                result: Err("Panic detected in build job.".into())
+                                            })).unwrap();
+                                        }
+                                    }
 
-                                    outcome_tx.send(result).unwrap();
                                     active_request_count.fetch_sub(1, Ordering::Release);
                                 },
                             }

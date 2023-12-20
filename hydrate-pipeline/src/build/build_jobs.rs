@@ -171,13 +171,20 @@ impl BuildJobs {
                             continue;
                         };
 
-                    builder.start_jobs(BuilderContext {
+                    if let Err(e) = builder.start_jobs(BuilderContext {
                         asset_id,
                         data_set: &build_task.data_set,
                         schema_set: &build_task.schema_set,
                         job_api: self.job_executor.job_api(),
                         log_events: &Rc::new(RefCell::new(&mut build_task.log_data.log_events))
-                    })?;
+                    }) {
+                        build_task.log_data.log_events.push(BuildLogEvent {
+                            job_id: None,
+                            asset_id: Some(asset_id),
+                            level: LogEventLevel::FatalError,
+                            message: format!("start_jobs returned error: {}", e.to_string())
+                        });
+                    }
                 }
             }
 

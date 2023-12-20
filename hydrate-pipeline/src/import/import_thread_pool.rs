@@ -177,7 +177,7 @@ fn do_import(
                     assert!(old.is_none());
                 }
 
-                return Ok(cached_importables);
+                //return Ok(cached_importables);
             }
         }
     }
@@ -345,20 +345,33 @@ impl ImportWorkerThread {
                         recv(request_rx) -> msg => {
                             match msg.unwrap() {
                                 ImportThreadRequest::RequestImport(msg) => {
-                                    profiling::scope!("ImportThreadRequest::RequestImport");
-                                    let result = do_import(
-                                        &project_config,
-                                        &importer_registry,
-                                        &schema_set,
-                                        &*existing_asset_import_state,
-                                        &*import_data_root_path,
-                                        &msg,
-                                    );
+                                    let result = std::panic::catch_unwind(|| {
+                                        profiling::scope!("ImportThreadRequest::RequestImport");
+                                        do_import(
+                                            &project_config,
+                                            &importer_registry,
+                                            &schema_set,
+                                            &*existing_asset_import_state,
+                                            &*import_data_root_path,
+                                            &msg,
+                                        )
+                                    });
 
-                                    outcome_tx.send(ImportThreadOutcome::Complete(ImportThreadOutcomeComplete {
-                                        request: msg,
-                                        result,
-                                    })).unwrap();
+                                    match result {
+                                        Ok(result) => {
+                                            outcome_tx.send(ImportThreadOutcome::Complete(ImportThreadOutcomeComplete {
+                                                request: msg,
+                                                result,
+                                            })).unwrap();
+                                        },
+                                        Err(e) => {
+                                            outcome_tx.send(ImportThreadOutcome::Complete(ImportThreadOutcomeComplete {
+                                                request: msg,
+                                                result: Err("Panic detected in importer.".into())
+                                            })).unwrap();
+                                        }
+                                    }
+
                                     active_request_count.fetch_sub(1, Ordering::Release);
                                 },
                             }

@@ -6,6 +6,9 @@ pub use import_files_modal::ImportFilesModal;
 
 mod confirm_lose_changes;
 mod new_asset_modal;
+mod move_modal;
+pub use move_modal::MoveAssetsModal;
+
 pub use new_asset_modal::NewAssetModal;
 
 pub use confirm_lose_changes::{ConfirmQuitWithoutSaving, ConfirmRevertChanges};

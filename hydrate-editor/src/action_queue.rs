@@ -1,6 +1,6 @@
 use crate::app::UiState;
 use crate::modal_action::ModalAction;
-use crate::ui::modals::ConfirmQuitWithoutSaving;
+use crate::ui::modals::{ConfirmQuitWithoutSaving, MoveAssetsModal};
 use crate::ui::modals::ConfirmRevertChanges;
 use crossbeam_channel::{Receiver, Sender};
 use hydrate_model::edit_context::EditContext;
@@ -32,8 +32,9 @@ pub enum UIAction {
     ForceRebuild(Vec<AssetId>),
     ShowAssetInAssetGallery(AssetId),
     MoveAssets(Vec<AssetId>, AssetLocation),
+    MoveOrRename(Vec<AssetId>, Option<AssetName>, AssetLocation),
     NewAsset(AssetName, AssetLocation, SchemaRecord, Option<AssetId>),
-    DeleteAsset(AssetId),
+    DeleteAssets(Vec<AssetId>),
     SetProperty(Vec<AssetId>, PropertyPath, Option<Value>, EndContextBehavior),
     ClearPropertiesForRecord(Vec<AssetId>, PropertyPath, SchemaFingerprint),
     CommitPendingUndoContext,
@@ -256,6 +257,22 @@ impl UIActionQueueReceiver {
                 UIAction::BuildAll => {
                     asset_engine.queue_build_all();
                 }
+                UIAction::MoveOrRename(asset_ids, new_name, new_location) => {
+                    editor_model.root_edit_context_mut().with_undo_context(
+                        "MoveOrRename",
+                        |edit_context| {
+                            for &asset_id in &asset_ids {
+                                if let Some(new_name) = &new_name {
+                                    edit_context.set_asset_name(asset_id, new_name.clone()).unwrap();
+                                }
+                                
+                                edit_context.set_asset_location(asset_id, new_location).unwrap();
+                            }
+
+                            EndContextBehavior::Finish
+                        },
+                    );
+                }
                 UIAction::ForceRebuild(asset_ids) => {
                     for asset_id in asset_ids {
                         asset_engine.queue_build_asset(asset_id)
@@ -316,11 +333,13 @@ impl UIActionQueueReceiver {
                         },
                     );
                 }
-                UIAction::DeleteAsset(asset_id) => {
+                UIAction::DeleteAssets(asset_ids) => {
                     editor_model.root_edit_context_mut().with_undo_context(
                         "delete asset",
                         |edit_context| {
-                            edit_context.delete_asset(asset_id).unwrap();
+                            for asset_id in asset_ids {
+                                edit_context.delete_asset(asset_id).unwrap();
+                            }
                             EndContextBehavior::Finish
                         },
                     );

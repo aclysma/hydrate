@@ -182,7 +182,6 @@ pub fn draw_asset_tree(
         .max_width(f32::INFINITY)
         .auto_shrink([false, false])
         .show(ui, |ui| {
-            ui.label("ASSET TREE");
             ui.push_id("asset tree", |ui| {
                 ui.style_mut().visuals.indent_has_left_vline = false;
                 ui.style_mut().spacing.item_spacing = egui::vec2(2.0, 2.0);

@@ -1,7 +1,7 @@
 use std::sync::Arc;
 use image::imageops::contrast;
 use crate::action_queue::{UIAction, UIActionQueueSender};
-use crate::ui::modals::NewAssetModal;
+use crate::ui::modals::{MoveAssetsModal, NewAssetModal};
 use crate::ui_state::EditorModelUiState;
 use hydrate_model::{AssetId, EditorModel, HashSet, PropertyPath, Schema, SchemaDefRecordFieldMarkup};
 use hydrate_model::pipeline::ThumbnailProviderRegistry;
@@ -119,24 +119,72 @@ pub fn draw_inspector(
                     }
 
                     ui.menu_button("Actions...", |ui| {
+                        if are_any_generated {
+                            ui.label("One or more assets are generated and cannot be edited directly");
+                        }
+
                         //
                         // Some actions that can be taken (TODO: Make a context menu?)
                         //
                         if are_any_generated {
                             if ui.button("Persist Asset").clicked() {
                                 action_sender.queue_action(UIAction::PersistAssets(selected_assets.iter().copied().collect()));
+                                ui.close_menu();
                             }
                         }
 
-                        if ui.add_enabled(selected_assets.len() == 1, egui::Button::new("Use as prototype")).clicked() {
+                        let can_use_as_prototype = editor_model.root_edit_context().import_info(primary_asset_id).is_none() && selected_assets.len() == 1;
+
+                        if ui.add_enabled(can_use_as_prototype, egui::Button::new("Use as prototype")).clicked() {
                             action_sender.try_set_modal_action(NewAssetModal::new_with_prototype(
                                 Some(editor_model.root_edit_context().asset_location(primary_asset_id).unwrap()),
                                 primary_asset_id)
                             );
+                            ui.close_menu();
                         }
 
                         if ui.button("Rebuild").clicked() {
                             action_sender.queue_action(UIAction::ForceRebuild(selected_assets.iter().copied().collect()));
+                            ui.close_menu();
+                        }
+
+                        let can_rename = selected_assets.len() == 1;
+                        let move_or_rename_text = if can_rename {
+                            "Move or Rename"
+                        } else {
+                            "Move"
+                        };
+
+                        if ui.add_enabled(!are_any_generated, egui::Button::new(move_or_rename_text)).clicked() {
+                            let location = edit_context.asset_location(primary_asset_id).unwrap();
+                            if can_rename {
+                                // Single selected case, can move or rename
+                                let name = edit_context.asset_name(primary_asset_id).unwrap();
+                                action_sender.try_set_modal_action(MoveAssetsModal::new_single_asset(
+                                    primary_asset_id,
+                                    name.as_string().cloned().unwrap_or_else(|| primary_asset_id.to_string()),
+                                    Some(location))
+                                );
+                            } else {
+                                // Multiple selected case, move only
+                                action_sender.try_set_modal_action(MoveAssetsModal::new_multiple_assets(
+                                    vec![primary_asset_id],
+                                    Some(location))
+                                );
+                            }
+
+                            ui.close_menu();
+                        }
+
+                        let delete_button_string = if selected_assets.len() > 1 {
+                            format!("Delete {} assets", selected_assets.len())
+                        } else {
+                            format!("Delete {}", edit_context.asset_name_or_id_string(primary_asset_id).unwrap())
+                        };
+
+                        if ui.add_enabled(!are_any_generated, egui::Button::new(delete_button_string)).clicked() {
+                            action_sender.queue_action(UIAction::DeleteAssets(selected_assets.iter().copied().collect()));
+                            ui.close_menu();
                         }
                     });
                 });

@@ -1,16 +1,15 @@
 use crate::action_queue::{UIAction, UIActionQueueSender};
 use crate::ui::components::AssetTreeUiState;
 use crate::ui::drag_drop::DragDropPayload;
-use crate::ui::modals::NewAssetModal;
+use crate::ui::modals::{MoveAssetsModal, NewAssetModal};
 use crate::ui_state::EditorModelUiState;
 use crate::DbState;
 use egui::epaint::text::FontsImpl;
 use egui::{Color32, FontId, Layout, Ui, Widget};
-use hydrate_model::{
-    AssetId, AssetLocation, DataSetAssetInfo, HashSet,
-};
+use hydrate_model::{AssetId, AssetLocation, DataSetAssetInfo, EditorModel, HashSet};
 use std::sync::Arc;
 use egui::text::LayoutJob;
+use hydrate_model::edit_context::EditContext;
 use hydrate_model::pipeline::ThumbnailProviderRegistry;
 use crate::image_loader::ThumbnailImageLoader;
 
@@ -105,6 +104,16 @@ impl AssetGalleryUiState {
         }
     }
 
+    pub fn select_one(&mut self, asset_id: AssetId) {
+        // Normal clicks clear current selection and then select the clicked asset
+        self.select_none();
+
+        self.selected_assets.insert(asset_id);
+        self.primary_selected_asset = Some(asset_id);
+        self.previous_shift_select_range_begin = Some(asset_id);
+        self.previous_shift_select_range_end = None;
+    }
+
     pub fn select_all(&mut self) {
         // If we had something as our primary selection and it's not selectable, and we select all, stop selecting it
         if let Some(primary_selected_asset) = self.primary_selected_asset {
@@ -122,14 +131,14 @@ impl AssetGalleryUiState {
         }
 
         self.previous_shift_select_range_begin = None;
-        self.previous_shift_select_range_begin = None;
+        self.previous_shift_select_range_end = None;
     }
 
     pub fn select_none(&mut self) {
         self.primary_selected_asset = None;
         self.selected_assets.clear();
         self.previous_shift_select_range_begin = None;
-        self.previous_shift_select_range_begin = None;
+        self.previous_shift_select_range_end = None;
     }
 }
 
@@ -411,11 +420,13 @@ fn draw_asset_gallery_list(
                                 response.context_menu(|ui| {
                                     asset_context_menu(
                                         ui,
+                                        asset_gallery_ui_state,
                                         action_queue,
                                         asset_id,
-                                        is_generated,
                                         &short_name,
                                         asset_info.asset_location(),
+                                        &db_state
+                                            .editor_model
                                     );
                                 })
                             },
@@ -607,11 +618,13 @@ fn draw_asset_gallery_tile(
             let response = response.context_menu(move |ui| {
                 asset_context_menu(
                     ui,
+                    asset_gallery_ui_state,
                     action_queue,
                     asset_id,
-                    is_generated,
                     &short_name,
                     asset_info.asset_location(),
+                    &db_state
+                        .editor_model
                 );
             });
 
@@ -622,24 +635,73 @@ fn draw_asset_gallery_tile(
 
 fn asset_context_menu(
     ui: &mut egui::Ui,
+    asset_gallery_ui_state: &mut AssetGalleryUiState,
     action_queue: &UIActionQueueSender,
     asset_id: AssetId,
-    is_generated: bool,
     name: &str,
     location: AssetLocation,
+    editor_model: &EditorModel,
 ) {
-    if is_generated {
-        ui.label("This asset is generated and cannot be edited directly");
+    if !asset_gallery_ui_state.selected_assets.contains(&asset_id) {
+        asset_gallery_ui_state.select_one(asset_id);
     }
-    if ui
-        .add_enabled(!is_generated, egui::Button::new(format!("Delete {}", name)))
-        .clicked()
-    {
-        action_queue.queue_action(UIAction::DeleteAsset(asset_id));
+
+    let mut are_any_generated = false;
+    for asset_id in &asset_gallery_ui_state.selected_assets {
+        if editor_model.is_generated_asset(*asset_id) {
+            are_any_generated = true;
+            break;
+        }
+    }
+
+    if are_any_generated {
+        ui.label("One or more assets are generated and cannot be edited directly");
+    }
+
+
+    let can_rename = asset_gallery_ui_state.selected_assets.len() == 1 && asset_gallery_ui_state.primary_selected_asset == Some(asset_id);
+    let move_or_rename_text = if can_rename {
+        "Move or Rename"
+    } else {
+        "Move"
+    };
+
+    if ui.add_enabled(!are_any_generated, egui::Button::new(move_or_rename_text)).clicked() {
+        let current_name = editor_model.root_edit_context().asset_name(asset_id).unwrap();
+        let current_location = editor_model.root_edit_context().asset_location(asset_id).unwrap();
+
+        if can_rename {
+            action_queue.try_set_modal_action(MoveAssetsModal::new_single_asset(
+                asset_id,
+                current_name.as_string().cloned().unwrap_or_else(|| asset_id.to_string()),
+                Some(current_location)
+            ));
+        } else {
+            action_queue.try_set_modal_action(MoveAssetsModal::new_multiple_assets(
+                asset_gallery_ui_state.selected_assets.iter().copied().collect(),
+                Some(current_location)
+            ));
+        }
+
         ui.close_menu();
     }
 
-    if ui.button("Use as prototype for new asset").clicked() {
+    let delete_button_string = if asset_gallery_ui_state.selected_assets.len() > 1 {
+        format!("Delete {} assets", asset_gallery_ui_state.selected_assets.len())
+    } else {
+        format!("Delete {}", name)
+    };
+
+    if ui
+        .add_enabled(!are_any_generated, egui::Button::new(delete_button_string))
+        .clicked()
+    {
+        action_queue.queue_action(UIAction::DeleteAssets(asset_gallery_ui_state.selected_assets.iter().copied().collect()));
+        ui.close_menu();
+    }
+
+    let can_use_as_prototype = editor_model.root_edit_context().import_info(asset_id).is_none() && asset_gallery_ui_state.selected_assets.len() == 1;
+    if ui.add_enabled(can_use_as_prototype, egui::Button::new("Use as prototype for new asset")).clicked() {
         action_queue
             .try_set_modal_action(NewAssetModal::new_with_prototype(Some(location), asset_id));
         ui.close_menu();
@@ -751,14 +813,7 @@ fn handle_asset_selection(
             asset_gallery_ui_state.previous_shift_select_range_begin = Some(asset_id);
         }
     } else {
-        // Normal clicks clear current selection and then select the clicked asset
-        asset_gallery_ui_state.selected_assets.clear();
-        asset_gallery_ui_state.primary_selected_asset = None;
-
-        asset_gallery_ui_state.selected_assets.insert(asset_id);
-        asset_gallery_ui_state.primary_selected_asset = Some(asset_id);
-        asset_gallery_ui_state.previous_shift_select_range_begin = Some(asset_id);
-        asset_gallery_ui_state.previous_shift_select_range_end = None;
+        asset_gallery_ui_state.select_one(asset_id);
     }
 
     if asset_gallery_ui_state.previous_shift_select_range_end.is_some() {

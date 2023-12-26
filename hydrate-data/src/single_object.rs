@@ -131,7 +131,7 @@ impl SingleObject {
                 .copied()
                 .unwrap_or(NullOverride::Unset))
         } else {
-            Err(DataSetError::InvalidSchema)
+            Err(DataSetError::InvalidSchema)?
         }
     }
 
@@ -155,7 +155,7 @@ impl SingleObject {
             }
             Ok(())
         } else {
-            Err(DataSetError::InvalidSchema)
+            Err(DataSetError::InvalidSchema)?
         }
     }
 
@@ -187,7 +187,7 @@ impl SingleObject {
         for checked_property in &accessed_nullable_keys {
             if self.resolve_null_override(schema_set, checked_property)? != NullOverride::SetNonNull
             {
-                return Err(DataSetError::PathParentIsNull);
+                return Err(DataSetError::PathParentIsNull)?;
             }
         }
 
@@ -199,7 +199,7 @@ impl SingleObject {
             if !dynamic_collection_entries
                 .contains(&Uuid::from_str(key).map_err(|_| DataSetError::UuidParseError)?)
             {
-                return Err(DataSetError::PathDynamicArrayEntryDoesNotExist);
+                return Err(DataSetError::PathDynamicArrayEntryDoesNotExist)?;
             }
         }
 
@@ -217,7 +217,7 @@ impl SingleObject {
 
         // This field is not nullable, return an error
         if !property_schema.is_nullable() {
-            return Err(DataSetError::InvalidSchema);
+            return Err(DataSetError::InvalidSchema)?;
         }
 
         Ok(self
@@ -259,7 +259,7 @@ impl SingleObject {
                     value,
                     property_schema
                 );
-                return Err(DataSetError::ValueDoesNotMatchSchema);
+                return Err(DataSetError::ValueDoesNotMatchSchema)?;
             }
         }
 
@@ -307,7 +307,7 @@ impl SingleObject {
             .ok_or(DataSetError::SchemaNotFound)?;
 
         if !property_schema.is_dynamic_array() {
-            return Err(DataSetError::InvalidSchema);
+            return Err(DataSetError::InvalidSchema)?;
         }
 
         self.get_dynamic_collection_entries(path)
@@ -324,7 +324,7 @@ impl SingleObject {
             .ok_or(DataSetError::SchemaNotFound)?;
 
         if !property_schema.is_map() {
-            return Err(DataSetError::InvalidSchema);
+            return Err(DataSetError::InvalidSchema)?;
         }
 
         self.get_dynamic_collection_entries(path)
@@ -357,7 +357,7 @@ impl SingleObject {
             .ok_or(DataSetError::SchemaNotFound)?;
 
         if !property_schema.is_dynamic_array() {
-            return Err(DataSetError::InvalidSchema);
+            return Err(DataSetError::InvalidSchema)?;
         }
 
         self.add_dynamic_collection_entry(path)
@@ -374,7 +374,7 @@ impl SingleObject {
             .ok_or(DataSetError::SchemaNotFound)?;
 
         if !property_schema.is_map() {
-            return Err(DataSetError::InvalidSchema);
+            return Err(DataSetError::InvalidSchema)?;
         }
 
         self.add_dynamic_collection_entry(path)
@@ -393,11 +393,11 @@ impl SingleObject {
             .ok_or(DataSetError::SchemaNotFound)?;
 
         if !property_schema.is_dynamic_array() {
-            return Err(DataSetError::InvalidSchema);
+            return Err(DataSetError::InvalidSchema)?;
         }
 
         if !property_schema.is_dynamic_array() {
-            return Err(DataSetError::InvalidSchema);
+            return Err(DataSetError::InvalidSchema)?;
         }
 
         let entry = self
@@ -407,7 +407,7 @@ impl SingleObject {
         if entry.try_insert_at_position(index, entry_uuid) {
             Ok(())
         } else {
-            Err(DataSetError::DuplicateEntryKey)
+            Err(DataSetError::DuplicateEntryKey)?
         }
     }
 
@@ -438,7 +438,7 @@ impl SingleObject {
             .ok_or(DataSetError::SchemaNotFound)?;
 
         if !property_schema.is_dynamic_array() {
-            return Err(DataSetError::InvalidSchema);
+            return Err(DataSetError::InvalidSchema)?;
         }
 
         self.remove_dynamic_collection_entry(path, element_id)
@@ -456,7 +456,7 @@ impl SingleObject {
             .ok_or(DataSetError::SchemaNotFound)?;
 
         if !property_schema.is_map() {
-            return Err(DataSetError::InvalidSchema);
+            return Err(DataSetError::InvalidSchema)?;
         }
 
         self.remove_dynamic_collection_entry(path, element_id)
@@ -481,7 +481,7 @@ impl SingleObject {
     ) -> DataSetResult<Box<[Uuid]>> {
         let property_schema = self.validate_parent_paths(schema_set, path.as_ref())?;
         if !property_schema.is_dynamic_array() {
-            return Err(DataSetError::InvalidSchema);
+            return Err(DataSetError::InvalidSchema)?;
         }
 
         let mut resolved_entries = vec![];
@@ -496,7 +496,7 @@ impl SingleObject {
     ) -> DataSetResult<Box<[Uuid]>> {
         let property_schema = self.validate_parent_paths(schema_set, path.as_ref())?;
         if !property_schema.is_map() {
-            return Err(DataSetError::InvalidSchema);
+            return Err(DataSetError::InvalidSchema)?;
         }
 
         let mut resolved_entries = vec![];

@@ -1,4 +1,3 @@
-use std::fs::metadata;
 use crate::{AssetId, BuildInfo, DataSetAssetInfo, HashMap, HashSet, ImportInfo, ImporterId, NullOverride, PathReference, Schema, SchemaFingerprint, SchemaNamedType, SchemaSet, SingleObject, Value, PathReferenceNamespaceResolver, PathReferenceHash};
 use crate::{AssetLocation, AssetName, DataSetResult, ImportableName, OrderedSet};
 use hydrate_schema::DataSetError;

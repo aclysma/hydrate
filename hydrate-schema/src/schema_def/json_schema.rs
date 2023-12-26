@@ -1,4 +1,4 @@
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use super::*;
 
 fn parse_json_schema_type_ref(
@@ -392,7 +392,7 @@ fn parse_json_schema_def_record(
         );
 
         if let Some(default_thumbnail_str) = default_thumbnail_str {
-            let mut default_thumbnail_path = Path::new(&default_thumbnail_str);
+            let default_thumbnail_path = Path::new(&default_thumbnail_str);
             markup.default_thumbnail = Some(if default_thumbnail_path.is_relative() {
                 json_file_absolute_path.parent().unwrap().join(default_thumbnail_path)
             } else {

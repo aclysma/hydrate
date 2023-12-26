@@ -30,6 +30,7 @@ num_cpus = "1.16.0"
 type-uuid = "0.1.2"
 
 profiling = "1.0"
+backtrace = "0.3.69"
 
 [dev-dependencies]
 serde_json = { default-features = false, version = "1.0.85", features = ["std"] }

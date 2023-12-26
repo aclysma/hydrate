@@ -98,8 +98,8 @@ impl SchemaSet {
         &self,
         name: impl AsRef<str>,
     ) -> DataSetResult<&SchemaNamedType> {
-        self.try_find_named_type(name)
-            .ok_or(DataSetError::SchemaNotFound)
+        Ok(self.try_find_named_type(name)
+            .ok_or(DataSetError::SchemaNotFound)?)
     }
 
     pub fn try_find_named_type(

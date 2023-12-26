@@ -448,7 +448,7 @@ impl EditorModel {
 
         for asset in assets {
             if !root_edit_context.assets().contains_key(asset) {
-                return Err(DataSetError::AssetNotFound);
+                return Err(DataSetError::AssetNotFound)?;
             }
         }
 

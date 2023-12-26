@@ -400,7 +400,7 @@ impl Value {
     }
 
     pub fn as_nullable(&self) -> DataSetResult<Option<&Value>> {
-        self.try_as_nullable().ok_or(DataSetError::InvalidSchema)
+        Ok(self.try_as_nullable().ok_or(DataSetError::InvalidSchema)?)
     }
 
     pub fn try_as_nullable(&self) -> Option<Option<&Value>> {
@@ -428,7 +428,7 @@ impl Value {
     }
 
     pub fn as_boolean(&self) -> DataSetResult<bool> {
-        self.try_as_boolean().ok_or(DataSetError::InvalidSchema)
+        Ok(self.try_as_boolean().ok_or(DataSetError::InvalidSchema)?)
     }
 
     pub fn try_as_boolean(&self) -> Option<bool> {
@@ -456,7 +456,7 @@ impl Value {
     }
 
     pub fn as_i32(&self) -> DataSetResult<i32> {
-        self.try_as_i32().ok_or(DataSetError::InvalidSchema)
+        Ok(self.try_as_i32().ok_or(DataSetError::InvalidSchema)?)
     }
 
     pub fn try_as_i32(&self) -> Option<i32> {
@@ -489,7 +489,7 @@ impl Value {
     }
 
     pub fn as_u32(&self) -> DataSetResult<u32> {
-        self.try_as_u32().ok_or(DataSetError::InvalidSchema)
+        Ok(self.try_as_u32().ok_or(DataSetError::InvalidSchema)?)
     }
 
     pub fn try_as_u32(&self) -> Option<u32> {
@@ -522,7 +522,7 @@ impl Value {
     }
 
     pub fn as_i64(&self) -> DataSetResult<i64> {
-        self.try_as_i64().ok_or(DataSetError::InvalidSchema)
+        Ok(self.try_as_i64().ok_or(DataSetError::InvalidSchema)?)
     }
 
     pub fn try_as_i64(&self) -> Option<i64> {
@@ -555,7 +555,7 @@ impl Value {
     }
 
     pub fn as_u64(&self) -> DataSetResult<u64> {
-        self.try_as_u64().ok_or(DataSetError::InvalidSchema)
+        Ok(self.try_as_u64().ok_or(DataSetError::InvalidSchema)?)
     }
 
     pub fn try_as_u64(&self) -> Option<u64> {
@@ -588,7 +588,7 @@ impl Value {
     }
 
     pub fn as_f32(&self) -> DataSetResult<f32> {
-        self.try_as_f32().ok_or(DataSetError::InvalidSchema)
+        Ok(self.try_as_f32().ok_or(DataSetError::InvalidSchema)?)
     }
 
     pub fn try_as_f32(&self) -> Option<f32> {
@@ -621,7 +621,7 @@ impl Value {
     }
 
     pub fn as_f64(&self) -> DataSetResult<f64> {
-        self.try_as_f64().ok_or(DataSetError::InvalidSchema)
+        Ok(self.try_as_f64().ok_or(DataSetError::InvalidSchema)?)
     }
 
     pub fn try_as_f64(&self) -> Option<f64> {
@@ -654,7 +654,7 @@ impl Value {
     }
 
     pub fn as_bytes(&self) -> DataSetResult<&Arc<Vec<u8>>> {
-        self.try_as_bytes().ok_or(DataSetError::InvalidSchema)
+        Ok(self.try_as_bytes().ok_or(DataSetError::InvalidSchema)?)
     }
 
     pub fn try_as_bytes(&self) -> Option<&Arc<Vec<u8>>> {
@@ -681,7 +681,7 @@ impl Value {
     }
 
     pub fn as_string(&self) -> DataSetResult<&Arc<String>> {
-        self.try_as_string().ok_or(DataSetError::InvalidSchema)
+        Ok(self.try_as_string().ok_or(DataSetError::InvalidSchema)?)
     }
 
     pub fn try_as_string(&self) -> Option<&Arc<String>> {
@@ -721,7 +721,7 @@ impl Value {
     }
 
     pub fn as_asset_ref(&self) -> DataSetResult<AssetId> {
-        self.try_as_asset_ref().ok_or(DataSetError::InvalidSchema)
+        Ok(self.try_as_asset_ref().ok_or(DataSetError::InvalidSchema)?)
     }
 
     pub fn try_as_asset_ref(&self) -> Option<AssetId> {
@@ -749,7 +749,7 @@ impl Value {
     }
 
     pub fn as_record(&self) -> DataSetResult<&ValueRecord> {
-        self.try_as_record().ok_or(DataSetError::InvalidSchema)
+        Ok(self.try_as_record().ok_or(DataSetError::InvalidSchema)?)
     }
 
     pub fn try_as_record(&self) -> Option<&ValueRecord> {
@@ -777,7 +777,7 @@ impl Value {
     }
 
     pub fn as_enum(&self) -> DataSetResult<&ValueEnum> {
-        self.try_as_enum().ok_or(DataSetError::InvalidSchema)
+        Ok(self.try_as_enum().ok_or(DataSetError::InvalidSchema)?)
     }
 
     pub fn try_as_enum(&self) -> Option<&ValueEnum> {

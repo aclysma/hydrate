@@ -1,15 +1,11 @@
 use crate::app::UiState;
 use crate::modal_action::ModalAction;
-use crate::ui::modals::{ConfirmQuitWithoutSaving, MoveAssetsModal};
+use crate::ui::modals::{ConfirmQuitWithoutSaving};
 use crate::ui::modals::ConfirmRevertChanges;
 use crossbeam_channel::{Receiver, Sender};
 use hydrate_model::edit_context::EditContext;
-use hydrate_model::pipeline::{AssetEngine, HydrateProjectConfiguration, ImportJobSourceFile, ImportJobToQueue};
-use hydrate_model::{
-    AssetId, AssetLocation, AssetName, DataSetError, DataSetResult, EditorModel,
-    EndContextBehavior, NullOverride, OverrideBehavior, PropertyPath, Schema, SchemaFingerprint,
-    SchemaRecord, Value,
-};
+use hydrate_model::pipeline::{AssetEngine, HydrateProjectConfiguration, ImportJobToQueue};
+use hydrate_model::{AssetId, AssetLocation, AssetName, DataSetError, DataSetErrorWithBacktrace, DataSetResult, EditorModel, EndContextBehavior, NullOverride, OverrideBehavior, PropertyPath, Schema, SchemaFingerprint, SchemaRecord, Value};
 use std::sync::Arc;
 use egui::KeyboardShortcut;
 use uuid::Uuid;
@@ -298,7 +294,7 @@ impl UIActionQueueReceiver {
                                     Ok(_) => {
                                         // do nothing
                                     }
-                                    Err(DataSetError::NewLocationIsChildOfCurrentAsset) => {
+                                    Err(DataSetErrorWithBacktrace { error: DataSetError::NewLocationIsChildOfCurrentAsset, .. }) => {
                                         // do nothing
                                     }
                                     _ => {

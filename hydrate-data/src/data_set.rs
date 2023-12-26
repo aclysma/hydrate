@@ -475,7 +475,7 @@ impl DataSet {
         obj_info: DataSetAssetInfo,
     ) -> DataSetResult<()> {
         if self.assets.contains_key(&id) {
-            Err(DataSetError::DuplicateAssetId)
+            Err(DataSetError::DuplicateAssetId)?
         } else {
             let old = self.assets.insert(id, obj_info);
             assert!(old.is_none());
@@ -600,7 +600,7 @@ impl DataSet {
             .ok_or(DataSetError::AssetNotFound)?;
 
         if asset.schema.fingerprint() != single_object.schema().fingerprint() {
-            return Err(DataSetError::SingleObjectDoesNotMatchSchema);
+            return Err(DataSetError::SingleObjectDoesNotMatchSchema)?;
         };
 
         // Reset the state
@@ -641,7 +641,7 @@ impl DataSet {
         asset_id: AssetId,
     ) -> DataSetResult<()> {
         if self.assets.remove(&asset_id).is_none() {
-            Err(DataSetError::AssetNotFound)
+            Err(DataSetError::AssetNotFound)?
         } else {
             Ok(())
         }
@@ -657,7 +657,7 @@ impl DataSet {
         while let Some(new_parent_asset_id) = new_parent_asset_id_iter {
             if new_parent_asset_id == asset_id {
                 // Cannot make an asset a child of its own children
-                return Err(DataSetError::NewLocationIsChildOfCurrentAsset);
+                return Err(DataSetError::NewLocationIsChildOfCurrentAsset)?;
             }
             new_parent_asset_id_iter = self
                 .asset_location(new_parent_asset_id)
@@ -682,12 +682,7 @@ impl DataSet {
         let asset = self
             .assets
             .get_mut(&asset_id)
-            .ok_or(DataSetError::AssetNotFound);
-
-        if asset.is_err() {
-            println!("going to error");
-        }
-        let asset = asset?;
+            .ok_or(DataSetError::AssetNotFound)?;
 
         asset.import_info = Some(import_info);
         Ok(())
@@ -761,7 +756,7 @@ impl DataSet {
         while !obj_iter.path_node_id.is_null() {
             if asset_location_chain.contains(&obj_iter) {
                 // Detected a cycle, return an empty list
-                return Err(DataSetError::LocationCycleDetected);
+                return Err(DataSetError::LocationCycleDetected)?;
             }
 
             asset_location_chain.push(obj_iter.clone());
@@ -770,7 +765,7 @@ impl DataSet {
                 location
             } else {
                 // The parent was specified but not found, default to empty list if the chain is in a bad state
-                return Err(DataSetError::LocationParentNotFound);
+                return Err(DataSetError::LocationParentNotFound)?;
             };
         }
 
@@ -1112,7 +1107,7 @@ impl DataSet {
                 .copied()
                 .unwrap_or(NullOverride::Unset))
         } else {
-            Err(DataSetError::InvalidSchema)
+            Err(DataSetError::InvalidSchema)?
         }
     }
 
@@ -1144,7 +1139,7 @@ impl DataSet {
             }
             Ok(())
         } else {
-            Err(DataSetError::InvalidSchema)
+            Err(DataSetError::InvalidSchema)?
         }
     }
 
@@ -1180,7 +1175,7 @@ impl DataSet {
             if self.resolve_null_override(schema_set, asset_id, checked_property)?
                 != NullOverride::SetNonNull
             {
-                return Err(DataSetError::PathParentIsNull);
+                return Err(DataSetError::PathParentIsNull)?;
             }
         }
 
@@ -1192,7 +1187,7 @@ impl DataSet {
             if !dynamic_collection_entries
                 .contains(&Uuid::from_str(key).map_err(|_| DataSetError::UuidParseError)?)
             {
-                return Err(DataSetError::PathDynamicArrayEntryDoesNotExist);
+                return Err(DataSetError::PathDynamicArrayEntryDoesNotExist)?;
             }
         }
 
@@ -1210,7 +1205,7 @@ impl DataSet {
 
         // This field is not nullable, return an error
         if !property_schema.is_nullable() {
-            return Err(DataSetError::InvalidSchema);
+            return Err(DataSetError::InvalidSchema)?;
         }
 
         // Recursively look for a null override for this property being set. We can make a call
@@ -1281,7 +1276,7 @@ impl DataSet {
                     value,
                     property_schema
                 );
-                return Err(DataSetError::ValueDoesNotMatchSchema);
+                return Err(DataSetError::ValueDoesNotMatchSchema)?;
             }
         }
 
@@ -1380,7 +1375,7 @@ impl DataSet {
             .ok_or(DataSetError::SchemaNotFound)?;
 
         if !property_schema.is_dynamic_array() {
-            return Err(DataSetError::InvalidSchema);
+            return Err(DataSetError::InvalidSchema)?;
         }
 
         Self::get_dynamic_collection_entries(asset, path)
@@ -1402,7 +1397,7 @@ impl DataSet {
             .ok_or(DataSetError::SchemaNotFound)?;
 
         if !property_schema.is_map() {
-            return Err(DataSetError::InvalidSchema);
+            return Err(DataSetError::InvalidSchema)?;
         }
 
         Self::get_dynamic_collection_entries(asset, path)
@@ -1440,7 +1435,7 @@ impl DataSet {
             .ok_or(DataSetError::SchemaNotFound)?;
 
         if !property_schema.is_dynamic_array() {
-            return Err(DataSetError::InvalidSchema);
+            return Err(DataSetError::InvalidSchema)?;
         }
 
         Self::add_dynamic_collection_entry(asset, path)
@@ -1462,7 +1457,7 @@ impl DataSet {
             .ok_or(DataSetError::SchemaNotFound)?;
 
         if !property_schema.is_map() {
-            return Err(DataSetError::InvalidSchema);
+            return Err(DataSetError::InvalidSchema)?;
         }
 
         Self::add_dynamic_collection_entry(asset, path)
@@ -1486,7 +1481,7 @@ impl DataSet {
             .ok_or(DataSetError::SchemaNotFound)?;
 
         if !property_schema.is_dynamic_array() {
-            return Err(DataSetError::InvalidSchema);
+            return Err(DataSetError::InvalidSchema)?;
         }
 
         let entry = asset
@@ -1496,7 +1491,7 @@ impl DataSet {
         if entry.try_insert_at_position(index, entry_uuid) {
             Ok(())
         } else {
-            Err(DataSetError::DuplicateEntryKey)
+            Err(DataSetError::DuplicateEntryKey)?
         }
     }
 
@@ -1532,7 +1527,7 @@ impl DataSet {
             .ok_or(DataSetError::SchemaNotFound)?;
 
         if !property_schema.is_dynamic_array() {
-            return Err(DataSetError::InvalidSchema);
+            return Err(DataSetError::InvalidSchema)?;
         }
 
         Self::remove_dynamic_collection_entry(asset, path, element_id)
@@ -1555,7 +1550,7 @@ impl DataSet {
             .ok_or(DataSetError::SchemaNotFound)?;
 
         if !property_schema.is_map() {
-            return Err(DataSetError::InvalidSchema);
+            return Err(DataSetError::InvalidSchema)?;
         }
 
         Self::remove_dynamic_collection_entry(asset, path, element_id)
@@ -1606,7 +1601,7 @@ impl DataSet {
     ) -> DataSetResult<Box<[Uuid]>> {
         let property_schema = self.validate_parent_paths(schema_set, asset_id, path.as_ref())?;
         if !property_schema.is_dynamic_array() {
-            return Err(DataSetError::InvalidSchema);
+            return Err(DataSetError::InvalidSchema)?;
         }
 
         let mut resolved_entries = vec![];
@@ -1622,7 +1617,7 @@ impl DataSet {
     ) -> DataSetResult<Box<[Uuid]>> {
         let property_schema = self.validate_parent_paths(schema_set, asset_id, path.as_ref())?;
         if !property_schema.is_map() {
-            return Err(DataSetError::InvalidSchema);
+            return Err(DataSetError::InvalidSchema)?;
         }
 
         let mut resolved_entries = vec![];
@@ -1685,7 +1680,7 @@ impl DataSet {
                 };
                 Ok(())
             }
-            _ => Err(DataSetError::InvalidSchema),
+            _ => Err(DataSetError::InvalidSchema)?,
         }
     }
 

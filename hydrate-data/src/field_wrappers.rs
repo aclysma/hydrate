@@ -156,8 +156,8 @@ impl<T: Enum> EnumFieldAccessor<T> {
         data_container: DataContainerRef,
     ) -> DataSetResult<T> {
         let e = data_container.resolve_property(property_path.path())?;
-        T::from_symbol_name(e.as_enum().unwrap().symbol_name())
-            .ok_or(DataSetError::UnexpectedEnumSymbol)
+        Ok(T::from_symbol_name(e.as_enum().unwrap().symbol_name())
+            .ok_or(DataSetError::UnexpectedEnumSymbol)?)
     }
 
     pub fn do_set(

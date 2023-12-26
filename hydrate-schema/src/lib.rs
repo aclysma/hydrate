@@ -15,7 +15,7 @@ pub use schema_def::*;
 mod schema_cache;
 
 mod error;
-pub use error::{DataSetError, DataSetResult};
+pub use error::{DataSetError, DataSetResult, DataSetErrorWithBacktrace};
 
 pub use schema_cache::SchemaCacheSingleFile;
 

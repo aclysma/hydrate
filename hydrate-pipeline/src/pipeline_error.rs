@@ -1,12 +1,12 @@
 use hydrate_data::DataSetError;
 use std::sync::Arc;
-
-pub type PipelineResult<T> = Result<T, PipelineError>;
+use hydrate_schema::DataSetErrorWithBacktrace;
 
 #[derive(Debug, Clone)]
 pub enum PipelineError {
     StringError(String),
     DataSetError(DataSetError),
+    DataSetErrorWithBacktrace(DataSetErrorWithBacktrace),
     IoError(Arc<std::io::Error>),
     BincodeError(Arc<bincode::Error>),
     JsonError(Arc<serde_json::Error>),
@@ -19,6 +19,7 @@ impl std::error::Error for PipelineError {
         match *self {
             PipelineError::StringError(_) => None,
             PipelineError::DataSetError(_) => None,
+            PipelineError::DataSetErrorWithBacktrace(_) => None,
             PipelineError::IoError(ref e) => Some(&**e),
             PipelineError::BincodeError(ref e) => Some(&**e),
             PipelineError::JsonError(ref e) => Some(&**e),
@@ -36,6 +37,10 @@ impl core::fmt::Display for PipelineError {
         match *self {
             PipelineError::StringError(ref e) => e.fmt(fmt),
             PipelineError::DataSetError(ref e) => {
+                use std::fmt::Debug;
+                e.fmt(fmt)
+            }
+            PipelineError::DataSetErrorWithBacktrace(ref e) => {
                 use std::fmt::Debug;
                 e.fmt(fmt)
             }
@@ -66,6 +71,12 @@ impl From<DataSetError> for PipelineError {
     }
 }
 
+impl From<DataSetErrorWithBacktrace> for PipelineError {
+    fn from(error: DataSetErrorWithBacktrace) -> Self {
+        PipelineError::DataSetErrorWithBacktrace(error)
+    }
+}
+
 impl From<std::io::Error> for PipelineError {
     fn from(error: std::io::Error) -> Self {
         PipelineError::IoError(Arc::new(error))
@@ -89,3 +100,53 @@ impl From<uuid::Error> for PipelineError {
         PipelineError::UuidError(error)
     }
 }
+
+#[derive(Clone)]
+pub struct PipelineErrorWithBacktrace {
+    pub error: PipelineError,
+    #[cfg(debug_assertions)]
+    backtrace: Arc<backtrace::Backtrace>,
+}
+
+impl std::error::Error for PipelineErrorWithBacktrace {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        self.error.source()
+    }
+}
+
+impl core::fmt::Display for PipelineErrorWithBacktrace {
+    fn fmt(
+        &self,
+        fmt: &mut core::fmt::Formatter,
+    ) -> core::fmt::Result {
+        self.error.fmt(fmt)
+    }
+}
+
+impl<T: Into<PipelineError>> From<T> for PipelineErrorWithBacktrace {
+    fn from(error: T) -> Self {
+        PipelineErrorWithBacktrace {
+            error: error.into(),
+            #[cfg(debug_assertions)]
+            backtrace: Arc::new(backtrace::Backtrace::new())
+        }
+    }
+}
+
+impl std::fmt::Debug for PipelineErrorWithBacktrace {
+    #[cfg(not(debug_assertions))]
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:?}", self.error)
+    }
+
+    #[cfg(debug_assertions)]
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let backtrace = match &self.error {
+            PipelineError::DataSetErrorWithBacktrace(e) => &e.backtrace,
+            _ => &*self.backtrace
+        };
+        write!(f, "{:?}:\n{:?}", self.error, backtrace)
+    }
+}
+
+pub type PipelineResult<T> = Result<T, PipelineErrorWithBacktrace>;

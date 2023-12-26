@@ -50,7 +50,7 @@ impl SchemaNamedType {
     }
 
     pub fn as_record(&self) -> DataSetResult<&SchemaRecord> {
-        self.try_as_record().ok_or(DataSetError::InvalidSchema)
+        Ok(self.try_as_record().ok_or(DataSetError::InvalidSchema)?)
     }
 
     pub fn try_as_record(&self) -> Option<&SchemaRecord> {
@@ -61,7 +61,7 @@ impl SchemaNamedType {
     }
 
     pub fn as_enum(&self) -> DataSetResult<&SchemaEnum> {
-        self.try_as_enum().ok_or(DataSetError::InvalidSchema)
+        Ok(self.try_as_enum().ok_or(DataSetError::InvalidSchema)?)
     }
 
     pub fn try_as_enum(&self) -> Option<&SchemaEnum> {

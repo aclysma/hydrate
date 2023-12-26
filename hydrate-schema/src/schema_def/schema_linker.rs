@@ -142,7 +142,7 @@ impl SchemaLinker {
             let base_path = file.path().canonicalize().unwrap();
 
             for json_object in json_objects {
-                let mut named_type = super::json_schema::parse_json_schema_def(
+                let named_type = super::json_schema::parse_json_schema_def(
                     &json_object,
                     &format!("[{}]", file.path().display()),
                     &base_path,

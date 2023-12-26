@@ -682,7 +682,12 @@ impl DataSet {
         let asset = self
             .assets
             .get_mut(&asset_id)
-            .ok_or(DataSetError::AssetNotFound)?;
+            .ok_or(DataSetError::AssetNotFound);
+
+        if asset.is_err() {
+            println!("going to error");
+        }
+        let asset = asset?;
 
         asset.import_info = Some(import_info);
         Ok(())

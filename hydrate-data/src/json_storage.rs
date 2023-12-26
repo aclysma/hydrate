@@ -1,3 +1,4 @@
+use std::fs::metadata;
 use crate::{AssetId, BuildInfo, DataSetAssetInfo, HashMap, HashSet, ImportInfo, ImporterId, NullOverride, PathReference, Schema, SchemaFingerprint, SchemaNamedType, SchemaSet, SingleObject, Value, PathReferenceNamespaceResolver, PathReferenceHash};
 use crate::{AssetLocation, AssetName, DataSetResult, ImportableName, OrderedSet};
 use hydrate_schema::DataSetError;
@@ -629,12 +630,32 @@ impl SingleObjectJson {
 #[derive(Default, Clone)]
 pub struct MetaFile {
     pub past_id_assignments: HashMap<ImportableName, AssetId>,
+    pub persisted_assets: HashSet<AssetId>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct ImportableInfoJson {
+    id: Uuid,
+    persisted: bool,
+}
+
+
+fn ordered_map_importable_info<S>(
+    value: &HashMap<String, ImportableInfoJson>,
+    serializer: S,
+) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+{
+    let ordered: std::collections::BTreeMap<_, _> = value.iter().collect();
+    ordered.serialize(serializer)
 }
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct MetaFileJson {
-    #[serde(serialize_with = "ordered_map_uuid")]
-    pub past_id_assignments: HashMap<String, Uuid>,
+    #[serde(serialize_with = "ordered_map_importable_info")]
+    pub importables: HashMap<String, ImportableInfoJson>,
+
 }
 
 impl MetaFileJson {
@@ -645,34 +666,47 @@ impl MetaFileJson {
             serde_json::from_str(json).unwrap()
         };
         let mut past_id_assignments = HashMap::default();
-        for past_id_assignment in meta_file.past_id_assignments {
+        let mut persisted_assets = HashSet::default();
+        for (importable_name, importable_info) in meta_file.importables {
+            let asset_id = AssetId::from_uuid(importable_info.id);
             past_id_assignments.insert(
-                ImportableName::new(past_id_assignment.0),
-                AssetId::from_uuid(past_id_assignment.1),
+                ImportableName::new(importable_name),
+                asset_id,
             );
+            if importable_info.persisted {
+                persisted_assets.insert(asset_id);
+            }
         }
 
         MetaFile {
             past_id_assignments,
+            persisted_assets
         }
     }
 
     #[profiling::function]
     pub fn store_to_string(meta_file: &MetaFile) -> String {
-        let mut past_id_assignments = HashMap::default();
-        for past_id_assignment in &meta_file.past_id_assignments {
-            past_id_assignments.insert(
-                past_id_assignment
-                    .0
+        let mut importables = HashMap::default();
+        for (importable_name, asset_id) in &meta_file.past_id_assignments {
+            let persisted = meta_file.persisted_assets.contains(&asset_id);
+
+            let importable_info = ImportableInfoJson {
+                id: asset_id.as_uuid(),
+                persisted
+            };
+
+            importables.insert(
+                importable_name
                     .name()
                     .map(|x| x.to_string())
                     .unwrap_or_default(),
-                past_id_assignment.1.as_uuid(),
+                importable_info,
             );
         }
 
         let json_object = MetaFileJson {
-            past_id_assignments,
+            importables
+
         };
         profiling::scope!("serde_json::to_string_pretty");
         serde_json::to_string_pretty(&json_object).unwrap()

@@ -36,6 +36,7 @@ use hydrate_base::uuid_path::uuid_to_path;
 // conversion to ID if needed? Means renames touch lots of assets in memory.
 
 
+// Temporary struct used during load_from_storage call
 struct ScannedSourceFile<'a> {
     meta_file: MetaFile,
     importer: &'a Arc<dyn Importer>,
@@ -529,6 +530,12 @@ impl DataSource for FileSystemPathBasedDataSource {
             .source_file_path
             .clone();
 
+        let mut meta_file_path = source_file_path.clone().into_os_string();
+        meta_file_path.push(".meta");
+
+        //
+        // Write the asset
+        //
         let containing_file_path = self.containing_file_path_for_asset(edit_context, asset_id);
         let asset_info = edit_context.assets().get(&asset_id).unwrap();
         let asset_file_path = self.path_for_asset(&containing_file_path, asset_id, asset_info);
@@ -543,6 +550,17 @@ impl DataSource for FileSystemPathBasedDataSource {
         std::fs::create_dir_all(&containing_file_path).unwrap();
         std::fs::write(&asset_file_path, data).unwrap();
 
+        //
+        // Update the meta file
+        //
+        let contents = std::fs::read_to_string(&meta_file_path).unwrap();
+        let mut meta_file_contents = MetaFileJson::load_from_string(&contents);
+        meta_file_contents.persisted_assets.insert(asset_id);
+        std::fs::write(&meta_file_path, MetaFileJson::store_to_string(&meta_file_contents)).unwrap();
+
+        //
+        // Update representation of disk state
+        //
         let object_hash = edit_context.data_set().hash_object(asset_id, HashObjectMode::FullObjectWithLocationChainNames).unwrap();
 
         let asset_file_metadata = FileMetadata::new(&std::fs::metadata(&asset_file_path).unwrap());
@@ -891,10 +909,11 @@ impl DataSource for FileSystemPathBasedDataSource {
                         hydrate_pipeline::create_asset_name(source_file_path, scanned_importable);
 
                     let asset_file_exists = edit_context.has_asset(importable_asset_id);
+                    let asset_is_persisted = scanned_source_file.meta_file.persisted_assets.contains(&importable_asset_id);
 
                     let containing_file_path = self.canonicalize_containing_file_path(source_file_path.parent().unwrap());
 
-                    if !asset_file_exists {
+                    if !asset_is_persisted {
                         assets_disk_state.insert(
                             importable_asset_id,
                             AssetDiskState::Generated(GeneratedAssetDiskState {
@@ -905,7 +924,7 @@ impl DataSource for FileSystemPathBasedDataSource {
                         source_file_disk_state
                             .generated_assets
                             .insert(importable_asset_id);
-                    } else {
+                    } else if asset_file_exists {
                         assert_eq!(
                             edit_context
                                 .asset_schema(importable_asset_id)
@@ -947,7 +966,7 @@ impl DataSource for FileSystemPathBasedDataSource {
                                 path_references: scanned_importable
                                     .referenced_source_files
                                     .clone(),
-                                replace_with_default_asset: !asset_file_exists,
+                                replace_with_default_asset: !asset_is_persisted,
                             };
 
                             requested_importables

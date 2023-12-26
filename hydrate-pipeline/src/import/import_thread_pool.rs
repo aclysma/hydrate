@@ -287,7 +287,7 @@ fn do_import(
             );
             assert!(old.is_none());
         } else {
-            unimplemented!()
+            log::warn!("Importer for file {:?} produced importable {:?} but it was not requested. This is not an error but may be unnecessary work.", msg.import_op.path, name);
         }
     }
 

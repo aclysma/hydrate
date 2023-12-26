@@ -913,6 +913,11 @@ impl DataSource for FileSystemPathBasedDataSource {
 
                     let containing_file_path = self.canonicalize_containing_file_path(source_file_path.parent().unwrap());
 
+                    if asset_is_persisted && !asset_file_exists {
+                        // If the asset is persisted but deleted, we do not want to import it
+                        continue;
+                    }
+
                     if !asset_is_persisted {
                         assets_disk_state.insert(
                             importable_asset_id,
@@ -924,7 +929,7 @@ impl DataSource for FileSystemPathBasedDataSource {
                         source_file_disk_state
                             .generated_assets
                             .insert(importable_asset_id);
-                    } else if asset_file_exists {
+                    } else {
                         assert_eq!(
                             edit_context
                                 .asset_schema(importable_asset_id)
@@ -983,12 +988,14 @@ impl DataSource for FileSystemPathBasedDataSource {
                     }
                 }
 
-                import_job_to_queue.import_job_source_files.push(ImportJobSourceFile {
-                    source_file_path: source_file_path.to_path_buf(),
-                    importer_id: scanned_source_file.importer.importer_id(),
-                    requested_importables,
-                    import_type: ImportType::ImportIfImportDataStale,
-                });
+                if !requested_importables.is_empty() {
+                    import_job_to_queue.import_job_source_files.push(ImportJobSourceFile {
+                        source_file_path: source_file_path.to_path_buf(),
+                        importer_id: scanned_source_file.importer.importer_id(),
+                        requested_importables,
+                        import_type: ImportType::ImportIfImportDataStale,
+                    });
+                }
             }
         }
 

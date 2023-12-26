@@ -48,10 +48,6 @@ impl Default for UndoStack {
 }
 
 impl UndoStack {
-    pub fn completed_undo_context_tx(&self) -> &Sender<CompletedUndoContextMessage> {
-        &self.completed_undo_context_tx
-    }
-
     // This pulls incoming steps off the receive queue. These diffs have already been applied, so
     // we mainly just use this to drop undone steps that can no longer be used, and to place them
     // on the end of the chain
@@ -86,8 +82,6 @@ impl UndoStack {
 
                 let result = edit_context.apply_diff(
                     &current_step.diff_set.revert_diff,
-                    &current_step.diff_set.modified_assets,
-                    &current_step.diff_set.modified_locations,
                 );
                 self.current_undo_index -= 1;
                 return result;
@@ -115,8 +109,6 @@ impl UndoStack {
             edit_context.cancel_pending_undo_context()?;
             let result = edit_context.apply_diff(
                 &current_step.diff_set.apply_diff,
-                &current_step.diff_set.modified_assets,
-                &current_step.diff_set.modified_locations,
             );
             self.current_undo_index += 1;
             return result;
@@ -163,14 +155,14 @@ impl UndoContext {
     // Call before editing or deleting an asset
     pub(crate) fn track_existing_asset(
         &mut self,
-        after_state: &DataSet,
+        before_state: &DataSet,
         asset_id: AssetId,
     ) -> DataSetResult<()> {
         if self.context_name.is_some() {
             //TODO: Preserve sub-assets?
             if !self.tracked_assets.contains(&asset_id) {
                 self.tracked_assets.insert(asset_id);
-                self.before_state.copy_from(&after_state, asset_id)?;
+                self.before_state.copy_from(&before_state, asset_id)?;
             }
         }
 
@@ -185,8 +177,6 @@ impl UndoContext {
         &mut self,
         after_state: &DataSet,
         name: &'static str,
-        modified_assets: &mut HashSet<AssetId>,
-        modified_locations: &mut HashSet<AssetLocation>,
     ) {
         if self.context_name == Some(name) {
             // don't need to do anything, we can append to the current context
@@ -194,7 +184,7 @@ impl UndoContext {
             // commit the context that's in flight, if one exists
             if self.context_name.is_some() {
                 // This won't do anything if there's nothing to send
-                self.commit_context(after_state, modified_assets, modified_locations);
+                self.commit_context(after_state);
             }
 
             self.context_name = Some(name);
@@ -205,12 +195,10 @@ impl UndoContext {
         &mut self,
         after_state: &DataSet,
         end_context_behavior: EndContextBehavior,
-        modified_assets: &mut HashSet<AssetId>,
-        modified_locations: &mut HashSet<AssetLocation>,
     ) {
         if end_context_behavior != EndContextBehavior::AllowResume {
             // This won't do anything if there's nothing to send
-            self.commit_context(after_state, modified_assets, modified_locations);
+            self.commit_context(after_state);
         }
     }
 
@@ -262,8 +250,6 @@ impl UndoContext {
     pub(crate) fn commit_context(
         &mut self,
         after_state: &DataSet,
-        modified_assets: &mut HashSet<AssetId>,
-        modified_locations: &mut HashSet<AssetLocation>,
     ) {
         if !self.tracked_assets.is_empty() {
             // Make a diff and send it if it has changes
@@ -273,20 +259,6 @@ impl UndoContext {
                 &self.tracked_assets,
             );
             if diff_set.has_changes() {
-                //println!("Sending change {:#?}", diff_set);
-
-                //
-                // Use diff to append to the modified asset/location sets
-                //
-                modified_assets.extend(diff_set.modified_assets.iter());
-
-                // Can't use extend because we need to clone
-                for modified_location in &diff_set.modified_locations {
-                    if !modified_locations.contains(modified_location) {
-                        modified_locations.insert(modified_location.clone());
-                    }
-                }
-
                 //
                 // Send the undo command
                 //

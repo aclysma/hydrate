@@ -5,8 +5,24 @@ use std::cmp::Ordering;
 use std::hash::{Hash, Hasher};
 use std::str::FromStr;
 use std::string::ToString;
+use siphasher::sip::SipHasher;
 use uuid::Uuid;
 use crate::path_reference::CanonicalPathReference;
+
+#[derive(Copy, Clone, PartialEq)]
+pub enum HashObjectMode {
+    // Used for detecting change in the asset that affects build output:
+    // - Detection if the build is stale by comparing hash of all objects to previous completed build combined hash
+    // - Knowing what state an object was in when it was read by a build job
+    //
+    // This mode looks at properties and prototype properties, even when they are in different data sources
+    PropertiesOnly,
+
+    // These are used to know if an asset matches the state it was in from storage. It does not look at the prototype
+    // chain because prototypes are in different files
+    FullObjectWithLocationId,
+    FullObjectWithLocationChainNames
+}
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd)]
 pub struct AssetName(String);
@@ -192,6 +208,25 @@ impl ImportInfo {
     }
 }
 
+impl Hash for ImportInfo {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.importer_id.hash(state);
+        self.source_file.hash(state);
+
+        let mut path_references_hashes = 0u64;
+        for (k, v) in &self.path_references {
+            let mut inner_hasher = SipHasher::new();
+            k.hash(&mut inner_hasher);
+            v.hash(&mut inner_hasher);
+            path_references_hashes = path_references_hashes ^ inner_hasher.finish();
+        }
+
+        self.source_file_modified_timestamp.hash(state);
+        self.source_file_size.hash(state);
+        self.import_data_contents_hash.hash(state);
+    }
+}
+
 /// Affects how we build the file. However most of the time use asset properties instead. The only
 /// things in here should be system-level configuration that is relevant to any asset type
 #[derive(Clone, Debug, Default)]
@@ -202,6 +237,21 @@ pub struct BuildInfo {
     pub path_reference_overrides: HashMap<CanonicalPathReference, AssetId>,
 }
 
+impl Hash for BuildInfo {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        let mut path_references_overrides_hashes = 0u64;
+        for (k, v) in &self.path_reference_overrides {
+            let mut inner_hasher = SipHasher::new();
+            k.hash(&mut inner_hasher);
+            v.hash(&mut inner_hasher);
+            path_references_overrides_hashes = path_references_overrides_hashes ^ inner_hasher.finish();
+        }
+
+        path_references_overrides_hashes.hash(state);
+    }
+}
+
+// Allows for copying data from one place and applying it elsewhere
 pub struct PropertiesBundle {
     schema: Schema,
     properties: HashMap<String, Value>,
@@ -906,65 +956,46 @@ impl DataSet {
         self.assets.get(&asset_id).map(|x| &x.schema)
     }
 
-    /// This is intended to just hash the properties of the object. Things like name, location,
-    /// import info, build info are not considered. (This may change)
-    pub fn hash_properties(
-        &self,
-        asset_id: AssetId,
-    ) -> Option<u64> {
-        let asset = self.assets.get(&asset_id)?;
-        let schema = &asset.schema;
-
-        let mut hasher = siphasher::sip::SipHasher::default();
-
-        schema.fingerprint().hash(&mut hasher);
-
-        // We ignore the following properties for now
-        //asset_name
-        //asset_location
-        //import_info
-        //build_info
-
-        if let Some(prototype) = asset.prototype {
-            // We may fail to find the prototype, there is a good chance this means our data is in
-            // a bad state, but it is not considered fatal. Generally in these circumstances we
-            // carry on as if the prototype was set to None.
-            self.hash_properties(prototype).hash(&mut hasher);
-        }
-
+    fn hash_property_data(
+        hasher: &mut SipHasher,
+        properties: &HashMap<String, Value>,
+        property_null_overrides: &HashMap<String, NullOverride>,
+        properties_in_replace_mode: &HashSet<String>,
+        dynamic_collection_entries: &HashMap<String, OrderedSet<Uuid>>,
+    ) {
         // properties
         let mut properties_hash = 0;
-        for (key, value) in &asset.properties {
+        for (key, value) in properties {
             let mut inner_hasher = siphasher::sip::SipHasher::default();
             key.hash(&mut inner_hasher);
             value.hash(&mut inner_hasher);
             properties_hash = properties_hash ^ inner_hasher.finish();
         }
-        properties_hash.hash(&mut hasher);
+        properties_hash.hash(hasher);
 
         // property_null_overrides
         let mut property_null_overrides_hash = 0;
-        for (key, value) in &asset.property_null_overrides {
+        for (key, value) in property_null_overrides {
             let mut inner_hasher = siphasher::sip::SipHasher::default();
             key.hash(&mut inner_hasher);
             value.hash(&mut inner_hasher);
             property_null_overrides_hash = property_null_overrides_hash ^ inner_hasher.finish();
         }
-        property_null_overrides_hash.hash(&mut hasher);
+        property_null_overrides_hash.hash(hasher);
 
         // properties_in_replace_mode
         let mut properties_in_replace_mode_hash = 0;
-        for value in &asset.properties_in_replace_mode {
+        for value in properties_in_replace_mode {
             let mut inner_hasher = siphasher::sip::SipHasher::default();
             value.hash(&mut inner_hasher);
             properties_in_replace_mode_hash =
                 properties_in_replace_mode_hash ^ inner_hasher.finish();
         }
-        properties_in_replace_mode_hash.hash(&mut hasher);
+        properties_in_replace_mode_hash.hash(hasher);
 
         // dynamic_collection_entries
         let mut dynamic_collection_entries_hash = 0;
-        for (key, value) in &asset.dynamic_collection_entries {
+        for (key, value) in dynamic_collection_entries {
             let mut inner_hasher = siphasher::sip::SipHasher::default();
             key.hash(&mut inner_hasher);
 
@@ -979,10 +1010,75 @@ impl DataSet {
             dynamic_collection_entries_hash =
                 dynamic_collection_entries_hash ^ inner_hasher.finish();
         }
-        dynamic_collection_entries_hash.hash(&mut hasher);
+        dynamic_collection_entries_hash.hash(hasher);
+    }
+
+    pub fn hash_object(
+        &self,
+        asset_id: AssetId,
+        hash_object_mode: HashObjectMode,
+    ) -> DataSetResult<u64> {
+        let asset = self.assets.get(&asset_id).ok_or(DataSetError::AssetNotFound)?;
+
+        let mut hasher = SipHasher::default();
+
+        // This handles hashing the location chain for either ID-based or path-based storage
+        match hash_object_mode {
+            HashObjectMode::PropertiesOnly => {
+                // Do nothing
+            }
+            HashObjectMode::FullObjectWithLocationId => {
+                // ID-based storage would only care about the location ID changing
+                asset.asset_location.path_node_id.hash(&mut hasher);
+            }
+            HashObjectMode::FullObjectWithLocationChainNames => {
+                // Path-based storage cares about the names of the locations up the whole chain
+                let location_chain = self.asset_location_chain(asset_id)?;
+                for location in location_chain {
+                    let location_asset = self.assets.get(&location.path_node_id).ok_or(DataSetError::AssetNotFound)?;
+                    location_asset.asset_name.hash(&mut hasher);
+                }
+            }
+        };
+
+        // Extra data for "full object" modes - essentially everything but location and properties
+        match hash_object_mode {
+            HashObjectMode::FullObjectWithLocationId |
+            HashObjectMode::FullObjectWithLocationChainNames => {
+                asset.asset_name.hash(&mut hasher);
+                asset.import_info.hash(&mut hasher);
+                asset.build_info.hash(&mut hasher);
+                asset.prototype.hash(&mut hasher);
+
+            }
+            _ => {}
+        }
+
+        // This data is hashed in all modes
+        let schema = &asset.schema;
+        schema.fingerprint().hash(&mut hasher);
+
+        // We always hash property data
+        Self::hash_property_data(
+            &mut hasher,
+            &asset.properties,
+            &asset.property_null_overrides,
+            &asset.properties_in_replace_mode,
+            &asset.dynamic_collection_entries
+        );
+
+        // Properties only mode hashes up the prototype chain
+        if hash_object_mode == HashObjectMode::PropertiesOnly {
+            if let Some(prototype) = asset.prototype {
+                // We may fail to find the prototype, there is a good chance this means our data is in
+                // a bad state, but it is not considered fatal. Generally in these circumstances we
+                // carry on as if the prototype was set to None.
+                self.hash_object(prototype, HashObjectMode::PropertiesOnly)?.hash(&mut hasher);
+            }
+        }
 
         let asset_hash = hasher.finish();
-        Some(asset_hash)
+        Ok(asset_hash)
     }
 
     /// Gets if the property has a null override associated with it *on this object* ignoring the

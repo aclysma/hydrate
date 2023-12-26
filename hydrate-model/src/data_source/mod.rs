@@ -1,5 +1,6 @@
 mod file_system_id_based;
 
+use std::path::PathBuf;
 pub use file_system_id_based::*;
 
 use crate::edit_context::EditContext;
@@ -8,6 +9,13 @@ use crate::AssetId;
 mod file_system_path_based;
 pub use file_system_path_based::*;
 use hydrate_pipeline::{HydrateProjectConfiguration, ImportJobSourceFile, ImportJobToQueue};
+
+#[derive(Default)]
+pub struct PendingFileOperations {
+    pub create_operations: Vec<(AssetId, PathBuf)>,
+    pub modify_operations: Vec<(AssetId, PathBuf)>,
+    pub delete_operations: Vec<(AssetId, PathBuf)>,
+}
 
 pub trait DataSource {
     // Replace memory with storage state
@@ -42,6 +50,19 @@ pub trait DataSource {
         edit_context: &mut EditContext,
         asset_id: AssetId,
     );
+
+    fn edit_context_has_unsaved_changes(
+        &self,
+        edit_context: &EditContext
+    ) -> bool;
+
+    fn append_pending_file_operations(
+        &self,
+        edit_context: &EditContext,
+        pending_file_operations: &mut PendingFileOperations,
+    );
+
+
     // fn revert_all_modified(
     //     &mut self,
     //     edit_context: &mut EditContext,

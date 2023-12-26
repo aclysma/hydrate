@@ -1,52 +1,33 @@
 use crate::edit_context::EditContext;
-use crate::{AssetId, AssetSourceId, DataSource, HashSet, PathNodeRoot};
+use crate::{AssetId, AssetSourceId, DataSource, PathNodeRoot, PendingFileOperations};
 use hydrate_base::uuid_path::{path_to_uuid, uuid_to_path};
-use hydrate_data::AssetLocation;
+use hydrate_data::{AssetLocation, DataSetAssetInfo, HashObjectMode};
 use hydrate_schema::SchemaNamedType;
 use std::path::{Path, PathBuf};
-use hydrate_pipeline::{HydrateProjectConfiguration, ImportJobSourceFile, ImportJobToQueue};
+use hydrate_base::hashing::HashMap;
+use hydrate_pipeline::{HydrateProjectConfiguration, ImportJobToQueue};
 
-fn load_asset_files(
-    edit_context: &mut EditContext,
-    root_path: &Path,
-    asset_source_id: AssetSourceId,
-    all_asset_ids_on_disk: &mut HashSet<AssetId>,
-) {
-    let walker = globwalk::GlobWalkerBuilder::from_patterns(root_path, &["**.af"])
-        .file_type(globwalk::FileType::FILE)
-        .build()
-        .unwrap();
+struct FileMetadata {
+    // size_in_bytes: u64,
+    // last_modified_time: Option<SystemTime>,
+}
 
-    for file in walker {
-        if let Ok(file) = file {
-            let file = dunce::canonicalize(&file.path()).unwrap();
-            //println!("asset file {:?}", file);
-            let file_uuid = path_to_uuid(root_path, &file).unwrap();
-            let contents = std::fs::read_to_string(&file).unwrap();
-            let default_asset_location = AssetLocation::new(AssetId(*asset_source_id.uuid()));
-
-            let schema_set = edit_context.schema_set().clone();
-            crate::json_storage::AssetJson::load_asset_from_string(
-                edit_context,
-                &schema_set,
-                Some(file_uuid),
-                default_asset_location,
-                None,
-                &contents,
-            )
-            .unwrap();
-            let asset_id = AssetId::from_uuid(file_uuid);
-            let asset_location = edit_context
-                .assets()
-                .get(&asset_id)
-                .unwrap()
-                .asset_location()
-                .clone();
-            edit_context.clear_asset_modified_flag(asset_id);
-            edit_context.clear_location_modified_flag(&asset_location);
-            all_asset_ids_on_disk.insert(asset_id);
+impl FileMetadata {
+    pub fn new(_metadata: &std::fs::Metadata) -> Self {
+        FileMetadata {
+            // size_in_bytes: metadata.len(),
+            // last_modified_time: metadata.modified().ok()
         }
     }
+
+    // pub fn has_changed(&self, metadata: &std::fs::Metadata) -> bool {
+    //     self.size_in_bytes != metadata.len() || self.last_modified_time != metadata.modified().ok()
+    // }
+}
+
+struct AssetDiskState {
+    object_hash: u64,
+    file_metadata: FileMetadata
 }
 
 pub struct FileSystemIdBasedDataSource {
@@ -55,7 +36,7 @@ pub struct FileSystemIdBasedDataSource {
 
     // Any asset ID we know to exist on disk is in this list to help us quickly determine which
     // deleted IDs need to be cleaned up
-    all_asset_ids_on_disk: HashSet<AssetId>,
+    assets_disk_state: HashMap<AssetId, AssetDiskState>,
 
     path_node_root_schema: SchemaNamedType,
 }
@@ -107,27 +88,16 @@ impl FileSystemIdBasedDataSource {
         FileSystemIdBasedDataSource {
             asset_source_id,
             file_system_root_path: file_system_root_path.into(),
-            all_asset_ids_on_disk: Default::default(),
+            assets_disk_state: Default::default(),
             path_node_root_schema,
         }
     }
 
-    fn find_all_modified_assets(
+    fn path_for_asset(
         &self,
-        edit_context: &EditContext,
-    ) -> HashSet<AssetId> {
-        // We need to handle assets that were moved into this data source that weren't previous in it
-        let mut modified_assets = edit_context.modified_assets().clone();
-
-        for asset_id in edit_context.assets().keys() {
-            if self.is_asset_owned_by_this_data_source(edit_context, *asset_id) {
-                if !self.all_asset_ids_on_disk.contains(asset_id) {
-                    modified_assets.insert(*asset_id);
-                }
-            }
-        }
-
-        modified_assets
+        asset_id: AssetId,
+    ) -> PathBuf {
+        uuid_to_path(&self.file_system_root_path, asset_id.as_uuid(), "af")
     }
 }
 
@@ -178,15 +148,49 @@ impl DataSource for FileSystemIdBasedDataSource {
             edit_context.delete_asset(asset_to_delete).unwrap();
         }
 
+        self.assets_disk_state.clear();
+
         //
         // Recreate all assets from storage
         //
-        load_asset_files(
-            edit_context,
-            &self.file_system_root_path,
-            self.asset_source_id,
-            &mut self.all_asset_ids_on_disk,
-        );
+        let walker = globwalk::GlobWalkerBuilder::from_patterns(&self.file_system_root_path, &["**.af"])
+            .file_type(globwalk::FileType::FILE)
+            .build()
+            .unwrap();
+
+        for file in walker {
+            if let Ok(file) = file {
+                let file = dunce::canonicalize(&file.path()).unwrap();
+
+                let asset_file_metadata =
+                    FileMetadata::new(&std::fs::metadata(&file).unwrap());
+
+                //println!("asset file {:?}", file);
+                let file_uuid = path_to_uuid(&self.file_system_root_path, &file).unwrap();
+                let contents = std::fs::read_to_string(&file).unwrap();
+                let default_asset_location = AssetLocation::new(AssetId(*self.asset_source_id.uuid()));
+
+                let schema_set = edit_context.schema_set().clone();
+                crate::json_storage::AssetJson::load_asset_from_string(
+                    edit_context,
+                    &schema_set,
+                    Some(file_uuid),
+                    default_asset_location,
+                    None,
+                    &contents,
+                ).unwrap();
+                let asset_id = AssetId::from_uuid(file_uuid);
+
+                let object_hash = edit_context.data_set().hash_object(asset_id, HashObjectMode::FullObjectWithLocationId).unwrap();
+
+                let old = self.assets_disk_state.insert(asset_id, AssetDiskState {
+                    object_hash: object_hash,
+                    file_metadata: asset_file_metadata,
+
+                });
+                assert!(old.is_none());
+            }
+        }
     }
 
     fn flush_to_storage(
@@ -198,56 +202,161 @@ impl DataSource for FileSystemIdBasedDataSource {
             self.file_system_root_path
         ));
 
-        // Delete files for assets that were deleted
-        let modified_assets = self.find_all_modified_assets(edit_context);
-        for asset_id in &modified_assets {
-            if self.all_asset_ids_on_disk.contains(&asset_id) && !edit_context.has_asset(*asset_id)
-            {
-                //TODO: delete the asset file
-                self.all_asset_ids_on_disk.remove(&asset_id);
-            }
-        }
+        let mut pending_deletes = Vec::<AssetId>::default();
+        let mut pending_writes = Vec::<AssetId>::default();
 
-        for asset_id in &modified_assets {
-            if let Some(asset_info) = edit_context.assets().get(asset_id) {
-                if self.is_asset_owned_by_this_data_source(edit_context, *asset_id) {
-                    if asset_id.as_uuid() == *self.asset_source_id.uuid() {
-                        // never save the root asset
-                        continue;
+        for &asset_id in edit_context.assets().keys() {
+            if self.is_asset_owned_by_this_data_source(edit_context, asset_id) {
+                match self.assets_disk_state.get(&asset_id) {
+                    None => {
+                        // There is a newly created asset that has never been saved
+                        pending_writes.push(asset_id);
                     }
-
-                    // If the asset doesn't have a location set or is set to the root of this data
-                    // source, serialize with a null location
-                    let asset_location = if asset_info.asset_location().is_null()
-                        || asset_info.asset_location().path_node_id().as_uuid()
-                            == *self.asset_source_id.uuid()
-                    {
-                        None
-                    } else {
-                        Some(asset_info.asset_location())
-                    };
-
-                    let data = crate::json_storage::AssetJson::save_asset_to_string(
-                        edit_context.assets(),
-                        *asset_id,
-                        false, //don't include ID because we assume it by file name
-                        asset_location,
-                    );
-                    let file_path =
-                        uuid_to_path(&self.file_system_root_path, asset_id.as_uuid(), "af");
-                    self.all_asset_ids_on_disk.insert(*asset_id);
-
-                    if let Some(parent) = file_path.parent() {
-                        std::fs::create_dir_all(parent).unwrap();
+                    Some(asset_disk_state) => {
+                        let object_hash = edit_context.data_set().hash_object(asset_id, HashObjectMode::FullObjectWithLocationId).unwrap();
+                        if asset_disk_state.object_hash != object_hash {
+                            // The object has been modified and no longer matches disk state
+                            pending_writes.push(asset_id);
+                        }
                     }
-
-                    std::fs::write(file_path, data).unwrap();
                 }
             }
         }
+
+        // Is there anything that's been deleted?
+        for (&asset_id, _) in &self.assets_disk_state {
+            if !edit_context.has_asset(asset_id) || !self.is_asset_owned_by_this_data_source(edit_context, asset_id) {
+                // There is an asset that no longer exists, but the file is still on disk
+                pending_deletes.push(asset_id);
+            }
+        }
+
+        //
+        // Save any created/updated assets
+        //
+        for asset_id in pending_writes {
+            if asset_id.as_uuid() == *self.asset_source_id.uuid() {
+                // never save the root asset
+                continue;
+            }
+
+            let asset_info = edit_context.data_set().assets().get(&asset_id).unwrap();
+
+            // If the asset doesn't have a location set or is set to the root of this data
+            // source, serialize with a null location
+            let asset_location = if asset_info.asset_location().is_null()
+                || asset_info.asset_location().path_node_id().as_uuid()
+                == *self.asset_source_id.uuid()
+            {
+                None
+            } else {
+                Some(asset_info.asset_location())
+            };
+
+            let data = crate::json_storage::AssetJson::save_asset_to_string(
+                edit_context.assets(),
+                asset_id,
+                false, //don't include ID because we assume it by file name
+                asset_location,
+            );
+            let file_path = self.path_for_asset(asset_id);
+
+            if let Some(parent) = file_path.parent() {
+                std::fs::create_dir_all(parent).unwrap();
+            }
+
+            std::fs::write(&file_path, data).unwrap();
+
+            let object_hash = edit_context.data_set().hash_object(asset_id, HashObjectMode::FullObjectWithLocationId).unwrap();
+            let asset_file_metadata =
+                FileMetadata::new(&std::fs::metadata(&file_path).unwrap());
+
+            self.assets_disk_state.insert(asset_id, AssetDiskState {
+                object_hash,
+                file_metadata: asset_file_metadata
+            });
+        }
+
+        //
+        // Delete assets that no longer exist
+        //
+        for asset_id in pending_deletes {
+            let file_path = self.path_for_asset(asset_id);
+            std::fs::remove_file(&file_path).unwrap();
+            self.assets_disk_state.remove(&asset_id);
+
+            //TODO: Clean up empty parent dirs?
+        }
     }
 
-    //TODO: revert_some(asset_id_list)
-    // - Delete any asset in the list
-    // - Load from file any asset in the list
+    fn edit_context_has_unsaved_changes(&self, edit_context: &EditContext) -> bool {
+        for &asset_id in edit_context.assets().keys() {
+            if asset_id.as_uuid() == *self.asset_source_id.uuid() {
+                // ignore the root asset
+                continue;
+            }
+
+            if self.is_asset_owned_by_this_data_source(edit_context, asset_id) {
+                match self.assets_disk_state.get(&asset_id) {
+                    None => {
+                        // There is a newly created asset that has never been saved
+                        return true;
+                    }
+                    Some(asset_disk_state) => {
+                        let object_hash = edit_context.data_set().hash_object(asset_id, HashObjectMode::FullObjectWithLocationId).unwrap();
+                        if asset_disk_state.object_hash != object_hash {
+                            // The object has been modified and no longer matches disk state
+                            return true;
+                        }
+                    }
+                }
+            }
+        }
+
+        // Is there anything that's been deleted?
+        for (&asset_id, _) in &self.assets_disk_state {
+            if !edit_context.has_asset(asset_id) || !self.is_asset_owned_by_this_data_source(edit_context, asset_id) {
+                // There is an asset that no longer exists, but the file is still on disk
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    fn append_pending_file_operations(&self, edit_context: &EditContext, pending_file_operations: &mut PendingFileOperations) {
+        for &asset_id in edit_context.assets().keys() {
+            if asset_id.as_uuid() == *self.asset_source_id.uuid() {
+                // ignore the root asset
+                continue;
+            }
+
+            if self.is_asset_owned_by_this_data_source(edit_context, asset_id) {
+                match self.assets_disk_state.get(&asset_id) {
+                    None => {
+                        // There is a newly created asset that has never been saved
+                        let file_path = self.path_for_asset(asset_id);
+                        pending_file_operations.create_operations.push((asset_id, file_path));
+                    }
+                    Some(asset_disk_state) => {
+                        let object_hash = edit_context.data_set().hash_object(asset_id, HashObjectMode::FullObjectWithLocationId).unwrap();
+                        if asset_disk_state.object_hash != object_hash {
+                            // The object has been modified and no longer matches disk state
+                            let file_path = self.path_for_asset(asset_id);
+                            pending_file_operations.modify_operations.push((asset_id, file_path));
+                        }
+                    }
+                }
+            }
+        }
+
+        // Is there anything that's been deleted?
+        for (&asset_id, _) in &self.assets_disk_state {
+            if !edit_context.has_asset(asset_id) || !self.is_asset_owned_by_this_data_source(edit_context, asset_id) {
+                // There is an asset that no longer exists, but the file is still on disk
+                let file_path = self.path_for_asset(asset_id);
+                pending_file_operations.delete_operations.push((asset_id, file_path));
+            }
+        }
+    }
 }

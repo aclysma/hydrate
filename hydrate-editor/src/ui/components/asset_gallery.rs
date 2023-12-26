@@ -383,11 +383,7 @@ fn draw_asset_gallery_list(
                         .editor_model
                         .asset_path(asset_id, &ui_state.asset_path_cache);
                     let is_generated = db_state.editor_model.is_generated_asset(asset_id);
-                    let is_dirty = db_state
-                        .editor_model
-                        .root_edit_context()
-                        .modified_assets()
-                        .contains(&asset_id);
+                    let is_dirty = ui_state.edited_objects.contains(&asset_id);
 
                     row.col(|ui| {
                         crate::ui::drag_drop::drag_source(
@@ -504,11 +500,7 @@ fn draw_asset_gallery_tile(
         .asset_name_or_id_string(asset_id)
         .unwrap();
     let is_generated = db_state.editor_model.is_generated_asset(asset_id);
-    let is_dirty = db_state
-        .editor_model
-        .root_edit_context()
-        .modified_assets()
-        .contains(&asset_id);
+    let is_dirty = ui_state.edited_objects.contains(&asset_id);
 
     crate::ui::drag_drop::drag_source(
         ui,

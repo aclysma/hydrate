@@ -3,10 +3,7 @@ use crate::{BuildLogEvent, LogEventLevel, PipelineResult};
 use hydrate_base::handle::DummySerdeContextHandle;
 use hydrate_base::hashing::HashMap;
 use hydrate_base::{ArtifactId, AssetId, BuiltArtifactHeaderData, Handle};
-use hydrate_data::{
-    DataContainerRef, DataSet, DataSetError, FieldRef, PropertyPath, Record, SchemaSet,
-    SingleObject,
-};
+use hydrate_data::{DataContainerRef, DataSet, DataSetError, FieldRef, HashObjectMode, PropertyPath, Record, SchemaSet, SingleObject};
 use serde::{Deserialize, Serialize};
 use siphasher::sip128::Hasher128;
 use std::cell::RefCell;
@@ -260,7 +257,7 @@ impl<'a, InputT> RunContext<'a, InputT> {
         fetched_asset_data
             .entry(asset_id)
             .or_insert_with(|| FetchedAssetData {
-                contents_hash: self.data_set.hash_properties(asset_id).unwrap(),
+                contents_hash: self.data_set.hash_object(asset_id, HashObjectMode::PropertiesOnly).unwrap(),
             });
 
         Ok(<T as Record>::Reader::new(

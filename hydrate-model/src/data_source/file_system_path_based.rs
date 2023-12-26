@@ -1,16 +1,16 @@
 use crate::edit_context::EditContext;
-use crate::{AssetSourceId, DataSource};
+use crate::{AssetSourceId, DataSource, PendingFileOperations};
 use crate::{PathNode, PathNodeRoot};
 use hydrate_base::hashing::HashSet;
 use hydrate_data::json_storage::{MetaFile, MetaFileJson};
-use hydrate_data::{AssetId, AssetLocation, AssetName, CanonicalPathReference, ImportableName, ImporterId, PathReference};
+use hydrate_data::{AssetId, AssetLocation, AssetName, CanonicalPathReference, DataSetAssetInfo, HashObjectMode, ImportableName, ImporterId, PathReference};
 use hydrate_pipeline::{Importer, ImporterRegistry, HydrateProjectConfiguration, ImportJobSourceFile, ScannedImportable, RequestedImportable, ImportType, ScanContext, ImportJobToQueue, ImportLogEvent, LogEventLevel, PipelineResult};
 use hydrate_schema::{HashMap, SchemaNamedType};
 use std::ffi::OsStr;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
-use ahash::RandomState;
 use uuid::Uuid;
+use hydrate_base::uuid_path::uuid_to_path;
 
 // New trait design
 // - fn revert_all(...)
@@ -60,14 +60,6 @@ impl FileMetadata {
     // }
 }
 
-#[derive(Clone)]
-struct AssetOnDiskState {
-    containing_path: PathBuf,
-    _asset_file_path: PathBuf,
-    _name: String,
-    _is_directory: bool,
-}
-
 // Key: PathBuf
 struct SourceFileDiskState {
     // may be generated or persisted
@@ -81,12 +73,15 @@ struct SourceFileDiskState {
 // Key: AssetId
 struct GeneratedAssetDiskState {
     source_file_path: PathBuf, // Immutable, don't need to keep state for the asset, just the source file path
+    containing_path: PathBuf,
 }
 
 // Key: AssetId
 struct PersistedAssetDiskState {
-    _asset_file_path: PathBuf,
+    asset_file_path: PathBuf,
     _asset_file_metadata: FileMetadata,
+    object_hash: u64,
+    containing_path: PathBuf,
     // modified time? file length?
     // hash of asset's on-disk state?
 }
@@ -121,6 +116,20 @@ impl AssetDiskState {
             AssetDiskState::Persisted(x) => Some(x),
         }
     }
+
+    fn object_hash(&self) -> Option<u64> {
+        match self {
+            AssetDiskState::Generated(x) => None,
+            AssetDiskState::Persisted(x) => Some(x.object_hash),
+        }
+    }
+
+    fn containing_path(&self) -> &Path {
+        match self {
+            AssetDiskState::Generated(x) => &x.containing_path,
+            AssetDiskState::Persisted(x) => &x.containing_path,
+        }
+    }
 }
 
 pub struct FileSystemPathBasedDataSource {
@@ -129,9 +138,6 @@ pub struct FileSystemPathBasedDataSource {
 
     importer_registry: ImporterRegistry,
 
-    // Any asset ID we know to exist on disk is in this list to help us quickly determine which
-    // deleted IDs need to be cleaned up
-    all_asset_ids_on_disk_with_on_disk_state: HashMap<AssetId, AssetOnDiskState>,
     //all_assigned_path_ids: HashMap<PathBuf, AssetId>,
     source_files_disk_state: HashMap<PathBuf, SourceFileDiskState>,
     assets_disk_state: HashMap<AssetId, AssetDiskState>,
@@ -172,7 +178,6 @@ impl FileSystemPathBasedDataSource {
             asset_source_id,
             file_system_root_path: file_system_root_path.into(),
             importer_registry: importer_registry.clone(),
-            all_asset_ids_on_disk_with_on_disk_state: Default::default(),
 
             source_files_disk_state: Default::default(),
             assets_disk_state: Default::default(),
@@ -209,14 +214,20 @@ impl FileSystemPathBasedDataSource {
         root_location.path_node_id().as_uuid() == *self.asset_source_id.uuid()
     }
 
+    /*
+    // Only called by flush_to_storage, we can tweak this
     fn find_all_modified_assets(
         &self,
         edit_context: &EditContext,
     ) -> HashSet<AssetId> {
+        unimplemented!();
+        // Also need to handle assets REMOVED from this data source
+
         // We need to handle assets that had their paths changed. For ID-based data sources we can
         // simply rely on assets being marked modified if their own parent changed, but for a file
         // system a move can cause many files need to be removed/added to the file system.
-        let mut modified_assets = edit_context.modified_assets().clone();
+        let mut modified_assets: HashSet<AssetId> = Default::default();
+
         for asset_id in edit_context.assets().keys() {
             if self.is_asset_owned_by_this_data_source(edit_context, *asset_id) {
                 let containing_file_path =
@@ -237,6 +248,32 @@ impl FileSystemPathBasedDataSource {
         }
 
         modified_assets
+    }
+
+     */
+
+    fn canonicalize_containing_file_path(
+        &self,
+        path: &Path,
+    ) -> PathBuf {
+        let path = dunce::canonicalize(path).unwrap();
+        assert!(path.starts_with(&self.file_system_root_path));
+        assert!(path.is_dir());
+        path
+    }
+
+    fn path_for_asset(
+        &self,
+        containing_file_path: &Path,
+        asset_id: AssetId,
+        asset_info: &DataSetAssetInfo,
+    ) -> PathBuf {
+        let is_directory =
+            asset_info.schema().fingerprint() == self.path_node_schema.fingerprint();
+        let asset_name = Self::sanitize_asset_name(asset_id, asset_info.asset_name());
+        let file_name = Self::file_name_for_asset(&asset_name, is_directory);
+        let asset_file_path = containing_file_path.join(file_name);
+        asset_file_path
     }
 
     fn containing_file_path_for_asset(
@@ -406,7 +443,6 @@ impl FileSystemPathBasedDataSource {
                     &AssetLocation::new(previous_asset_id),
                     self.path_node_schema.as_record().unwrap(),
                 );
-                edit_context.clear_asset_modified_flag(new_path_node_id);
 
                 // add this path node to our canonical list of paths/IDs
                 path_to_path_node_id.insert(ancestor_path.to_path_buf(), new_path_node_id);
@@ -494,11 +530,8 @@ impl DataSource for FileSystemPathBasedDataSource {
             .clone();
 
         let containing_file_path = self.containing_file_path_for_asset(edit_context, asset_id);
-        let is_directory = false;
-        let asset_name =
-            Self::sanitize_asset_name(asset_id, edit_context.asset_name(asset_id).unwrap());
-        let file_name = Self::file_name_for_asset(&asset_name, is_directory);
-        let asset_file_path = containing_file_path.join(file_name);
+        let asset_info = edit_context.assets().get(&asset_id).unwrap();
+        let asset_file_path = self.path_for_asset(&containing_file_path, asset_id, asset_info);
         // It's a asset, create an asset file
         let data = crate::json_storage::AssetJson::save_asset_to_string(
             edit_context.assets(),
@@ -510,23 +543,17 @@ impl DataSource for FileSystemPathBasedDataSource {
         std::fs::create_dir_all(&containing_file_path).unwrap();
         std::fs::write(&asset_file_path, data).unwrap();
 
+        let object_hash = edit_context.data_set().hash_object(asset_id, HashObjectMode::FullObjectWithLocationChainNames).unwrap();
+
         let asset_file_metadata = FileMetadata::new(&std::fs::metadata(&asset_file_path).unwrap());
         self.assets_disk_state.insert(
             asset_id,
             AssetDiskState::Persisted(PersistedAssetDiskState {
                 _asset_file_metadata: asset_file_metadata,
-                _asset_file_path: asset_file_path.clone(),
-            }),
-        );
-
-        self.all_asset_ids_on_disk_with_on_disk_state.insert(
-            asset_id,
-            AssetOnDiskState {
+                asset_file_path: asset_file_path.clone(),
                 containing_path: containing_file_path.clone(),
-                _asset_file_path: asset_file_path.clone(),
-                _is_directory: is_directory,
-                _name: asset_name.clone(),
-            },
+                object_hash
+            }),
         );
 
         let source_file_disk_state = self
@@ -535,8 +562,6 @@ impl DataSource for FileSystemPathBasedDataSource {
             .unwrap();
         source_file_disk_state.generated_assets.remove(&asset_id);
         source_file_disk_state.persisted_assets.insert(asset_id);
-
-        edit_context.clear_asset_modified_flag(asset_id);
     }
 
     fn load_from_storage(
@@ -573,6 +598,10 @@ impl DataSource for FileSystemPathBasedDataSource {
         let mut asset_files = Vec::default();
         let mut meta_files = Vec::default();
 
+
+        let mut source_files_disk_state = HashMap::<PathBuf, SourceFileDiskState>::default();
+        let mut assets_disk_state = HashMap::<AssetId, AssetDiskState>::default();
+
         {
             profiling::scope!("Categorize files on disk");
             //
@@ -586,12 +615,28 @@ impl DataSource for FileSystemPathBasedDataSource {
 
             for file in walker {
                 if let Ok(file) = file {
-                    let file = dunce::canonicalize(&file.path()).unwrap();
-                    self.ensure_asset_location_exists(
-                        &file,
+                    let asset_file = dunce::canonicalize(&file.path()).unwrap();
+                    let asset_location = self.ensure_asset_location_exists(
+                        &asset_file,
                         &mut path_to_path_node_id,
                         edit_context,
                     );
+                    let asset_id = asset_location.path_node_id();
+
+                    let asset_file_metadata =
+                        FileMetadata::new(&std::fs::metadata(&asset_file).unwrap());
+                    let containing_file_path = self.canonicalize_containing_file_path(asset_file.parent().unwrap());
+                    let object_hash = edit_context.data_set().hash_object(asset_id, HashObjectMode::FullObjectWithLocationChainNames).unwrap();
+
+                    assets_disk_state.insert(
+                        asset_id,
+                        AssetDiskState::Persisted(PersistedAssetDiskState {
+                            asset_file_path: asset_file,
+                            _asset_file_metadata: asset_file_metadata,
+                            containing_path: containing_file_path,
+                            object_hash
+                        }
+                    ));
                 }
             }
 
@@ -644,9 +689,6 @@ impl DataSource for FileSystemPathBasedDataSource {
             }
         }
 
-        let mut source_files_disk_state = HashMap::<PathBuf, SourceFileDiskState>::default();
-        let mut assets_disk_state = HashMap::<AssetId, AssetDiskState>::default();
-
         //
         // Load any asset files.
         //
@@ -674,18 +716,19 @@ impl DataSource for FileSystemPathBasedDataSource {
                 )
                 .unwrap();
 
-                //TODO: Track some revision number instead of modified flags?
-                edit_context.clear_asset_modified_flag(asset_id);
-                edit_context.clear_location_modified_flag(&asset_location);
-
                 let asset_file_metadata =
                     FileMetadata::new(&std::fs::metadata(&asset_file).unwrap());
+
+                let containing_file_path = self.canonicalize_containing_file_path(asset_file.parent().unwrap());
+                let object_hash = edit_context.data_set().hash_object(asset_id, HashObjectMode::FullObjectWithLocationChainNames).unwrap();
 
                 assets_disk_state.insert(
                     asset_id,
                     AssetDiskState::Persisted(PersistedAssetDiskState {
-                        _asset_file_path: asset_file,
+                        asset_file_path: asset_file,
                         _asset_file_metadata: asset_file_metadata,
+                        containing_path: containing_file_path,
+                        object_hash
                     }),
                 );
             }
@@ -849,11 +892,14 @@ impl DataSource for FileSystemPathBasedDataSource {
 
                     let asset_file_exists = edit_context.has_asset(importable_asset_id);
 
+                    let containing_file_path = self.canonicalize_containing_file_path(source_file_path.parent().unwrap());
+
                     if !asset_file_exists {
                         assets_disk_state.insert(
                             importable_asset_id,
                             AssetDiskState::Generated(GeneratedAssetDiskState {
                                 source_file_path: source_file_path.clone(),
+                                containing_path: containing_file_path,
                             }),
                         );
                         source_file_disk_state
@@ -958,6 +1004,57 @@ impl DataSource for FileSystemPathBasedDataSource {
             self.file_system_root_path
         ));
 
+        let mut pending_writes = Vec::<AssetId>::default();
+        let mut pending_deletes = Vec::<AssetId>::default();
+
+        for &asset_id in edit_context.assets().keys() {
+            if asset_id.as_uuid() == *self.asset_source_id.uuid() {
+                // ignore the root asset
+                continue;
+            }
+
+            if self.is_asset_owned_by_this_data_source(edit_context, asset_id) {
+                match self.assets_disk_state.get(&asset_id) {
+                    None => {
+                        // There is a newly created asset that has never been saved
+                        pending_writes.push(asset_id);
+                    }
+                    Some(asset_disk_state) => {
+                        let object_hash = edit_context.data_set().hash_object(asset_id, HashObjectMode::FullObjectWithLocationChainNames).unwrap();
+                        match asset_disk_state {
+                            AssetDiskState::Generated(_) => {
+                                // We never consider a generated asset as modified, and we expect UI to never alter
+                                // the asset data
+                            }
+                            AssetDiskState::Persisted(persisted_asset_disk_state) => {
+                                if persisted_asset_disk_state.object_hash != object_hash {
+                                    // The object has been modified and no longer matches disk state
+                                    pending_writes.push(asset_id);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Is there anything that's been deleted?
+        for (&asset_id, asset_disk_state) in &self.assets_disk_state {
+            match asset_disk_state {
+                AssetDiskState::Generated(_) => {
+                    // We never consider a generated asset as modified, and we expect UI to never alter
+                    // the asset data
+                }
+                AssetDiskState::Persisted(_) => {
+                    if !edit_context.has_asset(asset_id) || !self.is_asset_owned_by_this_data_source(edit_context, asset_id) {
+                        // There is an asset that no longer exists, but the file is still on disk
+                        pending_deletes.push(asset_id);
+                    }
+                }
+            }
+        }
+
+
         // Delete files for assets that were deleted
         // for asset_id in edit_context.modified_assets() {
         //     if self.all_asset_ids_on_disk_with_original_path.contains_key(asset_id)
@@ -968,13 +1065,10 @@ impl DataSource for FileSystemPathBasedDataSource {
         //     }
         // }
 
-        let mut updated_all_asset_ids_on_disk_with_on_disk_state =
-            self.all_asset_ids_on_disk_with_on_disk_state.clone();
-
-        let modified_assets = self.find_all_modified_assets(edit_context);
+        //let modified_assets = self.find_all_modified_assets(edit_context);
 
         // We will write out any files that were modified or moved
-        for asset_id in &modified_assets {
+        for asset_id in &pending_writes {
             if let Some(asset_info) = edit_context.assets().get(asset_id) {
                 if self.is_asset_owned_by_this_data_source(edit_context, *asset_id) {
                     if asset_id.as_uuid() == *self.asset_source_id.uuid() {
@@ -994,9 +1088,7 @@ impl DataSource for FileSystemPathBasedDataSource {
                         self.containing_file_path_for_asset(edit_context, *asset_id);
                     let is_directory =
                         asset_info.schema().fingerprint() == self.path_node_schema.fingerprint();
-                    let asset_name = Self::sanitize_asset_name(*asset_id, asset_info.asset_name());
-                    let file_name = Self::file_name_for_asset(&asset_name, is_directory);
-                    let asset_file_path = containing_file_path.join(file_name);
+                    let asset_file_path = self.path_for_asset(&containing_file_path, *asset_id, asset_info);
 
                     if is_directory {
                         // It's a path node, ensure the dir exists
@@ -1013,40 +1105,172 @@ impl DataSource for FileSystemPathBasedDataSource {
                         std::fs::create_dir_all(&containing_file_path).unwrap();
                         std::fs::write(&asset_file_path, data).unwrap();
 
+                        let object_hash = edit_context.data_set().hash_object(*asset_id, HashObjectMode::FullObjectWithLocationChainNames).unwrap();
+
                         let asset_file_metadata =
                             FileMetadata::new(&std::fs::metadata(&asset_file_path).unwrap());
                         self.assets_disk_state.insert(
                             *asset_id,
                             AssetDiskState::Persisted(PersistedAssetDiskState {
                                 _asset_file_metadata: asset_file_metadata,
-                                _asset_file_path: asset_file_path.clone(),
+                                asset_file_path: asset_file_path.clone(),
+                                containing_path: containing_file_path.clone(),
+                                object_hash,
                             }),
                         );
 
                         // We know the asset was already persisted so we don't need to update source files state
                     }
-
-                    updated_all_asset_ids_on_disk_with_on_disk_state.insert(
-                        *asset_id,
-                        AssetOnDiskState {
-                            containing_path: containing_file_path.clone(),
-                            _asset_file_path: asset_file_path.clone(),
-                            _is_directory: is_directory,
-                            _name: asset_name.clone(),
-                        },
-                    );
                 }
             }
         }
 
-        // Delete anything on disk that shouldn't still be on disk
-        // Maybe check before we start saving anything if the disk state has changed and offer to reload?
+        let mut deferred_directory_deletes = Vec::default();
 
-        //TODO: Implement probably in passes? Files first then directories? Or maybe we can just
-        // reverse sort by filename length?
+        // First pass to delete files
+        for &asset_id in &pending_deletes {
+            match self.assets_disk_state.get(&asset_id) {
+                None => {
+                    // Unexpected, assets pending deletion should be on disk. But we don't need to do anything.
+                    panic!("assets pending deletion should be on disk");
+                }
+                Some(disk_state) => {
+                    match disk_state {
+                        AssetDiskState::Generated(_) => {
+                            // Unexpected, generated assets should not be considered modified and so should not
+                            // be pending deletion.
+                            panic!("generated assets should not be considered modified and so should not be pending deletion");
+                        }
+                        AssetDiskState::Persisted(disk_state) => {
+                            if disk_state.asset_file_path.is_dir() {
+                                // Defer directory deletion so that any files that might be in them get deleted first.
+                                // We can't delete directories that have files in them.
+                                deferred_directory_deletes.push((asset_id, disk_state.asset_file_path.clone()));
+                            } else {
+                                std::fs::remove_file(&disk_state.asset_file_path).unwrap();
+                                self.assets_disk_state.remove(&asset_id);
+                            }
+                        }
+                    }
+                }
+            }
+        }
 
-        // Update all_asset_ids_on_disk_with_original_path
-        self.all_asset_ids_on_disk_with_on_disk_state =
-            updated_all_asset_ids_on_disk_with_on_disk_state;
+        // Reverse sort ensures that subdirectories are processed first
+        deferred_directory_deletes.sort_by(|(_, lhs), (_, rhs)| {
+            rhs.cmp(lhs)
+        });
+
+        // Second pass to delete directories if they are empty and path node does not exist
+        for (asset_id, directory) in deferred_directory_deletes {
+            let is_empty = directory.read_dir().unwrap().next().is_none();
+            if is_empty {
+                std::fs::remove_dir(&directory).unwrap();
+            }
+        }
+    }
+
+
+    fn edit_context_has_unsaved_changes(&self, edit_context: &EditContext) -> bool {
+        for (&asset_id, asset_info) in edit_context.assets() {
+            if asset_id.as_uuid() == *self.asset_source_id.uuid() {
+                // ignore the root asset
+                continue;
+            }
+
+            if self.is_asset_owned_by_this_data_source(edit_context, asset_id) {
+                match self.assets_disk_state.get(&asset_id) {
+                    None => {
+                        // There is a newly created asset that has never been saved
+                        println!("asset name: {:?}", asset_info.asset_name());
+                        return true;
+                    }
+                    Some(asset_disk_state) => {
+                        let object_hash = edit_context.data_set().hash_object(asset_id, HashObjectMode::FullObjectWithLocationChainNames).unwrap();
+                        match asset_disk_state {
+                            AssetDiskState::Generated(_) => {
+                                // We never consider a generated asset as modified, and we expect UI to never alter
+                                // the asset data
+                            }
+                            AssetDiskState::Persisted(persisted_asset_disk_state) => {
+                                if persisted_asset_disk_state.object_hash != object_hash {
+                                    // The object has been modified and no longer matches disk state
+                                    return true;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Is there anything that's been deleted?
+        for (&asset_id, asset_disk_state) in &self.assets_disk_state {
+            match asset_disk_state {
+                AssetDiskState::Generated(_) => {
+                    // We never consider a generated asset as modified, and we expect UI to never alter
+                    // the asset data
+                }
+                AssetDiskState::Persisted(_) => {
+                    if !edit_context.has_asset(asset_id) || !self.is_asset_owned_by_this_data_source(edit_context, asset_id) {
+                        // There is an asset that no longer exists, but the file is still on disk
+                        return true;
+                    }
+                }
+            }
+        }
+
+        return false;
+    }
+
+    fn append_pending_file_operations(&self, edit_context: &EditContext, pending_file_operations: &mut PendingFileOperations) {
+        for (&asset_id, asset_info) in edit_context.assets() {
+            if asset_id.as_uuid() == *self.asset_source_id.uuid() {
+                // ignore the root asset
+                continue;
+            }
+
+            if self.is_asset_owned_by_this_data_source(edit_context, asset_id) {
+                match self.assets_disk_state.get(&asset_id) {
+                    None => {
+                        // There is a newly created asset that has never been saved
+                        let containing_path = self.containing_file_path_for_asset(edit_context, asset_id);
+                        let asset_path = self.path_for_asset(&containing_path, asset_id, asset_info);
+                        pending_file_operations.create_operations.push((asset_id, asset_path));
+                    }
+                    Some(asset_disk_state) => {
+                        let object_hash = edit_context.data_set().hash_object(asset_id, HashObjectMode::FullObjectWithLocationChainNames).unwrap();
+                        match asset_disk_state {
+                            AssetDiskState::Generated(_) => {
+                                // We never consider a generated asset as modified, and we expect UI to never alter
+                                // the asset data
+                            }
+                            AssetDiskState::Persisted(persisted_asset_disk_state) => {
+                                if persisted_asset_disk_state.object_hash != object_hash {
+                                    // The object has been modified and no longer matches disk state
+                                    pending_file_operations.modify_operations.push((asset_id, persisted_asset_disk_state.asset_file_path.clone()));
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Is there anything that's been deleted?
+        for (&asset_id, asset_disk_state) in &self.assets_disk_state {
+            match asset_disk_state {
+                AssetDiskState::Generated(_) => {
+                    // We never consider a generated asset as modified, and we expect UI to never alter
+                    // the asset data
+                }
+                AssetDiskState::Persisted(persisted_asset_disk_state) => {
+                    if !edit_context.has_asset(asset_id) || !self.is_asset_owned_by_this_data_source(edit_context, asset_id) {
+                        // There is an asset that no longer exists, but the file is still on disk
+                        pending_file_operations.delete_operations.push((asset_id, persisted_asset_disk_state.asset_file_path.clone()));
+                    }
+                }
+            }
+        }
     }
 }

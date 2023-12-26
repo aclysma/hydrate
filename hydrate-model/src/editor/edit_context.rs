@@ -43,11 +43,6 @@ pub struct EditContext {
     schema_set: SchemaSet,
     pub(super) data_set: DataSet,
     undo_context: UndoContext,
-
-    // We track locations separately because if an asset is deleted, we don't know what location it
-    // was stored at
-    modified_assets: HashSet<AssetId>,
-    modified_locations: HashSet<AssetLocation>,
 }
 
 impl PathReferenceNamespaceResolver for EditContext {
@@ -115,12 +110,6 @@ impl EditContext {
         if self.undo_context.has_open_context() {
             // If an undo context is open, we use the diff for change tracking
             self.undo_context.track_new_asset(asset_id);
-        } else {
-            // If we don't have an undo context open, fast path to do change tracking ourselves
-            self.modified_assets.insert(asset_id);
-            if !self.modified_locations.contains(&asset_location) {
-                self.modified_locations.insert(asset_location.clone());
-            }
         }
     }
 
@@ -133,89 +122,16 @@ impl EditContext {
             // If an undo is open, we use the diff for change tracking
             self.undo_context
                 .track_existing_asset(&mut self.data_set, asset_id)?;
-        } else {
-            // If we don't have an undo context open, fast path to do change tracking ourselves
-            self.modified_assets.insert(asset_id);
-            if let Some(asset_info) = self.assets().get(&asset_id) {
-                if !self
-                    .modified_locations
-                    .contains(&asset_info.asset_location())
-                {
-                    self.modified_locations
-                        .insert(asset_info.asset_location().clone());
-                }
-            }
         }
 
         Ok(())
     }
 
-    pub fn clear_change_tracking(&mut self) {
-        self.modified_assets.clear();
-        self.modified_locations.clear();
-    }
-
-    pub fn has_changes(&self) -> bool {
-        !self.modified_assets.is_empty() || !self.modified_locations.is_empty()
-    }
-
-    pub fn is_asset_modified(
-        &self,
-        asset_id: AssetId,
-    ) -> bool {
-        self.modified_assets.contains(&asset_id)
-    }
-
-    pub fn modified_assets(&self) -> &HashSet<AssetId> {
-        &self.modified_assets
-    }
-
-    pub fn modified_locations(&self) -> &HashSet<AssetLocation> {
-        &self.modified_locations
-    }
-
-    pub fn clear_asset_modified_flag(
-        &mut self,
-        asset_id: AssetId,
-    ) {
-        self.modified_assets.remove(&asset_id);
-    }
-
-    pub fn clear_location_modified_flag(
-        &mut self,
-        asset_location: &AssetLocation,
-    ) {
-        self.modified_locations.remove(asset_location);
-    }
-
-    pub fn take_modified_assets_and_locations(
-        &mut self
-    ) -> (HashSet<AssetId>, HashSet<AssetLocation>) {
-        let mut modified_assets = HashSet::default();
-        std::mem::swap(&mut modified_assets, &mut self.modified_assets);
-
-        let mut modified_locations = HashSet::default();
-        std::mem::swap(&mut modified_locations, &mut self.modified_locations);
-
-        (modified_assets, modified_locations)
-    }
-
     pub fn apply_diff(
         &mut self,
         diff: &DataSetDiff,
-        modified_assets: &HashSet<AssetId>,
-        modified_locations: &HashSet<AssetLocation>,
     ) -> DataSetResult<()> {
         diff.apply(&mut self.data_set, &self.schema_set)?;
-
-        // Marks the assets as changed
-        self.modified_assets.extend(modified_assets);
-        for modified_location in modified_locations {
-            if !self.modified_locations.contains(modified_location) {
-                self.modified_locations.insert(modified_location.clone());
-            }
-        }
-
         Ok(())
     }
 
@@ -230,8 +146,6 @@ impl EditContext {
             schema_set,
             data_set: Default::default(),
             undo_context: UndoContext::new(undo_stack, edit_context_key),
-            modified_assets: Default::default(),
-            modified_locations: Default::default(),
         }
     }
 
@@ -246,8 +160,6 @@ impl EditContext {
             schema_set,
             data_set: Default::default(),
             undo_context: UndoContext::new(undo_stack, edit_context_key),
-            modified_assets: Default::default(),
-            modified_locations: Default::default(),
         }
     }
 
@@ -259,23 +171,17 @@ impl EditContext {
         self.undo_context.begin_context(
             &self.data_set,
             name,
-            &mut self.modified_assets,
-            &mut self.modified_locations,
         );
         let end_context_behavior = (f)(self);
         self.undo_context.end_context(
             &self.data_set,
             end_context_behavior,
-            &mut self.modified_assets,
-            &mut self.modified_locations,
         );
     }
 
     pub fn commit_pending_undo_context(&mut self) {
         self.undo_context.commit_context(
             &mut self.data_set,
-            &mut self.modified_assets,
-            &mut self.modified_locations,
         );
     }
 

@@ -11,7 +11,7 @@ use std::io::Write;
 use std::path::PathBuf;
 use std::sync::Arc;
 use hydrate_base::hashing::HashSet;
-use hydrate_data::{DataSet, SchemaSet};
+use hydrate_data::{DataSet, HashObjectMode, SchemaSet};
 use crate::import::ImportJobs;
 use std::rc::Rc;
 
@@ -387,7 +387,7 @@ impl BuildJobs {
         let mut combined_build_hash = 0;
         let mut asset_hashes = HashMap::default();
         for (asset_id, object) in editor_model.data_set().assets() {
-            let hash = editor_model.data_set().hash_properties(*asset_id).unwrap();
+            let hash = editor_model.data_set().hash_object(*asset_id, HashObjectMode::PropertiesOnly).unwrap();
 
             if !editor_model.is_path_node_or_root(object.schema()) {
                 asset_hashes.insert(*asset_id, hash);

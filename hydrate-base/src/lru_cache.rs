@@ -49,6 +49,8 @@ impl<K: Clone + PartialEq + Eq + Hash, V> LruCache<K, V> {
         }
     }
 
+    // For debug, can throw in to try and find when state is invalid
+    /*
     fn check_list(&self) {
         let mut iter = self.lru_list_head;
         let mut count = 0;
@@ -61,6 +63,7 @@ impl<K: Clone + PartialEq + Eq + Hash, V> LruCache<K, V> {
 
         assert_eq!(count, self.lru_list.len() - 1);
     }
+    */
 
     pub fn pairs(&self) -> &Vec<Option<(K, V)>> {
         &self.lru_list_pairs

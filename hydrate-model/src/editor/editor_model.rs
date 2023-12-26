@@ -1,10 +1,6 @@
 use crate::edit_context::EditContext;
 use crate::editor::undo::UndoStack;
-use crate::{
-    AssetId, AssetPath, AssetPathCache, AssetSourceId, DataSet, DataSource,
-    FileSystemIdBasedDataSource, FileSystemPathBasedDataSource, HashMap,
-    PathNode, PathNodeRoot, SchemaNamedType, SchemaSet,
-};
+use crate::{AssetId, AssetPath, AssetPathCache, AssetSourceId, DataSet, DataSource, FileSystemIdBasedDataSource, FileSystemPathBasedDataSource, HashMap, PathNode, PathNodeRoot, PendingFileOperations, SchemaNamedType, SchemaSet};
 use hydrate_data::{AssetLocation, AssetName, CanonicalPathReference, DataSetError, DataSetResult, ImportInfo, PathReferenceHash, SingleObject};
 use hydrate_pipeline::{DynEditorModel, HydrateProjectConfiguration, ImporterRegistry, ImportJobSourceFile, ImportJobToQueue};
 use hydrate_schema::{SchemaFingerprint, SchemaRecord};
@@ -189,13 +185,27 @@ impl EditorModel {
     }
 
     pub fn any_edit_context_has_unsaved_changes(&self) -> bool {
-        for (_key, context) in &self.edit_contexts {
-            if context.has_changes() {
-                return true;
+        for (_, data_source) in &self.data_sources {
+            for (_, edit_context) in &self.edit_contexts {
+                if data_source.edit_context_has_unsaved_changes(edit_context) {
+                    return true;
+                }
             }
         }
 
         false
+    }
+
+    pub fn pending_file_operations(&self) -> PendingFileOperations {
+        let mut pending_file_operations = PendingFileOperations::default();
+
+        for (_, data_source) in &self.data_sources {
+            for (_, edit_context) in &self.edit_contexts {
+                data_source.append_pending_file_operations(edit_context, &mut pending_file_operations);
+            }
+        }
+
+        pending_file_operations
     }
 
     pub fn schema_set(&self) -> &SchemaSet {
@@ -300,10 +310,6 @@ impl EditorModel {
             )
             .unwrap();
 
-        // Clear change tracking so that the new root asset we just added doesn't appear as a unsaved change.
-        // (It should never serialize)
-        root_edit_context.clear_change_tracking();
-
         //
         // Create the data source and force full reload of it
         //
@@ -348,10 +354,6 @@ impl EditorModel {
             )
             .unwrap();
 
-        // Clear change tracking so that the new root asset we just added doesn't appear as a unsaved change.
-        // (It should never serialize)
-        root_edit_context.clear_change_tracking();
-
         //
         // Create the data source and force full reload of it
         //
@@ -381,11 +383,6 @@ impl EditorModel {
         for (_id, data_source) in &mut self.data_sources {
             data_source.flush_to_storage(root_edit_context);
         }
-
-        //
-        // Clear modified assets list since we saved everything to disk
-        //
-        root_edit_context.clear_change_tracking();
     }
 
     pub fn revert_root_edit_context(
@@ -405,13 +402,6 @@ impl EditorModel {
         //
         // Take the contents of the modified asset list, leaving the edit context with a cleared list
         //
-        let (modified_assets, modified_locations) =
-            root_edit_context.take_modified_assets_and_locations();
-        println!(
-            "Revert:\nAssets: {:?}\nLocations: {:?}",
-            modified_assets, modified_locations
-        );
-
         for (_id, data_source) in &mut self.data_sources {
             data_source.load_from_storage(project_config, root_edit_context, import_job_to_queue);
         }
@@ -419,7 +409,6 @@ impl EditorModel {
         //
         // Clear modified assets list since we reloaded everything from disk.
         //
-        root_edit_context.clear_change_tracking();
         //root_edit_context.cancel_pending_undo_context();
 
         //self.refresh_asset_path_lookups();
@@ -486,7 +475,7 @@ impl EditorModel {
         // In the case of failure we want to flush as much as we can, so keep the error around and
         // return it after trying to flush all the assetsa
         let mut first_error = None;
-        for &asset_id in context_to_flush.modified_assets() {
+        for &asset_id in context_to_flush.assets().keys() {
             if let Err(e) = root_context
                 .data_set
                 .copy_from(&context_to_flush.data_set, asset_id)
@@ -496,8 +485,6 @@ impl EditorModel {
                 }
             }
         }
-
-        context_to_flush.clear_change_tracking();
 
         first_error.unwrap_or(Ok(()))
     }

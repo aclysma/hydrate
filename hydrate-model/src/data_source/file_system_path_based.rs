@@ -521,7 +521,15 @@ impl DataSource for FileSystemPathBasedDataSource {
         edit_context: &mut EditContext,
         asset_id: AssetId,
     ) {
-        //let asset_disk_state = self.assets_disk_state.get_mut(asset_id).unwrap();
+        if !self.is_asset_owned_by_this_data_source(edit_context, asset_id) {
+            return;
+        }
+
+        let old_asset_disk_state = self.assets_disk_state.get(&asset_id).unwrap();
+        if !old_asset_disk_state.is_generated() {
+            return;
+        }
+
         let old_asset_disk_state = self.assets_disk_state.remove(&asset_id);
         let source_file_path = old_asset_disk_state
             .unwrap()
@@ -908,7 +916,7 @@ impl DataSource for FileSystemPathBasedDataSource {
                     let asset_name =
                         hydrate_pipeline::create_asset_name(source_file_path, scanned_importable);
 
-                    let asset_file_exists = edit_context.has_asset(importable_asset_id);
+                    let asset_file_exists = assets_disk_state.get(&importable_asset_id).is_some();
                     let asset_is_persisted = scanned_source_file.meta_file.persisted_assets.contains(&importable_asset_id);
 
                     let containing_file_path = self.canonicalize_containing_file_path(source_file_path.parent().unwrap());
@@ -930,6 +938,7 @@ impl DataSource for FileSystemPathBasedDataSource {
                             .generated_assets
                             .insert(importable_asset_id);
                     } else {
+                        assert!(asset_file_exists);
                         assert_eq!(
                             edit_context
                                 .asset_schema(importable_asset_id)

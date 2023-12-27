@@ -18,7 +18,7 @@ struct PendingOperationInfo<'a> {
     kind: OperationKind,
     path: &'a PathBuf,
     asset_id: AssetId,
-    asset_info: &'a DataSetAssetInfo,
+    asset_info: Option<&'a DataSetAssetInfo>,
 
 }
 
@@ -41,7 +41,7 @@ fn confirm_lose_changes<F: Fn(&mut egui::Ui, &mut ModalActionControlFlow) -> ()>
                 pending_operation_info.push(PendingOperationInfo {
                     kind,
                     asset_id: *asset_id,
-                    asset_info: edit_context.assets().get(&asset_id).unwrap(),
+                    asset_info: edit_context.assets().get(&asset_id),
                     path: &path
                 });
             }
@@ -119,7 +119,7 @@ fn confirm_lose_changes<F: Fn(&mut egui::Ui, &mut ModalActionControlFlow) -> ()>
                                     .editor_model
                                     .root_edit_context()
                                     .asset_name_or_id_string(modified_asset.asset_id)
-                                    .unwrap();
+                                    .unwrap_or("Unknown".to_string());
                                 let long_name = context
                                     .db_state
                                     .editor_model
@@ -137,14 +137,17 @@ fn confirm_lose_changes<F: Fn(&mut egui::Ui, &mut ModalActionControlFlow) -> ()>
                                     ui.strong(short_name);
                                 });
                                 row.col(|ui| {
-                                    let schema_display_name = modified_asset
-                                        .asset_info
-                                        .schema()
-                                        .markup()
-                                        .display_name
-                                        .as_deref()
-                                        .unwrap_or(modified_asset.asset_info.schema().name());
-                                    ui.label(schema_display_name);
+                                    if let Some(asset_info) = modified_asset.asset_info {
+                                        let schema_display_name = asset_info
+                                            .schema()
+                                            .markup()
+                                            .display_name
+                                            .as_deref()
+                                            .unwrap_or(asset_info.schema().name());
+                                        ui.label(schema_display_name);
+                                    } else {
+                                        ui.label("Unknown");
+                                    }
                                 });
                                 row.col(|ui| {
                                     ui.label(long_name.as_str());

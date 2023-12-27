@@ -148,6 +148,11 @@ pub fn draw_inspector(
                             ui.close_menu();
                         }
 
+                        if ui.button("Duplicate").clicked() {
+                            action_sender.queue_action(UIAction::DuplicateAssets(selected_assets.iter().copied().collect()));
+                            ui.close_menu();
+                        }
+
                         let can_rename = selected_assets.len() == 1;
                         let move_or_rename_text = if can_rename {
                             "Move or Rename"

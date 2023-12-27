@@ -646,10 +646,22 @@ fn asset_context_menu(
         }
     }
 
+    let mut are_any_generated = false;
+    for asset_id in &asset_gallery_ui_state.selected_assets {
+        if editor_model.is_generated_asset(*asset_id) {
+            are_any_generated = true;
+            break;
+        }
+    }
+
     if are_any_generated {
         ui.label("One or more assets are generated and cannot be edited directly");
     }
 
+    if ui.button("Duplicate").clicked() {
+        action_queue.queue_action(UIAction::DuplicateAssets(asset_gallery_ui_state.selected_assets.iter().copied().collect()));
+        ui.close_menu();
+    }
 
     let can_rename = asset_gallery_ui_state.selected_assets.len() == 1 && asset_gallery_ui_state.primary_selected_asset == Some(asset_id);
     let move_or_rename_text = if can_rename {

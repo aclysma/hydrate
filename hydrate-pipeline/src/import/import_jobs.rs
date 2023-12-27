@@ -132,6 +132,18 @@ pub struct ImportJobs {
 }
 
 impl ImportJobs {
+    pub fn duplicate_import_data(
+        &self,
+        old_asset_id: AssetId,
+        new_asset_id: AssetId,
+    ) -> PipelineResult<()> {
+        let old_path = uuid_to_path(&self.import_data_root_path, old_asset_id.as_uuid(), "if");
+        let new_path = uuid_to_path(&self.import_data_root_path, new_asset_id.as_uuid(), "if");
+        std::fs::create_dir_all(new_path.parent().unwrap())?;
+        std::fs::copy(old_path, new_path)?;
+        Ok(())
+    }
+
     pub fn current_import_log(&self) -> Option<&ImportLogData> {
         self.current_import_task.as_ref().map(|x| &x.log_data)
     }

@@ -635,6 +635,55 @@ impl DataSet {
         Ok(())
     }
 
+    pub fn duplicate_asset(
+        &mut self,
+        asset_id: AssetId,
+        schema_set: &SchemaSet,
+    ) -> DataSetResult<AssetId> {
+        let old_asset = self.assets.get(&asset_id).ok_or(DataSetError::AssetNotFound)?;
+
+        let new_asset_id = AssetId(Uuid::new_v4());
+        let mut name_count = 1;
+        let new_name = loop {
+            let new_name = if name_count == 1 {
+                AssetName::new(format!("Copy of {}", old_asset.asset_name.0))
+            } else {
+                AssetName::new(format!("Copy of {} {}", old_asset.asset_name.0, name_count))
+            };
+
+            let mut is_duplicate = false;
+            for (_, asset_info) in &self.assets {
+                if asset_info.asset_name == new_name && asset_info.asset_location == old_asset.asset_location {
+                    is_duplicate = true;
+                    break;
+                }
+            }
+
+            if !is_duplicate {
+                break new_name;
+            }
+
+            name_count += 1;
+        };
+
+        self.restore_asset(
+            new_asset_id,
+            new_name,
+            old_asset.asset_location,
+            old_asset.import_info.clone(),
+            old_asset.build_info.clone(),
+            schema_set,
+            old_asset.prototype,
+            old_asset.schema.fingerprint(),
+            old_asset.properties.clone(),
+            old_asset.property_null_overrides.clone(),
+            old_asset.properties_in_replace_mode.clone(),
+            old_asset.dynamic_collection_entries.clone()
+        )?;
+        Ok(new_asset_id)
+    }
+
+
     /// Returns error if asset did not exist
     pub fn delete_asset(
         &mut self,

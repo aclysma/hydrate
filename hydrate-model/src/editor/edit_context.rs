@@ -105,7 +105,6 @@ impl EditContext {
     fn track_new_asset(
         &mut self,
         asset_id: AssetId,
-        asset_location: &AssetLocation,
     ) {
         if self.undo_context.has_open_context() {
             // If an undo context is open, we use the diff for change tracking
@@ -282,7 +281,7 @@ impl EditContext {
             asset_location.clone(),
             schema,
         )?;
-        self.track_new_asset(asset_id, asset_location);
+        self.track_new_asset(asset_id);
         Ok(())
     }
 
@@ -295,7 +294,7 @@ impl EditContext {
         let asset_id = self
             .data_set
             .new_asset(asset_name.clone(), asset_location.clone(), schema);
-        self.track_new_asset(asset_id, asset_location);
+        self.track_new_asset(asset_id);
         asset_id
     }
 
@@ -310,7 +309,7 @@ impl EditContext {
             asset_location.clone(),
             prototype,
         )?;
-        self.track_new_asset(asset_id, &asset_location);
+        self.track_new_asset(asset_id);
         Ok(asset_id)
     }
 
@@ -321,7 +320,7 @@ impl EditContext {
         asset_location: AssetLocation,
         single_object: &SingleObject,
     ) -> DataSetResult<()> {
-        self.track_new_asset(asset_id, &asset_location);
+        self.track_new_asset(asset_id);
         self.data_set.new_asset_with_id(
             asset_id,
             asset_name,
@@ -369,7 +368,7 @@ impl EditContext {
         properties_in_replace_mode: HashSet<String>,
         dynamic_collection_entries: HashMap<String, OrderedSet<Uuid>>,
     ) -> DataSetResult<()> {
-        self.track_new_asset(asset_id, &asset_location);
+        self.track_new_asset(asset_id);
         self.data_set.restore_asset(
             asset_id,
             asset_name,
@@ -384,6 +383,15 @@ impl EditContext {
             properties_in_replace_mode,
             dynamic_collection_entries,
         )
+    }
+
+    pub fn duplicate_asset(
+        &mut self,
+        asset_id: AssetId,
+    ) -> DataSetResult<AssetId> {
+        let new_asset_id = self.data_set.duplicate_asset(asset_id, &self.schema_set)?;
+        self.track_new_asset(new_asset_id);
+        Ok(new_asset_id)
     }
 
     pub fn delete_asset(

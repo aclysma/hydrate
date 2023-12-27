@@ -30,6 +30,7 @@ pub enum UIAction {
     MoveAssets(Vec<AssetId>, AssetLocation),
     MoveOrRename(Vec<AssetId>, Option<AssetName>, AssetLocation),
     NewAsset(AssetName, AssetLocation, SchemaRecord, Option<AssetId>),
+    DuplicateAssets(Vec<AssetId>),
     DeleteAssets(Vec<AssetId>),
     SetProperty(Vec<AssetId>, PropertyPath, Option<Value>, EndContextBehavior),
     ClearPropertiesForRecord(Vec<AssetId>, PropertyPath, SchemaFingerprint),
@@ -325,6 +326,20 @@ impl UIActionQueueReceiver {
 
                             self.sender
                                 .queue_action(UIAction::ShowAssetInAssetGallery(new_asset_id));
+                            EndContextBehavior::Finish
+                        },
+                    );
+                }
+                UIAction::DuplicateAssets(asset_ids) => {
+                    editor_model.root_edit_context_mut().with_undo_context(
+                        "delete asset",
+                        |edit_context| {
+                            for asset_id in asset_ids {
+                                let new_asset_id = edit_context.duplicate_asset(asset_id).unwrap();
+                                if edit_context.import_info(asset_id).is_some() {
+                                    asset_engine.duplicate_import_data(asset_id, new_asset_id).unwrap();
+                                }
+                            }
                             EndContextBehavior::Finish
                         },
                     );

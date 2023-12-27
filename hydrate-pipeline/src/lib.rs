@@ -327,4 +327,12 @@ impl AssetEngine {
     ) {
         self.build_jobs.build();
     }
+
+    pub fn duplicate_import_data(
+        &self,
+        old_asset_id: AssetId,
+        new_asset_id: AssetId,
+    ) -> PipelineResult<()> {
+        self.import_jobs.duplicate_import_data(old_asset_id, new_asset_id)
+    }
 }

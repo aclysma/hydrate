@@ -2,20 +2,24 @@
   {
     "type": "enum",
     "name": "TestEnum",
+    "uuid": "7bfb015b-c6c7-4552-af20-d3abd1da57e8",
     "symbols": [
       {
         "name": "None",
-        "aliases": ["NONE"]
+        "aliases": ["NONE"],
+        "uuid": "a1d1385a-d56a-4e59-b44f-23884d5b2002"
       },
       {
         "name": "Opaque",
-        "aliases": ["OPAQUE"]
+        "aliases": ["OPAQUE"],
+        "uuid": "9a820fd3-9bb6-4da7-8618-ec0800740892"
       }
     ]
   },
   {
     "type": "record",
     "name": "AllFields",
+    "uuid": "f9bf8ce2-4417-40e1-990c-3f9c48e40c2b",
     "tags": ["asset"],
     "display_name": "All Fields Test Object",
     "fields": [
@@ -25,7 +29,8 @@
           "name": "map",
           "key_type": "i32",
           "value_type": "Vec3"
-        }
+        },
+        "uuid": "359d8f61-b33d-4c03-a57c-c37b7af97476"
       },
       {
         "name": "map_test_enum_all_fields",
@@ -33,14 +38,16 @@
           "name": "map",
           "key_type": "TestEnum",
           "value_type": "AllFields"
-        }
+        },
+        "uuid": "aa25feaa-1ae3-4ea0-9add-53c20461d2ec"
       },
       {
         "name": "reference",
         "type": {
           "name": "asset_ref",
           "inner_type": "Vec3"
-        }
+        },
+        "uuid": "fa2ab8bd-b041-4899-85ff-69ed3e1714fe"
       },
       {
         "name": "static_array",
@@ -48,15 +55,18 @@
           "name": "static_array",
           "inner_type": "Vec3",
           "length": 5
-        }
+        },
+        "uuid": "6842049f-ecc7-42f7-9a6a-933d3be2afc1"
       },
       {
         "name": "v3",
-        "type": "Vec3"
+        "type": "Vec3",
+        "uuid": "4eb6b773-f5e9-4edf-af7a-3944e38b25fe"
       },
       {
         "name": "v4",
-        "type": "Vec4"
+        "type": "Vec4",
+        "uuid": "f6579062-1f6b-4696-864a-7c7529d93061"
       },
       {
         "name": "static_array_i32",
@@ -64,15 +74,18 @@
           "name": "static_array",
           "inner_type": "i32",
           "length": 5
-        }
+        },
+        "uuid": "a49d1253-1337-4f69-93b6-d782857d0fad"
       },
       {
         "name": "color",
-        "type": "ColorRgbaU8"
+        "type": "ColorRgbaU8",
+        "uuid": "e5e73217-844b-404d-a02c-046e14d41aac"
       },
       {
         "name": "enum_field",
-        "type": "TestEnum"
+        "type": "TestEnum",
+        "uuid": "5ff6a8dd-b949-41a0-b123-95123796bd21"
       },
       {
         "name": "nullable_recursive",
@@ -80,6 +93,7 @@
           "name": "nullable",
           "inner_type": "AllFields"
         },
+        "uuid": "80ff14ed-3931-4887-8e9a-874efe7049d6",
         "display_name": "Nullable Recursive",
         "category": "Test Nullables"
       },
@@ -89,6 +103,7 @@
           "name": "dynamic_array",
           "inner_type": "AllFields"
         },
+        "uuid": "df427cb6-3941-4595-9b39-c31bee83adec",
         "display_name": "Dynamic Array Recursive",
         "category": "Test Containers"
       },
@@ -99,12 +114,14 @@
           "inner_type": "AllFields",
           "length": 5
         },
+        "uuid": "076d825c-9eb7-4474-89a6-a56edb1f82d0",
         "display_name": "Static Array Recursive",
         "category": "Test Containers"
       },
       {
         "name": "record_recursive",
-        "type": "AllFields"
+        "type": "AllFields",
+        "uuid": "01aa8f03-0767-413f-8418-eea2af933a16"
       },
       {
         "name": "nullable_bool",
@@ -112,6 +129,7 @@
           "name": "nullable",
           "inner_type": "bool"
         },
+        "uuid": "9319d0c1-c539-4a34-bab2-7b27e24cb209",
         "display_name": "Nullable Bool",
         "category": "Test Nullables"
       },
@@ -121,16 +139,19 @@
           "name": "nullable",
           "inner_type": "Vec3"
         },
+        "uuid": "fedd3c17-9365-4ecc-952c-e6f135ad6609",
         "display_name": "Nullable Vec3",
         "category": "Test Nullables"
       },
       {
         "name": "boolean",
-        "type": "bool"
+        "type": "bool",
+        "uuid": "6f056bfd-9f2d-4320-a83b-d337eaf5e61e"
       },
       {
         "name": "i32",
         "type": "i32",
+        "uuid": "b9aa0f95-3c70-4379-9487-b611a6225434",
         "display_name": "Example i32",
         "category": "Test Scalars",
         "ui_min": -5,
@@ -139,6 +160,7 @@
       {
         "name": "i64",
         "type": "i64",
+        "uuid": "9c6a0ce8-7f10-4b9a-ba82-d0dcea05d239",
         "display_name": "Example i64",
         "category": "Test Scalars",
         "ui_max": 50
@@ -146,6 +168,7 @@
       {
         "name": "u32",
         "type": "u32",
+        "uuid": "3a0540d0-5449-4420-b69a-b6314ef4c86f",
         "display_name": "Example u32",
         "category": "Test Scalars",
         "ui_max": 50
@@ -153,12 +176,14 @@
       {
         "name": "u64",
         "type": "u64",
+        "uuid": "d722e523-008b-4e22-9a3c-08bd2a19266f",
         "display_name": "Example u64",
         "category": "Test Scalars"
       },
       {
         "name": "f32",
         "type": "f32",
+        "uuid": "bbeea5a4-491c-45f1-8b2b-7fd70eada676",
         "display_name": "Example f32",
         "category": "Test Scalars",
         "clamp_min": -5,
@@ -170,12 +195,14 @@
       {
         "name": "f64",
         "type": "f64",
+        "uuid": "2b237355-9b19-4b46-a696-6ce7d338b010",
         "display_name": "Example f64",
         "category": "Test Nullables"
       },
       {
         "name": "string",
         "type": "string",
+        "uuid": "368d547b-8235-40c9-965d-3279842d945d",
         "display_name": "Example String",
         "category": "Test Nullables"
       },
@@ -185,6 +212,7 @@
           "name": "dynamic_array",
           "inner_type": "i32"
         },
+        "uuid": "7e6a2502-15a9-4683-9c9c-363005e86f02",
         "category": "Test Containers",
         "clamp_min": -5,
         "ui_min": 0,
@@ -198,6 +226,7 @@
           "name": "dynamic_array",
           "inner_type": "Vec3"
         },
+        "uuid": "82460997-4f5b-4fcb-a2f1-2b9187072412",
         "category": "Test Containers"
       }
     ]

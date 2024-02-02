@@ -2,24 +2,29 @@
   {
     "type": "record",
     "name": "GpuBufferImportedData",
+    "uuid": "c20cf316-a458-4b0a-b541-022943e3c77b",
     "fields": [
       {
         "name": "resource_type",
-        "type": "u32"
+        "type": "u32",
+        "uuid": "3ee4b1c4-3c13-419e-ba95-61a822354838"
       },
       {
         "name": "alignment",
-        "type": "u32"
+        "type": "u32",
+        "uuid": "e1e14f47-796a-4d1a-810b-10f4dcbf3b3f"
       },
       {
         "name": "data",
-        "type": "bytes"
+        "type": "bytes",
+        "uuid": "08ccb2de-be2e-4c05-adaa-7075e1ec6e5b"
       }
     ]
   },
   {
     "type": "record",
     "name": "GpuBufferAsset",
+    "uuid": "fda0c8c8-4ecb-4d8d-92b6-9ae01085c0e6",
     "tags": ["asset", "has_import_data"],
     "display_name": "GPU Buffer",
     "fields": [

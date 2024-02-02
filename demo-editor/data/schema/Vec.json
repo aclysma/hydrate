@@ -2,50 +2,61 @@
   {
     "type": "record",
     "name": "Vec3",
+    "uuid": "ba0cab6d-3b47-4a65-b7e4-827763d038d9",
     "fields": [
       {
         "name": "x",
-        "type": "f32"
+        "type": "f32",
+        "uuid": "63ef086b-ced2-46d4-bea1-4afc8dfd99f0"
       },
       {
         "name": "y",
-        "type": "f32"
+        "type": "f32",
+        "uuid": "ee3c1559-3653-421a-9225-fb632f4e1edc"
       },
       {
         "name": "z",
-        "type": "f32"
+        "type": "f32",
+        "uuid": "b4b6195b-b3ae-4e25-8ffa-79eaa96bf6bf"
       }
     ]
   },
   {
     "type": "record",
     "name": "Vec4",
+    "uuid": "93fede21-7618-4c53-beb1-a6f918b1d1dc",
     "fields": [
       {
         "name": "x",
-        "type": "f32"
+        "type": "f32",
+        "uuid": "44704b37-67a5-45e6-a045-db70395fb573"
       },
       {
         "name": "y",
-        "type": "f32"
+        "type": "f32",
+        "uuid": "056eeac0-86c2-485d-a78e-aa93bbb14f3e"
       },
       {
         "name": "z",
-        "type": "f32"
+        "type": "f32",
+        "uuid": "70607b00-af4d-4d11-beab-81840c01f6d1"
       },
       {
         "name": "w",
-        "type": "f32"
+        "type": "f32",
+        "uuid": "2c616a17-b1c8-4592-90d1-bfb61d22bd9d"
       }
     ]
   },
   {
     "type": "record",
     "name": "ColorRgbaU8",
+    "uuid": "f2a727bc-a094-4519-9648-dae451fedd83",
     "fields": [
       {
         "name": "r",
         "type": "u32",
+        "uuid": "f1aab903-90b3-4f9c-a433-5b5772fa9b82",
         "clamp_min": 0,
         "ui_min": 0,
         "clamp_max": 255,
@@ -54,6 +65,7 @@
       {
         "name": "g",
         "type": "u32",
+        "uuid": "0967dbe3-007d-4b11-9dc9-12f9404663e2",
         "clamp_min": 0,
         "ui_min": 0,
         "clamp_max": 255,
@@ -62,6 +74,7 @@
       {
         "name": "b",
         "type": "u32",
+        "uuid": "c05ae358-32b1-428f-b4f1-f74b82d4cef7",
         "clamp_min": 0,
         "ui_min": 0,
         "clamp_max": 255,
@@ -70,6 +83,7 @@
       {
         "name": "a",
         "type": "u32",
+        "uuid": "19b71398-dd94-480e-8246-928e08a671ae",
         "clamp_min": 0,
         "ui_min": 0,
         "clamp_max": 255,

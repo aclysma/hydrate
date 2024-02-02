@@ -2,24 +2,29 @@
   {
     "type": "record",
     "name": "Transform",
+    "uuid": "22ccb2e7-fabd-4782-834c-3f08fc128b67",
     "tags": ["asset"],
     "display_name": "Transform",
     "fields": [
       {
         "name": "all_fields",
-        "type": "AllFields"
+        "type": "AllFields",
+        "uuid": "a274d2a2-cef9-4984-a3f7-7fe8006f70f9"
       },
       {
         "name": "position",
-        "type": "Vec3"
+        "type": "Vec3",
+        "uuid": "0770937a-909d-4306-b7c2-eefb0ddc354a"
       },
       {
         "name": "rotation",
-        "type": "Vec4"
+        "type": "Vec4",
+        "uuid": "a22b4e4a-e722-422c-bcf8-d1e0b3698d25"
       },
       {
         "name": "scale",
-        "type": "Vec3"
+        "type": "Vec3",
+        "uuid": "fb60da64-9374-4810-af97-9b853a587dd8"
       }
     ]
   }

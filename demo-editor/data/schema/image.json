@@ -2,30 +2,36 @@
   {
     "type": "record",
     "name": "GpuImageAsset",
+    "uuid": "efa181d8-6966-429b-a1bc-bd02af61f8e3",
     "tags": ["asset", "has_import_data"],
     "display_name": "GPU Image",
     "fields": [
       {
         "name": "compress",
-        "type": "bool"
+        "type": "bool",
+        "uuid": "dfa642dc-f0e7-45d0-9809-2d4d75d7a6ed"
       }
     ]
   },
   {
     "type": "record",
     "name": "GpuImageImportedData",
+    "uuid": "67a91d88-0c6b-4fdf-979e-d93c0b98c36a",
     "fields": [
       {
         "name": "image_bytes",
-        "type": "bytes"
+        "type": "bytes",
+        "uuid": "9dc779e4-793e-46d6-abb3-5ff70d7571a3"
       },
       {
         "name": "width",
-        "type": "u32"
+        "type": "u32",
+        "uuid": "0fa9a2bf-39b6-4500-9f4c-19ed930905fd"
       },
       {
         "name": "height",
-        "type": "u32"
+        "type": "u32",
+        "uuid": "23c16558-b0a1-4e47-ae53-cf27164a4f25"
       }
     ]
   }

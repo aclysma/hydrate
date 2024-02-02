@@ -2,12 +2,14 @@
   {
     "type": "record",
     "name": "TransformRef",
+    "uuid": "9b3b6821-8c2c-4e29-b30a-6f874173a2e1",
     "tags": ["asset"],
     "display_name": "Transform Ref",
     "fields": [
       {
         "name": "transform",
-        "type": { "name": "asset_ref", "inner_type": "Transform" }
+        "type": { "name": "asset_ref", "inner_type": "Transform" },
+        "uuid": "102ebc7c-1c29-4a3c-9c1d-7518b25d9300"
       }
     ]
   }

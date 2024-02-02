@@ -1,4 +1,5 @@
 use std::path::Path;
+use uuid::Uuid;
 use super::*;
 
 fn parse_json_schema_type_ref(
@@ -181,13 +182,24 @@ fn parse_json_schema_def_record_field(
         ))
     })?;
 
+    let field_uuid = object
+        .get("uuid")
+        .map(|x| x.as_str().map(|y| Uuid::parse_str(y).ok()).flatten())
+        .flatten()
+        .ok_or_else(|| {
+            SchemaDefParserError::String(format!(
+                "{}Field uuids must be a UUID",
+                error_prefix
+            ))
+        })?;
+
     let field_name = object
         .get("name")
         .map(|x| x.as_str())
         .flatten()
         .ok_or_else(|| {
             SchemaDefParserError::String(format!(
-                "{}Record fields must be a name that is a string",
+                "{}Field names must be a name that is a string",
                 error_prefix
             ))
         })?
@@ -219,7 +231,7 @@ fn parse_json_schema_def_record_field(
     //let field_schema = asset.get("type").ok_or_else(|| SchemaDefParserError::Str("Schema file record fields must have a type of string or json object"))?;
     let field_type_json_value = object.get("type").ok_or_else(|| {
         SchemaDefParserError::String(format!(
-            "{}Record fields must have a type of string or json object",
+            "{}Fields must have a type of string or json object",
             error_prefix
         ))
     })?;
@@ -311,6 +323,7 @@ fn parse_json_schema_def_record_field(
 
     Ok(SchemaDefRecordField {
         field_name,
+        field_uuid,
         aliases,
         field_type,
         markup,
@@ -331,6 +344,17 @@ fn parse_json_schema_def_record(
 
     let error_prefix = format!("{}[Record {}]", error_prefix, name_str);
     log::trace!("Parsing record named '{}'", name_str);
+
+    let type_uuid = json_object
+        .get("uuid")
+        .map(|x| x.as_str().map(|y| Uuid::parse_str(y).ok()).flatten())
+        .flatten()
+        .ok_or_else(|| {
+            SchemaDefParserError::String(format!(
+                "{}Record type uuid must be a UUID",
+                error_prefix
+            ))
+        })?;
 
     let json_aliases = json_object.get("aliases").map(|x| x.as_array()).flatten();
     let mut aliases = vec![];
@@ -418,6 +442,7 @@ fn parse_json_schema_def_record(
 
     Ok(SchemaDefRecord {
         type_name: name_str.to_string(),
+        type_uuid,
         aliases,
         fields,
         markup,
@@ -441,11 +466,23 @@ fn parse_json_schema_def_enum_symbol(
         .flatten()
         .ok_or_else(|| {
             SchemaDefParserError::String(format!(
-                "{}Record symbols must be a name that is a string",
+                "{}Enum symbols must be a name that is a string",
                 error_prefix
             ))
         })?
         .to_string();
+
+    let symbol_uuid = json_object
+        .get("uuid")
+        .map(|x| x.as_str().map(|y| Uuid::parse_str(y).ok()).flatten())
+        .flatten()
+        .ok_or_else(|| {
+            SchemaDefParserError::String(format!(
+                "{}Enum symbol uuid must be a UUID",
+                error_prefix
+            ))
+        })?;
+
     let json_aliases = object.get("aliases").map(|x| x.as_array()).flatten();
     let mut aliases = vec![];
     if let Some(json_aliases) = json_aliases {
@@ -473,6 +510,7 @@ fn parse_json_schema_def_enum_symbol(
     Ok(SchemaDefEnumSymbol {
         symbol_name,
         aliases,
+        symbol_uuid,
         //field_type,
     })
 }
@@ -490,6 +528,17 @@ fn parse_json_schema_def_enum(
 
     let error_prefix = format!("{}[Enum {}]", error_prefix, name_str);
     log::trace!("Parsing enum named '{}'", name_str);
+
+    let type_uuid = json_object
+        .get("uuid")
+        .map(|x| x.as_str().map(|y| Uuid::parse_str(y).ok()).flatten())
+        .flatten()
+        .ok_or_else(|| {
+            SchemaDefParserError::String(format!(
+                "{}Enum type uuid must be a UUID",
+                error_prefix
+            ))
+        })?;
 
     let json_aliases = json_object.get("aliases").map(|x| x.as_array()).flatten();
     let mut aliases = vec![];
@@ -529,6 +578,7 @@ fn parse_json_schema_def_enum(
 
     Ok(SchemaDefEnum {
         type_name: name_str.to_string(),
+        type_uuid,
         aliases,
         symbols,
     })

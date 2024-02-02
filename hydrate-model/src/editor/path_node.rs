@@ -1,3 +1,4 @@
+use uuid::Uuid;
 use crate::SchemaLinker;
 
 pub struct PathNode {
@@ -7,7 +8,7 @@ pub struct PathNode {
 impl PathNode {
     pub fn register_schema(linker: &mut SchemaLinker) {
         linker
-            .register_record_type(Self::schema_name(), |_| {})
+            .register_record_type(Self::schema_name(), Uuid::parse_str("ec66c632-fed2-40fc-b27a-c0c138ad31bc").unwrap(), |_| {})
             .unwrap();
     }
 
@@ -23,7 +24,7 @@ pub struct PathNodeRoot {
 impl PathNodeRoot {
     pub fn register_schema(linker: &mut SchemaLinker) {
         linker
-            .register_record_type(Self::schema_name(), |_| {})
+            .register_record_type(Self::schema_name(), Uuid::parse_str("da09e646-89a5-41d3-8029-048ed1ad1b3b").unwrap(), |_| {})
             .unwrap();
     }
 

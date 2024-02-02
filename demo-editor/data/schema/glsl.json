@@ -2,16 +2,19 @@
   {
     "type": "record",
     "name": "GlslSourceFileImportedData",
+    "uuid": "0a789ca4-0b0c-424a-bb3f-aa25a8480414",
     "fields": [
       {
         "name": "code",
-        "type": "string"
+        "type": "string",
+        "uuid": "d3163c7d-36fb-4ebf-8a05-0b6f634963fa"
       }
     ]
   },
   {
     "type": "record",
     "name": "GlslSourceFileAsset",
+    "uuid": "6a60c66b-4a8e-45cc-a69d-c6d2869ae2e5",
     "tags": ["asset", "has_import_data"],
     "display_name": "GLSL Source File",
     "default_thumbnail": "thumbnail_images/shader-package.png",
@@ -22,16 +25,19 @@
   {
     "type": "record",
     "name": "GlslBuildTargetAsset",
+    "uuid": "751ef1e9-ae42-489e-97b5-6ead22b5d033",
     "tags": ["asset"],
     "display_name": "GLSL Build Target",
     "fields": [
       {
         "name": "entry_point",
-        "type": "string"
+        "type": "string",
+        "uuid": "4bd1d3d1-81f2-440e-912c-727be10d9414"
       },
       {
         "name": "source_file",
-        "type": { "name": "asset_ref", "inner_type": "GlslSourceFileAsset" }
+        "type": { "name": "asset_ref", "inner_type": "GlslSourceFileAsset" },
+        "uuid": "1d23dae1-c553-4d33-a227-8212c584016c"
       }
     ]
   }

@@ -7,6 +7,7 @@ use std::error::Error;
 use std::fmt::{Display, Formatter};
 use std::hash::Hash;
 use std::path::Path;
+use uuid::Uuid;
 
 #[derive(Debug)]
 pub enum SchemaLinkerError {
@@ -158,6 +159,7 @@ impl SchemaLinker {
     pub fn register_record_type<F: Fn(&mut RecordTypeBuilder)>(
         &mut self,
         name: impl Into<String>,
+        type_uuid: Uuid,
         f: F,
     ) -> SchemaLinkerResult<()> {
         let mut builder = RecordTypeBuilder::default();
@@ -167,6 +169,7 @@ impl SchemaLinker {
         for builder_field in builder.fields {
             fields.push(SchemaDefRecordField::new(
                 builder_field.name,
+                builder_field.field_uuid,
                 builder_field.aliases,
                 builder_field.field_type,
                 builder_field.markup,
@@ -175,7 +178,7 @@ impl SchemaLinker {
 
         let name = name.into();
         let schema_record =
-            SchemaDefRecord::new(name.clone(), builder.aliases, fields, builder.markup)?;
+            SchemaDefRecord::new(name.clone(), type_uuid, builder.aliases, fields, builder.markup)?;
         let named_type = SchemaDefNamedType::Record(schema_record);
         self.add_named_type(named_type)
     }
@@ -183,6 +186,7 @@ impl SchemaLinker {
     pub fn register_enum_type<F: Fn(&mut EnumTypeBuilder)>(
         &mut self,
         name: impl Into<String>,
+        type_uuid: Uuid,
         f: F,
     ) -> SchemaLinkerResult<()> {
         let mut builder = EnumTypeBuilder::default();
@@ -192,6 +196,7 @@ impl SchemaLinker {
         for builder_field in builder.symbols {
             symbols.push(SchemaDefEnumSymbol::new(
                 builder_field.name,
+                builder_field.symbol_uuid,
                 builder_field.aliases,
             )?);
         }
@@ -199,7 +204,7 @@ impl SchemaLinker {
         symbols.sort_by(|a, b| a.symbol_name.cmp(&b.symbol_name));
 
         let name = name.into();
-        let schema_enum = SchemaDefEnum::new(name.clone(), builder.aliases, symbols)?;
+        let schema_enum = SchemaDefEnum::new(name.clone(), type_uuid, builder.aliases, symbols)?;
 
         let named_type = SchemaDefNamedType::Enum(schema_enum);
         self.add_named_type(named_type)

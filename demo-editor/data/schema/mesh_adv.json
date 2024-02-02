@@ -2,160 +2,195 @@
   {
     "type": "enum",
     "name": "MeshAdvShadowMethod",
+    "uuid": "e00e0b54-c48d-4b22-96f0-df7edd6d0728",
     "symbols": [
       {
         "name": "None",
-        "aliases": ["NONE"]
+        "aliases": ["NONE"],
+        "uuid": "22b99f65-ff07-43f7-9896-1f1694987f58"
       },
       {
         "name": "Opaque",
-        "aliases": ["OPAQUE"]
+        "aliases": ["OPAQUE"],
+        "uuid": "f5644c99-9e08-4a3d-91e9-96a2ef9be53d"
       }
     ]
   },
   {
     "type": "enum",
     "name": "MeshAdvBlendMethod",
+    "uuid": "ea4b64cd-3dde-4888-9a00-e6f6afbf7748",
     "symbols": [
       {
         "name": "Opaque",
-        "aliases": ["OPAQUE"]
+        "aliases": ["OPAQUE"],
+        "uuid": "d5512c7d-0ec1-4f38-8989-8b2203abf9ea"
       },
       {
         "name": "AlphaClip",
-        "aliases": ["ALPHA_CLIP"]
+        "aliases": ["ALPHA_CLIP"],
+        "uuid": "03c4f723-25c2-40b9-abe8-3d387d83e186"
       },
       {
         "name": "AlphaBlend",
-        "aliases": ["ALPHA_BLEND", "BLEND"]
+        "aliases": ["ALPHA_BLEND", "BLEND"],
+        "uuid": "e2c17ae5-5258-47d0-82e8-047df31e9560"
       }
     ]
   },
   {
     "type": "record",
     "name": "MeshAdvMaterialAsset",
+    "uuid": "9233e3ea-9577-43d5-8ce4-d23a880e7e0b",
     "tags": ["asset"],
     "display_name": "Material",
     "default_thumbnail": "thumbnail_images/material-params.png",
     "fields": [
       {
         "name": "base_color_factor",
-        "type": "Vec4"
+        "type": "Vec4",
+        "uuid": "4421c27c-ad79-40f0-9bbe-a322d898fc42"
       },
       {
         "name": "emissive_factor",
-        "type": "Vec3"
+        "type": "Vec3",
+        "uuid": "39a99fca-4ce9-4097-b2fa-0ba9c59a01bd"
       },
       {
         "name": "metallic_factor",
-        "type": "f32"
+        "type": "f32",
+        "uuid": "fd44d166-7387-4847-ae85-a6bfb854b263"
       },
       {
         "name": "roughness_factor",
-        "type": "f32"
+        "type": "f32",
+        "uuid": "c6b06f74-4259-4063-b517-d5602a2c69c9"
       },
       {
         "name": "normal_texture_scale",
-        "type": "f32"
+        "type": "f32",
+        "uuid": "fbff6743-a72e-4d26-b6e5-9f97d2595495"
       },
       {
         "name": "color_texture",
-        "type": { "name": "asset_ref", "inner_type": "GpuImageAsset" }
+        "type": { "name": "asset_ref", "inner_type": "GpuImageAsset" },
+        "uuid": "58363605-49ba-465b-a2da-6db0949d2116"
       },
       {
         "name": "metallic_roughness_texture",
-        "type": { "name": "asset_ref", "inner_type": "GpuImageAsset" }
+        "type": { "name": "asset_ref", "inner_type": "GpuImageAsset" },
+        "uuid": "f5d74e37-afbf-4235-b4f8-ed071e793a6d"
       },
       {
         "name": "normal_texture",
-        "type": { "name": "asset_ref", "inner_type": "GpuImageAsset" }
+        "type": { "name": "asset_ref", "inner_type": "GpuImageAsset" },
+        "uuid": "79e12cab-5b5c-4839-bee2-ac4a3364c3e8"
       },
       {
         "name": "emissive_texture",
-        "type": { "name": "asset_ref", "inner_type": "GpuImageAsset" }
+        "type": { "name": "asset_ref", "inner_type": "GpuImageAsset" },
+        "uuid": "016d3dbf-fa0d-41dd-9bee-26b40dcbbd61"
       },
       {
         "name": "shadow_method",
-        "type": "MeshAdvShadowMethod"
+        "type": "MeshAdvShadowMethod",
+        "uuid": "849d043d-dbb3-4131-bcfd-3c96491085e0"
       },
       {
         "name": "blend_method",
-        "type": "MeshAdvBlendMethod"
+        "type": "MeshAdvBlendMethod",
+        "uuid": "4dc90221-e5fa-454e-b5f3-aec4273d5e53"
       },
       {
         "name": "alpha_threshold",
-        "type": "f32"
+        "type": "f32",
+        "uuid": "a65515b0-e54c-40c4-8e3e-3fb339221047"
       },
       {
         "name": "backface_culling",
-        "type": "bool"
+        "type": "bool",
+        "uuid": "83e07f31-8970-4239-a0d4-493bc0623fe4"
       },
       {
         "name": "color_texture_has_alpha_channel",
-        "type": "bool"
+        "type": "bool",
+        "uuid": "55747c9e-3487-4ecd-b9fb-29d36745db29"
       }
     ]
   },
   {
     "type": "enum",
     "name": "MeshAdvIndexType",
+    "uuid": "44c066ab-4fe0-469a-b0cd-f81b60beb193",
     "symbols": [
       {
         "name": "Uint16",
-        "aliases": []
+        "aliases": [],
+        "uuid": "d89d57c9-94e0-4c0f-b3a3-ec8cd054f079"
       },
       {
         "name": "Uint32",
-        "aliases": []
+        "aliases": [],
+        "uuid": "d0b840b4-bacc-494d-b3ee-bd1074c029d0"
       }
     ]
   },
   {
     "type": "record",
     "name": "MeshAdvMeshImportedDataMeshPart",
+    "uuid": "4567b9e3-8633-4d52-9458-14fc66cf77e7",
     "fields": [
       {
         "name": "positions",
-        "type": "bytes"
+        "type": "bytes",
+        "uuid": "2665d718-31d3-452a-863a-df542268f804"
       },
       {
         "name": "normals",
-        "type": "bytes"
+        "type": "bytes",
+        "uuid": "bf7fe089-2a64-4ead-8081-55c1c34789d5"
       },
       {
         "name": "texture_coordinates",
-        "type": "bytes"
+        "type": "bytes",
+        "uuid": "b041b945-c6d1-49a1-8167-88f95c732ff3"
       },
       {
         "name": "indices",
-        "type": "bytes"
+        "type": "bytes",
+        "uuid": "fb1b6a9d-daa8-4881-a064-988c021c8bd0"
       },
       {
         "name": "material_index",
-        "type": "u32"
+        "type": "u32",
+        "uuid": "c762150a-47a3-4489-be13-b0f8a2706fae"
       }
     ]
   },
   {
     "type": "record",
     "name": "MeshAdvMeshImportedData",
+    "uuid": "28af63e9-2702-4faf-9574-05fe408e480c",
     "fields": [
       {
         "name": "mesh_parts",
-        "type": { "name": "dynamic_array", "inner_type": "MeshAdvMeshImportedDataMeshPart" }
+        "type": { "name": "dynamic_array", "inner_type": "MeshAdvMeshImportedDataMeshPart" },
+        "uuid": "71937cf4-f57e-4841-bde9-208888067f95"
       }
     ]
   },
   {
     "type": "record",
     "name": "MeshAdvMeshAsset",
+    "uuid": "b0d2a34d-644e-46ae-bbf1-6fbbd656e5f3",
     "tags": ["asset", "has_import_data"],
     "display_name": "Mesh",
     "default_thumbnail": "thumbnail_images/mesh.png",
     "fields": [
       {
         "name": "material_slots",
-        "type": { "name": "dynamic_array", "inner_type": { "name": "asset_ref", "inner_type": "MeshAdvMaterialAsset" }}
+        "type": { "name": "dynamic_array", "inner_type": { "name": "asset_ref", "inner_type": "MeshAdvMaterialAsset" }},
+        "uuid": "a089db39-3c59-4850-9504-0afeb5d138b7"
       }
     ]
   }

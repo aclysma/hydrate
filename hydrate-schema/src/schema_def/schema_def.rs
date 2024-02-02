@@ -5,6 +5,7 @@ use crate::{
 use std::fmt::Formatter;
 use std::hash::{Hash, Hasher};
 use std::path::PathBuf;
+use uuid::Uuid;
 
 #[derive(Debug)]
 pub enum SchemaDefValidationError {
@@ -274,6 +275,7 @@ impl SchemaDefRecordFieldMarkup {
 #[derive(Debug)]
 pub struct SchemaDefRecordField {
     pub(super) field_name: String,
+    pub(super) field_uuid: Uuid,
     pub(super) aliases: Vec<String>,
     pub(super) field_type: SchemaDefType,
     pub(super) markup: SchemaDefRecordFieldMarkup,
@@ -282,12 +284,14 @@ pub struct SchemaDefRecordField {
 impl SchemaDefRecordField {
     pub fn new(
         field_name: String,
+        field_uuid: Uuid,
         aliases: Vec<String>,
         field_type: SchemaDefType,
         markup: SchemaDefRecordFieldMarkup,
     ) -> SchemaDefValidationResult<Self> {
         Ok(SchemaDefRecordField {
             field_name,
+            field_uuid,
             aliases,
             field_type,
             markup,
@@ -346,6 +350,7 @@ pub struct SchemaDefRecordMarkup {
 #[derive(Debug)]
 pub struct SchemaDefRecord {
     pub(super) type_name: String,
+    pub(super) type_uuid: Uuid,
     pub(super) aliases: Vec<String>,
     pub(super) fields: Vec<SchemaDefRecordField>,
     pub(super) markup: SchemaDefRecordMarkup,
@@ -354,6 +359,7 @@ pub struct SchemaDefRecord {
 impl SchemaDefRecord {
     pub fn new(
         type_name: String,
+        type_uuid: Uuid,
         aliases: Vec<String>,
         fields: Vec<SchemaDefRecordField>,
         markup: SchemaDefRecordMarkup,
@@ -372,6 +378,7 @@ impl SchemaDefRecord {
 
         Ok(SchemaDefRecord {
             type_name,
+            type_uuid,
             aliases,
             fields,
             markup,
@@ -441,16 +448,19 @@ impl SchemaDefRecord {
 #[derive(Debug)]
 pub struct SchemaDefEnumSymbol {
     pub(super) symbol_name: String,
+    pub(super) symbol_uuid: Uuid,
     pub(super) aliases: Vec<String>,
 }
 
 impl SchemaDefEnumSymbol {
     pub fn new(
         symbol_name: String,
+        symbol_uuid: Uuid,
         aliases: Vec<String>,
     ) -> SchemaDefValidationResult<Self> {
         Ok(SchemaDefEnumSymbol {
             symbol_name,
+            symbol_uuid,
             aliases,
         })
     }
@@ -474,6 +484,7 @@ impl SchemaDefEnumSymbol {
 #[derive(Debug)]
 pub struct SchemaDefEnum {
     pub(super) type_name: String,
+    pub(super) type_uuid: Uuid,
     pub(super) aliases: Vec<String>,
     pub(super) symbols: Vec<SchemaDefEnumSymbol>,
 }
@@ -481,11 +492,13 @@ pub struct SchemaDefEnum {
 impl SchemaDefEnum {
     pub fn new(
         type_name: String,
+        type_uuid: Uuid,
         aliases: Vec<String>,
         symbols: Vec<SchemaDefEnumSymbol>,
     ) -> SchemaDefValidationResult<Self> {
         Ok(SchemaDefEnum {
             type_name,
+            type_uuid,
             aliases,
             symbols,
         })

@@ -7,13 +7,13 @@ pub use value::Value;
 pub mod json_storage;
 
 mod data_set;
-pub use data_set::HashObjectMode;
 pub use data_set::AssetLocation;
 pub use data_set::AssetName;
 pub use data_set::BuildInfo;
 pub use data_set::BuilderId;
 pub use data_set::DataSet;
 pub use data_set::DataSetAssetInfo;
+pub use data_set::HashObjectMode;
 pub use data_set::ImportInfo;
 pub use data_set::ImportableName;
 pub use data_set::ImporterId;
@@ -44,9 +44,9 @@ pub use schema_set::{SchemaSet, SchemaSetBuilder};
 mod ordered_set;
 
 mod path_reference;
+pub use path_reference::CanonicalPathReference;
 pub use path_reference::PathReference;
 pub use path_reference::PathReferenceHash;
-pub use path_reference::CanonicalPathReference;
 pub use path_reference::PathReferenceNamespaceResolver;
 
 pub use ordered_set::OrderedSet;

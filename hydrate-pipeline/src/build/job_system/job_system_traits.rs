@@ -1,9 +1,14 @@
 use super::{JobId, JobTypeId};
+use crate::build::{AssetArtifactIdPair, BuiltArtifact};
+use crate::import::{ImportData, ImportJobs};
 use crate::{BuildLogEvent, LogEventLevel, PipelineResult};
 use hydrate_base::handle::DummySerdeContextHandle;
 use hydrate_base::hashing::HashMap;
 use hydrate_base::{ArtifactId, AssetId, BuiltArtifactHeaderData, Handle};
-use hydrate_data::{DataContainerRef, DataSet, DataSetError, FieldRef, HashObjectMode, PropertyPath, Record, SchemaSet, SingleObject};
+use hydrate_data::{
+    DataContainerRef, DataSet, DataSetError, FieldRef, HashObjectMode, PropertyPath, Record,
+    SchemaSet, SingleObject,
+};
 use serde::{Deserialize, Serialize};
 use siphasher::sip128::Hasher128;
 use std::cell::RefCell;
@@ -12,8 +17,6 @@ use std::panic::RefUnwindSafe;
 use std::rc::Rc;
 use std::sync::Arc;
 use type_uuid::{TypeUuid, TypeUuidDynamic};
-use crate::build::{AssetArtifactIdPair, BuiltArtifact};
-use crate::import::{ImportData, ImportJobs};
 
 pub trait ImportDataProvider {
     fn clone_import_data_metadata_hashes(&self) -> HashMap<AssetId, u64>;
@@ -160,7 +163,10 @@ pub struct EnumerateDependenciesContext<'a, InputT> {
 }
 
 impl<'a, InputT> EnumerateDependenciesContext<'a, InputT> {
-    pub fn warn<T: Into<String>>(&self, message: T) {
+    pub fn warn<T: Into<String>>(
+        &self,
+        message: T,
+    ) {
         let (asset_id, job_id) = match self.job_requestor {
             JobRequestor::Builder(asset_id) => (Some(asset_id), None),
             JobRequestor::Job(job_id) => (None, Some(job_id)),
@@ -171,11 +177,18 @@ impl<'a, InputT> EnumerateDependenciesContext<'a, InputT> {
             asset_id,
             job_id,
             level: LogEventLevel::Warning,
-            message: format!("While enumerating dependencies for new job {}: {}", self.job_id.as_uuid(), message.into())
+            message: format!(
+                "While enumerating dependencies for new job {}: {}",
+                self.job_id.as_uuid(),
+                message.into()
+            ),
         });
     }
 
-    pub fn error<T: Into<String>>(&self, message: T) {
+    pub fn error<T: Into<String>>(
+        &self,
+        message: T,
+    ) {
         let (asset_id, job_id) = match self.job_requestor {
             JobRequestor::Builder(asset_id) => (Some(asset_id), None),
             JobRequestor::Job(job_id) => (None, Some(job_id)),
@@ -186,7 +199,11 @@ impl<'a, InputT> EnumerateDependenciesContext<'a, InputT> {
             asset_id: None,
             job_id: Some(self.job_id),
             level: LogEventLevel::Error,
-            message: format!("While enumerating dependencies for new job {}: {}", self.job_id.as_uuid(), message.into())
+            message: format!(
+                "While enumerating dependencies for new job {}: {}",
+                self.job_id.as_uuid(),
+                message.into()
+            ),
         });
     }
 }
@@ -215,27 +232,32 @@ pub struct RunContext<'a, InputT> {
     pub(crate) fetched_import_data: &'a Rc<RefCell<&'a mut HashMap<AssetId, FetchedImportData>>>,
     pub(crate) job_api: &'a dyn JobApi,
     pub(crate) log_events: &'a Rc<RefCell<&'a mut Vec<BuildLogEvent>>>,
-
 }
 
 impl<'a, InputT> RunContext<'a, InputT> {
-    pub fn warn<T: Into<String>>(&self, message: T) {
+    pub fn warn<T: Into<String>>(
+        &self,
+        message: T,
+    ) {
         let mut log_events = self.log_events.borrow_mut();
         log_events.push(BuildLogEvent {
             asset_id: None,
             job_id: Some(self.job_id),
             level: LogEventLevel::Warning,
-            message: message.into()
+            message: message.into(),
         });
     }
 
-    pub fn error<T: Into<String>>(&self, message: T) {
+    pub fn error<T: Into<String>>(
+        &self,
+        message: T,
+    ) {
         let mut log_events = self.log_events.borrow_mut();
         log_events.push(BuildLogEvent {
             asset_id: None,
             job_id: Some(self.job_id),
             level: LogEventLevel::Error,
-            message: message.into()
+            message: message.into(),
         });
     }
 
@@ -257,7 +279,10 @@ impl<'a, InputT> RunContext<'a, InputT> {
         fetched_asset_data
             .entry(asset_id)
             .or_insert_with(|| FetchedAssetData {
-                contents_hash: self.data_set.hash_object(asset_id, HashObjectMode::PropertiesOnly).unwrap(),
+                contents_hash: self
+                    .data_set
+                    .hash_object(asset_id, HashObjectMode::PropertiesOnly)
+                    .unwrap(),
             });
 
         Ok(<T as Record>::Reader::new(
@@ -305,7 +330,14 @@ impl<'a, InputT> RunContext<'a, InputT> {
         &self,
         input: <JobProcessorT as JobProcessor>::InputT,
     ) -> PipelineResult<JobId> {
-        enqueue_job::<JobProcessorT>(JobRequestor::Job(self.job_id), self.data_set, self.schema_set, self.job_api, input, &mut self.log_events.borrow_mut())
+        enqueue_job::<JobProcessorT>(
+            JobRequestor::Job(self.job_id),
+            self.data_set,
+            self.schema_set,
+            self.job_api,
+            input,
+            &mut self.log_events.borrow_mut(),
+        )
     }
 
     pub fn produce_artifact<KeyT: Hash + std::fmt::Display, ArtifactT: TypeUuid + Serialize>(
@@ -390,7 +422,14 @@ pub(crate) fn enqueue_job<T: JobProcessor>(
     };
 
     let debug_name = format!("{}", std::any::type_name::<T>());
-    job_api.enqueue_job(job_requestor, data_set, schema_set, queued_job, debug_name, log_events)
+    job_api.enqueue_job(
+        job_requestor,
+        data_set,
+        schema_set,
+        queued_job,
+        debug_name,
+        log_events,
+    )
 }
 
 fn produce_default_artifact<T: TypeUuid + Serialize>(

@@ -2,15 +2,22 @@ use crate::edit_context::EditContext;
 use crate::{AssetSourceId, DataSource, PendingFileOperations};
 use crate::{PathNode, PathNodeRoot};
 use hydrate_base::hashing::HashSet;
+use hydrate_base::uuid_path::uuid_to_path;
 use hydrate_data::json_storage::{MetaFile, MetaFileJson};
-use hydrate_data::{AssetId, AssetLocation, AssetName, CanonicalPathReference, DataSetAssetInfo, HashObjectMode, ImportableName, ImporterId, PathReference};
-use hydrate_pipeline::{Importer, ImporterRegistry, HydrateProjectConfiguration, ImportJobSourceFile, ScannedImportable, RequestedImportable, ImportType, ScanContext, ImportJobToQueue, ImportLogEvent, LogEventLevel, PipelineResult};
+use hydrate_data::{
+    AssetId, AssetLocation, AssetName, CanonicalPathReference, DataSetAssetInfo, HashObjectMode,
+    ImportableName, ImporterId, PathReference,
+};
+use hydrate_pipeline::{
+    HydrateProjectConfiguration, ImportJobSourceFile, ImportJobToQueue, ImportLogEvent, ImportType,
+    Importer, ImporterRegistry, LogEventLevel, PipelineResult, RequestedImportable, ScanContext,
+    ScannedImportable,
+};
 use hydrate_schema::{HashMap, SchemaNamedType};
 use std::ffi::OsStr;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use uuid::Uuid;
-use hydrate_base::uuid_path::uuid_to_path;
 
 // New trait design
 // - fn revert_all(...)
@@ -34,7 +41,6 @@ use hydrate_base::uuid_path::uuid_to_path;
 //
 // IDEA: The database should store paths as strings and ID/Path based systems have to deal with
 // conversion to ID if needed? Means renames touch lots of assets in memory.
-
 
 // Temporary struct used during load_from_storage call
 struct ScannedSourceFile<'a> {
@@ -269,8 +275,7 @@ impl FileSystemPathBasedDataSource {
         asset_id: AssetId,
         asset_info: &DataSetAssetInfo,
     ) -> PathBuf {
-        let is_directory =
-            asset_info.schema().fingerprint() == self.path_node_schema.fingerprint();
+        let is_directory = asset_info.schema().fingerprint() == self.path_node_schema.fingerprint();
         let asset_name = Self::sanitize_asset_name(asset_id, asset_info.asset_name());
         let file_name = Self::file_name_for_asset(&asset_name, is_directory);
         let asset_file_path = containing_file_path.join(file_name);
@@ -458,17 +463,16 @@ impl FileSystemPathBasedDataSource {
         project_config: &HydrateProjectConfiguration,
         source_file_path: &PathBuf,
         scanned_importable: &ScannedImportable,
-        scanned_source_files: &HashMap<PathBuf, ScannedSourceFile>
+        scanned_source_files: &HashMap<PathBuf, ScannedSourceFile>,
     ) -> PipelineResult<HashMap<CanonicalPathReference, AssetId>> {
         // For any referenced file, locate the AssetID at that path. It must be in this data source,
         // and at this point must exist in the meta file.
         let mut canonical_path_references = HashMap::default();
 
         for (path_reference, &importer_id) in &scanned_importable.referenced_source_file_info {
-            let path_reference_absolute = path_reference.canonicalized_absolute_path(
-                project_config,
-                source_file_path,
-            ).unwrap();
+            let path_reference_absolute = path_reference
+                .canonicalized_absolute_path(project_config, source_file_path)
+                .unwrap();
 
             //println!("referenced {:?} {:?}", path_reference_absolute_path, scanned_source_files.keys());
             //println!("pull from {:?}", scanned_source_files.keys());
@@ -565,12 +569,19 @@ impl DataSource for FileSystemPathBasedDataSource {
         let contents = std::fs::read_to_string(&meta_file_path).unwrap();
         let mut meta_file_contents = MetaFileJson::load_from_string(&contents);
         meta_file_contents.persisted_assets.insert(asset_id);
-        std::fs::write(&meta_file_path, MetaFileJson::store_to_string(&meta_file_contents)).unwrap();
+        std::fs::write(
+            &meta_file_path,
+            MetaFileJson::store_to_string(&meta_file_contents),
+        )
+        .unwrap();
 
         //
         // Update representation of disk state
         //
-        let object_hash = edit_context.data_set().hash_object(asset_id, HashObjectMode::FullObjectWithLocationChainNames).unwrap();
+        let object_hash = edit_context
+            .data_set()
+            .hash_object(asset_id, HashObjectMode::FullObjectWithLocationChainNames)
+            .unwrap();
 
         let asset_file_metadata = FileMetadata::new(&std::fs::metadata(&asset_file_path).unwrap());
         self.assets_disk_state.insert(
@@ -579,7 +590,7 @@ impl DataSource for FileSystemPathBasedDataSource {
                 _asset_file_metadata: asset_file_metadata,
                 asset_file_path: asset_file_path.clone(),
                 containing_path: containing_file_path.clone(),
-                object_hash
+                object_hash,
             }),
         );
 
@@ -625,7 +636,6 @@ impl DataSource for FileSystemPathBasedDataSource {
         let mut asset_files = Vec::default();
         let mut meta_files = Vec::default();
 
-
         let mut source_files_disk_state = HashMap::<PathBuf, SourceFileDiskState>::default();
         let mut assets_disk_state = HashMap::<AssetId, AssetDiskState>::default();
 
@@ -652,8 +662,12 @@ impl DataSource for FileSystemPathBasedDataSource {
 
                     let asset_file_metadata =
                         FileMetadata::new(&std::fs::metadata(&asset_file).unwrap());
-                    let containing_file_path = self.canonicalize_containing_file_path(asset_file.parent().unwrap());
-                    let object_hash = edit_context.data_set().hash_object(asset_id, HashObjectMode::FullObjectWithLocationChainNames).unwrap();
+                    let containing_file_path =
+                        self.canonicalize_containing_file_path(asset_file.parent().unwrap());
+                    let object_hash = edit_context
+                        .data_set()
+                        .hash_object(asset_id, HashObjectMode::FullObjectWithLocationChainNames)
+                        .unwrap();
 
                     assets_disk_state.insert(
                         asset_id,
@@ -661,9 +675,9 @@ impl DataSource for FileSystemPathBasedDataSource {
                             asset_file_path: asset_file,
                             _asset_file_metadata: asset_file_metadata,
                             containing_path: containing_file_path,
-                            object_hash
-                        }
-                    ));
+                            object_hash,
+                        }),
+                    );
                 }
             }
 
@@ -746,8 +760,12 @@ impl DataSource for FileSystemPathBasedDataSource {
                 let asset_file_metadata =
                     FileMetadata::new(&std::fs::metadata(&asset_file).unwrap());
 
-                let containing_file_path = self.canonicalize_containing_file_path(asset_file.parent().unwrap());
-                let object_hash = edit_context.data_set().hash_object(asset_id, HashObjectMode::FullObjectWithLocationChainNames).unwrap();
+                let containing_file_path =
+                    self.canonicalize_containing_file_path(asset_file.parent().unwrap());
+                let object_hash = edit_context
+                    .data_set()
+                    .hash_object(asset_id, HashObjectMode::FullObjectWithLocationChainNames)
+                    .unwrap();
 
                 assets_disk_state.insert(
                     asset_id,
@@ -755,7 +773,7 @@ impl DataSource for FileSystemPathBasedDataSource {
                         asset_file_path: asset_file,
                         _asset_file_metadata: asset_file_metadata,
                         containing_path: containing_file_path,
-                        object_hash
+                        object_hash,
                     }),
                 );
             }
@@ -809,25 +827,30 @@ impl DataSource for FileSystemPathBasedDataSource {
                             "Importer::scan_file {}",
                             source_file.to_string_lossy()
                         ));
-                        let scan_result = importer
-                            .scan_file(ScanContext::new(
-                                &source_file,
-                                edit_context.schema_set(),
-                                &self.importer_registry,
-                                project_config,
-                                &mut scanned_importables,
-                                &mut import_job_to_queue.log_data.log_events,
-                            ));
+                        let scan_result = importer.scan_file(ScanContext::new(
+                            &source_file,
+                            edit_context.schema_set(),
+                            &self.importer_registry,
+                            project_config,
+                            &mut scanned_importables,
+                            &mut import_job_to_queue.log_data.log_events,
+                        ));
 
                         match scan_result {
                             Ok(result) => result,
                             Err(e) => {
-                                import_job_to_queue.log_data.log_events.push(ImportLogEvent {
-                                    path: source_file.clone(),
-                                    asset_id: None,
-                                    level: LogEventLevel::FatalError,
-                                    message: format!("scan_file returned error: {}", e.to_string())
-                                });
+                                import_job_to_queue
+                                    .log_data
+                                    .log_events
+                                    .push(ImportLogEvent {
+                                        path: source_file.clone(),
+                                        asset_id: None,
+                                        level: LogEventLevel::FatalError,
+                                        message: format!(
+                                            "scan_file returned error: {}",
+                                            e.to_string()
+                                        ),
+                                    });
 
                                 continue;
                             }
@@ -918,9 +941,13 @@ impl DataSource for FileSystemPathBasedDataSource {
                         hydrate_pipeline::create_asset_name(source_file_path, scanned_importable);
 
                     let asset_file_exists = assets_disk_state.get(&importable_asset_id).is_some();
-                    let asset_is_persisted = scanned_source_file.meta_file.persisted_assets.contains(&importable_asset_id);
+                    let asset_is_persisted = scanned_source_file
+                        .meta_file
+                        .persisted_assets
+                        .contains(&importable_asset_id);
 
-                    let containing_file_path = self.canonicalize_containing_file_path(source_file_path.parent().unwrap());
+                    let containing_file_path =
+                        self.canonicalize_containing_file_path(source_file_path.parent().unwrap());
 
                     if asset_is_persisted && !asset_file_exists {
                         // If the asset is persisted but deleted, we do not want to import it
@@ -961,14 +988,20 @@ impl DataSource for FileSystemPathBasedDataSource {
                             .insert(importable_asset_id);
                     }
 
-                    let canonical_path_references = Self::find_canonical_path_references(project_config, source_file_path, &scanned_importable, &scanned_source_files);
+                    let canonical_path_references = Self::find_canonical_path_references(
+                        project_config,
+                        source_file_path,
+                        &scanned_importable,
+                        &scanned_source_files,
+                    );
                     match canonical_path_references {
                         Ok(canonical_path_references) => {
                             let source_file = PathReference::new(
                                 "".to_string(),
                                 source_file_path.to_string_lossy().to_string(),
                                 scanned_importable.name.clone(),
-                            ).simplify(project_config);
+                            )
+                            .simplify(project_config);
 
                             let requested_importable = RequestedImportable {
                                 asset_id: importable_asset_id,
@@ -978,9 +1011,7 @@ impl DataSource for FileSystemPathBasedDataSource {
                                 //importer_id: scanned_source_file.importer.importer_id(),
                                 source_file,
                                 canonical_path_references,
-                                path_references: scanned_importable
-                                    .referenced_source_files
-                                    .clone(),
+                                path_references: scanned_importable.referenced_source_files.clone(),
                                 replace_with_default_asset: !asset_is_persisted,
                             };
 
@@ -988,23 +1019,31 @@ impl DataSource for FileSystemPathBasedDataSource {
                                 .insert(scanned_importable.name.clone(), requested_importable);
                         }
                         Err(e) => {
-                            import_job_to_queue.log_data.log_events.push(ImportLogEvent {
-                                path: source_file_path.clone(),
-                                asset_id: Some(importable_asset_id),
-                                level: LogEventLevel::FatalError,
-                                message: format!("While resolving references to other assets: {}", e.to_string())
-                            });
+                            import_job_to_queue
+                                .log_data
+                                .log_events
+                                .push(ImportLogEvent {
+                                    path: source_file_path.clone(),
+                                    asset_id: Some(importable_asset_id),
+                                    level: LogEventLevel::FatalError,
+                                    message: format!(
+                                        "While resolving references to other assets: {}",
+                                        e.to_string()
+                                    ),
+                                });
                         }
                     }
                 }
 
                 if !requested_importables.is_empty() {
-                    import_job_to_queue.import_job_source_files.push(ImportJobSourceFile {
-                        source_file_path: source_file_path.to_path_buf(),
-                        importer_id: scanned_source_file.importer.importer_id(),
-                        requested_importables,
-                        import_type: ImportType::ImportIfImportDataStale,
-                    });
+                    import_job_to_queue
+                        .import_job_source_files
+                        .push(ImportJobSourceFile {
+                            source_file_path: source_file_path.to_path_buf(),
+                            importer_id: scanned_source_file.importer.importer_id(),
+                            requested_importables,
+                            import_type: ImportType::ImportIfImportDataStale,
+                        });
                 }
             }
         }
@@ -1056,7 +1095,10 @@ impl DataSource for FileSystemPathBasedDataSource {
                         pending_writes.push(asset_id);
                     }
                     Some(asset_disk_state) => {
-                        let object_hash = edit_context.data_set().hash_object(asset_id, HashObjectMode::FullObjectWithLocationChainNames).unwrap();
+                        let object_hash = edit_context
+                            .data_set()
+                            .hash_object(asset_id, HashObjectMode::FullObjectWithLocationChainNames)
+                            .unwrap();
                         match asset_disk_state {
                             AssetDiskState::Generated(_) => {
                                 // We never consider a generated asset as modified, and we expect UI to never alter
@@ -1082,14 +1124,15 @@ impl DataSource for FileSystemPathBasedDataSource {
                     // the asset data
                 }
                 AssetDiskState::Persisted(_) => {
-                    if !edit_context.has_asset(asset_id) || !self.is_asset_owned_by_this_data_source(edit_context, asset_id) {
+                    if !edit_context.has_asset(asset_id)
+                        || !self.is_asset_owned_by_this_data_source(edit_context, asset_id)
+                    {
                         // There is an asset that no longer exists, but the file is still on disk
                         pending_deletes.push(asset_id);
                     }
                 }
             }
         }
-
 
         // Delete files for assets that were deleted
         // for asset_id in edit_context.modified_assets() {
@@ -1124,7 +1167,8 @@ impl DataSource for FileSystemPathBasedDataSource {
                         self.containing_file_path_for_asset(edit_context, *asset_id);
                     let is_directory =
                         asset_info.schema().fingerprint() == self.path_node_schema.fingerprint();
-                    let asset_file_path = self.path_for_asset(&containing_file_path, *asset_id, asset_info);
+                    let asset_file_path =
+                        self.path_for_asset(&containing_file_path, *asset_id, asset_info);
 
                     if is_directory {
                         // It's a path node, ensure the dir exists
@@ -1142,7 +1186,13 @@ impl DataSource for FileSystemPathBasedDataSource {
                         std::fs::create_dir_all(&containing_file_path).unwrap();
                         std::fs::write(&asset_file_path, data).unwrap();
 
-                        let object_hash = edit_context.data_set().hash_object(*asset_id, HashObjectMode::FullObjectWithLocationChainNames).unwrap();
+                        let object_hash = edit_context
+                            .data_set()
+                            .hash_object(
+                                *asset_id,
+                                HashObjectMode::FullObjectWithLocationChainNames,
+                            )
+                            .unwrap();
 
                         let asset_file_metadata =
                             FileMetadata::new(&std::fs::metadata(&asset_file_path).unwrap());
@@ -1182,7 +1232,8 @@ impl DataSource for FileSystemPathBasedDataSource {
                             if disk_state.asset_file_path.is_dir() {
                                 // Defer directory deletion so that any files that might be in them get deleted first.
                                 // We can't delete directories that have files in them.
-                                deferred_directory_deletes.push((asset_id, disk_state.asset_file_path.clone()));
+                                deferred_directory_deletes
+                                    .push((asset_id, disk_state.asset_file_path.clone()));
                             } else {
                                 std::fs::remove_file(&disk_state.asset_file_path).unwrap();
                                 self.assets_disk_state.remove(&asset_id);
@@ -1194,9 +1245,7 @@ impl DataSource for FileSystemPathBasedDataSource {
         }
 
         // Reverse sort ensures that subdirectories are processed first
-        deferred_directory_deletes.sort_by(|(_, lhs), (_, rhs)| {
-            rhs.cmp(lhs)
-        });
+        deferred_directory_deletes.sort_by(|(_, lhs), (_, rhs)| rhs.cmp(lhs));
 
         // Second pass to delete directories if they are empty and path node does not exist
         for (asset_id, directory) in deferred_directory_deletes {
@@ -1207,8 +1256,10 @@ impl DataSource for FileSystemPathBasedDataSource {
         }
     }
 
-
-    fn edit_context_has_unsaved_changes(&self, edit_context: &EditContext) -> bool {
+    fn edit_context_has_unsaved_changes(
+        &self,
+        edit_context: &EditContext,
+    ) -> bool {
         for (&asset_id, asset_info) in edit_context.assets() {
             if asset_id.as_uuid() == *self.asset_source_id.uuid() {
                 // ignore the root asset
@@ -1223,7 +1274,10 @@ impl DataSource for FileSystemPathBasedDataSource {
                         return true;
                     }
                     Some(asset_disk_state) => {
-                        let object_hash = edit_context.data_set().hash_object(asset_id, HashObjectMode::FullObjectWithLocationChainNames).unwrap();
+                        let object_hash = edit_context
+                            .data_set()
+                            .hash_object(asset_id, HashObjectMode::FullObjectWithLocationChainNames)
+                            .unwrap();
                         match asset_disk_state {
                             AssetDiskState::Generated(_) => {
                                 // We never consider a generated asset as modified, and we expect UI to never alter
@@ -1249,7 +1303,9 @@ impl DataSource for FileSystemPathBasedDataSource {
                     // the asset data
                 }
                 AssetDiskState::Persisted(_) => {
-                    if !edit_context.has_asset(asset_id) || !self.is_asset_owned_by_this_data_source(edit_context, asset_id) {
+                    if !edit_context.has_asset(asset_id)
+                        || !self.is_asset_owned_by_this_data_source(edit_context, asset_id)
+                    {
                         // There is an asset that no longer exists, but the file is still on disk
                         return true;
                     }
@@ -1260,7 +1316,11 @@ impl DataSource for FileSystemPathBasedDataSource {
         return false;
     }
 
-    fn append_pending_file_operations(&self, edit_context: &EditContext, pending_file_operations: &mut PendingFileOperations) {
+    fn append_pending_file_operations(
+        &self,
+        edit_context: &EditContext,
+        pending_file_operations: &mut PendingFileOperations,
+    ) {
         for (&asset_id, asset_info) in edit_context.assets() {
             if asset_id.as_uuid() == *self.asset_source_id.uuid() {
                 // ignore the root asset
@@ -1271,12 +1331,19 @@ impl DataSource for FileSystemPathBasedDataSource {
                 match self.assets_disk_state.get(&asset_id) {
                     None => {
                         // There is a newly created asset that has never been saved
-                        let containing_path = self.containing_file_path_for_asset(edit_context, asset_id);
-                        let asset_path = self.path_for_asset(&containing_path, asset_id, asset_info);
-                        pending_file_operations.create_operations.push((asset_id, asset_path));
+                        let containing_path =
+                            self.containing_file_path_for_asset(edit_context, asset_id);
+                        let asset_path =
+                            self.path_for_asset(&containing_path, asset_id, asset_info);
+                        pending_file_operations
+                            .create_operations
+                            .push((asset_id, asset_path));
                     }
                     Some(asset_disk_state) => {
-                        let object_hash = edit_context.data_set().hash_object(asset_id, HashObjectMode::FullObjectWithLocationChainNames).unwrap();
+                        let object_hash = edit_context
+                            .data_set()
+                            .hash_object(asset_id, HashObjectMode::FullObjectWithLocationChainNames)
+                            .unwrap();
                         match asset_disk_state {
                             AssetDiskState::Generated(_) => {
                                 // We never consider a generated asset as modified, and we expect UI to never alter
@@ -1285,7 +1352,10 @@ impl DataSource for FileSystemPathBasedDataSource {
                             AssetDiskState::Persisted(persisted_asset_disk_state) => {
                                 if persisted_asset_disk_state.object_hash != object_hash {
                                     // The object has been modified and no longer matches disk state
-                                    pending_file_operations.modify_operations.push((asset_id, persisted_asset_disk_state.asset_file_path.clone()));
+                                    pending_file_operations.modify_operations.push((
+                                        asset_id,
+                                        persisted_asset_disk_state.asset_file_path.clone(),
+                                    ));
                                 }
                             }
                         }
@@ -1302,9 +1372,13 @@ impl DataSource for FileSystemPathBasedDataSource {
                     // the asset data
                 }
                 AssetDiskState::Persisted(persisted_asset_disk_state) => {
-                    if !edit_context.has_asset(asset_id) || !self.is_asset_owned_by_this_data_source(edit_context, asset_id) {
+                    if !edit_context.has_asset(asset_id)
+                        || !self.is_asset_owned_by_this_data_source(edit_context, asset_id)
+                    {
                         // There is an asset that no longer exists, but the file is still on disk
-                        pending_file_operations.delete_operations.push((asset_id, persisted_asset_disk_state.asset_file_path.clone()));
+                        pending_file_operations
+                            .delete_operations
+                            .push((asset_id, persisted_asset_disk_state.asset_file_path.clone()));
                     }
                 }
             }

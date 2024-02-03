@@ -1,5 +1,5 @@
-use hydrate_base::AssetId;
 use hydrate_base::hashing::HashSet;
+use hydrate_base::AssetId;
 use hydrate_model::{AssetPathCache, EditorModel, LocationTree, PendingFileOperations};
 
 trait ModalWindow {

@@ -39,19 +39,25 @@ impl From<DataSetError> for DataSetErrorWithBacktrace {
         DataSetErrorWithBacktrace {
             error,
             #[cfg(debug_assertions)]
-            backtrace: Arc::new(backtrace::Backtrace::new())
+            backtrace: Arc::new(backtrace::Backtrace::new()),
         }
     }
 }
 
 impl std::fmt::Debug for DataSetErrorWithBacktrace {
     #[cfg(not(debug_assertions))]
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(
+        &self,
+        f: &mut std::fmt::Formatter<'_>,
+    ) -> std::fmt::Result {
         write!(f, "{:?}", self.error)
     }
 
     #[cfg(debug_assertions)]
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(
+        &self,
+        f: &mut std::fmt::Formatter<'_>,
+    ) -> std::fmt::Result {
         write!(f, "{:?}:\n{:?}", self.error, *self.backtrace)
     }
 }

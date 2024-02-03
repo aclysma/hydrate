@@ -6,6 +6,9 @@ pub type HashSetIter<'a, T> = std::collections::hash_set::Iter<'a, T>;
 use std::fmt::{Debug, Formatter};
 use uuid::Uuid;
 
+mod property_path;
+pub use property_path::PropertyPath;
+
 mod schema;
 pub use schema::*;
 
@@ -15,10 +18,10 @@ pub use schema_def::*;
 mod schema_cache;
 
 mod error;
-pub use error::{DataSetError, DataSetResult, DataSetErrorWithBacktrace};
+pub use error::{DataSetError, DataSetErrorWithBacktrace, DataSetResult};
 
-pub use schema_cache::SchemaCacheSingleFile;
 pub use schema_cache::CachedSchemaNamedType;
+pub use schema_cache::SchemaCacheSingleFile;
 
 #[derive(Copy, Clone, PartialEq, Eq, Hash)]
 pub struct SchemaFingerprint(u128);

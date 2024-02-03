@@ -2,10 +2,7 @@ use demo_plugins::generated::*;
 use hydrate::editor::action_queue::UIAction;
 use hydrate::editor::egui::Ui;
 use hydrate::editor::inspector_system::*;
-use hydrate::model::{
-    EndContextBehavior, Schema,
-    SchemaSet, Value,
-};
+use hydrate::model::{EndContextBehavior, Schema, SchemaSet, Value};
 
 struct Vec3RecordInspector;
 
@@ -216,7 +213,10 @@ impl RecordInspector for ColorRgbaU8RecordInspector {
     }
 }
 
-pub fn register_inspectors(schema_set: &SchemaSet, inspector_registry: &mut InspectorRegistry) {
+pub fn register_inspectors(
+    schema_set: &SchemaSet,
+    inspector_registry: &mut InspectorRegistry,
+) {
     inspector_registry.register_inspector::<Vec3Record>(schema_set, Vec3RecordInspector);
     inspector_registry.register_inspector::<Vec4Record>(schema_set, Vec4RecordInspector);
     inspector_registry

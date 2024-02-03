@@ -1,7 +1,7 @@
 mod file_system_id_based;
 
-use std::path::PathBuf;
 pub use file_system_id_based::*;
+use std::path::PathBuf;
 
 use crate::edit_context::EditContext;
 use crate::AssetId;
@@ -53,7 +53,7 @@ pub trait DataSource {
 
     fn edit_context_has_unsaved_changes(
         &self,
-        edit_context: &EditContext
+        edit_context: &EditContext,
     ) -> bool;
 
     fn append_pending_file_operations(
@@ -61,7 +61,6 @@ pub trait DataSource {
         edit_context: &EditContext,
         pending_file_operations: &mut PendingFileOperations,
     );
-
 
     // fn revert_all_modified(
     //     &mut self,

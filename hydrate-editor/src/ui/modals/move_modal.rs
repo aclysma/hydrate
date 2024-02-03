@@ -12,7 +12,11 @@ pub struct MoveAssetsModal {
 }
 
 impl MoveAssetsModal {
-    pub fn new_single_asset(asset_id: AssetId, new_name: String, new_location: Option<AssetLocation>) -> Self {
+    pub fn new_single_asset(
+        asset_id: AssetId,
+        new_name: String,
+        new_location: Option<AssetLocation>,
+    ) -> Self {
         MoveAssetsModal {
             asset_ids: vec![asset_id],
             new_name: Some(new_name),
@@ -20,7 +24,10 @@ impl MoveAssetsModal {
         }
     }
 
-    pub fn new_multiple_assets(asset_ids: Vec<AssetId>, new_location: Option<AssetLocation>) -> Self {
+    pub fn new_multiple_assets(
+        asset_ids: Vec<AssetId>,
+        new_location: Option<AssetLocation>,
+    ) -> Self {
         MoveAssetsModal {
             asset_ids,
             new_name: None,
@@ -36,7 +43,6 @@ impl ModalAction for MoveAssetsModal {
     ) -> ModalActionControlFlow {
         let mut control_flow = ModalActionControlFlow::Continue;
         default_modal_window("Rename/Move", context, |context, ui| {
-
             if let Some(new_name) = &mut self.new_name {
                 ui.label("Asset Name:");
                 egui::TextEdit::singleline(new_name).show(ui);

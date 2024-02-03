@@ -1,7 +1,10 @@
-use hydrate_model::pipeline::{HydrateProjectConfiguration, ImporterRegistry, ImportJobs, ImportJobSourceFile, ImportJobToQueue};
+use hydrate_model::pipeline::{
+    HydrateProjectConfiguration, ImportJobSourceFile, ImportJobToQueue, ImportJobs,
+    ImporterRegistry,
+};
 use hydrate_model::{
-    EditorModel,
-    PathNode, PathNodeRoot, SchemaCacheSingleFile, SchemaLinker, SchemaSet, SchemaSetBuilder,
+    EditorModel, PathNode, PathNodeRoot, SchemaCacheSingleFile, SchemaLinker, SchemaSet,
+    SchemaSetBuilder,
 };
 
 pub struct DbState {
@@ -39,9 +42,7 @@ impl DbState {
     }
 
     #[profiling::function]
-    pub fn load_schema(
-        hydrate_project_configuration: &HydrateProjectConfiguration,
-    ) -> SchemaSet {
+    pub fn load_schema(hydrate_project_configuration: &HydrateProjectConfiguration) -> SchemaSet {
         let mut linker = SchemaLinker::default();
         let mut schema_set = SchemaSetBuilder::default();
 
@@ -52,7 +53,9 @@ impl DbState {
         }
         schema_set.add_linked_types(linker).unwrap();
 
-        if let Some(schema_cache_str) = std::fs::read_to_string(&hydrate_project_configuration.schema_cache_file_path).ok() {
+        if let Some(schema_cache_str) =
+            std::fs::read_to_string(&hydrate_project_configuration.schema_cache_file_path).ok()
+        {
             let named_types = SchemaCacheSingleFile::load_string(&schema_cache_str);
             schema_set.restore_named_types(named_types);
         }
@@ -81,10 +84,17 @@ impl DbState {
     }
 
     pub fn save(&mut self) {
-        log::debug!("saving schema cache to {:?}", self.project_configuration.schema_cache_file_path);
+        log::debug!(
+            "saving schema cache to {:?}",
+            self.project_configuration.schema_cache_file_path
+        );
         let schema_cache =
             SchemaCacheSingleFile::store_string(self.editor_model.schema_set().schemas());
-        std::fs::write(&self.project_configuration.schema_cache_file_path, schema_cache).unwrap();
+        std::fs::write(
+            &self.project_configuration.schema_cache_file_path,
+            schema_cache,
+        )
+        .unwrap();
 
         self.editor_model.save_root_edit_context();
     }

@@ -1,7 +1,4 @@
-use crate::{
-    AssetId, AssetLocation, AssetPathCache, DataSet,
-    EditorModel
-};
+use crate::{AssetId, AssetLocation, AssetPathCache, DataSet, EditorModel};
 use std::cmp::Ordering;
 use std::collections::BTreeMap;
 

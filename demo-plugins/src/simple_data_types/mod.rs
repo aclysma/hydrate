@@ -1,7 +1,10 @@
 use super::generated::{AllFieldsAccessor, TransformAccessor, TransformRefAccessor};
 use demo_types::simple_data::*;
 use hydrate_model::pipeline::AssetPlugin;
-use hydrate_pipeline::{AssetPluginSetupContext, BuilderRegistryBuilder, DataContainerRef, HandleFactory, ImporterRegistryBuilder, JobProcessorRegistryBuilder, PipelineResult};
+use hydrate_pipeline::{
+    AssetPluginSetupContext, BuilderRegistryBuilder, DataContainerRef, HandleFactory,
+    ImporterRegistryBuilder, JobProcessorRegistryBuilder, PipelineResult,
+};
 
 mod simple_data_trait;
 pub use simple_data_trait::SimpleData;
@@ -63,14 +66,14 @@ impl SimpleData for AllFields {
 pub struct SimpleDataAssetPlugin;
 
 impl AssetPlugin for SimpleDataAssetPlugin {
-    fn setup(
-        context: AssetPluginSetupContext
-    ) {
+    fn setup(context: AssetPluginSetupContext) {
         macro_rules! register {
             ($data_type:ty, $name:literal) => {
-                context.builder_registry
+                context
+                    .builder_registry
                     .register_handler_instance(SimpleBincodeDataBuilder::<$data_type>::new($name));
-                context.job_processor_registry
+                context
+                    .job_processor_registry
                     .register_job_processor::<SimpleBincodeDataJobProcessor<$data_type>>()
             };
         }

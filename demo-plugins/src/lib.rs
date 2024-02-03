@@ -1,7 +1,7 @@
 mod image;
 
-use std::sync::Arc;
 pub use self::image::*;
+use std::sync::Arc;
 
 mod blender_material;
 pub use blender_material::*;
@@ -34,7 +34,10 @@ mod mesh_util;
 
 mod example_tasks;
 
-fn create_thumbnail_image_from_bytes(bytes: &[u8], image_format: ::image::ImageFormat) -> Arc<ThumbnailImage> {
+fn create_thumbnail_image_from_bytes(
+    bytes: &[u8],
+    image_format: ::image::ImageFormat,
+) -> Arc<ThumbnailImage> {
     let image = ::image::load_from_memory_with_format(bytes, image_format).unwrap();
     use ::image::GenericImageView;
     let width = image.width();
@@ -42,6 +45,6 @@ fn create_thumbnail_image_from_bytes(bytes: &[u8], image_format: ::image::ImageF
     Arc::new(ThumbnailImage {
         width,
         height,
-        pixel_data: image.into_rgba8().into_raw()
+        pixel_data: image.into_rgba8().into_raw(),
     })
 }

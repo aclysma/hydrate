@@ -1,17 +1,17 @@
 use crate::action_queue::{UIAction, UIActionQueueSender};
+use crate::image_loader::ThumbnailImageLoader;
 use crate::ui::components::AssetTreeUiState;
 use crate::ui::drag_drop::DragDropPayload;
 use crate::ui::modals::{MoveAssetsModal, NewAssetModal};
 use crate::ui_state::EditorModelUiState;
 use crate::DbState;
 use egui::epaint::text::FontsImpl;
-use egui::{Color32, FontId, Layout, Ui, Widget};
-use hydrate_model::{AssetId, AssetLocation, DataSetAssetInfo, EditorModel, HashSet};
-use std::sync::Arc;
 use egui::text::LayoutJob;
+use egui::{Color32, FontId, Layout, Ui, Widget};
 use hydrate_model::edit_context::EditContext;
 use hydrate_model::pipeline::ThumbnailProviderRegistry;
-use crate::image_loader::ThumbnailImageLoader;
+use hydrate_model::{AssetId, AssetLocation, DataSetAssetInfo, EditorModel, HashSet};
+use std::sync::Arc;
 
 #[derive(Default, PartialEq, Copy, Clone)]
 pub enum AssetGalleryViewMode {
@@ -69,7 +69,10 @@ impl AssetGalleryUiState {
         self.primary_selected_asset
     }
 
-    pub fn set_selection(&mut self, asset_id: Option<AssetId>) {
+    pub fn set_selection(
+        &mut self,
+        asset_id: Option<AssetId>,
+    ) {
         self.selected_assets.clear();
         self.primary_selected_asset = None;
         self.previous_shift_select_range_begin = None;
@@ -104,7 +107,10 @@ impl AssetGalleryUiState {
         }
     }
 
-    pub fn select_one(&mut self, asset_id: AssetId) {
+    pub fn select_one(
+        &mut self,
+        asset_id: AssetId,
+    ) {
         // Normal clicks clear current selection and then select the clicked asset
         self.select_none();
 
@@ -168,9 +174,8 @@ pub fn draw_asset_gallery(
 
     toolbar_ui_left.allocate_space(egui::vec2(0.0, 0.0));
     if toolbar_ui_left.button("New Asset").clicked() {
-        action_queue.try_set_modal_action(NewAssetModal::new(
-            asset_tree_ui_state.selected_tree_node,
-        ));
+        action_queue
+            .try_set_modal_action(NewAssetModal::new(asset_tree_ui_state.selected_tree_node));
     }
 
     toolbar_ui_left.separator();
@@ -238,7 +243,8 @@ pub fn draw_asset_gallery(
             if !asset_gallery_ui_state.search_string.is_empty() {
                 let Some(long_name) = db_state
                     .editor_model
-                    .asset_path(asset_id, &ui_state.asset_path_cache) else {
+                    .asset_path(asset_id, &ui_state.asset_path_cache)
+                else {
                     return false;
                 };
 
@@ -280,7 +286,9 @@ pub fn draw_asset_gallery(
 
     asset_gallery_ui_state.all_selectable_assets.clear();
     for (&asset_id, _) in &all_assets {
-        asset_gallery_ui_state.all_selectable_assets.insert(asset_id);
+        asset_gallery_ui_state
+            .all_selectable_assets
+            .insert(asset_id);
     }
 
     let (_, mut next_rect) = ui.allocate_space(ui.available_size());
@@ -303,7 +311,7 @@ pub fn draw_asset_gallery(
                         asset_gallery_ui_state,
                         action_queue,
                         &all_assets,
-                        thumbnail_image_loader
+                        thumbnail_image_loader,
                     );
                 });
         }
@@ -393,7 +401,9 @@ fn draw_asset_gallery_list(
                             ui_state,
                             thumbnail_image_loader,
                             asset_gallery_ui_state,
-                            |asset_gallery_ui_state| create_drag_payload(asset_gallery_ui_state, asset_id),
+                            |asset_gallery_ui_state| {
+                                create_drag_payload(asset_gallery_ui_state, asset_id)
+                            },
                             |ui, asset_gallery_ui_state| {
                                 let is_selected =
                                     asset_gallery_ui_state.selected_assets.contains(&asset_id);
@@ -411,7 +421,13 @@ fn draw_asset_gallery_list(
                                     egui::SelectableLabel::new(is_selected, &short_name).ui(ui);
 
                                 if response.clicked() {
-                                    handle_asset_selection(asset_gallery_ui_state, asset_id, ui, is_selected, all_assets);
+                                    handle_asset_selection(
+                                        asset_gallery_ui_state,
+                                        asset_id,
+                                        ui,
+                                        is_selected,
+                                        all_assets,
+                                    );
                                 }
                                 response.context_menu(|ui| {
                                     asset_context_menu(
@@ -421,8 +437,7 @@ fn draw_asset_gallery_list(
                                         asset_id,
                                         &short_name,
                                         asset_info.asset_location(),
-                                        &db_state
-                                            .editor_model
+                                        &db_state.editor_model,
                                     );
                                 })
                             },
@@ -445,9 +460,19 @@ fn draw_asset_gallery_list(
         });
 }
 
-fn create_drag_payload(asset_gallery_ui_state: &mut AssetGalleryUiState, asset_id: AssetId) -> DragDropPayload {
+fn create_drag_payload(
+    asset_gallery_ui_state: &mut AssetGalleryUiState,
+    asset_id: AssetId,
+) -> DragDropPayload {
     if asset_gallery_ui_state.selected_assets.contains(&asset_id) {
-        DragDropPayload::AssetReferences(asset_id, asset_gallery_ui_state.selected_assets.iter().copied().collect())
+        DragDropPayload::AssetReferences(
+            asset_id,
+            asset_gallery_ui_state
+                .selected_assets
+                .iter()
+                .copied()
+                .collect(),
+        )
     } else {
         DragDropPayload::AssetReferences(asset_id, vec![asset_id])
     }
@@ -523,13 +548,13 @@ fn draw_asset_gallery_tile(
             );
 
             let is_selected = asset_gallery_ui_state.selected_assets.contains(&asset_id);
-            let is_primary_selected = asset_gallery_ui_state.primary_selected_asset == Some(asset_id);
+            let is_primary_selected =
+                asset_gallery_ui_state.primary_selected_asset == Some(asset_id);
             let (rect, response) = ui.allocate_exact_size(desired_size, egui::Sense::click());
             // ui.allocate_ui(desired_size, |ui| {
             //     ui.painter().rect_stroke(thumbnail_size, 3.0, egui::Stroke::new(2.0, egui::Color32::from_gray(50)));
             //     ui.label("hi");
             // });
-
 
             let mut thumbnail_rect = rect;
             thumbnail_rect.max.y = thumbnail_rect
@@ -540,7 +565,13 @@ fn draw_asset_gallery_tile(
             text_rect.min.y = thumbnail_rect.max.y;
 
             if response.clicked() {
-                handle_asset_selection(asset_gallery_ui_state, asset_id, ui, is_selected, all_assets);
+                handle_asset_selection(
+                    asset_gallery_ui_state,
+                    asset_id,
+                    ui,
+                    is_selected,
+                    all_assets,
+                );
             }
 
             if ui.is_rect_visible(thumbnail_rect) {
@@ -553,9 +584,16 @@ fn draw_asset_gallery_tile(
                         .rect_filled(rect, radius, ui.style().visuals.selection.bg_fill);
                 }
 
-                let thumbnail_uri = thumbnail_image_loader.thumbnail_uri_for_asset_with_fingerprint(asset_id, asset_info.schema().fingerprint());
+                let thumbnail_uri = thumbnail_image_loader
+                    .thumbnail_uri_for_asset_with_fingerprint(
+                        asset_id,
+                        asset_info.schema().fingerprint(),
+                    );
                 //egui::Image::new(thumbnail_uri).max_size(thumbnail_size).paint_at(ui, thumbnail_rect);
-                let mut thumbnail_ui = ui.child_ui(thumbnail_rect, egui::Layout::centered_and_justified(egui::Direction::LeftToRight));
+                let mut thumbnail_ui = ui.child_ui(
+                    thumbnail_rect,
+                    egui::Layout::centered_and_justified(egui::Direction::LeftToRight),
+                );
                 thumbnail_ui.add(egui::Image::new(thumbnail_uri).max_size(thumbnail_size));
 
                 let border_color = if is_primary_selected {
@@ -571,8 +609,10 @@ fn draw_asset_gallery_tile(
                     radius,
                     egui::Stroke::new(3.0, border_color),
                 );
-                let anchor =
-                    egui::Pos2::new((text_rect.min.x + text_rect.max.x) / 2.0, text_rect.min.y + 8.0);
+                let anchor = egui::Pos2::new(
+                    (text_rect.min.x + text_rect.max.x) / 2.0,
+                    text_rect.min.y + 8.0,
+                );
 
                 let text_color = if is_dirty {
                     egui::Color32::from_rgb(255, 255, 100)
@@ -582,11 +622,17 @@ fn draw_asset_gallery_tile(
                     egui::Color32::from_rgb(230, 230, 230)
                 };
 
-                let font_id = ui.ctx().style().text_styles.get(&egui::TextStyle::Body).unwrap().clone();
+                let font_id = ui
+                    .ctx()
+                    .style()
+                    .text_styles
+                    .get(&egui::TextStyle::Body)
+                    .unwrap()
+                    .clone();
                 let galley = ui.fonts(|x| {
                     let mut layout_job = LayoutJob::single_section(
                         short_name.clone(),
-                        egui::epaint::text::TextFormat::simple(font_id.clone(), text_color)
+                        egui::epaint::text::TextFormat::simple(font_id.clone(), text_color),
                     );
                     layout_job.wrap.max_width = text_rect.max.x - text_rect.min.x;
                     layout_job.wrap.max_rows = 1;
@@ -615,8 +661,7 @@ fn draw_asset_gallery_tile(
                     asset_id,
                     &short_name,
                     asset_info.asset_location(),
-                    &db_state
-                        .editor_model
+                    &db_state.editor_model,
                 );
             });
 
@@ -659,31 +704,50 @@ fn asset_context_menu(
     }
 
     if ui.button("Duplicate").clicked() {
-        action_queue.queue_action(UIAction::DuplicateAssets(asset_gallery_ui_state.selected_assets.iter().copied().collect()));
+        action_queue.queue_action(UIAction::DuplicateAssets(
+            asset_gallery_ui_state
+                .selected_assets
+                .iter()
+                .copied()
+                .collect(),
+        ));
         ui.close_menu();
     }
 
-    let can_rename = asset_gallery_ui_state.selected_assets.len() == 1 && asset_gallery_ui_state.primary_selected_asset == Some(asset_id);
-    let move_or_rename_text = if can_rename {
-        "Move or Rename"
-    } else {
-        "Move"
-    };
+    let can_rename = asset_gallery_ui_state.selected_assets.len() == 1
+        && asset_gallery_ui_state.primary_selected_asset == Some(asset_id);
+    let move_or_rename_text = if can_rename { "Move or Rename" } else { "Move" };
 
-    if ui.add_enabled(!are_any_generated, egui::Button::new(move_or_rename_text)).clicked() {
-        let current_name = editor_model.root_edit_context().asset_name(asset_id).unwrap();
-        let current_location = editor_model.root_edit_context().asset_location(asset_id).unwrap();
+    if ui
+        .add_enabled(!are_any_generated, egui::Button::new(move_or_rename_text))
+        .clicked()
+    {
+        let current_name = editor_model
+            .root_edit_context()
+            .asset_name(asset_id)
+            .unwrap();
+        let current_location = editor_model
+            .root_edit_context()
+            .asset_location(asset_id)
+            .unwrap();
 
         if can_rename {
             action_queue.try_set_modal_action(MoveAssetsModal::new_single_asset(
                 asset_id,
-                current_name.as_string().cloned().unwrap_or_else(|| asset_id.to_string()),
-                Some(current_location)
+                current_name
+                    .as_string()
+                    .cloned()
+                    .unwrap_or_else(|| asset_id.to_string()),
+                Some(current_location),
             ));
         } else {
             action_queue.try_set_modal_action(MoveAssetsModal::new_multiple_assets(
-                asset_gallery_ui_state.selected_assets.iter().copied().collect(),
-                Some(current_location)
+                asset_gallery_ui_state
+                    .selected_assets
+                    .iter()
+                    .copied()
+                    .collect(),
+                Some(current_location),
             ));
         }
 
@@ -691,7 +755,10 @@ fn asset_context_menu(
     }
 
     let delete_button_string = if asset_gallery_ui_state.selected_assets.len() > 1 {
-        format!("Delete {} assets", asset_gallery_ui_state.selected_assets.len())
+        format!(
+            "Delete {} assets",
+            asset_gallery_ui_state.selected_assets.len()
+        )
     } else {
         format!("Delete {}", name)
     };
@@ -700,12 +767,28 @@ fn asset_context_menu(
         .add_enabled(!are_any_generated, egui::Button::new(delete_button_string))
         .clicked()
     {
-        action_queue.queue_action(UIAction::DeleteAssets(asset_gallery_ui_state.selected_assets.iter().copied().collect()));
+        action_queue.queue_action(UIAction::DeleteAssets(
+            asset_gallery_ui_state
+                .selected_assets
+                .iter()
+                .copied()
+                .collect(),
+        ));
         ui.close_menu();
     }
 
-    let can_use_as_prototype = editor_model.root_edit_context().import_info(asset_id).is_none() && asset_gallery_ui_state.selected_assets.len() == 1;
-    if ui.add_enabled(can_use_as_prototype, egui::Button::new("Use as prototype for new asset")).clicked() {
+    let can_use_as_prototype = editor_model
+        .root_edit_context()
+        .import_info(asset_id)
+        .is_none()
+        && asset_gallery_ui_state.selected_assets.len() == 1;
+    if ui
+        .add_enabled(
+            can_use_as_prototype,
+            egui::Button::new("Use as prototype for new asset"),
+        )
+        .clicked()
+    {
         action_queue
             .try_set_modal_action(NewAssetModal::new_with_prototype(Some(location), asset_id));
         ui.close_menu();
@@ -717,7 +800,7 @@ fn handle_asset_selection(
     asset_id: AssetId,
     ui: &mut Ui,
     is_selected: bool,
-    all_assets: &Vec<(&AssetId, &DataSetAssetInfo)>
+    all_assets: &Vec<(&AssetId, &DataSetAssetInfo)>,
 ) {
     let mut primary_index = None;
     let mut selected_index = None;
@@ -745,7 +828,8 @@ fn handle_asset_selection(
     // selected index should exist but primary index might be none
     let selected_index = selected_index.unwrap();
 
-    let (shift_held, command_held) = ui.input(|input| (input.modifiers.shift, input.modifiers.command));
+    let (shift_held, command_held) =
+        ui.input(|input| (input.modifiers.shift, input.modifiers.command));
 
     if command_held {
         // Command-clicking toggles selection
@@ -757,18 +841,24 @@ fn handle_asset_selection(
                 // If we deselect an item while we have a shift select range, we adjust the shift select range start
                 // and maybe end position
                 if shift_select_end_index > selected_index {
-                    asset_gallery_ui_state.previous_shift_select_range_begin = Some(*all_assets[selected_index + 1].0);
+                    asset_gallery_ui_state.previous_shift_select_range_begin =
+                        Some(*all_assets[selected_index + 1].0);
                 } else if shift_select_end_index < selected_index {
-                    asset_gallery_ui_state.previous_shift_select_range_begin = Some(*all_assets[selected_index - 1].0);
+                    asset_gallery_ui_state.previous_shift_select_range_begin =
+                        Some(*all_assets[selected_index - 1].0);
                 } else {
                     // Assumed not none is end index is set
                     let shift_select_begin_index = shift_select_begin_index.unwrap();
                     if selected_index > shift_select_begin_index {
-                        asset_gallery_ui_state.previous_shift_select_range_begin = Some(*all_assets[selected_index - 1].0);
-                        asset_gallery_ui_state.previous_shift_select_range_end = Some(*all_assets[selected_index - 1].0);
-                    } else if selected_index < shift_select_begin_index{
-                        asset_gallery_ui_state.previous_shift_select_range_begin = Some(*all_assets[selected_index + 1].0);
-                        asset_gallery_ui_state.previous_shift_select_range_end = Some(*all_assets[selected_index + 1].0);
+                        asset_gallery_ui_state.previous_shift_select_range_begin =
+                            Some(*all_assets[selected_index - 1].0);
+                        asset_gallery_ui_state.previous_shift_select_range_end =
+                            Some(*all_assets[selected_index - 1].0);
+                    } else if selected_index < shift_select_begin_index {
+                        asset_gallery_ui_state.previous_shift_select_range_begin =
+                            Some(*all_assets[selected_index + 1].0);
+                        asset_gallery_ui_state.previous_shift_select_range_end =
+                            Some(*all_assets[selected_index + 1].0);
                     }
                 }
             }
@@ -791,7 +881,9 @@ fn handle_asset_selection(
 
                 for i in remove_selection_range {
                     let (&asset_id_in_range, _) = all_assets[i];
-                    asset_gallery_ui_state.selected_assets.remove(&asset_id_in_range);
+                    asset_gallery_ui_state
+                        .selected_assets
+                        .remove(&asset_id_in_range);
                 }
             }
 
@@ -804,7 +896,9 @@ fn handle_asset_selection(
 
             for i in add_selection_range {
                 let (&asset_id_in_range, _) = all_assets[i];
-                asset_gallery_ui_state.selected_assets.insert(asset_id_in_range);
+                asset_gallery_ui_state
+                    .selected_assets
+                    .insert(asset_id_in_range);
             }
 
             let (&clicked_asset_id, _) = all_assets[selected_index];
@@ -820,7 +914,12 @@ fn handle_asset_selection(
         asset_gallery_ui_state.select_one(asset_id);
     }
 
-    if asset_gallery_ui_state.previous_shift_select_range_end.is_some() {
-        assert!(asset_gallery_ui_state.previous_shift_select_range_begin.is_some());
+    if asset_gallery_ui_state
+        .previous_shift_select_range_end
+        .is_some()
+    {
+        assert!(asset_gallery_ui_state
+            .previous_shift_select_range_begin
+            .is_some());
     }
 }

@@ -1,8 +1,12 @@
+use crate::build::{BuiltArtifact, WrittenArtifact};
+use crate::import::ImportData;
+use crate::{BuildLogData, BuildLogEvent, LogEventLevel, PipelineError, PipelineResult};
 use crossbeam_channel::{Receiver, Sender};
 use hydrate_base::hashing::HashMap;
 use hydrate_base::uuid_path::uuid_and_hash_to_path;
 use hydrate_base::{ArtifactId, AssetId};
 use hydrate_data::{DataSet, SchemaSet};
+use log::Log;
 use serde::{Deserialize, Serialize};
 use std::cell::RefCell;
 use std::hash::Hasher;
@@ -11,10 +15,6 @@ use std::panic::RefUnwindSafe;
 use std::path::PathBuf;
 use std::rc::Rc;
 use std::sync::Arc;
-use log::Log;
-use crate::build::{BuiltArtifact, WrittenArtifact};
-use crate::import::ImportData;
-use crate::{BuildLogData, BuildLogEvent, LogEventLevel, PipelineError, PipelineResult};
 
 use super::*;
 
@@ -128,8 +128,11 @@ pub struct JobProcessorRegistryBuilder {
 }
 
 impl JobProcessorRegistryBuilder {
-    pub fn register_job_processor<T: JobProcessor + Send + Sync + RefUnwindSafe + Default + 'static>(&mut self)
-    where
+    pub fn register_job_processor<
+        T: JobProcessor + Send + Sync + RefUnwindSafe + Default + 'static,
+    >(
+        &mut self
+    ) where
         <T as JobProcessor>::InputT: for<'a> Deserialize<'a>,
         <T as JobProcessor>::OutputT: Serialize,
     {
@@ -142,7 +145,9 @@ impl JobProcessorRegistryBuilder {
         }
     }
 
-    pub fn register_job_processor_instance<T: JobProcessor + Send + Sync + RefUnwindSafe + 'static>(
+    pub fn register_job_processor_instance<
+        T: JobProcessor + Send + Sync + RefUnwindSafe + 'static,
+    >(
         &mut self,
         job_processor: T,
     ) where
@@ -240,8 +245,14 @@ impl JobApi for JobApiImpl {
             .get(new_job.job_type)
             .unwrap();
 
-        let dependencies =
-            processor.enumerate_dependencies_inner(job_id, job_requestor, &new_job.input_data, data_set, schema_set, log_events);
+        let dependencies = processor.enumerate_dependencies_inner(
+            job_id,
+            job_requestor,
+            &new_job.input_data,
+            data_set,
+            schema_set,
+            log_events,
+        );
 
         self.inner
             .job_create_queue_tx
@@ -507,9 +518,16 @@ impl JobExecutor {
         }
     }
 
-    fn handle_create_queue(&mut self, log_data: &mut BuildLogData) {
+    fn handle_create_queue(
+        &mut self,
+        log_data: &mut BuildLogData,
+    ) {
         while let Ok(queued_job) = self.job_create_queue_rx.try_recv() {
-            log_data.requestors.entry(queued_job.job_id).or_default().push(queued_job.job_requestor);
+            log_data
+                .requestors
+                .entry(queued_job.job_id)
+                .or_default()
+                .push(queued_job.job_requestor);
             // If key exists, we already queued a job with these exact inputs and we can reuse the outputs
             if !self.current_jobs.contains_key(&queued_job.job_id) {
                 assert!(self
@@ -517,22 +535,23 @@ impl JobExecutor {
                     .contains_key(queued_job.job_type));
 
                 let job_state = match queued_job.dependencies {
-                    Ok(dependencies) => {
-                        JobState {
-                            job_type: queued_job.job_type,
-                            dependencies: Arc::new(dependencies),
-                            input_data: queued_job.input_data,
-                            debug_name: queued_job.debug_name,
-                            has_been_scheduled: false,
-                            output_data: None,
-                        }
-                    }
+                    Ok(dependencies) => JobState {
+                        job_type: queued_job.job_type,
+                        dependencies: Arc::new(dependencies),
+                        input_data: queued_job.input_data,
+                        debug_name: queued_job.debug_name,
+                        has_been_scheduled: false,
+                        output_data: None,
+                    },
                     Err(e) => {
                         log_data.log_events.push(BuildLogEvent {
                             job_id: Some(queued_job.job_id),
                             asset_id: None,
                             level: LogEventLevel::FatalError,
-                            message: format!("enumerate_dependencies returned error: {}", e.to_string())
+                            message: format!(
+                                "enumerate_dependencies returned error: {}",
+                                e.to_string()
+                            ),
                         });
 
                         JobState {
@@ -555,7 +574,10 @@ impl JobExecutor {
         }
     }
 
-    fn handle_completed_queue(&mut self, log_events: &mut Vec<BuildLogEvent>) {
+    fn handle_completed_queue(
+        &mut self,
+        log_events: &mut Vec<BuildLogEvent>,
+    ) {
         while let Ok(result) = self.thread_pool_result_rx.try_recv() {
             match result {
                 JobExecutorThreadPoolOutcome::RunJobComplete(msg) => {
@@ -577,7 +599,7 @@ impl JobExecutor {
                                 job_id: Some(msg.request.job_id),
                                 asset_id: None,
                                 level: LogEventLevel::FatalError,
-                                message: format!("Build job returned error: {}", e.to_string())
+                                message: format!("Build job returned error: {}", e.to_string()),
                             });
 
                             job.output_data = Some(JobStateOutput {
@@ -727,7 +749,10 @@ impl JobExecutor {
         self.current_jobs.len()
     }
 
-    pub fn stop(&mut self, log_events: &mut Vec<BuildLogEvent>) {
+    pub fn stop(
+        &mut self,
+        log_events: &mut Vec<BuildLogEvent>,
+    ) {
         //TODO: If we have a thread pool do we need to notify them to stop?
         self.clear_create_queue();
         self.handle_completed_queue(log_events);

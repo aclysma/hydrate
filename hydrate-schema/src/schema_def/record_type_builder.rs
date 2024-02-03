@@ -1,6 +1,6 @@
-use uuid::Uuid;
 use super::schema_def::{SchemaDefDynamicArray, SchemaDefType};
 use crate::{SchemaDefRecordFieldMarkup, SchemaDefRecordMarkup};
+use uuid::Uuid;
 
 pub struct RecordTypeFieldBuilder {
     pub(super) name: String,

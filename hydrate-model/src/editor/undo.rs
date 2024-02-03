@@ -80,9 +80,7 @@ impl UndoStack {
                     .get_mut(current_step.edit_context_key)
                     .unwrap();
 
-                let result = edit_context.apply_diff(
-                    &current_step.diff_set.revert_diff,
-                );
+                let result = edit_context.apply_diff(&current_step.diff_set.revert_diff);
                 self.current_undo_index -= 1;
                 return result;
             }
@@ -107,9 +105,7 @@ impl UndoStack {
                 .unwrap();
             // We don't want anything being written to the undo context at this point, since we're using it
             edit_context.cancel_pending_undo_context()?;
-            let result = edit_context.apply_diff(
-                &current_step.diff_set.apply_diff,
-            );
+            let result = edit_context.apply_diff(&current_step.diff_set.apply_diff);
             self.current_undo_index += 1;
             return result;
         }

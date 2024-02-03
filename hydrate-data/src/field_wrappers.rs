@@ -4,34 +4,13 @@ use crate::{
     AssetId, DataContainerRef, DataContainerRefMut, DataSetError, DataSetResult, NullOverride,
     SchemaSet, SingleObject, Value,
 };
+use hydrate_schema::PropertyPath;
 use std::cell::RefCell;
 use std::marker::PhantomData;
 use std::ops::{Deref, DerefMut};
 use std::rc::Rc;
 use std::sync::Arc;
 use uuid::Uuid;
-
-#[derive(Default, Clone)]
-pub struct PropertyPath(String);
-
-impl PropertyPath {
-    pub fn push(
-        &self,
-        str: &str,
-    ) -> PropertyPath {
-        if self.0.is_empty() {
-            PropertyPath(str.to_string())
-        } else if str.is_empty() {
-            PropertyPath(self.0.to_string())
-        } else {
-            PropertyPath(format!("{}.{}", self.0, str))
-        }
-    }
-
-    pub fn path(&self) -> &str {
-        &self.0
-    }
-}
 
 pub trait FieldAccessor {
     fn new(property_path: PropertyPath) -> Self;

@@ -1,11 +1,11 @@
-use std::path::PathBuf;
-use hydrate_base::AssetId;
-use hydrate_model::DataSetAssetInfo;
-use hydrate_model::edit_context::EditContext;
 use crate::action_queue::UIAction;
 use crate::modal_action::{
     default_modal_window, ModalAction, ModalActionControlFlow, ModalContext,
 };
+use hydrate_base::AssetId;
+use hydrate_model::edit_context::EditContext;
+use hydrate_model::DataSetAssetInfo;
+use std::path::PathBuf;
 
 #[derive(Copy, Clone)]
 enum OperationKind {
@@ -19,7 +19,6 @@ struct PendingOperationInfo<'a> {
     path: &'a PathBuf,
     asset_id: AssetId,
     asset_info: Option<&'a DataSetAssetInfo>,
-
 }
 
 // For revert all or quitting without saving
@@ -35,26 +34,40 @@ fn confirm_lose_changes<F: Fn(&mut egui::Ui, &mut ModalActionControlFlow) -> ()>
             pending_operation_info: &mut Vec<PendingOperationInfo<'a>>,
             operations: &'a Vec<(AssetId, PathBuf)>,
             edit_context: &'a EditContext,
-            kind: OperationKind
+            kind: OperationKind,
         ) {
             for (asset_id, path) in operations {
                 pending_operation_info.push(PendingOperationInfo {
                     kind,
                     asset_id: *asset_id,
                     asset_info: edit_context.assets().get(&asset_id),
-                    path: &path
+                    path: &path,
                 });
             }
         }
 
         let mut all_modified_assets = Vec::default();
         let edit_context = context.db_state.editor_model.root_edit_context();
-        add_pending_operation_info(&mut all_modified_assets, &pending.create_operations, edit_context, OperationKind::Create);
-        add_pending_operation_info(&mut all_modified_assets, &pending.modify_operations, edit_context, OperationKind::Modify);
-        add_pending_operation_info(&mut all_modified_assets, &pending.delete_operations, edit_context, OperationKind::Delete);
+        add_pending_operation_info(
+            &mut all_modified_assets,
+            &pending.create_operations,
+            edit_context,
+            OperationKind::Create,
+        );
+        add_pending_operation_info(
+            &mut all_modified_assets,
+            &pending.modify_operations,
+            edit_context,
+            OperationKind::Modify,
+        );
+        add_pending_operation_info(
+            &mut all_modified_assets,
+            &pending.delete_operations,
+            edit_context,
+            OperationKind::Delete,
+        );
 
-        all_modified_assets
-            .sort_by(|lhs, rhs| lhs.path.cmp(rhs.path));
+        all_modified_assets.sort_by(|lhs, rhs| lhs.path.cmp(rhs.path));
 
         ui.label(format!(
             "Changes to the following {} assets will be lost:",
@@ -91,7 +104,7 @@ fn confirm_lose_changes<F: Fn(&mut egui::Ui, &mut ModalActionControlFlow) -> ()>
                         egui_extras::Column::initial(200.0)
                             .at_least(10.0)
                             .clip(true),
-                    );;
+                    );
 
                 table
                     .header(20.0, |mut header| {
@@ -120,10 +133,11 @@ fn confirm_lose_changes<F: Fn(&mut egui::Ui, &mut ModalActionControlFlow) -> ()>
                                     .root_edit_context()
                                     .asset_name_or_id_string(modified_asset.asset_id)
                                     .unwrap_or("Unknown".to_string());
-                                let long_name = context
-                                    .db_state
-                                    .editor_model
-                                    .asset_display_name_long(modified_asset.asset_id, &context.ui_state.asset_path_cache);
+                                let long_name =
+                                    context.db_state.editor_model.asset_display_name_long(
+                                        modified_asset.asset_id,
+                                        &context.ui_state.asset_path_cache,
+                                    );
 
                                 row.col(|ui| {
                                     let text = match modified_asset.kind {

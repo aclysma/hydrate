@@ -1,5 +1,5 @@
-use std::hash::Hash;
 use crate::hashing::HashMap;
+use std::hash::Hash;
 
 #[derive(Copy, Clone)]
 struct LruCacheNode {
@@ -23,10 +23,16 @@ pub struct LruCache<K, V> {
 impl<K: Clone + PartialEq + Eq + Hash, V> LruCache<K, V> {
     pub fn new(size: u32) -> LruCache<K, V> {
         assert!(size > 2);
-        let mut lru_list = vec![LruCacheNode { next: 0, previous: 0}; size as usize];
+        let mut lru_list = vec![
+            LruCacheNode {
+                next: 0,
+                previous: 0
+            };
+            size as usize
+        ];
         lru_list[0].previous = u32::MAX;
         lru_list[0].next = 1;
-        for i in 1..(size-1) {
+        for i in 1..(size - 1) {
             lru_list[i as usize].previous = i - 1;
             lru_list[i as usize].next = i + 1;
         }
@@ -73,7 +79,10 @@ impl<K: Clone + PartialEq + Eq + Hash, V> LruCache<K, V> {
         &mut self.lru_list_pairs
     }
 
-    fn move_to_front(&mut self, node_index: u32) {
+    fn move_to_front(
+        &mut self,
+        node_index: u32,
+    ) {
         //self.check_list();
         let node = self.lru_list[node_index as usize];
 
@@ -99,7 +108,10 @@ impl<K: Clone + PartialEq + Eq + Hash, V> LruCache<K, V> {
         }
 
         // Make this node the new head
-        assert_eq!(self.lru_list[self.lru_list_head as usize].previous, u32::MAX);
+        assert_eq!(
+            self.lru_list[self.lru_list_head as usize].previous,
+            u32::MAX
+        );
         self.lru_list[self.lru_list_head as usize].previous = node_index;
         self.lru_list[node_index as usize].previous = u32::MAX;
         self.lru_list[node_index as usize].next = self.lru_list_head;
@@ -108,7 +120,10 @@ impl<K: Clone + PartialEq + Eq + Hash, V> LruCache<K, V> {
         //self.check_list();
     }
 
-    fn move_to_back(&mut self, node_index: u32) {
+    fn move_to_back(
+        &mut self,
+        node_index: u32,
+    ) {
         //self.check_list();
         let node = self.lru_list[node_index as usize];
 
@@ -125,7 +140,6 @@ impl<K: Clone + PartialEq + Eq + Hash, V> LruCache<K, V> {
             assert_ne!(node.next, u32::MAX);
             self.lru_list_head = node.next;
         }
-
 
         // splice this node out of the list.
         if node.previous != u32::MAX {
@@ -144,34 +158,54 @@ impl<K: Clone + PartialEq + Eq + Hash, V> LruCache<K, V> {
         //self.check_list();
     }
 
-    pub fn get(&mut self, k: &K, mark_as_recently_used: bool) -> Option<&V> {
+    pub fn get(
+        &mut self,
+        k: &K,
+        mark_as_recently_used: bool,
+    ) -> Option<&V> {
         if let Some(&node_index) = self.lookup.get(k) {
             if mark_as_recently_used {
                 // move node to head
                 self.move_to_front(node_index);
             }
             // return the value
-            self.lru_list_pairs[node_index as usize].as_ref().map(|(_, v)| v)
+            self.lru_list_pairs[node_index as usize]
+                .as_ref()
+                .map(|(_, v)| v)
         } else {
             None
         }
     }
 
-    pub fn get_mut(&mut self, k: &K, mark_as_recently_used: bool) -> Option<&mut V> {
+    pub fn get_mut(
+        &mut self,
+        k: &K,
+        mark_as_recently_used: bool,
+    ) -> Option<&mut V> {
         if let Some(&node_index) = self.lookup.get(k) {
             if mark_as_recently_used {
                 // move node to head
                 self.move_to_front(node_index);
             }
             // return the value
-            self.lru_list_pairs[node_index as usize].as_mut().map(|(_, v)| v)
+            self.lru_list_pairs[node_index as usize]
+                .as_mut()
+                .map(|(_, v)| v)
         } else {
             None
         }
     }
 
-    pub fn insert(&mut self, k: K, v: V) {
-        if let Some(key_to_remove) = self.lru_list_pairs[self.lru_list_tail as usize].as_ref().map(|(k, _)| k).cloned() {
+    pub fn insert(
+        &mut self,
+        k: K,
+        v: V,
+    ) {
+        if let Some(key_to_remove) = self.lru_list_pairs[self.lru_list_tail as usize]
+            .as_ref()
+            .map(|(k, _)| k)
+            .cloned()
+        {
             self.remove(&key_to_remove);
         }
 
@@ -186,12 +220,17 @@ impl<K: Clone + PartialEq + Eq + Hash, V> LruCache<K, V> {
         self.lru_list_pairs[node_index as usize] = Some((k, v));
     }
 
-    pub fn remove(&mut self, k: &K) -> Option<V> {
+    pub fn remove(
+        &mut self,
+        k: &K,
+    ) -> Option<V> {
         if let Some(&node_index) = self.lookup.get(k) {
             // move node to tail
             self.move_to_back(node_index);
             // return the value
-            let v = self.lru_list_pairs[node_index as usize].take().map(|(_, v)| v);
+            let v = self.lru_list_pairs[node_index as usize]
+                .take()
+                .map(|(_, v)| v);
             self.lookup.remove(k);
             v
         } else {

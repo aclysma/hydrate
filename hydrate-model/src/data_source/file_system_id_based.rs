@@ -1,11 +1,11 @@
 use crate::edit_context::EditContext;
 use crate::{AssetId, AssetSourceId, DataSource, PathNodeRoot, PendingFileOperations};
+use hydrate_base::hashing::HashMap;
 use hydrate_base::uuid_path::{path_to_uuid, uuid_to_path};
 use hydrate_data::{AssetLocation, DataSetAssetInfo, HashObjectMode};
+use hydrate_pipeline::{HydrateProjectConfiguration, ImportJobToQueue};
 use hydrate_schema::SchemaNamedType;
 use std::path::{Path, PathBuf};
-use hydrate_base::hashing::HashMap;
-use hydrate_pipeline::{HydrateProjectConfiguration, ImportJobToQueue};
 
 struct FileMetadata {
     // size_in_bytes: u64,
@@ -27,7 +27,7 @@ impl FileMetadata {
 
 struct AssetDiskState {
     object_hash: u64,
-    file_metadata: FileMetadata
+    file_metadata: FileMetadata,
 }
 
 pub struct FileSystemIdBasedDataSource {
@@ -153,22 +153,23 @@ impl DataSource for FileSystemIdBasedDataSource {
         //
         // Recreate all assets from storage
         //
-        let walker = globwalk::GlobWalkerBuilder::from_patterns(&self.file_system_root_path, &["**.af"])
-            .file_type(globwalk::FileType::FILE)
-            .build()
-            .unwrap();
+        let walker =
+            globwalk::GlobWalkerBuilder::from_patterns(&self.file_system_root_path, &["**.af"])
+                .file_type(globwalk::FileType::FILE)
+                .build()
+                .unwrap();
 
         for file in walker {
             if let Ok(file) = file {
                 let file = dunce::canonicalize(&file.path()).unwrap();
 
-                let asset_file_metadata =
-                    FileMetadata::new(&std::fs::metadata(&file).unwrap());
+                let asset_file_metadata = FileMetadata::new(&std::fs::metadata(&file).unwrap());
 
                 //println!("asset file {:?}", file);
                 let file_uuid = path_to_uuid(&self.file_system_root_path, &file).unwrap();
                 let contents = std::fs::read_to_string(&file).unwrap();
-                let default_asset_location = AssetLocation::new(AssetId(*self.asset_source_id.uuid()));
+                let default_asset_location =
+                    AssetLocation::new(AssetId(*self.asset_source_id.uuid()));
 
                 let schema_set = edit_context.schema_set().clone();
                 crate::json_storage::AssetJson::load_asset_from_string(
@@ -178,16 +179,22 @@ impl DataSource for FileSystemIdBasedDataSource {
                     default_asset_location,
                     None,
                     &contents,
-                ).unwrap();
+                )
+                .unwrap();
                 let asset_id = AssetId::from_uuid(file_uuid);
 
-                let object_hash = edit_context.data_set().hash_object(asset_id, HashObjectMode::FullObjectWithLocationId).unwrap();
+                let object_hash = edit_context
+                    .data_set()
+                    .hash_object(asset_id, HashObjectMode::FullObjectWithLocationId)
+                    .unwrap();
 
-                let old = self.assets_disk_state.insert(asset_id, AssetDiskState {
-                    object_hash: object_hash,
-                    file_metadata: asset_file_metadata,
-
-                });
+                let old = self.assets_disk_state.insert(
+                    asset_id,
+                    AssetDiskState {
+                        object_hash: object_hash,
+                        file_metadata: asset_file_metadata,
+                    },
+                );
                 assert!(old.is_none());
             }
         }
@@ -213,7 +220,10 @@ impl DataSource for FileSystemIdBasedDataSource {
                         pending_writes.push(asset_id);
                     }
                     Some(asset_disk_state) => {
-                        let object_hash = edit_context.data_set().hash_object(asset_id, HashObjectMode::FullObjectWithLocationId).unwrap();
+                        let object_hash = edit_context
+                            .data_set()
+                            .hash_object(asset_id, HashObjectMode::FullObjectWithLocationId)
+                            .unwrap();
                         if asset_disk_state.object_hash != object_hash {
                             // The object has been modified and no longer matches disk state
                             pending_writes.push(asset_id);
@@ -225,7 +235,9 @@ impl DataSource for FileSystemIdBasedDataSource {
 
         // Is there anything that's been deleted?
         for (&asset_id, _) in &self.assets_disk_state {
-            if !edit_context.has_asset(asset_id) || !self.is_asset_owned_by_this_data_source(edit_context, asset_id) {
+            if !edit_context.has_asset(asset_id)
+                || !self.is_asset_owned_by_this_data_source(edit_context, asset_id)
+            {
                 // There is an asset that no longer exists, but the file is still on disk
                 pending_deletes.push(asset_id);
             }
@@ -246,7 +258,7 @@ impl DataSource for FileSystemIdBasedDataSource {
             // source, serialize with a null location
             let asset_location = if asset_info.asset_location().is_null()
                 || asset_info.asset_location().path_node_id().as_uuid()
-                == *self.asset_source_id.uuid()
+                    == *self.asset_source_id.uuid()
             {
                 None
             } else {
@@ -268,14 +280,19 @@ impl DataSource for FileSystemIdBasedDataSource {
 
             std::fs::write(&file_path, data).unwrap();
 
-            let object_hash = edit_context.data_set().hash_object(asset_id, HashObjectMode::FullObjectWithLocationId).unwrap();
-            let asset_file_metadata =
-                FileMetadata::new(&std::fs::metadata(&file_path).unwrap());
+            let object_hash = edit_context
+                .data_set()
+                .hash_object(asset_id, HashObjectMode::FullObjectWithLocationId)
+                .unwrap();
+            let asset_file_metadata = FileMetadata::new(&std::fs::metadata(&file_path).unwrap());
 
-            self.assets_disk_state.insert(asset_id, AssetDiskState {
-                object_hash,
-                file_metadata: asset_file_metadata
-            });
+            self.assets_disk_state.insert(
+                asset_id,
+                AssetDiskState {
+                    object_hash,
+                    file_metadata: asset_file_metadata,
+                },
+            );
         }
 
         //
@@ -290,7 +307,10 @@ impl DataSource for FileSystemIdBasedDataSource {
         }
     }
 
-    fn edit_context_has_unsaved_changes(&self, edit_context: &EditContext) -> bool {
+    fn edit_context_has_unsaved_changes(
+        &self,
+        edit_context: &EditContext,
+    ) -> bool {
         for &asset_id in edit_context.assets().keys() {
             if asset_id.as_uuid() == *self.asset_source_id.uuid() {
                 // ignore the root asset
@@ -304,7 +324,10 @@ impl DataSource for FileSystemIdBasedDataSource {
                         return true;
                     }
                     Some(asset_disk_state) => {
-                        let object_hash = edit_context.data_set().hash_object(asset_id, HashObjectMode::FullObjectWithLocationId).unwrap();
+                        let object_hash = edit_context
+                            .data_set()
+                            .hash_object(asset_id, HashObjectMode::FullObjectWithLocationId)
+                            .unwrap();
                         if asset_disk_state.object_hash != object_hash {
                             // The object has been modified and no longer matches disk state
                             return true;
@@ -316,7 +339,9 @@ impl DataSource for FileSystemIdBasedDataSource {
 
         // Is there anything that's been deleted?
         for (&asset_id, _) in &self.assets_disk_state {
-            if !edit_context.has_asset(asset_id) || !self.is_asset_owned_by_this_data_source(edit_context, asset_id) {
+            if !edit_context.has_asset(asset_id)
+                || !self.is_asset_owned_by_this_data_source(edit_context, asset_id)
+            {
                 // There is an asset that no longer exists, but the file is still on disk
                 return true;
             }
@@ -325,7 +350,11 @@ impl DataSource for FileSystemIdBasedDataSource {
         return false;
     }
 
-    fn append_pending_file_operations(&self, edit_context: &EditContext, pending_file_operations: &mut PendingFileOperations) {
+    fn append_pending_file_operations(
+        &self,
+        edit_context: &EditContext,
+        pending_file_operations: &mut PendingFileOperations,
+    ) {
         for &asset_id in edit_context.assets().keys() {
             if asset_id.as_uuid() == *self.asset_source_id.uuid() {
                 // ignore the root asset
@@ -337,14 +366,21 @@ impl DataSource for FileSystemIdBasedDataSource {
                     None => {
                         // There is a newly created asset that has never been saved
                         let file_path = self.path_for_asset(asset_id);
-                        pending_file_operations.create_operations.push((asset_id, file_path));
+                        pending_file_operations
+                            .create_operations
+                            .push((asset_id, file_path));
                     }
                     Some(asset_disk_state) => {
-                        let object_hash = edit_context.data_set().hash_object(asset_id, HashObjectMode::FullObjectWithLocationId).unwrap();
+                        let object_hash = edit_context
+                            .data_set()
+                            .hash_object(asset_id, HashObjectMode::FullObjectWithLocationId)
+                            .unwrap();
                         if asset_disk_state.object_hash != object_hash {
                             // The object has been modified and no longer matches disk state
                             let file_path = self.path_for_asset(asset_id);
-                            pending_file_operations.modify_operations.push((asset_id, file_path));
+                            pending_file_operations
+                                .modify_operations
+                                .push((asset_id, file_path));
                         }
                     }
                 }
@@ -353,10 +389,14 @@ impl DataSource for FileSystemIdBasedDataSource {
 
         // Is there anything that's been deleted?
         for (&asset_id, _) in &self.assets_disk_state {
-            if !edit_context.has_asset(asset_id) || !self.is_asset_owned_by_this_data_source(edit_context, asset_id) {
+            if !edit_context.has_asset(asset_id)
+                || !self.is_asset_owned_by_this_data_source(edit_context, asset_id)
+            {
                 // There is an asset that no longer exists, but the file is still on disk
                 let file_path = self.path_for_asset(asset_id);
-                pending_file_operations.delete_operations.push((asset_id, file_path));
+                pending_file_operations
+                    .delete_operations
+                    .push((asset_id, file_path));
             }
         }
     }

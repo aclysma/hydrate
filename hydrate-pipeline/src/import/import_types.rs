@@ -1,5 +1,11 @@
-use crate::{BuildLogEvent, HydrateProjectConfiguration, ImporterRegistry, ImportLogEvent, LogEventLevel, PipelineResult};
-use hydrate_data::{AssetId, CanonicalPathReference, HashMap, ImportableName, ImporterId, PathReference, PathReferenceHash, Record, SchemaRecord, SchemaSet, SingleObject};
+use crate::{
+    BuildLogEvent, HydrateProjectConfiguration, ImportLogEvent, ImporterRegistry, LogEventLevel,
+    PipelineResult,
+};
+use hydrate_data::{
+    AssetId, CanonicalPathReference, HashMap, ImportableName, ImporterId, PathReference,
+    PathReferenceHash, Record, SchemaRecord, SchemaSet, SingleObject,
+};
 use std::cell::RefCell;
 use std::panic::RefUnwindSafe;
 use std::path::{Path, PathBuf};
@@ -77,23 +83,29 @@ impl<'a> ScanContext<'a> {
         }
     }
 
-    pub fn warn<T: Into<String>>(&self, message: T) {
+    pub fn warn<T: Into<String>>(
+        &self,
+        message: T,
+    ) {
         let mut log_events = self.log_events.borrow_mut();
         log_events.push(ImportLogEvent {
             path: self.path.to_path_buf(),
             asset_id: None,
             level: LogEventLevel::Warning,
-            message: message.into()
+            message: message.into(),
         });
     }
 
-    pub fn error<T: Into<String>>(&self, message: T) {
+    pub fn error<T: Into<String>>(
+        &self,
+        message: T,
+    ) {
         let mut log_events = self.log_events.borrow_mut();
         log_events.push(ImportLogEvent {
             path: self.path.to_path_buf(),
             asset_id: None,
             level: LogEventLevel::Error,
-            message: message.into()
+            message: message.into(),
         });
     }
 
@@ -148,22 +160,28 @@ impl<'a> ScanContext<'a> {
         let path_reference: PathReference = path_reference.into();
         let canonical_path_reference = path_reference.clone().simplify(self.project_config);
 
-        let mut scanned_importables = self.scanned_importables
-            .borrow_mut();
+        let mut scanned_importables = self.scanned_importables.borrow_mut();
 
         let importable = scanned_importables
             .get_mut(&name)
             .ok_or_else(|| format!("Trying to add file reference for importable named '{:?}'. The importable must be added before adding path references", name))?;
 
-        let old_importer_id = importable.referenced_source_file_info.insert(canonical_path_reference.clone(), importer_id);
+        let old_importer_id = importable
+            .referenced_source_file_info
+            .insert(canonical_path_reference.clone(), importer_id);
         if let Some(old_importer_id) = old_importer_id {
             if old_importer_id != importer_id {
-                Err(format!("The referenced file {:?} has been requested with different importers", canonical_path_reference.to_string()))?;
+                Err(format!(
+                    "The referenced file {:?} has been requested with different importers",
+                    canonical_path_reference.to_string()
+                ))?;
             }
         }
 
         let path_reference_hash = path_reference.path_reference_hash();
-        importable.referenced_source_files.insert(path_reference_hash, canonical_path_reference);
+        importable
+            .referenced_source_files
+            .insert(path_reference_hash, canonical_path_reference);
 
         Ok(())
     }
@@ -277,23 +295,29 @@ impl<'a> ImportContext<'a> {
         }
     }
 
-    pub fn warn<T: Into<String>>(&self, message: T) {
+    pub fn warn<T: Into<String>>(
+        &self,
+        message: T,
+    ) {
         let mut log_events = self.log_events.borrow_mut();
         log_events.push(ImportLogEvent {
             path: self.path.to_path_buf(),
             asset_id: None,
             level: LogEventLevel::Warning,
-            message: message.into()
+            message: message.into(),
         });
     }
 
-    pub fn error<T: Into<String>>(&self, message: T) {
+    pub fn error<T: Into<String>>(
+        &self,
+        message: T,
+    ) {
         let mut log_events = self.log_events.borrow_mut();
         log_events.push(ImportLogEvent {
             path: self.path.to_path_buf(),
             asset_id: None,
             level: LogEventLevel::Error,
-            message: message.into()
+            message: message.into(),
         });
     }
 

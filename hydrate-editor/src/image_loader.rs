@@ -1,14 +1,19 @@
-use std::path::PathBuf;
-use std::sync::{Arc, Mutex};
 use eframe::epaint::Color32;
-use egui::{ColorImage, Context, SizeHint, TextureHandle, TextureOptions};
+use egui::load::{
+    ImageLoadResult, ImageLoader, ImagePoll, LoadError, SizedTexture, TextureLoadResult,
+    TextureLoader, TexturePoll,
+};
 use egui::ImageData::Color;
-use egui::load::{ImageLoader, ImageLoadResult, ImagePoll, LoadError, SizedTexture, TextureLoader, TextureLoadResult, TexturePoll};
-use uuid::Uuid;
-use hydrate_model::{AssetId, HashMap, SchemaFingerprint, SchemaSet};
-use hydrate_model::pipeline::{AssetEngine, ThumbnailImage, ThumbnailProviderRegistry, ThumbnailSystemState};
+use egui::{ColorImage, Context, SizeHint, TextureHandle, TextureOptions};
 use hydrate_base::lru_cache::LruCache;
 use hydrate_model::edit_context::EditContext;
+use hydrate_model::pipeline::{
+    AssetEngine, ThumbnailImage, ThumbnailProviderRegistry, ThumbnailSystemState,
+};
+use hydrate_model::{AssetId, HashMap, SchemaFingerprint, SchemaSet};
+use std::path::PathBuf;
+use std::sync::{Arc, Mutex};
+use uuid::Uuid;
 
 const THUMBNAIL_ASSET_URI_PREFIX: &str = "thumbnail-asset://";
 const THUMBNAIL_ASSET_TYPE_URI_PREFIX: &str = "thumbnail-asset-type://";
@@ -20,7 +25,7 @@ const THUMBNAIL_CACHE_SIZE: u32 = 64;
 #[derive(PartialEq)]
 enum LoadState {
     Requesting,
-    Loaded(Arc<ColorImage>)
+    Loaded(Arc<ColorImage>),
 }
 
 pub struct ThumbnailImageLoader {
@@ -38,19 +43,41 @@ impl ThumbnailImageLoader {
     pub fn new(
         schema_set: &SchemaSet,
         thumbnail_provider_registry: &ThumbnailProviderRegistry,
-        thumbnail_system_state: &ThumbnailSystemState
+        thumbnail_system_state: &ThumbnailSystemState,
     ) -> Self {
         let dummy_image = ColorImage::example();
         let mut loaded_images = HashMap::<PathBuf, Arc<ColorImage>>::default();
         let mut default_thumbnails = HashMap::default();
 
-        let no_reference_image = image::load_from_memory_with_format(include_bytes!("../thumbnails/no-reference.png"), image::ImageFormat::Png).unwrap().into_rgba8();
-        let no_reference_image_size = [no_reference_image.width() as usize, no_reference_image.height() as usize];
-        let no_reference = ColorImage::from_rgba_unmultiplied(no_reference_image_size, no_reference_image.as_raw());
+        let no_reference_image = image::load_from_memory_with_format(
+            include_bytes!("../thumbnails/no-reference.png"),
+            image::ImageFormat::Png,
+        )
+        .unwrap()
+        .into_rgba8();
+        let no_reference_image_size = [
+            no_reference_image.width() as usize,
+            no_reference_image.height() as usize,
+        ];
+        let no_reference = ColorImage::from_rgba_unmultiplied(
+            no_reference_image_size,
+            no_reference_image.as_raw(),
+        );
 
-        let no_thumbnail_image = image::load_from_memory_with_format(include_bytes!("../thumbnails/no-thumbnail.png"), image::ImageFormat::Png).unwrap().into_rgba8();
-        let no_thumbnail_image_size = [no_thumbnail_image.width() as usize, no_thumbnail_image.height() as usize];
-        let no_thumbnail = ColorImage::from_rgba_unmultiplied(no_thumbnail_image_size, no_thumbnail_image.as_raw());
+        let no_thumbnail_image = image::load_from_memory_with_format(
+            include_bytes!("../thumbnails/no-thumbnail.png"),
+            image::ImageFormat::Png,
+        )
+        .unwrap()
+        .into_rgba8();
+        let no_thumbnail_image_size = [
+            no_thumbnail_image.width() as usize,
+            no_thumbnail_image.height() as usize,
+        ];
+        let no_thumbnail = ColorImage::from_rgba_unmultiplied(
+            no_thumbnail_image_size,
+            no_thumbnail_image.as_raw(),
+        );
 
         for (k, v) in schema_set.schemas() {
             if let Some(record) = v.try_as_record() {
@@ -60,7 +87,10 @@ impl ThumbnailImageLoader {
                     } else {
                         println!("open path {:?}", path);
                         let image = image::open(path).unwrap().into_rgba8();
-                        let image = Arc::new(ColorImage::from_rgba_unmultiplied([image.width() as usize, image.height() as usize], image.as_raw()));
+                        let image = Arc::new(ColorImage::from_rgba_unmultiplied(
+                            [image.width() as usize, image.height() as usize],
+                            image.as_raw(),
+                        ));
                         loaded_images.insert(path.clone(), image.clone());
                         default_thumbnails.insert(*k, image);
                     }
@@ -76,34 +106,54 @@ impl ThumbnailImageLoader {
             thumbnail_provider_registry: thumbnail_provider_registry.clone(),
             default_thumbnails,
             special_thumbnail_no_thumbnail: Arc::new(no_thumbnail),
-            special_thumbnail_no_reference: Arc::new(no_reference)
+            special_thumbnail_no_reference: Arc::new(no_reference),
         }
     }
 
-    pub fn thumbnail_uri_for_asset_with_fingerprint(&self, asset_id: AssetId, schema_fingerprint: SchemaFingerprint) -> String {
+    pub fn thumbnail_uri_for_asset_with_fingerprint(
+        &self,
+        asset_id: AssetId,
+        schema_fingerprint: SchemaFingerprint,
+    ) -> String {
         if asset_id.is_null() {
             THUMBNAIL_URI_NO_REFERENCE.to_string()
-        } else if self.thumbnail_provider_registry.has_provider_for_asset(schema_fingerprint) {
+        } else if self
+            .thumbnail_provider_registry
+            .has_provider_for_asset(schema_fingerprint)
+        {
             format!("thumbnail-asset://{}", asset_id.as_uuid().to_string())
         } else if self.default_thumbnails.contains_key(&schema_fingerprint) {
-            format!("thumbnail-asset-type://{}", schema_fingerprint.as_uuid().to_string())
+            format!(
+                "thumbnail-asset-type://{}",
+                schema_fingerprint.as_uuid().to_string()
+            )
         } else {
             THUMBNAIL_URI_NO_THUMBNAIL.to_string()
         }
     }
 
-    pub fn thumbnail_uri_for_asset(&self, edit_context: &EditContext, asset_id: AssetId) -> String {
+    pub fn thumbnail_uri_for_asset(
+        &self,
+        edit_context: &EditContext,
+        asset_id: AssetId,
+    ) -> String {
         if asset_id.is_null() {
-            return THUMBNAIL_URI_NO_REFERENCE.to_string()
+            return THUMBNAIL_URI_NO_REFERENCE.to_string();
         };
 
         let schema_record = edit_context.asset_schema(asset_id);
         if let Some(schema_record) = schema_record {
             let schema_fingerprint = schema_record.fingerprint();
-            if self.thumbnail_provider_registry.has_provider_for_asset(schema_fingerprint) {
-                return format!("thumbnail-asset://{}", asset_id.as_uuid().to_string())
+            if self
+                .thumbnail_provider_registry
+                .has_provider_for_asset(schema_fingerprint)
+            {
+                return format!("thumbnail-asset://{}", asset_id.as_uuid().to_string());
             } else if self.default_thumbnails.contains_key(&schema_fingerprint) {
-                return format!("thumbnail-asset-type://{}", schema_fingerprint.as_uuid().to_string())
+                return format!(
+                    "thumbnail-asset-type://{}",
+                    schema_fingerprint.as_uuid().to_string()
+                );
             }
         }
 
@@ -116,24 +166,31 @@ impl ImageLoader for ThumbnailImageLoader {
         "hydrate_editor::AssetThumbnailImageLoader"
     }
 
-    fn load(&self, ctx: &Context, uri: &str, size_hint: SizeHint) -> ImageLoadResult {
+    fn load(
+        &self,
+        ctx: &Context,
+        uri: &str,
+        size_hint: SizeHint,
+    ) -> ImageLoadResult {
         if uri == THUMBNAIL_URI_NO_THUMBNAIL {
             Ok(ImagePoll::Ready {
-                image: self.special_thumbnail_no_thumbnail.clone()
+                image: self.special_thumbnail_no_thumbnail.clone(),
             })
         } else if uri == THUMBNAIL_URI_NO_REFERENCE {
             Ok(ImagePoll::Ready {
-                image: self.special_thumbnail_no_reference.clone()
+                image: self.special_thumbnail_no_reference.clone(),
             })
         } else if uri.starts_with(THUMBNAIL_ASSET_TYPE_URI_PREFIX) {
-            let schema_fingerprint = SchemaFingerprint::from_uuid(Uuid::parse_str(&uri[THUMBNAIL_ASSET_TYPE_URI_PREFIX.len()..]).unwrap());
+            let schema_fingerprint = SchemaFingerprint::from_uuid(
+                Uuid::parse_str(&uri[THUMBNAIL_ASSET_TYPE_URI_PREFIX.len()..]).unwrap(),
+            );
             if let Some(default_thumbnail) = self.default_thumbnails.get(&schema_fingerprint) {
                 Ok(ImagePoll::Ready {
-                    image: default_thumbnail.clone()
+                    image: default_thumbnail.clone(),
                 })
             } else {
                 Ok(ImagePoll::Ready {
-                    image: self.dummy_image.clone()
+                    image: self.dummy_image.clone(),
                 })
             }
         } else if uri.starts_with(THUMBNAIL_ASSET_URI_PREFIX) {
@@ -141,28 +198,28 @@ impl ImageLoader for ThumbnailImageLoader {
             let mut cache = self.thumbnail_cache.lock().unwrap();
             if let Some(image) = cache.get(&asset_id, true) {
                 Ok(ImagePoll::Ready {
-                    image: image.clone()
+                    image: image.clone(),
                 })
             } else if let Some(cached_entry) = self.thumbnail_system_state.request(asset_id) {
                 let mut image = Arc::new(ColorImage::from_rgba_unmultiplied(
-                    [cached_entry.width as usize, cached_entry.height as usize], &cached_entry.pixel_data
+                    [cached_entry.width as usize, cached_entry.height as usize],
+                    &cached_entry.pixel_data,
                 ));
                 cache.insert(asset_id, image.clone());
 
-                Ok(ImagePoll::Ready {
-                    image
-                })
+                Ok(ImagePoll::Ready { image })
             } else {
-                Ok(ImagePoll::Pending {
-                    size: None,
-                })
+                Ok(ImagePoll::Pending { size: None })
             }
         } else {
             Err(LoadError::NotSupported)
         }
     }
 
-    fn forget(&self, uri: &str) {
+    fn forget(
+        &self,
+        uri: &str,
+    ) {
         if uri.starts_with(THUMBNAIL_ASSET_URI_PREFIX) {
             let asset_id = AssetId::parse_str(&uri[THUMBNAIL_ASSET_URI_PREFIX.len()..]).unwrap();
             self.thumbnail_system_state.forget(asset_id);
@@ -183,9 +240,6 @@ impl ImageLoader for ThumbnailImageLoader {
     }
 }
 
-
-
-
 pub struct AssetThumbnailTextureLoader {
     cache: Mutex<LruCache<(String, TextureOptions), TextureHandle>>,
 }
@@ -193,7 +247,7 @@ pub struct AssetThumbnailTextureLoader {
 impl AssetThumbnailTextureLoader {
     pub fn new() -> Self {
         AssetThumbnailTextureLoader {
-            cache: Mutex::new(LruCache::new(THUMBNAIL_CACHE_SIZE))
+            cache: Mutex::new(LruCache::new(THUMBNAIL_CACHE_SIZE)),
         }
     }
 }
@@ -227,7 +281,10 @@ impl TextureLoader for AssetThumbnailTextureLoader {
         }
     }
 
-    fn forget(&self, uri: &str) {
+    fn forget(
+        &self,
+        uri: &str,
+    ) {
         let mut pending_remove = Vec::default();
 
         let mut cache = self.cache.lock().unwrap();
@@ -247,7 +304,11 @@ impl TextureLoader for AssetThumbnailTextureLoader {
         *cache = LruCache::new(THUMBNAIL_CACHE_SIZE)
     }
 
-    fn end_frame(&self, _: usize) {}
+    fn end_frame(
+        &self,
+        _: usize,
+    ) {
+    }
 
     fn byte_size(&self) -> usize {
         self.cache

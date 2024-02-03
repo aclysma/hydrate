@@ -1,20 +1,25 @@
-use std::collections::VecDeque;
+use crossbeam_channel::Receiver;
 use hydrate_base::hashing::HashMap;
 use hydrate_base::AssetId;
+use std::collections::VecDeque;
 use std::hash::{Hash, Hasher};
 use std::io::BufReader;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
-use crossbeam_channel::Receiver;
 
-use crate::{DynEditorModel, HydrateProjectConfiguration, BuildLogEvent, PipelineResult, ImportLogEvent, ImportJobToQueue, JobId, ImportLogData, BuildLogData, LogEventLevel};
+use crate::build::JobRequestor;
+use crate::import::import_storage::ImportDataMetadata;
+use crate::import::import_thread_pool::{
+    ImportThreadOutcome, ImportThreadRequest, ImportThreadRequestImport, ImportWorkerThreadPool,
+};
+use crate::import::import_util::RequestedImportable;
+use crate::{
+    BuildLogData, BuildLogEvent, DynEditorModel, HydrateProjectConfiguration, ImportJobToQueue,
+    ImportLogData, ImportLogEvent, JobId, LogEventLevel, PipelineResult,
+};
 use hydrate_base::uuid_path::{path_to_uuid, uuid_to_path};
 use hydrate_data::ImportableName;
 use hydrate_data::{ImporterId, SchemaSet, SingleObject};
-use crate::build::JobRequestor;
-use crate::import::import_storage::ImportDataMetadata;
-use crate::import::import_thread_pool::{ImportThreadOutcome, ImportThreadRequest, ImportThreadRequestImport, ImportWorkerThreadPool};
-use crate::import::import_util::RequestedImportable;
 
 use super::import_types::*;
 use super::importer_registry::*;
@@ -102,7 +107,7 @@ impl ImportJob {
 
 pub struct ImportStatusImporting {
     pub total_job_count: usize,
-    pub completed_job_count: usize
+    pub completed_job_count: usize,
 }
 
 pub enum ImportStatus {
@@ -128,7 +133,7 @@ pub struct ImportJobs {
     import_jobs: HashMap<AssetId, ImportJob>,
     import_operations: VecDeque<ImportJobToQueue>,
     current_import_task: Option<ImportTask>,
-    previous_log_events: Option<Vec<ImportLogEvent>>
+    previous_log_events: Option<Vec<ImportLogEvent>>,
 }
 
 impl ImportJobs {
@@ -217,7 +222,10 @@ impl ImportJobs {
         importer_registry: &ImporterRegistry,
         editor_model: &mut dyn DynEditorModel,
     ) -> PipelineResult<ImportTask> {
-        log::info!("Starting import task for {} source files", import_job_to_queue.import_job_source_files.len());
+        log::info!(
+            "Starting import task for {} source files",
+            import_job_to_queue.import_job_source_files.len()
+        );
 
         //
         // Take the import operations
@@ -231,13 +239,16 @@ impl ImportJobs {
         // }
         // let mut import_operations = queued_import_job.import_job_source_files;
 
-        let import_operations: Vec<_> = import_job_to_queue.import_job_source_files.into_iter().map(|x| ImportOp {
+        let import_operations: Vec<_> = import_job_to_queue
+            .import_job_source_files
+            .into_iter()
+            .map(|x| ImportOp {
                 requested_importables: x.requested_importables,
                 importer_id: x.importer_id,
                 path: x.source_file_path,
                 import_type: x.import_type,
-            }).collect();
-
+            })
+            .collect();
 
         //for x in import_operations.sour
 
@@ -281,7 +292,8 @@ impl ImportJobs {
         for import_op in import_operations {
             let mut importable_assets = HashMap::<ImportableName, ImportableAsset>::default();
             for (name, requested_importable) in &import_op.requested_importables {
-                let canonical_path_references = requested_importable.canonical_path_references.clone();
+                let canonical_path_references =
+                    requested_importable.canonical_path_references.clone();
                 let path_references = requested_importable.path_references.clone();
 
                 // We could merge in any paths that were already configured in the asset DB. However
@@ -340,7 +352,8 @@ impl ImportJobs {
             if !current_import_task.thread_pool.is_idle() {
                 return Ok(ImportStatus::Importing(ImportStatusImporting {
                     total_job_count: current_import_task.job_count,
-                    completed_job_count: current_import_task.job_count - current_import_task.thread_pool.active_request_count()
+                    completed_job_count: current_import_task.job_count
+                        - current_import_task.thread_pool.active_request_count(),
                 }));
             }
         }
@@ -356,40 +369,41 @@ impl ImportJobs {
             //
             for outcome in finished_import_task.result_rx.try_iter() {
                 match outcome {
-                    ImportThreadOutcome::Complete(msg) => {
-                        match msg.result {
-                            Ok(result) => {
-                                for (name, imported_asset) in result {
-                                    if let Some(requested_importable) =
-                                        msg.request.import_op.requested_importables.get(&name)
-                                    {
-                                        editor_model.handle_import_complete(
-                                            requested_importable.asset_id,
-                                            requested_importable.asset_name.clone(),
-                                            requested_importable.asset_location.clone(),
-                                            &imported_asset.default_asset,
-                                            requested_importable.replace_with_default_asset,
-                                            imported_asset.import_info,
-                                            &requested_importable.canonical_path_references,
-                                            &requested_importable.path_references,
-                                        )?;
-                                    }
+                    ImportThreadOutcome::Complete(msg) => match msg.result {
+                        Ok(result) => {
+                            for (name, imported_asset) in result {
+                                if let Some(requested_importable) =
+                                    msg.request.import_op.requested_importables.get(&name)
+                                {
+                                    editor_model.handle_import_complete(
+                                        requested_importable.asset_id,
+                                        requested_importable.asset_name.clone(),
+                                        requested_importable.asset_location.clone(),
+                                        &imported_asset.default_asset,
+                                        requested_importable.replace_with_default_asset,
+                                        imported_asset.import_info,
+                                        &requested_importable.canonical_path_references,
+                                        &requested_importable.path_references,
+                                    )?;
                                 }
-                            },
-                            Err(e) => {
-                                finished_import_task.log_data.log_events.push(ImportLogEvent {
-                                    path: msg.request.import_op.path.clone(),
-                                    asset_id: None,
-                                    level: LogEventLevel::FatalError,
-                                    message: format!("Importer returned error: {}", e.to_string())
-                                })
                             }
                         }
-                    }
+                        Err(e) => finished_import_task
+                            .log_data
+                            .log_events
+                            .push(ImportLogEvent {
+                                path: msg.request.import_op.path.clone(),
+                                asset_id: None,
+                                level: LogEventLevel::FatalError,
+                                message: format!("Importer returned error: {}", e.to_string()),
+                            }),
+                    },
                 }
             }
 
-            return Ok(ImportStatus::Completed(Arc::new(finished_import_task.log_data)));
+            return Ok(ImportStatus::Completed(Arc::new(
+                finished_import_task.log_data,
+            )));
         }
 
         //
@@ -403,10 +417,11 @@ impl ImportJobs {
         //
         // Start a new import task with all pending imports
         //
-        let import_task = self.start_import_task(import_job_to_queue, importer_registry, editor_model)?;
+        let import_task =
+            self.start_import_task(import_job_to_queue, importer_registry, editor_model)?;
         let status = ImportStatus::Importing(ImportStatusImporting {
             total_job_count: import_task.job_count,
-            completed_job_count: 0
+            completed_job_count: 0,
         });
 
         assert!(self.current_import_task.is_none());

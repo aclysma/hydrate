@@ -1,7 +1,10 @@
-use std::path::{Path, PathBuf};
 use hydrate_data::json_storage::RestoreAssetFromStorageImpl;
-use hydrate_data::{CanonicalPathReference, OrderedSet, PathReference, PathReferenceNamespaceResolver, PropertiesBundle, SingleObject};
+use hydrate_data::{
+    CanonicalPathReference, OrderedSet, PathReference, PathReferenceNamespaceResolver,
+    PropertiesBundle, SingleObject,
+};
 use hydrate_pipeline::{DynEditContext, HydrateProjectConfiguration};
+use std::path::{Path, PathBuf};
 use uuid::Uuid;
 
 use crate::editor::undo::{UndoContext, UndoStack};
@@ -46,11 +49,17 @@ pub struct EditContext {
 }
 
 impl PathReferenceNamespaceResolver for EditContext {
-    fn namespace_root(&self, namespace: &str) -> Option<PathBuf> {
+    fn namespace_root(
+        &self,
+        namespace: &str,
+    ) -> Option<PathBuf> {
         self.project_config.namespace_root(namespace)
     }
 
-    fn simplify_path(&self, path: &Path) -> Option<(String, PathBuf)> {
+    fn simplify_path(
+        &self,
+        path: &Path,
+    ) -> Option<(String, PathBuf)> {
         self.project_config.simplify_path(path)
     }
 }
@@ -167,21 +176,14 @@ impl EditContext {
         name: &'static str,
         f: F,
     ) {
-        self.undo_context.begin_context(
-            &self.data_set,
-            name,
-        );
+        self.undo_context.begin_context(&self.data_set, name);
         let end_context_behavior = (f)(self);
-        self.undo_context.end_context(
-            &self.data_set,
-            end_context_behavior,
-        );
+        self.undo_context
+            .end_context(&self.data_set, end_context_behavior);
     }
 
     pub fn commit_pending_undo_context(&mut self) {
-        self.undo_context.commit_context(
-            &mut self.data_set,
-        );
+        self.undo_context.commit_context(&mut self.data_set);
     }
 
     pub fn cancel_pending_undo_context(&mut self) -> DataSetResult<()> {
@@ -476,7 +478,7 @@ impl EditContext {
     pub fn resolve_path_reference<P: Into<PathReference>>(
         &self,
         asset_id: AssetId,
-        path: P
+        path: P,
     ) -> DataSetResult<Option<AssetId>> {
         self.data_set.resolve_path_reference(asset_id, path)
     }
@@ -484,9 +486,10 @@ impl EditContext {
     pub fn resolve_canonical_path_reference(
         &self,
         asset_id: AssetId,
-        canonical_path: &CanonicalPathReference
+        canonical_path: &CanonicalPathReference,
     ) -> DataSetResult<Option<AssetId>> {
-        self.data_set.resolve_canonical_path_reference(asset_id, canonical_path)
+        self.data_set
+            .resolve_canonical_path_reference(asset_id, canonical_path)
     }
 
     pub fn resolve_all_path_reference_overrides(

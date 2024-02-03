@@ -1,10 +1,10 @@
+use crate::path_reference::CanonicalPathReference;
 use crate::value::PropertyValue;
 use crate::{
     AssetId, AssetLocation, AssetName, DataSet, DataSetAssetInfo, DataSetResult, HashSet,
     NullOverride, OrderedSet, SchemaSet,
 };
 use uuid::Uuid;
-use crate::path_reference::CanonicalPathReference;
 
 #[derive(Debug)]
 pub struct DynamicArrayEntryDelta {
@@ -317,7 +317,9 @@ impl AssetDiffSet {
                 }
             } else {
                 // Property was removed
-                apply_diff.remove_canonical_path_references.push(key.clone());
+                apply_diff
+                    .remove_canonical_path_references
+                    .push(key.clone());
                 revert_diff
                     .set_canonical_path_references
                     .push((key.clone(), before_value));
@@ -334,7 +336,9 @@ impl AssetDiffSet {
                 apply_diff
                     .set_canonical_path_references
                     .push((key.clone(), after_value));
-                revert_diff.remove_canonical_path_references.push(key.clone());
+                revert_diff
+                    .remove_canonical_path_references
+                    .push(key.clone());
             }
         }
 

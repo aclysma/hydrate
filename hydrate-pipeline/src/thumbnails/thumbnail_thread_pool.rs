@@ -1,17 +1,16 @@
+use super::thumbnail_types::ThumbnailApi;
+use super::ThumbnailEnumeratedDependencies;
+use super::ThumbnailInputHash;
+use crate::{PipelineResult, ThumbnailImage, ThumbnailProviderRegistry};
 use crossbeam_channel::{Receiver, Sender};
 use hydrate_base::hashing::HashMap;
 use hydrate_base::AssetId;
 use hydrate_data::{DataSet, SchemaSet};
+use hydrate_schema::SchemaFingerprint;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 use std::thread::JoinHandle;
-use hydrate_schema::SchemaFingerprint;
-use crate::{PipelineResult, ThumbnailImage, ThumbnailProviderRegistry};
-use super::ThumbnailEnumeratedDependencies;
-use super::thumbnail_types::ThumbnailApi;
-use super::ThumbnailInputHash;
-
 
 // Ask the thread to gather build data from the asset
 pub(crate) struct ThumbnailThreadPoolRequestRunJob {
@@ -61,7 +60,7 @@ fn do_build(
             request.asset_id,
             &*request.dependencies.gathered_data,
             schema_set,
-            thumbnail_api
+            thumbnail_api,
         )
     };
 
@@ -141,8 +140,7 @@ impl ThumbnailThreadPool {
         result_tx: Sender<ThumbnailThreadPoolOutcome>,
     ) -> Self {
         //let job_data_root_path = Arc::new(job_data_root_path.to_path_buf());
-        let (request_tx, request_rx) =
-            crossbeam_channel::unbounded::<ThumbnailThreadPoolRequest>();
+        let (request_tx, request_rx) = crossbeam_channel::unbounded::<ThumbnailThreadPoolRequest>();
         let active_request_count = Arc::new(AtomicUsize::new(0));
 
         let mut worker_threads = Vec::with_capacity(max_requests_in_flight);

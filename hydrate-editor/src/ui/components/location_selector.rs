@@ -1,4 +1,4 @@
-use crate::action_queue::{UIActionQueueSender};
+use crate::action_queue::UIActionQueueSender;
 use crate::ui_state::EditorModelUiState;
 use hydrate_model::{AssetLocation, EditorModel, LocationTreeNode};
 

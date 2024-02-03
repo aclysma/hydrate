@@ -4,7 +4,7 @@ use demo_plugins::{
     BlenderMaterialAssetPlugin, BlenderMeshAssetPlugin, GlslAssetPlugin, GltfAssetPlugin,
     GpuBufferAssetPlugin, GpuImageAssetPlugin, MeshAdvAssetPlugin, SimpleDataAssetPlugin,
 };
-use hydrate::pipeline::{HydrateProjectConfiguration};
+use hydrate::pipeline::HydrateProjectConfiguration;
 use std::path::PathBuf;
 
 fn main() -> eframe::Result<()> {
@@ -21,19 +21,20 @@ fn main() -> eframe::Result<()> {
     //
     // Load initial configuration
     //
-    let project_configuration = HydrateProjectConfiguration::locate_project_file(&PathBuf::from(env!("CARGO_MANIFEST_DIR"))).unwrap();
+    let project_configuration = HydrateProjectConfiguration::locate_project_file(&PathBuf::from(
+        env!("CARGO_MANIFEST_DIR"),
+    ))
+    .unwrap();
 
-    let asset_plugin_registry =
-        hydrate::pipeline::AssetPluginRegistryBuilders::new()
-            .register_plugin::<GpuBufferAssetPlugin>()
-            .register_plugin::<GpuImageAssetPlugin>()
-            .register_plugin::<BlenderMaterialAssetPlugin>()
-            .register_plugin::<BlenderMeshAssetPlugin>()
-            .register_plugin::<MeshAdvAssetPlugin>()
-            .register_plugin::<GlslAssetPlugin>()
-            .register_plugin::<GltfAssetPlugin>()
-            .register_plugin::<SimpleDataAssetPlugin>();
-
+    let asset_plugin_registry = hydrate::pipeline::AssetPluginRegistryBuilders::new()
+        .register_plugin::<GpuBufferAssetPlugin>()
+        .register_plugin::<GpuImageAssetPlugin>()
+        .register_plugin::<BlenderMaterialAssetPlugin>()
+        .register_plugin::<BlenderMeshAssetPlugin>()
+        .register_plugin::<MeshAdvAssetPlugin>()
+        .register_plugin::<GlslAssetPlugin>()
+        .register_plugin::<GltfAssetPlugin>()
+        .register_plugin::<SimpleDataAssetPlugin>();
 
     let mut editor = hydrate::editor::Editor::new(project_configuration, asset_plugin_registry);
 

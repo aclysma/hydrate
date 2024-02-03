@@ -1,6 +1,6 @@
 use hydrate_data::DataSetError;
-use std::sync::Arc;
 use hydrate_schema::DataSetErrorWithBacktrace;
+use std::sync::Arc;
 
 #[derive(Debug, Clone)]
 pub enum PipelineError {
@@ -128,22 +128,28 @@ impl<T: Into<PipelineError>> From<T> for PipelineErrorWithBacktrace {
         PipelineErrorWithBacktrace {
             error: error.into(),
             #[cfg(debug_assertions)]
-            backtrace: Arc::new(backtrace::Backtrace::new())
+            backtrace: Arc::new(backtrace::Backtrace::new()),
         }
     }
 }
 
 impl std::fmt::Debug for PipelineErrorWithBacktrace {
     #[cfg(not(debug_assertions))]
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(
+        &self,
+        f: &mut std::fmt::Formatter<'_>,
+    ) -> std::fmt::Result {
         write!(f, "{:?}", self.error)
     }
 
     #[cfg(debug_assertions)]
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(
+        &self,
+        f: &mut std::fmt::Formatter<'_>,
+    ) -> std::fmt::Result {
         let backtrace = match &self.error {
             PipelineError::DataSetErrorWithBacktrace(e) => &e.backtrace,
-            _ => &*self.backtrace
+            _ => &*self.backtrace,
         };
         write!(f, "{:?}:\n{:?}", self.error, backtrace)
     }

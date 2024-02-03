@@ -1,13 +1,16 @@
-use crate::{AssetId, HashMap, HashSet, OrderedSet, PathReference, PathReferenceHash, Schema, SchemaFingerprint, SchemaRecord, SingleObject, Value};
+use crate::path_reference::CanonicalPathReference;
+use crate::{
+    AssetId, HashMap, HashSet, OrderedSet, PathReference, PathReferenceHash, Schema,
+    SchemaFingerprint, SchemaRecord, SingleObject, Value,
+};
 pub use crate::{DataSetError, DataSetResult};
 use crate::{NullOverride, SchemaSet};
+use siphasher::sip::SipHasher;
 use std::cmp::Ordering;
 use std::hash::{Hash, Hasher};
 use std::str::FromStr;
 use std::string::ToString;
-use siphasher::sip::SipHasher;
 use uuid::Uuid;
-use crate::path_reference::CanonicalPathReference;
 
 #[derive(Copy, Clone, PartialEq)]
 pub enum HashObjectMode {
@@ -21,7 +24,7 @@ pub enum HashObjectMode {
     // These are used to know if an asset matches the state it was in from storage. It does not look at the prototype
     // chain because prototypes are in different files
     FullObjectWithLocationId,
-    FullObjectWithLocationChainNames
+    FullObjectWithLocationChainNames,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd)]
@@ -209,7 +212,10 @@ impl ImportInfo {
 }
 
 impl Hash for ImportInfo {
-    fn hash<H: Hasher>(&self, state: &mut H) {
+    fn hash<H: Hasher>(
+        &self,
+        state: &mut H,
+    ) {
         self.importer_id.hash(state);
         self.source_file.hash(state);
 
@@ -238,13 +244,17 @@ pub struct BuildInfo {
 }
 
 impl Hash for BuildInfo {
-    fn hash<H: Hasher>(&self, state: &mut H) {
+    fn hash<H: Hasher>(
+        &self,
+        state: &mut H,
+    ) {
         let mut path_references_overrides_hashes = 0u64;
         for (k, v) in &self.path_reference_overrides {
             let mut inner_hasher = SipHasher::new();
             k.hash(&mut inner_hasher);
             v.hash(&mut inner_hasher);
-            path_references_overrides_hashes = path_references_overrides_hashes ^ inner_hasher.finish();
+            path_references_overrides_hashes =
+                path_references_overrides_hashes ^ inner_hasher.finish();
         }
 
         path_references_overrides_hashes.hash(state);
@@ -640,7 +650,10 @@ impl DataSet {
         asset_id: AssetId,
         schema_set: &SchemaSet,
     ) -> DataSetResult<AssetId> {
-        let old_asset = self.assets.get(&asset_id).ok_or(DataSetError::AssetNotFound)?;
+        let old_asset = self
+            .assets
+            .get(&asset_id)
+            .ok_or(DataSetError::AssetNotFound)?;
 
         let new_asset_id = AssetId(Uuid::new_v4());
         let mut name_count = 1;
@@ -653,7 +666,9 @@ impl DataSet {
 
             let mut is_duplicate = false;
             for (_, asset_info) in &self.assets {
-                if asset_info.asset_name == new_name && asset_info.asset_location == old_asset.asset_location {
+                if asset_info.asset_name == new_name
+                    && asset_info.asset_location == old_asset.asset_location
+                {
                     is_duplicate = true;
                     break;
                 }
@@ -678,11 +693,10 @@ impl DataSet {
             old_asset.properties.clone(),
             old_asset.property_null_overrides.clone(),
             old_asset.properties_in_replace_mode.clone(),
-            old_asset.dynamic_collection_entries.clone()
+            old_asset.dynamic_collection_entries.clone(),
         )?;
         Ok(new_asset_id)
     }
-
 
     /// Returns error if asset did not exist
     pub fn delete_asset(
@@ -759,7 +773,11 @@ impl DataSet {
         &self,
         asset_id: AssetId,
     ) -> DataSetResult<&AssetName> {
-        Ok(self.assets.get(&asset_id).ok_or(DataSetError::AssetNotFound)?.asset_name())
+        Ok(self
+            .assets
+            .get(&asset_id)
+            .ok_or(DataSetError::AssetNotFound)?
+            .asset_name())
     }
 
     /// Sets the asset's name, fails if the asset does not exist
@@ -836,7 +854,7 @@ impl DataSet {
     fn do_resolve_path_reference_into_canonical_path_reference<'a>(
         &'a self,
         asset: &'a DataSetAssetInfo,
-        path_reference_hash: PathReferenceHash
+        path_reference_hash: PathReferenceHash,
     ) -> Option<&'a CanonicalPathReference> {
         // Can we find the canonical path in our import info?
         if let Some(import_info) = &asset.import_info {
@@ -850,7 +868,10 @@ impl DataSet {
             // Silently ignore a missing prototype, we treat broken prototype references as acting like there was
             // no prototype reference
             if let Some(prototype_asset) = self.assets.get(&prototype) {
-                return self.do_resolve_path_reference_into_canonical_path_reference(prototype_asset, path_reference_hash);
+                return self.do_resolve_path_reference_into_canonical_path_reference(
+                    prototype_asset,
+                    path_reference_hash,
+                );
             }
         }
 
@@ -860,10 +881,14 @@ impl DataSet {
     fn do_resolve_canonical_path_reference_into_asset_id(
         &self,
         asset: &DataSetAssetInfo,
-        canonical_path: &CanonicalPathReference
+        canonical_path: &CanonicalPathReference,
     ) -> Option<AssetId> {
         // Can we find the asset id in our build info?
-        if let Some(referenced_asset_id) = asset.build_info.path_reference_overrides.get(canonical_path) {
+        if let Some(referenced_asset_id) = asset
+            .build_info
+            .path_reference_overrides
+            .get(canonical_path)
+        {
             return Some(*referenced_asset_id);
         }
 
@@ -872,7 +897,10 @@ impl DataSet {
             // Silently ignore a missing prototype, we treat broken prototype references as acting like there was
             // no prototype reference
             if let Some(prototype_asset) = self.assets.get(&prototype) {
-                return self.do_resolve_canonical_path_reference_into_asset_id(prototype_asset, canonical_path);
+                return self.do_resolve_canonical_path_reference_into_asset_id(
+                    prototype_asset,
+                    canonical_path,
+                );
             }
         }
 
@@ -888,7 +916,10 @@ impl DataSet {
             // Silently ignore a missing prototype, we treat broken prototype references as acting like there was
             // no prototype reference
             if let Some(prototype_asset) = self.assets.get(&prototype) {
-                self.do_resolve_all_path_references_into_canonical_path_references(prototype_asset, all_references)?;
+                self.do_resolve_all_path_references_into_canonical_path_references(
+                    prototype_asset,
+                    all_references,
+                )?;
             }
         }
 
@@ -910,7 +941,10 @@ impl DataSet {
             // Silently ignore a missing prototype, we treat broken prototype references as acting like there was
             // no prototype reference
             if let Some(prototype_asset) = self.assets.get(&prototype) {
-                self.do_resolve_all_canonical_path_references_into_asset_id(prototype_asset, all_references)?;
+                self.do_resolve_all_canonical_path_references_into_asset_id(
+                    prototype_asset,
+                    all_references,
+                )?;
             }
         }
 
@@ -924,10 +958,16 @@ impl DataSet {
     pub fn resolve_path_reference<P: Into<PathReference>>(
         &self,
         asset_id: AssetId,
-        path: P
+        path: P,
     ) -> DataSetResult<Option<AssetId>> {
-        let asset = self.assets.get(&asset_id).ok_or(DataSetError::AssetNotFound)?;
-        let canonical_path = self.do_resolve_path_reference_into_canonical_path_reference(asset, path.into().path_reference_hash());
+        let asset = self
+            .assets
+            .get(&asset_id)
+            .ok_or(DataSetError::AssetNotFound)?;
+        let canonical_path = self.do_resolve_path_reference_into_canonical_path_reference(
+            asset,
+            path.into().path_reference_hash(),
+        );
         Ok(if let Some(canonical_path) = canonical_path {
             self.do_resolve_canonical_path_reference_into_asset_id(asset, canonical_path)
         } else {
@@ -938,9 +978,12 @@ impl DataSet {
     pub fn resolve_canonical_path_reference(
         &self,
         asset_id: AssetId,
-        canonical_path: &CanonicalPathReference
+        canonical_path: &CanonicalPathReference,
     ) -> DataSetResult<Option<AssetId>> {
-        let asset = self.assets.get(&asset_id).ok_or(DataSetError::AssetNotFound)?;
+        let asset = self
+            .assets
+            .get(&asset_id)
+            .ok_or(DataSetError::AssetNotFound)?;
         Ok(self.do_resolve_canonical_path_reference_into_asset_id(asset, canonical_path))
     }
 
@@ -948,9 +991,15 @@ impl DataSet {
         &self,
         asset_id: AssetId,
     ) -> DataSetResult<HashMap<PathReferenceHash, CanonicalPathReference>> {
-        let asset = self.assets.get(&asset_id).ok_or(DataSetError::AssetNotFound)?;
+        let asset = self
+            .assets
+            .get(&asset_id)
+            .ok_or(DataSetError::AssetNotFound)?;
         let mut all_references = HashMap::default();
-        self.do_resolve_all_path_references_into_canonical_path_references(asset, &mut all_references)?;
+        self.do_resolve_all_path_references_into_canonical_path_references(
+            asset,
+            &mut all_references,
+        )?;
         Ok(all_references)
     }
 
@@ -958,7 +1007,10 @@ impl DataSet {
         &self,
         asset_id: AssetId,
     ) -> DataSetResult<HashMap<CanonicalPathReference, AssetId>> {
-        let asset = self.assets.get(&asset_id).ok_or(DataSetError::AssetNotFound)?;
+        let asset = self
+            .assets
+            .get(&asset_id)
+            .ok_or(DataSetError::AssetNotFound)?;
         let mut all_references = HashMap::default();
         self.do_resolve_all_canonical_path_references_into_asset_id(asset, &mut all_references)?;
         Ok(all_references)
@@ -1067,7 +1119,10 @@ impl DataSet {
         asset_id: AssetId,
         hash_object_mode: HashObjectMode,
     ) -> DataSetResult<u64> {
-        let asset = self.assets.get(&asset_id).ok_or(DataSetError::AssetNotFound)?;
+        let asset = self
+            .assets
+            .get(&asset_id)
+            .ok_or(DataSetError::AssetNotFound)?;
 
         let mut hasher = SipHasher::default();
 
@@ -1084,7 +1139,10 @@ impl DataSet {
                 // Path-based storage cares about the names of the locations up the whole chain
                 let location_chain = self.asset_location_chain(asset_id)?;
                 for location in location_chain {
-                    let location_asset = self.assets.get(&location.path_node_id).ok_or(DataSetError::AssetNotFound)?;
+                    let location_asset = self
+                        .assets
+                        .get(&location.path_node_id)
+                        .ok_or(DataSetError::AssetNotFound)?;
                     location_asset.asset_name.hash(&mut hasher);
                 }
             }
@@ -1092,13 +1150,12 @@ impl DataSet {
 
         // Extra data for "full object" modes - essentially everything but location and properties
         match hash_object_mode {
-            HashObjectMode::FullObjectWithLocationId |
-            HashObjectMode::FullObjectWithLocationChainNames => {
+            HashObjectMode::FullObjectWithLocationId
+            | HashObjectMode::FullObjectWithLocationChainNames => {
                 asset.asset_name.hash(&mut hasher);
                 asset.import_info.hash(&mut hasher);
                 asset.build_info.hash(&mut hasher);
                 asset.prototype.hash(&mut hasher);
-
             }
             _ => {}
         }
@@ -1113,7 +1170,7 @@ impl DataSet {
             &asset.properties,
             &asset.property_null_overrides,
             &asset.properties_in_replace_mode,
-            &asset.dynamic_collection_entries
+            &asset.dynamic_collection_entries,
         );
 
         // Properties only mode hashes up the prototype chain
@@ -1122,7 +1179,8 @@ impl DataSet {
                 // We may fail to find the prototype, there is a good chance this means our data is in
                 // a bad state, but it is not considered fatal. Generally in these circumstances we
                 // carry on as if the prototype was set to None.
-                self.hash_object(prototype, HashObjectMode::PropertiesOnly)?.hash(&mut hasher);
+                self.hash_object(prototype, HashObjectMode::PropertiesOnly)?
+                    .hash(&mut hasher);
             }
         }
 

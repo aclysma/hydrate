@@ -10,18 +10,20 @@ pub mod action_queue;
 
 mod egui_debug_ui;
 mod fonts;
+mod image_loader;
 mod modal_action;
 mod ui_state;
-mod image_loader;
 
 pub use egui;
 pub use egui_extras;
 use hydrate_model::{AssetPathCache, EditorModelWithCache, SchemaSet};
 
 use crate::app::HydrateEditorApp;
-pub use crate::ui::components::inspector_system;
-use hydrate_model::pipeline::{AssetEngine, AssetPluginRegistryBuilders, HydrateProjectConfiguration, ImportJobToQueue};
 use crate::inspector_system::InspectorRegistry;
+pub use crate::ui::components::inspector_system;
+use hydrate_model::pipeline::{
+    AssetEngine, AssetPluginRegistryBuilders, HydrateProjectConfiguration, ImportJobToQueue,
+};
 
 pub struct Editor {
     db_state: DbState,
@@ -40,19 +42,16 @@ impl Editor {
 
     pub fn new(
         project_configuration: HydrateProjectConfiguration,
-        asset_plugin_registry: AssetPluginRegistryBuilders
+        asset_plugin_registry: AssetPluginRegistryBuilders,
     ) -> Self {
         profiling::scope!("Hydrate Initialization");
 
         let schema_set = {
             profiling::scope!("Load Schema");
-            DbState::load_schema(
-                &project_configuration,
-            )
+            DbState::load_schema(&project_configuration)
         };
 
-        let registries =
-            asset_plugin_registry.finish(&schema_set);
+        let registries = asset_plugin_registry.finish(&schema_set);
 
         let mut import_job_to_queue = ImportJobToQueue::default();
         let mut db_state = DbState::load(
@@ -83,14 +82,13 @@ impl Editor {
             if !import_job_to_queue.is_empty() {
                 asset_engine.queue_import_operation(import_job_to_queue);
             }
-
         }
         let inspector_registry = InspectorRegistry::default();
 
         Self {
             db_state,
             asset_engine,
-            inspector_registry
+            inspector_registry,
         }
     }
 

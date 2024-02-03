@@ -1,7 +1,7 @@
 pub use super::*;
 use std::collections::VecDeque;
 use std::ops::Range;
-use std::path::{PathBuf};
+use std::path::PathBuf;
 
 use super::generated::GlslSourceFileImportedDataRecord;
 use crate::generated_wrapper::{GlslBuildTargetAssetRecord, GlslSourceFileAssetRecord};
@@ -9,7 +9,11 @@ use demo_types::glsl::*;
 use hydrate_data::{PathReference, PathReferenceHash, Record};
 use hydrate_model::pipeline::Importer;
 use hydrate_model::pipeline::{AssetPlugin, Builder, ImportContext, ScanContext};
-use hydrate_pipeline::{AssetId, AssetPluginSetupContext, BuilderContext, BuilderRegistryBuilder, HashMap, HashSet, ImporterRegistryBuilder, JobInput, JobOutput, JobProcessor, JobProcessorRegistryBuilder, PipelineResult, RunContext};
+use hydrate_pipeline::{
+    AssetId, AssetPluginSetupContext, BuilderContext, BuilderRegistryBuilder, HashMap, HashSet,
+    ImporterRegistryBuilder, JobInput, JobOutput, JobProcessor, JobProcessorRegistryBuilder,
+    PipelineResult, RunContext,
+};
 use serde::{Deserialize, Serialize};
 use shaderc::IncludeType;
 use type_uuid::TypeUuid;
@@ -437,10 +441,12 @@ pub(crate) fn include_impl<'a>(
     );
 
     let requested_path_reference: PathReference = requested_path.into();
-    let referenced_asset = dependency_lookup.get(&(requested_from.to_string(), requested_path_reference.path_reference_hash()));
+    let referenced_asset = dependency_lookup.get(&(
+        requested_from.to_string(),
+        requested_path_reference.path_reference_hash(),
+    ));
 
     if let Some(referenced_asset_id) = referenced_asset {
-
         let import_info = context
             .data_set
             .import_info(*referenced_asset_id)
@@ -592,10 +598,7 @@ impl JobProcessor for GlslBuildTargetJobProcessor {
             let this_path = import_info.source_file().clone();
             for (path_hash, canonical_path) in all_hashed_references {
                 let referenced_asset_id = all_references.get(&canonical_path).unwrap();
-                dependency_lookup.insert(
-                    (this_path.to_string(), path_hash),
-                    *referenced_asset_id,
-                );
+                dependency_lookup.insert((this_path.to_string(), path_hash), *referenced_asset_id);
             }
         }
 
@@ -689,11 +692,15 @@ impl Builder for GlslBuildTargetBuilder {
 pub struct GlslAssetPlugin;
 
 impl AssetPlugin for GlslAssetPlugin {
-    fn setup(
-        context: AssetPluginSetupContext
-    ) {
-        context.importer_registry.register_handler::<GlslSourceFileImporter>();
-        context.builder_registry.register_handler::<GlslBuildTargetBuilder>();
-        context.job_processor_registry.register_job_processor::<GlslBuildTargetJobProcessor>();
+    fn setup(context: AssetPluginSetupContext) {
+        context
+            .importer_registry
+            .register_handler::<GlslSourceFileImporter>();
+        context
+            .builder_registry
+            .register_handler::<GlslBuildTargetBuilder>();
+        context
+            .job_processor_registry
+            .register_job_processor::<GlslBuildTargetJobProcessor>();
     }
 }

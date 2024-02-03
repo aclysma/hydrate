@@ -8,7 +8,10 @@ use hydrate_base::b3f::B3FReader;
 use hydrate_data::{ImportableName, Record};
 use hydrate_model::pipeline::Importer;
 use hydrate_model::pipeline::{AssetPlugin, ImportContext, ScanContext};
-use hydrate_pipeline::{AssetPluginSetupContext, BuilderRegistryBuilder, HashMap, ImporterRegistryBuilder, JobProcessorRegistryBuilder, PipelineResult};
+use hydrate_pipeline::{
+    AssetPluginSetupContext, BuilderRegistryBuilder, HashMap, ImporterRegistryBuilder,
+    JobProcessorRegistryBuilder, PipelineResult,
+};
 use serde::{Deserialize, Serialize};
 use type_uuid::TypeUuid;
 
@@ -210,9 +213,9 @@ impl Importer for BlenderMeshImporter {
 pub struct BlenderMeshAssetPlugin;
 
 impl AssetPlugin for BlenderMeshAssetPlugin {
-    fn setup(
-        context: AssetPluginSetupContext
-    ) {
-        context.importer_registry.register_handler::<BlenderMeshImporter>();
+    fn setup(context: AssetPluginSetupContext) {
+        context
+            .importer_registry
+            .register_handler::<BlenderMeshImporter>();
     }
 }

@@ -1,8 +1,8 @@
-use std::error::Error;
-use std::path::{Path, PathBuf};
-use serde::{Deserialize, Serialize};
 use hydrate_data::PathReferenceNamespaceResolver;
 use hydrate_schema::SchemaCacheSingleFile;
+use serde::{Deserialize, Serialize};
+use std::error::Error;
+use std::path::{Path, PathBuf};
 
 #[derive(Serialize, Deserialize)]
 pub struct NamePathPairJson {
@@ -75,7 +75,10 @@ pub struct HydrateProjectConfiguration {
 }
 
 impl PathReferenceNamespaceResolver for HydrateProjectConfiguration {
-    fn namespace_root(&self, namespace: &str) -> Option<PathBuf> {
+    fn namespace_root(
+        &self,
+        namespace: &str,
+    ) -> Option<PathBuf> {
         for src in &self.id_based_asset_sources {
             if src.name == namespace {
                 return Some(src.path.clone());
@@ -97,7 +100,10 @@ impl PathReferenceNamespaceResolver for HydrateProjectConfiguration {
         None
     }
 
-    fn simplify_path(&self, path: &Path) -> Option<(String, PathBuf)> {
+    fn simplify_path(
+        &self,
+        path: &Path,
+    ) -> Option<(String, PathBuf)> {
         for src in &self.id_based_asset_sources {
             if let Ok(path) = path.strip_prefix(&src.path) {
                 return Some((src.name.clone(), path.to_path_buf()));
@@ -121,7 +127,10 @@ impl PathReferenceNamespaceResolver for HydrateProjectConfiguration {
 }
 
 impl HydrateProjectConfiguration {
-    pub fn unverified_absolute_path(root_path: &Path, json_path: &str) -> PathBuf {
+    pub fn unverified_absolute_path(
+        root_path: &Path,
+        json_path: &str,
+    ) -> PathBuf {
         if Path::new(json_path).is_absolute() {
             PathBuf::from(json_path)
         } else {
@@ -131,14 +140,19 @@ impl HydrateProjectConfiguration {
 
     // root_path is the path the json file is in, json_path is the string in json that is meant
     // to be parsed/converted to a canonicalized path
-    pub fn parse_schema_cache_file_path(root_path: &Path, json_path: &str) -> Result<PathBuf, Box<dyn Error>> {
+    pub fn parse_schema_cache_file_path(
+        root_path: &Path,
+        json_path: &str,
+    ) -> Result<PathBuf, Box<dyn Error>> {
         // If it's not an absolute path, join it onto the path containing the project file
         let joined_path = Self::unverified_absolute_path(root_path, json_path);
 
         // Create an empty file (and its parent dirs) if it doesn't exist
         if !joined_path.exists() {
             // Create the containing dir
-            let parent_path = joined_path.parent().ok_or_else(|| "Parent of project file path could not be found".to_string())?;
+            let parent_path = joined_path
+                .parent()
+                .ok_or_else(|| "Parent of project file path could not be found".to_string())?;
             std::fs::create_dir_all(parent_path)?;
 
             // Create the file, it has to exist in order to get the canonical path. Since it will be a json
@@ -153,7 +167,10 @@ impl HydrateProjectConfiguration {
 
     // root_path is the path the json file is in, json_path is the string in json that is meant
     // to be parsed/converted to a canonicalized path
-    pub fn parse_dir_path(root_path: &Path, json_path: &str) -> Result<PathBuf, Box<dyn Error>> {
+    pub fn parse_dir_path(
+        root_path: &Path,
+        json_path: &str,
+    ) -> Result<PathBuf, Box<dyn Error>> {
         // If it's not an absolute path, join it onto the path containing the project file
         let joined_path = Self::unverified_absolute_path(root_path, json_path);
 
@@ -167,11 +184,15 @@ impl HydrateProjectConfiguration {
     }
 
     pub fn read_from_path(path: &Path) -> Result<Self, Box<dyn Error>> {
-        let root_path = dunce::canonicalize(path.parent().ok_or_else(|| "Parent of project file path could not be found".to_string())?)?;
+        let root_path = dunce::canonicalize(
+            path.parent()
+                .ok_or_else(|| "Parent of project file path could not be found".to_string())?,
+        )?;
         let file_contents = std::fs::read_to_string(path)?;
         let project_file: HydrateProjectConfigurationJson = serde_json::from_str(&file_contents)?;
 
-        let schema_cache_file_path = Self::parse_schema_cache_file_path(&root_path, &project_file.schema_cache_file_path)?;
+        let schema_cache_file_path =
+            Self::parse_schema_cache_file_path(&root_path, &project_file.schema_cache_file_path)?;
         let import_data_path = Self::parse_dir_path(&root_path, &project_file.import_data_path)?;
         let build_data_path = Self::parse_dir_path(&root_path, &project_file.build_data_path)?;
         let job_data_path = Self::parse_dir_path(&root_path, &project_file.job_data_path)?;
@@ -185,7 +206,7 @@ impl HydrateProjectConfiguration {
         for pair in project_file.id_based_asset_sources {
             id_based_asset_sources.push(NamePathPair {
                 name: pair.name,
-                path: Self::parse_dir_path(&root_path, &pair.path)?
+                path: Self::parse_dir_path(&root_path, &pair.path)?,
             });
         }
 
@@ -193,7 +214,7 @@ impl HydrateProjectConfiguration {
         for pair in project_file.path_based_asset_sources {
             path_based_asset_sources.push(NamePathPair {
                 name: pair.name,
-                path: Self::parse_dir_path(&root_path, &pair.path)?
+                path: Self::parse_dir_path(&root_path, &pair.path)?,
             });
         }
 
@@ -201,7 +222,7 @@ impl HydrateProjectConfiguration {
         for pair in project_file.source_file_locations {
             source_file_locations.push(NamePathPair {
                 name: pair.name,
-                path: Self::parse_dir_path(&root_path, &pair.path)?
+                path: Self::parse_dir_path(&root_path, &pair.path)?,
             });
         }
 
@@ -210,12 +231,18 @@ impl HydrateProjectConfiguration {
         for schema_codegen_job in project_file.schema_codegen_jobs {
             let mut included_schema_paths = Vec::default();
             for included_schema_path in &schema_codegen_job.included_schema_paths {
-                included_schema_paths.push(Self::unverified_absolute_path(&root_path, included_schema_path));
+                included_schema_paths.push(Self::unverified_absolute_path(
+                    &root_path,
+                    included_schema_path,
+                ));
             }
 
             schema_codegen_jobs.push(SchemaCodegenJobs {
                 name: schema_codegen_job.name,
-                schema_path: Self::unverified_absolute_path(&root_path, &schema_codegen_job.schema_path),
+                schema_path: Self::unverified_absolute_path(
+                    &root_path,
+                    &schema_codegen_job.schema_path,
+                ),
                 included_schema_paths,
                 outfile: Self::unverified_absolute_path(&root_path, &schema_codegen_job.outfile),
             })
@@ -230,7 +257,7 @@ impl HydrateProjectConfiguration {
             id_based_asset_sources,
             path_based_asset_sources,
             source_file_locations,
-            schema_codegen_jobs
+            schema_codegen_jobs,
         })
     }
 
@@ -246,6 +273,9 @@ impl HydrateProjectConfiguration {
             path = p.parent().map(|x| x.to_path_buf());
         }
 
-        Err(format!("hydrate_project.json could not be located at {:?} or in any of its parent directories", search_location))?
+        Err(format!(
+            "hydrate_project.json could not be located at {:?} or in any of its parent directories",
+            search_location
+        ))?
     }
 }

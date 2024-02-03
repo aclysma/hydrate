@@ -1,10 +1,10 @@
+use crate::build::JobRequestor;
+use crate::JobId;
+use hydrate_base::hashing::{HashMap, HashSet};
+use hydrate_base::AssetId;
 use std::path::PathBuf;
 use std::sync::Arc;
 use uuid::Uuid;
-use hydrate_base::AssetId;
-use hydrate_base::hashing::{HashMap, HashSet};
-use crate::build::JobRequestor;
-use crate::JobId;
 
 #[derive(Debug, Copy, Clone)]
 pub enum LogEventLevel {
@@ -23,7 +23,7 @@ pub struct ImportLogEvent {
 pub enum LogDataRef<'a> {
     Import(&'a ImportLogData),
     Build(&'a BuildLogData),
-    None
+    None,
 }
 
 pub enum LogData {
@@ -42,21 +42,25 @@ impl LogData {
     pub fn is_import(&self) -> bool {
         match self {
             LogData::Import(_) => true,
-            _ => false
+            _ => false,
         }
     }
 
     pub fn is_build(&self) -> bool {
         match self {
             LogData::Build(_) => true,
-            _ => false
+            _ => false,
         }
     }
 
     pub fn duration(&self) -> Option<std::time::Duration> {
         match self {
-            LogData::Import(x) => x.end_instant.map(|end_instant| end_instant - x.start_instant),
-            LogData::Build(x) => x.end_instant.map(|end_instant| end_instant - x.start_instant),
+            LogData::Import(x) => x
+                .end_instant
+                .map(|end_instant| end_instant - x.start_instant),
+            LogData::Build(x) => x
+                .end_instant
+                .map(|end_instant| end_instant - x.start_instant),
         }
     }
 
@@ -132,7 +136,10 @@ impl BuildLogData {
         &self.log_events
     }
 
-    pub fn assets_relying_on_job(&self, job_id: JobId) -> Vec<AssetId> {
+    pub fn assets_relying_on_job(
+        &self,
+        job_id: JobId,
+    ) -> Vec<AssetId> {
         let mut assets = vec![];
         let mut checked_requestors = HashSet::<JobId>::default();
         let mut requestor_check_queue = vec![job_id];

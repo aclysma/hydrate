@@ -1,11 +1,11 @@
 use crate::action_queue::{UIAction, UIActionQueueSender};
+use crate::image_loader::ThumbnailImageLoader;
 use crate::ui::drag_drop::DragDropPayload;
 use crate::ui::modals::NewAssetModal;
 use crate::ui_state::EditorModelUiState;
 use egui::{InnerResponse, Response, Ui};
-use image::imageops::contrast;
 use hydrate_model::{AssetLocation, EditorModel, LocationTreeNode};
-use crate::image_loader::ThumbnailImageLoader;
+use image::imageops::contrast;
 
 #[derive(Default)]
 pub struct AssetTreeUiState {
@@ -49,8 +49,12 @@ fn draw_tree_node(
             //TODO: Make this also reject if dragged is already a child of this node
             let can_accept = match crate::ui::drag_drop::peek_payload() {
                 None => false,
-                Some(DragDropPayload::AssetReferences(primary_dragged_asset_id, all_dragged_asset_ids)) => {
-                    primary_dragged_asset_id != path_node_asset_id && !all_dragged_asset_ids.contains(&path_node_asset_id)
+                Some(DragDropPayload::AssetReferences(
+                    primary_dragged_asset_id,
+                    all_dragged_asset_ids,
+                )) => {
+                    primary_dragged_asset_id != path_node_asset_id
+                        && !all_dragged_asset_ids.contains(&path_node_asset_id)
                 }
             };
 

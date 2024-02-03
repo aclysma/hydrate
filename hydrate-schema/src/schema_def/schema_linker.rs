@@ -177,8 +177,13 @@ impl SchemaLinker {
         }
 
         let name = name.into();
-        let schema_record =
-            SchemaDefRecord::new(name.clone(), type_uuid, builder.aliases, fields, builder.markup)?;
+        let schema_record = SchemaDefRecord::new(
+            name.clone(),
+            type_uuid,
+            builder.aliases,
+            fields,
+            builder.markup,
+        )?;
         let named_type = SchemaDefNamedType::Record(schema_record);
         self.add_named_type(named_type)
     }

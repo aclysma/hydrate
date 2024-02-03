@@ -4,7 +4,10 @@ use std::path::PathBuf;
 use hydrate_data::{DataSetError, ImportableName, PathReference, Record};
 use hydrate_model::pipeline::Importer;
 use hydrate_model::pipeline::{AssetPlugin, ImportContext, ScanContext};
-use hydrate_pipeline::{AssetPluginSetupContext, BuilderRegistryBuilder, Enum, ImporterRegistryBuilder, JobProcessorRegistryBuilder, PipelineResult};
+use hydrate_pipeline::{
+    AssetPluginSetupContext, BuilderRegistryBuilder, Enum, ImporterRegistryBuilder,
+    JobProcessorRegistryBuilder, PipelineResult,
+};
 use serde::{Deserialize, Serialize};
 use type_uuid::TypeUuid;
 
@@ -194,9 +197,9 @@ impl Importer for BlenderMaterialImporter {
 pub struct BlenderMaterialAssetPlugin;
 
 impl AssetPlugin for BlenderMaterialAssetPlugin {
-    fn setup(
-        context: AssetPluginSetupContext
-    ) {
-        context.importer_registry.register_handler::<BlenderMaterialImporter>();
+    fn setup(context: AssetPluginSetupContext) {
+        context
+            .importer_registry
+            .register_handler::<BlenderMaterialImporter>();
     }
 }

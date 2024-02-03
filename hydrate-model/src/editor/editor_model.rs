@@ -1,8 +1,18 @@
 use crate::edit_context::EditContext;
 use crate::editor::undo::UndoStack;
-use crate::{AssetId, AssetPath, AssetPathCache, AssetSourceId, DataSet, DataSource, FileSystemIdBasedDataSource, FileSystemPathBasedDataSource, HashMap, PathNode, PathNodeRoot, PendingFileOperations, SchemaNamedType, SchemaSet};
-use hydrate_data::{AssetLocation, AssetName, CanonicalPathReference, DataSetError, DataSetResult, ImportInfo, PathReferenceHash, SingleObject};
-use hydrate_pipeline::{DynEditorModel, HydrateProjectConfiguration, ImporterRegistry, ImportJobSourceFile, ImportJobToQueue};
+use crate::{
+    AssetId, AssetPath, AssetPathCache, AssetSourceId, DataSet, DataSource,
+    FileSystemIdBasedDataSource, FileSystemPathBasedDataSource, HashMap, PathNode, PathNodeRoot,
+    PendingFileOperations, SchemaNamedType, SchemaSet,
+};
+use hydrate_data::{
+    AssetLocation, AssetName, CanonicalPathReference, DataSetError, DataSetResult, ImportInfo,
+    PathReferenceHash, SingleObject,
+};
+use hydrate_pipeline::{
+    DynEditorModel, HydrateProjectConfiguration, ImportJobSourceFile, ImportJobToQueue,
+    ImporterRegistry,
+};
 use hydrate_schema::{SchemaFingerprint, SchemaRecord};
 use slotmap::DenseSlotMap;
 use std::path::PathBuf;
@@ -94,12 +104,16 @@ impl<'a> DynEditorModel for EditorModelWithCache<'a> {
 }
 
 impl EditorModel {
-    pub fn new(project_config: HydrateProjectConfiguration, schema_set: SchemaSet) -> Self {
+    pub fn new(
+        project_config: HydrateProjectConfiguration,
+        schema_set: SchemaSet,
+    ) -> Self {
         let undo_stack = UndoStack::default();
         let mut edit_contexts: DenseSlotMap<EditContextKey, EditContext> = Default::default();
 
-        let root_edit_context_key = edit_contexts
-            .insert_with_key(|key| EditContext::new(&project_config, key, schema_set.clone(), &undo_stack));
+        let root_edit_context_key = edit_contexts.insert_with_key(|key| {
+            EditContext::new(&project_config, key, schema_set.clone(), &undo_stack)
+        });
 
         let path_node_root_schema = schema_set
             .find_named_type(PathNodeRoot::schema_name())
@@ -201,7 +215,8 @@ impl EditorModel {
 
         for (_, data_source) in &self.data_sources {
             for (_, edit_context) in &self.edit_contexts {
-                data_source.append_pending_file_operations(edit_context, &mut pending_file_operations);
+                data_source
+                    .append_pending_file_operations(edit_context, &mut pending_file_operations);
             }
         }
 
@@ -241,10 +256,7 @@ impl EditorModel {
             .flatten()
             .cloned()?;
 
-        let name = root_data_set
-            .asset_name(asset_id)
-            .unwrap()
-            .as_string();
+        let name = root_data_set.asset_name(asset_id).unwrap().as_string();
         if let Some(name) = name {
             Some(path.join(name))
         } else {
@@ -438,7 +450,12 @@ impl EditorModel {
         assets: &[AssetId],
     ) -> DataSetResult<EditContextKey> {
         let new_edit_context_key = self.edit_contexts.insert_with_key(|key| {
-            EditContext::new_with_data(&self.project_config, key, self.schema_set.clone(), &self.undo_stack)
+            EditContext::new_with_data(
+                &self.project_config,
+                key,
+                self.schema_set.clone(),
+                &self.undo_stack,
+            )
         });
 
         let [root_edit_context, new_edit_context] = self

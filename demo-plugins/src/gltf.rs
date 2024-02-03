@@ -7,7 +7,10 @@ use super::generated::{
 use hydrate_data::{ImportableName, Record};
 use hydrate_model::pipeline::Importer;
 use hydrate_model::pipeline::{AssetPlugin, ImportContext, ScanContext};
-use hydrate_pipeline::{AssetPluginSetupContext, BuilderRegistryBuilder, HashMap, ImporterRegistryBuilder, JobProcessorRegistryBuilder, PipelineResult};
+use hydrate_pipeline::{
+    AssetPluginSetupContext, BuilderRegistryBuilder, HashMap, ImporterRegistryBuilder,
+    JobProcessorRegistryBuilder, PipelineResult,
+};
 use type_uuid::TypeUuid;
 
 fn name_or_index(
@@ -191,9 +194,7 @@ impl Importer for GltfImporter {
 pub struct GltfAssetPlugin;
 
 impl AssetPlugin for GltfAssetPlugin {
-    fn setup(
-        context: AssetPluginSetupContext
-    ) {
+    fn setup(context: AssetPluginSetupContext) {
         context.importer_registry.register_handler::<GltfImporter>();
     }
 }

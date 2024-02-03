@@ -1,13 +1,18 @@
-use crate::{DynEditContext, HydrateProjectConfiguration, ImportLogData, ImportLogEvent, PipelineResult};
-use crate::{ImporterRegistry};
-use hydrate_data::{AssetId, AssetLocation, AssetName, CanonicalPathReference, HashMap, ImporterId, PathReferenceHash};
+use crate::import::{ImportType, Importer, ScanContext, ScannedImportable};
+use crate::ImporterRegistry;
+use crate::{
+    DynEditContext, HydrateProjectConfiguration, ImportLogData, ImportLogEvent, PipelineResult,
+};
+use hydrate_data::{
+    AssetId, AssetLocation, AssetName, CanonicalPathReference, HashMap, ImporterId,
+    PathReferenceHash,
+};
 use hydrate_data::{ImportableName, PathReference};
 use hydrate_schema::SchemaRecord;
+use log::log_enabled;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
-use log::log_enabled;
 use uuid::Uuid;
-use crate::import::{Importer, ImportType, ScanContext, ScannedImportable};
 
 #[derive(Debug, Clone)]
 pub struct RequestedImportable {
@@ -87,7 +92,10 @@ pub fn recursively_gather_import_operations_and_create_assets(
         }
     }
 
-    log::info!("recursively_gather_import_operations_and_create_assets {:?}", source_file_path);
+    log::info!(
+        "recursively_gather_import_operations_and_create_assets {:?}",
+        source_file_path
+    );
     //
     // We now build a list of things we will be importing from the file.
     // 1. Scan the file to see what's available
@@ -109,7 +117,11 @@ pub fn recursively_gather_import_operations_and_create_assets(
     ))?;
 
     for (scanned_importable_name, scanned_importable) in &scanned_importables {
-        log::info!("iterating scanned importable {:?} {:?}", source_file_path, scanned_importable_name);
+        log::info!(
+            "iterating scanned importable {:?} {:?}",
+            source_file_path,
+            scanned_importable_name
+        );
 
         //
         // Pick name for the asset for this file
@@ -119,13 +131,13 @@ pub fn recursively_gather_import_operations_and_create_assets(
         let mut canonical_path_references = HashMap::default();
 
         //TODO: Check referenced source files to find existing imported assets or import referenced files
-        for (referenced_source_file, importer_id) in &scanned_importable.referenced_source_file_info {
-            let referenced_file_absolute = referenced_source_file.canonicalized_absolute_path(
-                project_config,
-                &source_file_path,
-            )?;
+        for (referenced_source_file, importer_id) in &scanned_importable.referenced_source_file_info
+        {
+            let referenced_file_absolute = referenced_source_file
+                .canonicalized_absolute_path(project_config, &source_file_path)?;
 
-            let referenced_file_canonical = referenced_file_absolute.clone().simplify(project_config);
+            let referenced_file_canonical =
+                referenced_file_absolute.clone().simplify(project_config);
 
             // Does it already exist?
             let mut found = None;
@@ -137,7 +149,6 @@ pub fn recursively_gather_import_operations_and_create_assets(
                         found = Some(requested_importable.asset_id);
                     }
                 }
-
             }
 
             // Have we imported it previously?
@@ -153,9 +164,7 @@ pub fn recursively_gather_import_operations_and_create_assets(
 
             // If we didn't find it, try to import it
             if found.is_none() {
-                let importer = importer_registry
-                    .importer(*importer_id)
-                    .unwrap();
+                let importer = importer_registry.importer(*importer_id).unwrap();
                 found = recursively_gather_import_operations_and_create_assets(
                     project_config,
                     Path::new(referenced_file_absolute.path()),
@@ -163,7 +172,7 @@ pub fn recursively_gather_import_operations_and_create_assets(
                     editor_context,
                     importer_registry,
                     selected_import_location,
-                    import_job_to_queue
+                    import_job_to_queue,
                 )?
                 .get(referenced_source_file.importable_name())
                 .copied();
@@ -183,7 +192,8 @@ pub fn recursively_gather_import_operations_and_create_assets(
             "".to_string(),
             source_file_path.to_string_lossy().to_string(),
             scanned_importable.name.clone(),
-        ).simplify(project_config);
+        )
+        .simplify(project_config);
 
         // This is everything we will need to create the asset, set the import info, and init
         // the build info with path overrides
@@ -208,12 +218,14 @@ pub fn recursively_gather_import_operations_and_create_assets(
 
     //asset_engine.queue_import_operation(asset_ids, importer.importer_id(), file.to_path_buf());
     //(asset_ids, importer.importer_id(), file.to_path_buf())
-    import_job_to_queue.import_job_source_files.push(ImportJobSourceFile {
-        source_file_path: source_file_path.to_path_buf(),
-        importer_id: importer.importer_id(),
-        requested_importables,
-        import_type: ImportType::ImportIfImportDataStale,
-    });
+    import_job_to_queue
+        .import_job_source_files
+        .push(ImportJobSourceFile {
+            source_file_path: source_file_path.to_path_buf(),
+            importer_id: importer.importer_id(),
+            requested_importables,
+            import_type: ImportType::ImportIfImportDataStale,
+        });
 
     Ok(imported_asset_ids)
 }

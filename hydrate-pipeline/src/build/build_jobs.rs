@@ -1,19 +1,19 @@
-use std::cell::RefCell;
-use crate::{DynEditorModel, BuildLogEvent, LogEventLevel, PipelineResult, BuildLogData};
+use crate::import::ImportJobs;
+use crate::{BuildLogData, BuildLogEvent, DynEditorModel, LogEventLevel, PipelineResult};
+use hydrate_base::hashing::HashSet;
 use hydrate_base::{hashing::HashMap, AssetId};
 use hydrate_base::{
     ArtifactId, BuiltArtifactHeaderData, DebugArtifactManifestDataJson, DebugManifestFileJson,
     StringHash,
 };
+use hydrate_data::{DataSet, HashObjectMode, SchemaSet};
+use std::cell::RefCell;
 use std::collections::VecDeque;
 use std::hash::{Hash, Hasher};
 use std::io::Write;
 use std::path::PathBuf;
-use std::sync::Arc;
-use hydrate_base::hashing::HashSet;
-use hydrate_data::{DataSet, HashObjectMode, SchemaSet};
-use crate::import::ImportJobs;
 use std::rc::Rc;
+use std::sync::Arc;
 
 use super::*;
 
@@ -37,16 +37,15 @@ impl BuildJob {
     }
 }
 
-
 pub struct BuildStatusBuilding {
     pub total_job_count: usize,
-    pub completed_job_count: usize
+    pub completed_job_count: usize,
 }
 
 pub enum BuildStatus {
     Idle,
     Building(BuildStatusBuilding),
-    Completed(Arc<BuildLogData>)
+    Completed(Arc<BuildLogData>),
 }
 
 struct BuiltArtifactInfo {
@@ -54,7 +53,6 @@ struct BuiltArtifactInfo {
     artifact_key_debug_name: Option<String>,
     metadata: BuiltArtifactHeaderData,
 }
-
 
 struct BuildTask {
     requested_build_ops: VecDeque<BuildRequest>,
@@ -129,9 +127,7 @@ impl BuildJobs {
         self.force_build_queue.insert(asset_id);
     }
 
-    pub fn build(
-        &mut self
-    ) {
+    pub fn build(&mut self) {
         self.request_build = true;
     }
 
@@ -167,22 +163,22 @@ impl BuildJobs {
 
                     let Some(builder) =
                         builder_registry.builder_for_asset(asset_type.fingerprint())
-                        else {
-                            continue;
-                        };
+                    else {
+                        continue;
+                    };
 
                     if let Err(e) = builder.start_jobs(BuilderContext {
                         asset_id,
                         data_set: &build_task.data_set,
                         schema_set: &build_task.schema_set,
                         job_api: self.job_executor.job_api(),
-                        log_events: &Rc::new(RefCell::new(&mut build_task.log_data.log_events))
+                        log_events: &Rc::new(RefCell::new(&mut build_task.log_data.log_events)),
                     }) {
                         build_task.log_data.log_events.push(BuildLogEvent {
                             job_id: None,
                             asset_id: Some(asset_id),
                             level: LogEventLevel::FatalError,
-                            message: format!("start_jobs returned error: {}", e.to_string())
+                            message: format!("start_jobs returned error: {}", e.to_string()),
                         });
                     }
                 }
@@ -193,7 +189,8 @@ impl BuildJobs {
             //
             {
                 //profiling::scope!("Job Executor Update");
-                self.job_executor.update(&build_task.data_set, &mut build_task.log_data);
+                self.job_executor
+                    .update(&build_task.data_set, &mut build_task.log_data);
             }
 
             {
@@ -212,8 +209,10 @@ impl BuildJobs {
                     // Trigger building any dependencies.
                     //
                     for &dependency_artifact_id in &written_artifact.metadata.dependencies {
-                        let dependency_asset_id =
-                            *build_task.artifact_asset_lookup.get(&dependency_artifact_id).unwrap();
+                        let dependency_asset_id = *build_task
+                            .artifact_asset_lookup
+                            .get(&dependency_artifact_id)
+                            .unwrap();
                         build_task.requested_build_ops.push_back(BuildRequest {
                             asset_id: dependency_asset_id,
                         });
@@ -222,7 +221,9 @@ impl BuildJobs {
                     //
                     // Ensure the artifact will be in the metadata
                     //
-                    build_task.build_hashes.insert(written_artifact.artifact_id, written_artifact.build_hash);
+                    build_task
+                        .build_hashes
+                        .insert(written_artifact.artifact_id, written_artifact.build_hash);
 
                     let job = self
                         .build_jobs
@@ -252,7 +253,7 @@ impl BuildJobs {
                 return Ok(BuildStatus::Building(BuildStatusBuilding {
                     total_job_count,
                     completed_job_count,
-                }))
+                }));
             }
         }
 
@@ -269,14 +270,18 @@ impl BuildJobs {
             std::fs::create_dir_all(&manifest_path).unwrap();
 
             // This is a more compact file that is run at release
-            let manifest_path_release =
-                manifest_path.join(format!("{:0>16x}.manifest_release", build_task.combined_build_hash));
+            let manifest_path_release = manifest_path.join(format!(
+                "{:0>16x}.manifest_release",
+                build_task.combined_build_hash
+            ));
             let manifest_release_file = std::fs::File::create(manifest_path_release).unwrap();
             let mut manifest_release_file_writer = std::io::BufWriter::new(manifest_release_file);
 
             // This is a json file that supplements the release manifest
-            let manifest_path_debug =
-                manifest_path.join(format!("{:0>16x}.manifest_debug", build_task.combined_build_hash));
+            let manifest_path_debug = manifest_path.join(format!(
+                "{:0>16x}.manifest_debug",
+                build_task.combined_build_hash
+            ));
 
             let mut manifest_json = DebugManifestFileJson::default();
 
@@ -338,7 +343,7 @@ impl BuildJobs {
                     built_artifact_info.metadata.asset_type.as_u128(),
                     symbol_name_hash
                 )
-                    .unwrap();
+                .unwrap();
             }
 
             drop(manifest_release_file_writer);
@@ -367,14 +372,15 @@ impl BuildJobs {
                 .as_millis();
             toc_path.push(format!("{:0>16x}.toc", timestamp));
 
-            std::fs::write(toc_path, format!("{:0>16x}", build_task.combined_build_hash)).unwrap();
+            std::fs::write(
+                toc_path,
+                format!("{:0>16x}", build_task.combined_build_hash),
+            )
+            .unwrap();
 
             self.previous_combined_build_hash = Some(build_task.combined_build_hash);
             return Ok(BuildStatus::Completed(Arc::new(build_task.log_data)));
         }
-
-
-
 
         //
         // Consider starting a new build task
@@ -387,7 +393,10 @@ impl BuildJobs {
         let mut combined_build_hash = 0;
         let mut asset_hashes = HashMap::default();
         for (asset_id, object) in editor_model.data_set().assets() {
-            let hash = editor_model.data_set().hash_object(*asset_id, HashObjectMode::PropertiesOnly).unwrap();
+            let hash = editor_model
+                .data_set()
+                .hash_object(*asset_id, HashObjectMode::PropertiesOnly)
+                .unwrap();
 
             if !editor_model.is_path_node_or_root(object.schema()) {
                 asset_hashes.insert(*asset_id, hash);
@@ -424,13 +433,15 @@ impl BuildJobs {
             // if !needs_rebuild {
             //     return Ok(BuildStatus::Idle);
             // } else {
-                for (&asset_id, _) in &asset_hashes {
-                    assert!(!editor_model.is_path_node_or_root(&editor_model.data_set().asset_schema(asset_id).unwrap()));
+            for (&asset_id, _) in &asset_hashes {
+                assert!(!editor_model.is_path_node_or_root(
+                    &editor_model.data_set().asset_schema(asset_id).unwrap()
+                ));
 
-                    //TODO: Skip assets that aren't explicitly requested, if any were requested
-                    //      For now just build everything
-                    requested_build_ops.push_back(BuildRequest { asset_id });
-                }
+                //TODO: Skip assets that aren't explicitly requested, if any were requested
+                //      For now just build everything
+                requested_build_ops.push_back(BuildRequest { asset_id });
+            }
             //}
         } else if !self.force_build_queue.is_empty() {
             for asset_id in self.force_build_queue.drain() {
@@ -459,12 +470,12 @@ impl BuildJobs {
             data_set,
             schema_set,
             combined_build_hash,
-            log_data: Default::default()
+            log_data: Default::default(),
         });
 
         Ok(BuildStatus::Building(BuildStatusBuilding {
             total_job_count,
-            completed_job_count: 0
+            completed_job_count: 0,
         }))
     }
 

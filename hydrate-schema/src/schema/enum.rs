@@ -16,7 +16,11 @@ impl SchemaEnumSymbol {
         symbol_uuid: Uuid,
         aliases: Box<[String]>,
     ) -> Self {
-        SchemaEnumSymbol { name, symbol_uuid, aliases }
+        SchemaEnumSymbol {
+            name,
+            symbol_uuid,
+            aliases,
+        }
     }
 
     pub fn name(&self) -> &str {

@@ -1,12 +1,14 @@
-use std::hash::Hash;
-use std::sync::Arc;
-use hydrate_base::AssetId;
+use crate::thumbnails::{
+    ThumbnailProvider, ThumbnailProviderAbstract, ThumbnailProviderId, ThumbnailProviderWrapper,
+};
+use crate::{Builder, ThumbnailImage};
 use hydrate_base::hashing::HashMap;
+use hydrate_base::AssetId;
+use hydrate_data::Record;
 use hydrate_data::{BuilderId, SchemaSet};
 use hydrate_schema::SchemaFingerprint;
-use crate::{Builder, ThumbnailImage};
-use hydrate_data::Record;
-use crate::thumbnails::{ThumbnailProvider, ThumbnailProviderAbstract, ThumbnailProviderId, ThumbnailProviderWrapper};
+use std::hash::Hash;
+use std::sync::Arc;
 
 #[derive(Default)]
 pub struct ThumbnailProviderRegistryBuilder {
@@ -15,13 +17,13 @@ pub struct ThumbnailProviderRegistryBuilder {
 }
 
 impl ThumbnailProviderRegistryBuilder {
-    pub fn register_thumbnail_provider<T: ThumbnailProvider + Send + Sync + Default + 'static>(&mut self)
-        where
-            T::GatheredDataT: Hash + for<'a> serde::Deserialize<'a> + serde::Serialize,
+    pub fn register_thumbnail_provider<T: ThumbnailProvider + Send + Sync + Default + 'static>(
+        &mut self
+    ) where
+        T::GatheredDataT: Hash + for<'a> serde::Deserialize<'a> + serde::Serialize,
     {
-        self.thumbnail_providers.push(
-            Arc::new(ThumbnailProviderWrapper(T::default())),
-        );
+        self.thumbnail_providers
+            .push(Arc::new(ThumbnailProviderWrapper(T::default())));
     }
 
     pub fn register_thumbnail_provider_instance<T: ThumbnailProvider + Send + Sync + 'static>(
@@ -30,12 +32,14 @@ impl ThumbnailProviderRegistryBuilder {
     ) where
         T::GatheredDataT: Hash + for<'a> serde::Deserialize<'a> + serde::Serialize,
     {
-        self.thumbnail_providers.push(
-            Arc::new(ThumbnailProviderWrapper(thumbnail_provider)),
-        );
+        self.thumbnail_providers
+            .push(Arc::new(ThumbnailProviderWrapper(thumbnail_provider)));
     }
 
-    pub fn build(self, schema_set: &SchemaSet) -> ThumbnailProviderRegistry {
+    pub fn build(
+        self,
+        schema_set: &SchemaSet,
+    ) -> ThumbnailProviderRegistry {
         let mut asset_type_to_provider = HashMap::default();
 
         for (provider_index, provider) in self.thumbnail_providers.iter().enumerate() {
@@ -51,7 +55,10 @@ impl ThumbnailProviderRegistryBuilder {
             //     asset_type.as_uuid()
             // );
             if insert_result.is_some() {
-                panic!("Multiple handlers registered to handle the same asset {}", provider.asset_type_inner());
+                panic!(
+                    "Multiple handlers registered to handle the same asset {}",
+                    provider.asset_type_inner()
+                );
             }
         }
 
@@ -75,7 +82,6 @@ impl ThumbnailProviderRegistryBuilder {
 pub struct ThumbnailProviderRegistryInner {
     thumbnail_providers: Vec<Arc<dyn ThumbnailProviderAbstract>>,
     asset_type_to_provider: HashMap<SchemaFingerprint, ThumbnailProviderId>,
-
 }
 
 #[derive(Clone)]
@@ -88,9 +94,7 @@ impl ThumbnailProviderRegistry {
         &self,
         fingerprint: SchemaFingerprint,
     ) -> bool {
-        self.inner
-            .asset_type_to_provider
-            .contains_key(&fingerprint)
+        self.inner.asset_type_to_provider.contains_key(&fingerprint)
     }
 
     pub fn provider_for_asset(

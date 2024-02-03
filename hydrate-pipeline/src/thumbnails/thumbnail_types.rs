@@ -1,16 +1,16 @@
+use crate::build::{BuiltArtifact, FetchedImportData, FetchedImportDataInfo, NewJob};
+use crate::import::ImportData;
+use crate::thumbnails::thumbnail_system::ThumbnailImage;
+use crate::{HydrateProjectConfiguration, JobId, PipelineResult};
+use hydrate_base::hashing::HashMap;
+use hydrate_base::{ArtifactId, AssetId};
+use hydrate_data::{DataContainerRef, DataSet, FieldRef, PropertyPath, Record, SchemaSet};
+use hydrate_schema::{DataSetError, HashSet};
 use std::cell::RefCell;
 use std::hash::Hash;
 use std::rc::Rc;
 use std::sync::Arc;
 use type_uuid::TypeUuid;
-use hydrate_base::{ArtifactId, AssetId};
-use hydrate_base::hashing::HashMap;
-use hydrate_data::{DataContainerRef, DataSet, FieldRef, PropertyPath, Record, SchemaSet};
-use hydrate_schema::{DataSetError, HashSet};
-use crate::build::{BuiltArtifact, FetchedImportData, FetchedImportDataInfo, NewJob};
-use crate::import::ImportData;
-use crate::{HydrateProjectConfiguration, JobId, PipelineResult};
-use crate::thumbnails::thumbnail_system::ThumbnailImage;
 
 // pub trait ThumbnailApi: Send + Sync {
 //     // fn enqueue_job(
@@ -49,22 +49,31 @@ pub struct ThumbnailApi {
 }
 
 impl ThumbnailApi {
-    pub fn new(hydrate_config: &HydrateProjectConfiguration, schema_set: &SchemaSet) -> Self {
+    pub fn new(
+        hydrate_config: &HydrateProjectConfiguration,
+        schema_set: &SchemaSet,
+    ) -> Self {
         let inner = ThumbnailApiInner {
             schema_set: schema_set.clone(),
-            hydrate_config: hydrate_config.clone()
+            hydrate_config: hydrate_config.clone(),
         };
 
         ThumbnailApi {
-            inner: Arc::new(inner)
+            inner: Arc::new(inner),
         }
     }
 
-    pub fn fetch_import_data(&self, asset_id: AssetId) -> PipelineResult<ImportData> {
-        crate::import::load_import_data(&self.inner.hydrate_config.import_data_path, &self.inner.schema_set, asset_id)
+    pub fn fetch_import_data(
+        &self,
+        asset_id: AssetId,
+    ) -> PipelineResult<ImportData> {
+        crate::import::load_import_data(
+            &self.inner.hydrate_config.import_data_path,
+            &self.inner.schema_set,
+            asset_id,
+        )
     }
 }
-
 
 pub struct ThumbnailProviderGatherContext<'a> {
     pub asset_id: AssetId,
@@ -74,7 +83,10 @@ pub struct ThumbnailProviderGatherContext<'a> {
 }
 
 impl<'a> ThumbnailProviderGatherContext<'a> {
-    pub fn add_import_data_dependency(&self, asset_id: AssetId) {
+    pub fn add_import_data_dependency(
+        &self,
+        asset_id: AssetId,
+    ) {
         self.import_data_dependencies.borrow_mut().insert(asset_id);
     }
 }
@@ -85,7 +97,7 @@ pub struct ThumbnailProviderRenderContext<'a> {
     pub asset_id: AssetId,
     pub schema_set: &'a SchemaSet,
     pub(crate) fetched_import_data: &'a Rc<RefCell<&'a mut HashMap<AssetId, FetchedImportData>>>,
-    pub(crate) thumbnail_api: &'a ThumbnailApi
+    pub(crate) thumbnail_api: &'a ThumbnailApi,
 }
 
 impl<'a> ThumbnailProviderRenderContext<'a> {
@@ -97,7 +109,6 @@ impl<'a> ThumbnailProviderRenderContext<'a> {
         let import_data = if let Some(fetched_import_data) = fetched_import_data.get(&asset_id) {
             fetched_import_data.import_data.clone()
         } else {
-
             let newly_fetched_import_data = self.thumbnail_api.fetch_import_data(asset_id)?;
             let import_data = Arc::new(newly_fetched_import_data.import_data);
 
@@ -126,7 +137,6 @@ impl<'a> ThumbnailProviderRenderContext<'a> {
     }
 }
 
-
 pub trait ThumbnailProvider {
     type GatheredDataT: Hash + 'static;
 
@@ -136,13 +146,16 @@ pub trait ThumbnailProvider {
 
     // Is given access to all data needed to produce the thumbnail. This call acts as the logic
     // that decides if a thumbnail needs to be refreshed.
-    fn gather(&self, context: ThumbnailProviderGatherContext) -> Self::GatheredDataT;
+    fn gather(
+        &self,
+        context: ThumbnailProviderGatherContext,
+    ) -> Self::GatheredDataT;
 
     // Can only read gathered data provided by gather(), import data, and build data. The import/build
     // data has to match the hash of what was requested by gather()
     fn render<'a>(
         &'a self,
         context: &'a ThumbnailProviderRenderContext<'a>,
-        gathered_data: Self::GatheredDataT
+        gathered_data: Self::GatheredDataT,
     ) -> PipelineResult<ThumbnailImage>;
 }

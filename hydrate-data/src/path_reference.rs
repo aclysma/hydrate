@@ -1,19 +1,24 @@
 use crate::ImportableName;
+use hydrate_schema::{DataSetError, DataSetResult};
+use siphasher::sip128::Hasher128;
 use std::fmt::{Display, Formatter};
 use std::hash::Hash;
 use std::path::{Path, PathBuf};
-use siphasher::sip128::Hasher128;
 use uuid::Uuid;
-use hydrate_schema::{DataSetError, DataSetResult};
 
 pub trait PathReferenceNamespaceResolver {
     // Given the namespace, return the path associated with it
-    fn namespace_root(&self, namespace: &str) -> Option<PathBuf>;
+    fn namespace_root(
+        &self,
+        namespace: &str,
+    ) -> Option<PathBuf>;
 
     // Given the canonicalized absolute path, if it can be expressed as a namespace and path within the namepsace, return that
-    fn simplify_path(&self, path: &Path) -> Option<(String, PathBuf)>;
+    fn simplify_path(
+        &self,
+        path: &Path,
+    ) -> Option<(String, PathBuf)>;
 }
-
 
 pub fn canonicalized_absolute_path(
     namespace: &String,
@@ -34,7 +39,9 @@ pub fn canonicalized_absolute_path(
             PathBuf::from(referenced_path).canonicalize().unwrap()
         }
     } else {
-        let namespace_root = namespace_resolver.namespace_root(namespace).ok_or(DataSetError::UnknownPathNamespace)?;
+        let namespace_root = namespace_resolver
+            .namespace_root(namespace)
+            .ok_or(DataSetError::UnknownPathNamespace)?;
         namespace_root.join(referenced_path).canonicalize().unwrap()
     };
 
@@ -55,7 +62,10 @@ pub struct CanonicalPathReference {
 }
 
 impl Display for CanonicalPathReference {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    fn fmt(
+        &self,
+        f: &mut Formatter<'_>,
+    ) -> std::fmt::Result {
         if self.namespace.is_empty() {
             if let Some(importable_name) = self.importable_name.name() {
                 write!(f, "{}#{}", self.path, importable_name)
@@ -83,7 +93,8 @@ impl CanonicalPathReference {
             namespace,
             path,
             importable_name,
-        }.simplify(namespace_resolver)
+        }
+        .simplify(namespace_resolver)
     }
 
     pub fn namespace(&self) -> &str {
@@ -108,7 +119,7 @@ impl CanonicalPathReference {
             &self.path,
             &self.importable_name,
             namespace_resolver,
-            source_file_path
+            source_file_path,
         )
     }
 }
@@ -128,7 +139,10 @@ pub struct PathReference {
 }
 
 impl Display for PathReference {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    fn fmt(
+        &self,
+        f: &mut Formatter<'_>,
+    ) -> std::fmt::Result {
         if self.namespace.is_empty() {
             if let Some(importable_name) = self.importable_name.name() {
                 write!(f, "{}#{}", self.path, importable_name)
@@ -187,30 +201,29 @@ impl PathReference {
             &self.path,
             &self.importable_name,
             namespace_resolver,
-            source_file_path
+            source_file_path,
         )
     }
 
     pub fn simplify(
         self,
-        namespace_resolver: &dyn PathReferenceNamespaceResolver
+        namespace_resolver: &dyn PathReferenceNamespaceResolver,
     ) -> CanonicalPathReference {
         if !self.namespace.is_empty() {
             // If it has a namespace it can't be simplified
-
         } else if Path::new(&self.path).is_relative() {
             // If it's a relative path it can't be simplified
-
         } else {
             // If it's an absolute path, see if it is in a namespace, if it is, we can return a PathReference relative
             // to the namespace
             let canonicalized_path = PathBuf::from(&self.path).canonicalize().unwrap();
 
-            if let Some((namespace, prefix)) = namespace_resolver.simplify_path(&canonicalized_path) {
+            if let Some((namespace, prefix)) = namespace_resolver.simplify_path(&canonicalized_path)
+            {
                 return CanonicalPathReference {
                     namespace,
                     path: prefix.to_string_lossy().to_string(),
-                    importable_name: self.importable_name
+                    importable_name: self.importable_name,
                 };
             }
         }
@@ -218,7 +231,7 @@ impl PathReference {
         CanonicalPathReference {
             namespace: self.namespace,
             path: self.path,
-            importable_name: self.importable_name
+            importable_name: self.importable_name,
         }
     }
 }
@@ -228,29 +241,37 @@ impl From<&str> for PathReference {
         let namespace_delimeter_position = s.rfind("://");
         let importable_name_delimeter_position = s.rfind('#');
 
-        let (path_start_position, namespace) = if let Some(namespace_delimeter_position) = namespace_delimeter_position {
-            (namespace_delimeter_position + 3, s[0..namespace_delimeter_position].to_string())
-        } else {
-            (0, String::default())
-        };
-
-        let (path, importable_name) = if let Some(importable_name_delimeter_position) = importable_name_delimeter_position {
-            let path = s[path_start_position..importable_name_delimeter_position].to_string();
-            let importable_name = &s[importable_name_delimeter_position + 1..];
-            let importable_name = if !importable_name.is_empty() {
-                ImportableName::new(importable_name.to_string())
+        let (path_start_position, namespace) =
+            if let Some(namespace_delimeter_position) = namespace_delimeter_position {
+                (
+                    namespace_delimeter_position + 3,
+                    s[0..namespace_delimeter_position].to_string(),
+                )
             } else {
-                ImportableName::default()
+                (0, String::default())
             };
-            (path, importable_name)
-        } else {
-            (s[path_start_position..].to_string(), ImportableName::default())
-        };
+
+        let (path, importable_name) =
+            if let Some(importable_name_delimeter_position) = importable_name_delimeter_position {
+                let path = s[path_start_position..importable_name_delimeter_position].to_string();
+                let importable_name = &s[importable_name_delimeter_position + 1..];
+                let importable_name = if !importable_name.is_empty() {
+                    ImportableName::new(importable_name.to_string())
+                } else {
+                    ImportableName::default()
+                };
+                (path, importable_name)
+            } else {
+                (
+                    s[path_start_position..].to_string(),
+                    ImportableName::default(),
+                )
+            };
 
         PathReference {
             namespace,
             path,
-            importable_name
+            importable_name,
         }
     }
 }

@@ -1,7 +1,7 @@
-use std::sync::Arc;
 pub use super::*;
 use glam::Vec3;
 use rafx_api::RafxResourceType;
+use std::sync::Arc;
 
 use crate::generated::{
     MeshAdvMaterialAssetRecord, MeshAdvMeshAssetRecord, MeshAdvMeshImportedDataRecord,
@@ -10,7 +10,11 @@ use crate::push_buffer::PushBuffer;
 use demo_types::mesh_adv::*;
 use hydrate_data::Record;
 use hydrate_model::pipeline::{AssetPlugin, Builder};
-use hydrate_pipeline::{AssetId, AssetPluginSetupContext, BuilderContext, BuilderRegistryBuilder, ImporterRegistryBuilder, JobInput, JobOutput, JobProcessor, JobProcessorRegistryBuilder, PipelineResult, RunContext, ThumbnailImage};
+use hydrate_pipeline::{
+    AssetId, AssetPluginSetupContext, BuilderContext, BuilderRegistryBuilder,
+    ImporterRegistryBuilder, JobInput, JobOutput, JobProcessor, JobProcessorRegistryBuilder,
+    PipelineResult, RunContext, ThumbnailImage,
+};
 use serde::{Deserialize, Serialize};
 use type_uuid::TypeUuid;
 
@@ -383,13 +387,19 @@ impl Builder for MeshAdvMeshBuilder {
 pub struct MeshAdvAssetPlugin;
 
 impl AssetPlugin for MeshAdvAssetPlugin {
-    fn setup(
-        context: AssetPluginSetupContext
-    ) {
-        context.builder_registry.register_handler::<MeshAdvMaterialBuilder>();
-        context.job_processor_registry.register_job_processor::<MeshAdvMaterialJobProcessor>();
+    fn setup(context: AssetPluginSetupContext) {
+        context
+            .builder_registry
+            .register_handler::<MeshAdvMaterialBuilder>();
+        context
+            .job_processor_registry
+            .register_job_processor::<MeshAdvMaterialJobProcessor>();
 
-        context.builder_registry.register_handler::<MeshAdvMeshBuilder>();
-        context.job_processor_registry.register_job_processor::<MeshAdvMeshPreprocessJobProcessor>();
+        context
+            .builder_registry
+            .register_handler::<MeshAdvMeshBuilder>();
+        context
+            .job_processor_registry
+            .register_job_processor::<MeshAdvMeshPreprocessJobProcessor>();
     }
 }

@@ -1,14 +1,17 @@
-use std::sync::{Arc, Mutex};
+use crate::build::JobExecutor;
+use crate::thumbnails::thumbnail_thread_pool::{
+    ThumbnailThreadPool, ThumbnailThreadPoolOutcome, ThumbnailThreadPoolRequest,
+    ThumbnailThreadPoolRequestRunJob,
+};
+use crate::thumbnails::ThumbnailProviderRegistry;
+use crate::{HydrateProjectConfiguration, ThumbnailApi, ThumbnailInputHash};
 use crossbeam_channel::Receiver;
-use hydrate_base::AssetId;
 use hydrate_base::hashing::HashMap;
 use hydrate_base::lru_cache::LruCache;
+use hydrate_base::AssetId;
 use hydrate_data::{DataSet, SchemaSet};
 use hydrate_schema::{HashSet, SchemaFingerprint};
-use crate::{HydrateProjectConfiguration, ThumbnailApi, ThumbnailInputHash};
-use crate::build::JobExecutor;
-use crate::thumbnails::thumbnail_thread_pool::{ThumbnailThreadPool, ThumbnailThreadPoolOutcome, ThumbnailThreadPoolRequest, ThumbnailThreadPoolRequestRunJob};
-use crate::thumbnails::ThumbnailProviderRegistry;
+use std::sync::{Arc, Mutex};
 
 // Thumbnail providers are implemented per asset type
 // - Implement a gather method that runs in main thread and can see asset data
@@ -49,21 +52,24 @@ struct ThumbnailSystemStateInner {
 
 #[derive(Clone)]
 pub struct ThumbnailSystemState {
-    pub inner: Arc<Mutex<ThumbnailSystemStateInner>>
+    pub inner: Arc<Mutex<ThumbnailSystemStateInner>>,
 }
 
 impl Default for ThumbnailSystemState {
     fn default() -> Self {
         ThumbnailSystemState {
             inner: Arc::new(Mutex::new(ThumbnailSystemStateInner {
-                cache: LruCache::new(THUMBNAIL_CACHE_SIZE)
-            }))
+                cache: LruCache::new(THUMBNAIL_CACHE_SIZE),
+            })),
         }
     }
 }
 
 impl ThumbnailSystemState {
-    pub fn request(&self, asset_id: AssetId) -> Option<Arc<ThumbnailImage>> {
+    pub fn request(
+        &self,
+        asset_id: AssetId,
+    ) -> Option<Arc<ThumbnailImage>> {
         let mut inner = self.inner.lock().unwrap();
         if let Some(thumbnail_state) = inner.cache.get(&asset_id, true) {
             thumbnail_state.image.clone()
@@ -73,16 +79,14 @@ impl ThumbnailSystemState {
         }
     }
 
-    pub fn forget(&self, asset_id: AssetId) {
-
+    pub fn forget(
+        &self,
+        asset_id: AssetId,
+    ) {
     }
 
-    pub fn forget_all(&self) {
-
-    }
+    pub fn forget_all(&self) {}
 }
-
-
 
 pub struct ThumbnailSystem {
     // Thumbnails that have been requested, created, etc.
@@ -114,14 +118,13 @@ impl ThumbnailSystem {
     pub fn new(
         hydrate_config: &HydrateProjectConfiguration,
         thumbnail_provider_registry: ThumbnailProviderRegistry,
-        schema_set: &SchemaSet
+        schema_set: &SchemaSet,
     ) -> Self {
         let default_image = ThumbnailImage {
             width: 1,
             height: 1,
-            pixel_data: vec![0, 0, 0, 255]
+            pixel_data: vec![0, 0, 0, 255],
         };
-
 
         let thumbnail_api = ThumbnailApi::new(hydrate_config, schema_set);
 
@@ -131,7 +134,7 @@ impl ThumbnailSystem {
             schema_set.clone(),
             thumbnail_api.clone(),
             4,
-            thread_pool_result_tx
+            thread_pool_result_tx,
         );
 
         ThumbnailSystem {
@@ -148,11 +151,16 @@ impl ThumbnailSystem {
     pub fn update(
         &mut self,
         data_set: &DataSet,
-        schema_set: &SchemaSet
+        schema_set: &SchemaSet,
     ) {
         let now = std::time::Instant::now();
         let mut state = self.thumbnail_system_state.inner.lock().unwrap();
-        for (asset_id, thumbnail_state) in state.cache.pairs_mut().iter_mut().filter_map(|x| x.as_mut()) {
+        for (asset_id, thumbnail_state) in state
+            .cache
+            .pairs_mut()
+            .iter_mut()
+            .filter_map(|x| x.as_mut())
+        {
             // No more than 50 requests in flight at a time
             if self.current_requests.len() > 50 {
                 break;
@@ -186,14 +194,22 @@ impl ThumbnailSystem {
                 continue;
             };
 
-            let Some(provider) = self.thumbnail_provider_registry.provider_for_asset(asset_schema.fingerprint()) else {
+            let Some(provider) = self
+                .thumbnail_provider_registry
+                .provider_for_asset(asset_schema.fingerprint())
+            else {
                 thumbnail_state.image = Some(self.default_image.clone());
                 continue;
             };
 
             // Calculate the current input hash
-            let dependencies = provider.gather_inner(asset_id, data_set, schema_set).unwrap();
-            if self.current_requests.contains(&dependencies.thumbnail_input_hash) {
+            let dependencies = provider
+                .gather_inner(asset_id, data_set, schema_set)
+                .unwrap();
+            if self
+                .current_requests
+                .contains(&dependencies.thumbnail_input_hash)
+            {
                 continue;
             }
 
@@ -203,24 +219,33 @@ impl ThumbnailSystem {
             }
 
             // Kick off the request
-            self.current_requests.insert(dependencies.thumbnail_input_hash);
+            self.current_requests
+                .insert(dependencies.thumbnail_input_hash);
             thumbnail_state.queued_request_input_hash = Some(dependencies.thumbnail_input_hash);
-            self.thread_pool.as_ref().unwrap().add_request(ThumbnailThreadPoolRequest::RunJob(ThumbnailThreadPoolRequestRunJob {
-                asset_id,
-                asset_type: asset_schema.fingerprint(),
-                dependencies: Arc::new(dependencies),
-            }));
+            self.thread_pool
+                .as_ref()
+                .unwrap()
+                .add_request(ThumbnailThreadPoolRequest::RunJob(
+                    ThumbnailThreadPoolRequestRunJob {
+                        asset_id,
+                        asset_type: asset_schema.fingerprint(),
+                        dependencies: Arc::new(dependencies),
+                    },
+                ));
         }
 
         while let Ok(result) = self.thread_pool_result_rx.try_recv() {
             match result {
                 ThumbnailThreadPoolOutcome::RunJobComplete(msg) => {
-                    self.current_requests.remove(&msg.request.dependencies.thumbnail_input_hash);
-                    if let Some(thumbnail_state) = state.cache.get_mut(&msg.request.asset_id, false) {
+                    self.current_requests
+                        .remove(&msg.request.dependencies.thumbnail_input_hash);
+                    if let Some(thumbnail_state) = state.cache.get_mut(&msg.request.asset_id, false)
+                    {
                         match msg.result {
                             Ok(image) => {
                                 thumbnail_state.queued_request_input_hash = None;
-                                thumbnail_state.current_input_hash = Some(msg.request.dependencies.thumbnail_input_hash);
+                                thumbnail_state.current_input_hash =
+                                    Some(msg.request.dependencies.thumbnail_input_hash);
                                 thumbnail_state.image = Some(Arc::new(image));
                             }
                             Err(e) => {

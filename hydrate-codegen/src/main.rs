@@ -1,5 +1,5 @@
-use std::path::PathBuf;
 use log::LevelFilter;
+use std::path::PathBuf;
 use structopt::StructOpt;
 
 use hydrate_codegen::*;

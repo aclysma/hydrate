@@ -1,10 +1,10 @@
-use egui::Widget;
-use serde_json::to_string;
-use uuid::Uuid;
-use hydrate_model::EditorModel;
-use hydrate_model::pipeline::{AssetEngine, BuildLogData, ImportLogData, LogData, LogDataRef};
 use crate::action_queue::{UIAction, UIActionQueueSender};
 use crate::ui_state::EditorModelUiState;
+use egui::Widget;
+use hydrate_model::pipeline::{AssetEngine, BuildLogData, ImportLogData, LogData, LogDataRef};
+use hydrate_model::EditorModel;
+use serde_json::to_string;
+use uuid::Uuid;
 
 #[derive(Default)]
 pub struct LogEventViewUiState {
@@ -34,11 +34,9 @@ pub fn draw_import_log(
             .column(
                 egui_extras::Column::initial(200.0)
                     .at_least(40.0)
-                    .clip(true))
-            .column(
-                egui_extras::Column::initial(30.0)
-                    .at_least(30.0)
-                    .clip(true))
+                    .clip(true),
+            )
+            .column(egui_extras::Column::initial(30.0).at_least(30.0).clip(true))
             .column(egui_extras::Column::remainder());
 
         table
@@ -93,11 +91,9 @@ pub fn draw_build_log(
             .column(
                 egui_extras::Column::initial(200.0)
                     .at_least(40.0)
-                    .clip(true))
-            .column(
-                egui_extras::Column::initial(30.0)
-                    .at_least(30.0)
-                    .clip(true))
+                    .clip(true),
+            )
+            .column(egui_extras::Column::initial(30.0).at_least(30.0).clip(true))
             .column(egui_extras::Column::remainder());
 
         table
@@ -120,11 +116,14 @@ pub fn draw_build_log(
                         });
                         row.col(|ui| {
                             if let Some(asset_id) = log_event.asset_id {
-                                let long_name = editor_model
-                                    .asset_display_name_long(asset_id, &editor_model_ui_state.asset_path_cache);
+                                let long_name = editor_model.asset_display_name_long(
+                                    asset_id,
+                                    &editor_model_ui_state.asset_path_cache,
+                                );
 
                                 if ui.button(">>").clicked() {
-                                    action_queue_sender.queue_action(UIAction::ShowAssetInAssetGallery(asset_id));
+                                    action_queue_sender
+                                        .queue_action(UIAction::ShowAssetInAssetGallery(asset_id));
                                 }
 
                                 ui.label(long_name);
@@ -133,17 +132,23 @@ pub fn draw_build_log(
 
                                 if assets.len() >= 1 {
                                     if ui.button(">>").clicked() {
-                                        action_queue_sender.queue_action(UIAction::ShowAssetInAssetGallery(assets[0]));
+                                        action_queue_sender.queue_action(
+                                            UIAction::ShowAssetInAssetGallery(assets[0]),
+                                        );
                                     }
                                 }
 
                                 if assets.len() > 1 {
-                                    let long_name = editor_model
-                                        .asset_display_name_long(assets[0], &editor_model_ui_state.asset_path_cache);
+                                    let long_name = editor_model.asset_display_name_long(
+                                        assets[0],
+                                        &editor_model_ui_state.asset_path_cache,
+                                    );
                                     ui.label(format!("[+{}] {}", assets.len() - 1, long_name));
                                 } else if assets.len() == 1 {
-                                    let long_name = editor_model
-                                        .asset_display_name_long(assets[0], &editor_model_ui_state.asset_path_cache);
+                                    let long_name = editor_model.asset_display_name_long(
+                                        assets[0],
+                                        &editor_model_ui_state.asset_path_cache,
+                                    );
                                     ui.label(format!("{}", long_name));
                                 } else {
                                     ui.label(format!("Job {}", job_id.as_uuid()));
@@ -170,8 +175,13 @@ pub fn draw_log_event_view(
 ) {
     let format_description = time::format_description::parse("[hour]:[minute]:[second]").unwrap();
 
-    fn log_label(log_data: &LogData, time_format: &[time::format_description::FormatItem]) -> String {
-        let formatted_start_time = time::OffsetDateTime::from(log_data.start_time()).format(time_format).unwrap();
+    fn log_label(
+        log_data: &LogData,
+        time_format: &[time::format_description::FormatItem],
+    ) -> String {
+        let formatted_start_time = time::OffsetDateTime::from(log_data.start_time())
+            .format(time_format)
+            .unwrap();
         match log_data {
             LogData::Import(import_data) => format!("Import at {}", formatted_start_time),
             LogData::Build(build_data) => format!("Build at {}", formatted_start_time),
@@ -197,19 +207,26 @@ pub fn draw_log_event_view(
         };
 
         let selected_log = &mut log_event_view_ui_state.selected_log;
-        egui::ComboBox::new("build_selector", "Build Selection").selected_text(selected_label).show_ui(ui, |ui| {
-            ui.selectable_value(selected_log, None, "Most Recent");
+        egui::ComboBox::new("build_selector", "Build Selection")
+            .selected_text(selected_label)
+            .show_ui(ui, |ui| {
+                ui.selectable_value(selected_log, None, "Most Recent");
 
-            for previous_log in previous_log_data.iter().rev() {
-                let formatted_start_time = time::OffsetDateTime::from(previous_log.start_time()).format(&format_description).unwrap();
-                let label = match previous_log {
-                    LogData::Import(import_data) => format!("Import at {}", formatted_start_time),
-                    LogData::Build(build_data) => format!("Build at {}", formatted_start_time),
-                };
+                for previous_log in previous_log_data.iter().rev() {
+                    let formatted_start_time =
+                        time::OffsetDateTime::from(previous_log.start_time())
+                            .format(&format_description)
+                            .unwrap();
+                    let label = match previous_log {
+                        LogData::Import(import_data) => {
+                            format!("Import at {}", formatted_start_time)
+                        }
+                        LogData::Build(build_data) => format!("Build at {}", formatted_start_time),
+                    };
 
-                ui.selectable_value(selected_log, Some(previous_log.id()), label);
-            }
-        });
+                    ui.selectable_value(selected_log, Some(previous_log.id()), label);
+                }
+            });
 
         /*
         ui.button("test");
@@ -246,11 +263,9 @@ pub fn draw_log_event_view(
                 .column(
                     egui_extras::Column::initial(200.0)
                         .at_least(40.0)
-                        .clip(true))
-                .column(
-                    egui_extras::Column::initial(30.0)
-                        .at_least(30.0)
-                        .clip(true))
+                        .clip(true),
+                )
+                .column(egui_extras::Column::initial(30.0).at_least(30.0).clip(true))
                 .column(egui_extras::Column::remainder());
 
             if let Some(selected_log_id) = log_event_view_ui_state.selected_log {
@@ -259,12 +274,24 @@ pub fn draw_log_event_view(
                 //
                 let log = previous_log_data.iter().find(|x| x.id() == selected_log_id);
                 match log {
-                    Some(log_data) => {
-                        match log_data {
-                            LogData::Import(import_log_data) => draw_import_log(ui, editor_model, editor_model_ui_state, log_event_view_ui_state, action_queue_sender, import_log_data),
-                            LogData::Build(build_log_data) => draw_build_log(ui, editor_model, editor_model_ui_state, log_event_view_ui_state, action_queue_sender, build_log_data),
-                        }
-                    }
+                    Some(log_data) => match log_data {
+                        LogData::Import(import_log_data) => draw_import_log(
+                            ui,
+                            editor_model,
+                            editor_model_ui_state,
+                            log_event_view_ui_state,
+                            action_queue_sender,
+                            import_log_data,
+                        ),
+                        LogData::Build(build_log_data) => draw_build_log(
+                            ui,
+                            editor_model,
+                            editor_model_ui_state,
+                            log_event_view_ui_state,
+                            action_queue_sender,
+                            build_log_data,
+                        ),
+                    },
                     None => {}
                 }
             } else {
@@ -272,8 +299,22 @@ pub fn draw_log_event_view(
                 // Draw either the log from current in-progress task or the most recent log
                 //
                 match asset_engine.current_task_log_data() {
-                    LogDataRef::Import(import_log_data) => draw_import_log(ui, editor_model, editor_model_ui_state, log_event_view_ui_state, action_queue_sender, import_log_data),
-                    LogDataRef::Build(build_log_data) => draw_build_log(ui, editor_model, editor_model_ui_state, log_event_view_ui_state, action_queue_sender, build_log_data),
+                    LogDataRef::Import(import_log_data) => draw_import_log(
+                        ui,
+                        editor_model,
+                        editor_model_ui_state,
+                        log_event_view_ui_state,
+                        action_queue_sender,
+                        import_log_data,
+                    ),
+                    LogDataRef::Build(build_log_data) => draw_build_log(
+                        ui,
+                        editor_model,
+                        editor_model_ui_state,
+                        log_event_view_ui_state,
+                        action_queue_sender,
+                        build_log_data,
+                    ),
                     LogDataRef::None => {
                         // Pick the most recent previous build
                         let mut most_recent_log_data: Option<&LogData> = None;
@@ -289,8 +330,22 @@ pub fn draw_log_event_view(
 
                         if let Some(most_recent_log_data) = most_recent_log_data {
                             match most_recent_log_data {
-                                LogData::Import(import_log_data) => draw_import_log(ui, editor_model, editor_model_ui_state, log_event_view_ui_state, action_queue_sender, import_log_data),
-                                LogData::Build(build_log_data) => draw_build_log(ui, editor_model, editor_model_ui_state, log_event_view_ui_state, action_queue_sender, build_log_data),
+                                LogData::Import(import_log_data) => draw_import_log(
+                                    ui,
+                                    editor_model,
+                                    editor_model_ui_state,
+                                    log_event_view_ui_state,
+                                    action_queue_sender,
+                                    import_log_data,
+                                ),
+                                LogData::Build(build_log_data) => draw_build_log(
+                                    ui,
+                                    editor_model,
+                                    editor_model_ui_state,
+                                    log_event_view_ui_state,
+                                    action_queue_sender,
+                                    build_log_data,
+                                ),
                             }
                         }
                     }

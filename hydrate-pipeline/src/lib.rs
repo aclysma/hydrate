@@ -7,28 +7,32 @@ pub use hydrate_data::*;
 
 mod pipeline_error;
 
-mod project;
 mod build;
 mod import;
+mod project;
 mod thumbnails;
 pub use thumbnails::*;
 
 pub use import::{
-    ImportJobSourceFile, ScannedImportable, RequestedImportable, ImporterRegistry, Importer, ImporterRegistryBuilder,
-    ImportJobs, ImportStatus, ImportStatusImporting, ImportType, ScanContext, import_util::create_asset_name, ImportContext,
-    import_util::recursively_gather_import_operations_and_create_assets, ImportJobToQueue,
+    import_util::create_asset_name,
+    import_util::recursively_gather_import_operations_and_create_assets, ImportContext,
+    ImportJobSourceFile, ImportJobToQueue, ImportJobs, ImportStatus, ImportStatusImporting,
+    ImportType, Importer, ImporterRegistry, ImporterRegistryBuilder, RequestedImportable,
+    ScanContext, ScannedImportable,
 };
 
 pub use project::{HydrateProjectConfiguration, NamePathPair};
 
-pub use pipeline_error::*;
 pub use crate::build::{
-    Builder, BuilderRegistry, BuilderRegistryBuilder, BuildJobs, BuildStatus, BuildStatusBuilding, JobProcessorRegistry, JobProcessorRegistryBuilder,
-    BuilderContext, JobInput, JobOutput, JobId, JobProcessor, RunContext, HandleFactory, EnumerateDependenciesContext, JobEnumeratedDependencies, AssetArtifactIdPair,
+    AssetArtifactIdPair, BuildJobs, BuildStatus, BuildStatusBuilding, Builder, BuilderContext,
+    BuilderRegistry, BuilderRegistryBuilder, EnumerateDependenciesContext, HandleFactory,
+    JobEnumeratedDependencies, JobId, JobInput, JobOutput, JobProcessor, JobProcessorRegistry,
+    JobProcessorRegistryBuilder, RunContext,
 };
+pub use pipeline_error::*;
 
-mod uuid_newtype;
 mod log_events;
+mod uuid_newtype;
 pub use log_events::*;
 
 pub struct AssetPluginRegistries {
@@ -66,9 +70,7 @@ impl AssetPluginRegistryBuilders {
         }
     }
 
-    pub fn register_plugin<T: AssetPlugin>(
-        mut self,
-    ) -> Self {
+    pub fn register_plugin<T: AssetPlugin>(mut self) -> Self {
         T::setup(AssetPluginSetupContext {
             importer_registry: &mut self.importer_registry,
             builder_registry: &mut self.builder_registry,
@@ -91,7 +93,7 @@ impl AssetPluginRegistryBuilders {
             importer_registry,
             builder_registry,
             job_processor_registry,
-            thumbnail_provider_registry
+            thumbnail_provider_registry,
         }
     }
 }
@@ -151,7 +153,7 @@ impl AssetEngine {
         schema_set: &SchemaSet,
         registries: AssetPluginRegistries,
         editor_model: &dyn DynEditorModel,
-        project_configuration: &HydrateProjectConfiguration
+        project_configuration: &HydrateProjectConfiguration,
     ) -> Self {
         let import_jobs = ImportJobs::new(
             project_configuration,
@@ -171,7 +173,7 @@ impl AssetEngine {
         let thumbnail_system = ThumbnailSystem::new(
             project_configuration,
             registries.thumbnail_provider_registry,
-            schema_set
+            schema_set,
         );
 
         //TODO: Consider looking at disk to determine previous combined build hash so we don't for a rebuild every time we open
@@ -218,16 +220,17 @@ impl AssetEngine {
         // If there are import jobs pending, cancel the in-flight build and execute them
         //
         if !self.build_jobs.is_building() {
-            let import_state = self.import_jobs
+            let import_state = self
+                .import_jobs
                 .update(&self.importer_registry, editor_model)?;
 
             match import_state {
                 ImportStatus::Idle => {
                     // We can go to the next step
-                },
+                }
                 ImportStatus::Importing(importing_state) => {
                     return Ok(AssetEngineState::Importing(importing_state))
-                },
+                }
                 ImportStatus::Completed(import_log_data) => {
                     return Ok(AssetEngineState::ImportCompleted(import_log_data))
                 }
@@ -236,7 +239,8 @@ impl AssetEngine {
 
         if !self.build_jobs.is_building() {
             assert!(!self.import_jobs.is_importing());
-            self.thumbnail_system.update(editor_model.data_set(), editor_model.schema_set());
+            self.thumbnail_system
+                .update(editor_model.data_set(), editor_model.schema_set());
         }
 
         //
@@ -245,16 +249,12 @@ impl AssetEngine {
         //
 
         // Check if our import state is consistent, if it is we save expected hashes and run builds
-        let build_state = self.build_jobs.update(
-            &self.builder_registry,
-            editor_model,
-            &self.import_jobs,
-        )?;
+        let build_state =
+            self.build_jobs
+                .update(&self.builder_registry, editor_model, &self.import_jobs)?;
 
         match build_state {
-            BuildStatus::Idle => {
-                Ok(AssetEngineState::Idle)
-            }
+            BuildStatus::Idle => Ok(AssetEngineState::Idle),
             BuildStatus::Building(building_state) => {
                 return Ok(AssetEngineState::Building(building_state))
             }
@@ -264,9 +264,7 @@ impl AssetEngine {
         }
     }
 
-    pub fn thumbnail_system_state(
-        &self
-    ) -> &ThumbnailSystemState {
+    pub fn thumbnail_system_state(&self) -> &ThumbnailSystemState {
         self.thumbnail_system.system_state()
     }
 
@@ -316,15 +314,11 @@ impl AssetEngine {
         self.build_jobs.queue_build_operation(asset_id);
     }
 
-    pub fn needs_build(
-        &self
-    ) -> bool {
+    pub fn needs_build(&self) -> bool {
         self.build_jobs.needs_build()
     }
 
-    pub fn queue_build_all(
-        &mut self,
-    ) {
+    pub fn queue_build_all(&mut self) {
         self.build_jobs.build();
     }
 
@@ -333,6 +327,7 @@ impl AssetEngine {
         old_asset_id: AssetId,
         new_asset_id: AssetId,
     ) -> PipelineResult<()> {
-        self.import_jobs.duplicate_import_data(old_asset_id, new_asset_id)
+        self.import_jobs
+            .duplicate_import_data(old_asset_id, new_asset_id)
     }
 }

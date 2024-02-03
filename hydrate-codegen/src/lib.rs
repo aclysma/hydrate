@@ -1,11 +1,11 @@
 use hydrate_data::{
     Schema, SchemaEnum, SchemaNamedType, SchemaRecord, SchemaSet, SchemaSetBuilder,
 };
+use hydrate_pipeline::HydrateProjectConfiguration;
 use std::error::Error;
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use structopt::StructOpt;
-use hydrate_pipeline::HydrateProjectConfiguration;
 
 //
 // TODO: Validation code - we should have a fn on generated types to verify they are registered in the schema and match
@@ -33,9 +33,16 @@ pub struct HydrateCodegenArgs {
     pub trace: bool,
 }
 
-pub fn run(project_file_serach_location: &Path, args: &HydrateCodegenArgs) -> Result<(), Box<dyn Error>> {
+pub fn run(
+    project_file_serach_location: &Path,
+    args: &HydrateCodegenArgs,
+) -> Result<(), Box<dyn Error>> {
     if args.schema_path.is_some() && args.outfile.is_some() {
-        return schema_to_rs(args.schema_path.as_ref().unwrap(), &args.included_schema, args.outfile.as_ref().unwrap());
+        return schema_to_rs(
+            args.schema_path.as_ref().unwrap(),
+            &args.included_schema,
+            args.outfile.as_ref().unwrap(),
+        );
     }
 
     if args.schema_path.is_some() != args.outfile.is_some() {
@@ -43,14 +50,19 @@ pub fn run(project_file_serach_location: &Path, args: &HydrateCodegenArgs) -> Re
     }
 
     // find the hydrate project file
-    let project_configuration = HydrateProjectConfiguration::locate_project_file(project_file_serach_location).unwrap();
+    let project_configuration =
+        HydrateProjectConfiguration::locate_project_file(project_file_serach_location).unwrap();
 
     // If a job was specified, just run that job or error if it wasn't found
     if let Some(job_name) = &args.job_name {
         for schema_codegen_job in &project_configuration.schema_codegen_jobs {
             if schema_codegen_job.name == *job_name {
                 log::info!("Run schema codegen job {}", &schema_codegen_job.name);
-                return schema_to_rs(&schema_codegen_job.schema_path, &schema_codegen_job.included_schema_paths, &schema_codegen_job.outfile);
+                return schema_to_rs(
+                    &schema_codegen_job.schema_path,
+                    &schema_codegen_job.included_schema_paths,
+                    &schema_codegen_job.outfile,
+                );
             }
         }
 
@@ -60,7 +72,11 @@ pub fn run(project_file_serach_location: &Path, args: &HydrateCodegenArgs) -> Re
     // If nothing was specified run all schema codegen jobs
     for schema_codegen_job in &project_configuration.schema_codegen_jobs {
         log::info!("Run schema codegen job {}", &schema_codegen_job.name);
-        schema_to_rs(&schema_codegen_job.schema_path, &schema_codegen_job.included_schema_paths, &schema_codegen_job.outfile)?
+        schema_to_rs(
+            &schema_codegen_job.schema_path,
+            &schema_codegen_job.included_schema_paths,
+            &schema_codegen_job.outfile,
+        )?
     }
 
     Ok(())

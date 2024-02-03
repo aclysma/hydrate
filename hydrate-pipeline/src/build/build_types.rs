@@ -1,9 +1,9 @@
-use std::cell::RefCell;
-use std::rc::Rc;
 use super::{JobApi, JobId, JobProcessor, JobRequestor};
+use crate::{BuildLogEvent, LogEventLevel, PipelineResult};
 use hydrate_base::{ArtifactId, BuiltArtifactHeaderData};
 use hydrate_data::{AssetId, DataSet, SchemaSet};
-use crate::{BuildLogEvent, LogEventLevel, PipelineResult};
+use std::cell::RefCell;
+use std::rc::Rc;
 
 pub struct BuiltAsset {
     pub asset_id: AssetId,
@@ -36,23 +36,29 @@ pub struct BuilderContext<'a> {
 }
 
 impl<'a> BuilderContext<'a> {
-    pub fn warn<T: Into<String>>(&self, message: T) {
+    pub fn warn<T: Into<String>>(
+        &self,
+        message: T,
+    ) {
         let mut log_events = self.log_events.borrow_mut();
         log_events.push(BuildLogEvent {
             asset_id: Some(self.asset_id),
             job_id: None,
             level: LogEventLevel::Warning,
-            message: message.into()
+            message: message.into(),
         });
     }
 
-    pub fn error<T: Into<String>>(&self, message: T) {
+    pub fn error<T: Into<String>>(
+        &self,
+        message: T,
+    ) {
         let mut log_events = self.log_events.borrow_mut();
         log_events.push(BuildLogEvent {
             asset_id: Some(self.asset_id),
             job_id: None,
             level: LogEventLevel::Error,
-            message: message.into()
+            message: message.into(),
         });
     }
 
@@ -63,7 +69,14 @@ impl<'a> BuilderContext<'a> {
         job_api: &dyn JobApi,
         input: <JobProcessorT as JobProcessor>::InputT,
     ) -> PipelineResult<JobId> {
-        super::job_system::enqueue_job::<JobProcessorT>(JobRequestor::Builder(self.asset_id), data_set, schema_set, job_api, input, &mut self.log_events.borrow_mut())
+        super::job_system::enqueue_job::<JobProcessorT>(
+            JobRequestor::Builder(self.asset_id),
+            data_set,
+            schema_set,
+            job_api,
+            input,
+            &mut self.log_events.borrow_mut(),
+        )
     }
 }
 

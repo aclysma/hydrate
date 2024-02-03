@@ -1,13 +1,17 @@
 use crate::app::UiState;
 use crate::modal_action::ModalAction;
-use crate::ui::modals::{ConfirmQuitWithoutSaving};
+use crate::ui::modals::ConfirmQuitWithoutSaving;
 use crate::ui::modals::ConfirmRevertChanges;
 use crossbeam_channel::{Receiver, Sender};
+use egui::KeyboardShortcut;
 use hydrate_model::edit_context::EditContext;
 use hydrate_model::pipeline::{AssetEngine, HydrateProjectConfiguration, ImportJobToQueue};
-use hydrate_model::{AssetId, AssetLocation, AssetName, DataSetError, DataSetErrorWithBacktrace, DataSetResult, EditorModel, EndContextBehavior, NullOverride, OverrideBehavior, PropertyPath, Schema, SchemaFingerprint, SchemaRecord, Value};
+use hydrate_model::{
+    AssetId, AssetLocation, AssetName, DataSetError, DataSetErrorWithBacktrace, DataSetResult,
+    EditorModel, EndContextBehavior, NullOverride, OverrideBehavior, PropertyPath, Schema,
+    SchemaFingerprint, SchemaRecord, Value,
+};
 use std::sync::Arc;
-use egui::KeyboardShortcut;
 use uuid::Uuid;
 
 pub enum UIAction {
@@ -32,13 +36,23 @@ pub enum UIAction {
     NewAsset(AssetName, AssetLocation, SchemaRecord, Option<AssetId>),
     DuplicateAssets(Vec<AssetId>),
     DeleteAssets(Vec<AssetId>),
-    SetProperty(Vec<AssetId>, PropertyPath, Option<Value>, EndContextBehavior),
+    SetProperty(
+        Vec<AssetId>,
+        PropertyPath,
+        Option<Value>,
+        EndContextBehavior,
+    ),
     ClearPropertiesForRecord(Vec<AssetId>, PropertyPath, SchemaFingerprint),
     CommitPendingUndoContext,
     ApplyPropertyOverrideToPrototype(Vec<AssetId>, PropertyPath),
     ApplyPropertyOverrideToPrototypeForRecord(Vec<AssetId>, PropertyPath, SchemaFingerprint),
     ApplyResolvedPropertyToAllSelected(AssetId, Vec<AssetId>, PropertyPath),
-    ApplyResolvedPropertyToAllSelectedForRecord(AssetId, Vec<AssetId>, PropertyPath, SchemaFingerprint),
+    ApplyResolvedPropertyToAllSelectedForRecord(
+        AssetId,
+        Vec<AssetId>,
+        PropertyPath,
+        SchemaFingerprint,
+    ),
     SetNullOverride(Vec<AssetId>, PropertyPath, NullOverride),
     AddDynamicArrayEntry(AssetId, PropertyPath),
     AddMapEntry(AssetId, PropertyPath),
@@ -168,36 +182,38 @@ impl UIActionQueueReceiver {
 
                     if input.consume_shortcut(&KeyboardShortcut {
                         key: egui::Key::A,
-                        modifiers: egui::Modifiers::COMMAND
+                        modifiers: egui::Modifiers::COMMAND,
                     }) {
                         // Select All
-                        self.action_queue_tx.send(UIAction::ToggleSelectAllAssetGallery).unwrap();
+                        self.action_queue_tx
+                            .send(UIAction::ToggleSelectAllAssetGallery)
+                            .unwrap();
                     }
 
                     if input.consume_shortcut(&KeyboardShortcut {
                         key: egui::Key::B,
-                        modifiers: egui::Modifiers::COMMAND | egui::Modifiers::SHIFT
+                        modifiers: egui::Modifiers::COMMAND | egui::Modifiers::SHIFT,
                     }) {
                         self.action_queue_tx.send(UIAction::BuildAll).unwrap();
                     }
 
                     if input.consume_shortcut(&KeyboardShortcut {
                         key: egui::Key::S,
-                        modifiers: egui::Modifiers::COMMAND
+                        modifiers: egui::Modifiers::COMMAND,
                     }) {
                         self.action_queue_tx.send(UIAction::SaveAll).unwrap();
                     }
 
                     if input.consume_shortcut(&KeyboardShortcut {
                         key: egui::Key::Z,
-                        modifiers: egui::Modifiers::COMMAND
+                        modifiers: egui::Modifiers::COMMAND,
                     }) {
                         self.action_queue_tx.send(UIAction::Undo).unwrap();
                     }
 
                     if input.consume_shortcut(&KeyboardShortcut {
                         key: egui::Key::Z,
-                        modifiers: egui::Modifiers::COMMAND | egui::Modifiers::SHIFT
+                        modifiers: egui::Modifiers::COMMAND | egui::Modifiers::SHIFT,
                     }) {
                         self.action_queue_tx.send(UIAction::Redo).unwrap();
                     }
@@ -205,7 +221,6 @@ impl UIActionQueueReceiver {
             }
 
             self.anything_has_focus_last_frame = anything_has_focus;
-
         }
 
         let mut import_job_to_queue = ImportJobToQueue::default();
@@ -260,10 +275,14 @@ impl UIActionQueueReceiver {
                         |edit_context| {
                             for &asset_id in &asset_ids {
                                 if let Some(new_name) = &new_name {
-                                    edit_context.set_asset_name(asset_id, new_name.clone()).unwrap();
+                                    edit_context
+                                        .set_asset_name(asset_id, new_name.clone())
+                                        .unwrap();
                                 }
-                                
-                                edit_context.set_asset_location(asset_id, new_location).unwrap();
+
+                                edit_context
+                                    .set_asset_location(asset_id, new_location)
+                                    .unwrap();
                             }
 
                             EndContextBehavior::Finish
@@ -276,7 +295,9 @@ impl UIActionQueueReceiver {
                     }
                 }
                 UIAction::ShowAssetInAssetGallery(asset_id) => {
-                    ui_state.asset_gallery_ui_state.set_selection(Some(asset_id));
+                    ui_state
+                        .asset_gallery_ui_state
+                        .set_selection(Some(asset_id));
 
                     if let Some(location) =
                         editor_model.root_edit_context().asset_location(asset_id)
@@ -295,7 +316,10 @@ impl UIActionQueueReceiver {
                                     Ok(_) => {
                                         // do nothing
                                     }
-                                    Err(DataSetErrorWithBacktrace { error: DataSetError::NewLocationIsChildOfCurrentAsset, .. }) => {
+                                    Err(DataSetErrorWithBacktrace {
+                                        error: DataSetError::NewLocationIsChildOfCurrentAsset,
+                                        ..
+                                    }) => {
                                         // do nothing
                                     }
                                     _ => {
@@ -337,7 +361,9 @@ impl UIActionQueueReceiver {
                             for asset_id in asset_ids {
                                 let new_asset_id = edit_context.duplicate_asset(asset_id).unwrap();
                                 if edit_context.import_info(asset_id).is_some() {
-                                    asset_engine.duplicate_import_data(asset_id, new_asset_id).unwrap();
+                                    asset_engine
+                                        .duplicate_import_data(asset_id, new_asset_id)
+                                        .unwrap();
                                 }
                             }
                             EndContextBehavior::Finish
@@ -361,7 +387,11 @@ impl UIActionQueueReceiver {
                         |edit_context| {
                             for asset_id in asset_ids {
                                 edit_context
-                                    .set_property_override(asset_id, property_path.path(), value.clone())
+                                    .set_property_override(
+                                        asset_id,
+                                        property_path.path(),
+                                        value.clone(),
+                                    )
                                     .unwrap();
                             }
                             end_context_behavior
@@ -452,18 +482,25 @@ impl UIActionQueueReceiver {
                     );
                 }
 
-                UIAction::ApplyResolvedPropertyToAllSelected(src_asset_id, selected_asset_ids, property_path) => {
+                UIAction::ApplyResolvedPropertyToAllSelected(
+                    src_asset_id,
+                    selected_asset_ids,
+                    property_path,
+                ) => {
                     editor_model.root_edit_context_mut().with_undo_context(
                         "apply override",
                         |edit_context| {
-                            let value = edit_context.resolve_property(src_asset_id, property_path.path()).unwrap().clone();
+                            let value = edit_context
+                                .resolve_property(src_asset_id, property_path.path())
+                                .unwrap()
+                                .clone();
 
                             for &asset_id in &selected_asset_ids {
                                 edit_context
                                     .set_property_override(
                                         asset_id,
                                         property_path.path(),
-                                        Some(value.clone())
+                                        Some(value.clone()),
                                     )
                                     .unwrap();
                             }
@@ -471,7 +508,12 @@ impl UIActionQueueReceiver {
                         },
                     );
                 }
-                UIAction::ApplyResolvedPropertyToAllSelectedForRecord(src_asset_id, selected_asset_ids, property_path, record_schema_fingerprint) => {
+                UIAction::ApplyResolvedPropertyToAllSelectedForRecord(
+                    src_asset_id,
+                    selected_asset_ids,
+                    property_path,
+                    record_schema_fingerprint,
+                ) => {
                     editor_model.root_edit_context_mut().with_undo_context(
                         "apply override",
                         |edit_context| {
@@ -485,18 +527,20 @@ impl UIActionQueueReceiver {
 
                             for field in record_schema.fields() {
                                 let field_path = property_path.push(field.name());
-                                let value = edit_context.resolve_property(src_asset_id, field_path.path()).unwrap().clone();
+                                let value = edit_context
+                                    .resolve_property(src_asset_id, field_path.path())
+                                    .unwrap()
+                                    .clone();
 
                                 for &asset_id in &selected_asset_ids {
                                     edit_context
                                         .set_property_override(
                                             asset_id,
                                             field_path.path(),
-                                            Some(value.clone())
+                                            Some(value.clone()),
                                         )
                                         .unwrap();
                                 }
-
                             }
 
                             EndContextBehavior::Finish
@@ -510,7 +554,11 @@ impl UIActionQueueReceiver {
                         |edit_context| {
                             for &asset_id in &asset_ids {
                                 edit_context
-                                    .set_null_override(asset_id, property_path.path(), null_override)
+                                    .set_null_override(
+                                        asset_id,
+                                        property_path.path(),
+                                        null_override,
+                                    )
                                     .unwrap();
                             }
                             EndContextBehavior::Finish

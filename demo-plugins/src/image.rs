@@ -3,18 +3,21 @@ use ::image::GenericImageView;
 use std::sync::Arc;
 
 use super::generated::{GpuImageAssetRecord, GpuImageImportedDataRecord};
+use ::image::{Pixel, Rgba};
 use demo_types::image::*;
 use hydrate_data::Record;
 use hydrate_model::pipeline::{ImportContext, ScanContext};
-use hydrate_pipeline::{AssetPluginSetupContext, Importer, ThumbnailImage, ThumbnailProvider, ThumbnailProviderGatherContext, ThumbnailProviderRenderContext};
 use hydrate_pipeline::{
     AssetId, BuilderContext, BuilderRegistryBuilder, ImporterRegistryBuilder, JobInput, JobOutput,
     JobProcessor, JobProcessorRegistryBuilder, PipelineResult, RunContext,
 };
 use hydrate_pipeline::{AssetPlugin, Builder};
+use hydrate_pipeline::{
+    AssetPluginSetupContext, Importer, ThumbnailImage, ThumbnailProvider,
+    ThumbnailProviderGatherContext, ThumbnailProviderRenderContext,
+};
 use serde::{Deserialize, Serialize};
 use type_uuid::TypeUuid;
-use ::image::{Pixel, Rgba};
 
 #[derive(TypeUuid, Default)]
 #[uuid = "e7c83acb-f73b-4b3c-b14d-fe5cc17c0fa3"]
@@ -186,9 +189,7 @@ impl Builder for GpuImageBuilder {
 }
 
 #[derive(Default)]
-pub struct GpuImageThumbnailProvider {
-
-}
+pub struct GpuImageThumbnailProvider {}
 
 impl ThumbnailProvider for GpuImageThumbnailProvider {
     type GatheredDataT = ();
@@ -201,11 +202,18 @@ impl ThumbnailProvider for GpuImageThumbnailProvider {
         1
     }
 
-    fn gather(&self, context: ThumbnailProviderGatherContext) -> Self::GatheredDataT {
+    fn gather(
+        &self,
+        context: ThumbnailProviderGatherContext,
+    ) -> Self::GatheredDataT {
         context.add_import_data_dependency(context.asset_id);
     }
 
-    fn render<'a>(&'a self, context: &'a ThumbnailProviderRenderContext<'a>, gathered_data: Self::GatheredDataT) -> PipelineResult<ThumbnailImage> {
+    fn render<'a>(
+        &'a self,
+        context: &'a ThumbnailProviderRenderContext<'a>,
+        gathered_data: Self::GatheredDataT,
+    ) -> PipelineResult<ThumbnailImage> {
         let import_data = context.imported_data::<GpuImageImportedDataRecord>(context.asset_id)?;
         let width = import_data.width().get()?;
         let height = import_data.height().get()?;
@@ -215,7 +223,8 @@ impl ThumbnailProvider for GpuImageThumbnailProvider {
             width,
             height,
             (*image_bytes).clone(),
-        ).unwrap();
+        )
+        .unwrap();
 
         let resize_ratio_x = width as f32 / context.desired_thumbnail_width as f32;
         let resize_ratio_y = height as f32 / context.desired_thumbnail_height as f32;
@@ -224,7 +233,12 @@ impl ThumbnailProvider for GpuImageThumbnailProvider {
         let new_size_x = ((width as f32 / resize_ratio).round() as u32).max(1);
         let new_size_y = ((height as f32 / resize_ratio).round() as u32).max(1);
 
-        let resized_image = ::image::imageops::resize(&image, new_size_x, new_size_y, ::image::imageops::FilterType::Lanczos3);
+        let resized_image = ::image::imageops::resize(
+            &image,
+            new_size_x,
+            new_size_y,
+            ::image::imageops::FilterType::Lanczos3,
+        );
         Ok(ThumbnailImage {
             width: resized_image.width(),
             height: resized_image.height(),
@@ -236,12 +250,18 @@ impl ThumbnailProvider for GpuImageThumbnailProvider {
 pub struct GpuImageAssetPlugin;
 
 impl AssetPlugin for GpuImageAssetPlugin {
-    fn setup(
-        context: AssetPluginSetupContext
-    ) {
-        context.importer_registry.register_handler::<GpuImageImporter>();
-        context.builder_registry.register_handler::<GpuImageBuilder>();
-        context.job_processor_registry.register_job_processor::<GpuImageJobProcessor>();
-        context.thumbnail_provider_registry.register_thumbnail_provider::<GpuImageThumbnailProvider>();
+    fn setup(context: AssetPluginSetupContext) {
+        context
+            .importer_registry
+            .register_handler::<GpuImageImporter>();
+        context
+            .builder_registry
+            .register_handler::<GpuImageBuilder>();
+        context
+            .job_processor_registry
+            .register_job_processor::<GpuImageJobProcessor>();
+        context
+            .thumbnail_provider_registry
+            .register_thumbnail_provider::<GpuImageThumbnailProvider>();
     }
 }

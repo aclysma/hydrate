@@ -1,18 +1,22 @@
-use std::sync::Arc;
 use crate::action_queue::{UIAction, UIActionQueueReceiver, UIActionQueueSender};
 use crate::db_state::DbState;
 use crate::egui_debug_ui::EguiDebugUiState;
+use crate::image_loader::{AssetThumbnailTextureLoader, ThumbnailImageLoader};
 use crate::modal_action::{ModalAction, ModalActionControlFlow, ModalContext};
 use crate::persistent_app_state::PersistentAppState;
-use crate::ui::components::inspector_system::{InspectorRegistry};
-use crate::ui::components::{AssetGalleryUiState, AssetTreeUiState, InspectorUiState, LogEventViewUiState};
+use crate::ui::components::inspector_system::InspectorRegistry;
+use crate::ui::components::{
+    AssetGalleryUiState, AssetTreeUiState, InspectorUiState, LogEventViewUiState,
+};
 use crate::ui::modals::ImportFilesModal;
 use crate::ui_state::EditorModelUiState;
 use egui::{Ui, ViewportCommand, WidgetText};
 use egui_tiles::{SimplificationOptions, TileId};
-use hydrate_model::pipeline::{AssetEngine, AssetEngineState, BuildLogData, ImportLogData, LogData};
+use hydrate_model::pipeline::{
+    AssetEngine, AssetEngineState, BuildLogData, ImportLogData, LogData,
+};
 use hydrate_model::EditorModelWithCache;
-use crate::image_loader::{ThumbnailImageLoader, AssetThumbnailTextureLoader};
+use std::sync::Arc;
 
 #[derive(Debug, Copy, Clone, PartialEq)]
 enum DockingPanelKind {
@@ -39,11 +43,19 @@ impl<'a> egui_tiles::Behavior<DockingPanelKind> for MainUiContext<'a> {
         simplification_options
     }
 
-    fn tab_title_for_pane(&mut self, pane: &DockingPanelKind) -> WidgetText {
+    fn tab_title_for_pane(
+        &mut self,
+        pane: &DockingPanelKind,
+    ) -> WidgetText {
         format!("{:?}", pane).into()
     }
 
-    fn pane_ui(&mut self, ui: &mut Ui, _tile_id: TileId, pane: &mut DockingPanelKind) -> egui_tiles::UiResponse {
+    fn pane_ui(
+        &mut self,
+        ui: &mut Ui,
+        _tile_id: TileId,
+        pane: &mut DockingPanelKind,
+    ) -> egui_tiles::UiResponse {
         match *pane {
             DockingPanelKind::AssetTree => draw_asset_tree(ui, self),
             DockingPanelKind::AssetGallery => draw_asset_gallery(ui, self),
@@ -55,7 +67,10 @@ impl<'a> egui_tiles::Behavior<DockingPanelKind> for MainUiContext<'a> {
     }
 }
 
-fn draw_log_event_view(ui: &mut egui::Ui, ui_context: &mut MainUiContext) {
+fn draw_log_event_view(
+    ui: &mut egui::Ui,
+    ui_context: &mut MainUiContext,
+) {
     crate::ui::components::draw_log_event_view(
         ui,
         &ui_context.db_state.editor_model,
@@ -67,7 +82,10 @@ fn draw_log_event_view(ui: &mut egui::Ui, ui_context: &mut MainUiContext) {
     );
 }
 
-fn draw_asset_tree(ui: &mut egui::Ui, ui_context: &mut MainUiContext) {
+fn draw_asset_tree(
+    ui: &mut egui::Ui,
+    ui_context: &mut MainUiContext,
+) {
     crate::ui::components::draw_asset_tree(
         ui,
         &ui_context.db_state.editor_model,
@@ -78,7 +96,10 @@ fn draw_asset_tree(ui: &mut egui::Ui, ui_context: &mut MainUiContext) {
     );
 }
 
-fn draw_asset_gallery(ui: &mut egui::Ui, ui_context: &mut MainUiContext) {
+fn draw_asset_gallery(
+    ui: &mut egui::Ui,
+    ui_context: &mut MainUiContext,
+) {
     crate::ui::components::draw_asset_gallery(
         ui,
         ui_context.db_state,
@@ -90,7 +111,10 @@ fn draw_asset_gallery(ui: &mut egui::Ui, ui_context: &mut MainUiContext) {
     );
 }
 
-fn draw_property_inspector(ui: &mut egui::Ui, ui_context: &mut MainUiContext) {
+fn draw_property_inspector(
+    ui: &mut egui::Ui,
+    ui_context: &mut MainUiContext,
+) {
     crate::ui::components::draw_inspector(
         ui,
         &ui_context.db_state.editor_model,
@@ -98,7 +122,10 @@ fn draw_property_inspector(ui: &mut egui::Ui, ui_context: &mut MainUiContext) {
         &ui_context.ui_state.editor_model_ui_state,
         &mut ui_context.ui_state.inspector_ui_state,
         ui_context.ui_state.asset_gallery_ui_state.selected_assets(),
-        ui_context.ui_state.asset_gallery_ui_state.primary_selected_asset(),
+        ui_context
+            .ui_state
+            .asset_gallery_ui_state
+            .primary_selected_asset(),
         ui_context.inspector_registry,
         ui_context.thumbnail_image_loader,
     );
@@ -156,8 +183,8 @@ impl HydrateEditorApp {
         let image_loader = Arc::new(ThumbnailImageLoader::new(
             db_state.editor_model.schema_set(),
             asset_engine.thumbnail_provider_registry(),
-            asset_engine.thumbnail_system_state())
-        );
+            asset_engine.thumbnail_system_state(),
+        ));
         cc.egui_ctx.add_image_loader(image_loader.clone());
 
         let texture_loader = Arc::new(AssetThumbnailTextureLoader::new());
@@ -173,7 +200,10 @@ impl HydrateEditorApp {
         let asset_tree_pane = tiles.insert_pane(DockingPanelKind::AssetTree);
         let inspector_pane = tiles.insert_pane(DockingPanelKind::Inspector);
 
-        let mut root_container = egui_tiles::Linear::new(egui_tiles::LinearDir::Horizontal, vec![asset_tree_pane, central_tabs, inspector_pane]);
+        let mut root_container = egui_tiles::Linear::new(
+            egui_tiles::LinearDir::Horizontal,
+            vec![asset_tree_pane, central_tabs, inspector_pane],
+        );
         root_container.shares.set_share(central_tabs, 3.0);
         let root = tiles.insert_container(root_container);
 
@@ -188,7 +218,7 @@ impl HydrateEditorApp {
             modal_action: None,
             inspector_registry,
             thumbnail_image_loader: image_loader.clone(),
-            dock_state
+            dock_state,
         }
     }
 }
@@ -265,8 +295,14 @@ impl eframe::App for HydrateEditorApp {
         // If we have any completed logs, store them
         //
         match &asset_engine_state {
-            AssetEngineState::ImportCompleted(import_data) => self.ui_state.previous_logs.push(LogData::Import(import_data.clone())),
-            AssetEngineState::BuildCompleted(build_data) => self.ui_state.previous_logs.push(LogData::Build(build_data.clone())),
+            AssetEngineState::ImportCompleted(import_data) => self
+                .ui_state
+                .previous_logs
+                .push(LogData::Import(import_data.clone())),
+            AssetEngineState::BuildCompleted(build_data) => self
+                .ui_state
+                .previous_logs
+                .push(LogData::Build(build_data.clone())),
             _ => {}
         }
 
@@ -277,7 +313,7 @@ impl eframe::App for HydrateEditorApp {
         match &asset_engine_state {
             // App still seems to spin even when just requesting a 1hz update
             //AssetEngineState::Idle => ctx.request_repaint_after(Duration::from_millis(1000)),
-            AssetEngineState::Idle => {},
+            AssetEngineState::Idle => {}
             _ => ctx.request_repaint(),
         }
 
@@ -287,13 +323,30 @@ impl eframe::App for HydrateEditorApp {
         egui::TopBottomPanel::bottom("bottom_panel").show(ctx, |ui| {
             match asset_engine_state {
                 AssetEngineState::Importing(import_state) => {
-                    let text = format!("Importing {}/{} assets", import_state.completed_job_count, import_state.total_job_count);
-                    ui.add(egui::ProgressBar::new(import_state.completed_job_count as f32 / import_state.total_job_count as f32).text(text));
-                },
+                    let text = format!(
+                        "Importing {}/{} assets",
+                        import_state.completed_job_count, import_state.total_job_count
+                    );
+                    ui.add(
+                        egui::ProgressBar::new(
+                            import_state.completed_job_count as f32
+                                / import_state.total_job_count as f32,
+                        )
+                        .text(text),
+                    );
+                }
                 AssetEngineState::Building(build_state) => {
-                    let text = format!("Building {}/{} assets", build_state.completed_job_count, build_state.total_job_count);
-                    ui.add(egui::ProgressBar::new(build_state.completed_job_count as f32 / build_state.total_job_count as f32).text(text));
-
+                    let text = format!(
+                        "Building {}/{} assets",
+                        build_state.completed_job_count, build_state.total_job_count
+                    );
+                    ui.add(
+                        egui::ProgressBar::new(
+                            build_state.completed_job_count as f32
+                                / build_state.total_job_count as f32,
+                        )
+                        .text(text),
+                    );
                 }
                 _ => {
                     ui.horizontal(|ui| {
@@ -302,7 +355,10 @@ impl eframe::App for HydrateEditorApp {
                         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                             //let needs_build = self.asset_engine.needs_build();
                             let needs_build = true;
-                            if ui.add_enabled(needs_build, egui::Button::new("Build")).clicked() {
+                            if ui
+                                .add_enabled(needs_build, egui::Button::new("Build"))
+                                .clicked()
+                            {
                                 self.asset_engine.queue_build_all();
                                 self.dock_state.make_active(|x| {
                                     *x == egui_tiles::Tile::Pane(DockingPanelKind::LogEventView)

@@ -1,11 +1,13 @@
-use std::sync::Arc;
-use image::imageops::contrast;
 use crate::action_queue::{UIAction, UIActionQueueSender};
+use crate::image_loader::ThumbnailImageLoader;
 use crate::ui::modals::{MoveAssetsModal, NewAssetModal};
 use crate::ui_state::EditorModelUiState;
-use hydrate_model::{AssetId, EditorModel, HashSet, PropertyPath, Schema, SchemaDefRecordFieldMarkup};
 use hydrate_model::pipeline::ThumbnailProviderRegistry;
-use crate::image_loader::ThumbnailImageLoader;
+use hydrate_model::{
+    AssetId, EditorModel, HashSet, PropertyPath, Schema, SchemaDefRecordFieldMarkup,
+};
+use image::imageops::contrast;
+use std::sync::Arc;
 
 use super::inspector_system::*;
 

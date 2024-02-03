@@ -7,24 +7,24 @@ pub use thumbnail_types::*;
 mod thumbnail_system;
 mod thumbnail_thread_pool;
 
+pub use thumbnail_system::ThumbnailImage;
 pub use thumbnail_system::ThumbnailSystem;
 pub use thumbnail_system::ThumbnailSystemState;
-pub use thumbnail_system::ThumbnailImage;
 
+use crate::build::{FetchedImportData, JobApi, JobProcessorAbstract};
+use crate::{JobOutput, JobProcessor, PipelineResult};
+use hydrate_base::hashing::HashMap;
+use hydrate_base::AssetId;
+use hydrate_data::{DataSet, SchemaSet};
+use hydrate_schema::HashSet;
+use serde::{Deserialize, Serialize};
+use siphasher::sip128::Hasher128;
 use std::cell::RefCell;
 use std::hash::Hash;
 use std::rc::Rc;
 use std::sync::Arc;
-use serde::{Deserialize, Serialize};
-use siphasher::sip128::Hasher128;
 use type_uuid::TypeUuid;
 use uuid::Uuid;
-use hydrate_base::AssetId;
-use hydrate_base::hashing::HashMap;
-use hydrate_data::{DataSet, SchemaSet};
-use hydrate_schema::HashSet;
-use crate::{JobOutput, JobProcessor, PipelineResult};
-use crate::build::{FetchedImportData, JobApi, JobProcessorAbstract};
 
 crate::create_uuid_newtype!(ThumbnailInputHash, "ThumbnailInputHash");
 
@@ -67,8 +67,9 @@ trait ThumbnailProviderAbstract: Send + Sync {
 struct ThumbnailProviderWrapper<T: ThumbnailProvider>(T);
 
 impl<T: ThumbnailProvider + Send + Sync> ThumbnailProviderAbstract for ThumbnailProviderWrapper<T>
-    where
-        <T as ThumbnailProvider>::GatheredDataT: Hash + for<'a> serde::Deserialize<'a> + serde::Serialize
+where
+    <T as ThumbnailProvider>::GatheredDataT:
+        Hash + for<'a> serde::Deserialize<'a> + serde::Serialize,
 {
     fn asset_type_inner(&self) -> &'static str {
         self.0.asset_type()
@@ -82,14 +83,14 @@ impl<T: ThumbnailProvider + Send + Sync> ThumbnailProviderAbstract for Thumbnail
         &self,
         asset_id: AssetId,
         data_set: &DataSet,
-        schema_set: &SchemaSet
+        schema_set: &SchemaSet,
     ) -> PipelineResult<ThumbnailEnumeratedDependencies> {
         let mut import_data = HashSet::default();
         let gathered_data = self.0.gather(ThumbnailProviderGatherContext {
             asset_id,
             data_set,
             schema_set,
-            import_data_dependencies: &Rc::new(RefCell::new(&mut import_data))
+            import_data_dependencies: &Rc::new(RefCell::new(&mut import_data)),
         });
 
         let mut hasher = siphasher::sip128::SipHasher::default();
@@ -109,7 +110,7 @@ impl<T: ThumbnailProvider + Send + Sync> ThumbnailProviderAbstract for Thumbnail
         Ok(ThumbnailEnumeratedDependencies {
             thumbnail_input_hash,
             gathered_data,
-            import_data
+            import_data,
         })
     }
 
@@ -122,14 +123,16 @@ impl<T: ThumbnailProvider + Send + Sync> ThumbnailProviderAbstract for Thumbnail
     ) -> PipelineResult<ThumbnailImage> {
         let gathered_data: T::GatheredDataT = bincode::deserialize(&*gathered_data)?;
         let mut fetched_import_data = HashMap::<AssetId, FetchedImportData>::default();
-        self.0.render(&ThumbnailProviderRenderContext {
-            desired_thumbnail_width: 256,
-            desired_thumbnail_height: 256,
-            asset_id,
-            schema_set,
-            fetched_import_data: &Rc::new(RefCell::new(&mut fetched_import_data)),
-            thumbnail_api: thumbnail_api
-        }, gathered_data)
+        self.0.render(
+            &ThumbnailProviderRenderContext {
+                desired_thumbnail_width: 256,
+                desired_thumbnail_height: 256,
+                asset_id,
+                schema_set,
+                fetched_import_data: &Rc::new(RefCell::new(&mut fetched_import_data)),
+                thumbnail_api: thumbnail_api,
+            },
+            gathered_data,
+        )
     }
 }
-

@@ -1,9 +1,9 @@
-use egui::*;
-use hydrate_model::{AssetId, EditorModel};
-use std::sync::Mutex;
 use crate::image_loader::ThumbnailImageLoader;
 use crate::ui::draw_thumbnail_stack;
 use crate::ui_state::EditorModelUiState;
+use egui::*;
+use hydrate_model::{AssetId, EditorModel};
+use std::sync::Mutex;
 
 #[derive(Clone)]
 pub enum DragDropPayload {
@@ -21,14 +21,15 @@ pub fn render_payload(
     payload: &DragDropPayload,
     editor_model: &EditorModel,
     editor_model_ui_state: &EditorModelUiState,
-    thumbnail_image_loader: &ThumbnailImageLoader
+    thumbnail_image_loader: &ThumbnailImageLoader,
 ) {
     match payload {
         DragDropPayload::AssetReferences(primary_asset_id, all_asset_ids) => {
             if all_asset_ids.len() > 1 {
                 ui.label(format!("{} selected assets", all_asset_ids.len()));
             } else {
-                let path = editor_model.asset_path(*primary_asset_id, &editor_model_ui_state.asset_path_cache);
+                let path = editor_model
+                    .asset_path(*primary_asset_id, &editor_model_ui_state.asset_path_cache);
                 if let Some(path) = path {
                     ui.label(format!("{}", path.as_str()));
                 } else {
@@ -36,7 +37,13 @@ pub fn render_payload(
                 }
             }
 
-            draw_thumbnail_stack(ui, editor_model, thumbnail_image_loader, *primary_asset_id, all_asset_ids.iter().copied());
+            draw_thumbnail_stack(
+                ui,
+                editor_model,
+                thumbnail_image_loader,
+                *primary_asset_id,
+                all_asset_ids.iter().copied(),
+            );
         }
     }
 }
@@ -115,7 +122,13 @@ pub fn drag_source<ParamsT>(
                 .fixed_pos(pointer_pos)
                 .show(ui.ctx(), |ui| {
                     //ui.label("dragged")
-                    render_payload(ui, &create_payload_fn(params), editor_model, editor_model_ui_state, thumbnail_image_loader);
+                    render_payload(
+                        ui,
+                        &create_payload_fn(params),
+                        editor_model,
+                        editor_model_ui_state,
+                        thumbnail_image_loader,
+                    );
                     //body(ui);
                 });
         }

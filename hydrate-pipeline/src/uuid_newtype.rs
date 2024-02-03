@@ -1,7 +1,9 @@
 #[macro_export]
 macro_rules! create_uuid_newtype {
     ($data_type:ident, $name:literal) => {
-        #[derive(Copy, Clone, PartialEq, Eq, Hash, Ord, PartialOrd, serde::Serialize, serde::Deserialize)]
+        #[derive(
+            Copy, Clone, PartialEq, Eq, Hash, Ord, PartialOrd, serde::Serialize, serde::Deserialize,
+        )]
         pub struct $data_type(u128);
         impl $data_type {
             pub const fn null() -> Self {

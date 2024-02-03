@@ -96,6 +96,10 @@ impl SchemaSet {
         &self.inner.schemas
     }
 
+    pub fn schemas_by_type_uuid(&self) -> &HashMap<Uuid, SchemaFingerprint> {
+        &self.inner.schemas_by_type_uuid
+    }
+
     pub fn default_value_for_enum(
         &self,
         fingerprint: SchemaFingerprint,
@@ -107,7 +111,8 @@ impl SchemaSet {
         &self,
         type_uuid: Uuid,
     ) -> DataSetResult<&SchemaNamedType> {
-        Ok(self.try_find_named_type_by_type_uuid(type_uuid)
+        Ok(self
+            .try_find_named_type_by_type_uuid(type_uuid)
             .ok_or(DataSetError::SchemaNotFound)?)
     }
 
@@ -126,7 +131,8 @@ impl SchemaSet {
         &self,
         name: impl AsRef<str>,
     ) -> DataSetResult<&SchemaNamedType> {
-        Ok(self.try_find_named_type(name)
+        Ok(self
+            .try_find_named_type(name)
             .ok_or(DataSetError::SchemaNotFound)?)
     }
 

@@ -94,7 +94,6 @@ impl SchemaNamedType {
         // Iterate the path segments to find
 
         for old_path_segment in old_split_path {
-            println!("Migrate field {:?} on {:?}", old_path_segment, old_schema);
             let new_path_segment_name = Schema::find_post_migration_field_name(
                 &old_schema,
                 old_path_segment,
@@ -318,8 +317,6 @@ impl Schema {
             Schema::Nullable(_) => {
                 if old_property_name == "value" {
                     Some(old_property_name.to_string())
-                } else if old_property_name == "null_override" {
-                    Some(old_property_name.to_string())
                 } else {
                     None
                 }
@@ -348,13 +345,9 @@ impl Schema {
                 }
             }
             Schema::DynamicArray(x) => {
-                if old_property_name == "replace" {
-                    Some(old_property_name.to_string())
-                } else {
-                    // We could validate that name is a valid UUID
-                    Uuid::from_str(old_property_name.as_ref()).ok()?;
-                    Some(old_property_name.to_string())
-                }
+                // We could validate that name is a valid UUID
+                Uuid::from_str(old_property_name.as_ref()).ok()?;
+                Some(old_property_name.to_string())
             }
             Schema::Map(x) => {
                 if old_property_name.ends_with(":key") {

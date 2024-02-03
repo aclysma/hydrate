@@ -168,52 +168,53 @@ fn load_json_properties(
     buffers: &mut Option<Vec<Arc<Vec<u8>>>>,
 ) {
     for (old_path, value) in json_properties {
-        let mut fixed_path_by_value = None;
-        let new_path = if let Some(old_named_types) = &old_named_types {
-            let old_base_named_type = old_named_types.get(&old_schema_fingerprint).unwrap();
 
-            //TODO:
-            // Fix values (enums in particular)
-            // Better error handling
-            let new_property_path = SchemaNamedType::find_post_migration_property_path(
-                old_base_named_type,
-                old_path,
-                old_named_types,
-                new_named_types,
-                new_named_types_by_uuid,
-            )
-            .unwrap();
-
-            println!("path {} -> {}", old_path, new_property_path);
-
-            fixed_path_by_value = Some(new_property_path);
-            fixed_path_by_value.as_ref().unwrap()
-        } else {
-            old_path
-        };
-
-        let split_path = new_path.rsplit_once('.');
         //let parent_path = split_path.map(|x| x.0);
         //let path_end = split_path.map(|x| x.1);
 
         let mut property_handled = false;
 
-        if let Some((parent_path, path_end)) = split_path {
+        let old_split_path = old_path.rsplit_once('.');
+        if let Some((old_parent_path, path_end)) = old_split_path {
+            let mut fixed_parent_path_by_value = None;
+            let new_parent_path = if let Some(old_named_types) = &old_named_types {
+                let old_base_named_type = old_named_types.get(&old_schema_fingerprint).unwrap();
+
+                //TODO:
+                // Fix values (enums in particular)
+                // Better error handling
+                let new_parent_path = SchemaNamedType::find_post_migration_property_path(
+                    old_base_named_type,
+                    old_parent_path,
+                    old_named_types,
+                    new_named_types,
+                    new_named_types_by_uuid,
+                ).unwrap();
+
+                println!("path {} -> {}", old_parent_path, new_parent_path);
+
+                fixed_parent_path_by_value = Some(new_parent_path);
+                fixed_parent_path_by_value.as_ref().unwrap()
+            } else {
+                old_parent_path
+            };
+
             let parent_schema = new_named_type
-                .find_property_schema(parent_path, new_named_types)
+                .find_property_schema(new_parent_path, new_named_types)
                 .unwrap();
+
             if parent_schema.is_nullable() && path_end == "null_override" {
                 let null_override = string_to_null_override_value(value.as_str().unwrap()).unwrap();
-                log::trace!("set null override {} to {:?}", parent_path, null_override);
-                property_null_overrides.insert(parent_path.to_string(), null_override);
+                log::trace!("set null override {} to {:?}", new_parent_path, null_override);
+                property_null_overrides.insert(new_parent_path.to_string(), null_override);
                 property_handled = true;
             }
 
             if parent_schema.is_dynamic_array() && path_end == "replace" {
                 if let Some(properties_in_replace_mode) = &mut properties_in_replace_mode {
                     if value.as_bool() == Some(true) {
-                        log::trace!("set property {} to replace", parent_path);
-                        properties_in_replace_mode.insert(parent_path.to_string());
+                        log::trace!("set property {} to replace", new_parent_path);
+                        properties_in_replace_mode.insert(new_parent_path.to_string());
                     }
                 }
 
@@ -222,6 +223,30 @@ fn load_json_properties(
         }
 
         if !property_handled {
+            let mut fixed_path_by_value = None;
+            let new_path = if let Some(old_named_types) = &old_named_types {
+                let old_base_named_type = old_named_types.get(&old_schema_fingerprint).unwrap();
+
+                //TODO:
+                // Fix values (enums in particular)
+                // Better error handling
+                let new_property_path = SchemaNamedType::find_post_migration_property_path(
+                    old_base_named_type,
+                    old_path,
+                    old_named_types,
+                    new_named_types,
+                    new_named_types_by_uuid,
+                )
+                    .unwrap();
+
+                println!("path {} -> {}", old_path, new_property_path);
+
+                fixed_path_by_value = Some(new_property_path);
+                fixed_path_by_value.as_ref().unwrap()
+            } else {
+                old_path
+            };
+
             let property_schema = new_named_type
                 .find_property_schema(&new_path, new_named_types)
                 .unwrap();

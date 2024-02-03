@@ -1,5 +1,8 @@
 use super::Schema;
-use crate::{HashMap, HashSet, SchemaDefRecordFieldMarkup, SchemaDefRecordMarkup, SchemaFingerprint, SchemaNamedType};
+use crate::{
+    HashMap, HashSet, SchemaDefRecordFieldMarkup, SchemaDefRecordMarkup, SchemaFingerprint,
+    SchemaNamedType,
+};
 use std::ops::Deref;
 use std::sync::Arc;
 use uuid::Uuid;
@@ -139,14 +142,14 @@ impl SchemaRecord {
         None
     }
 
-    pub fn find_schemas_used_in_property_path(
-        &self,
-        path: impl AsRef<str>,
-        named_types: &HashMap<SchemaFingerprint, SchemaNamedType>,
-        used_schemas: &mut HashSet<SchemaFingerprint>,
-    ) {
-        SchemaNamedType::Record(self.clone()).find_schemas_used_in_property_path(path, named_types, used_schemas);
-    }
+    // pub fn find_schemas_used_in_property_path(
+    //     &self,
+    //     path: impl AsRef<str>,
+    //     named_types: &HashMap<SchemaFingerprint, SchemaNamedType>,
+    //     used_schemas: &mut HashSet<SchemaFingerprint>,
+    // ) {
+    //     SchemaNamedType::Record(self.clone()).find_schemas_used_in_property_path(path, named_types, used_schemas);
+    // }
 
     pub fn find_property_schema(
         &self,
@@ -154,6 +157,20 @@ impl SchemaRecord {
         named_types: &HashMap<SchemaFingerprint, SchemaNamedType>,
     ) -> Option<Schema> {
         SchemaNamedType::Record(self.clone()).find_property_schema(path, named_types)
+    }
+
+    pub fn find_field_from_name(
+        &self,
+        field_name: &str,
+    ) -> Option<&SchemaRecordField> {
+        self.fields.iter().find(|x| x.name == field_name)
+    }
+
+    pub fn find_field_from_field_uuid(
+        &self,
+        field_uuid: Uuid,
+    ) -> Option<&SchemaRecordField> {
+        self.fields.iter().find(|x| x.field_uuid == field_uuid)
     }
 
     pub fn markup(&self) -> &SchemaDefRecordMarkup {

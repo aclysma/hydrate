@@ -24,6 +24,11 @@
     "display_name": "All Fields Test Object",
     "fields": [
       {
+        "name": "test_new_field",
+        "type": "i32",
+        "uuid": "fe1db9e9-bd3e-42f7-95ed-65594be9ea89"
+      },
+      {
         "name": "map_i32_vec3",
         "type": {
           "name": "map",

@@ -12,12 +12,12 @@
         "uuid": "a274d2a2-cef9-4984-a3f7-7fe8006f70f9"
       },
       {
-        "name": "position",
+        "name": "position2",
         "type": "Vec3",
         "uuid": "0770937a-909d-4306-b7c2-eefb0ddc354a"
       },
       {
-        "name": "rotation",
+        "name": "rotation2",
         "type": "Vec4",
         "uuid": "a22b4e4a-e722-422c-bcf8-d1e0b3698d25"
       },
@@ -25,6 +25,14 @@
         "name": "scale",
         "type": "Vec3",
         "uuid": "fb60da64-9374-4810-af97-9b853a587dd8"
+      },
+      {
+        "name": "child_nullable",
+        "type": {
+          "name": "nullable",
+          "inner_type": "Transform"
+        },
+        "uuid": "c3a14859-7817-4f25-870c-75637554b6f4"
       }
     ]
   }

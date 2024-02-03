@@ -1,6 +1,6 @@
+use super::*;
 use std::path::Path;
 use uuid::Uuid;
-use super::*;
 
 fn parse_json_schema_type_ref(
     json_value: &serde_json::Value,
@@ -187,10 +187,7 @@ fn parse_json_schema_def_record_field(
         .map(|x| x.as_str().map(|y| Uuid::parse_str(y).ok()).flatten())
         .flatten()
         .ok_or_else(|| {
-            SchemaDefParserError::String(format!(
-                "{}Field uuids must be a UUID",
-                error_prefix
-            ))
+            SchemaDefParserError::String(format!("{}Field uuids must be a UUID", error_prefix))
         })?;
 
     let field_name = object
@@ -350,10 +347,7 @@ fn parse_json_schema_def_record(
         .map(|x| x.as_str().map(|y| Uuid::parse_str(y).ok()).flatten())
         .flatten()
         .ok_or_else(|| {
-            SchemaDefParserError::String(format!(
-                "{}Record type uuid must be a UUID",
-                error_prefix
-            ))
+            SchemaDefParserError::String(format!("{}Record type uuid must be a UUID", error_prefix))
         })?;
 
     let json_aliases = json_object.get("aliases").map(|x| x.as_array()).flatten();
@@ -418,7 +412,10 @@ fn parse_json_schema_def_record(
         if let Some(default_thumbnail_str) = default_thumbnail_str {
             let default_thumbnail_path = Path::new(&default_thumbnail_str);
             markup.default_thumbnail = Some(if default_thumbnail_path.is_relative() {
-                json_file_absolute_path.parent().unwrap().join(default_thumbnail_path)
+                json_file_absolute_path
+                    .parent()
+                    .unwrap()
+                    .join(default_thumbnail_path)
             } else {
                 default_thumbnail_path.to_path_buf()
             });
@@ -477,10 +474,7 @@ fn parse_json_schema_def_enum_symbol(
         .map(|x| x.as_str().map(|y| Uuid::parse_str(y).ok()).flatten())
         .flatten()
         .ok_or_else(|| {
-            SchemaDefParserError::String(format!(
-                "{}Enum symbol uuid must be a UUID",
-                error_prefix
-            ))
+            SchemaDefParserError::String(format!("{}Enum symbol uuid must be a UUID", error_prefix))
         })?;
 
     let json_aliases = object.get("aliases").map(|x| x.as_array()).flatten();
@@ -534,10 +528,7 @@ fn parse_json_schema_def_enum(
         .map(|x| x.as_str().map(|y| Uuid::parse_str(y).ok()).flatten())
         .flatten()
         .ok_or_else(|| {
-            SchemaDefParserError::String(format!(
-                "{}Enum type uuid must be a UUID",
-                error_prefix
-            ))
+            SchemaDefParserError::String(format!("{}Enum type uuid must be a UUID", error_prefix))
         })?;
 
     let json_aliases = json_object.get("aliases").map(|x| x.as_array()).flatten();
@@ -612,7 +603,8 @@ pub(super) fn parse_json_schema_def(
     })?;
     match object_type_str {
         "record" => {
-            let record = parse_json_schema_def_record(object, error_prefix, json_file_absolute_path)?;
+            let record =
+                parse_json_schema_def_record(object, error_prefix, json_file_absolute_path)?;
             Ok(SchemaDefNamedType::Record(record))
         }
         "enum" => {

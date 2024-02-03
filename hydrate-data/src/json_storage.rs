@@ -1,11 +1,15 @@
-use crate::{AssetId, BuildInfo, DataSetAssetInfo, HashMap, HashSet, ImportInfo, ImporterId, NullOverride, PathReference, Schema, SchemaFingerprint, SchemaNamedType, SchemaSet, SingleObject, Value, PathReferenceNamespaceResolver, PathReferenceHash};
+use crate::{
+    AssetId, BuildInfo, DataSetAssetInfo, HashMap, HashSet, ImportInfo, ImporterId, NullOverride,
+    PathReference, PathReferenceHash, PathReferenceNamespaceResolver, Schema, SchemaFingerprint,
+    SchemaNamedType, SchemaSet, SingleObject, Value,
+};
 use crate::{AssetLocation, AssetName, DataSetResult, ImportableName, OrderedSet};
 use hydrate_schema::{CachedSchemaNamedType, DataSetError, SchemaRecord, SchemaRecordField};
+use profiling::finish_frame;
 use serde::{Deserialize, Serialize};
 use std::hash::Hash;
 use std::str::FromStr;
 use std::sync::Arc;
-use profiling::finish_frame;
 use uuid::Uuid;
 
 fn property_value_to_json(
@@ -110,8 +114,8 @@ fn ordered_map_cached_schemas<S>(
     value: &HashMap<Uuid, String>,
     serializer: S,
 ) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
+where
+    S: serde::Serializer,
 {
     let ordered: std::collections::BTreeMap<_, _> = value.iter().collect();
     ordered.serialize(serializer)
@@ -121,8 +125,8 @@ fn ordered_map_file_references<S>(
     value: &HashMap<Uuid, String>,
     serializer: S,
 ) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
+where
+    S: serde::Serializer,
 {
     let ordered: std::collections::BTreeMap<_, _> = value.iter().collect();
     ordered.serialize(serializer)
@@ -151,8 +155,11 @@ where
 }
 
 fn load_json_properties(
-    named_type: &SchemaNamedType,
-    named_types: &HashMap<SchemaFingerprint, SchemaNamedType>,
+    new_named_type: &SchemaNamedType,
+    new_named_types: &HashMap<SchemaFingerprint, SchemaNamedType>,
+    new_named_types_by_uuid: &HashMap<Uuid, SchemaFingerprint>,
+    old_schema_fingerprint: SchemaFingerprint,
+    old_named_types: Option<HashMap<SchemaFingerprint, SchemaNamedType>>,
     json_properties: &HashMap<String, serde_json::Value>,
     properties: &mut HashMap<String, Value>,
     property_null_overrides: &mut HashMap<String, NullOverride>,
@@ -160,21 +167,40 @@ fn load_json_properties(
     dynamic_collection_entries: &mut HashMap<String, OrderedSet<Uuid>>,
     buffers: &mut Option<Vec<Arc<Vec<u8>>>>,
 ) {
-    let mut max_path_length = 0;
-    for (k, _) in json_properties {
-        max_path_length = max_path_length.max(k.len());
-    }
+    for (old_path, value) in json_properties {
+        let mut fixed_path_by_value = None;
+        let new_path = if let Some(old_named_types) = &old_named_types {
+            let old_base_named_type = old_named_types.get(&old_schema_fingerprint).unwrap();
 
-    for (path, value) in json_properties {
-        let split_path = path.rsplit_once('.');
+            //TODO:
+            // Fix values (enums in particular)
+            // Better error handling
+            let new_property_path = SchemaNamedType::find_post_migration_property_path(
+                old_base_named_type,
+                old_path,
+                old_named_types,
+                new_named_types,
+                new_named_types_by_uuid,
+            )
+            .unwrap();
+
+            println!("path {} -> {}", old_path, new_property_path);
+
+            fixed_path_by_value = Some(new_property_path);
+            fixed_path_by_value.as_ref().unwrap()
+        } else {
+            old_path
+        };
+
+        let split_path = new_path.rsplit_once('.');
         //let parent_path = split_path.map(|x| x.0);
         //let path_end = split_path.map(|x| x.1);
 
         let mut property_handled = false;
 
         if let Some((parent_path, path_end)) = split_path {
-            let parent_schema = named_type
-                .find_property_schema(parent_path, named_types)
+            let parent_schema = new_named_type
+                .find_property_schema(parent_path, new_named_types)
                 .unwrap();
             if parent_schema.is_nullable() && path_end == "null_override" {
                 let null_override = string_to_null_override_value(value.as_str().unwrap()).unwrap();
@@ -196,30 +222,32 @@ fn load_json_properties(
         }
 
         if !property_handled {
-            let property_schema = named_type.find_property_schema(&path, named_types).unwrap();
+            let property_schema = new_named_type
+                .find_property_schema(&new_path, new_named_types)
+                .unwrap();
             if property_schema.is_dynamic_array() || property_schema.is_map() {
                 let json_array = value.as_array().unwrap();
                 for json_array_element in json_array {
                     let element = json_array_element.as_str().unwrap();
                     let element = Uuid::from_str(element).unwrap();
                     let existing_entries = dynamic_collection_entries
-                        .entry(path.to_string())
+                        .entry(new_path.to_string())
                         .or_default();
                     if !existing_entries.contains(&element) {
-                        log::trace!("add dynamic array element {} to {:?}", element, path);
+                        log::trace!("add dynamic array element {} to {:?}", element, new_path);
                         let newly_inserted = existing_entries.try_insert_at_end(element);
                         assert!(newly_inserted);
                     }
                 }
             } else {
                 let v = json_to_property_value_with_schema(
-                    named_types,
+                    new_named_types,
                     &property_schema,
                     &value,
                     buffers,
                 );
-                log::trace!("set {} to {:?}", path, v);
-                properties.insert(path.to_string(), v);
+                log::trace!("set {} to {:?}", new_path, v);
+                properties.insert(new_path.to_string(), v);
             }
         }
     }
@@ -282,10 +310,15 @@ pub struct AssetImportInfoJson {
 }
 
 impl AssetImportInfoJson {
-    pub fn new(
-        import_info: &ImportInfo
-    ) -> Self {
-        let source_file_path = format!("{}", PathReference::new(import_info.source_file().namespace().to_string(), import_info.source_file().path().to_string(), ImportableName::default()));
+    pub fn new(import_info: &ImportInfo) -> Self {
+        let source_file_path = format!(
+            "{}",
+            PathReference::new(
+                import_info.source_file().namespace().to_string(),
+                import_info.source_file().path().to_string(),
+                ImportableName::default()
+            )
+        );
 
         AssetImportInfoJson {
             importer_id: import_info.importer_id().0,
@@ -298,9 +331,7 @@ impl AssetImportInfoJson {
             file_references: import_info
                 .path_references()
                 .iter()
-                .map(|(k, v)| {
-                    (k.0, v.to_string())
-                })
+                .map(|(k, v)| (k.0, v.to_string()))
                 .collect(),
             source_file_modified_timestamp: format!(
                 "{:0>16x}",
@@ -315,16 +346,23 @@ impl AssetImportInfoJson {
         &self,
         _schema_set: &SchemaSet,
         namespace_resolver: &dyn PathReferenceNamespaceResolver,
-
     ) -> DataSetResult<ImportInfo> {
         let mut path_references = HashMap::default();
         for (key, value) in &self.file_references {
             let path_reference: PathReference = value.into();
-            path_references.insert(PathReferenceHash(*key), path_reference.simplify(namespace_resolver));
+            path_references.insert(
+                PathReferenceHash(*key),
+                path_reference.simplify(namespace_resolver),
+            );
         }
 
         let path_reference: PathReference = self.source_file_path.clone().into();
-        let source_file = PathReference::new(path_reference.namespace().to_string(), path_reference.path().to_string(), ImportableName::new(self.importable_name.clone())).simplify(namespace_resolver);
+        let source_file = PathReference::new(
+            path_reference.namespace().to_string(),
+            path_reference.path().to_string(),
+            ImportableName::new(self.importable_name.clone()),
+        )
+        .simplify(namespace_resolver);
 
         let source_file_modified_timestamp =
             u64::from_str_radix(&self.source_file_modified_timestamp, 16)
@@ -372,7 +410,10 @@ impl AssetBuildInfoJson {
         let mut file_reference_overrides = HashMap::default();
         for (k, v) in &self.file_reference_overrides {
             let path_reference: PathReference = k.into();
-            file_reference_overrides.insert(path_reference.simplify(namespace_resolver), AssetId::from_uuid(*v));
+            file_reference_overrides.insert(
+                path_reference.simplify(namespace_resolver),
+                AssetId::from_uuid(*v),
+            );
         }
 
         BuildInfo {
@@ -400,7 +441,6 @@ pub trait RestoreAssetFromStorageImpl {
     fn namespace_resolver(&self) -> &dyn PathReferenceNamespaceResolver;
 }
 
-
 #[derive(Debug, Serialize, Deserialize)]
 pub struct AssetJson {
     id: Option<Uuid>,
@@ -415,7 +455,7 @@ pub struct AssetJson {
     properties: HashMap<String, serde_json::Value>,
     #[serde(default)]
     #[serde(serialize_with = "ordered_map_cached_schemas")]
-    cached_schemas: HashMap<Uuid, String>
+    cached_schemas: HashMap<Uuid, String>,
 }
 
 impl AssetJson {
@@ -463,34 +503,49 @@ impl AssetJson {
         let schema_fingerprint = SchemaFingerprint::from_uuid(stored_asset.schema);
         let prototype = stored_asset.prototype.map(|x| AssetId::from_uuid(x));
 
+        //
+        // In this chunk of code, we determine what the loaded object's type will be.
+        // - The fast/happy path is that the data was saved with an identical schema to the schema
+        //   we currently have loaded (i.e. fingerprints match)
+        // - The slow path is a schema migration (fingerprints do not match). This could be due to
+        //   added/modified/removed fields, enum symbols, etc.
+        //
+        // If we need to do schema migration, we will unpack the schema cache in the data file.
+        // This allows us to get the UUIDs for all the fields/enum symbols, etc.
+        //
         let named_type = schema_set.find_named_type_by_fingerprint(schema_fingerprint);
-
-        let named_type = if let Some(named_type) = named_type {
+        let (named_type, migration_schema_cache) = if let Some(named_type) = named_type {
             // The object was saved using the identical schema that we already loaded. This is the
             // fast/happy path
-            named_type.clone()
+            (named_type.clone(), None)
         } else if !stored_asset.cached_schemas.is_empty() {
             // There's a schema cache in the asset file. We can try to locate the corresponding type in our schema set
             // and try to migrate the data
-            log::error!("Can't load asset {} type {} by fingerprint, trying by UUID", asset_id, stored_asset.schema_name);
+            log::error!(
+                "Can't load asset {} type {} by fingerprint, trying by UUID",
+                asset_id,
+                stored_asset.schema_name
+            );
 
             // Parse all the schemas in the cache
             let mut cached_schemas = HashMap::default();
             for (k, v) in &stored_asset.cached_schemas {
                 let cached_schema: CachedSchemaNamedType = serde_json::from_str(v).unwrap();
-                cached_schemas.insert(k, cached_schema);
+                cached_schemas.insert(SchemaFingerprint::from_uuid(*k), cached_schema.to_schema());
             }
 
             // Find the schema we want to migrate the data to
-            let cached_schema = cached_schemas.get(&stored_asset.schema).unwrap();
-            //let cached_schema_record = cached_schema.as_record().unwrap();
+            let cached_schema = cached_schemas
+                .get(&SchemaFingerprint::from_uuid(stored_asset.schema))
+                .unwrap();
             let type_uuid = cached_schema.type_uuid();
-            schema_set.find_named_type_by_type_uuid(type_uuid)?.clone()
+            let named_type = schema_set.find_named_type_by_type_uuid(type_uuid)?;
+            (named_type.clone(), Some(cached_schemas))
         } else {
             log::error!("Can't load asset {} type {} by fingerprint, trying by name. Schema migration not yet implemented", asset_id, stored_asset.schema_name);
-            schema_set
-                .find_named_type(stored_asset.schema_name)?
-                .clone()
+            let named_type = schema_set.find_named_type(stored_asset.schema_name)?;
+
+            (named_type.clone(), None)
 
             //Fingerprint doesn't match, this may need to be a data migration in the future
             //panic!("Can't load type {}", stored_asset.schema_name);
@@ -505,6 +560,9 @@ impl AssetJson {
         load_json_properties(
             &named_type,
             schema_set.schemas(),
+            schema_set.schemas_by_type_uuid(),
+            SchemaFingerprint::from_uuid(stored_asset.schema),
+            migration_schema_cache,
             &stored_asset.properties,
             &mut properties,
             &mut property_null_overrides,
@@ -519,7 +577,9 @@ impl AssetJson {
             None
         };
 
-        let build_info = stored_asset.build_info.to_build_info(schema_set, restore_asset_impl.namespace_resolver());
+        let build_info = stored_asset
+            .build_info
+            .to_build_info(schema_set, restore_asset_impl.namespace_resolver());
 
         restore_asset_impl.restore_asset(
             asset_id,
@@ -551,49 +611,28 @@ impl AssetJson {
         let obj = assets.get(&asset_id).unwrap();
         let mut buffers = None;
 
-        // TODO: Find relevant schema/fingerprints
-        // serialize
-        // load them
+        // Find relevant schema/fingerprints so they can be stored alongside the object data
         let mut referenced_schema_fingerprints = HashSet::default();
         let mut visit_stack = Vec::default();
+        Schema::find_referenced_schemas(
+            schema_set.schemas(),
+            &Schema::Record(obj.schema().fingerprint()),
+            &mut referenced_schema_fingerprints,
+            &mut visit_stack,
+        );
 
-        Schema::find_referenced_schemas(schema_set.schemas(), &Schema::Record(obj.schema().fingerprint()), &mut referenced_schema_fingerprints, &mut visit_stack);
-
-        /*
-        referenced_schema_fingerprints.insert(obj.schema().fingerprint());
-
-        for property in obj.properties().keys() {
-            obj.schema().find_schemas_used_in_property_path(property, schema_set.schemas(), &mut referenced_schema_fingerprints);
-        }
-
-        for property in obj.property_null_overrides().keys() {
-            obj.schema().find_schemas_used_in_property_path(property, schema_set.schemas(), &mut referenced_schema_fingerprints);
-        }
-
-        for property in obj.properties_in_replace_mode() {
-            obj.schema().find_schemas_used_in_property_path(property, schema_set.schemas(), &mut referenced_schema_fingerprints);
-        }
-
-        for property in obj.dynamic_collection_entries().keys() {
-            obj.schema().find_schemas_used_in_property_path(property, schema_set.schemas(), &mut referenced_schema_fingerprints);
-        }
-*/
-
-
-
-
+        // Build the schema cache to save alongside the object data
         let mut cached_schemas = HashMap::default();
-
         for fingerprint in referenced_schema_fingerprints {
-            let named_type = schema_set.find_named_type_by_fingerprint(fingerprint).unwrap();
+            let named_type = schema_set
+                .find_named_type_by_fingerprint(fingerprint)
+                .unwrap();
             let cached_schema = CachedSchemaNamedType::new_from_schema(named_type);
             let cached_schema_json = serde_json::to_string(&cached_schema).unwrap();
             //base64::encode()
 
             cached_schemas.insert(fingerprint.as_uuid(), cached_schema_json);
         }
-
-
 
         let json_properties = store_json_properties(
             obj.properties(),
@@ -689,6 +728,9 @@ impl SingleObjectJson {
         load_json_properties(
             &named_type,
             schema_set.schemas(),
+            schema_set.schemas_by_type_uuid(),
+            schema_fingerprint,
+            None,
             &self.properties,
             &mut properties,
             &mut property_null_overrides,
@@ -719,13 +761,12 @@ pub struct ImportableInfoJson {
     persisted: bool,
 }
 
-
 fn ordered_map_importable_info<S>(
     value: &HashMap<String, ImportableInfoJson>,
     serializer: S,
 ) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
+where
+    S: serde::Serializer,
 {
     let ordered: std::collections::BTreeMap<_, _> = value.iter().collect();
     ordered.serialize(serializer)
@@ -735,7 +776,6 @@ fn ordered_map_importable_info<S>(
 pub struct MetaFileJson {
     #[serde(serialize_with = "ordered_map_importable_info")]
     pub importables: HashMap<String, ImportableInfoJson>,
-
 }
 
 impl MetaFileJson {
@@ -749,10 +789,7 @@ impl MetaFileJson {
         let mut persisted_assets = HashSet::default();
         for (importable_name, importable_info) in meta_file.importables {
             let asset_id = AssetId::from_uuid(importable_info.id);
-            past_id_assignments.insert(
-                ImportableName::new(importable_name),
-                asset_id,
-            );
+            past_id_assignments.insert(ImportableName::new(importable_name), asset_id);
             if importable_info.persisted {
                 persisted_assets.insert(asset_id);
             }
@@ -760,7 +797,7 @@ impl MetaFileJson {
 
         MetaFile {
             past_id_assignments,
-            persisted_assets
+            persisted_assets,
         }
     }
 
@@ -772,7 +809,7 @@ impl MetaFileJson {
 
             let importable_info = ImportableInfoJson {
                 id: asset_id.as_uuid(),
-                persisted
+                persisted,
             };
 
             importables.insert(
@@ -784,10 +821,7 @@ impl MetaFileJson {
             );
         }
 
-        let json_object = MetaFileJson {
-            importables
-
-        };
+        let json_object = MetaFileJson { importables };
         profiling::scope!("serde_json::to_string_pretty");
         serde_json::to_string_pretty(&json_object).unwrap()
     }

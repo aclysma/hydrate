@@ -19,8 +19,8 @@ pub use ref_constraint::*;
 mod static_array;
 pub use static_array::*;
 
-use crate::{HashSet, SchemaFingerprint};
 use crate::{DataSetError, DataSetResult, HashMap};
+use crate::{HashSet, PropertyPath, SchemaFingerprint};
 use std::hash::Hash;
 use std::str::FromStr;
 use uuid::Uuid;
@@ -49,6 +49,13 @@ impl SchemaNamedType {
         }
     }
 
+    pub fn type_uuid(&self) -> Uuid {
+        match self {
+            SchemaNamedType::Record(x) => x.type_uuid(),
+            SchemaNamedType::Enum(x) => x.type_uuid(),
+        }
+    }
+
     pub fn as_record(&self) -> DataSetResult<&SchemaRecord> {
         Ok(self.try_as_record().ok_or(DataSetError::InvalidSchema)?)
     }
@@ -71,6 +78,43 @@ impl SchemaNamedType {
         }
     }
 
+    pub fn find_post_migration_property_path(
+        old_base_named_type: &SchemaNamedType,
+        old_path: impl AsRef<str>,
+        old_named_types: &HashMap<SchemaFingerprint, SchemaNamedType>,
+        new_named_types: &HashMap<SchemaFingerprint, SchemaNamedType>,
+        new_named_types_by_uuid: &HashMap<Uuid, SchemaFingerprint>,
+    ) -> Option<String> {
+        let mut old_schema = Schema::Record(old_base_named_type.fingerprint());
+
+        println!("migrate property name {:?}", old_path.as_ref());
+        let old_split_path = old_path.as_ref().split(".");
+        let mut new_path = PropertyPath::default();
+
+        // Iterate the path segments to find
+
+        for old_path_segment in old_split_path {
+            println!("Migrate field {:?} on {:?}", old_path_segment, old_schema);
+            let new_path_segment_name = Schema::find_post_migration_field_name(
+                &old_schema,
+                old_path_segment,
+                old_named_types,
+                new_named_types,
+                new_named_types_by_uuid,
+            )
+            .unwrap();
+            new_path = new_path.push(&new_path_segment_name);
+            let old_s = old_schema.find_field_schema(old_path_segment, old_named_types);
+            if let Some(old_s) = old_s {
+                old_schema = old_s.clone();
+            } else {
+                return None;
+            }
+        }
+
+        Some(new_path.path().to_string())
+    }
+
     pub fn find_property_schema(
         &self,
         path: impl AsRef<str>,
@@ -78,7 +122,6 @@ impl SchemaNamedType {
     ) -> Option<Schema> {
         let mut schema = Schema::Record(self.fingerprint());
 
-        //TODO: Escape map keys (and probably avoid path strings anyways)
         let split_path = path.as_ref().split(".");
 
         // Iterate the path segments to find
@@ -94,35 +137,33 @@ impl SchemaNamedType {
         Some(schema)
     }
 
-
-
-    pub fn find_schemas_used_in_property_path(
-        &self,
-        path: impl AsRef<str>,
-        named_types: &HashMap<SchemaFingerprint, SchemaNamedType>,
-        used_schemas: &mut HashSet<SchemaFingerprint>
-    ) {
-        let mut schema = Schema::Record(self.fingerprint());
-
-        //TODO: Escape map keys (and probably avoid path strings anyways)
-        let split_path = path.as_ref().split(".");
-
-        // Iterate the path segments to find
-        for path_segment in split_path {
-            let s = schema.find_field_schema(path_segment, named_types);
-            if let Some(s) = s {
-                match s {
-                    Schema::Record(fingerprint) => { used_schemas.insert(*fingerprint); }
-                    Schema::Enum(fingerprint) => { used_schemas.insert(*fingerprint); }
-                    _ => {},
-                }
-
-                schema = s.clone();
-            } else {
-                return;
-            }
-        }
-    }
+    // pub fn find_schemas_used_in_property_path(
+    //     &self,
+    //     path: impl AsRef<str>,
+    //     named_types: &HashMap<SchemaFingerprint, SchemaNamedType>,
+    //     used_schemas: &mut HashSet<SchemaFingerprint>
+    // ) {
+    //     let mut schema = Schema::Record(self.fingerprint());
+    //
+    //     //TODO: Escape map keys (and probably avoid path strings anyways)
+    //     let split_path = path.as_ref().split(".");
+    //
+    //     // Iterate the path segments to find
+    //     for path_segment in split_path {
+    //         let s = schema.find_field_schema(path_segment, named_types);
+    //         if let Some(s) = s {
+    //             match s {
+    //                 Schema::Record(fingerprint) => { used_schemas.insert(*fingerprint); }
+    //                 Schema::Enum(fingerprint) => { used_schemas.insert(*fingerprint); }
+    //                 _ => {},
+    //             }
+    //
+    //             schema = s.clone();
+    //         } else {
+    //             return;
+    //         }
+    //     }
+    // }
 }
 
 /// Describes format of data, either a single primitive value or complex layout comprised of
@@ -265,27 +306,69 @@ impl Schema {
         }
     }
 
-    // This recursively finds the schema through a full path
-    pub fn find_property_schema(
-        &self,
-        path: impl AsRef<str>,
-        named_types: &HashMap<SchemaFingerprint, SchemaNamedType>,
-    ) -> Option<Schema> {
-        let mut schema = self;
-        //TODO: Escape map keys (and probably avoid path strings anyways)
-        let split_path = path.as_ref().split(".");
-
-        // Iterate the path segments to find
-        for path_segment in split_path {
-            let s = self.find_field_schema(path_segment, named_types);
-            if let Some(s) = s {
-                schema = s;
-            } else {
-                return None;
+    // This looks for equivalent field name in new types as existed in old types
+    pub fn find_post_migration_field_name<'a>(
+        old_base_schema: &Schema,
+        old_property_name: &'a str,
+        old_named_types: &HashMap<SchemaFingerprint, SchemaNamedType>,
+        new_named_types: &HashMap<SchemaFingerprint, SchemaNamedType>,
+        new_named_types_by_uuid: &HashMap<Uuid, SchemaFingerprint>,
+    ) -> Option<String> {
+        match old_base_schema {
+            Schema::Nullable(_) => {
+                if old_property_name == "value" {
+                    Some(old_property_name.to_string())
+                } else if old_property_name == "null_override" {
+                    Some(old_property_name.to_string())
+                } else {
+                    None
+                }
             }
+            Schema::Record(old_schema_fingerprint) => {
+                let old_named_type = old_named_types.get(old_schema_fingerprint).unwrap();
+                let old_schema_record = old_named_type.as_record().unwrap();
+                let old_field = old_schema_record
+                    .find_field_from_name(old_property_name.as_ref())
+                    .unwrap();
+                let old_record_type_uuid = old_named_type.type_uuid();
+                let new_schema_fingerprint =
+                    new_named_types_by_uuid.get(&old_record_type_uuid).unwrap();
+                let new_named_type = new_named_types.get(new_schema_fingerprint).unwrap();
+                let new_schema_record = new_named_type.as_record().unwrap();
+                let new_field = new_schema_record
+                    .find_field_from_field_uuid(old_field.field_uuid())
+                    .unwrap();
+                Some(new_field.name().to_string())
+            }
+            Schema::StaticArray(_) => {
+                if old_property_name.parse::<u32>().is_ok() {
+                    Some(old_property_name.to_string())
+                } else {
+                    None
+                }
+            }
+            Schema::DynamicArray(x) => {
+                if old_property_name == "replace" {
+                    Some(old_property_name.to_string())
+                } else {
+                    // We could validate that name is a valid UUID
+                    Uuid::from_str(old_property_name.as_ref()).ok()?;
+                    Some(old_property_name.to_string())
+                }
+            }
+            Schema::Map(x) => {
+                if old_property_name.ends_with(":key") {
+                    Uuid::from_str(&old_property_name[0..old_property_name.len() - 4]).ok()?;
+                    Some(old_property_name.to_string())
+                } else if old_property_name.ends_with(":value") {
+                    Uuid::from_str(&old_property_name[0..old_property_name.len() - 6]).ok()?;
+                    Some(old_property_name.to_string())
+                } else {
+                    None
+                }
+            }
+            _ => None,
         }
-
-        Some(schema.clone())
     }
 
     // This looks for direct descendent field with given name
@@ -299,6 +382,7 @@ impl Schema {
                 if name.as_ref() == "value" {
                     Some(&*x)
                 } else {
+                    // "null_value" special property name is purposefully omitted here
                     None
                 }
             }
@@ -317,6 +401,7 @@ impl Schema {
                 }
             }
             Schema::DynamicArray(x) => {
+                // "replace" special property name is purposefully omitted here
                 // We could validate that name is a valid UUID
                 Uuid::from_str(name.as_ref()).ok()?;
                 Some(x.item_type())
@@ -342,7 +427,7 @@ impl Schema {
         named_types: &'a HashMap<SchemaFingerprint, SchemaNamedType>,
         schema: &'a Schema,
         referenced_schema_fingerprints: &mut HashSet<SchemaFingerprint>,
-        visit_stack: &mut Vec<&'a Schema>
+        visit_stack: &mut Vec<&'a Schema>,
     ) {
         if visit_stack.contains(&schema) {
             return;
@@ -351,7 +436,12 @@ impl Schema {
         visit_stack.push(&schema);
         //referenced_schema_fingerprints.insert(schema)
         match schema {
-            Schema::Nullable(inner) => Self::find_referenced_schemas(named_types, &*inner, referenced_schema_fingerprints, visit_stack),
+            Schema::Nullable(inner) => Self::find_referenced_schemas(
+                named_types,
+                &*inner,
+                referenced_schema_fingerprints,
+                visit_stack,
+            ),
             Schema::Boolean => {}
             Schema::I32 => {}
             Schema::I64 => {}
@@ -361,18 +451,43 @@ impl Schema {
             Schema::F64 => {}
             Schema::Bytes => {}
             Schema::String => {}
-            Schema::StaticArray(inner) => Self::find_referenced_schemas(named_types, inner.item_type(), referenced_schema_fingerprints, visit_stack),
-            Schema::DynamicArray(inner) => Self::find_referenced_schemas(named_types, inner.item_type(), referenced_schema_fingerprints, visit_stack),
+            Schema::StaticArray(inner) => Self::find_referenced_schemas(
+                named_types,
+                inner.item_type(),
+                referenced_schema_fingerprints,
+                visit_stack,
+            ),
+            Schema::DynamicArray(inner) => Self::find_referenced_schemas(
+                named_types,
+                inner.item_type(),
+                referenced_schema_fingerprints,
+                visit_stack,
+            ),
             Schema::Map(inner) => {
-                Self::find_referenced_schemas(named_types, inner.key_type(), referenced_schema_fingerprints, visit_stack);
-                Self::find_referenced_schemas(named_types, inner.value_type(), referenced_schema_fingerprints, visit_stack);
+                Self::find_referenced_schemas(
+                    named_types,
+                    inner.key_type(),
+                    referenced_schema_fingerprints,
+                    visit_stack,
+                );
+                Self::find_referenced_schemas(
+                    named_types,
+                    inner.value_type(),
+                    referenced_schema_fingerprints,
+                    visit_stack,
+                );
             }
             Schema::AssetRef(_) => {}
             Schema::Record(inner) => {
                 referenced_schema_fingerprints.insert(*inner);
                 let record = named_types.get(inner).unwrap().try_as_record().unwrap();
                 for field in record.fields() {
-                    Self::find_referenced_schemas(named_types, field.field_schema(), referenced_schema_fingerprints, visit_stack);
+                    Self::find_referenced_schemas(
+                        named_types,
+                        field.field_schema(),
+                        referenced_schema_fingerprints,
+                        visit_stack,
+                    );
                 }
             }
             Schema::Enum(inner) => {

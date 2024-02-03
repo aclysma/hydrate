@@ -225,13 +225,13 @@ impl CachedSchemaNamedType {
             CachedSchemaNamedType::Enum(x) => x.fingerprint,
         }
     }
-
-    pub fn type_uuid(&self) -> Uuid {
-        match self {
-            CachedSchemaNamedType::Record(x) => x.type_uuid,
-            CachedSchemaNamedType::Enum(x) => x.type_uuid,
-        }
-    }
+    //
+    // pub fn type_uuid(&self) -> Uuid {
+    //     match self {
+    //         CachedSchemaNamedType::Record(x) => x.type_uuid,
+    //         CachedSchemaNamedType::Enum(x) => x.type_uuid,
+    //     }
+    // }
 
     pub fn new_from_schema(schema: &SchemaNamedType) -> CachedSchemaNamedType {
         match schema {
@@ -251,19 +251,19 @@ impl CachedSchemaNamedType {
         }
     }
 
-    pub fn as_record(&self) -> Option<&CachedSchemaRecord> {
-        match self {
-            CachedSchemaNamedType::Record(x) => Some(x),
-            CachedSchemaNamedType::Enum(_) => None,
-        }
-    }
-
-    pub fn as_enum(&self) -> Option<&CachedSchemaEnum> {
-        match self {
-            CachedSchemaNamedType::Record(_) => None,
-            CachedSchemaNamedType::Enum(x) => Some(x),
-        }
-    }
+    // pub fn as_record(&self) -> Option<&CachedSchemaRecord> {
+    //     match self {
+    //         CachedSchemaNamedType::Record(x) => Some(x),
+    //         CachedSchemaNamedType::Enum(_) => None,
+    //     }
+    // }
+    //
+    // pub fn as_enum(&self) -> Option<&CachedSchemaEnum> {
+    //     match self {
+    //         CachedSchemaNamedType::Record(_) => None,
+    //         CachedSchemaNamedType::Enum(x) => Some(x),
+    //     }
+    // }
 }
 
 #[derive(Debug, Serialize, Deserialize)]

@@ -549,6 +549,7 @@ impl DataSource for FileSystemPathBasedDataSource {
         let asset_file_path = self.path_for_asset(&containing_file_path, asset_id, asset_info);
         // It's a asset, create an asset file
         let data = crate::json_storage::AssetJson::save_asset_to_string(
+            edit_context.schema_set(),
             edit_context.assets(),
             asset_id,
             true,
@@ -1131,6 +1132,7 @@ impl DataSource for FileSystemPathBasedDataSource {
                     } else {
                         // It's a asset, create an asset file
                         let data = crate::json_storage::AssetJson::save_asset_to_string(
+                            edit_context.schema_set(),
                             edit_context.assets(),
                             *asset_id,
                             true,

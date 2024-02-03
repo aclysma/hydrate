@@ -1,23 +1,30 @@
 use crate::SchemaFingerprint;
 use std::ops::Deref;
 use std::sync::Arc;
+use uuid::Uuid;
 
 #[derive(Debug)]
 pub struct SchemaEnumSymbol {
     name: String,
+    symbol_uuid: Uuid,
     aliases: Box<[String]>,
 }
 
 impl SchemaEnumSymbol {
     pub fn new(
         name: String,
+        symbol_uuid: Uuid,
         aliases: Box<[String]>,
     ) -> Self {
-        SchemaEnumSymbol { name, aliases }
+        SchemaEnumSymbol { name, symbol_uuid, aliases }
     }
 
     pub fn name(&self) -> &str {
         &self.name
+    }
+
+    pub fn symbol_uuid(&self) -> Uuid {
+        self.symbol_uuid
     }
 
     pub fn aliases(&self) -> &[String] {
@@ -28,6 +35,7 @@ impl SchemaEnumSymbol {
 #[derive(Debug)]
 pub struct SchemaEnumInner {
     name: String,
+    type_uuid: Uuid,
     fingerprint: SchemaFingerprint,
     aliases: Box<[String]>,
     symbols: Box<[SchemaEnumSymbol]>,
@@ -49,6 +57,7 @@ impl Deref for SchemaEnum {
 impl SchemaEnum {
     pub fn new(
         name: String,
+        type_uuid: Uuid,
         fingerprint: SchemaFingerprint,
         aliases: Box<[String]>,
         symbols: Box<[SchemaEnumSymbol]>,
@@ -64,6 +73,7 @@ impl SchemaEnum {
 
         let inner = SchemaEnumInner {
             name,
+            type_uuid,
             fingerprint,
             aliases,
             symbols,
@@ -76,6 +86,10 @@ impl SchemaEnum {
 
     pub fn name(&self) -> &str {
         &self.name
+    }
+
+    pub fn type_uuid(&self) -> Uuid {
+        self.type_uuid
     }
 
     pub fn aliases(&self) -> &[String] {

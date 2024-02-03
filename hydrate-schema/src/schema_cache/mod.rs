@@ -72,6 +72,7 @@ impl CachedSchemaMap {
 #[derive(Debug, Serialize, Deserialize)]
 struct CachedSchemaRecordField {
     name: String,
+    field_uuid: Uuid,
     #[serde(skip_serializing_if = "Vec::is_empty", default)]
     aliases: Vec<String>,
     field_schema: Box<CachedSchema>,
@@ -81,6 +82,7 @@ impl CachedSchemaRecordField {
     fn new_from_schema(schema: &SchemaRecordField) -> Self {
         CachedSchemaRecordField {
             name: schema.name().to_string(),
+            field_uuid: schema.field_uuid(),
             aliases: schema.aliases().iter().cloned().collect(),
             field_schema: Box::new(CachedSchema::new_from_schema(schema.field_schema())),
         }
@@ -89,6 +91,7 @@ impl CachedSchemaRecordField {
     fn to_schema(self) -> SchemaRecordField {
         SchemaRecordField::new(
             self.name,
+            self.field_uuid,
             self.aliases.into_boxed_slice(),
             self.field_schema.to_schema(),
             SchemaDefRecordFieldMarkup::default(),
@@ -99,6 +102,7 @@ impl CachedSchemaRecordField {
 #[derive(Debug, Serialize, Deserialize)]
 struct CachedSchemaRecord {
     name: String,
+    type_uuid: Uuid,
     fingerprint: Uuid,
     #[serde(skip_serializing_if = "Vec::is_empty", default)]
     aliases: Vec<String>,
@@ -114,6 +118,7 @@ impl CachedSchemaRecord {
 
         CachedSchemaRecord {
             name: schema.name().to_string(),
+            type_uuid: schema.type_uuid(),
             fingerprint: schema.fingerprint().as_uuid(),
             aliases: schema.aliases().iter().cloned().collect(),
             fields,
@@ -128,6 +133,7 @@ impl CachedSchemaRecord {
 
         SchemaRecord::new(
             self.name,
+            self.type_uuid,
             SchemaFingerprint(self.fingerprint.as_u128()),
             self.aliases.into_boxed_slice(),
             fields,
@@ -139,6 +145,7 @@ impl CachedSchemaRecord {
 #[derive(Debug, Serialize, Deserialize)]
 struct CachedSchemaEnumSymbol {
     name: String,
+    symbol_uuid: Uuid,
     #[serde(skip_serializing_if = "Vec::is_empty", default)]
     aliases: Vec<String>,
     //value: i32,
@@ -148,6 +155,7 @@ impl CachedSchemaEnumSymbol {
     fn new_from_schema(schema: &SchemaEnumSymbol) -> Self {
         CachedSchemaEnumSymbol {
             name: schema.name().to_string(),
+            symbol_uuid: schema.symbol_uuid(),
             aliases: schema.aliases().iter().cloned().collect(),
             //value: schema.value(),
         }
@@ -156,6 +164,7 @@ impl CachedSchemaEnumSymbol {
     fn to_schema(self) -> SchemaEnumSymbol {
         SchemaEnumSymbol::new(
             self.name,
+            self.symbol_uuid,
             self.aliases.into_boxed_slice(), /*, self.value*/
         )
     }
@@ -164,6 +173,7 @@ impl CachedSchemaEnumSymbol {
 #[derive(Debug, Serialize, Deserialize)]
 struct CachedSchemaEnum {
     name: String,
+    type_uuid: Uuid,
     fingerprint: Uuid,
     #[serde(skip_serializing_if = "Vec::is_empty", default)]
     aliases: Vec<String>,
@@ -179,6 +189,7 @@ impl CachedSchemaEnum {
 
         CachedSchemaEnum {
             name: schema.name().to_string(),
+            type_uuid: schema.type_uuid(),
             fingerprint: schema.fingerprint().as_uuid(),
             aliases: schema.aliases().iter().cloned().collect(),
             symbols,
@@ -193,6 +204,7 @@ impl CachedSchemaEnum {
 
         SchemaEnum::new(
             self.name,
+            self.type_uuid,
             SchemaFingerprint(self.fingerprint.as_u128()),
             self.aliases.into_boxed_slice(),
             symbols.into_boxed_slice(),
@@ -201,20 +213,27 @@ impl CachedSchemaEnum {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-enum CachedSchemaNamedType {
+pub enum CachedSchemaNamedType {
     Record(CachedSchemaRecord),
     Enum(CachedSchemaEnum),
 }
 
 impl CachedSchemaNamedType {
-    fn fingerprint(&self) -> Uuid {
+    pub fn fingerprint(&self) -> Uuid {
         match self {
             CachedSchemaNamedType::Record(x) => x.fingerprint,
             CachedSchemaNamedType::Enum(x) => x.fingerprint,
         }
     }
 
-    fn new_from_schema(schema: &SchemaNamedType) -> CachedSchemaNamedType {
+    pub fn type_uuid(&self) -> Uuid {
+        match self {
+            CachedSchemaNamedType::Record(x) => x.type_uuid,
+            CachedSchemaNamedType::Enum(x) => x.type_uuid,
+        }
+    }
+
+    pub fn new_from_schema(schema: &SchemaNamedType) -> CachedSchemaNamedType {
         match schema {
             SchemaNamedType::Record(x) => {
                 CachedSchemaNamedType::Record(CachedSchemaRecord::new_from_schema(x))
@@ -225,10 +244,24 @@ impl CachedSchemaNamedType {
         }
     }
 
-    fn to_schema(self) -> SchemaNamedType {
+    pub fn to_schema(self) -> SchemaNamedType {
         match self {
             CachedSchemaNamedType::Record(x) => SchemaNamedType::Record(x.to_schema()),
             CachedSchemaNamedType::Enum(x) => SchemaNamedType::Enum(x.to_schema()),
+        }
+    }
+
+    pub fn as_record(&self) -> Option<&CachedSchemaRecord> {
+        match self {
+            CachedSchemaNamedType::Record(x) => Some(x),
+            CachedSchemaNamedType::Enum(_) => None,
+        }
+    }
+
+    pub fn as_enum(&self) -> Option<&CachedSchemaEnum> {
+        match self {
+            CachedSchemaNamedType::Record(_) => None,
+            CachedSchemaNamedType::Enum(x) => Some(x),
         }
     }
 }

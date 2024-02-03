@@ -316,6 +316,7 @@ impl SchemaDefRecordField {
         &self,
         hasher: &mut T,
     ) {
+        // Should this be field UUID instead?
         self.field_name.hash(hasher);
         self.field_type.partial_hash(hasher);
     }
@@ -327,6 +328,7 @@ impl SchemaDefRecordField {
     ) -> SchemaRecordField {
         SchemaRecordField::new(
             self.field_name.clone(),
+            self.field_uuid,
             self.aliases.clone().into_boxed_slice(),
             self.field_type.to_schema(named_types, fingerprints),
             self.markup.clone(),
@@ -412,8 +414,10 @@ impl SchemaDefRecord {
         &self,
         hasher: &mut T,
     ) {
+        // should this be type_uuid instead?
         self.type_name.hash(hasher);
 
+        // should this sort by field_uuid instead?
         let mut sorted_fields: Vec<_> = self.fields.iter().collect();
         sorted_fields.sort_by_key(|x| &x.field_name);
 
@@ -437,6 +441,7 @@ impl SchemaDefRecord {
 
         SchemaRecord::new(
             self.type_name.clone(),
+            self.type_uuid,
             fingerprint,
             self.aliases.clone().into_boxed_slice(),
             fields,
@@ -469,12 +474,14 @@ impl SchemaDefEnumSymbol {
         &self,
         hasher: &mut T,
     ) {
+        // should this use symbol_uuid instead?
         self.symbol_name.hash(hasher);
     }
 
     fn to_schema(&self) -> SchemaEnumSymbol {
         SchemaEnumSymbol::new(
             self.symbol_name.clone(),
+            self.symbol_uuid,
             self.aliases.clone().into_boxed_slice(),
         )
     }
@@ -521,8 +528,10 @@ impl SchemaDefEnum {
         &self,
         hasher: &mut T,
     ) {
+        // should this use type_uuid instead?
         self.type_name.hash(hasher);
 
+        // should this sort by symbol_uuid instead?
         let mut sorted_symbols: Vec<_> = self.symbols.iter().collect();
         sorted_symbols.sort_by(|a, b| a.symbol_name.cmp(&b.symbol_name));
 
@@ -544,6 +553,7 @@ impl SchemaDefEnum {
 
         SchemaEnum::new(
             self.type_name.clone(),
+            self.type_uuid,
             fingerprint,
             self.aliases.clone().into_boxed_slice(),
             symbols.into_boxed_slice(),
@@ -720,6 +730,13 @@ impl SchemaDefNamedType {
         match self {
             SchemaDefNamedType::Record(x) => &x.type_name,
             SchemaDefNamedType::Enum(x) => &x.type_name,
+        }
+    }
+
+    pub(super) fn type_uuid(&self) -> Uuid {
+        match self {
+            SchemaDefNamedType::Record(x) => x.type_uuid,
+            SchemaDefNamedType::Enum(x) => x.type_uuid,
         }
     }
 

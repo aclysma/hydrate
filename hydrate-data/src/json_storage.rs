@@ -1,10 +1,11 @@
 use crate::{AssetId, BuildInfo, DataSetAssetInfo, HashMap, HashSet, ImportInfo, ImporterId, NullOverride, PathReference, Schema, SchemaFingerprint, SchemaNamedType, SchemaSet, SingleObject, Value, PathReferenceNamespaceResolver, PathReferenceHash};
 use crate::{AssetLocation, AssetName, DataSetResult, ImportableName, OrderedSet};
-use hydrate_schema::DataSetError;
+use hydrate_schema::{CachedSchemaNamedType, DataSetError, SchemaRecord, SchemaRecordField};
 use serde::{Deserialize, Serialize};
 use std::hash::Hash;
 use std::str::FromStr;
 use std::sync::Arc;
+use profiling::finish_frame;
 use uuid::Uuid;
 
 fn property_value_to_json(
@@ -103,6 +104,17 @@ fn string_to_null_override_value(s: &str) -> Option<NullOverride> {
         "SetNonNull" => Some(NullOverride::SetNonNull),
         _ => None,
     }
+}
+
+fn ordered_map_cached_schemas<S>(
+    value: &HashMap<Uuid, String>,
+    serializer: S,
+) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+{
+    let ordered: std::collections::BTreeMap<_, _> = value.iter().collect();
+    ordered.serialize(serializer)
 }
 
 fn ordered_map_file_references<S>(
@@ -388,6 +400,7 @@ pub trait RestoreAssetFromStorageImpl {
     fn namespace_resolver(&self) -> &dyn PathReferenceNamespaceResolver;
 }
 
+
 #[derive(Debug, Serialize, Deserialize)]
 pub struct AssetJson {
     id: Option<Uuid>,
@@ -400,6 +413,9 @@ pub struct AssetJson {
     prototype: Option<Uuid>,
     #[serde(serialize_with = "ordered_map_json_value")]
     properties: HashMap<String, serde_json::Value>,
+    #[serde(default)]
+    #[serde(serialize_with = "ordered_map_cached_schemas")]
+    cached_schemas: HashMap<Uuid, String>
 }
 
 impl AssetJson {
@@ -450,9 +466,28 @@ impl AssetJson {
         let named_type = schema_set.find_named_type_by_fingerprint(schema_fingerprint);
 
         let named_type = if let Some(named_type) = named_type {
+            // The object was saved using the identical schema that we already loaded. This is the
+            // fast/happy path
             named_type.clone()
+        } else if !stored_asset.cached_schemas.is_empty() {
+            // There's a schema cache in the asset file. We can try to locate the corresponding type in our schema set
+            // and try to migrate the data
+            log::error!("Can't load asset {} type {} by fingerprint, trying by UUID", asset_id, stored_asset.schema_name);
+
+            // Parse all the schemas in the cache
+            let mut cached_schemas = HashMap::default();
+            for (k, v) in &stored_asset.cached_schemas {
+                let cached_schema: CachedSchemaNamedType = serde_json::from_str(v).unwrap();
+                cached_schemas.insert(k, cached_schema);
+            }
+
+            // Find the schema we want to migrate the data to
+            let cached_schema = cached_schemas.get(&stored_asset.schema).unwrap();
+            //let cached_schema_record = cached_schema.as_record().unwrap();
+            let type_uuid = cached_schema.type_uuid();
+            schema_set.find_named_type_by_type_uuid(type_uuid)?.clone()
         } else {
-            log::error!("Can't load type {} by fingerprint, trying by name. Schema migration not yet implemented", stored_asset.schema_name);
+            log::error!("Can't load asset {} type {} by fingerprint, trying by name. Schema migration not yet implemented", asset_id, stored_asset.schema_name);
             schema_set
                 .find_named_type(stored_asset.schema_name)?
                 .clone()
@@ -505,6 +540,7 @@ impl AssetJson {
 
     #[profiling::function]
     pub fn save_asset_to_string(
+        schema_set: &SchemaSet,
         assets: &HashMap<AssetId, DataSetAssetInfo>,
         asset_id: AssetId,
         // We only save the ID in the file if using path-based file system storage. Otherwise the
@@ -514,6 +550,50 @@ impl AssetJson {
     ) -> String {
         let obj = assets.get(&asset_id).unwrap();
         let mut buffers = None;
+
+        // TODO: Find relevant schema/fingerprints
+        // serialize
+        // load them
+        let mut referenced_schema_fingerprints = HashSet::default();
+        let mut visit_stack = Vec::default();
+
+        Schema::find_referenced_schemas(schema_set.schemas(), &Schema::Record(obj.schema().fingerprint()), &mut referenced_schema_fingerprints, &mut visit_stack);
+
+        /*
+        referenced_schema_fingerprints.insert(obj.schema().fingerprint());
+
+        for property in obj.properties().keys() {
+            obj.schema().find_schemas_used_in_property_path(property, schema_set.schemas(), &mut referenced_schema_fingerprints);
+        }
+
+        for property in obj.property_null_overrides().keys() {
+            obj.schema().find_schemas_used_in_property_path(property, schema_set.schemas(), &mut referenced_schema_fingerprints);
+        }
+
+        for property in obj.properties_in_replace_mode() {
+            obj.schema().find_schemas_used_in_property_path(property, schema_set.schemas(), &mut referenced_schema_fingerprints);
+        }
+
+        for property in obj.dynamic_collection_entries().keys() {
+            obj.schema().find_schemas_used_in_property_path(property, schema_set.schemas(), &mut referenced_schema_fingerprints);
+        }
+*/
+
+
+
+
+        let mut cached_schemas = HashMap::default();
+
+        for fingerprint in referenced_schema_fingerprints {
+            let named_type = schema_set.find_named_type_by_fingerprint(fingerprint).unwrap();
+            let cached_schema = CachedSchemaNamedType::new_from_schema(named_type);
+            let cached_schema_json = serde_json::to_string(&cached_schema).unwrap();
+            //base64::encode()
+
+            cached_schemas.insert(fingerprint.as_uuid(), cached_schema_json);
+        }
+
+
 
         let json_properties = store_json_properties(
             obj.properties(),
@@ -544,6 +624,7 @@ impl AssetJson {
             build_info,
             prototype: obj.prototype().map(|x| x.as_uuid()),
             properties: json_properties,
+            cached_schemas,
         };
 
         profiling::scope!("serde_json::to_string_pretty");

@@ -254,6 +254,7 @@ impl DataSource for FileSystemIdBasedDataSource {
             };
 
             let data = crate::json_storage::AssetJson::save_asset_to_string(
+                edit_context.schema_set(),
                 edit_context.assets(),
                 asset_id,
                 false, //don't include ID because we assume it by file name

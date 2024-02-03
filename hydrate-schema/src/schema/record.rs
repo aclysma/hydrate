@@ -1,10 +1,8 @@
 use super::Schema;
-use crate::{
-    HashMap, SchemaDefRecordFieldMarkup, SchemaDefRecordMarkup,
-    SchemaFingerprint, SchemaNamedType,
-};
+use crate::{HashMap, HashSet, SchemaDefRecordFieldMarkup, SchemaDefRecordMarkup, SchemaFingerprint, SchemaNamedType};
 use std::ops::Deref;
 use std::sync::Arc;
+use uuid::Uuid;
 
 #[derive(Debug)]
 pub struct SchemaRecordField {
@@ -12,17 +10,20 @@ pub struct SchemaRecordField {
     aliases: Box<[String]>,
     field_schema: Schema,
     markup: SchemaDefRecordFieldMarkup,
+    field_uuid: Uuid,
 }
 
 impl SchemaRecordField {
     pub fn new(
         name: String,
+        field_uuid: Uuid,
         aliases: Box<[String]>,
         field_schema: Schema,
         markup: SchemaDefRecordFieldMarkup,
     ) -> Self {
         SchemaRecordField {
             name,
+            field_uuid,
             aliases,
             field_schema,
             markup,
@@ -44,11 +45,16 @@ impl SchemaRecordField {
     pub fn markup(&self) -> &SchemaDefRecordFieldMarkup {
         &self.markup
     }
+
+    pub fn field_uuid(&self) -> Uuid {
+        self.field_uuid
+    }
 }
 
 #[derive(Debug)]
 pub struct SchemaRecordInner {
     name: String,
+    type_uuid: Uuid,
     fingerprint: SchemaFingerprint,
     aliases: Box<[String]>,
     fields: Box<[SchemaRecordField]>,
@@ -71,6 +77,7 @@ impl Deref for SchemaRecord {
 impl SchemaRecord {
     pub fn new(
         name: String,
+        type_uuid: Uuid,
         fingerprint: SchemaFingerprint,
         aliases: Box<[String]>,
         mut fields: Vec<SchemaRecordField>,
@@ -87,6 +94,7 @@ impl SchemaRecord {
 
         let inner = SchemaRecordInner {
             name,
+            type_uuid,
             fingerprint,
             aliases,
             fields: fields.into_boxed_slice(),
@@ -100,6 +108,10 @@ impl SchemaRecord {
 
     pub fn name(&self) -> &str {
         &self.name
+    }
+
+    pub fn type_uuid(&self) -> Uuid {
+        self.type_uuid
     }
 
     pub fn fingerprint(&self) -> SchemaFingerprint {
@@ -125,6 +137,15 @@ impl SchemaRecord {
         }
 
         None
+    }
+
+    pub fn find_schemas_used_in_property_path(
+        &self,
+        path: impl AsRef<str>,
+        named_types: &HashMap<SchemaFingerprint, SchemaNamedType>,
+        used_schemas: &mut HashSet<SchemaFingerprint>,
+    ) {
+        SchemaNamedType::Record(self.clone()).find_schemas_used_in_property_path(path, named_types, used_schemas);
     }
 
     pub fn find_property_schema(

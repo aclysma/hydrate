@@ -18,6 +18,7 @@ mod error;
 pub use error::{DataSetError, DataSetResult, DataSetErrorWithBacktrace};
 
 pub use schema_cache::SchemaCacheSingleFile;
+pub use schema_cache::CachedSchemaNamedType;
 
 #[derive(Copy, Clone, PartialEq, Eq, Hash)]
 pub struct SchemaFingerprint(u128);

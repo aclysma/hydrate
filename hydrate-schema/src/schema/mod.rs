@@ -19,7 +19,7 @@ pub use ref_constraint::*;
 mod static_array;
 pub use static_array::*;
 
-use crate::SchemaFingerprint;
+use crate::{HashSet, SchemaFingerprint};
 use crate::{DataSetError, DataSetResult, HashMap};
 use std::hash::Hash;
 use std::str::FromStr;
@@ -92,6 +92,36 @@ impl SchemaNamedType {
         }
 
         Some(schema)
+    }
+
+
+
+    pub fn find_schemas_used_in_property_path(
+        &self,
+        path: impl AsRef<str>,
+        named_types: &HashMap<SchemaFingerprint, SchemaNamedType>,
+        used_schemas: &mut HashSet<SchemaFingerprint>
+    ) {
+        let mut schema = Schema::Record(self.fingerprint());
+
+        //TODO: Escape map keys (and probably avoid path strings anyways)
+        let split_path = path.as_ref().split(".");
+
+        // Iterate the path segments to find
+        for path_segment in split_path {
+            let s = schema.find_field_schema(path_segment, named_types);
+            if let Some(s) = s {
+                match s {
+                    Schema::Record(fingerprint) => { used_schemas.insert(*fingerprint); }
+                    Schema::Enum(fingerprint) => { used_schemas.insert(*fingerprint); }
+                    _ => {},
+                }
+
+                schema = s.clone();
+            } else {
+                return;
+            }
+        }
     }
 }
 
@@ -304,5 +334,51 @@ impl Schema {
             }
             _ => None,
         }
+    }
+
+    // Given a schema (that is likely a record with fields), depth-first search
+    // it to find all the schemas that are used within it
+    pub fn find_referenced_schemas<'a>(
+        named_types: &'a HashMap<SchemaFingerprint, SchemaNamedType>,
+        schema: &'a Schema,
+        referenced_schema_fingerprints: &mut HashSet<SchemaFingerprint>,
+        visit_stack: &mut Vec<&'a Schema>
+    ) {
+        if visit_stack.contains(&schema) {
+            return;
+        }
+
+        visit_stack.push(&schema);
+        //referenced_schema_fingerprints.insert(schema)
+        match schema {
+            Schema::Nullable(inner) => Self::find_referenced_schemas(named_types, &*inner, referenced_schema_fingerprints, visit_stack),
+            Schema::Boolean => {}
+            Schema::I32 => {}
+            Schema::I64 => {}
+            Schema::U32 => {}
+            Schema::U64 => {}
+            Schema::F32 => {}
+            Schema::F64 => {}
+            Schema::Bytes => {}
+            Schema::String => {}
+            Schema::StaticArray(inner) => Self::find_referenced_schemas(named_types, inner.item_type(), referenced_schema_fingerprints, visit_stack),
+            Schema::DynamicArray(inner) => Self::find_referenced_schemas(named_types, inner.item_type(), referenced_schema_fingerprints, visit_stack),
+            Schema::Map(inner) => {
+                Self::find_referenced_schemas(named_types, inner.key_type(), referenced_schema_fingerprints, visit_stack);
+                Self::find_referenced_schemas(named_types, inner.value_type(), referenced_schema_fingerprints, visit_stack);
+            }
+            Schema::AssetRef(_) => {}
+            Schema::Record(inner) => {
+                referenced_schema_fingerprints.insert(*inner);
+                let record = named_types.get(inner).unwrap().try_as_record().unwrap();
+                for field in record.fields() {
+                    Self::find_referenced_schemas(named_types, field.field_schema(), referenced_schema_fingerprints, visit_stack);
+                }
+            }
+            Schema::Enum(inner) => {
+                referenced_schema_fingerprints.insert(*inner);
+            }
+        }
+        visit_stack.pop();
     }
 }

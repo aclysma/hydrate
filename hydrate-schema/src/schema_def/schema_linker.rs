@@ -405,6 +405,7 @@ impl SchemaLinker {
             partial_hashes.insert(type_name, partial_fingerprint);
         }
 
+        let mut schemas_by_type_uuid: HashMap<Uuid, SchemaFingerprint> = Default::default();
         let mut schemas_by_name: HashMap<String, SchemaFingerprint> = Default::default();
         let mut schemas: HashMap<SchemaFingerprint, SchemaNamedType> = Default::default();
 
@@ -448,6 +449,7 @@ impl SchemaLinker {
             //     type_name,
             //     fingerprint.as_uuid()
             // );
+            schemas_by_type_uuid.insert(named_type.type_uuid(), fingerprint);
             schemas_by_name.insert(type_name.to_string(), fingerprint);
         }
 
@@ -458,6 +460,7 @@ impl SchemaLinker {
         }
 
         Ok(LinkedSchemas {
+            schemas_by_type_uuid,
             schemas_by_name,
             schemas,
         })
@@ -465,6 +468,7 @@ impl SchemaLinker {
 }
 
 pub struct LinkedSchemas {
+    pub schemas_by_type_uuid: HashMap<Uuid, SchemaFingerprint>,
     pub schemas_by_name: HashMap<String, SchemaFingerprint>,
     pub schemas: HashMap<SchemaFingerprint, SchemaNamedType>,
 }

@@ -801,6 +801,8 @@ impl Value {
         schema_enum: &SchemaEnum,
         name: &str,
     ) -> Option<Value> {
-        schema_enum.find_symbol_from_name(name).map(|x| Value::Enum(ValueEnum::new(x.name().to_string())))
+        schema_enum
+            .find_symbol_from_name(name)
+            .map(|x| Value::Enum(ValueEnum::new(x.name().to_string())))
     }
 }

@@ -116,7 +116,12 @@ impl SchemaNamedType {
             let new_s = new_schema.find_field_schema(new_path_segment, new_named_types);
 
             if let (Some(old_s), Some(new_s)) = (old_s, new_s) {
-                if !Schema::types_are_interchangeable(old_s, new_s, old_named_types, new_named_types) {
+                if !Schema::types_are_interchangeable(
+                    old_s,
+                    new_s,
+                    old_named_types,
+                    new_named_types,
+                ) {
                     return None;
                 }
 
@@ -295,8 +300,10 @@ impl Schema {
 
     pub fn is_number(&self) -> bool {
         match self {
-            Schema::I32 | Schema::I64 | Schema::U32 | Schema::U64 | Schema::F32 | Schema::F64 => true,
-            _ => false
+            Schema::I32 | Schema::I64 | Schema::U32 | Schema::U64 | Schema::F32 | Schema::F64 => {
+                true
+            }
+            _ => false,
         }
     }
 
@@ -319,29 +326,54 @@ impl Schema {
             Schema::Nullable(old_inner) => {
                 //TODO: Would be nice if we could handle nullable being added/removed on existing properties
                 if let Schema::Nullable(new_inner) = new_parent_schema {
-                    Self::types_are_interchangeable(&*old_inner, &*new_inner, old_named_types, new_named_types)
+                    Self::types_are_interchangeable(
+                        &*old_inner,
+                        &*new_inner,
+                        old_named_types,
+                        new_named_types,
+                    )
                 } else {
                     false
                 }
             }
             Schema::StaticArray(old_inner) => {
                 if let Schema::StaticArray(new_inner) = new_parent_schema {
-                    Self::types_are_interchangeable(old_inner.item_type(), new_inner.item_type(), old_named_types, new_named_types)
+                    Self::types_are_interchangeable(
+                        old_inner.item_type(),
+                        new_inner.item_type(),
+                        old_named_types,
+                        new_named_types,
+                    )
                 } else {
                     false
                 }
             }
             Schema::DynamicArray(old_inner) => {
                 if let Schema::DynamicArray(new_inner) = new_parent_schema {
-                    Self::types_are_interchangeable(old_inner.item_type(), new_inner.item_type(), old_named_types, new_named_types)
+                    Self::types_are_interchangeable(
+                        old_inner.item_type(),
+                        new_inner.item_type(),
+                        old_named_types,
+                        new_named_types,
+                    )
                 } else {
                     false
                 }
             }
             Schema::Map(old_inner) => {
                 if let Schema::Map(new_inner) = new_parent_schema {
-                    let keys_are_interchangage = Self::types_are_interchangeable(old_inner.key_type(), new_inner.key_type(), old_named_types, new_named_types);
-                    let values_are_interchangable = Self::types_are_interchangeable(old_inner.value_type(), new_inner.value_type(), old_named_types, new_named_types);
+                    let keys_are_interchangage = Self::types_are_interchangeable(
+                        old_inner.key_type(),
+                        new_inner.key_type(),
+                        old_named_types,
+                        new_named_types,
+                    );
+                    let values_are_interchangable = Self::types_are_interchangeable(
+                        old_inner.value_type(),
+                        new_inner.value_type(),
+                        old_named_types,
+                        new_named_types,
+                    );
                     keys_are_interchangage && values_are_interchangable
                 } else {
                     false
@@ -377,7 +409,7 @@ impl Schema {
                     false
                 }
             }
-            _ => false
+            _ => false,
         }
     }
 

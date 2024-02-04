@@ -159,7 +159,11 @@ impl BuildJobs {
                     let asset_id = request.asset_id;
                     build_task.started_build_ops.insert(asset_id);
 
-                    let asset_type = editor_model.data_set().asset_schema(asset_id).unwrap();
+                    // If this unwrap trips, possibly there is a handle to an artifact with an asset
+                    // ID that doesn't exist
+                    let Some(asset_type) = editor_model.data_set().asset_schema(asset_id) else {
+                        panic!("Asset id {:?} was referenced but does not exist", asset_id);
+                    };
 
                     let Some(builder) =
                         builder_registry.builder_for_asset(asset_type.fingerprint())

@@ -251,16 +251,16 @@ mod test {
         lru_cache.insert(2, 2);
 
         // All should be present
-        assert!(lru_cache.get(&0).is_some());
-        assert!(lru_cache.get(&1).is_some());
-        assert!(lru_cache.get(&2).is_some());
+        assert!(lru_cache.get(&0, false).is_some());
+        assert!(lru_cache.get(&1, false).is_some());
+        assert!(lru_cache.get(&2, false).is_some());
 
         // The oldest one should be bumped, and the new one should be present
         lru_cache.insert(3, 3);
-        assert!(lru_cache.get(&0).is_none());
-        assert!(lru_cache.get(&1).is_some());
-        assert!(lru_cache.get(&2).is_some());
-        assert!(lru_cache.get(&3).is_some());
+        assert!(lru_cache.get(&0, false).is_none());
+        assert!(lru_cache.get(&1, false).is_some());
+        assert!(lru_cache.get(&2, false).is_some());
+        assert!(lru_cache.get(&3, false).is_some());
     }
 
     #[test]
@@ -271,18 +271,18 @@ mod test {
         lru_cache.insert(2, 2);
 
         // All should be present
-        assert!(lru_cache.get(&0).is_some());
-        assert!(lru_cache.get(&1).is_some());
-        assert!(lru_cache.get(&2).is_some());
+        assert!(lru_cache.get(&0, false).is_some());
+        assert!(lru_cache.get(&1, false).is_some());
+        assert!(lru_cache.get(&2, false).is_some());
 
         // Touch the oldest, preventing it from being removed
-        lru_cache.get(&0);
+        lru_cache.get(&0, true);
 
         lru_cache.insert(3, 3);
-        assert!(lru_cache.get(&0).is_some());
-        assert!(lru_cache.get(&1).is_none());
-        assert!(lru_cache.get(&2).is_some());
-        assert!(lru_cache.get(&3).is_some());
+        assert!(lru_cache.get(&0, false).is_some());
+        assert!(lru_cache.get(&1, false).is_none());
+        assert!(lru_cache.get(&2, false).is_some());
+        assert!(lru_cache.get(&3, false).is_some());
     }
 
     #[test]
@@ -293,19 +293,18 @@ mod test {
         lru_cache.insert(2, 2);
 
         // All should be present
-        assert!(lru_cache.get(&0).is_some());
-        assert!(lru_cache.get(&1).is_some());
-        assert!(lru_cache.get(&2).is_some());
+        assert!(lru_cache.get(&0, false).is_some());
+        assert!(lru_cache.get(&1, false).is_some());
+        assert!(lru_cache.get(&2, false).is_some());
 
-        // Touch the oldest, preventing it from being removed
         lru_cache.remove(&0);
         lru_cache.remove(&2);
         lru_cache.remove(&1);
 
         lru_cache.insert(3, 3);
-        assert!(lru_cache.get(&0).is_none());
-        assert!(lru_cache.get(&1).is_none());
-        assert!(lru_cache.get(&2).is_none());
-        assert!(lru_cache.get(&3).is_some());
+        assert!(lru_cache.get(&0, false).is_none());
+        assert!(lru_cache.get(&1, false).is_none());
+        assert!(lru_cache.get(&2, false).is_none());
+        assert!(lru_cache.get(&3, false).is_some());
     }
 }

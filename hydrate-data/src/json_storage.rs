@@ -280,6 +280,9 @@ fn load_json_properties(
     dynamic_collection_entries: &mut HashMap<String, OrderedSet<Uuid>>,
     buffers: &mut Option<Vec<Arc<Vec<u8>>>>,
 ) {
+    // We could allow arbitrary migrations by handing off the schema information and json properties
+    // and expecting back the refreshed json properties. It's far from elegant but much simpler than
+    // true arbitrary schema migrations.
     for (old_path, json_value) in json_properties {
         let mut property_handled = false;
 

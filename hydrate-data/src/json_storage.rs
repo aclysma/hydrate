@@ -11,6 +11,7 @@ use std::hash::Hash;
 use std::str::FromStr;
 use std::sync::Arc;
 use uuid::Uuid;
+use crate::value::ValueEnum;
 
 fn property_value_to_json(
     value: &Value,
@@ -128,47 +129,72 @@ fn json_to_f64(
 }
 
 fn json_to_property_value_with_schema(
-    named_types: &HashMap<SchemaFingerprint, SchemaNamedType>,
-    schema: &Schema,
-    value: &serde_json::Value,
+    new_named_types: &HashMap<SchemaFingerprint, SchemaNamedType>,
+    old_named_types: &Option<HashMap<SchemaFingerprint, SchemaNamedType>>,
+    new_schema: &Schema,
+    old_schema: &Schema,
+    json_value: &serde_json::Value,
     buffers: &Option<Vec<Arc<Vec<u8>>>>,
 ) -> Value {
-    match schema {
+    match new_schema {
+        // These schema types are never given property values in memory, even if some of them appear
+        // to be assignable properties in json.
         Schema::Nullable(_) => unimplemented!(),
-        Schema::Boolean => Value::Boolean(value.as_bool().unwrap()),
-        Schema::I32 => Value::I32(json_to_i64(value).unwrap() as i32),
-        Schema::I64 => Value::I64(json_to_i64(value).unwrap()),
-        Schema::U32 => Value::U32(json_to_u64(value).unwrap() as u32),
-        Schema::U64 => Value::U64(json_to_u64(value).unwrap()),
-        Schema::F32 => Value::F32(json_to_f64(value).unwrap() as f32),
-        Schema::F64 => Value::F64(json_to_f64(value).unwrap()),
-        Schema::Bytes => {
-            if let Some(buffers) = buffers {
-                // The data is an index into a buffer, take the data from the buffer
-                let buffer_index = value.as_u64().unwrap() as usize;
-                Value::Bytes(buffers[buffer_index].clone())
-            } else {
-                // The data is encoded inline as a base64 string, decode and return the value
-                let data = base64::decode(value.as_str().unwrap()).unwrap();
-                Value::Bytes(Arc::new(data))
-            }
-        }
-        Schema::String => Value::String(Arc::new(value.as_str().unwrap().to_string())),
         Schema::StaticArray(_) => unimplemented!(),
         Schema::DynamicArray(_) => unimplemented!(),
         Schema::Map(_) => unimplemented!(),
-        Schema::AssetRef(_) => Value::AssetRef(AssetId::from_uuid(
-            Uuid::parse_str(value.as_str().unwrap()).unwrap(),
-        )),
         Schema::Record(_) => unimplemented!(),
+
+        // Simple scalar values
+        Schema::Boolean => Value::Boolean(json_value.as_bool().unwrap()),
+        Schema::I32 => Value::I32(json_to_i64(json_value).unwrap() as i32),
+        Schema::I64 => Value::I64(json_to_i64(json_value).unwrap()),
+        Schema::U32 => Value::U32(json_to_u64(json_value).unwrap() as u32),
+        Schema::U64 => Value::U64(json_to_u64(json_value).unwrap()),
+        Schema::F32 => Value::F32(json_to_f64(json_value).unwrap() as f32),
+        Schema::F64 => Value::F64(json_to_f64(json_value).unwrap()),
+        Schema::Bytes => {
+            if let Some(buffers) = buffers {
+                // The data is an index into a buffer, take the data from the buffer
+                let buffer_index = json_value.as_u64().unwrap() as usize;
+                Value::Bytes(buffers[buffer_index].clone())
+            } else {
+                // The data is encoded inline as a base64 string, decode and return the value
+                let data = base64::decode(json_value.as_str().unwrap()).unwrap();
+                Value::Bytes(Arc::new(data))
+            }
+        }
+        Schema::String => Value::String(Arc::new(json_value.as_str().unwrap().to_string())),
+        Schema::AssetRef(_) => Value::AssetRef(AssetId::from_uuid(
+            Uuid::parse_str(json_value.as_str().unwrap()).unwrap(),
+        )),
         Schema::Enum(x) => {
-            let named_type = named_types.get(x).unwrap();
+            let named_type = new_named_types.get(x).unwrap();
             match named_type {
                 SchemaNamedType::Record(_) => {
                     panic!("A Schema::Enum is matching a named type that is not an enum")
                 }
-                SchemaNamedType::Enum(e) => {
-                    Value::enum_value_from_string(e, value.as_str().unwrap()).unwrap()
+                SchemaNamedType::Enum(new_enum) => {
+                    // Special handling to migrate enums
+                    if let Some(old_named_types) = old_named_types {
+                        match old_schema {
+                            Schema::Enum(old_enum_fingerprint) => {
+                                // Fix up using enum symbol UUID
+                                let old_named_type = old_named_types.get(old_enum_fingerprint).unwrap();
+                                let old_enum = old_named_type.as_enum().unwrap();
+                                let old_symbol = old_enum.find_symbol_from_name(json_value.as_str().unwrap()).unwrap();
+                                let new_symbol = new_enum.find_symbol_from_uuid(old_symbol.symbol_uuid()).unwrap();
+                                Value::Enum(ValueEnum::new(new_symbol.name().to_string()))
+                            }
+                            Schema::String => {
+                                // Just try and match an enum string value
+                                Value::enum_value_from_string(new_enum, json_value.as_str().unwrap()).unwrap()
+                            },
+                            _ => panic!("Cannot migrate schema {:?} into an enum schema", old_schema)
+                        }
+                    } else {
+                        Value::enum_value_from_string(new_enum, json_value.as_str().unwrap()).unwrap()
+                    }
                 }
             }
         }
@@ -254,22 +280,21 @@ fn load_json_properties(
     dynamic_collection_entries: &mut HashMap<String, OrderedSet<Uuid>>,
     buffers: &mut Option<Vec<Arc<Vec<u8>>>>,
 ) {
-    for (old_path, value) in json_properties {
-
-        //let parent_path = split_path.map(|x| x.0);
-        //let path_end = split_path.map(|x| x.1);
-
+    for (old_path, json_value) in json_properties {
         let mut property_handled = false;
 
+        // First, some special handling for "control" fields on special types like collections/nullables
+        // This data is stored to disk as properties, but loaded in memory these values are represented
+        // differently.
         let old_split_path = old_path.rsplit_once('.');
         if let Some((old_parent_path, path_end)) = old_split_path {
+            //
+            // Handle the possibility of a property path changing due to schema migration
+            //
             let mut fixed_parent_path_by_value = None;
             let new_parent_path = if let Some(old_named_types) = &old_named_types {
                 let old_root_named_type = old_named_types.get(&old_schema_fingerprint).unwrap();
 
-                //TODO:
-                // Fix values (enums in particular)
-                // Better error handling
                 let new_parent_path = SchemaNamedType::find_post_migration_property_path(
                     old_root_named_type,
                     old_parent_path,
@@ -279,7 +304,7 @@ fn load_json_properties(
                     new_named_types_by_uuid,
                 );
 
-                log::trace!("path {} -> {:?}", old_parent_path, new_parent_path);
+                log::trace!("Migrate property path {} -> {:?}", old_parent_path, new_parent_path);
 
                 // This may return none, which probably means the field was deleted
                 fixed_parent_path_by_value = new_parent_path;
@@ -288,13 +313,17 @@ fn load_json_properties(
                 Some(old_parent_path)
             };
 
+            //
+            // Check for cases where properties in the json are "control" values and affect the in-memory
+            // representation of the loaded asset
+            //
             if let Some(new_parent_path) = new_parent_path {
                 let parent_schema = new_root_named_type
                     .find_property_schema(new_parent_path, new_named_types)
                     .unwrap();
 
                 if parent_schema.is_nullable() && path_end == "null_override" {
-                    let null_override = string_to_null_override_value(value.as_str().unwrap()).unwrap();
+                    let null_override = string_to_null_override_value(json_value.as_str().unwrap()).unwrap();
                     log::trace!("set null override {} to {:?}", new_parent_path, null_override);
                     property_null_overrides.insert(new_parent_path.to_string(), null_override);
                     property_handled = true;
@@ -302,7 +331,7 @@ fn load_json_properties(
 
                 if parent_schema.is_dynamic_array() && path_end == "replace" {
                     if let Some(properties_in_replace_mode) = &mut properties_in_replace_mode {
-                        if value.as_bool() == Some(true) {
+                        if json_value.as_bool() == Some(true) {
                             log::trace!("set property {} to replace", new_parent_path);
                             properties_in_replace_mode.insert(new_parent_path.to_string());
                         }
@@ -313,14 +342,16 @@ fn load_json_properties(
             }
         }
 
+        // Handle actual property values (some of these may still be "control" values for special types
+        // like collections, and aren't true properties)
         if !property_handled {
+            //
+            // Handle the possibility of a property path changing due to schema migration
+            //
             let mut fixed_path_by_value = None;
             let new_path = if let Some(old_named_types) = &old_named_types {
                 let old_root_named_type = old_named_types.get(&old_schema_fingerprint).unwrap();
 
-                //TODO:
-                // Fix values (enums in particular)
-                // Better error handling
                 let new_property_path = SchemaNamedType::find_post_migration_property_path(
                     old_root_named_type,
                     old_path,
@@ -330,7 +361,7 @@ fn load_json_properties(
                     new_named_types_by_uuid,
                 );
 
-                log::info!("path {} -> {:?}", old_path, new_property_path);
+                log::info!("Migrate property path {} -> {:?}", old_path, new_property_path);
 
                 fixed_path_by_value = new_property_path;
                 fixed_path_by_value.as_deref()
@@ -338,12 +369,28 @@ fn load_json_properties(
                 Some(old_path.as_str())
             };
 
+            //
+            // Finally, we are loading properties, possibly with a modified path for schema migration
+            //
+            // new_path could be none if the field has been removed and we are migrating schema
+            //
             if let Some(new_path) = new_path {
-                let property_schema = new_root_named_type
+                let new_property_schema = new_root_named_type
                     .find_property_schema(&new_path, new_named_types)
                     .unwrap();
-                if property_schema.is_dynamic_array() || property_schema.is_map() {
-                    let json_array = value.as_array().unwrap();
+
+                let old_property_schema = if let Some(old_named_types) = &old_named_types {
+                    let old_root_named_type = old_named_types.get(&old_schema_fingerprint).unwrap();
+                    old_root_named_type
+                        .find_property_schema(&old_path, old_named_types).unwrap().clone()
+                } else {
+                    new_property_schema.clone()
+                };
+
+                // If it's a dynamic array, then don't treat this as a property. Instead read the
+                // list of element UUIDs and store them into dynamic_collection_entries
+                if new_property_schema.is_dynamic_array() || new_property_schema.is_map() {
+                    let json_array = json_value.as_array().unwrap();
                     for json_array_element in json_array {
                         let element = json_array_element.as_str().unwrap();
                         let element = Uuid::from_str(element).unwrap();
@@ -357,14 +404,17 @@ fn load_json_properties(
                         }
                     }
                 } else {
-                    let v = json_to_property_value_with_schema(
+                    let new_property_value = json_to_property_value_with_schema(
                         new_named_types,
-                        &property_schema,
-                        &value,
+                        &old_named_types,
+                        &new_property_schema,
+                        &old_property_schema,
+                        &json_value,
                         buffers,
                     );
-                    log::trace!("set {} to {:?}", new_path, v);
-                    properties.insert(new_path.to_string(), v);
+
+                    log::trace!("set {} to {:?}", new_path, new_property_value);
+                    properties.insert(new_path.to_string(), new_property_value);
                 }
             }
         }

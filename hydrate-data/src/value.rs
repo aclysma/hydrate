@@ -801,22 +801,6 @@ impl Value {
         schema_enum: &SchemaEnum,
         name: &str,
     ) -> Option<Value> {
-        for symbol in &*schema_enum.symbols() {
-            if symbol.name() == name {
-                return Some(Value::Enum(ValueEnum::new(name.to_string())));
-            }
-
-            for alias in symbol.aliases() {
-                if alias == name {
-                    return Some(Value::Enum(ValueEnum::new(name.to_string())));
-                }
-            }
-        }
-
-        None
+        schema_enum.find_symbol_from_name(name).map(|x| Value::Enum(ValueEnum::new(x.name().to_string())))
     }
-
-    //
-    // Fixed
-    //
 }

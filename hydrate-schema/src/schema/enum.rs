@@ -111,4 +111,30 @@ impl SchemaEnum {
     pub fn fingerprint(&self) -> SchemaFingerprint {
         self.fingerprint
     }
+
+    pub fn find_symbol_from_name(
+        &self,
+        name: &str,
+    ) -> Option<&SchemaEnumSymbol> {
+        for symbol in &*self.symbols {
+            if symbol.name() == name {
+                return Some(symbol);
+            }
+
+            for alias in symbol.aliases() {
+                if alias == name {
+                    return Some(symbol);
+                }
+            }
+        }
+
+        None
+    }
+
+    pub fn find_symbol_from_uuid(
+        &self,
+        uuid: Uuid,
+    ) -> Option<&SchemaEnumSymbol> {
+        self.symbols.iter().find(|x| x.symbol_uuid == uuid)
+    }
 }

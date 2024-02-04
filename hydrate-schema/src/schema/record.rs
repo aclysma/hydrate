@@ -142,15 +142,6 @@ impl SchemaRecord {
         None
     }
 
-    // pub fn find_schemas_used_in_property_path(
-    //     &self,
-    //     path: impl AsRef<str>,
-    //     named_types: &HashMap<SchemaFingerprint, SchemaNamedType>,
-    //     used_schemas: &mut HashSet<SchemaFingerprint>,
-    // ) {
-    //     SchemaNamedType::Record(self.clone()).find_schemas_used_in_property_path(path, named_types, used_schemas);
-    // }
-
     pub fn find_property_schema(
         &self,
         path: impl AsRef<str>,

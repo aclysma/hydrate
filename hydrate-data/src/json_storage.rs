@@ -646,12 +646,7 @@ impl AssetJson {
             );
 
             // Parse all the schemas in the cache
-            let mut old_named_types = HashMap::default();
-            for (k, v) in &stored_asset.schemas {
-                let cached_schema_json = String::from_utf8(base64::decode(v).unwrap()).unwrap();
-                let cached_schema: CachedSchemaNamedType = serde_json::from_str(&cached_schema_json).unwrap();
-                old_named_types.insert(SchemaFingerprint::from_uuid(*k), cached_schema.to_schema());
-            }
+            let old_named_types = parse_referenced_schemas(&stored_asset.schemas);
 
             // Find the schema we want to migrate the data to
             let old_root_schema = old_named_types
@@ -661,7 +656,7 @@ impl AssetJson {
             let new_named_type = schema_set.find_named_type_by_type_uuid(root_type_uuid)?;
             (new_named_type.clone(), Some(old_named_types))
         } else {
-            panic!("Can't load asset {} type {} by fingerprint, trying by name. Schema migration not yet implemented", asset_id, stored_asset.schema_name);
+            panic!("Can't load asset {} type {} by fingerprint, not stored schemas found.", asset_id, stored_asset.schema_name);
             //let named_type = schema_set.find_named_type(stored_asset.schema_name)?;
             //(named_type.clone(), None)
         };
@@ -726,29 +721,7 @@ impl AssetJson {
         let obj = assets.get(&asset_id).unwrap();
         let mut buffers = None;
 
-        // Find relevant schema/fingerprints so they can be stored alongside the object data
-        let mut referenced_schema_fingerprints = HashSet::default();
-        let mut visit_stack = Vec::default();
-        Schema::find_referenced_schemas(
-            schema_set.schemas(),
-            &Schema::Record(obj.schema().fingerprint()),
-            &mut referenced_schema_fingerprints,
-            &mut visit_stack,
-        );
-
-        // Build the schema cache to save alongside the object data
-        let mut schemas = HashMap::default();
-        for fingerprint in referenced_schema_fingerprints {
-            let named_type = schema_set
-                .find_named_type_by_fingerprint(fingerprint)
-                .unwrap();
-            let cached_schema = CachedSchemaNamedType::new_from_schema(named_type);
-            let cached_schema_json = serde_json::to_string(&cached_schema).unwrap();
-            let cached_schema_json64 = base64::encode(cached_schema_json.into_bytes());
-            //base64::encode()
-
-            schemas.insert(fingerprint.as_uuid(), cached_schema_json64);
-        }
+        let schemas = gather_referenced_schemas(schema_set, obj.schema());
 
         let json_properties = store_json_properties(
             obj.properties(),
@@ -787,6 +760,44 @@ impl AssetJson {
     }
 }
 
+pub fn parse_referenced_schemas(stored_schemas: &HashMap<Uuid, String>) -> HashMap<SchemaFingerprint, SchemaNamedType> {
+    // Parse all the schemas in the cache
+    let mut old_named_types = HashMap::default();
+    for (k, v) in stored_schemas {
+        let cached_schema_json = String::from_utf8(base64::decode(v).unwrap()).unwrap();
+        let cached_schema: CachedSchemaNamedType = serde_json::from_str(&cached_schema_json).unwrap();
+        old_named_types.insert(SchemaFingerprint::from_uuid(*k), cached_schema.to_schema());
+    }
+
+    old_named_types
+}
+
+pub fn gather_referenced_schemas(schema_set: &SchemaSet, root_schema: &SchemaRecord) -> HashMap<Uuid, String> {
+    // Find relevant schema/fingerprints so they can be stored alongside the object data
+    let mut referenced_schema_fingerprints = HashSet::default();
+    let mut visit_stack = Vec::default();
+    Schema::find_referenced_schemas(
+        schema_set.schemas(),
+        &Schema::Record(root_schema.fingerprint()),
+        &mut referenced_schema_fingerprints,
+        &mut visit_stack,
+    );
+
+    // Build the schema cache to save alongside the object data
+    let mut referenced_schemas = HashMap::default();
+    for fingerprint in referenced_schema_fingerprints {
+        let named_type = schema_set
+            .find_named_type_by_fingerprint(fingerprint)
+            .unwrap();
+        let cached_schema = CachedSchemaNamedType::new_from_schema(named_type);
+        let cached_schema_json = serde_json::to_string(&cached_schema).unwrap();
+        let cached_schema_json64 = base64::encode(cached_schema_json.into_bytes());
+        referenced_schemas.insert(fingerprint.as_uuid(), cached_schema_json64);
+    }
+
+    referenced_schemas
+}
+
 // You can create this with SingleObjectJson::new and serialize it to disk to save
 // You can deserialize this and read using SingleObjectJson::to_single_object
 #[derive(Debug, Serialize, Deserialize)]
@@ -794,18 +805,24 @@ pub struct SingleObjectJson {
     //contents_hash: u64,
     //TODO: Rnemae to root_schema
     //TODO: Add schemas
-    schema: Uuid,
+    root_schema: Uuid,
     schema_name: String,
     #[serde(serialize_with = "ordered_map_json_value")]
     properties: HashMap<String, serde_json::Value>,
+    #[serde(default)]
+    #[serde(serialize_with = "ordered_map_cached_schemas")]
+    schemas: HashMap<Uuid, String>,
 }
 
 impl SingleObjectJson {
     pub fn new(
+        schema_set: &SchemaSet,
         object: &SingleObject,
         // If buffers are provided, the bulk data is stored here instead of inline with the rest of the properties
         buffers: &mut Option<Vec<Arc<Vec<u8>>>>,
     ) -> SingleObjectJson {
+        let schemas = gather_referenced_schemas(schema_set, object.schema());
+
         let json_properties = store_json_properties(
             &object.properties(),
             &object.property_null_overrides(),
@@ -820,9 +837,10 @@ impl SingleObjectJson {
 
         SingleObjectJson {
             //contents_hash: hasher.finish().into(),
-            schema: object.schema().fingerprint().as_uuid(),
+            root_schema: object.schema().fingerprint().as_uuid(),
             schema_name: object.schema().name().to_string(),
             properties: json_properties,
+            schemas
         }
     }
 
@@ -832,12 +850,46 @@ impl SingleObjectJson {
         // If buffers are provided, then we read bulk data from here instead from inline
         buffers: &mut Option<Vec<Arc<Vec<u8>>>>,
     ) -> SingleObject {
-        let schema_fingerprint = SchemaFingerprint::from_uuid(self.schema);
+        let root_schema_fingerprint = SchemaFingerprint::from_uuid(self.root_schema);
 
-        let new_named_type = schema_set
-            .find_named_type_by_fingerprint(schema_fingerprint)
-            .unwrap()
-            .clone();
+        //
+        // In this chunk of code, we determine what the loaded object's type will be.
+        // - The fast/happy path is that the data was saved with an identical schema to the schema
+        //   we currently have loaded (i.e. fingerprints match)
+        // - The slow path is a schema migration (fingerprints do not match). This could be due to
+        //   added/modified/removed fields, enum symbols, etc.
+        //
+        // If we need to do schema migration, we will unpack the schema cache in the data file.
+        // This allows us to get the UUIDs for all the fields/enum symbols, etc.
+        //
+        let new_named_type = schema_set.find_named_type_by_fingerprint(root_schema_fingerprint);
+        let (new_named_type, old_named_types) = if let Some(new_named_type) = new_named_type {
+            // The object was saved using the identical schema that we already loaded. This is the
+            // fast/happy path
+            (new_named_type.clone(), None)
+        } else if !self.schemas.is_empty() {
+            // There's a schema cache in the asset file. We can try to locate the corresponding type in our schema set
+            // and try to migrate the data
+            log::info!(
+                "Can't load single object type {} by fingerprint, trying by UUID",
+                self.schema_name
+            );
+
+            // Parse all the schemas in the cache
+            let old_named_types = parse_referenced_schemas(&self.schemas);
+
+            // Find the schema we want to migrate the data to
+            let old_root_schema = old_named_types
+                .get(&SchemaFingerprint::from_uuid(self.root_schema))
+                .unwrap();
+            let root_type_uuid = old_root_schema.type_uuid();
+            let new_named_type = schema_set.find_named_type_by_type_uuid(root_type_uuid).unwrap();
+            (new_named_type.clone(), Some(old_named_types))
+        } else {
+            panic!("Can't load single object type {} by fingerprint, no stored schemas found", self.schema_name);
+            //let named_type = schema_set.find_named_type(stored_asset.schema_name)?;
+            //(named_type.clone(), None)
+        };
 
         let mut properties: HashMap<String, Value> = Default::default();
         let mut property_null_overrides: HashMap<String, NullOverride> = Default::default();
@@ -847,7 +899,7 @@ impl SingleObjectJson {
             &new_named_type,
             schema_set.schemas(),
             schema_set.schemas_by_type_uuid(),
-            schema_fingerprint,
+            root_schema_fingerprint,
             None,
             &self.properties,
             &mut properties,
@@ -859,7 +911,7 @@ impl SingleObjectJson {
 
         SingleObject::restore(
             schema_set,
-            schema_fingerprint,
+            new_named_type.fingerprint(),
             properties,
             property_null_overrides,
             dynamic_collection_entries,

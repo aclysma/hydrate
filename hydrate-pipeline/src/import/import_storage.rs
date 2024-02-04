@@ -179,6 +179,7 @@ pub fn save_single_object_to_b3f<W: std::io::Write>(
     write: W,
     import_data: Option<&SingleObject>,
     metadata: &ImportDataMetadata,
+    schema_set: &SchemaSet,
     default_asset: &SingleObject,
 ) {
     let mut b3f_writer = b3f::B3FWriter::new_from_u8_tag(*b"HYIF", 1);
@@ -197,7 +198,7 @@ pub fn save_single_object_to_b3f<W: std::io::Write>(
     //
     // Store the default asset in block index 1
     //
-    let default_asset_json_object = SingleObjectJson::new(default_asset, &mut None);
+    let default_asset_json_object = SingleObjectJson::new(schema_set, default_asset, &mut None);
     let default_asset_json = {
         profiling::scope!("serde_json::to_string_pretty");
         serde_json::to_string_pretty(&default_asset_json_object).unwrap()
@@ -215,7 +216,7 @@ pub fn save_single_object_to_b3f<W: std::io::Write>(
 
     // Encode the object as a json object + binary buffers
     let mut buffers = Some(Vec::default());
-    let import_data_object_json = SingleObjectJson::new(import_data, &mut buffers);
+    let import_data_object_json = SingleObjectJson::new(schema_set, import_data, &mut buffers);
     let buffers = buffers.unwrap();
 
     // Encode the json object to string

@@ -236,6 +236,7 @@ fn do_import(
                     &mut buf_writer,
                     imported_asset.import_data.as_ref(),
                     &import_data_metadata,
+                    schema_set,
                     &imported_asset.default_asset,
                 );
 

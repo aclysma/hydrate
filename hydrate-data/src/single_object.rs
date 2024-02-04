@@ -255,9 +255,11 @@ impl SingleObject {
         if let Some(value) = &value {
             if !value.matches_schema(&property_schema, schema_set.schemas()) {
                 log::debug!(
-                    "Value {:?} doesn't match schema {:?}",
+                    "Value {:?} doesn't match schema {:?} on schema {:?} path {:?}",
                     value,
-                    property_schema
+                    property_schema,
+                    self.schema.name(),
+                    path.as_ref()
                 );
                 return Err(DataSetError::ValueDoesNotMatchSchema)?;
             }

@@ -46,6 +46,87 @@ fn property_value_to_json(
     }
 }
 
+fn json_to_i64(
+    value: &serde_json::Value,
+) -> Option<i64> {
+    match value {
+        serde_json::Value::Bool(b) => {
+            if *b {
+                Some(1)
+            } else {
+                Some(0)
+            }
+        }
+        serde_json::Value::Number(number) => {
+            if let Some(i) = number.as_i64() {
+                Some(i)
+            } else if let Some(u) = number.as_u64() {
+                Some(u as i64)
+            } else if let Some(f) = number.as_f64() {
+                Some(f as i64)
+            } else {
+                None
+            }
+        }
+        serde_json::Value::String(s) => s.parse::<i64>().ok(),
+        _ => None
+    }
+}
+
+fn json_to_u64(
+    value: &serde_json::Value,
+) -> Option<u64> {
+    match value {
+        serde_json::Value::Bool(b) => {
+            if *b {
+                Some(1)
+            } else {
+                Some(0)
+            }
+        }
+        serde_json::Value::Number(number) => {
+            if let Some(u) = number.as_u64() {
+                Some(u)
+            } else if let Some(i) = number.as_i64() {
+                Some(i as u64)
+            } else if let Some(f) = number.as_f64() {
+                Some(f as u64)
+            } else {
+                None
+            }
+        }
+        serde_json::Value::String(s) => s.parse::<u64>().ok(),
+        _ => None
+    }
+}
+
+fn json_to_f64(
+    value: &serde_json::Value,
+) -> Option<f64> {
+    match value {
+        serde_json::Value::Bool(b) => {
+            if *b {
+                Some(1.0)
+            } else {
+                Some(0.0)
+            }
+        }
+        serde_json::Value::Number(number) => {
+            if let Some(f) = number.as_f64() {
+                Some(f)
+            } else if let Some(u) = number.as_u64() {
+                Some(u as f64)
+            } else if let Some(i) = number.as_i64() {
+                Some(i as f64)
+            } else {
+                None
+            }
+        }
+        serde_json::Value::String(s) => s.parse::<f64>().ok(),
+        _ => None
+    }
+}
+
 fn json_to_property_value_with_schema(
     named_types: &HashMap<SchemaFingerprint, SchemaNamedType>,
     schema: &Schema,
@@ -55,12 +136,12 @@ fn json_to_property_value_with_schema(
     match schema {
         Schema::Nullable(_) => unimplemented!(),
         Schema::Boolean => Value::Boolean(value.as_bool().unwrap()),
-        Schema::I32 => Value::I32(value.as_i64().unwrap() as i32),
-        Schema::I64 => Value::I64(value.as_i64().unwrap()),
-        Schema::U32 => Value::U32(value.as_u64().unwrap() as u32),
-        Schema::U64 => Value::U64(value.as_u64().unwrap()),
-        Schema::F32 => Value::F32(value.as_f64().unwrap() as f32),
-        Schema::F64 => Value::F64(value.as_f64().unwrap()),
+        Schema::I32 => Value::I32(json_to_i64(value).unwrap() as i32),
+        Schema::I64 => Value::I64(json_to_i64(value).unwrap()),
+        Schema::U32 => Value::U32(json_to_u64(value).unwrap() as u32),
+        Schema::U64 => Value::U64(json_to_u64(value).unwrap()),
+        Schema::F32 => Value::F32(json_to_f64(value).unwrap() as f32),
+        Schema::F64 => Value::F64(json_to_f64(value).unwrap()),
         Schema::Bytes => {
             if let Some(buffers) = buffers {
                 // The data is an index into a buffer, take the data from the buffer
@@ -155,12 +236,18 @@ where
 }
 
 fn load_json_properties(
-    new_named_type: &SchemaNamedType,
+    new_root_named_type: &SchemaNamedType,
     new_named_types: &HashMap<SchemaFingerprint, SchemaNamedType>,
     new_named_types_by_uuid: &HashMap<Uuid, SchemaFingerprint>,
+    // If we are not doing a schema migration, this will also happen to be the new schema fingerprint
     old_schema_fingerprint: SchemaFingerprint,
+    // None, unless we are doing a schema migration
     old_named_types: Option<HashMap<SchemaFingerprint, SchemaNamedType>>,
+
+    // The properties to parse
     json_properties: &HashMap<String, serde_json::Value>,
+
+    // The out parameters
     properties: &mut HashMap<String, Value>,
     property_null_overrides: &mut HashMap<String, NullOverride>,
     mut properties_in_replace_mode: Option<&mut HashSet<String>>,
@@ -178,101 +265,107 @@ fn load_json_properties(
         if let Some((old_parent_path, path_end)) = old_split_path {
             let mut fixed_parent_path_by_value = None;
             let new_parent_path = if let Some(old_named_types) = &old_named_types {
-                let old_base_named_type = old_named_types.get(&old_schema_fingerprint).unwrap();
+                let old_root_named_type = old_named_types.get(&old_schema_fingerprint).unwrap();
 
                 //TODO:
                 // Fix values (enums in particular)
                 // Better error handling
                 let new_parent_path = SchemaNamedType::find_post_migration_property_path(
-                    old_base_named_type,
+                    old_root_named_type,
                     old_parent_path,
                     old_named_types,
+                    new_root_named_type,
                     new_named_types,
                     new_named_types_by_uuid,
-                ).unwrap();
+                );
 
-                println!("path {} -> {}", old_parent_path, new_parent_path);
+                log::trace!("path {} -> {:?}", old_parent_path, new_parent_path);
 
-                fixed_parent_path_by_value = Some(new_parent_path);
-                fixed_parent_path_by_value.as_ref().unwrap()
+                // This may return none, which probably means the field was deleted
+                fixed_parent_path_by_value = new_parent_path;
+                fixed_parent_path_by_value.as_deref()
             } else {
-                old_parent_path
+                Some(old_parent_path)
             };
 
-            let parent_schema = new_named_type
-                .find_property_schema(new_parent_path, new_named_types)
-                .unwrap();
+            if let Some(new_parent_path) = new_parent_path {
+                let parent_schema = new_root_named_type
+                    .find_property_schema(new_parent_path, new_named_types)
+                    .unwrap();
 
-            if parent_schema.is_nullable() && path_end == "null_override" {
-                let null_override = string_to_null_override_value(value.as_str().unwrap()).unwrap();
-                log::trace!("set null override {} to {:?}", new_parent_path, null_override);
-                property_null_overrides.insert(new_parent_path.to_string(), null_override);
-                property_handled = true;
-            }
-
-            if parent_schema.is_dynamic_array() && path_end == "replace" {
-                if let Some(properties_in_replace_mode) = &mut properties_in_replace_mode {
-                    if value.as_bool() == Some(true) {
-                        log::trace!("set property {} to replace", new_parent_path);
-                        properties_in_replace_mode.insert(new_parent_path.to_string());
-                    }
+                if parent_schema.is_nullable() && path_end == "null_override" {
+                    let null_override = string_to_null_override_value(value.as_str().unwrap()).unwrap();
+                    log::trace!("set null override {} to {:?}", new_parent_path, null_override);
+                    property_null_overrides.insert(new_parent_path.to_string(), null_override);
+                    property_handled = true;
                 }
 
-                property_handled = true;
+                if parent_schema.is_dynamic_array() && path_end == "replace" {
+                    if let Some(properties_in_replace_mode) = &mut properties_in_replace_mode {
+                        if value.as_bool() == Some(true) {
+                            log::trace!("set property {} to replace", new_parent_path);
+                            properties_in_replace_mode.insert(new_parent_path.to_string());
+                        }
+                    }
+
+                    property_handled = true;
+                }
             }
         }
 
         if !property_handled {
             let mut fixed_path_by_value = None;
             let new_path = if let Some(old_named_types) = &old_named_types {
-                let old_base_named_type = old_named_types.get(&old_schema_fingerprint).unwrap();
+                let old_root_named_type = old_named_types.get(&old_schema_fingerprint).unwrap();
 
                 //TODO:
                 // Fix values (enums in particular)
                 // Better error handling
                 let new_property_path = SchemaNamedType::find_post_migration_property_path(
-                    old_base_named_type,
+                    old_root_named_type,
                     old_path,
                     old_named_types,
+                    new_root_named_type,
                     new_named_types,
                     new_named_types_by_uuid,
-                )
-                    .unwrap();
+                );
 
-                println!("path {} -> {}", old_path, new_property_path);
+                log::info!("path {} -> {:?}", old_path, new_property_path);
 
-                fixed_path_by_value = Some(new_property_path);
-                fixed_path_by_value.as_ref().unwrap()
+                fixed_path_by_value = new_property_path;
+                fixed_path_by_value.as_deref()
             } else {
-                old_path
+                Some(old_path.as_str())
             };
 
-            let property_schema = new_named_type
-                .find_property_schema(&new_path, new_named_types)
-                .unwrap();
-            if property_schema.is_dynamic_array() || property_schema.is_map() {
-                let json_array = value.as_array().unwrap();
-                for json_array_element in json_array {
-                    let element = json_array_element.as_str().unwrap();
-                    let element = Uuid::from_str(element).unwrap();
-                    let existing_entries = dynamic_collection_entries
-                        .entry(new_path.to_string())
-                        .or_default();
-                    if !existing_entries.contains(&element) {
-                        log::trace!("add dynamic array element {} to {:?}", element, new_path);
-                        let newly_inserted = existing_entries.try_insert_at_end(element);
-                        assert!(newly_inserted);
+            if let Some(new_path) = new_path {
+                let property_schema = new_root_named_type
+                    .find_property_schema(&new_path, new_named_types)
+                    .unwrap();
+                if property_schema.is_dynamic_array() || property_schema.is_map() {
+                    let json_array = value.as_array().unwrap();
+                    for json_array_element in json_array {
+                        let element = json_array_element.as_str().unwrap();
+                        let element = Uuid::from_str(element).unwrap();
+                        let existing_entries = dynamic_collection_entries
+                            .entry(new_path.to_string())
+                            .or_default();
+                        if !existing_entries.contains(&element) {
+                            log::trace!("add dynamic array element {} to {:?}", element, new_path);
+                            let newly_inserted = existing_entries.try_insert_at_end(element);
+                            assert!(newly_inserted);
+                        }
                     }
+                } else {
+                    let v = json_to_property_value_with_schema(
+                        new_named_types,
+                        &property_schema,
+                        &value,
+                        buffers,
+                    );
+                    log::trace!("set {} to {:?}", new_path, v);
+                    properties.insert(new_path.to_string(), v);
                 }
-            } else {
-                let v = json_to_property_value_with_schema(
-                    new_named_types,
-                    &property_schema,
-                    &value,
-                    buffers,
-                );
-                log::trace!("set {} to {:?}", new_path, v);
-                properties.insert(new_path.to_string(), v);
             }
         }
     }
@@ -471,7 +564,7 @@ pub struct AssetJson {
     id: Option<Uuid>,
     name: String,
     parent_dir: Option<Uuid>,
-    schema: Uuid,
+    root_schema: Uuid,
     schema_name: String,
     import_info: Option<AssetImportInfoJson>,
     build_info: AssetBuildInfoJson,
@@ -480,7 +573,7 @@ pub struct AssetJson {
     properties: HashMap<String, serde_json::Value>,
     #[serde(default)]
     #[serde(serialize_with = "ordered_map_cached_schemas")]
-    cached_schemas: HashMap<Uuid, String>,
+    schemas: HashMap<Uuid, String>,
 }
 
 impl AssetJson {
@@ -525,7 +618,7 @@ impl AssetJson {
             AssetId::from_uuid(stored_asset.id.unwrap_or_else(Uuid::new_v4))
         };
 
-        let schema_fingerprint = SchemaFingerprint::from_uuid(stored_asset.schema);
+        let root_schema_fingerprint = SchemaFingerprint::from_uuid(stored_asset.root_schema);
         let prototype = stored_asset.prototype.map(|x| AssetId::from_uuid(x));
 
         //
@@ -538,42 +631,39 @@ impl AssetJson {
         // If we need to do schema migration, we will unpack the schema cache in the data file.
         // This allows us to get the UUIDs for all the fields/enum symbols, etc.
         //
-        let named_type = schema_set.find_named_type_by_fingerprint(schema_fingerprint);
-        let (named_type, migration_schema_cache) = if let Some(named_type) = named_type {
+        let new_named_type = schema_set.find_named_type_by_fingerprint(root_schema_fingerprint);
+        let (new_named_type, old_named_types) = if let Some(new_named_type) = new_named_type {
             // The object was saved using the identical schema that we already loaded. This is the
             // fast/happy path
-            (named_type.clone(), None)
-        } else if !stored_asset.cached_schemas.is_empty() {
+            (new_named_type.clone(), None)
+        } else if !stored_asset.schemas.is_empty() {
             // There's a schema cache in the asset file. We can try to locate the corresponding type in our schema set
             // and try to migrate the data
-            log::error!(
+            log::info!(
                 "Can't load asset {} type {} by fingerprint, trying by UUID",
                 asset_id,
                 stored_asset.schema_name
             );
 
             // Parse all the schemas in the cache
-            let mut cached_schemas = HashMap::default();
-            for (k, v) in &stored_asset.cached_schemas {
-                let cached_schema: CachedSchemaNamedType = serde_json::from_str(v).unwrap();
-                cached_schemas.insert(SchemaFingerprint::from_uuid(*k), cached_schema.to_schema());
+            let mut old_named_types = HashMap::default();
+            for (k, v) in &stored_asset.schemas {
+                let cached_schema_json = String::from_utf8(base64::decode(v).unwrap()).unwrap();
+                let cached_schema: CachedSchemaNamedType = serde_json::from_str(&cached_schema_json).unwrap();
+                old_named_types.insert(SchemaFingerprint::from_uuid(*k), cached_schema.to_schema());
             }
 
             // Find the schema we want to migrate the data to
-            let cached_schema = cached_schemas
-                .get(&SchemaFingerprint::from_uuid(stored_asset.schema))
+            let old_root_schema = old_named_types
+                .get(&SchemaFingerprint::from_uuid(stored_asset.root_schema))
                 .unwrap();
-            let type_uuid = cached_schema.type_uuid();
-            let named_type = schema_set.find_named_type_by_type_uuid(type_uuid)?;
-            (named_type.clone(), Some(cached_schemas))
+            let root_type_uuid = old_root_schema.type_uuid();
+            let new_named_type = schema_set.find_named_type_by_type_uuid(root_type_uuid)?;
+            (new_named_type.clone(), Some(old_named_types))
         } else {
-            log::error!("Can't load asset {} type {} by fingerprint, trying by name. Schema migration not yet implemented", asset_id, stored_asset.schema_name);
-            let named_type = schema_set.find_named_type(stored_asset.schema_name)?;
-
-            (named_type.clone(), None)
-
-            //Fingerprint doesn't match, this may need to be a data migration in the future
-            //panic!("Can't load type {}", stored_asset.schema_name);
+            panic!("Can't load asset {} type {} by fingerprint, trying by name. Schema migration not yet implemented", asset_id, stored_asset.schema_name);
+            //let named_type = schema_set.find_named_type(stored_asset.schema_name)?;
+            //(named_type.clone(), None)
         };
 
         let mut properties: HashMap<String, Value> = Default::default();
@@ -583,11 +673,11 @@ impl AssetJson {
         let mut buffers = None;
 
         load_json_properties(
-            &named_type,
+            &new_named_type,
             schema_set.schemas(),
             schema_set.schemas_by_type_uuid(),
-            SchemaFingerprint::from_uuid(stored_asset.schema),
-            migration_schema_cache,
+            SchemaFingerprint::from_uuid(stored_asset.root_schema),
+            old_named_types,
             &stored_asset.properties,
             &mut properties,
             &mut property_null_overrides,
@@ -613,7 +703,7 @@ impl AssetJson {
             import_info,
             build_info,
             prototype,
-            named_type.fingerprint(),
+            new_named_type.fingerprint(),
             properties,
             property_null_overrides,
             properties_in_replace_mode,
@@ -647,16 +737,17 @@ impl AssetJson {
         );
 
         // Build the schema cache to save alongside the object data
-        let mut cached_schemas = HashMap::default();
+        let mut schemas = HashMap::default();
         for fingerprint in referenced_schema_fingerprints {
             let named_type = schema_set
                 .find_named_type_by_fingerprint(fingerprint)
                 .unwrap();
             let cached_schema = CachedSchemaNamedType::new_from_schema(named_type);
             let cached_schema_json = serde_json::to_string(&cached_schema).unwrap();
+            let cached_schema_json64 = base64::encode(cached_schema_json.into_bytes());
             //base64::encode()
 
-            cached_schemas.insert(fingerprint.as_uuid(), cached_schema_json);
+            schemas.insert(fingerprint.as_uuid(), cached_schema_json64);
         }
 
         let json_properties = store_json_properties(
@@ -682,13 +773,13 @@ impl AssetJson {
             id: written_asset_id,
             name: obj.asset_name().as_string().cloned().unwrap_or_default(),
             parent_dir: asset_location.map(|x| x.path_node_id().as_uuid()),
-            schema: obj.schema().fingerprint().as_uuid(),
+            root_schema: obj.schema().fingerprint().as_uuid(),
             schema_name: obj.schema().name().to_string(),
             import_info,
             build_info,
             prototype: obj.prototype().map(|x| x.as_uuid()),
             properties: json_properties,
-            cached_schemas,
+            schemas,
         };
 
         profiling::scope!("serde_json::to_string_pretty");
@@ -701,6 +792,8 @@ impl AssetJson {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct SingleObjectJson {
     //contents_hash: u64,
+    //TODO: Rnemae to root_schema
+    //TODO: Add schemas
     schema: Uuid,
     schema_name: String,
     #[serde(serialize_with = "ordered_map_json_value")]
@@ -741,7 +834,7 @@ impl SingleObjectJson {
     ) -> SingleObject {
         let schema_fingerprint = SchemaFingerprint::from_uuid(self.schema);
 
-        let named_type = schema_set
+        let new_named_type = schema_set
             .find_named_type_by_fingerprint(schema_fingerprint)
             .unwrap()
             .clone();
@@ -751,7 +844,7 @@ impl SingleObjectJson {
         let mut dynamic_collection_entries: HashMap<String, OrderedSet<Uuid>> = Default::default();
 
         load_json_properties(
-            &named_type,
+            &new_named_type,
             schema_set.schemas(),
             schema_set.schemas_by_type_uuid(),
             schema_fingerprint,

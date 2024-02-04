@@ -21,7 +21,6 @@ pub struct SchemaCodegenJobsJson {
 #[derive(Serialize, Deserialize)]
 pub struct HydrateProjectConfigurationJson {
     pub schema_def_paths: Vec<String>,
-    pub schema_cache_file_path: String,
     pub import_data_path: String,
     pub build_data_path: String,
     pub job_data_path: String,
@@ -49,10 +48,6 @@ pub struct SchemaCodegenJobs {
 pub struct HydrateProjectConfiguration {
     // Directories to all schema files that should be used
     pub schema_def_paths: Vec<PathBuf>,
-
-    // Path to a json file used to cache every schema that ever existed
-    // Unlike the other paths, this is a path to a FILE (hence the name "*_file_path)
-    pub schema_cache_file_path: PathBuf,
 
     // Path to where all import data will be stored (this is bulk data extracted from source files)
     pub import_data_path: PathBuf,
@@ -140,33 +135,6 @@ impl HydrateProjectConfiguration {
 
     // root_path is the path the json file is in, json_path is the string in json that is meant
     // to be parsed/converted to a canonicalized path
-    pub fn parse_schema_cache_file_path(
-        root_path: &Path,
-        json_path: &str,
-    ) -> Result<PathBuf, Box<dyn Error>> {
-        // If it's not an absolute path, join it onto the path containing the project file
-        let joined_path = Self::unverified_absolute_path(root_path, json_path);
-
-        // Create an empty file (and its parent dirs) if it doesn't exist
-        if !joined_path.exists() {
-            // Create the containing dir
-            let parent_path = joined_path
-                .parent()
-                .ok_or_else(|| "Parent of project file path could not be found".to_string())?;
-            std::fs::create_dir_all(parent_path)?;
-
-            // Create the file, it has to exist in order to get the canonical path. Since it will be a json
-            // file that's an array of cached types, fill it with "[]"
-            let default_contents = serde_json::to_string_pretty(&SchemaCacheSingleFile::default())?;
-            std::fs::write(&joined_path, default_contents)?;
-        }
-
-        // Canonicalize the path
-        Ok(dunce::canonicalize(&joined_path).map_err(|e| e.to_string())?)
-    }
-
-    // root_path is the path the json file is in, json_path is the string in json that is meant
-    // to be parsed/converted to a canonicalized path
     pub fn parse_dir_path(
         root_path: &Path,
         json_path: &str,
@@ -191,8 +159,6 @@ impl HydrateProjectConfiguration {
         let file_contents = std::fs::read_to_string(path)?;
         let project_file: HydrateProjectConfigurationJson = serde_json::from_str(&file_contents)?;
 
-        let schema_cache_file_path =
-            Self::parse_schema_cache_file_path(&root_path, &project_file.schema_cache_file_path)?;
         let import_data_path = Self::parse_dir_path(&root_path, &project_file.import_data_path)?;
         let build_data_path = Self::parse_dir_path(&root_path, &project_file.build_data_path)?;
         let job_data_path = Self::parse_dir_path(&root_path, &project_file.job_data_path)?;
@@ -250,7 +216,6 @@ impl HydrateProjectConfiguration {
 
         Ok(HydrateProjectConfiguration {
             schema_def_paths,
-            schema_cache_file_path,
             import_data_path,
             build_data_path,
             job_data_path,

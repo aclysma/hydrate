@@ -78,34 +78,50 @@ impl SchemaNamedType {
         }
     }
 
+    // How migration works:
+    // - Just about everything is stored in property paths like control_point.position.x
+    // - The asset has some root named type (and it is a record)
+    // - We iteratively walk through the property path, verifying that the target schema is the
+    //   same type UUID, and any record field's types are interchangable (see Schema::types_are_interchangeable)
+
     pub fn find_post_migration_property_path(
-        old_base_named_type: &SchemaNamedType,
+        old_root_named_type: &SchemaNamedType,
         old_path: impl AsRef<str>,
         old_named_types: &HashMap<SchemaFingerprint, SchemaNamedType>,
+        new_root_named_type: &SchemaNamedType,
         new_named_types: &HashMap<SchemaFingerprint, SchemaNamedType>,
         new_named_types_by_uuid: &HashMap<Uuid, SchemaFingerprint>,
     ) -> Option<String> {
-        let mut old_schema = Schema::Record(old_base_named_type.fingerprint());
+        let mut old_schema = Schema::Record(old_root_named_type.fingerprint());
+        let mut new_schema = Schema::Record(new_root_named_type.fingerprint());
 
-        println!("migrate property name {:?}", old_path.as_ref());
+        log::trace!("migrate property name {:?}", old_path.as_ref());
         let old_split_path = old_path.as_ref().split(".");
         let mut new_path = PropertyPath::default();
 
         // Iterate the path segments to find
 
         for old_path_segment in old_split_path {
-            let new_path_segment_name = Schema::find_post_migration_field_name(
+            let new_path_segment = Schema::find_post_migration_field_name(
                 &old_schema,
                 old_path_segment,
                 old_named_types,
+                &new_schema,
                 new_named_types,
                 new_named_types_by_uuid,
-            )
-            .unwrap();
-            new_path = new_path.push(&new_path_segment_name);
+            )?;
+
+            new_path = new_path.push(&new_path_segment);
             let old_s = old_schema.find_field_schema(old_path_segment, old_named_types);
-            if let Some(old_s) = old_s {
+            let new_s = new_schema.find_field_schema(new_path_segment, new_named_types);
+
+            if let (Some(old_s), Some(new_s)) = (old_s, new_s) {
+                if !Schema::types_are_interchangeable(old_s, new_s, old_named_types, new_named_types) {
+                    return None;
+                }
+
                 old_schema = old_s.clone();
+                new_schema = new_s.clone();
             } else {
                 return None;
             }
@@ -135,34 +151,6 @@ impl SchemaNamedType {
 
         Some(schema)
     }
-
-    // pub fn find_schemas_used_in_property_path(
-    //     &self,
-    //     path: impl AsRef<str>,
-    //     named_types: &HashMap<SchemaFingerprint, SchemaNamedType>,
-    //     used_schemas: &mut HashSet<SchemaFingerprint>
-    // ) {
-    //     let mut schema = Schema::Record(self.fingerprint());
-    //
-    //     //TODO: Escape map keys (and probably avoid path strings anyways)
-    //     let split_path = path.as_ref().split(".");
-    //
-    //     // Iterate the path segments to find
-    //     for path_segment in split_path {
-    //         let s = schema.find_field_schema(path_segment, named_types);
-    //         if let Some(s) = s {
-    //             match s {
-    //                 Schema::Record(fingerprint) => { used_schemas.insert(*fingerprint); }
-    //                 Schema::Enum(fingerprint) => { used_schemas.insert(*fingerprint); }
-    //                 _ => {},
-    //             }
-    //
-    //             schema = s.clone();
-    //         } else {
-    //             return;
-    //         }
-    //     }
-    // }
 }
 
 /// Describes format of data, either a single primitive value or complex layout comprised of
@@ -305,15 +293,104 @@ impl Schema {
         }
     }
 
+    pub fn is_number(&self) -> bool {
+        match self {
+            Schema::I32 | Schema::I64 | Schema::U32 | Schema::U64 | Schema::F32 | Schema::F64 => true,
+            _ => false
+        }
+    }
+
+    pub fn types_are_interchangeable(
+        old_parent_schema: &Schema,
+        new_parent_schema: &Schema,
+        old_named_types: &HashMap<SchemaFingerprint, SchemaNamedType>,
+        new_named_types: &HashMap<SchemaFingerprint, SchemaNamedType>,
+    ) -> bool {
+        // Covers strings/bytes
+        if old_parent_schema == new_parent_schema {
+            return true;
+        }
+
+        if old_parent_schema.is_number() && new_parent_schema.is_number() {
+            return true;
+        }
+
+        match old_parent_schema {
+            Schema::Nullable(old_inner) => {
+                //TODO: Would be nice if we could handle nullable being added/removed on existing properties
+                if let Schema::Nullable(new_inner) = new_parent_schema {
+                    Self::types_are_interchangeable(&*old_inner, &*new_inner, old_named_types, new_named_types)
+                } else {
+                    false
+                }
+            }
+            Schema::StaticArray(old_inner) => {
+                if let Schema::StaticArray(new_inner) = new_parent_schema {
+                    Self::types_are_interchangeable(old_inner.item_type(), new_inner.item_type(), old_named_types, new_named_types)
+                } else {
+                    false
+                }
+            }
+            Schema::DynamicArray(old_inner) => {
+                if let Schema::DynamicArray(new_inner) = new_parent_schema {
+                    Self::types_are_interchangeable(old_inner.item_type(), new_inner.item_type(), old_named_types, new_named_types)
+                } else {
+                    false
+                }
+            }
+            Schema::Map(old_inner) => {
+                if let Schema::Map(new_inner) = new_parent_schema {
+                    let keys_are_interchangage = Self::types_are_interchangeable(old_inner.key_type(), new_inner.key_type(), old_named_types, new_named_types);
+                    let values_are_interchangable = Self::types_are_interchangeable(old_inner.value_type(), new_inner.value_type(), old_named_types, new_named_types);
+                    keys_are_interchangage && values_are_interchangable
+                } else {
+                    false
+                }
+            }
+            Schema::AssetRef(old_inner) => {
+                if let Schema::AssetRef(new_inner) = new_parent_schema {
+                    // probably won't enforce any type constraints here, we can leave that for schema validation
+                    // later, which allows users to fix any problems
+                    true
+                } else {
+                    false
+                }
+            }
+            Schema::Record(old_inner) => {
+                if let Schema::Record(new_inner) = new_parent_schema {
+                    let old_named_type = old_named_types.get(old_inner).unwrap();
+                    let new_named_type = new_named_types.get(new_inner).unwrap();
+
+                    // TODO: Could see support for specific type transformations in the future
+                    old_named_type.type_uuid() == new_named_type.type_uuid()
+                } else {
+                    false
+                }
+            }
+            Schema::Enum(old_inner) => {
+                if let Schema::Enum(new_inner) = new_parent_schema {
+                    let old_named_type = old_named_types.get(old_inner).unwrap();
+                    let new_named_type = new_named_types.get(new_inner).unwrap();
+
+                    old_named_type.type_uuid() == new_named_type.type_uuid()
+                } else {
+                    false
+                }
+            }
+            _ => false
+        }
+    }
+
     // This looks for equivalent field name in new types as existed in old types
     pub fn find_post_migration_field_name<'a>(
-        old_base_schema: &Schema,
+        old_parent_schema: &Schema,
         old_property_name: &'a str,
         old_named_types: &HashMap<SchemaFingerprint, SchemaNamedType>,
+        new_parent_schema: &Schema,
         new_named_types: &HashMap<SchemaFingerprint, SchemaNamedType>,
         new_named_types_by_uuid: &HashMap<Uuid, SchemaFingerprint>,
     ) -> Option<String> {
-        match old_base_schema {
+        match old_parent_schema {
             Schema::Nullable(_) => {
                 if old_property_name == "value" {
                     Some(old_property_name.to_string())
@@ -328,14 +405,18 @@ impl Schema {
                     .find_field_from_name(old_property_name.as_ref())
                     .unwrap();
                 let old_record_type_uuid = old_named_type.type_uuid();
+
+                // This is just finding the field with same UUID. No validation here that the schemas
+                // are the same.
                 let new_schema_fingerprint =
                     new_named_types_by_uuid.get(&old_record_type_uuid).unwrap();
                 let new_named_type = new_named_types.get(new_schema_fingerprint).unwrap();
                 let new_schema_record = new_named_type.as_record().unwrap();
-                let new_field = new_schema_record
+
+                // This may fail to find the new field, in which case the field is probably removed
+                new_schema_record
                     .find_field_from_field_uuid(old_field.field_uuid())
-                    .unwrap();
-                Some(new_field.name().to_string())
+                    .map(|x| x.name().to_string())
             }
             Schema::StaticArray(_) => {
                 if old_property_name.parse::<u32>().is_ok() {

@@ -100,6 +100,7 @@ impl Default for ImportLogData {
     }
 }
 
+#[derive(Debug)]
 pub struct BuildLogEvent {
     pub asset_id: Option<AssetId>,
     pub job_id: Option<JobId>,

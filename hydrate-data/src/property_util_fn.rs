@@ -39,6 +39,7 @@ pub(super) fn property_schema_and_path_ancestors_to_check<'a>(
     let split_path: Vec<_> = path.as_ref().split(".").collect();
 
     for (i, path_segment) in split_path[0..split_path.len() - 1].iter().enumerate() {
+        // If failing to find the schema, check that code is querying a property that actually exists
         let child_schema = schema
             .find_field_schema(path_segment, named_types)
             .ok_or(DataSetError::SchemaNotFound)?;

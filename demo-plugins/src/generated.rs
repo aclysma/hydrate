@@ -99,6 +99,10 @@ impl AllFieldsAccessor {
         StringFieldAccessor::new(self.0.push("string"))
     }
 
+    pub fn test_new_field(&self) -> I32FieldAccessor {
+        I32FieldAccessor::new(self.0.push("test_new_field"))
+    }
+
     pub fn u32(&self) -> U32FieldAccessor {
         U32FieldAccessor::new(self.0.push("u32"))
     }
@@ -214,6 +218,10 @@ impl<'a> AllFieldsRef<'a> {
         StringFieldRef::new(self.0.push("string"), self.1.clone())
     }
 
+    pub fn test_new_field(&self) -> I32FieldRef {
+        I32FieldRef::new(self.0.push("test_new_field"), self.1.clone())
+    }
+
     pub fn u32(&self) -> U32FieldRef {
         U32FieldRef::new(self.0.push("u32"), self.1.clone())
     }
@@ -327,6 +335,10 @@ impl<'a> AllFieldsRefMut<'a> {
 
     pub fn string(self: &'a Self) -> StringFieldRefMut {
         StringFieldRefMut::new(self.0.push("string"), &self.1)
+    }
+
+    pub fn test_new_field(self: &'a Self) -> I32FieldRefMut {
+        I32FieldRefMut::new(self.0.push("test_new_field"), &self.1)
     }
 
     pub fn u32(self: &'a Self) -> U32FieldRefMut {
@@ -446,6 +458,10 @@ impl AllFieldsRecord {
 
     pub fn string(self: &Self) -> StringField {
         StringField::new(self.0.push("string"), &self.1)
+    }
+
+    pub fn test_new_field(self: &Self) -> I32Field {
+        I32Field::new(self.0.push("test_new_field"), &self.1)
     }
 
     pub fn u32(self: &Self) -> U32Field {
@@ -1955,6 +1971,10 @@ impl TransformAccessor {
         AllFieldsAccessor::new(self.0.push("all_fields"))
     }
 
+    pub fn child_nullable(&self) -> NullableFieldAccessor::<TransformAccessor> {
+        NullableFieldAccessor::<TransformAccessor>::new(self.0.push("child_nullable"))
+    }
+
     pub fn position(&self) -> Vec3Accessor {
         Vec3Accessor::new(self.0.push("position"))
     }
@@ -1986,6 +2006,10 @@ impl<'a> TransformRef<'a> {
         AllFieldsRef::new(self.0.push("all_fields"), self.1.clone())
     }
 
+    pub fn child_nullable(&self) -> NullableFieldRef::<TransformRef> {
+        NullableFieldRef::<TransformRef>::new(self.0.push("child_nullable"), self.1.clone())
+    }
+
     pub fn position(&self) -> Vec3Ref {
         Vec3Ref::new(self.0.push("position"), self.1.clone())
     }
@@ -2015,6 +2039,10 @@ impl<'a> RecordRefMut for TransformRefMut<'a> {
 impl<'a> TransformRefMut<'a> {
     pub fn all_fields(self: &'a Self) -> AllFieldsRefMut {
         AllFieldsRefMut::new(self.0.push("all_fields"), &self.1)
+    }
+
+    pub fn child_nullable(self: &'a Self) -> NullableFieldRefMut::<TransformRefMut> {
+        NullableFieldRefMut::<TransformRefMut>::new(self.0.push("child_nullable"), &self.1)
     }
 
     pub fn position(self: &'a Self) -> Vec3RefMut {
@@ -2050,6 +2078,10 @@ impl Record for TransformRecord {
 impl TransformRecord {
     pub fn all_fields(self: &Self) -> AllFieldsRecord {
         AllFieldsRecord::new(self.0.push("all_fields"), &self.1)
+    }
+
+    pub fn child_nullable(self: &Self) -> NullableField::<TransformRecord> {
+        NullableField::<TransformRecord>::new(self.0.push("child_nullable"), &self.1)
     }
 
     pub fn position(self: &Self) -> Vec3Record {

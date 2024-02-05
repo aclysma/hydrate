@@ -41,12 +41,14 @@ impl<'a> BuilderContext<'a> {
         message: T,
     ) {
         let mut log_events = self.log_events.borrow_mut();
-        log_events.push(BuildLogEvent {
+        let log_event = BuildLogEvent {
             asset_id: Some(self.asset_id),
             job_id: None,
             level: LogEventLevel::Warning,
             message: message.into(),
-        });
+        };
+        log::warn!("Build Warning: {:?}", log_event);
+        log_events.push(log_event);
     }
 
     pub fn error<T: Into<String>>(
@@ -54,12 +56,14 @@ impl<'a> BuilderContext<'a> {
         message: T,
     ) {
         let mut log_events = self.log_events.borrow_mut();
-        log_events.push(BuildLogEvent {
+        let log_event = BuildLogEvent {
             asset_id: Some(self.asset_id),
             job_id: None,
             level: LogEventLevel::Error,
             message: message.into(),
-        });
+        };
+        log::error!("Build Error: {:?}", log_event);
+        log_events.push(log_event);
     }
 
     pub fn enqueue_job<JobProcessorT: JobProcessor>(

@@ -544,7 +544,7 @@ impl JobExecutor {
                         output_data: None,
                     },
                     Err(e) => {
-                        log_data.log_events.push(BuildLogEvent {
+                        let log_error = BuildLogEvent {
                             job_id: Some(queued_job.job_id),
                             asset_id: None,
                             level: LogEventLevel::FatalError,
@@ -552,7 +552,9 @@ impl JobExecutor {
                                 "enumerate_dependencies returned error: {}",
                                 e.to_string()
                             ),
-                        });
+                        };
+                        log::error!("Build Error: {:?}", log_error);
+                        log_data.log_events.push(log_error);
 
                         JobState {
                             job_type: queued_job.job_type,
@@ -595,12 +597,14 @@ impl JobExecutor {
                             }
                         }
                         Err(e) => {
-                            log_events.push(BuildLogEvent {
+                            let log_event = BuildLogEvent {
                                 job_id: Some(msg.request.job_id),
                                 asset_id: None,
                                 level: LogEventLevel::FatalError,
                                 message: format!("Build job returned error: {}", e.to_string()),
-                            });
+                            };
+                            log::error!("Build Error: {:?}", log_event);
+                            log_events.push(log_event);
 
                             job.output_data = Some(JobStateOutput {
                                 output_data: Err(e),

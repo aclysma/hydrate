@@ -12,12 +12,12 @@
         "uuid": "a274d2a2-cef9-4984-a3f7-7fe8006f70f9"
       },
       {
-        "name": "position2",
+        "name": "position",
         "type": "Vec3",
         "uuid": "0770937a-909d-4306-b7c2-eefb0ddc354a"
       },
       {
-        "name": "rotation2",
+        "name": "rotation",
         "type": "Vec4",
         "uuid": "a22b4e4a-e722-422c-bcf8-d1e0b3698d25"
       },

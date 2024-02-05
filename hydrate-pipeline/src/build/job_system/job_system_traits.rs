@@ -173,7 +173,7 @@ impl<'a, InputT> EnumerateDependenciesContext<'a, InputT> {
         };
 
         let mut log_events = self.log_events.borrow_mut();
-        log_events.push(BuildLogEvent {
+        let log_event = BuildLogEvent {
             asset_id,
             job_id,
             level: LogEventLevel::Warning,
@@ -182,7 +182,9 @@ impl<'a, InputT> EnumerateDependenciesContext<'a, InputT> {
                 self.job_id.as_uuid(),
                 message.into()
             ),
-        });
+        };
+        log::warn!("Build Warning: {:?}", log_event);
+        log_events.push(log_event);
     }
 
     pub fn error<T: Into<String>>(
@@ -195,7 +197,7 @@ impl<'a, InputT> EnumerateDependenciesContext<'a, InputT> {
         };
 
         let mut log_events = self.log_events.borrow_mut();
-        log_events.push(BuildLogEvent {
+        let log_event = BuildLogEvent {
             asset_id: None,
             job_id: Some(self.job_id),
             level: LogEventLevel::Error,
@@ -204,7 +206,9 @@ impl<'a, InputT> EnumerateDependenciesContext<'a, InputT> {
                 self.job_id.as_uuid(),
                 message.into()
             ),
-        });
+        };
+        log::error!("Build Error: {:?}", log_event);
+        log_events.push(log_event);
     }
 }
 
@@ -240,12 +244,14 @@ impl<'a, InputT> RunContext<'a, InputT> {
         message: T,
     ) {
         let mut log_events = self.log_events.borrow_mut();
-        log_events.push(BuildLogEvent {
+        let log_event = BuildLogEvent {
             asset_id: None,
             job_id: Some(self.job_id),
             level: LogEventLevel::Warning,
             message: message.into(),
-        });
+        };
+        log::warn!("Build Warning: {:?}", log_event);
+        log_events.push(log_event);
     }
 
     pub fn error<T: Into<String>>(
@@ -253,12 +259,14 @@ impl<'a, InputT> RunContext<'a, InputT> {
         message: T,
     ) {
         let mut log_events = self.log_events.borrow_mut();
-        log_events.push(BuildLogEvent {
+        let log_event = BuildLogEvent {
             asset_id: None,
             job_id: Some(self.job_id),
             level: LogEventLevel::Error,
             message: message.into(),
-        });
+        };
+        log::error!("Build Error: {:?}", log_event);
+        log_events.push(log_event);
     }
 
     pub fn asset<T: Record>(

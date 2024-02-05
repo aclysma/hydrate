@@ -178,12 +178,14 @@ impl BuildJobs {
                         job_api: self.job_executor.job_api(),
                         log_events: &Rc::new(RefCell::new(&mut build_task.log_data.log_events)),
                     }) {
-                        build_task.log_data.log_events.push(BuildLogEvent {
+                        let log_event = BuildLogEvent {
                             job_id: None,
                             asset_id: Some(asset_id),
                             level: LogEventLevel::FatalError,
                             message: format!("start_jobs returned error: {}", e.to_string()),
-                        });
+                        };
+                        log::error!("Build Error: {:?}", log_event);
+                        build_task.log_data.log_events.push(log_event);
                     }
                 }
             }

@@ -28,7 +28,7 @@ struct DiskAssetIORequestData {
     load_handle: LoadHandle,
     hash: u64,
     version: u32,
-    subresource: Option<u32>,
+    //subresource: Option<u32>,
 }
 
 enum DiskAssetIORequest {
@@ -82,7 +82,8 @@ impl DiskAssetIOWorkerThread {
                             },
                             DiskAssetIORequest::Data(msg) => {
                                 profiling::scope!("DiskAssetIORequest::Data");
-                                log::trace!("Start read {:?} {:?}", msg.artifact_id, msg.subresource);
+                                log::trace!("Start read {:?}", msg.artifact_id);
+                                //log::trace!("Start read {:?} {:?}", msg.artifact_id, msg.subresource);
 
                                 let path = hydrate_base::uuid_path::uuid_and_hash_to_path(&*root_path, msg.artifact_id.as_uuid(), msg.hash, "bf");
                                 let mut reader = std::fs::File::open(&path).unwrap();
@@ -104,7 +105,7 @@ impl DiskAssetIOWorkerThread {
                                 result_tx.send(LoaderEvent::DataRequestComplete(RequestDataResult {
                                     artifact_id: msg.artifact_id,
                                     load_handle: msg.load_handle,
-                                    subresource: msg.subresource,
+                                    //subresource: msg.subresource,
                                     version: msg.version,
                                     //hash: msg.hash,
                                     result: Ok(ArtifactData {
@@ -468,7 +469,7 @@ impl LoaderIO for DiskAssetIO {
         load_handle: LoadHandle,
         artifact_id: ArtifactId,
         hash: u64,
-        subresource: Option<u32>,
+        //subresource: Option<u32>,
         version: u32,
     ) {
         log::debug!("request_data {:?}", load_handle);
@@ -483,7 +484,7 @@ impl LoaderIO for DiskAssetIO {
                 load_handle,
                 hash,
                 version,
-                subresource,
+                //subresource,
             }));
     }
 }

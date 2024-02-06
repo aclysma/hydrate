@@ -103,7 +103,7 @@ pub struct RequestDataResult {
     pub load_handle: LoadHandle,
     //pub hash: u64,
     pub version: u32,
-    pub subresource: Option<u32>,
+    //pub subresource: Option<u32>,
     pub result: std::io::Result<ArtifactData>,
 }
 
@@ -116,11 +116,11 @@ pub enum LoaderEvent {
     TryLoad(LoadHandle, u32),
     // Sent when asset ref count goes from 1 to 0
     TryUnload(LoadHandle, u32),
-    // Sent by LoaderIO when metadata request completes or fails
+    // Sent by LoaderIO when metadata request succeeds or fails
     MetadataRequestComplete(RequestMetadataResult),
     // Sent when all dependencies that were blocking a load have completed loading
     DependenciesLoaded(LoadHandle, u32),
-    // Sent by LoaderIO when data request completes or fails
+    // Sent by LoaderIO when data request succeeds or fails
     DataRequestComplete(RequestDataResult),
     // Sent by engine code to indicate success or failure at loading an asset
     LoadResult(HandleOp),
@@ -143,6 +143,7 @@ pub trait LoaderIO: Sync + Send {
     // Returns the latest known build hash that we are currently able to read from
     fn latest_build_hash(&self) -> CombinedBuildHash;
 
+    // How does this work with updating to new versions?
     fn manifest_entry(
         &self,
         artifact_id: ArtifactId,
@@ -169,7 +170,7 @@ pub trait LoaderIO: Sync + Send {
         load_handle: LoadHandle,
         artifact_id: ArtifactId,
         hash: u64,
-        subresource: Option<u32>,
+        //subresource: Option<u32>,
         version: u32,
     );
 }
@@ -245,6 +246,8 @@ struct IndirectLoad {
     resolved_uuid: ArtifactId,
     engine_ref_count: AtomicUsize,
     //pending_reresolve: bool,
+
+    // Per-build hash state of what to point at
 }
 
 struct LoadHandleVersionInfo {
@@ -365,7 +368,7 @@ impl LoaderInfoProvider for Loader {
 }
 
 impl Loader {
-    pub fn symbol(
+    pub(crate) fn symbol(
         &self,
         load: LoadHandle,
     ) -> Option<StringHash> {
@@ -375,7 +378,7 @@ impl Loader {
             .flatten()
     }
 
-    pub fn debug_name(
+    pub(crate) fn debug_name(
         &self,
         load: LoadHandle,
     ) -> Option<Arc<String>> {
@@ -385,7 +388,7 @@ impl Loader {
             .flatten()
     }
 
-    pub fn new(
+    pub(crate) fn new(
         loader_io: Box<dyn LoaderIO>,
         events_tx: Sender<LoaderEvent>,
         events_rx: Receiver<LoaderEvent>,
@@ -605,7 +608,7 @@ impl Loader {
                     result.load_handle,
                     artifact_id,
                     metadata.hash,
-                    None,
+                    //None,
                     result.version,
                 );
                 version.load_state = LoadState::WaitingForData;
@@ -655,7 +658,7 @@ impl Loader {
             load_handle,
             load_state_info.artifact_id,
             load_state_info.versions[version].hash,
-            None,
+            //None,
             version as u32,
         );
         load_state_info.versions[version].load_state = LoadState::WaitingForData;
@@ -800,7 +803,7 @@ impl Loader {
     }
 
     #[profiling::function]
-    pub fn update(
+    pub(crate) fn update(
         &self,
         asset_storage: &mut dyn AssetStorage,
     ) {
@@ -988,7 +991,7 @@ impl Loader {
     }
 
     // from add_refs
-    pub fn add_engine_ref(
+    pub(crate) fn add_engine_ref(
         &self,
         artifact_id: ArtifactId,
     ) -> LoadHandle {
@@ -997,7 +1000,7 @@ impl Loader {
         load_handle
     }
 
-    pub fn add_engine_ref_indirect(
+    pub(crate) fn add_engine_ref_indirect(
         &self,
         id: IndirectIdentifier,
     ) -> LoadHandle {
@@ -1007,7 +1010,7 @@ impl Loader {
     }
 
     // from add_ref_handle
-    pub fn add_engine_ref_by_handle(
+    pub(crate) fn add_engine_ref_by_handle(
         &self,
         load_handle: LoadHandle,
     ) {
@@ -1040,7 +1043,7 @@ impl Loader {
     }
 
     // from remove_refs
-    pub fn remove_engine_ref(
+    pub(crate) fn remove_engine_ref(
         &self,
         load_handle: LoadHandle,
     ) {

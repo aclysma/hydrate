@@ -138,14 +138,3 @@ pub enum IndirectIdentifier {
     SymbolWithType(StringHash, ArtifactTypeId),
 }
 
-/// Resolves indirect [`LoadHandle`]s. See [`LoadHandle::is_indirect`] for details.
-#[derive(Clone)]
-pub struct IndirectionTable(pub(crate) Arc<Mutex<HashMap<LoadHandle, LoadHandle>>>);
-impl IndirectionTable {
-    pub fn resolve(
-        &self,
-        indirect_handle: LoadHandle,
-    ) -> Option<LoadHandle> {
-        self.0.lock().unwrap().get(&indirect_handle).map(|l| *l)
-    }
-}

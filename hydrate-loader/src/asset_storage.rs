@@ -4,7 +4,7 @@ use hydrate_base::{
 };
 use std::{collections::HashMap, error::Error, sync::Mutex};
 
-use crate::storage::{AssetLoadOp, AssetStorage, IndirectionTable};
+use crate::storage::{AssetLoadOp, AssetStorage};
 use crate::ArtifactTypeId;
 use crossbeam_channel::{Receiver, Sender};
 use downcast_rs::Downcast;
@@ -41,7 +41,6 @@ pub struct AssetStorageSetInner {
     data_to_asset_type_uuid: HashMap<ArtifactTypeId, ArtifactTypeId>,
     asset_to_data_type_uuid: HashMap<ArtifactTypeId, ArtifactTypeId>,
     refop_sender: Sender<RefOp>,
-    indirection_table: IndirectionTable,
 }
 
 // Contains a storage per asset type
@@ -52,14 +51,12 @@ pub struct AssetStorageSet {
 impl AssetStorageSet {
     pub fn new(
         refop_sender: Sender<RefOp>,
-        indirection_table: IndirectionTable,
     ) -> Self {
         let inner = AssetStorageSetInner {
             storage: Default::default(),
             data_to_asset_type_uuid: Default::default(),
             asset_to_data_type_uuid: Default::default(),
             refop_sender,
-            indirection_table,
         };
 
         Self {
@@ -72,7 +69,6 @@ impl AssetStorageSet {
         T: TypeUuid + for<'a> serde::Deserialize<'a> + 'static + Send,
     {
         let mut inner = self.inner.lock().unwrap();
-        let indirection_table = inner.indirection_table.clone();
         let refop_sender = inner.refop_sender.clone();
         let old = inner.data_to_asset_type_uuid.insert(
             ArtifactTypeId::from_bytes(T::UUID),
@@ -89,7 +85,6 @@ impl AssetStorageSet {
             Box::new(Storage::<T>::new(
                 refop_sender,
                 Box::new(DefaultAssetLoader::default()),
-                indirection_table,
             )),
         );
     }
@@ -103,7 +98,6 @@ impl AssetStorageSet {
         LoaderT: DynAssetLoader<AssetT> + 'static,
     {
         let mut inner = self.inner.lock().unwrap();
-        let indirection_table = inner.indirection_table.clone();
         let refop_sender = inner.refop_sender.clone();
         let old = inner.data_to_asset_type_uuid.insert(
             ArtifactTypeId::from_bytes(AssetDataT::UUID),
@@ -120,7 +114,6 @@ impl AssetStorageSet {
             Box::new(Storage::<AssetT>::new(
                 refop_sender,
                 loader,
-                indirection_table,
             )),
         );
     }
@@ -339,32 +332,25 @@ pub struct Storage<AssetT: TypeUuid + Send> {
     artifacts: HashMap<LoadHandle, ArtifactState<AssetT>>,
     uncommitted: HashMap<LoadHandle, UncommittedArtifactState<AssetT>>,
     loader: Box<dyn DynAssetLoader<AssetT>>,
-    indirection_table: IndirectionTable,
 }
 
 impl<AssetT: TypeUuid + Send> Storage<AssetT> {
     fn new(
         sender: Sender<RefOp>,
         loader: Box<dyn DynAssetLoader<AssetT>>,
-        indirection_table: IndirectionTable,
     ) -> Self {
         Self {
             refop_sender: sender,
             artifacts: HashMap::new(),
             uncommitted: HashMap::new(),
             loader,
-            indirection_table,
         }
     }
     fn get<T: ArtifactHandle>(
         &self,
         handle: &T,
     ) -> Option<&AssetT> {
-        let handle = if handle.load_handle().is_indirect() {
-            self.indirection_table.resolve(handle.load_handle())?
-        } else {
-            handle.load_handle()
-        };
+        let handle = handle.direct_load_handle();
         self.artifacts.get(&handle).map(|a| &a.asset)
     }
 }

@@ -91,9 +91,6 @@ pub fn process_ref_ops(
             RefOp::Increase(handle) => {
                 loader.add_engine_ref_by_handle(handle);
             }
-            RefOp::IncreaseUuid(uuid) => {
-                loader.add_engine_ref(ArtifactId::from_uuid(uuid.as_uuid()));
-            }
         }
     }
 }
@@ -115,7 +112,7 @@ impl AssetManager {
 
         let asset_io = DiskAssetIO::new(build_data_root_path, loader_events_tx.clone())?;
         let loader = Loader::new(Box::new(asset_io), loader_events_tx, loader_events_rx);
-        let asset_storage = AssetStorageSet::new(ref_op_tx.clone(), loader.indirection_table());
+        let asset_storage = AssetStorageSet::new(ref_op_tx.clone());
 
         let mut loader = AssetManager {
             asset_storage,

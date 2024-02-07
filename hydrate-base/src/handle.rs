@@ -9,6 +9,7 @@ use std::{
         Arc, Mutex, RwLock,
     },
 };
+use std::hash::Hasher;
 
 use crate::ArtifactId;
 use crossbeam_channel::Sender;
@@ -61,7 +62,7 @@ pub trait LoaderInfoProvider: Send + Sync {
     fn load_handle(
         &self,
         artifact_ref: &ArtifactRef,
-    ) -> Option<LoadHandle>;
+    ) -> Option<Arc<ResolvedLoadHandle>>;
 
     /// Returns the ArtifactId for the given LoadHandle, if present.
     ///
@@ -74,12 +75,55 @@ pub trait LoaderInfoProvider: Send + Sync {
     ) -> Option<ArtifactId>;
 }
 
+#[derive(Debug)]
+pub struct ResolvedLoadHandle {
+    pub id: LoadHandle,
+    pub direct_load_handle: AtomicU64,
+}
+
+impl PartialEq for ResolvedLoadHandle {
+    fn eq(&self, other: &Self) -> bool {
+        // Only need to check the indirect ID
+        self.id == other.id
+    }
+}
+
+impl Eq for ResolvedLoadHandle {
+
+}
+
+impl Hash for ResolvedLoadHandle {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        // Only care about hashing the id
+        self.id.hash(state)
+    }
+}
+
+impl ResolvedLoadHandle {
+    pub fn new(id: LoadHandle, resolved_load_handle: LoadHandle) -> Arc<Self> {
+        Arc::new(ResolvedLoadHandle {
+            id,
+            direct_load_handle: AtomicU64::new(resolved_load_handle.0)
+        })
+    }
+
+    pub fn new_null_handle() -> Arc<Self> {
+        Arc::new(ResolvedLoadHandle {
+            id: LoadHandle(0),
+            direct_load_handle: AtomicU64::default()
+        })
+    }
+
+    pub fn direct_load_handle(&self) -> LoadHandle {
+        LoadHandle(self.direct_load_handle.load(Ordering::Relaxed))
+    }
+}
+
 /// Operations on an artifact reference.
 #[derive(Debug)]
 pub enum RefOp {
     Decrease(LoadHandle),
     Increase(LoadHandle),
-    IncreaseUuid(ArtifactId),
 }
 
 /// Keeps track of whether a handle ref is a strong, weak or "internal" ref
@@ -97,7 +141,7 @@ pub enum HandleRefType {
 }
 
 struct HandleRef {
-    id: LoadHandle,
+    resolved_load_handle: Arc<ResolvedLoadHandle>,
     ref_type: HandleRefType,
 }
 impl PartialEq for HandleRef {
@@ -105,7 +149,7 @@ impl PartialEq for HandleRef {
         &self,
         other: &Self,
     ) -> bool {
-        self.id.eq(&other.id)
+        self.resolved_load_handle.id.eq(&other.resolved_load_handle.id)
     }
 }
 impl Hash for HandleRef {
@@ -113,7 +157,7 @@ impl Hash for HandleRef {
         &self,
         state: &mut H,
     ) {
-        self.id.hash(state)
+        self.resolved_load_handle.id.hash(state)
     }
 }
 impl Eq for HandleRef {}
@@ -122,7 +166,7 @@ impl Debug for HandleRef {
         &self,
         f: &mut std::fmt::Formatter<'_>,
     ) -> std::fmt::Result {
-        self.id.fmt(f)
+        self.resolved_load_handle.id.fmt(f)
     }
 }
 
@@ -131,7 +175,7 @@ impl Drop for HandleRef {
         use HandleRefType::*;
         self.ref_type = match std::mem::replace(&mut self.ref_type, None) {
             Strong(sender) => {
-                let _ = sender.send(RefOp::Decrease(self.id));
+                let _ = sender.send(RefOp::Decrease(self.resolved_load_handle.id));
                 Weak(sender)
             }
             r => r,
@@ -143,10 +187,10 @@ impl Clone for HandleRef {
     fn clone(&self) -> Self {
         use HandleRefType::*;
         Self {
-            id: self.id,
+            resolved_load_handle: self.resolved_load_handle.clone(),
             ref_type: match &self.ref_type {
                 Internal(sender) | Strong(sender) => {
-                    let _ = sender.send(RefOp::Increase(self.id));
+                    let _ = sender.send(RefOp::Increase(self.resolved_load_handle.id));
                     Strong(sender.clone())
                 }
                 Weak(sender) => Weak(sender.clone()),
@@ -157,8 +201,8 @@ impl Clone for HandleRef {
 }
 
 impl ArtifactHandle for HandleRef {
-    fn load_handle(&self) -> LoadHandle {
-        self.id
+    fn resolved_load_handle(&self) -> &Arc<ResolvedLoadHandle> {
+        &self.resolved_load_handle
     }
 }
 
@@ -220,11 +264,11 @@ impl<T> Handle<T> {
     /// Creates a new handle with `HandleRefType::Strong`
     pub fn new(
         chan: Sender<RefOp>,
-        handle: LoadHandle,
+        resolved_load_handle: Arc<ResolvedLoadHandle>,
     ) -> Self {
         Self {
             handle_ref: HandleRef {
-                id: handle,
+                resolved_load_handle,
                 ref_type: HandleRefType::Strong(chan),
             },
             marker: PhantomData,
@@ -234,11 +278,11 @@ impl<T> Handle<T> {
     /// Creates a new handle with `HandleRefType::Internal`
     pub(crate) fn new_internal(
         chan: Sender<RefOp>,
-        handle: LoadHandle,
+        resolved_load_handle: Arc<ResolvedLoadHandle>,
     ) -> Self {
         Self {
             handle_ref: HandleRef {
-                id: handle,
+                resolved_load_handle,
                 ref_type: HandleRefType::Internal(chan),
             },
             marker: PhantomData,
@@ -254,8 +298,8 @@ impl<T> Handle<T> {
 }
 
 impl<T> ArtifactHandle for Handle<T> {
-    fn load_handle(&self) -> LoadHandle {
-        self.handle_ref.load_handle()
+    fn resolved_load_handle(&self) -> &Arc<ResolvedLoadHandle> {
+        &self.handle_ref.resolved_load_handle
     }
 }
 
@@ -271,11 +315,11 @@ impl GenericHandle {
     /// Creates a new handle with `HandleRefType::Strong`
     pub fn new(
         chan: Sender<RefOp>,
-        handle: LoadHandle,
+        resolved_load_handle: Arc<ResolvedLoadHandle>,
     ) -> Self {
         Self {
             handle_ref: HandleRef {
-                id: handle,
+                resolved_load_handle,
                 ref_type: HandleRefType::Strong(chan),
             },
         }
@@ -284,11 +328,11 @@ impl GenericHandle {
     /// Creates a new handle with `HandleRefType::Internal`
     pub(crate) fn new_internal(
         chan: Sender<RefOp>,
-        handle: LoadHandle,
+        resolved_load_handle: Arc<ResolvedLoadHandle>,
     ) -> Self {
         Self {
             handle_ref: HandleRef {
-                id: handle,
+                resolved_load_handle,
                 ref_type: HandleRefType::Internal(chan),
             },
         }
@@ -296,8 +340,8 @@ impl GenericHandle {
 }
 
 impl ArtifactHandle for GenericHandle {
-    fn load_handle(&self) -> LoadHandle {
-        self.handle_ref.load_handle()
+    fn resolved_load_handle(&self) -> &Arc<ResolvedLoadHandle> {
+        &self.handle_ref.resolved_load_handle
     }
 }
 
@@ -319,18 +363,18 @@ impl<T: ?Sized> From<Handle<T>> for GenericHandle {
 /// is not in control of when to unload the artifact.
 #[derive(Clone, Eq, Hash, PartialEq, Debug)]
 pub struct WeakHandle {
-    id: LoadHandle,
+    resolved_load_handle: Arc<ResolvedLoadHandle>,
 }
 
 impl WeakHandle {
-    pub fn new(handle: LoadHandle) -> Self {
-        WeakHandle { id: handle }
+    pub fn new(handle: Arc<ResolvedLoadHandle>) -> Self {
+        WeakHandle { resolved_load_handle: handle }
     }
 }
 
 impl ArtifactHandle for WeakHandle {
-    fn load_handle(&self) -> LoadHandle {
-        self.id
+    fn resolved_load_handle(&self) -> &Arc<ResolvedLoadHandle> {
+        &self.resolved_load_handle
     }
 }
 
@@ -446,7 +490,7 @@ impl LoaderInfoProvider for DummySerdeContext {
     fn load_handle(
         &self,
         artifact_ref: &ArtifactRef,
-    ) -> Option<LoadHandle> {
+    ) -> Option<Arc<ResolvedLoadHandle>> {
         let mut maps = self.maps.write().unwrap();
         let maps = &mut *maps;
         let uuid_to_load = &mut maps.uuid_to_load;
@@ -460,7 +504,10 @@ impl LoaderInfoProvider for DummySerdeContext {
             handle
         });
 
-        Some(*handle)
+        Some(Arc::new(ResolvedLoadHandle {
+            id: *handle,
+            direct_load_handle: AtomicU64::new(handle.0),
+        }))
     }
 
     fn artifact_id(
@@ -588,7 +635,7 @@ impl<T> Serialize for Handle<T> {
     where
         S: ser::Serializer,
     {
-        serialize_handle(self.handle_ref.id, serializer)
+        serialize_handle(self.handle_ref.resolved_load_handle.id, serializer)
     }
 }
 impl Serialize for GenericHandle {
@@ -599,14 +646,14 @@ impl Serialize for GenericHandle {
     where
         S: ser::Serializer,
     {
-        serialize_handle(self.handle_ref.id, serializer)
+        serialize_handle(self.handle_ref.resolved_load_handle.id, serializer)
     }
 }
 
-fn get_handle_ref(artifact_ref: ArtifactRef) -> (LoadHandle, Sender<RefOp>) {
+fn get_handle_ref(artifact_ref: ArtifactRef) -> (Arc<ResolvedLoadHandle>, Sender<RefOp>) {
     SerdeContext::with_active(|loader, sender| {
         let handle = if artifact_ref == ArtifactRef(ArtifactId::default()) {
-            LoadHandle(0)
+            ResolvedLoadHandle::new_null_handle()
         } else {
             loader
                 .load_handle(&artifact_ref)
@@ -772,11 +819,11 @@ pub enum LoadState {
 pub trait LoadStateProvider {
     fn load_state(
         &self,
-        load_handle: LoadHandle,
+        load_handle: &Arc<ResolvedLoadHandle>,
     ) -> LoadState;
     fn artifact_id(
         &self,
-        load_handle: LoadHandle,
+        load_handle: &Arc<ResolvedLoadHandle>,
     ) -> ArtifactId;
 }
 
@@ -800,14 +847,14 @@ pub trait ArtifactHandle {
         &self,
         loader: &T,
     ) -> LoadState {
-        loader.load_state(self.load_handle())
+        loader.load_state(self.resolved_load_handle())
     }
 
     fn artifact_id<T: LoadStateProvider>(
         &self,
         loader: &T,
     ) -> ArtifactId {
-        loader.artifact_id(self.load_handle())
+        loader.artifact_id(self.resolved_load_handle())
     }
 
     /// Returns an immutable reference to the artifact if it is committed.
@@ -830,11 +877,19 @@ pub trait ArtifactHandle {
     /// Be aware that if there are no longer any strong handles to the artifact, then the underlying
     /// artifact may be freed at any time.
     fn downgrade(&self) -> WeakHandle {
-        WeakHandle::new(self.load_handle())
+        WeakHandle::new(self.resolved_load_handle().clone())
     }
 
+    fn resolved_load_handle(&self) -> &Arc<ResolvedLoadHandle>;
+
     /// Returns the `LoadHandle` of this artifact handle.
-    fn load_handle(&self) -> LoadHandle;
+    fn load_handle(&self) -> LoadHandle {
+        self.resolved_load_handle().id
+    }
+
+    fn direct_load_handle(&self) -> LoadHandle {
+        self.resolved_load_handle().direct_load_handle()
+    }
 }
 
 pub fn make_handle_within_serde_context<T>(uuid: ArtifactId) -> Handle<T> {

@@ -1,7 +1,7 @@
-use crate::storage::{AssetLoadOp, AssetStorage, HandleOp, IndirectIdentifier, IndirectionTable};
+use crate::storage::{AssetLoadOp, AssetStorage, HandleOp, IndirectIdentifier};
 use crate::ArtifactTypeId;
 use crossbeam_channel::{Receiver, Sender};
-use hydrate_base::handle::{ArtifactRef, LoadState, LoadStateProvider, LoaderInfoProvider};
+use hydrate_base::handle::{ArtifactRef, LoadState, LoadStateProvider, LoaderInfoProvider, ResolvedLoadHandle};
 use hydrate_base::{ArtifactId, AssetId};
 use hydrate_base::{ArtifactManifestData, LoadHandle, StringHash};
 use std::fmt::Debug;
@@ -236,7 +236,7 @@ pub trait LoaderIO: Sync + Send {
 
 #[derive(Debug)]
 struct IndirectLoad {
-    _id: IndirectIdentifier,
+    id: IndirectIdentifier,
     //state: IndirectHandleState,
     resolved_uuid: ArtifactId,
     engine_ref_count: AtomicUsize,
@@ -302,24 +302,18 @@ pub struct Loader {
     events_rx: Receiver<LoaderEvent>,
 
     indirect_states: Mutex<HashMap<LoadHandle, IndirectLoad>>,
-    indirect_to_load: Mutex<HashMap<IndirectIdentifier, LoadHandle>>,
-    indirection_table: IndirectionTable,
+    indirect_to_load: Mutex<HashMap<IndirectIdentifier, Arc<ResolvedLoadHandle>>>,
 }
 
 impl LoadStateProvider for Loader {
     fn load_state(
         &self,
-        load_handle: LoadHandle,
+        load_handle: &Arc<ResolvedLoadHandle>,
     ) -> LoadState {
-        let handle = if load_handle.is_indirect() {
-            self.indirection_table.resolve(load_handle).unwrap()
-        } else {
-            load_handle
-        };
         self.load_handle_infos
             .lock()
             .unwrap()
-            .get(&handle)
+            .get(&load_handle.direct_load_handle())
             .unwrap()
             .version
             .load_state
@@ -327,14 +321,9 @@ impl LoadStateProvider for Loader {
 
     fn artifact_id(
         &self,
-        load_handle: LoadHandle,
+        load_handle: &Arc<ResolvedLoadHandle>,
     ) -> ArtifactId {
-        let handle = if load_handle.is_indirect() {
-            self.indirection_table.resolve(load_handle).unwrap()
-        } else {
-            load_handle
-        };
-        self.load_handle_infos.lock().unwrap().get(&handle).unwrap().artifact_id
+        self.load_handle_infos.lock().unwrap().get(&load_handle.direct_load_handle()).unwrap().artifact_id
     }
 }
 
@@ -342,9 +331,10 @@ impl LoaderInfoProvider for Loader {
     fn load_handle(
         &self,
         id: &ArtifactRef,
-    ) -> Option<LoadHandle> {
+    ) -> Option<Arc<ResolvedLoadHandle>> {
         let artifact_id = ArtifactId::from_uuid(id.0.as_uuid());
-        self.artifact_id_to_handle.lock().unwrap().get(&artifact_id).map(|l| *l)
+        let load_handle = self.artifact_id_to_handle.lock().unwrap().get(&artifact_id).map(|l| *l)?;
+        Some(ResolvedLoadHandle::new(load_handle, load_handle))
     }
 
     fn artifact_id(
@@ -410,7 +400,6 @@ impl Loader {
             events_rx,
             indirect_states: Default::default(),
             indirect_to_load: Default::default(),
-            indirection_table: IndirectionTable(Arc::new(Mutex::new(HashMap::default()))),
         }
     }
 
@@ -497,15 +486,9 @@ impl Loader {
             // We are already unloaded and don't need to do anything
         }
 
-        drop(load_state_info);
-
         // Remove dependency refs, we do this after we finish mutating the load info so that we don't
         // take multiple locks, which risks deadlock
         for depenency_load_handle in dependencies {
-            let mut load_handle_infos = self
-                .load_handle_infos
-                .lock()
-                .unwrap();
             let mut depenency_load_handle_info = load_handle_infos
                 .get_mut(&depenency_load_handle)
                 .unwrap();
@@ -547,7 +530,7 @@ impl Loader {
 
         let mut dependency_load_handles = vec![];
         for dependency in &metadata.dependencies {
-            let dependency_load_handle = self.get_or_insert(*dependency);
+            let dependency_load_handle = self.get_or_insert_direct(*dependency);
             let mut load_handle_infos = self
                 .load_handle_infos
                 .lock()
@@ -898,17 +881,20 @@ impl Loader {
         LoadHandle::new(load_handle_index, is_indirect)
     }
 
+    // This returns a ResolvedLoadHandle which is either already pointing at a direct load or will need
+    // to be populated with a direct load
     fn get_or_insert_indirect(
         &self,
         indirect_id: &IndirectIdentifier,
-    ) -> LoadHandle {
-        *self
+    ) -> Arc<ResolvedLoadHandle> {
+        self
             .indirect_to_load
             .lock()
             .unwrap()
             .entry(indirect_id.clone())
             .or_insert_with(|| {
                 let load_handle = self.allocate_load_handle(true);
+
                 let resolved = self.loader_io.resolve_indirect(indirect_id);
                 if resolved.is_none() {
                     panic!("Couldn't find asset {:?}", indirect_id);
@@ -922,19 +908,21 @@ impl Loader {
                     manifest_entry.artifact_id
                 );
 
+                let resolved_load_handle = ResolvedLoadHandle::new(load_handle, LoadHandle(0));
+
                 self.indirect_states.lock().unwrap().insert(
                     load_handle,
                     IndirectLoad {
-                        _id: indirect_id.clone(),
+                        id: indirect_id.clone(),
                         resolved_uuid: manifest_entry.artifact_id,
                         engine_ref_count: AtomicUsize::new(0),
                     },
                 );
-                load_handle
-            })
+                resolved_load_handle
+            }).clone()
     }
 
-    fn get_or_insert(
+    fn get_or_insert_direct(
         &self,
         artifact_id: ArtifactId,
     ) -> LoadHandle {
@@ -979,11 +967,11 @@ impl Loader {
     }
 
     // from add_refs
-    pub(crate) fn add_engine_ref(
+    fn add_direct_engine_ref(
         &self,
         artifact_id: ArtifactId,
     ) -> LoadHandle {
-        let load_handle = self.get_or_insert(artifact_id);
+        let load_handle = self.get_or_insert_direct(artifact_id);
         self.add_engine_ref_by_handle(load_handle);
         load_handle
     }
@@ -991,32 +979,35 @@ impl Loader {
     pub(crate) fn add_engine_ref_indirect(
         &self,
         id: IndirectIdentifier,
-    ) -> LoadHandle {
+    ) -> Arc<ResolvedLoadHandle> {
         let indirect_load_handle = self.get_or_insert_indirect(&id);
-        self.add_engine_ref_by_handle(indirect_load_handle);
+
+        // It's possible this has already been resolved, but we nee to make certain we add the appropriate
+        // ref count
+        let direct_load_handle = self.add_engine_ref_by_handle(indirect_load_handle.id);
+
+        let direct_load_test = indirect_load_handle.direct_load_handle.swap(direct_load_handle.0, Ordering::Relaxed);
+
+        // Check that the resolved load handle was either unset or is consistent
+        assert!(direct_load_test == 0 || direct_load_test == direct_load_handle.0);
+
         indirect_load_handle
     }
 
     // from add_ref_handle
+    // Returns the direct load handle
     pub(crate) fn add_engine_ref_by_handle(
         &self,
         load_handle: LoadHandle,
-    ) {
+    ) -> LoadHandle {
         if load_handle.is_indirect() {
             let mut indirect_states = self.indirect_states.lock().unwrap();
             let state = indirect_states.get(&load_handle).unwrap();
             state.engine_ref_count.fetch_add(1, Ordering::Relaxed);
             let resolved_uuid = state.resolved_uuid;
             drop(state);
-            let direct_load_handle = self.add_engine_ref(resolved_uuid);
-
-            // In distill this was done later when we resolved the UUID. For now we are not doing this async
-            // anymore so we can immediately make the association.
-            self.indirection_table
-                .0
-                .lock()
-                .unwrap()
-                .insert(load_handle, direct_load_handle);
+            let direct_load_handle = self.add_direct_engine_ref(resolved_uuid);
+            direct_load_handle
         } else {
             let mut load_handle_infos = self.load_handle_infos.lock().unwrap();
             let guard = load_handle_infos.get(&load_handle);
@@ -1030,6 +1021,8 @@ impl Loader {
                 load_handle,
                 load_handle_info,
             );
+
+            load_handle
         }
     }
 
@@ -1100,16 +1093,6 @@ impl Loader {
         }
     }
 
-    /// Returns a reference to the loader's [`IndirectionTable`].
-    ///
-    /// When a user fetches an asset by LoadHandle, implementors of [`AssetStorage`]
-    /// should resolve LoadHandles where [`LoadHandle::is_indirect`] returns true by using [`IndirectionTable::resolve`].
-    /// IndirectionTable is Send + Sync + Clone so that it can be retrieved once at startup,
-    /// then stored in implementors of [`AssetStorage`].
-    pub fn indirection_table(&self) -> IndirectionTable {
-        self.indirection_table.clone()
-    }
-
     /// Returns handles to all active asset loads.
     pub fn get_active_loads(&self) -> Vec<LoadHandle> {
         let mut loading_handles = Vec::default();
@@ -1126,7 +1109,8 @@ impl Loader {
         handle: LoadHandle,
     ) -> Option<LoadInfo> {
         let handle = if handle.is_indirect() {
-            self.indirection_table.resolve(handle)?
+            let indirect_id = self.indirect_states.lock().unwrap().get(&handle).unwrap().id.clone();
+            self.indirect_to_load.lock().unwrap().get(&indirect_id).unwrap().direct_load_handle()
         } else {
             handle
         };

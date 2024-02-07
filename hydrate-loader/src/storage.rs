@@ -1,17 +1,17 @@
 use std::{error::Error, sync::Arc};
+use std::sync::Mutex;
 
 use crate::loader::LoaderEvent;
 use crate::ArtifactTypeId;
 use crossbeam_channel::Sender;
-use dashmap::DashMap;
 use hydrate_base::handle::LoaderInfoProvider;
-use hydrate_base::{LoadHandle, StringHash};
+use hydrate_base::{ArtifactId, LoadHandle, StringHash, hashing::HashMap};
 
 #[derive(Debug)]
 pub enum HandleOp {
-    Error(LoadHandle, u32, Box<dyn Error + Send>),
-    Complete(LoadHandle, u32),
-    Drop(LoadHandle, u32),
+    Error(LoadHandle, Box<dyn Error + Send>),
+    Complete(LoadHandle),
+    Drop(LoadHandle),
 }
 
 /// Type that allows the downstream asset storage implementation to signal that an asset update
@@ -19,19 +19,16 @@ pub enum HandleOp {
 pub struct AssetLoadOp {
     sender: Option<Sender<LoaderEvent>>,
     handle: LoadHandle,
-    version: u32,
 }
 
 impl AssetLoadOp {
     pub(crate) fn new(
         sender: Sender<LoaderEvent>,
         handle: LoadHandle,
-        version: u32,
     ) -> Self {
         Self {
             sender: Some(sender),
             handle,
-            version,
         }
     }
 
@@ -49,7 +46,6 @@ impl AssetLoadOp {
             .unwrap()
             .send(LoaderEvent::LoadResult(HandleOp::Complete(
                 self.handle,
-                self.version,
             )));
         self.sender = None;
     }
@@ -66,7 +62,6 @@ impl AssetLoadOp {
             .unwrap()
             .send(LoaderEvent::LoadResult(HandleOp::Error(
                 self.handle,
-                self.version,
                 Box::new(error),
             )));
         self.sender = None;
@@ -78,7 +73,6 @@ impl Drop for AssetLoadOp {
         if let Some(ref sender) = self.sender {
             let _ = sender.send(LoaderEvent::LoadResult(HandleOp::Drop(
                 self.handle,
-                self.version,
             )));
         }
     }
@@ -109,7 +103,6 @@ pub trait AssetStorage {
         data: Vec<u8>,
         load_handle: LoadHandle,
         load_op: AssetLoadOp,
-        version: u32,
     ) -> Result<(), Box<dyn Error + Send + 'static>>;
 
     /// Commits the specified asset version as loaded and ready to use.
@@ -123,7 +116,6 @@ pub trait AssetStorage {
         &mut self,
         asset_type: &ArtifactTypeId,
         load_handle: LoadHandle,
-        version: u32,
     );
 
     /// Frees the asset identified by the load handle.
@@ -136,24 +128,24 @@ pub trait AssetStorage {
         &mut self,
         asset_type_id: &ArtifactTypeId,
         load_handle: LoadHandle,
-        version: u32,
     );
 }
 
 /// An indirect identifier that can be resolved to a specific [`AssetId`] by an [`IndirectionResolver`] impl.
 #[derive(Clone, PartialEq, Eq, Debug, Hash)]
 pub enum IndirectIdentifier {
+    ArtifactId(ArtifactId, ArtifactTypeId),
     SymbolWithType(StringHash, ArtifactTypeId),
 }
 
 /// Resolves indirect [`LoadHandle`]s. See [`LoadHandle::is_indirect`] for details.
 #[derive(Clone)]
-pub struct IndirectionTable(pub(crate) Arc<DashMap<LoadHandle, LoadHandle>>);
+pub struct IndirectionTable(pub(crate) Arc<Mutex<HashMap<LoadHandle, LoadHandle>>>);
 impl IndirectionTable {
     pub fn resolve(
         &self,
         indirect_handle: LoadHandle,
     ) -> Option<LoadHandle> {
-        self.0.get(&indirect_handle).map(|l| *l)
+        self.0.lock().unwrap().get(&indirect_handle).map(|l| *l)
     }
 }

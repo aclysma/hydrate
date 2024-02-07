@@ -19,7 +19,6 @@ use uuid::Uuid;
 struct DiskAssetIORequestMetadata {
     artifact_id: ArtifactId,
     load_handle: LoadHandle,
-    version: u32,
     hash: u64,
 }
 
@@ -27,7 +26,6 @@ struct DiskAssetIORequestData {
     artifact_id: ArtifactId,
     load_handle: LoadHandle,
     hash: u64,
-    version: u32,
     //subresource: Option<u32>,
 }
 
@@ -75,7 +73,6 @@ impl DiskAssetIOWorkerThread {
                                 result_tx.send(LoaderEvent::MetadataRequestComplete( RequestMetadataResult {
                                     artifact_id: msg.artifact_id,
                                     load_handle: msg.load_handle,
-                                    version: msg.version,
                                     result: Ok(metadata)
                                 })).unwrap();
                                 active_request_count.fetch_sub(1, Ordering::Release);
@@ -106,7 +103,6 @@ impl DiskAssetIOWorkerThread {
                                     artifact_id: msg.artifact_id,
                                     load_handle: msg.load_handle,
                                     //subresource: msg.subresource,
-                                    version: msg.version,
                                     //hash: msg.hash,
                                     result: Ok(ArtifactData {
                                         data
@@ -404,9 +400,12 @@ impl LoaderIO for DiskAssetIO {
         indirect_identifier: &IndirectIdentifier,
     ) -> Option<&ArtifactManifestData> {
         let (artifact_id, asset_type) = match indirect_identifier {
-            IndirectIdentifier::SymbolWithType(asset_path, asset_type) => {
+            IndirectIdentifier::ArtifactId(artifact_id, artifact_type) => {
+                (*artifact_id, *artifact_type)
+            },
+            IndirectIdentifier::SymbolWithType(asset_path, artifact_type) => {
                 let artifact_id = self.manifest.symbol_lookup.get(&asset_path.hash())?;
-                (*artifact_id, *asset_type)
+                (*artifact_id, *artifact_type)
             }
         };
 
@@ -427,7 +426,6 @@ impl LoaderIO for DiskAssetIO {
         build_hash: CombinedBuildHash,
         load_handle: LoadHandle,
         artifact_id: ArtifactId,
-        version: u32,
     ) {
         log::debug!("request_metadata {:?}", load_handle);
         assert_eq!(self.build_hash, build_hash);
@@ -445,7 +443,6 @@ impl LoaderIO for DiskAssetIO {
                 .add_request(DiskAssetIORequest::Metadata(DiskAssetIORequestMetadata {
                     load_handle,
                     artifact_id,
-                    version,
                     hash,
                 }));
         } else {
@@ -455,7 +452,6 @@ impl LoaderIO for DiskAssetIO {
                     RequestMetadataResult {
                         artifact_id,
                         load_handle,
-                        version,
                         result: Err(std::io::ErrorKind::NotFound.into()),
                     },
                 ))
@@ -470,7 +466,6 @@ impl LoaderIO for DiskAssetIO {
         artifact_id: ArtifactId,
         hash: u64,
         //subresource: Option<u32>,
-        version: u32,
     ) {
         log::debug!("request_data {:?}", load_handle);
         assert_eq!(self.build_hash, build_hash);
@@ -483,7 +478,6 @@ impl LoaderIO for DiskAssetIO {
                 artifact_id,
                 load_handle,
                 hash,
-                version,
                 //subresource,
             }));
     }

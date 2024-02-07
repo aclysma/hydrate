@@ -26,7 +26,6 @@ impl DynAssetLoader<GpuImageAsset> for GpuImageLoader {
         data: &[u8],
         _load_handle: LoadHandle,
         load_op: hydrate::loader::storage::AssetLoadOp,
-        _version: u32,
     ) -> Result<
         hydrate::loader::asset_storage::UpdateAssetResult<GpuImageAsset>,
         Box<dyn Error + Send + 'static>,
@@ -55,7 +54,6 @@ impl DynAssetLoader<GpuImageAsset> for GpuImageLoader {
     fn commit_asset_version(
         &mut self,
         _handle: LoadHandle,
-        _version: u32,
     ) {
     }
 

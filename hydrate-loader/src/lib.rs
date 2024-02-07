@@ -156,12 +156,16 @@ impl AssetManager {
             .add_storage_with_loader::<AssetDataT, AssetT, LoaderT>(loader);
     }
 
-    pub fn load_asset<T>(
+    pub fn load_asset<T: TypeUuid + 'static + Send>(
         &self,
         artifact_id: ArtifactId,
     ) -> Handle<T> {
-        let load_handle = self.loader.add_engine_ref(artifact_id);
-        Handle::new(self.ref_op_tx.clone(), load_handle)
+        let data_type_uuid = self
+            .storage()
+            .asset_to_data_type_uuid::<T>()
+            .expect("Called load_asset_path with unregistered asset type");
+        let load_handle = self.loader.add_engine_ref_indirect(IndirectIdentifier::ArtifactId(artifact_id, data_type_uuid));
+        Handle::<T>::new(self.ref_op_tx.clone(), load_handle)
     }
 
     pub fn load_asset_symbol_name<T: TypeUuid + 'static + Send>(

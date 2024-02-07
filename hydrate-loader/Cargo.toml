@@ -10,7 +10,6 @@ hydrate-base = { path = "../hydrate-base" }
 
 log = "0.4.14"
 crossbeam-channel = "0.5"
-dashmap = "5.4.0"
 
 futures-core = { version = "0.3", default-features = false, features = ["alloc"] }
 serde = { version = "1", features = ["derive"] }

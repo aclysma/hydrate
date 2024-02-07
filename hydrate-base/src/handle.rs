@@ -746,34 +746,6 @@ pub trait TypedArtifactStorage<A> {
         &self,
         handle: &T,
     ) -> Option<&A>;
-
-    /// Returns the version of a loaded artifact, or `None` if has not completed loading.
-    ///
-    /// # Parameters
-    ///
-    /// * `handle`: Handle of the artifact.
-    ///
-    /// # Type Parameters
-    ///
-    /// * `T`: Artifact handle type.
-    fn get_version<T: ArtifactHandle>(
-        &self,
-        handle: &T,
-    ) -> Option<u32>;
-
-    /// Returns the loaded artifact and its version, or `None` if has not completed loading.
-    ///
-    /// # Parameters
-    ///
-    /// * `handle`: Handle of the artifact.
-    ///
-    /// # Type Parameters
-    ///
-    /// * `T`: Artifact handle type.
-    fn get_artifact_with_version<T: ArtifactHandle>(
-        &self,
-        handle: &T,
-    ) -> Option<(&A, u32)>;
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
@@ -851,36 +823,6 @@ pub trait ArtifactHandle {
         Self: Sized,
     {
         storage.get(self)
-    }
-
-    /// Returns the version of the artifact if it is committed.
-    ///
-    /// # Parameters
-    ///
-    /// * `storage`: Artifact storage.
-    fn artifact_version<T, S: TypedArtifactStorage<T>>(
-        &self,
-        storage: &S,
-    ) -> Option<u32>
-    where
-        Self: Sized,
-    {
-        storage.get_version(self)
-    }
-
-    /// Returns the artifact with the given version if it is committed.
-    ///
-    /// # Parameters
-    ///
-    /// * `storage`: Artifact storage.
-    fn artifact_with_version<'a, T, S: TypedArtifactStorage<T>>(
-        &self,
-        storage: &'a S,
-    ) -> Option<(&'a T, u32)>
-    where
-        Self: Sized,
-    {
-        storage.get_artifact_with_version(self)
     }
 
     /// Downgrades this handle into a `WeakHandle`.

@@ -21,17 +21,14 @@ pub trait DynAssetStorage: Downcast + Send {
         data: &[u8],
         load_handle: LoadHandle,
         load_op: AssetLoadOp,
-        version: u32,
     ) -> Result<(), Box<dyn Error + Send + 'static>>;
     fn commit_artifact_version(
         &mut self,
         handle: LoadHandle,
-        version: u32,
     );
     fn free(
         &mut self,
         handle: LoadHandle,
-        version: u32,
     );
 
     fn type_name(&self) -> &'static str;
@@ -150,7 +147,6 @@ impl AssetStorage for AssetStorageSet {
         data: Vec<u8>,
         load_handle: LoadHandle,
         load_op: AssetLoadOp,
-        version: u32,
     ) -> Result<(), Box<dyn Error + Send + 'static>> {
         let mut inner = self.inner.lock().unwrap();
 
@@ -163,7 +159,7 @@ impl AssetStorage for AssetStorageSet {
             .storage
             .get_mut(&asset_type_id)
             .expect("unknown asset type")
-            .update_artifact(loader_info, &data, load_handle, load_op, version);
+            .update_artifact(loader_info, &data, load_handle, load_op);
         x
     }
 
@@ -171,7 +167,6 @@ impl AssetStorage for AssetStorageSet {
         &mut self,
         asset_data_type_id: &ArtifactTypeId,
         load_handle: LoadHandle,
-        version: u32,
     ) {
         let mut inner = self.inner.lock().unwrap();
 
@@ -184,14 +179,13 @@ impl AssetStorage for AssetStorageSet {
             .storage
             .get_mut(&asset_type_id)
             .expect("unknown asset type")
-            .commit_artifact_version(load_handle, version)
+            .commit_artifact_version(load_handle)
     }
 
     fn free(
         &mut self,
         asset_data_type_id: &ArtifactTypeId,
         load_handle: LoadHandle,
-        version: u32,
     ) {
         let mut inner = self.inner.lock().unwrap();
 
@@ -204,7 +198,7 @@ impl AssetStorage for AssetStorageSet {
             .storage
             .get_mut(&asset_type_id)
             .expect("unknown asset type")
-            .free(load_handle, version)
+            .free(load_handle)
     }
 }
 
@@ -228,41 +222,6 @@ impl<A: TypeUuid + 'static + Send> TypedArtifactStorage<A> for AssetStorageSet {
                     .downcast_ref::<Storage<A>>()
                     .expect("failed to downcast")
                     .get(handle),
-            )
-        }
-    }
-    fn get_version<T: ArtifactHandle>(
-        &self,
-        handle: &T,
-    ) -> Option<u32> {
-        self.inner
-            .lock()
-            .unwrap()
-            .storage
-            .get(&ArtifactTypeId::from_bytes(A::UUID))
-            .expect("unknown asset type")
-            .as_ref()
-            .downcast_ref::<Storage<A>>()
-            .expect("failed to downcast")
-            .get_version(handle)
-    }
-    fn get_artifact_with_version<T: ArtifactHandle>(
-        &self,
-        handle: &T,
-    ) -> Option<(&A, u32)> {
-        // This transmute can probably be unsound, but I don't have the energy to fix it right now
-        unsafe {
-            std::mem::transmute(
-                self.inner
-                    .lock()
-                    .unwrap()
-                    .storage
-                    .get(&ArtifactTypeId::from_bytes(A::UUID))
-                    .expect("unknown asset type")
-                    .as_ref()
-                    .downcast_ref::<Storage<A>>()
-                    .expect("failed to downcast")
-                    .get_asset_with_version(handle),
             )
         }
     }
@@ -290,13 +249,11 @@ where
         data: &[u8],
         load_handle: LoadHandle,
         load_op: AssetLoadOp,
-        version: u32,
     ) -> Result<UpdateAssetResult<AssetT>, Box<dyn Error + Send + 'static>>;
 
     fn commit_asset_version(
         &mut self,
         handle: LoadHandle,
-        version: u32,
     );
 
     fn free(
@@ -335,7 +292,6 @@ where
         data: &[u8],
         _load_handle: LoadHandle,
         load_op: AssetLoadOp,
-        _version: u32,
     ) -> Result<UpdateAssetResult<AssetDataT>, Box<dyn Error + Send + 'static>> {
         log::debug!("DefaultAssetLoader update_asset");
 
@@ -357,7 +313,6 @@ where
     fn commit_asset_version(
         &mut self,
         _handle: LoadHandle,
-        _version: u32,
     ) {
     }
 
@@ -369,13 +324,11 @@ where
 }
 
 struct UncommittedArtifactState<A: Send> {
-    version: u32,
     artifact_id: ArtifactId,
     result: UpdateAssetResult<A>,
 }
 
 struct ArtifactState<A> {
-    version: u32,
     artifact_id: ArtifactId,
     asset: A,
 }
@@ -414,28 +367,6 @@ impl<AssetT: TypeUuid + Send> Storage<AssetT> {
         };
         self.artifacts.get(&handle).map(|a| &a.asset)
     }
-    fn get_version<T: ArtifactHandle>(
-        &self,
-        handle: &T,
-    ) -> Option<u32> {
-        let handle = if handle.load_handle().is_indirect() {
-            self.indirection_table.resolve(handle.load_handle())?
-        } else {
-            handle.load_handle()
-        };
-        self.artifacts.get(&handle).map(|a| a.version)
-    }
-    fn get_asset_with_version<T: ArtifactHandle>(
-        &self,
-        handle: &T,
-    ) -> Option<(&AssetT, u32)> {
-        let handle = if handle.load_handle().is_indirect() {
-            self.indirection_table.resolve(handle.load_handle())?
-        } else {
-            handle.load_handle()
-        };
-        self.artifacts.get(&handle).map(|a| (&a.asset, a.version))
-    }
 }
 
 impl<AssetT: TypeUuid + 'static + Send> DynAssetStorage for Storage<AssetT> {
@@ -445,15 +376,13 @@ impl<AssetT: TypeUuid + 'static + Send> DynAssetStorage for Storage<AssetT> {
         data: &[u8],
         load_handle: LoadHandle,
         load_op: AssetLoadOp,
-        version: u32,
     ) -> Result<(), Box<dyn Error + Send + 'static>> {
         let artifact_id = loader_info.artifact_id(load_handle).unwrap();
         log::debug!(
-            "update_asset {} {:?} {:?} {}",
+            "update_asset {} {:?} {:?}",
             core::any::type_name::<AssetT>(),
             load_handle,
             artifact_id,
-            version
         );
 
         let result = self.loader.update_asset(
@@ -462,7 +391,6 @@ impl<AssetT: TypeUuid + 'static + Send> DynAssetStorage for Storage<AssetT> {
             data,
             load_handle,
             load_op,
-            version,
         )?;
 
         // Add to list of uncommitted assets
@@ -471,7 +399,6 @@ impl<AssetT: TypeUuid + 'static + Send> DynAssetStorage for Storage<AssetT> {
             UncommittedArtifactState {
                 artifact_id,
                 result,
-                version,
             },
         );
 
@@ -481,7 +408,6 @@ impl<AssetT: TypeUuid + 'static + Send> DynAssetStorage for Storage<AssetT> {
     fn commit_artifact_version(
         &mut self,
         load_handle: LoadHandle,
-        version: u32,
     ) {
         // Remove from the uncommitted list
         let uncommitted_asset_state = self
@@ -490,15 +416,13 @@ impl<AssetT: TypeUuid + 'static + Send> DynAssetStorage for Storage<AssetT> {
             .expect("asset not present when committing");
 
         log::debug!(
-            "commit_asset_version {} {:?} {:?} {}",
+            "commit_asset_version {} {:?} {:?}",
             core::any::type_name::<AssetT>(),
             load_handle,
             uncommitted_asset_state.artifact_id,
-            version
         );
 
         let artifact_id = uncommitted_asset_state.artifact_id;
-        let version = uncommitted_asset_state.version;
         let asset = match uncommitted_asset_state.result {
             UpdateAssetResult::Result(asset) => asset,
             UpdateAssetResult::AsyncResult(rx) => rx
@@ -507,12 +431,11 @@ impl<AssetT: TypeUuid + 'static + Send> DynAssetStorage for Storage<AssetT> {
         };
 
         // If a load handler exists, trigger the commit_asset_version callback
-        self.loader.commit_asset_version(load_handle, version);
+        self.loader.commit_asset_version(load_handle);
 
         let asset_state = ArtifactState {
             asset,
             artifact_id,
-            version,
         };
 
         // Commit the result
@@ -522,22 +445,20 @@ impl<AssetT: TypeUuid + 'static + Send> DynAssetStorage for Storage<AssetT> {
     fn free(
         &mut self,
         load_handle: LoadHandle,
-        version: u32,
     ) {
         if let Some(asset_state) = self.artifacts.get(&load_handle) {
-            if asset_state.version == version {
-                // Remove it from the list of assets
-                let asset_state = self.artifacts.remove(&load_handle).unwrap();
 
-                log::debug!(
-                    "free {} {:?} {:?}",
-                    core::any::type_name::<AssetT>(),
-                    load_handle,
-                    asset_state.artifact_id
-                );
-                // Trigger the free callback on the load handler, if one exists
-                self.loader.free(load_handle);
-            }
+            // Remove it from the list of assets
+            let asset_state = self.artifacts.remove(&load_handle).unwrap();
+
+            log::debug!(
+                "free {} {:?} {:?}",
+                core::any::type_name::<AssetT>(),
+                load_handle,
+                asset_state.artifact_id
+            );
+            // Trigger the free callback on the load handler, if one exists
+            self.loader.free(load_handle);
         }
     }
 

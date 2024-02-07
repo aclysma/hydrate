@@ -816,6 +816,8 @@ pub enum LoadState {
     Committed,
 }
 
+// This allows a handle in hydrate_base to get information from the loader which may be in hydrate_loader
+// or some other loader implementation
 pub trait LoadStateProvider {
     fn load_state(
         &self,

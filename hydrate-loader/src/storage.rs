@@ -99,7 +99,8 @@ pub trait AssetStorage {
     fn update_asset(
         &mut self,
         loader_info: &dyn LoaderInfoProvider,
-        asset_type_id: &ArtifactTypeId,
+        artifact_type_id: &ArtifactTypeId,
+        artifact_id: ArtifactId,
         data: Vec<u8>,
         load_handle: LoadHandle,
         load_op: AssetLoadOp,
@@ -126,7 +127,7 @@ pub trait AssetStorage {
     /// * `load_handle`: ID allocated by [`Loader`](crate::loader::Loader) to track loading of a particular asset.
     fn free(
         &mut self,
-        asset_type_id: &ArtifactTypeId,
+        artifact_type_id: &ArtifactTypeId,
         load_handle: LoadHandle,
     );
 }

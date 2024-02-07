@@ -18,6 +18,7 @@ pub trait DynAssetStorage: Downcast + Send {
     fn update_artifact(
         &mut self,
         loader_info: &dyn LoaderInfoProvider,
+        artifact_id: ArtifactId,
         data: &[u8],
         load_handle: LoadHandle,
         load_op: AssetLoadOp,
@@ -136,7 +137,8 @@ impl AssetStorage for AssetStorageSet {
     fn update_asset(
         &mut self,
         loader_info: &dyn LoaderInfoProvider,
-        asset_data_type_id: &ArtifactTypeId,
+        artifact_type_id: &ArtifactTypeId,
+        artifact_id: ArtifactId,
         data: Vec<u8>,
         load_handle: LoadHandle,
         load_op: AssetLoadOp,
@@ -145,14 +147,14 @@ impl AssetStorage for AssetStorageSet {
 
         let asset_type_id = *inner
             .data_to_asset_type_uuid
-            .get(asset_data_type_id)
+            .get(artifact_type_id)
             .expect("unknown asset data type");
 
         let x = inner
             .storage
             .get_mut(&asset_type_id)
             .expect("unknown asset type")
-            .update_artifact(loader_info, &data, load_handle, load_op);
+            .update_artifact(loader_info, artifact_id, &data, load_handle, load_op);
         x
     }
 
@@ -359,11 +361,11 @@ impl<AssetT: TypeUuid + 'static + Send> DynAssetStorage for Storage<AssetT> {
     fn update_artifact(
         &mut self,
         loader_info: &dyn LoaderInfoProvider,
+        artifact_id: ArtifactId,
         data: &[u8],
         load_handle: LoadHandle,
         load_op: AssetLoadOp,
     ) -> Result<(), Box<dyn Error + Send + 'static>> {
-        let artifact_id = loader_info.artifact_id(load_handle).unwrap();
         log::debug!(
             "update_asset {} {:?} {:?}",
             core::any::type_name::<AssetT>(),

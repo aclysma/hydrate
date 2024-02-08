@@ -402,7 +402,7 @@ impl LoaderIO for DiskAssetIO {
         let (artifact_id, asset_type) = match indirect_identifier {
             IndirectIdentifier::ArtifactId(artifact_id, artifact_type) => {
                 (*artifact_id, *artifact_type)
-            },
+            }
             IndirectIdentifier::SymbolWithType(asset_path, artifact_type) => {
                 let artifact_id = self.manifest.symbol_lookup.get(&asset_path.hash())?;
                 (*artifact_id, *artifact_type)

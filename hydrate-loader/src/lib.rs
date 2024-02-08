@@ -161,7 +161,9 @@ impl AssetManager {
             .storage()
             .asset_to_data_type_uuid::<T>()
             .expect("Called load_asset_path with unregistered asset type");
-        let load_handle = self.loader.add_engine_ref_indirect(IndirectIdentifier::ArtifactId(artifact_id, data_type_uuid));
+        let load_handle = self
+            .loader
+            .add_engine_ref_indirect(IndirectIdentifier::ArtifactId(artifact_id, data_type_uuid));
         Handle::<T>::new(self.ref_op_tx.clone(), load_handle)
     }
 

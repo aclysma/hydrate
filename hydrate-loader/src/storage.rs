@@ -43,9 +43,7 @@ impl AssetLoadOp {
             .sender
             .as_ref()
             .unwrap()
-            .send(LoaderEvent::LoadResult(HandleOp::Complete(
-                self.handle,
-            )));
+            .send(LoaderEvent::LoadResult(HandleOp::Complete(self.handle)));
         self.sender = None;
     }
 
@@ -70,9 +68,7 @@ impl AssetLoadOp {
 impl Drop for AssetLoadOp {
     fn drop(&mut self) {
         if let Some(ref sender) = self.sender {
-            let _ = sender.send(LoaderEvent::LoadResult(HandleOp::Drop(
-                self.handle,
-            )));
+            let _ = sender.send(LoaderEvent::LoadResult(HandleOp::Drop(self.handle)));
         }
     }
 }
@@ -137,4 +133,3 @@ pub enum IndirectIdentifier {
     ArtifactId(ArtifactId, ArtifactTypeId),
     SymbolWithType(StringHash, ArtifactTypeId),
 }
-

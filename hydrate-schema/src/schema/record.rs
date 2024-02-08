@@ -1,7 +1,6 @@
 use super::Schema;
 use crate::{
-    HashMap, SchemaDefRecordFieldMarkup, SchemaDefRecordMarkup, SchemaFingerprint,
-    SchemaNamedType,
+    HashMap, SchemaDefRecordFieldMarkup, SchemaDefRecordMarkup, SchemaFingerprint, SchemaNamedType,
 };
 use std::ops::Deref;
 use std::sync::Arc;

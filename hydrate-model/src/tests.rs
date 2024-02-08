@@ -1,16 +1,19 @@
 use crate::edit_context::EditContext;
-use crate::{AssetLocation, AssetPath, AssetSourceId, EditContextKey, NullOverride, OverrideBehavior, SchemaDefType, SchemaLinker, SchemaLinkerResult, SchemaSet, UndoStack, Value};
-use std::sync::Arc;
-use uuid::Uuid;
+use crate::{
+    AssetLocation, AssetPath, AssetSourceId, EditContextKey, NullOverride, OverrideBehavior,
+    SchemaDefType, SchemaLinker, SchemaLinkerResult, SchemaSet, UndoStack, Value,
+};
 use hydrate_base::AssetId;
 use hydrate_data::{AssetName, SchemaSetBuilder};
 use hydrate_pipeline::HydrateProjectConfiguration;
 use hydrate_schema::Schema::Nullable;
+use std::sync::Arc;
+use uuid::Uuid;
 
 fn asset_location() -> AssetLocation {
-    AssetLocation::new(
-        AssetId::from_uuid(Uuid::parse_str("57460089-9e04-4cc7-ad46-54670812da56").unwrap())
-    )
+    AssetLocation::new(AssetId::from_uuid(
+        Uuid::parse_str("57460089-9e04-4cc7-ad46-54670812da56").unwrap(),
+    ))
 }
 
 fn create_vec3_schema(linker: &mut SchemaLinker) -> SchemaLinkerResult<()> {
@@ -46,7 +49,12 @@ fn set_struct_values() {
 
     let undo_stack = UndoStack::default();
     let project_config = default_project_config();
-    let mut db = EditContext::new(&project_config, EditContextKey::default(), schema_set.clone(), &undo_stack);
+    let mut db = EditContext::new(
+        &project_config,
+        EditContextKey::default(),
+        schema_set.clone(),
+        &undo_stack,
+    );
     let asset_location = asset_location();
 
     let vec3_type = schema_set
@@ -61,17 +69,20 @@ fn set_struct_values() {
         db.resolve_property(obj, "x").unwrap().as_f32().unwrap(),
         0.0
     );
-    db.set_property_override(obj, "x", Some(Value::F32(10.0))).unwrap();
+    db.set_property_override(obj, "x", Some(Value::F32(10.0)))
+        .unwrap();
     assert_eq!(
         db.resolve_property(obj, "x").unwrap().as_f32().unwrap(),
         10.0
     );
-    db.set_property_override(obj, "y", Some(Value::F32(20.0))).unwrap();
+    db.set_property_override(obj, "y", Some(Value::F32(20.0)))
+        .unwrap();
     assert_eq!(
         db.resolve_property(obj, "y").unwrap().as_f32().unwrap(),
         20.0
     );
-    db.set_property_override(obj, "z", Some(Value::F32(30.0))).unwrap();
+    db.set_property_override(obj, "z", Some(Value::F32(30.0)))
+        .unwrap();
     assert_eq!(
         db.resolve_property(obj, "z").unwrap().as_f32().unwrap(),
         30.0
@@ -96,7 +107,12 @@ fn set_struct_values_in_struct() {
 
     let undo_stack = UndoStack::default();
     let project_config = default_project_config();
-    let mut db = EditContext::new(&project_config, EditContextKey::default(), schema_set.clone(), &undo_stack);
+    let mut db = EditContext::new(
+        &project_config,
+        EditContextKey::default(),
+        schema_set.clone(),
+        &undo_stack,
+    );
     let asset_location = asset_location();
 
     //let vec3_type = db.find_named_type("Vec3").unwrap().as_record().unwrap();
@@ -112,7 +128,8 @@ fn set_struct_values_in_struct() {
         db.resolve_property(obj, "a.x").unwrap().as_f32().unwrap(),
         0.0
     );
-    db.set_property_override(obj, "a.x", Some(Value::F32(10.0))).unwrap();
+    db.set_property_override(obj, "a.x", Some(Value::F32(10.0)))
+        .unwrap();
     assert_eq!(
         db.resolve_property(obj, "a.x").unwrap().as_f32().unwrap(),
         10.0
@@ -121,7 +138,8 @@ fn set_struct_values_in_struct() {
         db.resolve_property(obj, "b.x").unwrap().as_f32().unwrap(),
         0.0
     );
-    db.set_property_override(obj, "b.x", Some(Value::F32(20.0))).unwrap();
+    db.set_property_override(obj, "b.x", Some(Value::F32(20.0)))
+        .unwrap();
     assert_eq!(
         db.resolve_property(obj, "a.x").unwrap().as_f32().unwrap(),
         10.0
@@ -143,7 +161,12 @@ fn set_simple_property_override() {
 
     let undo_stack = UndoStack::default();
     let project_config = default_project_config();
-    let mut db = EditContext::new(&project_config, EditContextKey::default(), schema_set.clone(), &undo_stack);
+    let mut db = EditContext::new(
+        &project_config,
+        EditContextKey::default(),
+        schema_set.clone(),
+        &undo_stack,
+    );
     let asset_location = asset_location();
 
     let vec3_type = schema_set
@@ -154,7 +177,9 @@ fn set_simple_property_override() {
         .clone();
 
     let obj1 = db.new_asset(&AssetName::new("test"), &asset_location, &vec3_type);
-    let obj2 = db.new_asset_from_prototype(&AssetName::new("test2"), &asset_location, obj1).unwrap();
+    let obj2 = db
+        .new_asset_from_prototype(&AssetName::new("test2"), &asset_location, obj1)
+        .unwrap();
     assert_eq!(
         db.resolve_property(obj1, "x").unwrap().as_f32().unwrap(),
         0.0
@@ -168,7 +193,8 @@ fn set_simple_property_override() {
     assert_eq!(db.get_property_override(obj1, "x").unwrap().is_none(), true);
     assert_eq!(db.get_property_override(obj2, "x").unwrap().is_none(), true);
 
-    db.set_property_override(obj1, "x", Some(Value::F32(10.0))).unwrap();
+    db.set_property_override(obj1, "x", Some(Value::F32(10.0)))
+        .unwrap();
     assert_eq!(
         db.resolve_property(obj1, "x").unwrap().as_f32().unwrap(),
         10.0

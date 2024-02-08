@@ -1,4 +1,5 @@
 use std::cell::RefCell;
+use std::hash::Hasher;
 use std::{
     collections::{HashMap, HashSet},
     fmt::Debug,
@@ -9,7 +10,6 @@ use std::{
         Arc, Mutex, RwLock,
     },
 };
-use std::hash::Hasher;
 
 use crate::ArtifactId;
 use crossbeam_channel::Sender;
@@ -82,35 +82,42 @@ pub struct ResolvedLoadHandle {
 }
 
 impl PartialEq for ResolvedLoadHandle {
-    fn eq(&self, other: &Self) -> bool {
+    fn eq(
+        &self,
+        other: &Self,
+    ) -> bool {
         // Only need to check the indirect ID
         self.id == other.id
     }
 }
 
-impl Eq for ResolvedLoadHandle {
-
-}
+impl Eq for ResolvedLoadHandle {}
 
 impl Hash for ResolvedLoadHandle {
-    fn hash<H: Hasher>(&self, state: &mut H) {
+    fn hash<H: Hasher>(
+        &self,
+        state: &mut H,
+    ) {
         // Only care about hashing the id
         self.id.hash(state)
     }
 }
 
 impl ResolvedLoadHandle {
-    pub fn new(id: LoadHandle, resolved_load_handle: LoadHandle) -> Arc<Self> {
+    pub fn new(
+        id: LoadHandle,
+        resolved_load_handle: LoadHandle,
+    ) -> Arc<Self> {
         Arc::new(ResolvedLoadHandle {
             id,
-            direct_load_handle: AtomicU64::new(resolved_load_handle.0)
+            direct_load_handle: AtomicU64::new(resolved_load_handle.0),
         })
     }
 
     pub fn new_null_handle() -> Arc<Self> {
         Arc::new(ResolvedLoadHandle {
             id: LoadHandle(0),
-            direct_load_handle: AtomicU64::default()
+            direct_load_handle: AtomicU64::default(),
         })
     }
 
@@ -149,7 +156,9 @@ impl PartialEq for HandleRef {
         &self,
         other: &Self,
     ) -> bool {
-        self.resolved_load_handle.id.eq(&other.resolved_load_handle.id)
+        self.resolved_load_handle
+            .id
+            .eq(&other.resolved_load_handle.id)
     }
 }
 impl Hash for HandleRef {
@@ -368,7 +377,9 @@ pub struct WeakHandle {
 
 impl WeakHandle {
     pub fn new(handle: Arc<ResolvedLoadHandle>) -> Self {
-        WeakHandle { resolved_load_handle: handle }
+        WeakHandle {
+            resolved_load_handle: handle,
+        }
     }
 }
 

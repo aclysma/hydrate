@@ -50,9 +50,7 @@ pub struct AssetStorageSet {
 }
 
 impl AssetStorageSet {
-    pub fn new(
-        refop_sender: Sender<RefOp>,
-    ) -> Self {
+    pub fn new(refop_sender: Sender<RefOp>) -> Self {
         let inner = AssetStorageSetInner {
             storage: Default::default(),
             data_to_asset_type_uuid: Default::default(),
@@ -112,10 +110,7 @@ impl AssetStorageSet {
         assert!(old.is_none());
         inner.storage.insert(
             ArtifactTypeId::from_bytes(AssetT::UUID),
-            Box::new(Storage::<AssetT>::new(
-                refop_sender,
-                loader,
-            )),
+            Box::new(Storage::<AssetT>::new(refop_sender, loader)),
         );
     }
 
@@ -421,10 +416,7 @@ impl<AssetT: TypeUuid + 'static + Send> DynAssetStorage for Storage<AssetT> {
         // If a load handler exists, trigger the commit_asset_version callback
         self.loader.commit_asset_version(load_handle);
 
-        let asset_state = ArtifactState {
-            asset,
-            artifact_id,
-        };
+        let asset_state = ArtifactState { asset, artifact_id };
 
         // Commit the result
         self.artifacts.insert(load_handle, asset_state);
@@ -435,7 +427,6 @@ impl<AssetT: TypeUuid + 'static + Send> DynAssetStorage for Storage<AssetT> {
         load_handle: LoadHandle,
     ) {
         if let Some(asset_state) = self.artifacts.get(&load_handle) {
-
             // Remove it from the list of assets
             let asset_state = self.artifacts.remove(&load_handle).unwrap();
 

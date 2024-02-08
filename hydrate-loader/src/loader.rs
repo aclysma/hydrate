@@ -290,126 +290,30 @@ struct LoaderUpdateState {
     pending_reload_actions: Vec<ReloadAction>,
 }
 
-pub struct Loader {
+struct LoaderInner {
     next_handle_index: AtomicU64,
-    load_handle_infos: Mutex<HashMap<LoadHandle, LoadHandleInfo>>,
+    load_handle_infos: HashMap<LoadHandle, LoadHandleInfo>,
     // This should only have direct handles, TODO: Rename
-    artifact_id_to_handle: Mutex<HashMap<ArtifactId, LoadHandle>>,
+    artifact_id_to_handle: HashMap<ArtifactId, LoadHandle>,
 
     loader_io: Box<dyn LoaderIO>,
-    update_state: Mutex<LoaderUpdateState>,
+    update_state: LoaderUpdateState,
 
     events_tx: Sender<LoaderEvent>,
     events_rx: Receiver<LoaderEvent>,
 
-    indirect_states: Mutex<HashMap<LoadHandle, IndirectLoad>>,
-    indirect_to_load: Mutex<HashMap<IndirectIdentifier, Arc<ResolvedLoadHandle>>>,
+    indirect_states: HashMap<LoadHandle, IndirectLoad>,
+    indirect_to_load: HashMap<IndirectIdentifier, Arc<ResolvedLoadHandle>>,
 }
 
-impl LoadStateProvider for Loader {
-    fn load_state(
-        &self,
-        load_handle: &Arc<ResolvedLoadHandle>,
-    ) -> LoadState {
-        self.load_handle_infos
-            .lock()
-            .unwrap()
-            .get(&load_handle.direct_load_handle())
-            .unwrap()
-            .version
-            .load_state
-    }
-
-    fn artifact_id(
-        &self,
-        load_handle: &Arc<ResolvedLoadHandle>,
-    ) -> ArtifactId {
-        self.load_handle_infos.lock().unwrap().get(&load_handle.direct_load_handle()).unwrap().artifact_id
-    }
-}
-
-#[derive(Copy, Clone)]
-struct LoadHandleInfoProviderImpl<'a> {
-    artifact_id_to_handle: &'a HashMap<ArtifactId, LoadHandle>,
-    load_handle_infos: &'a HashMap<LoadHandle, LoadHandleInfo>,
-}
-
-impl<'a> LoaderInfoProvider for LoadHandleInfoProviderImpl<'a> {
-    fn load_handle(
-        &self,
-        id: &ArtifactRef,
-    ) -> Option<Arc<ResolvedLoadHandle>> {
-        let artifact_id = ArtifactId::from_uuid(id.0.as_uuid());
-        let load_handle = self.artifact_id_to_handle.get(&artifact_id).map(|l| *l)?;
-        Some(ResolvedLoadHandle::new(load_handle, load_handle))
-    }
-
-    fn artifact_id(
-        &self,
-        load: LoadHandle,
-    ) -> Option<ArtifactId> {
-        self.load_handle_infos.get(&load).map(|l| l.artifact_id)
-    }
-}
-
-impl Loader {
-    pub(crate) fn symbol(
-        &self,
-        load: LoadHandle,
-    ) -> Option<StringHash> {
-        self.load_handle_infos
-            .lock()
-            .unwrap()
-            .get(&load)
-            .map(|l| l.symbol.clone())
-            .flatten()
-    }
-
-    pub(crate) fn debug_name(
-        &self,
-        load: LoadHandle,
-    ) -> Option<Arc<String>> {
-        self.load_handle_infos
-            .lock()
-            .unwrap()
-            .get(&load)
-            .map(|l| l.debug_name.clone())
-            .flatten()
-    }
-
-    pub(crate) fn new(
-        loader_io: Box<dyn LoaderIO>,
-        events_tx: Sender<LoaderEvent>,
-        events_rx: Receiver<LoaderEvent>,
-    ) -> Self {
-        let build_hash = loader_io.latest_build_hash();
-
-        Loader {
-            next_handle_index: AtomicU64::new(1),
-            artifact_id_to_handle: Default::default(),
-            load_handle_infos: Default::default(),
-            update_state: Mutex::new(LoaderUpdateState {
-                current_build_hash: build_hash,
-                current_reload_action: None,
-                pending_reload_actions: vec![],
-            }),
-            loader_io,
-            events_tx,
-            events_rx,
-            indirect_states: Default::default(),
-            indirect_to_load: Default::default(),
-        }
-    }
-
+impl LoaderInner {
     fn handle_try_load(
-        &self,
+        &mut self,
         build_hash: CombinedBuildHash,
         load_handle: LoadHandle,
-        load_handle_infos: &mut HashMap<LoadHandle, LoadHandleInfo>,
-
     ) {
         // Should always exist, we don't delete load handles
-        let mut load_state_info = load_handle_infos.get_mut(&load_handle).unwrap();
+        let load_state_info = self.load_handle_infos.get_mut(&load_handle).unwrap();
 
         log::debug!(
             "handle_try_load {:?} {:?} {:?}",
@@ -443,13 +347,12 @@ impl Loader {
     }
 
     fn handle_try_unload(
-        &self,
+        &mut self,
         load_handle: LoadHandle,
         asset_storage: &mut dyn AssetStorage,
-        load_handle_infos: &mut HashMap<LoadHandle, LoadHandleInfo>,
     ) {
         // Should always exist, we don't delete load handles
-        let mut load_state_info = load_handle_infos.get_mut(&load_handle).unwrap();
+        let load_state_info = self.load_handle_infos.get_mut(&load_handle).unwrap();
 
         log::debug!(
             "handle_try_unload {:?} {:?} {:?}",
@@ -488,24 +391,22 @@ impl Loader {
         // Remove dependency refs, we do this after we finish mutating the load info so that we don't
         // take multiple locks, which risks deadlock
         for depenency_load_handle in dependencies {
-            let mut depenency_load_handle_info = load_handle_infos
-                .get_mut(&depenency_load_handle)
+            let depenency_load_handle_info = self.load_handle_infos
+                .get(&depenency_load_handle)
                 .unwrap();
             self.do_remove_internal_ref(
                 depenency_load_handle,
-                &mut depenency_load_handle_info,
+                &depenency_load_handle_info,
             );
         }
     }
 
     fn handle_request_metadata_result(
-        &self,
+        &mut self,
         build_hash: CombinedBuildHash,
         result: RequestMetadataResult,
-        load_handle_infos: &mut HashMap<LoadHandle, LoadHandleInfo>,
-        artifact_id_to_handle: &mut HashMap<ArtifactId, LoadHandle>,
     ) {
-        if let Some(load_state_info) = load_handle_infos.get(&result.load_handle) {
+        if let Some(load_state_info) = self.load_handle_infos.get(&result.load_handle) {
             log::debug!(
                 "handle_request_metadata_result {:?} {:?} {:?}",
                 result.load_handle,
@@ -531,14 +432,15 @@ impl Loader {
 
         let mut dependency_load_handles = vec![];
         for dependency in &metadata.dependencies {
-            let dependency_load_handle = self.get_or_insert_direct(*dependency, load_handle_infos, artifact_id_to_handle);
-            let mut dependency_load_handle_info = load_handle_infos
+            let dependency_load_handle = self.get_or_insert_direct(*dependency);
+            let dependency_load_handle_info = self.load_handle_infos
                 .get_mut(&dependency_load_handle)
                 .unwrap();
 
             dependency_load_handles.push(dependency_load_handle);
 
-            self.do_add_internal_ref(
+            Self::do_add_internal_ref(
+                &self.events_tx,
                 dependency_load_handle,
                 &dependency_load_handle_info,
             );
@@ -556,7 +458,7 @@ impl Loader {
                 .push(result.load_handle);
         }
 
-        if let Some(mut load_state_info) = load_handle_infos.get_mut(&result.load_handle) {
+        if let Some(load_state_info) = self.load_handle_infos.get_mut(&result.load_handle) {
             let artifact_id = load_state_info.artifact_id;
             let version = &mut load_state_info.version;
             version.asset_type = metadata.asset_type;
@@ -592,13 +494,12 @@ impl Loader {
     }
 
     fn handle_dependencies_loaded(
-        &self,
+        &mut self,
         build_hash: CombinedBuildHash,
         load_handle: LoadHandle,
-        load_handle_infos: &mut HashMap<LoadHandle, LoadHandleInfo>,
     ) {
         //are we still in the correct state?
-        let mut load_state_info = load_handle_infos.get_mut(&load_handle).unwrap();
+        let load_state_info = self.load_handle_infos.get_mut(&load_handle).unwrap();
         log::debug!(
             "handle_dependencies_loaded {:?} {:?} {:?}",
             load_handle,
@@ -625,15 +526,13 @@ impl Loader {
     }
 
     fn handle_request_data_result(
-        &self,
+        &mut self,
         result: RequestDataResult,
         asset_storage: &mut dyn AssetStorage,
-        load_handle_infos: &mut HashMap<LoadHandle, LoadHandleInfo>,
-        artifact_id_to_handle: &HashMap<ArtifactId, LoadHandle>,
     ) {
         // Should always exist, we don't delete load handles
         let (load_op, load_state_info, data) = {
-            let mut load_state_info = load_handle_infos.get(&result.load_handle).unwrap();
+            let load_state_info = self.load_handle_infos.get(&result.load_handle).unwrap();
             log::debug!(
                 "handle_request_data_result {:?} {:?} {:?}",
                 result.load_handle,
@@ -658,8 +557,8 @@ impl Loader {
         };
 
         let info_provider = LoadHandleInfoProviderImpl {
-            artifact_id_to_handle,
-            load_handle_infos: &*load_handle_infos,
+            artifact_id_to_handle: &self.artifact_id_to_handle,
+            load_handle_infos: &self.load_handle_infos,
         };
 
         // We dropped the load_state_info lock before calling this because the serde deserializer may query for asset
@@ -676,22 +575,21 @@ impl Loader {
             .unwrap();
 
         // Should always exist, we don't delete load handles
-        let mut load_state_info = load_handle_infos.get_mut(&result.load_handle).unwrap();
+        let load_state_info = self.load_handle_infos.get_mut(&result.load_handle).unwrap();
         let version = &mut load_state_info.version;
         version.load_state = LoadState::Loading;
     }
 
     fn handle_load_result(
-        &self,
+        &mut self,
         load_result: HandleOp,
         asset_storage: &mut dyn AssetStorage,
-        load_handle_infos: &mut HashMap<LoadHandle, LoadHandleInfo>,
     ) {
         //while let Ok(handle_op) = self.handle_op_rx.try_recv() {
         // Handle the operation
         match load_result {
             HandleOp::Error(load_handle, error) => {
-                let asset_info = load_handle_infos.get(&load_handle).unwrap();
+                let asset_info = self.load_handle_infos.get(&load_handle).unwrap();
                 log::debug!(
                     "handle_load_result error {:?} {:?} {:?}",
                     load_handle,
@@ -709,8 +607,8 @@ impl Loader {
                 // Flag any loads that were waiting on this load to proceed
                 let mut blocked_loads = Vec::default();
                 let asset_type = {
-                    let mut load_handle_info =
-                        load_handle_infos.get_mut(&load_handle).unwrap();
+                    let load_handle_info =
+                        self.load_handle_infos.get_mut(&load_handle).unwrap();
                     log::debug!(
                         "handle_load_result complete {:?} {:?} {:?}",
                         load_handle,
@@ -727,7 +625,7 @@ impl Loader {
 
                 for blocked_load_handle in blocked_loads {
                     log::trace!("blocked load {:?}", blocked_load_handle);
-                    let blocked_load = load_handle_infos
+                    let blocked_load = self.load_handle_infos
                         .get_mut(&blocked_load_handle)
                         .unwrap();
                     let previous_blocked_load_count = blocked_load.version
@@ -745,7 +643,7 @@ impl Loader {
 
                 //TODO: Delay commit until everything is ready?
                 asset_storage.commit_asset_version(&asset_type, load_handle);
-                load_handle_infos
+                self.load_handle_infos
                     .get_mut(&load_handle)
                     .unwrap()
                     .version
@@ -768,38 +666,35 @@ impl Loader {
 
     #[profiling::function]
     pub(crate) fn update(
-        &self,
+        &mut self,
         asset_storage: &mut dyn AssetStorage,
     ) {
-        let mut update_state = self.update_state.lock().unwrap();
-        let mut load_handle_infos = self.load_handle_infos.lock().unwrap();
-        let mut artifact_id_to_handle = self.artifact_id_to_handle.lock().unwrap();
-        let build_hash = update_state.current_build_hash;
+        let build_hash = self.update_state.current_build_hash;
 
         while let Ok(loader_event) = self.events_rx.try_recv() {
             log::debug!("handle event {:?}", loader_event);
             match loader_event {
                 LoaderEvent::TryLoad(load_handle) => {
-                    self.handle_try_load(build_hash, load_handle, &mut *load_handle_infos)
+                    self.handle_try_load(build_hash, load_handle)
                 }
                 LoaderEvent::TryUnload(load_handle) => {
-                    self.handle_try_unload(load_handle, asset_storage, &mut *load_handle_infos)
+                    self.handle_try_unload(load_handle, asset_storage)
                 }
                 LoaderEvent::MetadataRequestComplete(result) => {
-                    self.handle_request_metadata_result(build_hash, result, &mut *load_handle_infos, &mut * artifact_id_to_handle)
+                    self.handle_request_metadata_result(build_hash, result)
                 }
                 LoaderEvent::DependenciesLoaded(load_handle) => {
-                    self.handle_dependencies_loaded(build_hash, load_handle, &mut *load_handle_infos)
+                    self.handle_dependencies_loaded(build_hash, load_handle)
                 }
                 LoaderEvent::DataRequestComplete(result) => {
-                    self.handle_request_data_result(result, asset_storage, &mut *load_handle_infos, &*artifact_id_to_handle)
+                    self.handle_request_data_result(result, asset_storage)
                 }
                 LoaderEvent::LoadResult(load_result) => {
-                    self.handle_load_result(load_result, asset_storage, &mut *load_handle_infos)
+                    self.handle_load_result(load_result, asset_storage)
                 }
                 LoaderEvent::AssetsUpdated(build_hash, updated_assets) => {
                     // We probably want to finish existing work, pause starting new work, and do the reload
-                    update_state.pending_reload_actions.push(ReloadAction {
+                    self.update_state.pending_reload_actions.push(ReloadAction {
                         _build_hash: build_hash,
                         _updated_assets: updated_assets,
                     });
@@ -807,34 +702,35 @@ impl Loader {
             }
         }
 
-        if update_state.current_reload_action.is_none() {
+        if self.update_state.current_reload_action.is_none() {
             // Pause ref count changes
             // ref counts need to be for particular versions?
         }
     }
 
     fn allocate_load_handle(
-        &self,
+        next_handle_index: &AtomicU64,
         is_indirect: bool,
     ) -> LoadHandle {
-        let load_handle_index = self.next_handle_index.fetch_add(1, Ordering::Relaxed);
+        let load_handle_index = next_handle_index.fetch_add(1, Ordering::Relaxed);
         LoadHandle::new(load_handle_index, is_indirect)
     }
 
     // This returns a ResolvedLoadHandle which is either already pointing at a direct load or will need
     // to be populated with a direct load
     fn get_or_insert_indirect(
-        &self,
+        &mut self,
         indirect_id: &IndirectIdentifier,
-        indirect_states: &mut HashMap<LoadHandle, IndirectLoad>,
-        indirect_to_load: &mut HashMap<IndirectIdentifier, Arc<ResolvedLoadHandle>>,
     ) -> Arc<ResolvedLoadHandle> {
-        indirect_to_load
+        let next_handle_index = &mut self.next_handle_index;
+        let indirect_states = &mut self.indirect_states;
+        let loader_io = &mut self.loader_io;
+        self.indirect_to_load
             .entry(indirect_id.clone())
             .or_insert_with(|| {
-                let load_handle = self.allocate_load_handle(true);
+                let load_handle = Self::allocate_load_handle(next_handle_index, true);
 
-                let resolved = self.loader_io.resolve_indirect(indirect_id);
+                let resolved = loader_io.resolve_indirect(indirect_id);
                 if resolved.is_none() {
                     panic!("Couldn't find asset {:?}", indirect_id);
                 }
@@ -862,16 +758,17 @@ impl Loader {
     }
 
     fn get_or_insert_direct(
-        &self,
+        &mut self,
         artifact_id: ArtifactId,
-        load_handle_infos: &mut HashMap<LoadHandle, LoadHandleInfo>,
-        artifact_id_to_handle: &mut HashMap<ArtifactId, LoadHandle>,
     ) -> LoadHandle {
-            *artifact_id_to_handle
+        let next_handle_index = &mut self.next_handle_index;
+        let load_handle_infos = &mut self.load_handle_infos;
+        let loader_io = &mut self.loader_io;
+        *self.artifact_id_to_handle
             .entry(artifact_id)
             .or_insert_with(|| {
-                let load_handle = self.allocate_load_handle(false);
-                let manifest_entry = self.loader_io.manifest_entry(artifact_id).unwrap();
+                let load_handle = Self::allocate_load_handle(next_handle_index, false);
+                let manifest_entry = loader_io.manifest_entry(artifact_id).unwrap();
 
                 log::debug!(
                     "Allocate load handle {:?} for artifact id {:?}",
@@ -917,22 +814,15 @@ impl Loader {
     // }
 
     fn do_add_engine_ref_indirect(
-        &self,
+        &mut self,
         id: IndirectIdentifier,
-        load_handle_infos: &mut HashMap<LoadHandle, LoadHandleInfo>,
-        artifact_id_to_handle: &mut HashMap<ArtifactId, LoadHandle>,
-        indirect_states: &mut HashMap<LoadHandle, IndirectLoad>,
-        indirect_to_load: &mut HashMap<IndirectIdentifier, Arc<ResolvedLoadHandle>>,
     ) -> Arc<ResolvedLoadHandle> {
-        let indirect_load_handle = self.get_or_insert_indirect(&id, indirect_states, indirect_to_load);
+        let indirect_load_handle = self.get_or_insert_indirect(&id);
 
         // It's possible this has already been resolved, but we nee to make certain we add the appropriate
         // ref count
         let direct_load_handle = self.do_add_engine_ref_by_handle_indirect(
-            indirect_load_handle.id,
-            load_handle_infos,
-            artifact_id_to_handle,
-            indirect_states
+            indirect_load_handle.id
         );
 
         let direct_load_test = indirect_load_handle.direct_load_handle.swap(direct_load_handle.0, Ordering::Relaxed);
@@ -943,34 +833,19 @@ impl Loader {
         indirect_load_handle
     }
 
-    pub(crate) fn add_engine_ref_indirect(
-        &self,
-        id: IndirectIdentifier,
-    ) -> Arc<ResolvedLoadHandle> {
-        self.do_add_engine_ref_indirect(
-            id,
-            &mut *self.load_handle_infos.lock().unwrap(),
-            &mut *self.artifact_id_to_handle.lock().unwrap(),
-            &mut *self.indirect_states.lock().unwrap(),
-            &mut *self.indirect_to_load.lock().unwrap(),
-        )
-    }
 
     // from add_ref_handle
     // Returns the direct load handle
     fn do_add_engine_ref_by_handle_indirect(
-        &self,
+        &mut self,
         load_handle: LoadHandle,
-        load_handle_infos: &mut HashMap<LoadHandle, LoadHandleInfo>,
-        artifact_id_to_handle: &mut HashMap<ArtifactId, LoadHandle>,
-        indirect_states: &HashMap<LoadHandle, IndirectLoad>,
     ) -> LoadHandle {
         assert!(load_handle.is_indirect());
-        let state = indirect_states.get(&load_handle).unwrap();
+        let state = self.indirect_states.get(&load_handle).unwrap();
         state.engine_ref_count.fetch_add(1, Ordering::Relaxed);
 
-        let direct_load_handle = self.get_or_insert_direct(state.resolved_uuid, load_handle_infos, artifact_id_to_handle);
-        self.do_add_engine_ref_by_handle_direct(direct_load_handle, load_handle_infos);
+        let direct_load_handle = self.get_or_insert_direct(state.resolved_uuid);
+        self.do_add_engine_ref_by_handle_direct(direct_load_handle);
         direct_load_handle
     }
 
@@ -979,17 +854,17 @@ impl Loader {
     fn do_add_engine_ref_by_handle_direct(
         &self,
         load_handle: LoadHandle,
-        load_handle_infos: &mut HashMap<LoadHandle, LoadHandleInfo>,
     ) -> LoadHandle {
         assert!(!load_handle.is_indirect());
-        let guard = load_handle_infos.get(&load_handle);
+        let guard = self.load_handle_infos.get(&load_handle);
         let load_handle_info = guard.as_ref().unwrap();
         load_handle_info
             .engine_ref_count
             .fetch_add(1, Ordering::Relaxed);
         // Engine always adjusts the latest version count
         //TODO: Don't understand this, probably break when there are multiple versions
-        self.do_add_internal_ref(
+        Self::do_add_internal_ref(
+            &self.events_tx,
             load_handle,
             load_handle_info,
         );
@@ -997,47 +872,21 @@ impl Loader {
         load_handle
     }
 
-    pub(crate) fn add_engine_ref_by_handle(
-        &self,
-        load_handle: LoadHandle,
-    ) -> LoadHandle {
-        if load_handle.is_indirect() {
-            self.do_add_engine_ref_by_handle_indirect(
-                load_handle,
-                &mut *self.load_handle_infos.lock().unwrap(),
-                &mut *self.artifact_id_to_handle.lock().unwrap(),
-                &self.indirect_states.lock().unwrap(),
-            )
-        } else {
-            self.do_add_engine_ref_by_handle_direct(
-                load_handle,
-                &mut *self.load_handle_infos.lock().unwrap(),
-            )
-        }
-    }
-
     fn remove_engine_ref_indirect(
         &self,
         load_handle: LoadHandle,
-        load_handle_infos: &HashMap<LoadHandle, LoadHandleInfo>,
-        artifact_id_to_handle: &HashMap<ArtifactId, LoadHandle>,
-        indirect_states: &HashMap<LoadHandle, IndirectLoad>,
     ) {
-        let state = indirect_states.get(&load_handle).unwrap();
+        let state = self.indirect_states.get(&load_handle).unwrap();
         state.engine_ref_count.fetch_sub(1, Ordering::Relaxed);
-        let resolved_uuid = state.resolved_uuid;
-        drop(state);
-        let load_handle = *artifact_id_to_handle.get(&resolved_uuid).unwrap();
-        self.remove_engine_ref_direct(load_handle, load_handle_infos);
+        let load_handle = *self.artifact_id_to_handle.get(&state.resolved_uuid).unwrap();
+        self.remove_engine_ref_direct(load_handle);
     }
 
     fn remove_engine_ref_direct(
         &self,
         load_handle: LoadHandle,
-        load_handle_infos: &HashMap<LoadHandle, LoadHandleInfo>,
     ) {
-        let guard = load_handle_infos.get(&load_handle);
-        let load_handle_info = guard.as_ref().unwrap();
+        let load_handle_info = self.load_handle_infos.get(&load_handle).unwrap();
         load_handle_info
             .engine_ref_count
             .fetch_sub(1, Ordering::Relaxed);
@@ -1049,23 +898,8 @@ impl Loader {
         );
     }
 
-    // from remove_refs
-    pub(crate) fn remove_engine_ref(
-        &self,
-        load_handle: LoadHandle,
-    ) {
-        let mut load_handle_infos = self.load_handle_infos.lock().unwrap();
-        if load_handle.is_indirect() {
-            let mut artifact_id_to_handle = self.artifact_id_to_handle.lock().unwrap();
-            let mut indirect_states = self.indirect_states.lock().unwrap();
-            self.remove_engine_ref_indirect(load_handle, &*load_handle_infos, &*artifact_id_to_handle, &*indirect_states);
-        } else {
-            self.remove_engine_ref_direct(load_handle, &*load_handle_infos);
-        }
-    }
-
     fn do_add_internal_ref(
-        &self,
+        events_tx: &Sender<LoaderEvent>,
         load_handle: LoadHandle,
         load_handle_info: &LoadHandleInfo,
     ) {
@@ -1077,7 +911,7 @@ impl Loader {
 
         // If this is the first reference to the asset, put it in the queue to be loaded
         if previous_ref_count == 0 {
-            self.events_tx
+            events_tx
                 .send(LoaderEvent::TryLoad(load_handle))
                 .unwrap();
         }
@@ -1102,11 +936,182 @@ impl Loader {
         }
     }
 
+    pub fn get_load_info(
+        &self,
+        handle: LoadHandle,
+    ) -> Option<LoadInfo> {
+        let handle = if handle.is_indirect() {
+            let indirect_id = self.indirect_states.get(&handle).unwrap().id.clone();
+            self.indirect_to_load.get(&indirect_id).unwrap().direct_load_handle()
+        } else {
+            handle
+        };
+
+        let load_info = self.load_handle_infos.get(&handle)?;
+        Some(LoadInfo {
+            artifact_id: load_info.artifact_id,
+            refs: load_info.engine_ref_count.load(Ordering::Relaxed),
+            symbol: load_info.symbol.clone(),
+            debug_name: load_info.debug_name.clone(),
+            //path: load_info.versions.last().unwrap().
+        })
+    }
+}
+
+
+#[derive(Clone)]
+pub struct Loader {
+    inner: Arc<Mutex<LoaderInner>>,
+}
+
+impl LoadStateProvider for Loader {
+    fn load_state(
+        &self,
+        load_handle: &Arc<ResolvedLoadHandle>,
+    ) -> LoadState {
+        self.inner.lock().unwrap().load_handle_infos
+            .get(&load_handle.direct_load_handle())
+            .unwrap()
+            .version
+            .load_state
+    }
+
+    fn artifact_id(
+        &self,
+        load_handle: &Arc<ResolvedLoadHandle>,
+    ) -> ArtifactId {
+        self.inner.lock().unwrap().load_handle_infos.get(&load_handle.direct_load_handle()).unwrap().artifact_id
+    }
+}
+
+#[derive(Copy, Clone)]
+struct LoadHandleInfoProviderImpl<'a> {
+    artifact_id_to_handle: &'a HashMap<ArtifactId, LoadHandle>,
+    load_handle_infos: &'a HashMap<LoadHandle, LoadHandleInfo>,
+}
+
+impl<'a> LoaderInfoProvider for LoadHandleInfoProviderImpl<'a> {
+    fn load_handle(
+        &self,
+        id: &ArtifactRef,
+    ) -> Option<Arc<ResolvedLoadHandle>> {
+        let artifact_id = ArtifactId::from_uuid(id.0.as_uuid());
+        let load_handle = self.artifact_id_to_handle.get(&artifact_id).map(|l| *l)?;
+        Some(ResolvedLoadHandle::new(load_handle, load_handle))
+    }
+
+    fn artifact_id(
+        &self,
+        load: LoadHandle,
+    ) -> Option<ArtifactId> {
+        self.load_handle_infos.get(&load).map(|l| l.artifact_id)
+    }
+}
+
+impl Loader {
+    // pub(crate) fn symbol(
+    //     &self,
+    //     load: LoadHandle,
+    // ) -> Option<StringHash> {
+    //     self.inner
+    //         .lock()
+    //         .unwrap()
+    //         .load_handle_infos
+    //         .get(&load)
+    //         .map(|l| l.symbol.clone())
+    //         .flatten()
+    // }
+    //
+    // pub(crate) fn debug_name(
+    //     &self,
+    //     load: LoadHandle,
+    // ) -> Option<Arc<String>> {
+    //     self.inner
+    //         .lock()
+    //         .unwrap()
+    //         .load_handle_infos
+    //         .get(&load)
+    //         .map(|l| l.debug_name.clone())
+    //         .flatten()
+    // }
+
+    pub(crate) fn new(
+        loader_io: Box<dyn LoaderIO>,
+        events_tx: Sender<LoaderEvent>,
+        events_rx: Receiver<LoaderEvent>,
+    ) -> Self {
+        let build_hash = loader_io.latest_build_hash();
+
+        let inner = LoaderInner {
+            next_handle_index: AtomicU64::new(1),
+            artifact_id_to_handle: Default::default(),
+            load_handle_infos: Default::default(),
+            update_state: LoaderUpdateState {
+                current_build_hash: build_hash,
+                current_reload_action: None,
+                pending_reload_actions: vec![],
+            },
+            loader_io,
+            events_tx,
+            events_rx,
+            indirect_states: Default::default(),
+            indirect_to_load: Default::default(),
+        };
+
+        Loader {
+            inner: Arc::new(Mutex::new(inner))
+        }
+    }
+
+    pub(crate) fn update(
+        &self,
+        asset_storage: &mut dyn AssetStorage
+    ) {
+        self.inner.lock().unwrap().update(asset_storage);
+    }
+
+    pub(crate) fn add_engine_ref_indirect(
+        &self,
+        id: IndirectIdentifier,
+    ) -> Arc<ResolvedLoadHandle> {
+        self.inner.lock().unwrap().do_add_engine_ref_indirect(
+            id
+        )
+    }
+
+
+    pub(crate) fn add_engine_ref_by_handle(
+        &self,
+        load_handle: LoadHandle,
+    ) -> LoadHandle {
+        if load_handle.is_indirect() {
+            self.inner.lock().unwrap().do_add_engine_ref_by_handle_indirect(
+                load_handle,
+            )
+        } else {
+            self.inner.lock().unwrap().do_add_engine_ref_by_handle_direct(
+                load_handle,
+            )
+        }
+    }
+
+    // from remove_refs
+    pub(crate) fn remove_engine_ref(
+        &self,
+        load_handle: LoadHandle,
+    ) {
+        if load_handle.is_indirect() {
+            self.inner.lock().unwrap().remove_engine_ref_indirect(load_handle);
+        } else {
+            self.inner.lock().unwrap().remove_engine_ref_direct(load_handle);
+        }
+    }
+
     /// Returns handles to all active asset loads.
     pub fn get_active_loads(&self) -> Vec<LoadHandle> {
         let mut loading_handles = Vec::default();
-        let load_handle_infos = self.load_handle_infos.lock().unwrap();
-        for (k, v) in &*load_handle_infos {
+        let inner = self.inner.lock().unwrap();
+        for k in inner.load_handle_infos.keys() {
             loading_handles.push(k.clone());
         }
 
@@ -1117,22 +1122,7 @@ impl Loader {
         &self,
         handle: LoadHandle,
     ) -> Option<LoadInfo> {
-        let handle = if handle.is_indirect() {
-            let indirect_id = self.indirect_states.lock().unwrap().get(&handle).unwrap().id.clone();
-            self.indirect_to_load.lock().unwrap().get(&indirect_id).unwrap().direct_load_handle()
-        } else {
-            handle
-        };
-
-        let mut load_handle_infos = self.load_handle_infos.lock().unwrap();
-        let load_info = load_handle_infos.get(&handle)?;
-        Some(LoadInfo {
-            artifact_id: load_info.artifact_id,
-            refs: load_info.engine_ref_count.load(Ordering::Relaxed),
-            symbol: load_info.symbol.clone(),
-            debug_name: load_info.debug_name.clone(),
-            //path: load_info.versions.last().unwrap().
-        })
+        self.inner.lock().unwrap().get_load_info(handle)
     }
 }
 

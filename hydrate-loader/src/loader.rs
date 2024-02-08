@@ -7,12 +7,24 @@ use hydrate_base::handle::{
 use hydrate_base::hashing::HashMap;
 use hydrate_base::ArtifactId;
 use hydrate_base::{ArtifactManifestData, LoadHandle, StringHash};
-use std::sync::atomic::{AtomicU32, AtomicU64, AtomicUsize, Ordering};
+use std::sync::atomic::{Ordering};
 use std::sync::{Arc, Mutex};
 
 //
 // Interface for IO
 //
+// Data about artifacts is stored in three places:
+// - Manifest: full list of all artifacts, always in-memory
+// - Metadata: stored usually at the head of the artifact data itself. Requires an IO operation to read
+//   but is lightweight in terms of bytes
+// - Data: The actual payload of the artifact
+//
+// The primary use of metadata is to get a list of other artifacts that must be loaded in order to
+// a particular artifact. We will fire off requests for those other artifacts and wait for them to
+// complete before requesting payload data
+//
+
+// Data about an artifact that is not in the manifest
 #[derive(Debug)]
 pub struct ArtifactMetadata {
     pub dependencies: Vec<ArtifactId>,
@@ -21,6 +33,7 @@ pub struct ArtifactMetadata {
     // size?
 }
 
+// The actual payload data of an artifact
 pub struct ArtifactData {
     pub data: Vec<u8>,
 }
@@ -36,6 +49,7 @@ impl std::fmt::Debug for ArtifactData {
     }
 }
 
+// When IO completes a request for artifact metadata, it will send us a loader event containing this
 #[derive(Debug)]
 pub struct RequestMetadataResult {
     pub artifact_id: ArtifactId,
@@ -44,6 +58,7 @@ pub struct RequestMetadataResult {
     pub result: std::io::Result<ArtifactMetadata>,
 }
 
+// When IO completes a request for artifact payload data, it will send us a loader event containing this
 #[derive(Debug)]
 pub struct RequestDataResult {
     pub artifact_id: ArtifactId,
@@ -53,24 +68,31 @@ pub struct RequestDataResult {
     pub result: std::io::Result<ArtifactData>,
 }
 
+// A hash of a particular data build. This encompasses everything that was in a single manifest.
+// If it changes, we need to check for artifacts that have changed, load them, and update indirect
+// handles to point at them. The LoaderIO will provide a new build hash to indicate this has occurred.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub struct CombinedBuildHash(pub u64);
 
+// Represents a data source from which we can load content
 pub trait LoaderIO: Sync + Send {
     // Returns the latest known build hash that we are currently able to read from
     fn latest_build_hash(&self) -> CombinedBuildHash;
 
-    // How does this work with updating to new versions?
+    // Provide manifest data for a particular artifact by ID
     fn manifest_entry(
         &self,
         artifact_id: ArtifactId,
     ) -> Option<&ArtifactManifestData>;
 
+    // Provide manifest data for an artifact, determined by indirect identifier (for example a
+    // symbol name)
     fn resolve_indirect(
         &self,
         indirect_identifier: &IndirectIdentifier,
     ) -> Option<&ArtifactManifestData>;
 
+    // Load the metadata for an artifact.
     // This results in a RequestMetadataResult being sent to the loader
     fn request_metadata(
         &self,
@@ -79,6 +101,7 @@ pub trait LoaderIO: Sync + Send {
         artifact_id: ArtifactId,
     );
 
+    // Load the payload for an artifact.
     // This results in a RequestDataResult being sent to the loader
     fn request_data(
         &self,
@@ -86,7 +109,6 @@ pub trait LoaderIO: Sync + Send {
         load_handle: LoadHandle,
         artifact_id: ArtifactId,
         hash: u64,
-        //subresource: Option<u32>,
     );
 }
 
@@ -111,14 +133,17 @@ pub enum LoaderEvent {
     ArtifactsUpdated(CombinedBuildHash, Vec<ArtifactId>),
 }
 
+// Information about indirect load handles that have been requested
 #[derive(Debug)]
 struct IndirectLoad {
     // Identifies what this indirect load refers to. This could be a symbol, and artifact, etc.
     id: IndirectIdentifier,
     // The artifact that the identifier currently maps to. This could change if we reload data.
+    //TODO: Update this on reload
     resolved_uuid: ArtifactId,
-    // The reference count of external handles
-    engine_ref_count: AtomicUsize,
+    // The reference count of external handles (i.e. explicitly requested references, not references
+    // due to other artifacts depending on this artifact) matching this indirect identifier
+    external_ref_count_indirect: u32,
 }
 
 //TODO: This should probably just be merged into LoadHandleInfo
@@ -126,25 +151,34 @@ struct LoadHandleVersionInfo {
     // State this particular artifact is in
     load_state: LoadState,
     artifact_type_id: ArtifactTypeId,
+    // Used to uniquely identify a version of this artifact.
     hash: u64,
 
-    //TODO: Rename to internal ref count
-    dependency_ref_count: u32,
+    // Number of references to this artifact, including explicitly via indirect handles or implicitly
+    // due to other requested artifacts requiring this artifact to be loaded first. This reference
+    // count is the primary determinent of when it's safe to free an artifact from in-memory storage
+    internal_ref_count: u32,
 
     // Number of artifacts that need to finish loading before this artifact can request data and load
-    //TODO: Probably doesn't need to be atomic
-    blocking_dependency_count: AtomicU32,
+    blocking_dependency_count: u32,
 
     // load handles for any artifacts that are waiting on this artifact to load in order to continue
     blocked_loads: Vec<LoadHandle>,
 
-    // load handles for any artifacts that need to be released when this is unloaded
+    // load handles for any artifacts that need to be released when this is unloaded. This artifact
+    // implicitly requires these artifacts to load fully before this artifact can finish loading.
     dependencies: Vec<LoadHandle>,
 }
 
+// Information about direct load handles that are currently loaded or were loaded at some point in
+// the past. A load handle points to a particular version of an artifact, uniquely identified by
+// an artifact ID and the hash.
 struct LoadHandleInfo {
     artifact_id: ArtifactId,
-    engine_ref_count: AtomicU32,
+    // The reference count of external handles (i.e. explicitly requested references, not references
+    // due to other artifacts depending on this artifact) for this artifact. Indirect handles will
+    // count here and it may be that this artifact is referenced by multiple unique indirect handles.
+    external_ref_count_direct: u32,
     version: LoadHandleVersionInfo,
 
     // for debugging/convenience, not actually required
@@ -153,34 +187,42 @@ struct LoadHandleInfo {
     debug_name: Option<Arc<String>>,
 }
 
+//TODO: This may need to track the changed artifacts to wait for them to load before updating
+// indirect handles and removing ref counts from the direct handles they used to be associated with?
 struct ReloadAction {
     _build_hash: CombinedBuildHash,
-    _updated_artifacts: Vec<ArtifactId>,
-}
-
-struct LoaderUpdateState {
-    current_build_hash: CombinedBuildHash,
-    current_reload_action: Option<ReloadAction>,
-    pending_reload_actions: Vec<ReloadAction>,
 }
 
 struct LoaderInner {
-    next_handle_index: AtomicU64,
-    // This should only have direct handles
+    next_handle_index: u64,
+
+    // All direct load handles that are currently loaded or were loaded in the past
+    // This should only contain direct handles
     load_handle_infos: HashMap<LoadHandle, LoadHandleInfo>,
-    // This should only have direct handles
+    // The direct handle for a given artifact ID
+    // This should only contain direct handles
+    //TODO: This will get updated on reload
     artifact_id_to_handle: HashMap<ArtifactId, LoadHandle>,
 
+    // The data source we will load content from
     loader_io: Box<dyn LoaderIO>,
 
-    //TODO: Probably don't need to put this into a struct?
-    update_state: LoaderUpdateState,
-
+    // The event queue that drives artifact load states changing. Events are produced by API calls
+    // from the game, LoaderIO results, significant changes in reference counts, etc.
     events_tx: Sender<LoaderEvent>,
     events_rx: Receiver<LoaderEvent>,
 
+    // All indirect load handles that exist or previously existed
     indirect_states: HashMap<LoadHandle, IndirectLoad>,
+    // All indirect identifiers that exist or previously existed, along with the indirect and direct
+    // load handles associated with them
+    //TODO: The direct handles will be updated on a reload
     indirect_to_load: HashMap<IndirectIdentifier, Arc<ResolvedLoadHandle>>,
+
+    // Update-specific state, mainly to do with reload detection/handling
+    current_build_hash: CombinedBuildHash,
+    current_reload_action: Option<ReloadAction>,
+    pending_reload_actions: Option<ReloadAction>,
 }
 
 impl LoaderInner {
@@ -191,7 +233,7 @@ impl LoaderInner {
         &mut self,
         asset_storage: &mut dyn AssetStorage,
     ) {
-        let build_hash = self.update_state.current_build_hash;
+        let build_hash = self.current_build_hash;
 
         while let Ok(loader_event) = self.events_rx.try_recv() {
             log::debug!("handle event {:?}", loader_event);
@@ -214,15 +256,14 @@ impl LoaderInner {
                 }
                 LoaderEvent::ArtifactsUpdated(build_hash, updated_artifacts) => {
                     // We probably want to finish existing work, pause starting new work, and do the reload
-                    self.update_state.pending_reload_actions.push(ReloadAction {
+                    self.pending_reload_actions = Some(ReloadAction {
                         _build_hash: build_hash,
-                        _updated_artifacts: updated_artifacts,
                     });
                 }
             }
         }
 
-        if self.update_state.current_reload_action.is_none() {
+        if self.current_reload_action.is_none() {
             // Pause ref count changes
             // ref counts need to be for particular versions?
         }
@@ -249,7 +290,7 @@ impl LoaderInner {
         let current_version = &mut load_state_info.version;
         if current_version.load_state == LoadState::Unloaded {
             // We have not started to load this artifact, so we can potentially start it now
-            if current_version.dependency_ref_count > 0 {
+            if current_version.internal_ref_count > 0 {
                 // The engine is still referencing it, so we should start loading it now
                 self.loader_io
                     .request_metadata(build_hash, load_handle, artifact_id);
@@ -285,7 +326,7 @@ impl LoaderInner {
         if current_version.load_state != LoadState::Unloaded {
             // We are somewhere in the state machine to load the artifact, we can stop loading it now
             // if it's no longer referenced
-            if current_version.dependency_ref_count > 0 {
+            if current_version.internal_ref_count > 0 {
                 // It's referenced, don't unload it
             } else {
                 // It's not referenced, so go ahead and unloaded it...
@@ -311,7 +352,7 @@ impl LoaderInner {
         for depenency_load_handle in dependencies {
             let depenency_load_handle_info =
                 self.load_handle_infos.get_mut(&depenency_load_handle).unwrap();
-            Self::do_remove_internal_ref(&self.events_tx, depenency_load_handle, depenency_load_handle_info);
+            Self::remove_internal_ref(&self.events_tx, depenency_load_handle, depenency_load_handle_info);
         }
     }
 
@@ -354,7 +395,7 @@ impl LoaderInner {
 
             dependency_load_handles.push(dependency_load_handle);
 
-            Self::do_add_internal_ref(
+            Self::add_internal_ref(
                 &self.events_tx,
                 dependency_load_handle,
                 dependency_load_handle_info,
@@ -394,11 +435,11 @@ impl LoaderInner {
                     result.load_handle,
                     blocking_dependency_count
                 );
-                version.blocking_dependency_count = AtomicU32::new(blocking_dependency_count);
+                version.blocking_dependency_count = blocking_dependency_count;
                 version.load_state = LoadState::WaitingForDependencies;
-                //TODO: Wait for dependencies, maybe by putting all artifacts in this state into a list
-                // so we only poll artifacts that are in this state
-                //unimplemented!();
+                // Processing for this artifact will continue with dependencies load and our
+                // blocking_dependency_count hits 0. (It will be decremented as dependencies are
+                // loaded in)
             }
         } else {
             // We don't recognize the load_handle.. we currently never delete them so this shouldn't happen
@@ -508,7 +549,7 @@ impl LoaderInner {
                     load_handle_info.debug_name,
                     load_handle_info.artifact_id
                 );
-                //TODO: How to handle error?
+                //TODO: How to handle errors?
                 log::error!("load error {}", error);
                 panic!("load error {}", error);
             }
@@ -540,11 +581,10 @@ impl LoaderInner {
                         .load_handle_infos
                         .get_mut(&blocked_load_handle)
                         .unwrap();
-                    let previous_blocked_load_count = blocked_load
+                    blocked_load
                         .version
-                        .blocking_dependency_count
-                        .fetch_sub(1, Ordering::Relaxed);
-                    if previous_blocked_load_count == 1 {
+                        .blocking_dependency_count -= 1;
+                    if blocked_load.version.blocking_dependency_count == 0 {
                         // Kick off the blocked load
                         self.events_tx
                             .send(LoaderEvent::DependenciesLoaded(blocked_load_handle))
@@ -552,7 +592,6 @@ impl LoaderInner {
                     }
                 }
 
-                //TODO: Delay commit until everything is ready?
                 asset_storage.commit_asset_version(artifact_type_id, load_handle);
                 self.load_handle_infos
                     .get_mut(&load_handle)
@@ -574,16 +613,6 @@ impl LoaderInner {
         }
     }
 
-    //TODO: Does this need to be a separate function?
-    //TODO: Does this need to use an atomic?
-    fn allocate_load_handle(
-        next_handle_index: &AtomicU64,
-        is_indirect: bool,
-    ) -> LoadHandle {
-        let load_handle_index = next_handle_index.fetch_add(1, Ordering::Relaxed);
-        LoadHandle::new(load_handle_index, is_indirect)
-    }
-
     // This returns a ResolvedLoadHandle which is either already pointing at a direct load or will need
     // to be populated with a direct load
     fn get_or_insert_indirect(
@@ -596,7 +625,8 @@ impl LoaderInner {
         self.indirect_to_load
             .entry(indirect_id.clone())
             .or_insert_with(|| {
-                let indirect_load_handle = Self::allocate_load_handle(next_handle_index, true);
+                let indirect_load_handle = LoadHandle::new(*next_handle_index, true);
+                *next_handle_index += 1;
 
                 let resolved = loader_io.resolve_indirect(indirect_id);
                 if resolved.is_none() {
@@ -618,7 +648,7 @@ impl LoaderInner {
                     IndirectLoad {
                         id: indirect_id.clone(),
                         resolved_uuid: manifest_entry.artifact_id,
-                        engine_ref_count: AtomicUsize::new(0),
+                        external_ref_count_indirect: 0,
                     },
                 );
                 resolved_load_handle
@@ -637,7 +667,8 @@ impl LoaderInner {
             .artifact_id_to_handle
             .entry(artifact_id)
             .or_insert_with(|| {
-                let direct_load_handle = Self::allocate_load_handle(next_handle_index, false);
+                let direct_load_handle = LoadHandle::new(*next_handle_index, false);
+                *next_handle_index += 1;
                 let manifest_entry = loader_io.manifest_entry(artifact_id).unwrap();
 
                 log::debug!(
@@ -650,13 +681,13 @@ impl LoaderInner {
                     direct_load_handle,
                     LoadHandleInfo {
                         artifact_id,
-                        engine_ref_count: AtomicU32::new(0),
+                        external_ref_count_direct: 0,
                         version: LoadHandleVersionInfo {
                             load_state: LoadState::Unloaded,
                             artifact_type_id: ArtifactTypeId::default(),
                             hash: 0,
-                            dependency_ref_count: 0,
-                            blocking_dependency_count: AtomicU32::new(0),
+                            internal_ref_count: 0,
+                            blocking_dependency_count: 0,
                             blocked_loads: vec![],
                             dependencies: vec![],
                         },
@@ -669,53 +700,52 @@ impl LoaderInner {
             })
     }
 
-    fn do_add_engine_ref_indirect(
+    fn add_engine_ref_indirect(
         &mut self,
         id: IndirectIdentifier,
     ) -> Arc<ResolvedLoadHandle> {
         let indirect_load_handle = self.get_or_insert_indirect(&id);
 
-        // It's possible this has already been resolved, but we nee to make certain we add the appropriate
-        // ref count
-        let direct_load_handle = self.do_add_engine_ref_by_handle_indirect(indirect_load_handle.id);
+        // It's possible this has already been resolved, but we still need to add a ref count.
+        let direct_load_handle = self.add_engine_ref_by_handle_indirect(indirect_load_handle.id);
 
+        // We expect that the direct handle in the ResolvedLoadHandle is either unset (0) or
+        // is consistent with the direct handle returned by add_engine_ref_by_handle_indirect().
+        // If it's unset, we need to set it.
         let direct_load_test = indirect_load_handle
             .direct_load_handle
             .swap(direct_load_handle.0, Ordering::Relaxed);
-
-        // Check that the resolved load handle was either unset or is consistent
         assert!(direct_load_test == 0 || direct_load_test == direct_load_handle.0);
 
         indirect_load_handle
     }
 
     // Returns the direct load handle
-    fn do_add_engine_ref_by_handle_indirect(
+    fn add_engine_ref_by_handle_indirect(
         &mut self,
         indirect_load_handle: LoadHandle,
     ) -> LoadHandle {
         assert!(indirect_load_handle.is_indirect());
-        let state = self.indirect_states.get(&indirect_load_handle).unwrap();
-        state.engine_ref_count.fetch_add(1, Ordering::Relaxed);
+        let mut state = self.indirect_states.get_mut(&indirect_load_handle).unwrap();
+        state.external_ref_count_indirect += 1;
 
-        let direct_load_handle = self.get_or_insert_direct(state.resolved_uuid);
-        self.do_add_engine_ref_by_handle_direct(direct_load_handle);
+        let resolved_uuid = state.resolved_uuid;
+        let direct_load_handle = self.get_or_insert_direct(resolved_uuid);
+        self.add_engine_ref_by_handle_direct(direct_load_handle);
         direct_load_handle
     }
 
     // Returns the direct load handle
-    fn do_add_engine_ref_by_handle_direct(
+    fn add_engine_ref_by_handle_direct(
         &mut self,
         direct_load_handle: LoadHandle,
     ) -> LoadHandle {
         assert!(!direct_load_handle.is_indirect());
         let load_handle_info = self.load_handle_infos.get_mut(&direct_load_handle).unwrap();
         load_handle_info
-            .engine_ref_count
-            .fetch_add(1, Ordering::Relaxed);
-        // Engine always adjusts the latest version count
-        //TODO: Don't understand this, probably break when there are multiple versions
-        Self::do_add_internal_ref(&self.events_tx, direct_load_handle, load_handle_info);
+            .external_ref_count_direct += 1;
+
+        Self::add_internal_ref(&self.events_tx, direct_load_handle, load_handle_info);
 
         direct_load_handle
     }
@@ -724,8 +754,8 @@ impl LoaderInner {
         &mut self,
         indirect_load_handle: LoadHandle,
     ) {
-        let state = self.indirect_states.get(&indirect_load_handle).unwrap();
-        state.engine_ref_count.fetch_sub(1, Ordering::Relaxed);
+        let mut state = self.indirect_states.get_mut(&indirect_load_handle).unwrap();
+        state.external_ref_count_indirect -= 1;
         let direct_load_handle = *self
             .artifact_id_to_handle
             .get(&state.resolved_uuid)
@@ -739,15 +769,14 @@ impl LoaderInner {
     ) {
         let load_handle_info = self.load_handle_infos.get_mut(&direct_load_handle).unwrap();
         load_handle_info
-            .engine_ref_count
-            .fetch_sub(1, Ordering::Relaxed);
+            .external_ref_count_direct -= 1;
 
         // Engine always adjusts the latest version count
-        Self::do_remove_internal_ref(&self.events_tx, direct_load_handle, load_handle_info);
+        Self::remove_internal_ref(&self.events_tx, direct_load_handle, load_handle_info);
     }
 
     // Internal references are only to direct load handles
-    fn do_add_internal_ref(
+    fn add_internal_ref(
         events_tx: &Sender<LoaderEvent>,
         direct_load_handle: LoadHandle,
         load_handle_info: &mut LoadHandleInfo,
@@ -755,16 +784,16 @@ impl LoaderInner {
         assert!(!direct_load_handle.is_indirect());
         load_handle_info
             .version
-            .dependency_ref_count += 1;
+            .internal_ref_count += 1;
 
         // If this is the first reference to the artifact, put it in the queue to be loaded
-        if load_handle_info.version.dependency_ref_count == 1 {
+        if load_handle_info.version.internal_ref_count == 1 {
             events_tx.send(LoaderEvent::TryLoad(direct_load_handle)).unwrap();
         }
     }
 
     // Internal references are only to direct load handles
-    fn do_remove_internal_ref(
+    fn remove_internal_ref(
         events_tx: &Sender<LoaderEvent>,
         direct_load_handle: LoadHandle,
         load_handle_info: &mut LoadHandleInfo,
@@ -772,9 +801,9 @@ impl LoaderInner {
         assert!(!direct_load_handle.is_indirect());
         load_handle_info
             .version
-            .dependency_ref_count -= 1;
+            .internal_ref_count -= 1;
         // If this was the last reference to the artifact, put it in queue to be dropped
-        if load_handle_info.version.dependency_ref_count == 0 {
+        if load_handle_info.version.internal_ref_count == 0 {
             events_tx
                 .send(LoaderEvent::TryUnload(direct_load_handle))
                 .unwrap();
@@ -798,7 +827,7 @@ impl LoaderInner {
         let load_info = self.load_handle_infos.get(&handle)?;
         Some(LoadInfo {
             artifact_id: load_info.artifact_id,
-            refs: load_info.engine_ref_count.load(Ordering::Relaxed),
+            refs: load_info.external_ref_count_direct,
             symbol: load_info.symbol.clone(),
             debug_name: load_info.debug_name.clone(),
             //path: load_info.versions.last().unwrap().
@@ -843,19 +872,18 @@ impl Loader {
         let build_hash = loader_io.latest_build_hash();
 
         let inner = LoaderInner {
-            next_handle_index: AtomicU64::new(1),
+            // start at 1 because 0 means null
+            next_handle_index: 1,
             artifact_id_to_handle: Default::default(),
             load_handle_infos: Default::default(),
-            update_state: LoaderUpdateState {
-                current_build_hash: build_hash,
-                current_reload_action: None,
-                pending_reload_actions: vec![],
-            },
             loader_io,
             events_tx,
             events_rx,
             indirect_states: Default::default(),
             indirect_to_load: Default::default(),
+            current_build_hash: build_hash,
+            current_reload_action: None,
+            pending_reload_actions: None,
         };
 
         Loader {
@@ -874,7 +902,7 @@ impl Loader {
         &self,
         id: IndirectIdentifier,
     ) -> Arc<ResolvedLoadHandle> {
-        self.inner.lock().unwrap().do_add_engine_ref_indirect(id)
+        self.inner.lock().unwrap().add_engine_ref_indirect(id)
     }
 
     pub(crate) fn add_engine_ref_by_handle(
@@ -885,12 +913,12 @@ impl Loader {
             self.inner
                 .lock()
                 .unwrap()
-                .do_add_engine_ref_by_handle_indirect(load_handle)
+                .add_engine_ref_by_handle_indirect(load_handle)
         } else {
             self.inner
                 .lock()
                 .unwrap()
-                .do_add_engine_ref_by_handle_direct(load_handle)
+                .add_engine_ref_by_handle_direct(load_handle)
         }
     }
 

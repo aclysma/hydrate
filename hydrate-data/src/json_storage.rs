@@ -5,8 +5,7 @@ use crate::{
     SchemaNamedType, SchemaSet, SingleObject, Value,
 };
 use crate::{AssetLocation, AssetName, DataSetResult, ImportableName, OrderedSet};
-use hydrate_schema::{CachedSchemaNamedType, DataSetError, SchemaRecord, SchemaRecordField};
-use profiling::finish_frame;
+use hydrate_schema::{CachedSchemaNamedType, DataSetError, SchemaRecord};
 use serde::{Deserialize, Serialize};
 use std::hash::Hash;
 use std::str::FromStr;

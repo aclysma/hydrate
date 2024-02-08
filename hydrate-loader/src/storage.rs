@@ -1,11 +1,10 @@
-use std::{error::Error, sync::Arc};
-use std::sync::Mutex;
+use std::error::Error;
 
 use crate::loader::LoaderEvent;
 use crate::ArtifactTypeId;
 use crossbeam_channel::Sender;
 use hydrate_base::handle::LoaderInfoProvider;
-use hydrate_base::{ArtifactId, LoadHandle, StringHash, hashing::HashMap};
+use hydrate_base::{ArtifactId, LoadHandle, StringHash};
 
 #[derive(Debug)]
 pub enum HandleOp {

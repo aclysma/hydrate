@@ -10,7 +10,7 @@ use hydrate_data::{
     PathReferenceHash, SingleObject,
 };
 use hydrate_pipeline::{
-    DynEditorModel, HydrateProjectConfiguration, ImportJobSourceFile, ImportJobToQueue,
+    DynEditorModel, HydrateProjectConfiguration, ImportJobToQueue,
     ImporterRegistry,
 };
 use hydrate_schema::{SchemaFingerprint, SchemaRecord};

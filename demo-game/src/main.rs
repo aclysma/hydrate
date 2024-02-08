@@ -4,11 +4,8 @@ use demo_types::mesh_adv::{
     MeshAdvBufferAssetData, MeshAdvMaterialAssetData, MeshAdvMaterialData, MeshAdvMeshAssetData,
 };
 use demo_types::simple_data::{Transform, TransformRef};
-use hydrate::base::handle::LoaderInfoProvider;
-use hydrate::loader::{DynAssetLoader, Handle};
-use std::error::Error;
+use hydrate::loader::Handle;
 use std::path::PathBuf;
-use type_uuid::TypeUuid;
 
 mod example_image_asset;
 use example_image_asset::*;
@@ -21,7 +18,7 @@ pub fn build_data_source_path() -> PathBuf {
 }
 
 fn main() {
-    let client = profiling::tracy_client::Client::start();
+    let _client = profiling::tracy_client::Client::start();
     profiling::register_thread!("main");
 
     // Setup logging

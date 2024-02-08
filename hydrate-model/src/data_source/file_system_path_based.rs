@@ -2,7 +2,6 @@ use crate::edit_context::EditContext;
 use crate::{AssetSourceId, DataSource, PendingFileOperations};
 use crate::{PathNode, PathNodeRoot};
 use hydrate_base::hashing::HashSet;
-use hydrate_base::uuid_path::uuid_to_path;
 use hydrate_data::json_storage::{MetaFile, MetaFileJson};
 use hydrate_data::{
     AssetId, AssetLocation, AssetName, CanonicalPathReference, DataSetAssetInfo, HashObjectMode,

@@ -8,7 +8,7 @@ use crate::AssetId;
 
 mod file_system_path_based;
 pub use file_system_path_based::*;
-use hydrate_pipeline::{HydrateProjectConfiguration, ImportJobSourceFile, ImportJobToQueue};
+use hydrate_pipeline::{HydrateProjectConfiguration, ImportJobToQueue};
 
 #[derive(Default)]
 pub struct PendingFileOperations {

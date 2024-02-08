@@ -2,10 +2,10 @@ use crate::edit_context::EditContext;
 use crate::{AssetId, AssetSourceId, DataSource, PathNodeRoot, PendingFileOperations};
 use hydrate_base::hashing::HashMap;
 use hydrate_base::uuid_path::{path_to_uuid, uuid_to_path};
-use hydrate_data::{AssetLocation, DataSetAssetInfo, HashObjectMode};
+use hydrate_data::{AssetLocation, HashObjectMode};
 use hydrate_pipeline::{HydrateProjectConfiguration, ImportJobToQueue};
 use hydrate_schema::SchemaNamedType;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 struct FileMetadata {
     // size_in_bytes: u64,

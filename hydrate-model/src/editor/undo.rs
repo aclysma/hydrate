@@ -4,7 +4,7 @@ use std::sync::mpsc;
 use std::sync::mpsc::{Receiver, Sender};
 
 use crate::edit_context::EditContext;
-use crate::{AssetId, AssetLocation, DataSet, DataSetDiffSet, EditContextKey, HashSet};
+use crate::{AssetId, DataSet, DataSetDiffSet, EditContextKey, HashSet};
 
 //TODO: Delete unused property data when path ancestor is null or in replace mode
 

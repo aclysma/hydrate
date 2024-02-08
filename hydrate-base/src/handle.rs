@@ -59,7 +59,7 @@ pub trait LoaderInfoProvider: Send + Sync {
     /// # Parameters
     ///
     /// * `id`: UUID of the artifact.
-    fn load_handle(
+    fn resolved_load_handle(
         &self,
         artifact_ref: &ArtifactRef,
     ) -> Option<Arc<ResolvedLoadHandle>>;
@@ -498,7 +498,7 @@ impl DummySerdeContext {
 }
 
 impl LoaderInfoProvider for DummySerdeContext {
-    fn load_handle(
+    fn resolved_load_handle(
         &self,
         artifact_ref: &ArtifactRef,
     ) -> Option<Arc<ResolvedLoadHandle>> {
@@ -667,7 +667,7 @@ fn get_handle_ref(artifact_ref: ArtifactRef) -> (Arc<ResolvedLoadHandle>, Sender
             ResolvedLoadHandle::new_null_handle()
         } else {
             loader
-                .load_handle(&artifact_ref)
+                .resolved_load_handle(&artifact_ref)
                 .unwrap_or_else(|| panic!("Handle for ArtifactId {:?} was not present when deserializing a Handle. This indicates missing dependency metadata, and can be caused by dependency cycles.", artifact_ref))
         };
         (handle, sender.clone())
@@ -908,7 +908,7 @@ pub trait ArtifactHandle {
 pub fn make_handle_within_serde_context<T>(uuid: ArtifactId) -> Handle<T> {
     SerdeContext::with_active(|loader_info_provider, ref_op_sender| {
         let load_handle = loader_info_provider
-            .load_handle(&ArtifactRef(uuid))
+            .resolved_load_handle(&ArtifactRef(uuid))
             .unwrap();
         Handle::<T>::new(ref_op_sender.clone(), load_handle)
     })

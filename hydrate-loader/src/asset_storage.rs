@@ -155,14 +155,14 @@ impl AssetStorage for AssetStorageSet {
 
     fn commit_asset_version(
         &mut self,
-        asset_data_type_id: &ArtifactTypeId,
+        asset_data_type_id: ArtifactTypeId,
         load_handle: LoadHandle,
     ) {
         let mut inner = self.inner.lock().unwrap();
 
         let asset_type_id = *inner
             .data_to_asset_type_uuid
-            .get(asset_data_type_id)
+            .get(&asset_data_type_id)
             .expect("unknown asset data type");
 
         inner
@@ -174,14 +174,14 @@ impl AssetStorage for AssetStorageSet {
 
     fn free(
         &mut self,
-        asset_data_type_id: &ArtifactTypeId,
+        asset_data_type_id: ArtifactTypeId,
         load_handle: LoadHandle,
     ) {
         let mut inner = self.inner.lock().unwrap();
 
         let asset_type_id = *inner
             .data_to_asset_type_uuid
-            .get(asset_data_type_id)
+            .get(&asset_data_type_id)
             .expect("unknown asset data type");
 
         inner

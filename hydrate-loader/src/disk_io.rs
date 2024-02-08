@@ -64,7 +64,7 @@ impl DiskAssetIOWorkerThread {
 
                                 let metadata = ArtifactMetadata {
                                     dependencies: header_data.dependencies,
-                                    asset_type: ArtifactTypeId::from_uuid(header_data.asset_type), //AssetTypeId(*uuid::Uuid::parse_str("1a4dde10-5e60-483d-88fa-4f59752e4524").unwrap().as_bytes()),
+                                    artifact_type_id: ArtifactTypeId::from_uuid(header_data.asset_type), //AssetTypeId(*uuid::Uuid::parse_str("1a4dde10-5e60-483d-88fa-4f59752e4524").unwrap().as_bytes()),
                                     hash: msg.hash,
                                 };
 

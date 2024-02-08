@@ -110,7 +110,7 @@ pub trait AssetStorage {
     /// * `version`: Runtime load version of this asset, increments each time the asset is updated.
     fn commit_asset_version(
         &mut self,
-        asset_type: &ArtifactTypeId,
+        asset_type: ArtifactTypeId,
         load_handle: LoadHandle,
     );
 
@@ -122,7 +122,7 @@ pub trait AssetStorage {
     /// * `load_handle`: ID allocated by [`Loader`](crate::loader::Loader) to track loading of a particular asset.
     fn free(
         &mut self,
-        artifact_type_id: &ArtifactTypeId,
+        artifact_type_id: ArtifactTypeId,
         load_handle: LoadHandle,
     );
 }

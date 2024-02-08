@@ -72,12 +72,20 @@ pub struct RequestDataResult {
 // If it changes, we need to check for artifacts that have changed, load them, and update indirect
 // handles to point at them. The LoaderIO will provide a new build hash to indicate this has occurred.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
-pub struct CombinedBuildHash(pub u64);
+pub struct ManifestBuildHash(pub u64);
 
 // Represents a data source from which we can load content
 pub trait LoaderIO: Sync + Send {
+    fn update(&mut self);
+
     // Returns the latest known build hash that we are currently able to read from
-    fn latest_build_hash(&self) -> CombinedBuildHash;
+    fn current_build_hash(&self) -> ManifestBuildHash;
+
+    // Build hash that we are prepared to switch to
+    fn pending_build_hash(&self) -> Option<ManifestBuildHash>;
+
+    // Switches to using the new manifest for future requests
+    fn activate_pending_build_hash(&mut self, new_build_hash: ManifestBuildHash);
 
     // Provide manifest data for a particular artifact by ID
     fn manifest_entry(
@@ -96,7 +104,7 @@ pub trait LoaderIO: Sync + Send {
     // This results in a RequestMetadataResult being sent to the loader
     fn request_metadata(
         &self,
-        build_hash: CombinedBuildHash,
+        build_hash: ManifestBuildHash,
         load_handle: LoadHandle,
         artifact_id: ArtifactId,
     );
@@ -105,7 +113,7 @@ pub trait LoaderIO: Sync + Send {
     // This results in a RequestDataResult being sent to the loader
     fn request_data(
         &self,
-        build_hash: CombinedBuildHash,
+        build_hash: ManifestBuildHash,
         load_handle: LoadHandle,
         artifact_id: ArtifactId,
         hash: u64,
@@ -130,7 +138,7 @@ pub enum LoaderEvent {
     // Sent by engine code to indicate success or failure at loading an artifact
     LoadResult(HandleOp),
     // Sent by LoaderIO when there are new versions available of the given artifacts.
-    ArtifactsUpdated(CombinedBuildHash, Vec<ArtifactId>),
+    ArtifactsUpdated(ManifestBuildHash),
 }
 
 // Information about indirect load handles that have been requested
@@ -190,7 +198,7 @@ struct LoadHandleInfo {
 //TODO: This may need to track the changed artifacts to wait for them to load before updating
 // indirect handles and removing ref counts from the direct handles they used to be associated with?
 struct ReloadAction {
-    _build_hash: CombinedBuildHash,
+    _build_hash: ManifestBuildHash,
 }
 
 struct LoaderInner {
@@ -220,7 +228,7 @@ struct LoaderInner {
     indirect_to_load: HashMap<IndirectIdentifier, Arc<ResolvedLoadHandle>>,
 
     // Update-specific state, mainly to do with reload detection/handling
-    current_build_hash: CombinedBuildHash,
+    current_build_hash: ManifestBuildHash,
     current_reload_action: Option<ReloadAction>,
     pending_reload_actions: Option<ReloadAction>,
 }
@@ -234,6 +242,19 @@ impl LoaderInner {
         asset_storage: &mut dyn AssetStorage,
     ) {
         let build_hash = self.current_build_hash;
+
+        self.loader_io.update();
+
+
+        // see if there's a newer build?
+
+        if let Some(pending_build_hash) = self.loader_io.pending_build_hash() {
+
+            // Do we figure out what changed and issues ref count changes/load requests?
+
+            println!("PENDING BUILD HASH");
+            self.loader_io.activate_pending_build_hash(pending_build_hash);
+        }
 
         while let Ok(loader_event) = self.events_rx.try_recv() {
             log::debug!("handle event {:?}", loader_event);
@@ -254,7 +275,8 @@ impl LoaderInner {
                 LoaderEvent::LoadResult(load_result) => {
                     self.handle_load_result(load_result, asset_storage)
                 }
-                LoaderEvent::ArtifactsUpdated(build_hash, updated_artifacts) => {
+                LoaderEvent::ArtifactsUpdated(build_hash) => {
+                    log::warn!("Received ArtifactsUpdated for build hash {:?}", build_hash);
                     // We probably want to finish existing work, pause starting new work, and do the reload
                     self.pending_reload_actions = Some(ReloadAction {
                         _build_hash: build_hash,
@@ -262,16 +284,11 @@ impl LoaderInner {
                 }
             }
         }
-
-        if self.current_reload_action.is_none() {
-            // Pause ref count changes
-            // ref counts need to be for particular versions?
-        }
     }
 
     fn handle_try_load(
         &mut self,
-        build_hash: CombinedBuildHash,
+        build_hash: ManifestBuildHash,
         load_handle: LoadHandle,
     ) {
         // Should always exist, we don't delete load handles
@@ -358,7 +375,7 @@ impl LoaderInner {
 
     fn handle_request_metadata_result(
         &mut self,
-        build_hash: CombinedBuildHash,
+        build_hash: ManifestBuildHash,
         result: RequestMetadataResult,
     ) {
         if let Some(load_state_info) = self.load_handle_infos.get(&result.load_handle) {
@@ -449,7 +466,7 @@ impl LoaderInner {
 
     fn handle_dependencies_loaded(
         &mut self,
-        build_hash: CombinedBuildHash,
+        build_hash: ManifestBuildHash,
         load_handle: LoadHandle,
     ) {
         //are we still in the correct state?
@@ -869,7 +886,7 @@ impl Loader {
         events_tx: Sender<LoaderEvent>,
         events_rx: Receiver<LoaderEvent>,
     ) -> Self {
-        let build_hash = loader_io.latest_build_hash();
+        let build_hash = loader_io.current_build_hash();
 
         let inner = LoaderInner {
             // start at 1 because 0 means null

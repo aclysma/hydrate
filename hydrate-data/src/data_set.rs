@@ -15,7 +15,7 @@ use uuid::Uuid;
 #[derive(Copy, Clone, PartialEq)]
 pub enum HashObjectMode {
     // Used for detecting change in the asset that affects build output:
-    // - Detection if the build is stale by comparing hash of all objects to previous completed build combined hash
+    // - Detection if the build is stale by comparing hash of all objects to previous completed build manifest hash
     // - Knowing what state an object was in when it was read by a build job
     //
     // This mode looks at properties and prototype properties, even when they are in different data sources

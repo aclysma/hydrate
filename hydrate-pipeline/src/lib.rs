@@ -176,7 +176,7 @@ impl AssetEngine {
             schema_set,
         );
 
-        //TODO: Consider looking at disk to determine previous combined build hash so we don't for a rebuild every time we open
+        //TODO: Consider looking at disk to determine previous manifest build hash so we don't for a rebuild every time we open
 
         AssetEngine {
             importer_registry: registries.importer_registry,

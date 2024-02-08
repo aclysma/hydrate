@@ -10,6 +10,7 @@ pub struct DebugArtifactManifestDataJson {
     pub artifact_id: ArtifactId,
     // stored as a string so we can encoded as hex
     pub build_hash: String,
+    pub combined_build_hash: String,
     pub symbol_name: String,
     // stored as a string so we can encoded as hex. The hash isn't really needed but it's nice
     // to have in the file for looking up a hash while debugging
@@ -32,6 +33,7 @@ pub struct DebugManifestFileJson {
 pub struct ArtifactManifestData {
     pub artifact_id: ArtifactId,
     pub build_hash: u64,
+    pub combined_build_hash: u64,
     // If the artifact cannot be addressed by symbol, this will be None
     // Even if the symbol is Some, the string in the string hash might not be present. It's only
     // a debugging aid

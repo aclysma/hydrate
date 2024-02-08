@@ -1,6 +1,6 @@
 use crate::loader::ArtifactData;
 use crate::loader::{
-    ArtifactMetadata, CombinedBuildHash, LoaderEvent, LoaderIO, RequestDataResult,
+    ArtifactMetadata, ManifestBuildHash, LoaderEvent, LoaderIO, RequestDataResult,
     RequestMetadataResult,
 };
 use crate::storage::IndirectIdentifier;
@@ -29,9 +29,19 @@ struct DiskAssetIORequestData {
     //subresource: Option<u32>,
 }
 
+struct DiskAssetIORequestCheckNewToc {
+    current_manifest_build_hash: ManifestBuildHash,
+}
+
+struct DiskAssetIOResponseNewToc {
+    current_manifest_build_hash: ManifestBuildHash,
+    new_build_manifest: Option<(ManifestBuildHash, BuildManifest)>,
+}
+
 enum DiskAssetIORequest {
     Metadata(DiskAssetIORequestMetadata),
     Data(DiskAssetIORequestData),
+    CheckNewToc(DiskAssetIORequestCheckNewToc),
 }
 
 // Thread that tries to take jobs out of the request channel and ends when the finish channel is signalled
@@ -40,11 +50,32 @@ struct DiskAssetIOWorkerThread {
     join_handle: JoinHandle<()>,
 }
 
+fn find_and_load_latest_toc_if_changed(
+    build_data_root_path: &Path,
+    previous_build_hash: Option<ManifestBuildHash>
+) -> Result<Option<(ManifestBuildHash, BuildManifest)>, String> {
+    let max_toc_path = find_latest_toc(&build_data_root_path.join("toc"));
+    let max_toc_path = max_toc_path.ok_or_else(|| "Could not find TOC file".to_string())?;
+    let build_toc = read_toc(&max_toc_path);
+    let build_hash = build_toc.build_hash;
+
+    if let Some(previous_build_hash) = previous_build_hash {
+        if build_hash == previous_build_hash {
+            return Ok(None);
+        }
+    }
+
+    let manifest =
+        BuildManifest::load_from_file(&build_data_root_path.join("manifests"), build_hash);
+    Ok(Some((build_hash, manifest)))
+}
+
 impl DiskAssetIOWorkerThread {
     fn new(
         root_path: Arc<PathBuf>,
         request_rx: Receiver<DiskAssetIORequest>,
-        result_tx: Sender<LoaderEvent>,
+        load_event_tx: Sender<LoaderEvent>,
+        toc_event_tx: Sender<DiskAssetIOResponseNewToc>,
         active_request_count: Arc<AtomicUsize>,
         thread_index: usize,
     ) -> Self {
@@ -55,6 +86,25 @@ impl DiskAssetIOWorkerThread {
                 crossbeam_channel::select! {
                     recv(request_rx) -> msg => {
                         match msg.unwrap() {
+                            DiskAssetIORequest::CheckNewToc(msg) => {
+                                log::warn!("Check for new TOC");
+                                match find_and_load_latest_toc_if_changed(&*root_path, Some(msg.current_manifest_build_hash)) {
+                                    Ok(Some(new_build_manifest)) => {
+                                        toc_event_tx.send(DiskAssetIOResponseNewToc {
+                                            current_manifest_build_hash: msg.current_manifest_build_hash,
+                                            new_build_manifest: Some(new_build_manifest),
+
+                                        }).unwrap();
+                                    },
+                                    _ => {
+                                        toc_event_tx.send(DiskAssetIOResponseNewToc {
+                                            current_manifest_build_hash: msg.current_manifest_build_hash,
+                                            new_build_manifest: None,
+                                        }).unwrap();
+                                    }
+                                }
+
+                            }
                             DiskAssetIORequest::Metadata(msg) => {
                                 profiling::scope!("DiskAssetIORequest::Metadata");
                                 log::trace!("Start metadata read {:?}", msg.artifact_id);
@@ -70,7 +120,7 @@ impl DiskAssetIOWorkerThread {
 
                                 log::trace!("read metadata {:?}", metadata);
 
-                                result_tx.send(LoaderEvent::MetadataRequestComplete( RequestMetadataResult {
+                                load_event_tx.send(LoaderEvent::MetadataRequestComplete( RequestMetadataResult {
                                     artifact_id: msg.artifact_id,
                                     load_handle: msg.load_handle,
                                     result: Ok(metadata)
@@ -99,7 +149,7 @@ impl DiskAssetIOWorkerThread {
                                     reader.read_to_end(&mut data).unwrap();
                                 }
 
-                                result_tx.send(LoaderEvent::DataRequestComplete(RequestDataResult {
+                                load_event_tx.send(LoaderEvent::DataRequestComplete(RequestDataResult {
                                     artifact_id: msg.artifact_id,
                                     load_handle: msg.load_handle,
                                     //subresource: msg.subresource,
@@ -138,7 +188,8 @@ impl DiskAssetIOThreadPool {
     fn new(
         root_path: Arc<PathBuf>,
         max_requests_in_flight: usize,
-        result_tx: Sender<LoaderEvent>,
+        load_event_tx: Sender<LoaderEvent>,
+        new_toc_tx: Sender<DiskAssetIOResponseNewToc>,
     ) -> Self {
         let (request_tx, request_rx) = crossbeam_channel::unbounded::<DiskAssetIORequest>();
         let active_request_count = Arc::new(AtomicUsize::new(0));
@@ -148,7 +199,8 @@ impl DiskAssetIOThreadPool {
             let worker = DiskAssetIOWorkerThread::new(
                 root_path.clone(),
                 request_rx.clone(),
-                result_tx.clone(),
+                load_event_tx.clone(),
+                new_toc_tx.clone(),
                 active_request_count.clone(),
                 thread_index,
             );
@@ -189,7 +241,7 @@ pub struct BuildManifest {
 impl BuildManifest {
     fn load_from_file(
         manifest_dir_path: &Path,
-        build_hash: CombinedBuildHash,
+        build_hash: ManifestBuildHash,
     ) -> BuildManifest {
         //
         // Load release manifest data, this must exist and load correctly
@@ -218,9 +270,10 @@ impl BuildManifest {
                 let artifact_id =
                     ArtifactId::from_u128(u128::from_str_radix(fragments[0], 16).unwrap());
                 let build_hash = u64::from_str_radix(fragments[1], 16).unwrap();
+                let combined_build_hash = u64::from_str_radix(fragments[2], 16).unwrap();
                 let artifact_type =
-                    Uuid::from_u128(u128::from_str_radix(fragments[2], 16).unwrap());
-                let symbol_hash_u128 = u128::from_str_radix(fragments[3], 16).unwrap();
+                    Uuid::from_u128(u128::from_str_radix(fragments[3], 16).unwrap());
+                let symbol_hash_u128 = u128::from_str_radix(fragments[4], 16).unwrap();
 
                 let symbol_hash = if symbol_hash_u128 != 0 {
                     let old = symbol_lookup.insert(symbol_hash_u128, artifact_id);
@@ -235,6 +288,7 @@ impl BuildManifest {
                     ArtifactManifestData {
                         artifact_id,
                         build_hash,
+                        combined_build_hash,
                         symbol_hash,
                         artifact_type,
                         debug_name: Default::default(),
@@ -331,7 +385,7 @@ fn find_latest_toc(toc_dir_path: &Path) -> Option<PathBuf> {
 }
 
 struct BuildToc {
-    build_hash: CombinedBuildHash,
+    build_hash: ManifestBuildHash,
 }
 
 // Opens a TOC file and reads contents
@@ -339,15 +393,20 @@ fn read_toc(path: &Path) -> BuildToc {
     let data = std::fs::read_to_string(path).unwrap();
     let build_hash = u64::from_str_radix(&data, 16).unwrap();
     BuildToc {
-        build_hash: CombinedBuildHash(build_hash),
+        build_hash: ManifestBuildHash(build_hash),
     }
 }
 
 pub struct DiskAssetIO {
+    build_data_root_path: PathBuf,
     thread_pool: Option<DiskAssetIOThreadPool>,
     manifest: BuildManifest,
-    build_hash: CombinedBuildHash,
-    tx: Sender<LoaderEvent>,
+    build_hash: ManifestBuildHash,
+    load_event_tx: Sender<LoaderEvent>,
+    new_toc_rx: Receiver<DiskAssetIOResponseNewToc>,
+    last_toc_check: std::time::Instant,
+    toc_check_queued: bool,
+    pending_new_build_manifest: Option<(ManifestBuildHash, BuildManifest)>
 }
 
 impl Drop for DiskAssetIO {
@@ -359,8 +418,10 @@ impl Drop for DiskAssetIO {
 impl DiskAssetIO {
     pub fn new(
         build_data_root_path: PathBuf,
-        tx: Sender<LoaderEvent>,
+        load_event_tx: Sender<LoaderEvent>,
     ) -> Result<Self, String> {
+        let (new_toc_tx, new_toc_rx) = crossbeam_channel::unbounded::<DiskAssetIOResponseNewToc>();
+
         let max_toc_path = find_latest_toc(&build_data_root_path.join("toc"));
         let max_toc_path = max_toc_path.ok_or_else(|| "Could not find TOC file".to_string())?;
         let build_toc = read_toc(&max_toc_path);
@@ -369,22 +430,73 @@ impl DiskAssetIO {
         let manifest =
             BuildManifest::load_from_file(&build_data_root_path.join("manifests"), build_hash);
         let thread_pool = Some(DiskAssetIOThreadPool::new(
-            Arc::new(build_data_root_path),
+            Arc::new(build_data_root_path.clone()),
             4,
-            tx.clone(),
+            load_event_tx.clone(),
+            new_toc_tx
         ));
 
         Ok(DiskAssetIO {
+            build_data_root_path,
             thread_pool,
             manifest,
             build_hash,
-            tx,
+            load_event_tx,
+            new_toc_rx,
+            last_toc_check: std::time::Instant::now(),
+            toc_check_queued: false,
+            pending_new_build_manifest: None,
         })
+    }
+
+    fn request_check_for_new_toc(
+        &self
+    ) {
+        log::debug!("request_check_for_new_toc");
+        self.thread_pool.as_ref().unwrap().add_request(DiskAssetIORequest::CheckNewToc(DiskAssetIORequestCheckNewToc {
+            current_manifest_build_hash: self.current_build_hash(),
+        }));
     }
 }
 
 impl LoaderIO for DiskAssetIO {
-    fn latest_build_hash(&self) -> CombinedBuildHash {
+    fn update(&mut self) {
+        // If a background thread found a new TOC, handle that here
+        while let Ok(new_toc_event) = self.new_toc_rx.try_recv() {
+            self.toc_check_queued = false;
+            if let Some((new_build_manifest_hash, new_build_manifest)) = new_toc_event.new_build_manifest {
+                log::warn!("DETECTED NEW TOC");
+                self.pending_new_build_manifest = Some((new_build_manifest_hash, new_build_manifest));
+                self.load_event_tx.send(LoaderEvent::ArtifactsUpdated(new_build_manifest_hash)).unwrap();
+            }
+        }
+
+        // Periodically check for a new TOC on a background thread
+        if !self.toc_check_queued && (std::time::Instant::now() - self.last_toc_check).as_secs_f32() > 1.0 {
+            self.toc_check_queued = true;
+            self.last_toc_check = std::time::Instant::now();
+
+            self.request_check_for_new_toc();
+        }
+    }
+
+    fn pending_build_hash(&self) -> Option<ManifestBuildHash> {
+        self.pending_new_build_manifest.as_ref().map(|x| x.0)
+    }
+
+    fn activate_pending_build_hash(&mut self, new_build_hash: ManifestBuildHash) {
+        if let Some((manifest_build_hash, build_manifest)) = self.pending_new_build_manifest.take() {
+            if manifest_build_hash != new_build_hash {
+                panic!("Tried to switch to new build manifest but the manifest build hash doesn't match");
+            } else {
+                self.manifest = build_manifest
+            }
+        } else {
+            panic!("Tried to switch to new build manifest but the new manifest is not pending")
+        }
+    }
+
+    fn current_build_hash(&self) -> ManifestBuildHash {
         self.build_hash
     }
 
@@ -423,7 +535,7 @@ impl LoaderIO for DiskAssetIO {
 
     fn request_metadata(
         &self,
-        build_hash: CombinedBuildHash,
+        build_hash: ManifestBuildHash,
         load_handle: LoadHandle,
         artifact_id: ArtifactId,
     ) {
@@ -447,7 +559,7 @@ impl LoaderIO for DiskAssetIO {
                 }));
         } else {
             // Return the failure immediately
-            self.tx
+            self.load_event_tx
                 .send(LoaderEvent::MetadataRequestComplete(
                     RequestMetadataResult {
                         artifact_id,
@@ -461,7 +573,7 @@ impl LoaderIO for DiskAssetIO {
 
     fn request_data(
         &self,
-        build_hash: CombinedBuildHash,
+        build_hash: ManifestBuildHash,
         load_handle: LoadHandle,
         artifact_id: ArtifactId,
         hash: u64,

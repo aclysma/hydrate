@@ -62,7 +62,7 @@ struct BuildTask {
     built_artifact_info: HashMap<ArtifactId, BuiltArtifactInfo>,
     data_set: Arc<DataSet>,
     schema_set: SchemaSet,
-    combined_build_hash: u64,
+    manifest_build_hash: u64,
     log_data: BuildLogData,
 }
 
@@ -75,7 +75,7 @@ pub struct BuildJobs {
     build_jobs: HashMap<AssetId, BuildJob>,
     //force_rebuild_operations: Vec<BuildOp>
     current_build_task: Option<BuildTask>,
-    previous_combined_build_hash: Option<u64>,
+    previous_manifest_build_hash: Option<u64>,
     request_build: bool,
     needs_build: bool,
     force_build_queue: HashSet<AssetId>,
@@ -113,7 +113,7 @@ impl BuildJobs {
             build_jobs,
             //force_rebuild_operations: Default::default()
             current_build_task: None,
-            previous_combined_build_hash: None,
+            previous_manifest_build_hash: None,
             request_build: false,
             needs_build: false,
             force_build_queue: Default::default(),
@@ -278,7 +278,7 @@ impl BuildJobs {
             // This is a more compact file that is run at release
             let manifest_path_release = manifest_path.join(format!(
                 "{:0>16x}.manifest_release",
-                build_task.combined_build_hash
+                build_task.manifest_build_hash
             ));
             let manifest_release_file = std::fs::File::create(manifest_path_release).unwrap();
             let mut manifest_release_file_writer = std::io::BufWriter::new(manifest_release_file);
@@ -286,15 +286,37 @@ impl BuildJobs {
             // This is a json file that supplements the release manifest
             let manifest_path_debug = manifest_path.join(format!(
                 "{:0>16x}.manifest_debug",
-                build_task.combined_build_hash
+                build_task.manifest_build_hash
             ));
 
             let mut manifest_json = DebugManifestFileJson::default();
 
             let mut all_hashes = HashSet::default();
-            for (artifact_id, build_hash) in build_task.build_hashes {
+            for (&artifact_id, &build_hash) in &build_task.build_hashes {
                 let built_artifact_info = build_task.built_artifact_info.get(&artifact_id).unwrap();
                 let asset_id = built_artifact_info.asset_id;
+
+                fn add_dependencies_recursively(
+                    artifact_id: ArtifactId,
+                    combined_hash: &mut u64,
+                    all_dependencies: &mut HashSet<ArtifactId>,
+                    build_task: &BuildTask
+                ) {
+                    // Get the hash and combine it with the hash so far
+                    *combined_hash ^= build_task.build_hashes.get(&artifact_id).unwrap();
+
+                    // Visit all of its dependencies
+                    for dependency in &build_task.built_artifact_info.get(&artifact_id).unwrap().metadata.dependencies {
+                        // Visit each artifact only once
+                        if !all_dependencies.contains(&dependency) {
+                            add_dependencies_recursively(*dependency, combined_hash, all_dependencies, build_task);
+                        }
+                    }
+                }
+
+                let mut combined_build_hash = 0;
+                let mut all_dependencies = HashSet::<ArtifactId>::default();
+                add_dependencies_recursively(artifact_id, &mut combined_build_hash, &mut all_dependencies, &build_task);
 
                 let is_default_artifact = artifact_id.as_uuid() == asset_id.as_uuid();
                 let symbol_name = if is_default_artifact {
@@ -333,6 +355,7 @@ impl BuildJobs {
                 manifest_json.artifacts.push(DebugArtifactManifestDataJson {
                     artifact_id,
                     build_hash: format!("{:0>16x}", build_hash),
+                    combined_build_hash: format!("{:0>16x}", combined_build_hash),
                     symbol_hash: format!("{:0>32x}", symbol_name_hash),
                     symbol_name: symbol_name.unwrap_or_default(),
                     artifact_type: built_artifact_info.metadata.asset_type,
@@ -343,9 +366,10 @@ impl BuildJobs {
                 // Write the artifact ID, build hash, asset type, and hash of symbol name in CSV (this could be very compact binary one day
                 write!(
                     manifest_release_file_writer,
-                    "{:0>32x},{:0>16x},{:0>32x},{:0>32x}\n",
+                    "{:0>32x},{:0>16x},{:0>16x},{:0>32x},{:0>32x}\n",
                     artifact_id.as_u128(),
                     build_hash,
+                    combined_build_hash,
                     built_artifact_info.metadata.asset_type.as_u128(),
                     symbol_name_hash
                 )
@@ -380,11 +404,11 @@ impl BuildJobs {
 
             std::fs::write(
                 toc_path,
-                format!("{:0>16x}", build_task.combined_build_hash),
+                format!("{:0>16x}", build_task.manifest_build_hash),
             )
             .unwrap();
 
-            self.previous_combined_build_hash = Some(build_task.combined_build_hash);
+            self.previous_manifest_build_hash = Some(build_task.manifest_build_hash);
             return Ok(BuildStatus::Completed(Arc::new(build_task.log_data)));
         }
 
@@ -396,7 +420,7 @@ impl BuildJobs {
         // something has been changed since the last build, we can start a build now. We need to
         // first store the hashes of everything that will potentially go into the build.
         //
-        let mut combined_build_hash = 0;
+        let mut manifest_build_hash = 0;
         let mut asset_hashes = HashMap::default();
         for (asset_id, object) in editor_model.data_set().assets() {
             let hash = editor_model
@@ -411,7 +435,7 @@ impl BuildJobs {
             let mut inner_hasher = siphasher::sip::SipHasher::default();
             asset_id.hash(&mut inner_hasher);
             hash.hash(&mut inner_hasher);
-            combined_build_hash = combined_build_hash ^ inner_hasher.finish();
+            manifest_build_hash = manifest_build_hash ^ inner_hasher.finish();
         }
 
         let import_data_metadata_hashes = import_jobs.clone_import_data_metadata_hashes();
@@ -419,12 +443,12 @@ impl BuildJobs {
             let mut inner_hasher = siphasher::sip::SipHasher::default();
             k.hash(&mut inner_hasher);
             v.hash(&mut inner_hasher);
-            combined_build_hash = combined_build_hash ^ inner_hasher.finish();
+            manifest_build_hash = manifest_build_hash ^ inner_hasher.finish();
         }
 
         self.needs_build =
-            if let Some(previous_combined_build_hash) = self.previous_combined_build_hash {
-                previous_combined_build_hash != combined_build_hash
+            if let Some(previous_manifest_build_hash) = self.previous_manifest_build_hash {
+                previous_manifest_build_hash != manifest_build_hash
             } else {
                 true
             };
@@ -475,7 +499,7 @@ impl BuildJobs {
             built_artifact_info: Default::default(),
             data_set,
             schema_set,
-            combined_build_hash,
+            manifest_build_hash: manifest_build_hash,
             log_data: Default::default(),
         });
 

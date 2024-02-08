@@ -827,11 +827,9 @@ impl Loader {
         &self,
         indirect_id: &IndirectIdentifier,
         indirect_states: &mut HashMap<LoadHandle, IndirectLoad>,
+        indirect_to_load: &mut HashMap<IndirectIdentifier, Arc<ResolvedLoadHandle>>,
     ) -> Arc<ResolvedLoadHandle> {
-        self
-            .indirect_to_load
-            .lock()
-            .unwrap()
+        indirect_to_load
             .entry(indirect_id.clone())
             .or_insert_with(|| {
                 let load_handle = self.allocate_load_handle(true);
@@ -924,8 +922,9 @@ impl Loader {
         load_handle_infos: &mut HashMap<LoadHandle, LoadHandleInfo>,
         artifact_id_to_handle: &mut HashMap<ArtifactId, LoadHandle>,
         indirect_states: &mut HashMap<LoadHandle, IndirectLoad>,
+        indirect_to_load: &mut HashMap<IndirectIdentifier, Arc<ResolvedLoadHandle>>,
     ) -> Arc<ResolvedLoadHandle> {
-        let indirect_load_handle = self.get_or_insert_indirect(&id, indirect_states);
+        let indirect_load_handle = self.get_or_insert_indirect(&id, indirect_states, indirect_to_load);
 
         // It's possible this has already been resolved, but we nee to make certain we add the appropriate
         // ref count
@@ -953,6 +952,7 @@ impl Loader {
             &mut *self.load_handle_infos.lock().unwrap(),
             &mut *self.artifact_id_to_handle.lock().unwrap(),
             &mut *self.indirect_states.lock().unwrap(),
+            &mut *self.indirect_to_load.lock().unwrap(),
         )
     }
 
@@ -1016,32 +1016,51 @@ impl Loader {
         }
     }
 
+    fn remove_engine_ref_indirect(
+        &self,
+        load_handle: LoadHandle,
+        load_handle_infos: &HashMap<LoadHandle, LoadHandleInfo>,
+        artifact_id_to_handle: &HashMap<ArtifactId, LoadHandle>,
+        indirect_states: &HashMap<LoadHandle, IndirectLoad>,
+    ) {
+        let state = indirect_states.get(&load_handle).unwrap();
+        state.engine_ref_count.fetch_sub(1, Ordering::Relaxed);
+        let resolved_uuid = state.resolved_uuid;
+        drop(state);
+        let load_handle = *artifact_id_to_handle.get(&resolved_uuid).unwrap();
+        self.remove_engine_ref_direct(load_handle, load_handle_infos);
+    }
+
+    fn remove_engine_ref_direct(
+        &self,
+        load_handle: LoadHandle,
+        load_handle_infos: &HashMap<LoadHandle, LoadHandleInfo>,
+    ) {
+        let guard = load_handle_infos.get(&load_handle);
+        let load_handle_info = guard.as_ref().unwrap();
+        load_handle_info
+            .engine_ref_count
+            .fetch_sub(1, Ordering::Relaxed);
+
+        // Engine always adjusts the latest version count
+        self.do_remove_internal_ref(
+            load_handle,
+            load_handle_info,
+        );
+    }
+
     // from remove_refs
     pub(crate) fn remove_engine_ref(
         &self,
         load_handle: LoadHandle,
     ) {
+        let mut load_handle_infos = self.load_handle_infos.lock().unwrap();
         if load_handle.is_indirect() {
+            let mut artifact_id_to_handle = self.artifact_id_to_handle.lock().unwrap();
             let mut indirect_states = self.indirect_states.lock().unwrap();
-            let state = indirect_states.get(&load_handle).unwrap();
-            state.engine_ref_count.fetch_sub(1, Ordering::Relaxed);
-            let resolved_uuid = state.resolved_uuid;
-            drop(state);
-            let load_handle = *self.artifact_id_to_handle.lock().unwrap().get(&resolved_uuid).unwrap();
-            self.remove_engine_ref(load_handle);
+            self.remove_engine_ref_indirect(load_handle, &*load_handle_infos, &*artifact_id_to_handle, &*indirect_states);
         } else {
-            let mut load_handle_infos = self.load_handle_infos.lock().unwrap();
-            let guard = load_handle_infos.get(&load_handle);
-            let load_handle_info = guard.as_ref().unwrap();
-            load_handle_info
-                .engine_ref_count
-                .fetch_sub(1, Ordering::Relaxed);
-            // Engine always adjusts the latest version count
-            //TODO: Don't understand this, probably break when there are multiple versions
-            self.do_remove_internal_ref(
-                load_handle,
-                load_handle_info,
-            );
+            self.remove_engine_ref_direct(load_handle, &*load_handle_infos);
         }
     }
 

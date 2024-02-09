@@ -287,7 +287,7 @@ impl BuildManifest {
                     artifact_id,
                     ArtifactManifestData {
                         artifact_id,
-                        build_hash,
+                        simple_build_hash: build_hash,
                         combined_build_hash,
                         symbol_hash,
                         artifact_type,
@@ -334,7 +334,11 @@ impl BuildManifest {
                     );
                     let debug_manifest_build_hash =
                         u64::from_str_radix(&debug_manifest_entry.build_hash, 16).unwrap();
-                    assert_eq!(manifest_entry.build_hash, debug_manifest_build_hash);
+                    assert_eq!(manifest_entry.simple_build_hash, debug_manifest_build_hash);
+
+                    let debug_manifest_build_hash =
+                        u64::from_str_radix(&debug_manifest_entry.combined_build_hash, 16).unwrap();
+                    assert_eq!(manifest_entry.combined_build_hash, debug_manifest_build_hash);
 
                     if debug_manifest_entry.symbol_name.is_empty() {
                         assert_eq!(manifest_entry.symbol_hash, None);
@@ -547,7 +551,7 @@ impl LoaderIO for DiskAssetIO {
             .manifest
             .artifact_lookup
             .get(&artifact_id)
-            .map(|x| x.build_hash);
+            .map(|x| x.simple_build_hash);
         if let Some(hash) = hash {
             // Queue up the work
             self.thread_pool

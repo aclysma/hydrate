@@ -9,6 +9,7 @@ use hydrate_base::ArtifactId;
 use hydrate_base::{ArtifactManifestData, LoadHandle, StringHash};
 use std::sync::atomic::{Ordering};
 use std::sync::{Arc, Mutex};
+use hydrate_base::handle::LoadState::WaitingForDependencies;
 
 //
 // Interface for IO
@@ -148,7 +149,7 @@ struct IndirectLoad {
     id: IndirectIdentifier,
     // The artifact that the identifier currently maps to. This could change if we reload data.
     //TODO: Update this on reload
-    resolved_id_and_hash: ArtifactIdAndHash,
+    resolved_id_and_hash: Option<ArtifactIdAndHash>,
     // The reference count of external handles (i.e. explicitly requested references, not references
     // due to other artifacts depending on this artifact) matching this indirect identifier
     external_ref_count_indirect: u32,
@@ -170,7 +171,7 @@ struct LoadHandleInfo {
     // the artifact. Already loaded objects may stay loaded, but we would cancel any further attempts
     // to load this object. (Additionally the currently available manifest data won't be compatible
     // with this asset, so we would not be able to continue loading it)
-    replaced_by_newer_version: bool,
+    //replaced_by_newer_version: bool,
 
     // The reference count of external handles (i.e. explicitly requested references, not references
     // due to other artifacts depending on this artifact) for this artifact. Indirect handles will
@@ -253,8 +254,6 @@ impl LoaderInner {
         &mut self,
         asset_storage: &mut dyn AssetStorage,
     ) {
-        let build_hash = self.current_build_hash;
-
         self.loader_io.update();
 
         if let Some(current_reload_action) = &self.current_reload_action {
@@ -271,26 +270,57 @@ impl LoaderInner {
             }
 
             if reload_complete {
-                // Update indirect references
-                // - Handle resolving to some new artifact UUID
-                // - Handle the artifact no longer existing
-                for (k, v) in &mut self.indirect_states {
+                // - Don't forget to handle having forced the artifact to unloaded
+                //   - clear the bool flag if reloaded
+                //   - make sure events for that artifact are handled cleanly
+                for (old_load_handle_indirect, indirect_load) in &mut self.indirect_states {
                     // If the resolved UUID changes, we need to drop ref counts and add ref counts to
                     // direct handles
-                    if let Some(new_artifact) = self.loader_io.resolve_indirect(&v.id) {
-                        v.resolved_id_and_hash = ArtifactIdAndHash {
+                    let mut old_artifact_id_and_hash = indirect_load.resolved_id_and_hash;
+                    if let Some(new_artifact) = self.loader_io.resolve_indirect(&indirect_load.id) {
+                        let new_artifact_id_and_hash = ArtifactIdAndHash {
                             id: new_artifact.artifact_id,
-                            hash: new_artifact.build_hash,
+                            hash: new_artifact.combined_build_hash,
                         };
+
+                        if old_artifact_id_and_hash == Some(new_artifact_id_and_hash) {
+                            // This artifact did not change, we shouldn't do anything
+                            continue;
+                        }
+
+                        let new_load_handle_direct = *self.artifact_id_to_handle.get(&new_artifact_id_and_hash).unwrap();
+                        let new_load_handle_info = self
+                            .load_handle_infos
+                            .get_mut(&new_load_handle_direct)
+                            .unwrap();
+
+                        // Point the indirect load to the new version
+                        indirect_load.resolved_id_and_hash = Some(new_artifact_id_and_hash);
+                        self.indirect_to_load.get(&indirect_load.id).unwrap().direct_load_handle.store(new_load_handle_direct.0, Ordering::Relaxed);
+
+                        // Add a direct ref count to new version
+                        Self::add_internal_ref(&self.events_tx, new_load_handle_direct, new_load_handle_info);
                     } else {
-                        v.resolved_id_and_hash = ArtifactIdAndHash {
-                            id: ArtifactId::null(),
-                            hash: 0
-                        };
+                        // Point the indirect load to None
+                        indirect_load.resolved_id_and_hash = None;
+                        self.indirect_to_load.get(&indirect_load.id).unwrap().direct_load_handle.store(0, Ordering::Relaxed);
+                    }
+
+                    // If we are here, this indirect load handle was changed to point somewhere else.
+                    // So drop ref count to old version.
+                    if let Some(old_artifact_id_and_hash) = old_artifact_id_and_hash {
+                        let old_load_handle_direct = *self.artifact_id_to_handle.get(&old_artifact_id_and_hash).unwrap();
+                        let old_load_handle_info = self
+                            .load_handle_infos
+                            .get_mut(&old_load_handle_direct)
+                            .unwrap();
+                        Self::remove_internal_ref(&self.events_tx, old_load_handle_direct, old_load_handle_info);
                     }
                 }
 
-                //remove temporary ref count
+                //remove temporary ref count added when we started the reload
+                //TODO: We might be able to remove this remove_internal_ref and the above add_internal_ref.
+                // They are likely redundant.
                 for &load_handle in &current_reload_action.load_handles_to_reload {
                     let load_handle_info = self
                         .load_handle_infos
@@ -310,43 +340,39 @@ impl LoaderInner {
 
             // After this point, we will only have info for the new manifest
             self.loader_io.activate_pending_build_hash(pending_build_hash);
+            self.current_build_hash = self.loader_io.current_build_hash();
 
             let mut artifacts_to_reload = vec![];
-            //let mut load_handles_to_unload = vec![];
             let mut load_handles_to_reload = vec![];
 
             for (old_load_handle, old_load_handle_info) in &mut self.load_handle_infos {
                 // Check if this artifact needs to reload or unload
                 let new_manifest_entry = self.loader_io.manifest_entry(old_load_handle_info.artifact_id);
                 let mut is_still_current_version = false;
-                if old_load_handle_info.load_state != LoadState::Unloaded {
-                    if let Some(new_manifest_entry) = &new_manifest_entry {
-                        if new_manifest_entry.build_hash == old_load_handle_info.hash {
-                            is_still_current_version = true;
-                        } else {
-                            // still exists but no longer latest version
-                        }
+                if let Some(new_manifest_entry) = &new_manifest_entry {
+                    if new_manifest_entry.combined_build_hash == old_load_handle_info.hash {
+                        // still exists and matches new manifest
+                        is_still_current_version = true;
                     } else {
-                        // no longer exists
+                        // still exists but no longer latest version
                     }
+                } else {
+                    // no longer exists
                 }
 
                 if !is_still_current_version {
-                    // If we are in the process of loading the old version of the artifact, cancel
-                    // loading it, as we no longer have the old manifest
-                    if old_load_handle_info.load_state != LoadState::Committed {
-                        old_load_handle_info.replaced_by_newer_version = true;
-                        self.events_tx.send(LoaderEvent::TryUnload(*old_load_handle)).unwrap();
-                    }
+                    // // Mark this load handle as no longer
+                    // if old_load_handle_info.load_state != LoadState::Committed {
+                    //     old_load_handle_info.replaced_by_newer_version = true;
+                    //     //self.events_tx.send(LoaderEvent::TryUnload(*old_load_handle)).unwrap();
+                    // }
 
                     // Either add the artifact to the reload or unload list
                     if let Some(new_manifest_entry) = &new_manifest_entry {
                         artifacts_to_reload.push(ArtifactIdAndHash {
                             id: new_manifest_entry.artifact_id,
-                            hash: new_manifest_entry.build_hash
+                            hash: new_manifest_entry.combined_build_hash
                         });
-                    } else {
-                        //load_handles_to_unload.push(*old_load_handle);
                     }
                 }
             }
@@ -365,7 +391,6 @@ impl LoaderInner {
 
             self.current_reload_action = Some(ReloadAction {
                 load_handles_to_reload,
-                //load_handles_to_unload
             });
         }
 
@@ -395,15 +420,15 @@ impl LoaderInner {
         while let Ok(loader_event) = self.events_rx.try_recv() {
             log::debug!("handle event {:?}", loader_event);
             match loader_event {
-                LoaderEvent::TryLoad(load_handle) => self.handle_try_load(build_hash, load_handle),
+                LoaderEvent::TryLoad(load_handle) => self.handle_try_load(self.current_build_hash, load_handle),
                 LoaderEvent::TryUnload(load_handle) => {
                     self.handle_try_unload(load_handle, asset_storage)
                 }
                 LoaderEvent::MetadataRequestComplete(result) => {
-                    self.handle_request_metadata_result(build_hash, result)
+                    self.handle_request_metadata_result(self.current_build_hash, result)
                 }
                 LoaderEvent::DependenciesLoaded(load_handle) => {
-                    self.handle_dependencies_loaded(build_hash, load_handle)
+                    self.handle_dependencies_loaded(self.current_build_hash, load_handle)
                 }
                 LoaderEvent::DataRequestComplete(result) => {
                     self.handle_request_data_result(result, asset_storage)
@@ -535,7 +560,7 @@ impl LoaderInner {
 
             let dependency_load_handle = self.get_or_insert_direct(ArtifactIdAndHash {
                 id: *dependency,
-                hash: dependency_manifest_entry.build_hash
+                hash: dependency_manifest_entry.combined_build_hash
             });
             let dependency_load_handle_info = self
                 .load_handle_infos
@@ -799,10 +824,10 @@ impl LoaderInner {
                     indirect_load_handle,
                     IndirectLoad {
                         id: indirect_id.clone(),
-                        resolved_id_and_hash: ArtifactIdAndHash {
+                        resolved_id_and_hash: Some(ArtifactIdAndHash {
                             id: manifest_entry.artifact_id,
-                            hash: manifest_entry.build_hash,
-                        },
+                            hash: manifest_entry.combined_build_hash,
+                        }),
                         external_ref_count_indirect: 0,
                     },
                 );
@@ -825,7 +850,7 @@ impl LoaderInner {
                 let direct_load_handle = LoadHandle::new(*next_handle_index, false);
                 *next_handle_index += 1;
                 let manifest_entry = loader_io.manifest_entry(artifact_id_and_hash.id).unwrap();
-                assert_eq!(manifest_entry.build_hash, artifact_id_and_hash.hash);
+                assert_eq!(manifest_entry.combined_build_hash, artifact_id_and_hash.hash);
 
                 log::debug!(
                     "Allocate load handle {:?} for artifact id {:?}",
@@ -841,7 +866,7 @@ impl LoaderInner {
                         load_state: LoadState::Unloaded,
                         artifact_type_id: ArtifactTypeId::default(),
                         hash: artifact_id_and_hash.hash,
-                        replaced_by_newer_version: false,
+                        //replaced_by_newer_version: false,
                         internal_ref_count: 0,
                         blocking_dependency_count: 0,
                         blocked_loads: vec![],
@@ -885,9 +910,13 @@ impl LoaderInner {
         state.external_ref_count_indirect += 1;
 
         let resolved_id_and_hash = state.resolved_id_and_hash;
-        let direct_load_handle = self.get_or_insert_direct(resolved_id_and_hash);
-        self.add_engine_ref_by_handle_direct(direct_load_handle);
-        direct_load_handle
+        if let Some(resolved_id_and_hash) = resolved_id_and_hash {
+            let direct_load_handle = self.get_or_insert_direct(resolved_id_and_hash);
+            self.add_engine_ref_by_handle_direct(direct_load_handle);
+            direct_load_handle
+        } else {
+            LoadHandle(0)
+        }
     }
 
     // Returns the direct load handle
@@ -911,11 +940,13 @@ impl LoaderInner {
     ) {
         let mut state = self.indirect_states.get_mut(&indirect_load_handle).unwrap();
         state.external_ref_count_indirect -= 1;
-        let direct_load_handle = *self
-            .artifact_id_to_handle
-            .get(&state.resolved_id_and_hash)
-            .unwrap();
-        self.remove_engine_ref_direct(direct_load_handle);
+        if let Some(resolved_id_and_hash) = &state.resolved_id_and_hash {
+            let direct_load_handle = *self
+                .artifact_id_to_handle
+                .get(resolved_id_and_hash)
+                .unwrap();
+            self.remove_engine_ref_direct(direct_load_handle);
+        }
     }
 
     fn remove_engine_ref_direct(
@@ -1164,7 +1195,7 @@ impl<'a> LoaderInfoProvider for LoadHandleInfoProviderImpl<'a> {
         id: &ArtifactRef,
     ) -> Option<Arc<ResolvedLoadHandle>> {
         let artifact_id = ArtifactId::from_uuid(id.0.as_uuid());
-        let build_hash = self.loader_io.manifest_entry(artifact_id).unwrap().build_hash;
+        let build_hash = self.loader_io.manifest_entry(artifact_id).unwrap().combined_build_hash;
 
         let load_handle = self.artifact_id_to_handle.get(&ArtifactIdAndHash {
             id: artifact_id,

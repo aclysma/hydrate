@@ -32,7 +32,7 @@ pub struct DebugManifestFileJson {
 /// asset is requested and must be fetched from disk.
 pub struct ArtifactManifestData {
     pub artifact_id: ArtifactId,
-    pub build_hash: u64,
+    pub simple_build_hash: u64,
     pub combined_build_hash: u64,
     // If the artifact cannot be addressed by symbol, this will be None
     // Even if the symbol is Some, the string in the string hash might not be present. It's only

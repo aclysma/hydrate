@@ -148,7 +148,7 @@ struct IndirectLoad {
     id: IndirectIdentifier,
     // The artifact that the identifier currently maps to. This could change if we reload data.
     //TODO: Update this on reload
-    resolved_uuid: ArtifactId,
+    resolved_id_and_hash: ArtifactIdAndHash,
     // The reference count of external handles (i.e. explicitly requested references, not references
     // due to other artifacts depending on this artifact) matching this indirect identifier
     external_ref_count_indirect: u32,
@@ -165,6 +165,12 @@ struct LoadHandleInfo {
     hash: u64,
     // State this particular artifact is in
     load_state: LoadState,
+
+    // This will be set to true if we reload and this artifact is no longer the latest version of
+    // the artifact. Already loaded objects may stay loaded, but we would cancel any further attempts
+    // to load this object. (Additionally the currently available manifest data won't be compatible
+    // with this asset, so we would not be able to continue loading it)
+    replaced_by_newer_version: bool,
 
     // The reference count of external handles (i.e. explicitly requested references, not references
     // due to other artifacts depending on this artifact) for this artifact. Indirect handles will
@@ -195,7 +201,17 @@ struct LoadHandleInfo {
 //TODO: This may need to track the changed artifacts to wait for them to load before updating
 // indirect handles and removing ref counts from the direct handles they used to be associated with?
 struct ReloadAction {
-    _build_hash: ManifestBuildHash,
+    // old direct handles, there is no new corresponding handle
+    //load_handles_to_unload: Vec<LoadHandle>,
+    // new direct handles, we don't need the old handle here because ref count changes will
+    // eventually cause the old handle to be dropped
+    load_handles_to_reload: Vec<LoadHandle>,
+}
+
+#[derive(Copy, Clone, Debug, Hash, PartialEq, Eq)]
+struct ArtifactIdAndHash {
+    id: ArtifactId,
+    hash: u64,
 }
 
 struct LoaderInner {
@@ -207,7 +223,7 @@ struct LoaderInner {
     // The direct handle for a given artifact ID
     // This should only contain direct handles
     //TODO: This will get updated on reload
-    artifact_id_to_handle: HashMap<ArtifactId, LoadHandle>,
+    artifact_id_to_handle: HashMap<ArtifactIdAndHash, LoadHandle>,
 
     // The data source we will load content from
     loader_io: Box<dyn LoaderIO>,
@@ -227,7 +243,6 @@ struct LoaderInner {
     // Update-specific state, mainly to do with reload detection/handling
     current_build_hash: ManifestBuildHash,
     current_reload_action: Option<ReloadAction>,
-    pending_reload_actions: Option<ReloadAction>,
 }
 
 impl LoaderInner {
@@ -242,46 +257,140 @@ impl LoaderInner {
 
         self.loader_io.update();
 
+        if let Some(current_reload_action) = &self.current_reload_action {
+            //
+            // See if this reload has completed yet.
+            //
+            let mut reload_complete = true;
+            for &load_handle in &current_reload_action.load_handles_to_reload {
+                let load_handle_info = self.load_handle_infos.get(&load_handle).unwrap();
+                if load_handle_info.load_state != LoadState::Committed {
+                    reload_complete = false;
+                    break;
+                }
+            }
 
-        // see if there's a newer build?
+            if reload_complete {
+                // Update indirect references
+                // - Handle resolving to some new artifact UUID
+                // - Handle the artifact no longer existing
+                for (k, v) in &mut self.indirect_states {
+                    // If the resolved UUID changes, we need to drop ref counts and add ref counts to
+                    // direct handles
+                    if let Some(new_artifact) = self.loader_io.resolve_indirect(&v.id) {
+                        v.resolved_id_and_hash = ArtifactIdAndHash {
+                            id: new_artifact.artifact_id,
+                            hash: new_artifact.build_hash,
+                        };
+                    } else {
+                        v.resolved_id_and_hash = ArtifactIdAndHash {
+                            id: ArtifactId::null(),
+                            hash: 0
+                        };
+                    }
+                }
 
-        if let Some(pending_build_hash) = self.loader_io.pending_build_hash() {
-            println!("PENDING BUILD HASH");
+                //remove temporary ref count
+                for &load_handle in &current_reload_action.load_handles_to_reload {
+                    let load_handle_info = self
+                        .load_handle_infos
+                        .get_mut(&load_handle)
+                        .unwrap();
+                    Self::remove_internal_ref(&self.events_tx, load_handle, load_handle_info);
+                }
+
+                // indicate that the reload is complete
+                self.current_reload_action = None;
+            }
+        } else if let Some(pending_build_hash) = self.loader_io.pending_build_hash() {
+            //
+            // See if there is a new build hash available. If there is, we may need to reload/unload
+            // some artifacts.
+            //
+
+            // After this point, we will only have info for the new manifest
             self.loader_io.activate_pending_build_hash(pending_build_hash);
 
-            // Don't want to break or interrupt loading for old versions.. we could end up
-            // switching back to them
-            //
-            // Two phases:
-            // - Start loading new versions of anything that has changed
-            //   - This creates/increments temporary ref counts on load handles
-            // - Any further requests for data will be for new versions
-            // - When all new data is loaded, we can update indirect handles
-            //   - add/remove "real" ref counts for the indirect handles
-            //   - remove the temporary ref counts
-            //
-            // Handling in-flight loads
-            // - Mark them as "abandoned"? We have to cleanly handle coming back to them if we
-            //   reload data and it matches hash of a cancelled load
-            // - Have multiple manifests loaded
-            //   - Makes SerdeContext a little uglier
+            let mut artifacts_to_reload = vec![];
+            //let mut load_handles_to_unload = vec![];
+            let mut load_handles_to_reload = vec![];
 
-            for (k, v) in &self.load_handle_infos {
-                // if the hash has changed, we need to produce a new load handle and update
-                // self.artifact_id_to_handle
-                //v.version.hash
+            for (old_load_handle, old_load_handle_info) in &mut self.load_handle_infos {
+                // Check if this artifact needs to reload or unload
+                let new_manifest_entry = self.loader_io.manifest_entry(old_load_handle_info.artifact_id);
+                let mut is_still_current_version = false;
+                if old_load_handle_info.load_state != LoadState::Unloaded {
+                    if let Some(new_manifest_entry) = &new_manifest_entry {
+                        if new_manifest_entry.build_hash == old_load_handle_info.hash {
+                            is_still_current_version = true;
+                        } else {
+                            // still exists but no longer latest version
+                        }
+                    } else {
+                        // no longer exists
+                    }
+                }
 
-                // how to handle background tasks deserializing data? just fail any that aren't yet
-                // loaded?
+                if !is_still_current_version {
+                    // If we are in the process of loading the old version of the artifact, cancel
+                    // loading it, as we no longer have the old manifest
+                    if old_load_handle_info.load_state != LoadState::Committed {
+                        old_load_handle_info.replaced_by_newer_version = true;
+                        self.events_tx.send(LoaderEvent::TryUnload(*old_load_handle)).unwrap();
+                    }
+
+                    // Either add the artifact to the reload or unload list
+                    if let Some(new_manifest_entry) = &new_manifest_entry {
+                        artifacts_to_reload.push(ArtifactIdAndHash {
+                            id: new_manifest_entry.artifact_id,
+                            hash: new_manifest_entry.build_hash
+                        });
+                    } else {
+                        //load_handles_to_unload.push(*old_load_handle);
+                    }
+                }
             }
 
-            // Do we figure out what changed and issues ref count changes/load requests?
-            for (k, v) in &self.indirect_states {
-                // If the resolved UUID changes, we need to drop ref counts and add ref counts to
-                // direct handles
-                //v.resolved_uuid
+            // Add temporary ref counts to new version of anything that has changed (causing it to load)
+            for new_handle in artifacts_to_reload {
+                let new_load_handle = self.get_or_insert_direct(new_handle);
+                let new_load_handle_info = self
+                    .load_handle_infos
+                    .get_mut(&new_load_handle)
+                    .unwrap();
+                // This reference is temporary and will be removed when we finish the reload
+                Self::add_internal_ref(&self.events_tx, new_load_handle, new_load_handle_info);
+                load_handles_to_reload.push(new_load_handle);
             }
+
+            self.current_reload_action = Some(ReloadAction {
+                load_handles_to_reload,
+                //load_handles_to_unload
+            });
         }
+
+
+
+
+
+
+        // Don't want to break or interrupt loading for old versions.. we could end up
+        // switching back to them
+        //
+        // Two phases:
+        // - Start loading new versions of anything that has changed
+        //   - This creates/increments temporary ref counts on load handles
+        // - Any further requests for data will be for new versions
+        // - When all new data is loaded, we can update indirect handles
+        //   - add/remove "real" ref counts for the indirect handles
+        //   - remove the temporary ref counts
+        //
+        // Handling in-flight loads
+        // - Mark them as "abandoned"? We have to cleanly handle coming back to them if we
+        //   reload data and it matches hash of a cancelled load
+        // - Have multiple manifests loaded
+        //   - Makes SerdeContext a little uglier
+
 
         while let Ok(loader_event) = self.events_rx.try_recv() {
             log::debug!("handle event {:?}", loader_event);
@@ -302,13 +411,6 @@ impl LoaderInner {
                 LoaderEvent::LoadResult(load_result) => {
                     self.handle_load_result(load_result, asset_storage)
                 }
-                // LoaderEvent::ArtifactsUpdated(build_hash) => {
-                //     log::warn!("Received ArtifactsUpdated for build hash {:?}", build_hash);
-                //     // We probably want to finish existing work, pause starting new work, and do the reload
-                //     self.pending_reload_actions = Some(ReloadAction {
-                //         _build_hash: build_hash,
-                //     });
-                // }
             }
         }
     }
@@ -429,7 +531,12 @@ impl LoaderInner {
 
         let mut dependency_load_handles = vec![];
         for dependency in &metadata.dependencies {
-            let dependency_load_handle = self.get_or_insert_direct(*dependency);
+            let dependency_manifest_entry = self.loader_io.manifest_entry(*dependency).unwrap();
+
+            let dependency_load_handle = self.get_or_insert_direct(ArtifactIdAndHash {
+                id: *dependency,
+                hash: dependency_manifest_entry.build_hash
+            });
             let dependency_load_handle_info = self
                 .load_handle_infos
                 .get_mut(&dependency_load_handle)
@@ -559,6 +666,7 @@ impl LoaderInner {
         let info_provider = LoadHandleInfoProviderImpl {
             artifact_id_to_handle: &self.artifact_id_to_handle,
             load_handle_infos: &self.load_handle_infos,
+            loader_io: &*self.loader_io,
         };
 
         // We dropped the load_state_info lock before calling this because the serde deserializer may query for asset
@@ -691,7 +799,10 @@ impl LoaderInner {
                     indirect_load_handle,
                     IndirectLoad {
                         id: indirect_id.clone(),
-                        resolved_uuid: manifest_entry.artifact_id,
+                        resolved_id_and_hash: ArtifactIdAndHash {
+                            id: manifest_entry.artifact_id,
+                            hash: manifest_entry.build_hash,
+                        },
                         external_ref_count_indirect: 0,
                     },
                 );
@@ -702,33 +813,35 @@ impl LoaderInner {
 
     fn get_or_insert_direct(
         &mut self,
-        artifact_id: ArtifactId,
+        artifact_id_and_hash: ArtifactIdAndHash,
     ) -> LoadHandle {
         let next_handle_index = &mut self.next_handle_index;
         let load_handle_infos = &mut self.load_handle_infos;
         let loader_io = &mut self.loader_io;
         *self
             .artifact_id_to_handle
-            .entry(artifact_id)
+            .entry(artifact_id_and_hash)
             .or_insert_with(|| {
                 let direct_load_handle = LoadHandle::new(*next_handle_index, false);
                 *next_handle_index += 1;
-                let manifest_entry = loader_io.manifest_entry(artifact_id).unwrap();
+                let manifest_entry = loader_io.manifest_entry(artifact_id_and_hash.id).unwrap();
+                assert_eq!(manifest_entry.build_hash, artifact_id_and_hash.hash);
 
                 log::debug!(
                     "Allocate load handle {:?} for artifact id {:?}",
                     direct_load_handle,
-                    artifact_id,
+                    artifact_id_and_hash,
                 );
 
                 load_handle_infos.insert(
                     direct_load_handle,
                     LoadHandleInfo {
-                        artifact_id,
+                        artifact_id: artifact_id_and_hash.id,
                         external_ref_count_direct: 0,
                         load_state: LoadState::Unloaded,
                         artifact_type_id: ArtifactTypeId::default(),
-                        hash: 0,
+                        hash: artifact_id_and_hash.hash,
+                        replaced_by_newer_version: false,
                         internal_ref_count: 0,
                         blocking_dependency_count: 0,
                         blocked_loads: vec![],
@@ -771,8 +884,8 @@ impl LoaderInner {
         let mut state = self.indirect_states.get_mut(&indirect_load_handle).unwrap();
         state.external_ref_count_indirect += 1;
 
-        let resolved_uuid = state.resolved_uuid;
-        let direct_load_handle = self.get_or_insert_direct(resolved_uuid);
+        let resolved_id_and_hash = state.resolved_id_and_hash;
+        let direct_load_handle = self.get_or_insert_direct(resolved_id_and_hash);
         self.add_engine_ref_by_handle_direct(direct_load_handle);
         direct_load_handle
     }
@@ -800,7 +913,7 @@ impl LoaderInner {
         state.external_ref_count_indirect -= 1;
         let direct_load_handle = *self
             .artifact_id_to_handle
-            .get(&state.resolved_uuid)
+            .get(&state.resolved_id_and_hash)
             .unwrap();
         self.remove_engine_ref_direct(direct_load_handle);
     }
@@ -923,7 +1036,6 @@ impl Loader {
             indirect_to_load: Default::default(),
             current_build_hash: build_hash,
             current_reload_action: None,
-            pending_reload_actions: None,
         };
 
         Loader {
@@ -1039,8 +1151,9 @@ impl LoadStateProvider for Loader {
 //
 #[derive(Copy, Clone)]
 struct LoadHandleInfoProviderImpl<'a> {
-    artifact_id_to_handle: &'a HashMap<ArtifactId, LoadHandle>,
+    artifact_id_to_handle: &'a HashMap<ArtifactIdAndHash, LoadHandle>,
     load_handle_infos: &'a HashMap<LoadHandle, LoadHandleInfo>,
+    loader_io: &'a dyn LoaderIO,
 }
 
 impl<'a> LoaderInfoProvider for LoadHandleInfoProviderImpl<'a> {
@@ -1051,7 +1164,12 @@ impl<'a> LoaderInfoProvider for LoadHandleInfoProviderImpl<'a> {
         id: &ArtifactRef,
     ) -> Option<Arc<ResolvedLoadHandle>> {
         let artifact_id = ArtifactId::from_uuid(id.0.as_uuid());
-        let load_handle = self.artifact_id_to_handle.get(&artifact_id).map(|l| *l)?;
+        let build_hash = self.loader_io.manifest_entry(artifact_id).unwrap().build_hash;
+
+        let load_handle = self.artifact_id_to_handle.get(&ArtifactIdAndHash {
+            id: artifact_id,
+            hash: build_hash,
+        }).map(|l| *l)?;
         Some(ResolvedLoadHandle::new(load_handle, load_handle))
     }
 

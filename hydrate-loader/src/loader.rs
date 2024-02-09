@@ -138,7 +138,7 @@ pub enum LoaderEvent {
     // Sent by engine code to indicate success or failure at loading an artifact
     LoadResult(HandleOp),
     // Sent by LoaderIO when there are new versions available of the given artifacts.
-    ArtifactsUpdated(ManifestBuildHash),
+    //ArtifactsUpdated(ManifestBuildHash),
 }
 
 // Information about indirect load handles that have been requested
@@ -154,13 +154,22 @@ struct IndirectLoad {
     external_ref_count_indirect: u32,
 }
 
-//TODO: This should probably just be merged into LoadHandleInfo
-struct LoadHandleVersionInfo {
-    // State this particular artifact is in
-    load_state: LoadState,
+// Information about direct load handles that are currently loaded or were loaded at some point in
+// the past. A load handle points to a particular version of an artifact, uniquely identified by
+// an artifact ID and the hash.
+struct LoadHandleInfo {
+    artifact_id: ArtifactId,
     artifact_type_id: ArtifactTypeId,
+
     // Used to uniquely identify a version of this artifact.
     hash: u64,
+    // State this particular artifact is in
+    load_state: LoadState,
+
+    // The reference count of external handles (i.e. explicitly requested references, not references
+    // due to other artifacts depending on this artifact) for this artifact. Indirect handles will
+    // count here and it may be that this artifact is referenced by multiple unique indirect handles.
+    external_ref_count_direct: u32,
 
     // Number of references to this artifact, including explicitly via indirect handles or implicitly
     // due to other requested artifacts requiring this artifact to be loaded first. This reference
@@ -176,18 +185,6 @@ struct LoadHandleVersionInfo {
     // load handles for any artifacts that need to be released when this is unloaded. This artifact
     // implicitly requires these artifacts to load fully before this artifact can finish loading.
     dependencies: Vec<LoadHandle>,
-}
-
-// Information about direct load handles that are currently loaded or were loaded at some point in
-// the past. A load handle points to a particular version of an artifact, uniquely identified by
-// an artifact ID and the hash.
-struct LoadHandleInfo {
-    artifact_id: ArtifactId,
-    // The reference count of external handles (i.e. explicitly requested references, not references
-    // due to other artifacts depending on this artifact) for this artifact. Indirect handles will
-    // count here and it may be that this artifact is referenced by multiple unique indirect handles.
-    external_ref_count_direct: u32,
-    version: LoadHandleVersionInfo,
 
     // for debugging/convenience, not actually required
     symbol: Option<StringHash>,
@@ -249,11 +246,41 @@ impl LoaderInner {
         // see if there's a newer build?
 
         if let Some(pending_build_hash) = self.loader_io.pending_build_hash() {
-
-            // Do we figure out what changed and issues ref count changes/load requests?
-
             println!("PENDING BUILD HASH");
             self.loader_io.activate_pending_build_hash(pending_build_hash);
+
+            // Don't want to break or interrupt loading for old versions.. we could end up
+            // switching back to them
+            //
+            // Two phases:
+            // - Start loading new versions of anything that has changed
+            //   - This creates/increments temporary ref counts on load handles
+            // - Any further requests for data will be for new versions
+            // - When all new data is loaded, we can update indirect handles
+            //   - add/remove "real" ref counts for the indirect handles
+            //   - remove the temporary ref counts
+            //
+            // Handling in-flight loads
+            // - Mark them as "abandoned"? We have to cleanly handle coming back to them if we
+            //   reload data and it matches hash of a cancelled load
+            // - Have multiple manifests loaded
+            //   - Makes SerdeContext a little uglier
+
+            for (k, v) in &self.load_handle_infos {
+                // if the hash has changed, we need to produce a new load handle and update
+                // self.artifact_id_to_handle
+                //v.version.hash
+
+                // how to handle background tasks deserializing data? just fail any that aren't yet
+                // loaded?
+            }
+
+            // Do we figure out what changed and issues ref count changes/load requests?
+            for (k, v) in &self.indirect_states {
+                // If the resolved UUID changes, we need to drop ref counts and add ref counts to
+                // direct handles
+                //v.resolved_uuid
+            }
         }
 
         while let Ok(loader_event) = self.events_rx.try_recv() {
@@ -275,13 +302,13 @@ impl LoaderInner {
                 LoaderEvent::LoadResult(load_result) => {
                     self.handle_load_result(load_result, asset_storage)
                 }
-                LoaderEvent::ArtifactsUpdated(build_hash) => {
-                    log::warn!("Received ArtifactsUpdated for build hash {:?}", build_hash);
-                    // We probably want to finish existing work, pause starting new work, and do the reload
-                    self.pending_reload_actions = Some(ReloadAction {
-                        _build_hash: build_hash,
-                    });
-                }
+                // LoaderEvent::ArtifactsUpdated(build_hash) => {
+                //     log::warn!("Received ArtifactsUpdated for build hash {:?}", build_hash);
+                //     // We probably want to finish existing work, pause starting new work, and do the reload
+                //     self.pending_reload_actions = Some(ReloadAction {
+                //         _build_hash: build_hash,
+                //     });
+                // }
             }
         }
     }
@@ -304,14 +331,13 @@ impl LoaderInner {
         // We expect any try_load requests to be for the latest version. If this ends up not being a
         // valid assertion, perhaps we should just load the most recent version.
         let artifact_id = load_state_info.artifact_id;
-        let current_version = &mut load_state_info.version;
-        if current_version.load_state == LoadState::Unloaded {
+        if load_state_info.load_state == LoadState::Unloaded {
             // We have not started to load this artifact, so we can potentially start it now
-            if current_version.internal_ref_count > 0 {
+            if load_state_info.internal_ref_count > 0 {
                 // The engine is still referencing it, so we should start loading it now
                 self.loader_io
                     .request_metadata(build_hash, load_handle, artifact_id);
-                current_version.load_state = LoadState::WaitingForMetadata;
+                load_state_info.load_state = LoadState::WaitingForMetadata;
             } else {
                 // it's not referenced anymore, don't bother loading it. If it becomes
                 // referenced again later, we will get another TryLoad event
@@ -339,26 +365,25 @@ impl LoaderInner {
 
         let mut dependencies = vec![];
 
-        let current_version = &mut load_state_info.version;
-        if current_version.load_state != LoadState::Unloaded {
+        if load_state_info.load_state != LoadState::Unloaded {
             // We are somewhere in the state machine to load the artifact, we can stop loading it now
             // if it's no longer referenced
-            if current_version.internal_ref_count > 0 {
+            if load_state_info.internal_ref_count > 0 {
                 // It's referenced, don't unload it
             } else {
                 // It's not referenced, so go ahead and unloaded it...
 
                 // If it's been loaded, tell asset storage to drop it
-                if current_version.load_state == LoadState::Loading
-                    || current_version.load_state == LoadState::Loaded
-                    || current_version.load_state == LoadState::Committed
+                if load_state_info.load_state == LoadState::Loading
+                    || load_state_info.load_state == LoadState::Loaded
+                    || load_state_info.load_state == LoadState::Committed
                 {
-                    asset_storage.free(current_version.artifact_type_id, load_handle);
+                    asset_storage.free(load_state_info.artifact_type_id, load_handle);
                 }
 
-                std::mem::swap(&mut dependencies, &mut current_version.dependencies);
+                std::mem::swap(&mut dependencies, &mut load_state_info.dependencies);
 
-                current_version.load_state = LoadState::Unloaded;
+                load_state_info.load_state = LoadState::Unloaded;
             }
         } else {
             // We are already unloaded and don't need to do anything
@@ -385,7 +410,7 @@ impl LoaderInner {
                 load_state_info.debug_name,
                 load_state_info.artifact_id
             );
-            let load_state = load_state_info.version.load_state;
+            let load_state = load_state_info.load_state;
             // Bail if the artifact is unloaded
             if load_state == LoadState::Unloaded {
                 return;
@@ -418,23 +443,21 @@ impl LoaderInner {
                 dependency_load_handle_info,
             );
 
-            let load_state = dependency_load_handle_info.version.load_state;
+            let load_state = dependency_load_handle_info.load_state;
             if load_state != LoadState::Loaded && load_state != LoadState::Committed {
                 blocking_dependency_count += 1;
             }
 
             dependency_load_handle_info
-                .version
                 .blocked_loads
                 .push(result.load_handle);
         }
 
         if let Some(load_state_info) = self.load_handle_infos.get_mut(&result.load_handle) {
             let artifact_id = load_state_info.artifact_id;
-            let version = &mut load_state_info.version;
-            version.artifact_type_id = metadata.artifact_type_id;
-            version.hash = metadata.hash;
-            version.dependencies = dependency_load_handles;
+            load_state_info.artifact_type_id = metadata.artifact_type_id;
+            load_state_info.hash = metadata.hash;
+            load_state_info.dependencies = dependency_load_handles;
 
             if blocking_dependency_count == 0 {
                 log::debug!("load handle {:?} has no dependencies", result.load_handle);
@@ -445,15 +468,15 @@ impl LoaderInner {
                     metadata.hash,
                     //None,
                 );
-                version.load_state = LoadState::WaitingForData;
+                load_state_info.load_state = LoadState::WaitingForData;
             } else {
                 log::debug!(
                     "load handle {:?} has {} dependencies",
                     result.load_handle,
                     blocking_dependency_count
                 );
-                version.blocking_dependency_count = blocking_dependency_count;
-                version.load_state = LoadState::WaitingForDependencies;
+                load_state_info.blocking_dependency_count = blocking_dependency_count;
+                load_state_info.load_state = LoadState::WaitingForDependencies;
                 // Processing for this artifact will continue with dependencies load and our
                 // blocking_dependency_count hits 0. (It will be decremented as dependencies are
                 // loaded in)
@@ -477,12 +500,12 @@ impl LoaderInner {
             load_state_info.debug_name,
             load_state_info.artifact_id
         );
-        if load_state_info.version.load_state == LoadState::Unloaded {
+        if load_state_info.load_state == LoadState::Unloaded {
             return;
         }
 
         assert_eq!(
-            load_state_info.version.load_state,
+            load_state_info.load_state,
             LoadState::WaitingForDependencies
         );
 
@@ -490,10 +513,10 @@ impl LoaderInner {
             build_hash,
             load_handle,
             load_state_info.artifact_id,
-            load_state_info.version.hash,
+            load_state_info.hash,
             //None,
         );
-        load_state_info.version.load_state = LoadState::WaitingForData;
+        load_state_info.load_state = LoadState::WaitingForData;
     }
 
     fn handle_request_data_result(
@@ -501,6 +524,14 @@ impl LoaderInner {
         result: RequestDataResult,
         asset_storage: &mut dyn AssetStorage,
     ) {
+        // if self.artifact_id_to_handle.get(&result.artifact_id).unwrap() != result.artifact_id {
+        //     assert!(version.load_state == LoadState::
+        //     // This
+        //     // let load_state_info = self.load_handle_infos.get_mut(&result.load_handle).unwrap();
+        //     // let version = &mut load_state_info.version;
+        //     // version.load_state = LoadState::Unloaded
+        // }
+
         // Should always exist, we don't delete load handles
         let (load_op, load_state_info, data) = {
             let load_state_info = self.load_handle_infos.get(&result.load_handle).unwrap();
@@ -510,13 +541,12 @@ impl LoaderInner {
                 load_state_info.debug_name,
                 load_state_info.artifact_id
             );
-            let version = &load_state_info.version;
             // Bail if the asset is unloaded
-            if version.load_state == LoadState::Unloaded {
+            if load_state_info.load_state == LoadState::Unloaded {
                 return;
             }
 
-            assert_eq!(version.load_state, LoadState::WaitingForData);
+            assert_eq!(load_state_info.load_state, LoadState::WaitingForData);
 
             // start loading
             let data = result.result.unwrap();
@@ -536,7 +566,7 @@ impl LoaderInner {
         asset_storage
             .update_asset(
                 &info_provider,
-                &load_state_info.version.artifact_type_id,
+                &load_state_info.artifact_type_id,
                 load_state_info.artifact_id,
                 data.data,
                 result.load_handle,
@@ -546,8 +576,7 @@ impl LoaderInner {
 
         // Should always exist, we don't delete load handles
         let load_state_info = self.load_handle_infos.get_mut(&result.load_handle).unwrap();
-        let version = &mut load_state_info.version;
-        version.load_state = LoadState::Loading;
+        load_state_info.load_state = LoadState::Loading;
     }
 
     fn handle_load_result(
@@ -586,10 +615,10 @@ impl LoaderInner {
                     );
                     std::mem::swap(
                         &mut blocked_loads,
-                        &mut load_handle_info.version.blocked_loads,
+                        &mut load_handle_info.blocked_loads,
                     );
-                    load_handle_info.version.load_state = LoadState::Loaded;
-                    load_handle_info.version.artifact_type_id
+                    load_handle_info.load_state = LoadState::Loaded;
+                    load_handle_info.artifact_type_id
                 };
 
                 for blocked_load_handle in blocked_loads {
@@ -599,9 +628,8 @@ impl LoaderInner {
                         .get_mut(&blocked_load_handle)
                         .unwrap();
                     blocked_load
-                        .version
                         .blocking_dependency_count -= 1;
-                    if blocked_load.version.blocking_dependency_count == 0 {
+                    if blocked_load.blocking_dependency_count == 0 {
                         // Kick off the blocked load
                         self.events_tx
                             .send(LoaderEvent::DependenciesLoaded(blocked_load_handle))
@@ -613,7 +641,6 @@ impl LoaderInner {
                 self.load_handle_infos
                     .get_mut(&load_handle)
                     .unwrap()
-                    .version
                     .load_state = LoadState::Committed;
             }
             HandleOp::Drop(load_handle) => {
@@ -699,15 +726,13 @@ impl LoaderInner {
                     LoadHandleInfo {
                         artifact_id,
                         external_ref_count_direct: 0,
-                        version: LoadHandleVersionInfo {
-                            load_state: LoadState::Unloaded,
-                            artifact_type_id: ArtifactTypeId::default(),
-                            hash: 0,
-                            internal_ref_count: 0,
-                            blocking_dependency_count: 0,
-                            blocked_loads: vec![],
-                            dependencies: vec![],
-                        },
+                        load_state: LoadState::Unloaded,
+                        artifact_type_id: ArtifactTypeId::default(),
+                        hash: 0,
+                        internal_ref_count: 0,
+                        blocking_dependency_count: 0,
+                        blocked_loads: vec![],
+                        dependencies: vec![],
                         symbol: manifest_entry.symbol_hash.clone(),
                         debug_name: manifest_entry.debug_name.clone(),
                     },
@@ -800,11 +825,10 @@ impl LoaderInner {
     ) {
         assert!(!direct_load_handle.is_indirect());
         load_handle_info
-            .version
             .internal_ref_count += 1;
 
         // If this is the first reference to the artifact, put it in the queue to be loaded
-        if load_handle_info.version.internal_ref_count == 1 {
+        if load_handle_info.internal_ref_count == 1 {
             events_tx.send(LoaderEvent::TryLoad(direct_load_handle)).unwrap();
         }
     }
@@ -817,10 +841,9 @@ impl LoaderInner {
     ) {
         assert!(!direct_load_handle.is_indirect());
         load_handle_info
-            .version
             .internal_ref_count -= 1;
         // If this was the last reference to the artifact, put it in queue to be dropped
-        if load_handle_info.version.internal_ref_count == 0 {
+        if load_handle_info.internal_ref_count == 0 {
             events_tx
                 .send(LoaderEvent::TryUnload(direct_load_handle))
                 .unwrap();
@@ -991,7 +1014,6 @@ impl LoadStateProvider for Loader {
             .load_handle_infos
             .get(&load_handle.direct_load_handle())
             .unwrap()
-            .version
             .load_state
     }
 

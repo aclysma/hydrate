@@ -467,7 +467,7 @@ impl LoaderIO for DiskAssetIO {
             if let Some((new_build_manifest_hash, new_build_manifest)) = new_toc_event.new_build_manifest {
                 log::warn!("DETECTED NEW TOC");
                 self.pending_new_build_manifest = Some((new_build_manifest_hash, new_build_manifest));
-                self.load_event_tx.send(LoaderEvent::ArtifactsUpdated(new_build_manifest_hash)).unwrap();
+                //self.load_event_tx.send(LoaderEvent::ArtifactsUpdated(new_build_manifest_hash)).unwrap();
             }
         }
 
@@ -489,7 +489,8 @@ impl LoaderIO for DiskAssetIO {
             if manifest_build_hash != new_build_hash {
                 panic!("Tried to switch to new build manifest but the manifest build hash doesn't match");
             } else {
-                self.manifest = build_manifest
+                self.manifest = build_manifest;
+                self.build_hash = manifest_build_hash;
             }
         } else {
             panic!("Tried to switch to new build manifest but the new manifest is not pending")

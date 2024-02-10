@@ -87,7 +87,6 @@ impl DiskAssetIOWorkerThread {
                     recv(request_rx) -> msg => {
                         match msg.unwrap() {
                             DiskAssetIORequest::CheckNewToc(msg) => {
-                                log::warn!("Check for new TOC");
                                 match find_and_load_latest_toc_if_changed(&*root_path, Some(msg.current_manifest_build_hash)) {
                                     Ok(Some(new_build_manifest)) => {
                                         toc_event_tx.send(DiskAssetIOResponseNewToc {
@@ -370,7 +369,6 @@ fn find_latest_toc(toc_dir_path: &Path) -> Option<PathBuf> {
     let mut max_timestamp = 0;
     let mut max_timestamp_path = None;
 
-    log::info!("find latest toc from {:?}", toc_dir_path);
     let files = std::fs::read_dir(toc_dir_path).unwrap();
     for file in files {
         let path = file.unwrap().path();
@@ -469,7 +467,7 @@ impl LoaderIO for DiskAssetIO {
         while let Ok(new_toc_event) = self.new_toc_rx.try_recv() {
             self.toc_check_queued = false;
             if let Some((new_build_manifest_hash, new_build_manifest)) = new_toc_event.new_build_manifest {
-                log::warn!("DETECTED NEW TOC");
+                log::info!("New manifest TOC is ready to load");
                 self.pending_new_build_manifest = Some((new_build_manifest_hash, new_build_manifest));
                 //self.load_event_tx.send(LoaderEvent::ArtifactsUpdated(new_build_manifest_hash)).unwrap();
             }

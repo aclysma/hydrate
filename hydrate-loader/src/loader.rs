@@ -1,3 +1,5 @@
+use std::fmt::Formatter;
+use std::hash::Hash;
 use crate::storage::{AssetLoadOp, AssetStorage, HandleOp, IndirectIdentifier};
 use crate::ArtifactTypeId;
 use crossbeam_channel::{Receiver, Sender};
@@ -72,8 +74,14 @@ pub struct RequestDataResult {
 // A hash of a particular data build. This encompasses everything that was in a single manifest.
 // If it changes, we need to check for artifacts that have changed, load them, and update indirect
 // handles to point at them. The LoaderIO will provide a new build hash to indicate this has occurred.
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+#[derive(Copy, Clone, PartialEq, Eq)]
 pub struct ManifestBuildHash(pub u64);
+
+impl std::fmt::Debug for ManifestBuildHash {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "ManifestBuildHash({:0>16x})", self.0)
+    }
+}
 
 // Represents a data source from which we can load content
 pub trait LoaderIO: Sync + Send {
@@ -270,6 +278,8 @@ impl LoaderInner {
             }
 
             if reload_complete {
+                log::info!("All artifacts we need to reload are ready, updating indirect handles to point at new data");
+
                 // - Don't forget to handle having forced the artifact to unloaded
                 //   - clear the bool flag if reloaded
                 //   - make sure events for that artifact are handled cleanly
@@ -296,14 +306,16 @@ impl LoaderInner {
 
                         // Point the indirect load to the new version
                         indirect_load.resolved_id_and_hash = Some(new_artifact_id_and_hash);
-                        self.indirect_to_load.get(&indirect_load.id).unwrap().direct_load_handle.store(new_load_handle_direct.0, Ordering::Relaxed);
+                        let old_load_handle_direct = self.indirect_to_load.get(&indirect_load.id).unwrap().direct_load_handle.swap(new_load_handle_direct.0, Ordering::Relaxed);
+                        log::info!("Update indirect handle {:?} => {:?} -> {:?}", indirect_load.id, LoadHandle(old_load_handle_direct), new_load_handle_direct);
 
                         // Add a direct ref count to new version
                         Self::add_internal_ref(&self.events_tx, new_load_handle_direct, new_load_handle_info);
                     } else {
                         // Point the indirect load to None
                         indirect_load.resolved_id_and_hash = None;
-                        self.indirect_to_load.get(&indirect_load.id).unwrap().direct_load_handle.store(0, Ordering::Relaxed);
+                        let old_load_handle_direct = self.indirect_to_load.get(&indirect_load.id).unwrap().direct_load_handle.swap(0, Ordering::Relaxed);
+                        log::info!("Update indirect handle {:?} => {:?} -> {:?}", indirect_load.id, LoadHandle(old_load_handle_direct), LoadHandle(0));
                     }
 
                     // If we are here, this indirect load handle was changed to point somewhere else.
@@ -314,6 +326,7 @@ impl LoaderInner {
                             .load_handle_infos
                             .get_mut(&old_load_handle_direct)
                             .unwrap();
+                        log::info!("Remove temporary load handle for {:?}", old_load_handle_direct);
                         Self::remove_internal_ref(&self.events_tx, old_load_handle_direct, old_load_handle_info);
                     }
                 }
@@ -326,10 +339,12 @@ impl LoaderInner {
                         .load_handle_infos
                         .get_mut(&load_handle)
                         .unwrap();
+                    log::info!("Remove temporary load handle for {:?}", load_handle);
                     Self::remove_internal_ref(&self.events_tx, load_handle, load_handle_info);
                 }
 
                 // indicate that the reload is complete
+                log::info!("Finished asset reload, now on manifest build hash {:?}", self.current_build_hash);
                 self.current_reload_action = None;
             }
         } else if let Some(pending_build_hash) = self.loader_io.pending_build_hash() {
@@ -338,14 +353,56 @@ impl LoaderInner {
             // some artifacts.
             //
 
+            let old_build_hash = self.current_build_hash;
             // After this point, we will only have info for the new manifest
             self.loader_io.activate_pending_build_hash(pending_build_hash);
             self.current_build_hash = self.loader_io.current_build_hash();
 
+            log::info!("Begin asset reload {:?} -> {:?}", old_build_hash, self.current_build_hash);
+
             let mut artifacts_to_reload = vec![];
             let mut load_handles_to_reload = vec![];
 
+            for (indirect_handle, indirect_load) in &self.indirect_states {
+                let new_manifest_entry = self.loader_io.resolve_indirect(&indirect_load.id);
+                let new_id_and_hash = new_manifest_entry.map(|x| {
+                    ArtifactIdAndHash {
+                        id: x.artifact_id,
+                        hash: x.combined_build_hash
+                    }
+                });
+                let is_still_current_version = indirect_load.resolved_id_and_hash == new_id_and_hash;
+
+                if !is_still_current_version {
+                    log::info!("indirect load {:?} is in the new manifest but has changed, hash {:?} -> {:?}", indirect_load.id, indirect_load.resolved_id_and_hash, new_id_and_hash);
+                    // Either add the artifact to the reload or unload list
+                    if let Some(new_manifest_entry) = &new_manifest_entry {
+                        artifacts_to_reload.push(ArtifactIdAndHash {
+                            id: new_manifest_entry.artifact_id,
+                            hash: new_manifest_entry.combined_build_hash
+                        });
+                    }
+                }
+
+            }
+
+/*
             for (old_load_handle, old_load_handle_info) in &mut self.load_handle_infos {
+                //TODO: This seems to try to reload for all artifacts, even old stuff that was already unloaded?
+                //[2024-02-09T17:28:46Z INFO  hydrate_loader::loader] artifact 43550966-01bf-4a2c-a362-baa47c6d7e67 is in the new manifest but has changed, hash 1018d949f83fe074 -> dc911224afa08f85
+                //[2024-02-09T17:28:46Z INFO  hydrate_loader::loader] artifact 43550966-01bf-4a2c-a362-baa47c6d7e67 is in the new manifest but has changed, hash 1018d949f83fe074 -> dc911224afa08f85
+                //[2024-02-09T17:28:46Z INFO  hydrate_loader::loader] artifact a883cfa0-c682-4b8b-b81c-f3c5c260a819 is in the new manifest but has changed, hash 5bca18d5d0b10e38 -> cc89cb6d579f6ff1
+                //[2024-02-09T17:28:46Z INFO  hydrate_loader::loader] Add temporary load handle for LoadHandle(2)
+                //[2024-02-09T17:28:46Z INFO  hydrate_loader::loader] Add temporary load handle for LoadHandle(2)
+                //[2024-02-09T17:28:46Z INFO  hydrate_loader::loader] Add temporary load handle for LoadHandle(7)
+                //TODO: Then it seems to add a ref count to the old version??
+                //[2024-02-09T17:28:46Z DEBUG hydrate_loader::loader] handle_try_load LoadHandle(2) Some("assets://test_transform_ref") ArtifactId(43550966-01bf-4a2c-a362-baa47c6d7e67) 1018d949f83fe074
+                // THis repro *was* reloading to an old version of stuff
+                //
+                // Also noticed somehow we remove more temporary handles than we add??
+
+
+
                 // Check if this artifact needs to reload or unload
                 let new_manifest_entry = self.loader_io.manifest_entry(old_load_handle_info.artifact_id);
                 let mut is_still_current_version = false;
@@ -369,13 +426,18 @@ impl LoaderInner {
 
                     // Either add the artifact to the reload or unload list
                     if let Some(new_manifest_entry) = &new_manifest_entry {
+                        log::info!("artifact {} is in the new manifest but has changed, hash {:0>16x} -> {:0>16x}", old_load_handle_info.artifact_id, old_load_handle_info.hash, new_manifest_entry.combined_build_hash);
                         artifacts_to_reload.push(ArtifactIdAndHash {
                             id: new_manifest_entry.artifact_id,
                             hash: new_manifest_entry.combined_build_hash
                         });
+                    } else {
+                        log::info!("artifact {} is not in the new manifest", old_load_handle_info.artifact_id);
                     }
                 }
             }
+
+ */
 
             // Add temporary ref counts to new version of anything that has changed (causing it to load)
             for new_handle in artifacts_to_reload {
@@ -384,7 +446,9 @@ impl LoaderInner {
                     .load_handle_infos
                     .get_mut(&new_load_handle)
                     .unwrap();
+
                 // This reference is temporary and will be removed when we finish the reload
+                log::info!("Add temporary load handle for {:?}", new_load_handle);
                 Self::add_internal_ref(&self.events_tx, new_load_handle, new_load_handle_info);
                 load_handles_to_reload.push(new_load_handle);
             }
@@ -449,10 +513,11 @@ impl LoaderInner {
         let load_state_info = self.load_handle_infos.get_mut(&load_handle).unwrap();
 
         log::debug!(
-            "handle_try_load {:?} {:?} {:?}",
+            "handle_try_load {:?} {:?} {:?} {:0>16x}",
             load_handle,
             load_state_info.debug_name,
-            load_state_info.artifact_id
+            load_state_info.artifact_id,
+            load_state_info.hash
         );
 
         // We expect any try_load requests to be for the latest version. If this ends up not being a
@@ -484,10 +549,11 @@ impl LoaderInner {
         let load_state_info = self.load_handle_infos.get_mut(&load_handle).unwrap();
 
         log::debug!(
-            "handle_try_unload {:?} {:?} {:?}",
+            "handle_try_unload {:?} {:?} {:?} {:0>16x}",
             load_handle,
             load_state_info.debug_name,
-            load_state_info.artifact_id
+            load_state_info.artifact_id,
+            load_state_info.hash
         );
 
         let mut dependencies = vec![];
@@ -532,10 +598,11 @@ impl LoaderInner {
     ) {
         if let Some(load_state_info) = self.load_handle_infos.get(&result.load_handle) {
             log::debug!(
-                "handle_request_metadata_result {:?} {:?} {:?}",
+                "handle_request_metadata_result {:?} {:?} {:?} {:0>16x}",
                 result.load_handle,
                 load_state_info.debug_name,
-                load_state_info.artifact_id
+                load_state_info.artifact_id,
+                load_state_info.hash
             );
             let load_state = load_state_info.load_state;
             // Bail if the artifact is unloaded
@@ -627,10 +694,11 @@ impl LoaderInner {
         //are we still in the correct state?
         let load_state_info = self.load_handle_infos.get_mut(&load_handle).unwrap();
         log::debug!(
-            "handle_dependencies_loaded {:?} {:?} {:?}",
+            "handle_dependencies_loaded {:?} {:?} {:?} {:0>16x}",
             load_handle,
             load_state_info.debug_name,
-            load_state_info.artifact_id
+            load_state_info.artifact_id,
+            load_state_info.hash,
         );
         if load_state_info.load_state == LoadState::Unloaded {
             return;
@@ -668,10 +736,11 @@ impl LoaderInner {
         let (load_op, load_state_info, data) = {
             let load_state_info = self.load_handle_infos.get(&result.load_handle).unwrap();
             log::debug!(
-                "handle_request_data_result {:?} {:?} {:?}",
+                "handle_request_data_result {:?} {:?} {:?} {:0>16x}",
                 result.load_handle,
                 load_state_info.debug_name,
-                load_state_info.artifact_id
+                load_state_info.artifact_id,
+                load_state_info.hash
             );
             // Bail if the asset is unloaded
             if load_state_info.load_state == LoadState::Unloaded {
@@ -723,10 +792,11 @@ impl LoaderInner {
             HandleOp::Error(load_handle, error) => {
                 let load_handle_info = self.load_handle_infos.get(&load_handle).unwrap();
                 log::debug!(
-                    "handle_load_result error {:?} {:?} {:?}",
+                    "handle_load_result error {:?} {:?} {:?} {:0>16x}",
                     load_handle,
                     load_handle_info.debug_name,
-                    load_handle_info.artifact_id
+                    load_handle_info.artifact_id,
+                    load_handle_info.hash
                 );
                 //TODO: How to handle errors?
                 log::error!("load error {}", error);
@@ -741,10 +811,11 @@ impl LoaderInner {
                 let artifact_type_id = {
                     let load_handle_info = self.load_handle_infos.get_mut(&load_handle).unwrap();
                     log::debug!(
-                        "handle_load_result complete {:?} {:?} {:?}",
+                        "handle_load_result complete {:?} {:?} {:?} {:0>16x}",
                         load_handle,
                         load_handle_info.debug_name,
                         load_handle_info.artifact_id,
+                        load_handle_info.hash
                     );
                     std::mem::swap(
                         &mut blocked_loads,

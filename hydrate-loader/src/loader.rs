@@ -6,7 +6,7 @@ use crossbeam_channel::{Receiver, Sender};
 use hydrate_base::handle::{
     ArtifactRef, LoadState, LoadStateProvider, LoaderInfoProvider, ResolvedLoadHandle,
 };
-use hydrate_base::hashing::HashMap;
+use hydrate_base::hashing::{HashMap, HashSet};
 use hydrate_base::ArtifactId;
 use hydrate_base::{ArtifactManifestData, LoadHandle, StringHash};
 use std::sync::atomic::{Ordering};
@@ -266,7 +266,9 @@ impl LoaderInner {
 
         if let Some(current_reload_action) = &self.current_reload_action {
             //
-            // See if this reload has completed yet.
+            // Check that the load handles we are waiting on to complete a reload are in a committed
+            // state. These are all the resolved/direct load handles that were pointed at by at least
+            // on indirect handle when we started the reload.
             //
             let mut reload_complete = true;
             for &load_handle in &current_reload_action.load_handles_to_reload {
@@ -278,15 +280,67 @@ impl LoaderInner {
             }
 
             if reload_complete {
+                //
+                // New versions of artifacts for indirect handles have loaded, switch over to using them now
+                //
                 log::info!("All artifacts we need to reload are ready, updating indirect handles to point at new data");
 
-                // - Don't forget to handle having forced the artifact to unloaded
-                //   - clear the bool flag if reloaded
-                //   - make sure events for that artifact are handled cleanly
-                for (old_load_handle_indirect, indirect_load) in &mut self.indirect_states {
+                //
+                for (_, indirect_load) in &mut self.indirect_states {
+                    // Resolve the indirect handle under the new manifest
+                    let new_manifest_entry = self.loader_io.resolve_indirect(&indirect_load.id);
+                    let new_id_and_hash = new_manifest_entry.map(|x| {
+                        ArtifactIdAndHash {
+                            id: x.artifact_id,
+                            hash: x.combined_build_hash
+                        }
+                    });
+                    let old_id_and_hash = indirect_load.resolved_id_and_hash;
+
+                    // If the resolved UUID changes, we need to point the indirect load at the new
+                    // version of the artifact (or None) and update ref counts accordingly
+                    let is_still_current_version = old_id_and_hash == new_id_and_hash;
+                    if !is_still_current_version {
+                        log::info!("indirect load {:?} is in the new manifest but has changed, hash {:?} -> {:?}", indirect_load.id, old_id_and_hash, new_id_and_hash);
+                        // Either add the artifact to the reload or unload list
+                        if let Some(new_id_and_hash) = new_id_and_hash {
+                            let new_load_handle_direct = *self.artifact_id_to_handle.get(&new_id_and_hash).unwrap();
+                            let new_load_handle_info = self
+                                .load_handle_infos
+                                .get_mut(&new_load_handle_direct)
+                                .unwrap();
+
+                            // Point the indirect load to the new version
+                            indirect_load.resolved_id_and_hash = Some(new_id_and_hash);
+                            let old_load_handle_direct = self.indirect_to_load.get(&indirect_load.id).unwrap().direct_load_handle.swap(new_load_handle_direct.0, Ordering::Relaxed);
+                            log::info!("Update indirect handle {:?} => {:?} -> {:?}", indirect_load.id, LoadHandle(old_load_handle_direct), new_load_handle_direct);
+
+                            // Add a direct ref count to new version
+                            Self::add_internal_ref(&self.events_tx, new_load_handle_direct, new_load_handle_info);
+                        } else {
+                            // Point the indirect load to None
+                            indirect_load.resolved_id_and_hash = None;
+                            let old_load_handle_direct = self.indirect_to_load.get(&indirect_load.id).unwrap().direct_load_handle.swap(0, Ordering::Relaxed);
+                            log::info!("Update indirect handle {:?} => {:?} -> {:?}", indirect_load.id, LoadHandle(old_load_handle_direct), LoadHandle(0));
+                        }
+
+                        // If we are here, this indirect load handle was changed to point somewhere else.
+                        // So drop ref count to old version.
+                        if let Some(old_id_and_hash) = &old_id_and_hash {
+                            let old_load_handle_direct = *self.artifact_id_to_handle.get(&old_id_and_hash).unwrap();
+                            let old_load_handle_info = self
+                                .load_handle_infos
+                                .get_mut(&old_load_handle_direct)
+                                .unwrap();
+                            log::info!("Remove temporary load handle for {:?}", old_load_handle_direct);
+                            Self::remove_internal_ref(&self.events_tx, old_load_handle_direct, old_load_handle_info);
+                        }
+                    }
+
+/*
                     // If the resolved UUID changes, we need to drop ref counts and add ref counts to
                     // direct handles
-                    let mut old_artifact_id_and_hash = indirect_load.resolved_id_and_hash;
+                    let mut old_artifact_id_and_hash = old_id_and_hash;
                     if let Some(new_artifact) = self.loader_io.resolve_indirect(&indirect_load.id) {
                         let new_artifact_id_and_hash = ArtifactIdAndHash {
                             id: new_artifact.artifact_id,
@@ -317,7 +371,6 @@ impl LoaderInner {
                         let old_load_handle_direct = self.indirect_to_load.get(&indirect_load.id).unwrap().direct_load_handle.swap(0, Ordering::Relaxed);
                         log::info!("Update indirect handle {:?} => {:?} -> {:?}", indirect_load.id, LoadHandle(old_load_handle_direct), LoadHandle(0));
                     }
-
                     // If we are here, this indirect load handle was changed to point somewhere else.
                     // So drop ref count to old version.
                     if let Some(old_artifact_id_and_hash) = old_artifact_id_and_hash {
@@ -329,6 +382,7 @@ impl LoaderInner {
                         log::info!("Remove temporary load handle for {:?}", old_load_handle_direct);
                         Self::remove_internal_ref(&self.events_tx, old_load_handle_direct, old_load_handle_info);
                     }
+*/
                 }
 
                 //remove temporary ref count added when we started the reload
@@ -353,17 +407,17 @@ impl LoaderInner {
             // some artifacts.
             //
 
+            // Switch to the new manifest
             let old_build_hash = self.current_build_hash;
-            // After this point, we will only have info for the new manifest
             self.loader_io.activate_pending_build_hash(pending_build_hash);
             self.current_build_hash = self.loader_io.current_build_hash();
 
             log::info!("Begin asset reload {:?} -> {:?}", old_build_hash, self.current_build_hash);
 
-            let mut artifacts_to_reload = vec![];
-            let mut load_handles_to_reload = vec![];
-
-            for (indirect_handle, indirect_load) in &self.indirect_states {
+            // Iterate indirect handles and see if what they are pointing at has changed
+            let mut artifacts_to_reload = HashSet::default();
+            for (_, indirect_load) in &self.indirect_states {
+                // Resolve the indirect handle under the new manifest
                 let new_manifest_entry = self.loader_io.resolve_indirect(&indirect_load.id);
                 let new_id_and_hash = new_manifest_entry.map(|x| {
                     ArtifactIdAndHash {
@@ -371,75 +425,25 @@ impl LoaderInner {
                         hash: x.combined_build_hash
                     }
                 });
-                let is_still_current_version = indirect_load.resolved_id_and_hash == new_id_and_hash;
+                let old_id_and_hash = indirect_load.resolved_id_and_hash;
 
+                // If it has changed (and exists), add it to the list of artifacts that need to load
+                // before we update
+                let is_still_current_version = old_id_and_hash == new_id_and_hash;
                 if !is_still_current_version {
-                    log::info!("indirect load {:?} is in the new manifest but has changed, hash {:?} -> {:?}", indirect_load.id, indirect_load.resolved_id_and_hash, new_id_and_hash);
+                    log::info!("indirect load {:?} is in the new manifest but has changed, hash {:?} -> {:?}", indirect_load.id, old_id_and_hash, new_id_and_hash);
                     // Either add the artifact to the reload or unload list
                     if let Some(new_manifest_entry) = &new_manifest_entry {
-                        artifacts_to_reload.push(ArtifactIdAndHash {
+                        artifacts_to_reload.insert(ArtifactIdAndHash {
                             id: new_manifest_entry.artifact_id,
                             hash: new_manifest_entry.combined_build_hash
                         });
                     }
                 }
-
             }
-
-/*
-            for (old_load_handle, old_load_handle_info) in &mut self.load_handle_infos {
-                //TODO: This seems to try to reload for all artifacts, even old stuff that was already unloaded?
-                //[2024-02-09T17:28:46Z INFO  hydrate_loader::loader] artifact 43550966-01bf-4a2c-a362-baa47c6d7e67 is in the new manifest but has changed, hash 1018d949f83fe074 -> dc911224afa08f85
-                //[2024-02-09T17:28:46Z INFO  hydrate_loader::loader] artifact 43550966-01bf-4a2c-a362-baa47c6d7e67 is in the new manifest but has changed, hash 1018d949f83fe074 -> dc911224afa08f85
-                //[2024-02-09T17:28:46Z INFO  hydrate_loader::loader] artifact a883cfa0-c682-4b8b-b81c-f3c5c260a819 is in the new manifest but has changed, hash 5bca18d5d0b10e38 -> cc89cb6d579f6ff1
-                //[2024-02-09T17:28:46Z INFO  hydrate_loader::loader] Add temporary load handle for LoadHandle(2)
-                //[2024-02-09T17:28:46Z INFO  hydrate_loader::loader] Add temporary load handle for LoadHandle(2)
-                //[2024-02-09T17:28:46Z INFO  hydrate_loader::loader] Add temporary load handle for LoadHandle(7)
-                //TODO: Then it seems to add a ref count to the old version??
-                //[2024-02-09T17:28:46Z DEBUG hydrate_loader::loader] handle_try_load LoadHandle(2) Some("assets://test_transform_ref") ArtifactId(43550966-01bf-4a2c-a362-baa47c6d7e67) 1018d949f83fe074
-                // THis repro *was* reloading to an old version of stuff
-                //
-                // Also noticed somehow we remove more temporary handles than we add??
-
-
-
-                // Check if this artifact needs to reload or unload
-                let new_manifest_entry = self.loader_io.manifest_entry(old_load_handle_info.artifact_id);
-                let mut is_still_current_version = false;
-                if let Some(new_manifest_entry) = &new_manifest_entry {
-                    if new_manifest_entry.combined_build_hash == old_load_handle_info.hash {
-                        // still exists and matches new manifest
-                        is_still_current_version = true;
-                    } else {
-                        // still exists but no longer latest version
-                    }
-                } else {
-                    // no longer exists
-                }
-
-                if !is_still_current_version {
-                    // // Mark this load handle as no longer
-                    // if old_load_handle_info.load_state != LoadState::Committed {
-                    //     old_load_handle_info.replaced_by_newer_version = true;
-                    //     //self.events_tx.send(LoaderEvent::TryUnload(*old_load_handle)).unwrap();
-                    // }
-
-                    // Either add the artifact to the reload or unload list
-                    if let Some(new_manifest_entry) = &new_manifest_entry {
-                        log::info!("artifact {} is in the new manifest but has changed, hash {:0>16x} -> {:0>16x}", old_load_handle_info.artifact_id, old_load_handle_info.hash, new_manifest_entry.combined_build_hash);
-                        artifacts_to_reload.push(ArtifactIdAndHash {
-                            id: new_manifest_entry.artifact_id,
-                            hash: new_manifest_entry.combined_build_hash
-                        });
-                    } else {
-                        log::info!("artifact {} is not in the new manifest", old_load_handle_info.artifact_id);
-                    }
-                }
-            }
-
- */
 
             // Add temporary ref counts to new version of anything that has changed (causing it to load)
+            let mut load_handles_to_reload = vec![];
             for new_handle in artifacts_to_reload {
                 let new_load_handle = self.get_or_insert_direct(new_handle);
                 let new_load_handle_info = self
@@ -457,29 +461,6 @@ impl LoaderInner {
                 load_handles_to_reload,
             });
         }
-
-
-
-
-
-
-        // Don't want to break or interrupt loading for old versions.. we could end up
-        // switching back to them
-        //
-        // Two phases:
-        // - Start loading new versions of anything that has changed
-        //   - This creates/increments temporary ref counts on load handles
-        // - Any further requests for data will be for new versions
-        // - When all new data is loaded, we can update indirect handles
-        //   - add/remove "real" ref counts for the indirect handles
-        //   - remove the temporary ref counts
-        //
-        // Handling in-flight loads
-        // - Mark them as "abandoned"? We have to cleanly handle coming back to them if we
-        //   reload data and it matches hash of a cancelled load
-        // - Have multiple manifests loaded
-        //   - Makes SerdeContext a little uglier
-
 
         while let Ok(loader_event) = self.events_rx.try_recv() {
             log::debug!("handle event {:?}", loader_event);

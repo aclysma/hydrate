@@ -285,7 +285,7 @@ impl LoaderInner {
                 //
                 log::info!("All artifacts we need to reload are ready, updating indirect handles to point at new data");
 
-                //
+                // Update any indirect handles to point at new data
                 for (_, indirect_load) in &mut self.indirect_states {
                     // Resolve the indirect handle under the new manifest
                     let new_manifest_entry = self.loader_io.resolve_indirect(&indirect_load.id);
@@ -299,101 +299,68 @@ impl LoaderInner {
 
                     // If the resolved UUID changes, we need to point the indirect load at the new
                     // version of the artifact (or None) and update ref counts accordingly
-                    let is_still_current_version = old_id_and_hash == new_id_and_hash;
-                    if !is_still_current_version {
-                        log::info!("indirect load {:?} is in the new manifest but has changed, hash {:?} -> {:?}", indirect_load.id, old_id_and_hash, new_id_and_hash);
-                        // Either add the artifact to the reload or unload list
-                        if let Some(new_id_and_hash) = new_id_and_hash {
+                    let artifact_changed = old_id_and_hash != new_id_and_hash;
+                    if artifact_changed {
+                        // Get the new direct load handle (and add a ref count to it if it is valid)
+                        let new_load_handle_direct = if let Some(new_id_and_hash) = new_id_and_hash {
                             let new_load_handle_direct = *self.artifact_id_to_handle.get(&new_id_and_hash).unwrap();
                             let new_load_handle_info = self
                                 .load_handle_infos
                                 .get_mut(&new_load_handle_direct)
                                 .unwrap();
 
-                            // Point the indirect load to the new version
-                            indirect_load.resolved_id_and_hash = Some(new_id_and_hash);
-                            let old_load_handle_direct = self.indirect_to_load.get(&indirect_load.id).unwrap().direct_load_handle.swap(new_load_handle_direct.0, Ordering::Relaxed);
-                            log::info!("Update indirect handle {:?} => {:?} -> {:?}", indirect_load.id, LoadHandle(old_load_handle_direct), new_load_handle_direct);
-
-                            // Add a direct ref count to new version
-                            Self::add_internal_ref(&self.events_tx, new_load_handle_direct, new_load_handle_info);
+                            // Add a ref count to new version's direct handle
+                            //log::info!("Add load handle ref for new version {:?}", new_load_handle_direct);
+                            new_load_handle_info.external_ref_count_direct += indirect_load.external_ref_count_indirect;
+                            for _ in 0..indirect_load.external_ref_count_indirect {
+                                Self::add_internal_ref(&self.events_tx, new_load_handle_direct, new_load_handle_info);
+                                //self.add_engine_ref_by_handle_direct(new_load_handle_direct);
+                            }
+                            new_load_handle_direct
                         } else {
-                            // Point the indirect load to None
-                            indirect_load.resolved_id_and_hash = None;
-                            let old_load_handle_direct = self.indirect_to_load.get(&indirect_load.id).unwrap().direct_load_handle.swap(0, Ordering::Relaxed);
-                            log::info!("Update indirect handle {:?} => {:?} -> {:?}", indirect_load.id, LoadHandle(old_load_handle_direct), LoadHandle(0));
-                        }
+                            // The artifact doesn't exist in the new manifest
+                            LoadHandle(0)
+                        };
 
-                        // If we are here, this indirect load handle was changed to point somewhere else.
-                        // So drop ref count to old version.
+                        // Point the indirect load to the new version
+                        indirect_load.resolved_id_and_hash = new_id_and_hash;
+                        let old_load_handle_direct = self.indirect_to_load.get(&indirect_load.id).unwrap().direct_load_handle.swap(new_load_handle_direct.0, Ordering::Relaxed);
+                        log::info!("Update indirect handle {:?} => {:?} -> {:?}", indirect_load.id, LoadHandle(old_load_handle_direct), new_load_handle_direct);
+
+                        // Transfer ref counts from indirect?
+                        // for _ in 0..indirect_load.external_ref_count_indirect {
+                        //     Self::remove_internal_ref(&self.events_tx, old_load_handle_direct, old_load_handle_info);
+                        // }
+                        //
+                        // for _ in 0..indirect_load.external_ref_count_indirect {
+                        //     Self::add_internal_ref(&self.events_tx, new_load_handle_direct, new_load_handle_info);
+                        // }
+
+
+                        // Drop ref count to old version, if it existed
                         if let Some(old_id_and_hash) = &old_id_and_hash {
                             let old_load_handle_direct = *self.artifact_id_to_handle.get(&old_id_and_hash).unwrap();
                             let old_load_handle_info = self
                                 .load_handle_infos
                                 .get_mut(&old_load_handle_direct)
                                 .unwrap();
-                            log::info!("Remove temporary load handle for {:?}", old_load_handle_direct);
-                            Self::remove_internal_ref(&self.events_tx, old_load_handle_direct, old_load_handle_info);
+                            //log::info!("Remove load handle ref for old version {:?}", old_load_handle_direct);
+                            old_load_handle_info.external_ref_count_direct -= indirect_load.external_ref_count_indirect;
+                            for _ in 0..indirect_load.external_ref_count_indirect {
+                                Self::remove_internal_ref(&self.events_tx, old_load_handle_direct, old_load_handle_info);
+                                //self.remove_engine_ref_direct(new_load_handle_direct);
+                            }
                         }
                     }
-
-/*
-                    // If the resolved UUID changes, we need to drop ref counts and add ref counts to
-                    // direct handles
-                    let mut old_artifact_id_and_hash = old_id_and_hash;
-                    if let Some(new_artifact) = self.loader_io.resolve_indirect(&indirect_load.id) {
-                        let new_artifact_id_and_hash = ArtifactIdAndHash {
-                            id: new_artifact.artifact_id,
-                            hash: new_artifact.combined_build_hash,
-                        };
-
-                        if old_artifact_id_and_hash == Some(new_artifact_id_and_hash) {
-                            // This artifact did not change, we shouldn't do anything
-                            continue;
-                        }
-
-                        let new_load_handle_direct = *self.artifact_id_to_handle.get(&new_artifact_id_and_hash).unwrap();
-                        let new_load_handle_info = self
-                            .load_handle_infos
-                            .get_mut(&new_load_handle_direct)
-                            .unwrap();
-
-                        // Point the indirect load to the new version
-                        indirect_load.resolved_id_and_hash = Some(new_artifact_id_and_hash);
-                        let old_load_handle_direct = self.indirect_to_load.get(&indirect_load.id).unwrap().direct_load_handle.swap(new_load_handle_direct.0, Ordering::Relaxed);
-                        log::info!("Update indirect handle {:?} => {:?} -> {:?}", indirect_load.id, LoadHandle(old_load_handle_direct), new_load_handle_direct);
-
-                        // Add a direct ref count to new version
-                        Self::add_internal_ref(&self.events_tx, new_load_handle_direct, new_load_handle_info);
-                    } else {
-                        // Point the indirect load to None
-                        indirect_load.resolved_id_and_hash = None;
-                        let old_load_handle_direct = self.indirect_to_load.get(&indirect_load.id).unwrap().direct_load_handle.swap(0, Ordering::Relaxed);
-                        log::info!("Update indirect handle {:?} => {:?} -> {:?}", indirect_load.id, LoadHandle(old_load_handle_direct), LoadHandle(0));
-                    }
-                    // If we are here, this indirect load handle was changed to point somewhere else.
-                    // So drop ref count to old version.
-                    if let Some(old_artifact_id_and_hash) = old_artifact_id_and_hash {
-                        let old_load_handle_direct = *self.artifact_id_to_handle.get(&old_artifact_id_and_hash).unwrap();
-                        let old_load_handle_info = self
-                            .load_handle_infos
-                            .get_mut(&old_load_handle_direct)
-                            .unwrap();
-                        log::info!("Remove temporary load handle for {:?}", old_load_handle_direct);
-                        Self::remove_internal_ref(&self.events_tx, old_load_handle_direct, old_load_handle_info);
-                    }
-*/
                 }
 
                 //remove temporary ref count added when we started the reload
-                //TODO: We might be able to remove this remove_internal_ref and the above add_internal_ref.
-                // They are likely redundant.
                 for &load_handle in &current_reload_action.load_handles_to_reload {
                     let load_handle_info = self
                         .load_handle_infos
                         .get_mut(&load_handle)
                         .unwrap();
-                    log::info!("Remove temporary load handle for {:?}", load_handle);
+                    log::info!("Remove temporary load handle ref for {:?}", load_handle);
                     Self::remove_internal_ref(&self.events_tx, load_handle, load_handle_info);
                 }
 
@@ -429,8 +396,8 @@ impl LoaderInner {
 
                 // If it has changed (and exists), add it to the list of artifacts that need to load
                 // before we update
-                let is_still_current_version = old_id_and_hash == new_id_and_hash;
-                if !is_still_current_version {
+                let artifact_changed = old_id_and_hash != new_id_and_hash;
+                if artifact_changed {
                     log::info!("indirect load {:?} is in the new manifest but has changed, hash {:?} -> {:?}", indirect_load.id, old_id_and_hash, new_id_and_hash);
                     // Either add the artifact to the reload or unload list
                     if let Some(new_manifest_entry) = &new_manifest_entry {
@@ -452,7 +419,7 @@ impl LoaderInner {
                     .unwrap();
 
                 // This reference is temporary and will be removed when we finish the reload
-                log::info!("Add temporary load handle for {:?}", new_load_handle);
+                log::info!("Add temporary load handle ref for {:?}", new_load_handle);
                 Self::add_internal_ref(&self.events_tx, new_load_handle, new_load_handle_info);
                 load_handles_to_reload.push(new_load_handle);
             }
@@ -626,11 +593,11 @@ impl LoaderInner {
             let load_state = dependency_load_handle_info.load_state;
             if load_state != LoadState::Loaded && load_state != LoadState::Committed {
                 blocking_dependency_count += 1;
-            }
 
-            dependency_load_handle_info
-                .blocked_loads
-                .push(result.load_handle);
+                dependency_load_handle_info
+                    .blocked_loads
+                    .push(result.load_handle);
+            }
         }
 
         if let Some(load_state_info) = self.load_handle_infos.get_mut(&result.load_handle) {
@@ -648,6 +615,7 @@ impl LoaderInner {
                     metadata.hash,
                     //None,
                 );
+                assert_eq!(load_state_info.blocking_dependency_count, 0);
                 load_state_info.load_state = LoadState::WaitingForData;
             } else {
                 log::debug!(
@@ -976,6 +944,7 @@ impl LoaderInner {
         &mut self,
         direct_load_handle: LoadHandle,
     ) -> LoadHandle {
+        assert!(!direct_load_handle.is_null());
         assert!(!direct_load_handle.is_indirect());
         let load_handle_info = self.load_handle_infos.get_mut(&direct_load_handle).unwrap();
         load_handle_info
@@ -990,6 +959,7 @@ impl LoaderInner {
         &mut self,
         indirect_load_handle: LoadHandle,
     ) {
+        assert!(indirect_load_handle.is_indirect());
         let mut state = self.indirect_states.get_mut(&indirect_load_handle).unwrap();
         state.external_ref_count_indirect -= 1;
         if let Some(resolved_id_and_hash) = &state.resolved_id_and_hash {
@@ -1005,6 +975,9 @@ impl LoaderInner {
         &mut self,
         direct_load_handle: LoadHandle,
     ) {
+        log::debug!("remove_engine_ref_direct for {:?}", direct_load_handle);
+        assert!(!direct_load_handle.is_null());
+        assert!(!direct_load_handle.is_indirect());
         let load_handle_info = self.load_handle_infos.get_mut(&direct_load_handle).unwrap();
         load_handle_info
             .external_ref_count_direct -= 1;

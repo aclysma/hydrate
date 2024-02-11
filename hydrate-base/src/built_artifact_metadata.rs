@@ -1,3 +1,4 @@
+use std::hash::{Hash, Hasher};
 use crate::{ArtifactId, StringHash};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
@@ -54,10 +55,22 @@ const MAX_HEADER_SIZE: usize = 1024 * 1024;
 
 //TODO: Could use B3F here, but this is working fine for now.
 //TODO: Probably don't strictly need bincode either
-#[derive(Debug, Serialize, Deserialize, Hash)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct BuiltArtifactHeaderData {
     pub dependencies: Vec<ArtifactId>,
     pub asset_type: Uuid, // size?
+}
+
+impl Hash for BuiltArtifactHeaderData {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        let mut dependencies_hash = 0;
+        for dependency in &self.dependencies {
+            dependencies_hash ^= dependency.0.as_u128();
+        }
+
+        dependencies_hash.hash(state);
+        self.asset_type.hash(state);
+    }
 }
 
 impl BuiltArtifactHeaderData {

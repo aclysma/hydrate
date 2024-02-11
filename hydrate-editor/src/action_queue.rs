@@ -344,15 +344,21 @@ impl UIActionQueueReceiver {
                     if !import_job_to_queue.is_empty() {
                         asset_engine.queue_import_operation(import_job_to_queue);
 
-                        for asset_id in asset_ids {
-                            asset_engine.queue_build_asset(asset_id);
-                        }
+                        // Can't do incremental build, manifest won't have *anything* but what was built
+                        // for asset_id in asset_ids {
+                        //     asset_engine.queue_build_asset(asset_id);
+                        // }
                     }
+
+                    asset_engine.queue_build_all();
                 }
                 UIAction::ForceRebuild(asset_ids) => {
-                    for asset_id in asset_ids {
-                        asset_engine.queue_build_asset(asset_id);
-                    }
+                    // Can't do incremental build, manifest won't have *anything* but what was built
+                    // for asset_id in asset_ids {
+                    //     asset_engine.queue_build_asset(asset_id);
+                    // }
+
+                    asset_engine.queue_build_all();
                 }
                 UIAction::ShowAssetInAssetGallery(asset_id) => {
                     ui_state

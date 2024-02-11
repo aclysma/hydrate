@@ -439,10 +439,14 @@ impl BuildJobs {
         let mut manifest_build_hash = 0;
         let mut asset_hashes = HashMap::default();
         for (asset_id, object) in editor_model.data_set().assets() {
-            let hash = editor_model
+            let mut hash = editor_model
                 .data_set()
                 .hash_object(*asset_id, HashObjectMode::PropertiesOnly)
                 .unwrap();
+
+            if let Some(import_data) = editor_model.data_set().import_info(*asset_id) {
+                hash ^= import_data.import_data_contents_hash();
+            }
 
             if !editor_model.is_path_node_or_root(object.schema()) {
                 asset_hashes.insert(*asset_id, hash);

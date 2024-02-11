@@ -120,30 +120,10 @@ impl ThumbnailImageLoader {
         &self,
         ctx: &egui::Context,
     ) {
-        // let mut thumbnails_to_invalidate = vec![];
-        // {
-        //     let lru_cache = self.thumbnail_cache.lock().unwrap();
-        //     for (asset_id, thumbnail) in lru_cache.pairs().iter().filter_map(|x| x.as_ref()) {
-        //         if let Some(c) = self.thumbnail_system_state.peek(*asset_id) {
-        //             if c.hash != thumbnail.thumbnail_input_hash {
-        //                 println!("Invalidate thumbnail {:?}", asset_id);
-        //                 thumbnails_to_invalidate.push(format!("thumbnail-asset://{}", asset_id.as_uuid().to_string()));
-        //             }
-        //         }
-        //     }
-        // }
-
-        //TODO: Or, the thumbnail system produces events
-        // for thumbnail_to_invalidate in thumbnails_to_invalidate {
-        //     ctx.forget_image(&thumbnail_to_invalidate);
-        // }
-
         let refreshed_thumbnails = self.thumbnail_system_state.take_refreshed_thumbnails();
         for refreshed_thumbnail in refreshed_thumbnails {
             ctx.forget_image(&format!("thumbnail-asset://{}", refreshed_thumbnail.as_uuid().to_string()));
         }
-
-        //ctx.forget_image()
     }
 
     pub fn thumbnail_uri_for_asset_with_fingerprint(

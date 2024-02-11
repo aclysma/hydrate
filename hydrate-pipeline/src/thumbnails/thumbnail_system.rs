@@ -94,18 +94,6 @@ impl ThumbnailSystemState {
         }
     }
 
-    // pub fn peek(
-    //     &self,
-    //     asset_id: AssetId,
-    // ) -> Option<ThumbnailImageWithHash> {
-    //     let mut inner = self.inner.lock().unwrap();
-    //     if let Some(thumbnail_state) = inner.cache.get(&asset_id, true) {
-    //         thumbnail_state.image.clone()
-    //     } else {
-    //         None
-    //     }
-    // }
-
     pub fn forget(
         &self,
         asset_id: AssetId,

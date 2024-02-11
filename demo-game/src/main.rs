@@ -45,7 +45,7 @@ fn main() {
     //
     // Request a few assets (including an image, which will take time to load)
     //
-    let mut load_handle_transform_ref: Option<Handle<TransformRef>> =
+    let load_handle_transform_ref: Option<Handle<TransformRef>> =
         Some(loader.load_asset_symbol_name("assets://test_transform_ref"));
     let load_handle_mesh: Handle<MeshAdvMeshAssetData> =
         loader.load_asset_symbol_name("assets://sphere.glb.mesh_Sphere");

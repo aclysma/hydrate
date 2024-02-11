@@ -261,6 +261,15 @@ struct LoaderInner {
 }
 
 impl LoaderInner {
+    fn recursive_log_load_state(&self, load_handle: LoadHandle, indent: usize) {
+        let load_handle_info = self.load_handle_infos.get(&load_handle).unwrap();
+        log::debug!("{:indent$}{:?} {:?} {:?}", "", load_handle_info.artifact_id, load_handle_info.debug_name, load_handle_info.load_state, indent=indent);
+        for dependency in &load_handle_info.dependencies {
+            self.recursive_log_load_state(*dependency, indent + 2);
+        }
+    }
+
+
     // Process all events, possibly changing load status of artifacts
     // Also commit reload of artifact data if needed
     #[profiling::function]
@@ -280,6 +289,8 @@ impl LoaderInner {
             for &load_handle in &current_reload_action.load_handles_to_reload {
                 let load_handle_info = self.load_handle_infos.get(&load_handle).unwrap();
                 if load_handle_info.load_state != LoadState::Committed {
+                    //log::debug!("Reloading waiting for {:?} {:?} {:?} to load, it's in state {:?}", load_handle, load_handle_info.artifact_id, load_handle_info.debug_name, load_handle_info.load_state);
+                    //self.recursive_log_load_state(load_handle, 2);
                     reload_complete = false;
                     break;
                 }
@@ -315,8 +326,10 @@ impl LoaderInner {
                                 .get_mut(&new_load_handle_direct)
                                 .unwrap();
 
-                            // Add a ref count to new version's direct handle
-                            //log::info!("Add load handle ref for new version {:?}", new_load_handle_direct);
+                            // Add indirect references to the new load handle. Each indirect ref
+                            // count represents an external ref count and an internal ref count on the
+                            // direct load handle
+                            //TODO: Cleaner way to do this using self.add_engine_ref_by_handle_direct?
                             new_load_handle_info.external_ref_count_direct +=
                                 indirect_load.external_ref_count_indirect;
                             for _ in 0..indirect_load.external_ref_count_indirect {
@@ -325,7 +338,6 @@ impl LoaderInner {
                                     new_load_handle_direct,
                                     new_load_handle_info,
                                 );
-                                //self.add_engine_ref_by_handle_direct(new_load_handle_direct);
                             }
                             new_load_handle_direct
                         } else {
@@ -356,7 +368,11 @@ impl LoaderInner {
                                 .load_handle_infos
                                 .get_mut(&old_load_handle_direct)
                                 .unwrap();
-                            //log::info!("Remove load handle ref for old version {:?}", old_load_handle_direct);
+
+                            // Remove the indirect references to the old load handle. Each indirect ref
+                            // count represents an external ref count and an internal ref count on the
+                            // direct load handle
+                            //TODO: Cleaner way to do this using self.remove_engine_ref_direct?
                             old_load_handle_info.external_ref_count_direct -=
                                 indirect_load.external_ref_count_indirect;
                             for _ in 0..indirect_load.external_ref_count_indirect {
@@ -365,7 +381,6 @@ impl LoaderInner {
                                     old_load_handle_direct,
                                     old_load_handle_info,
                                 );
-                                //self.remove_engine_ref_direct(new_load_handle_direct);
                             }
                         }
                     }
@@ -984,7 +999,7 @@ impl LoaderInner {
         indirect_load_handle: LoadHandle,
     ) {
         assert!(indirect_load_handle.is_indirect());
-        let mut state = self.indirect_states.get_mut(&indirect_load_handle).unwrap();
+        let state = self.indirect_states.get_mut(&indirect_load_handle).unwrap();
         state.external_ref_count_indirect -= 1;
         if let Some(resolved_id_and_hash) = &state.resolved_id_and_hash {
             let direct_load_handle = *self
@@ -999,7 +1014,6 @@ impl LoaderInner {
         &mut self,
         direct_load_handle: LoadHandle,
     ) {
-        log::debug!("remove_engine_ref_direct for {:?}", direct_load_handle);
         assert!(!direct_load_handle.is_indirect());
         let load_handle_info = self.load_handle_infos.get_mut(&direct_load_handle).unwrap();
         load_handle_info.external_ref_count_direct -= 1;

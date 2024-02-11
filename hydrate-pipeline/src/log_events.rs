@@ -142,7 +142,7 @@ impl BuildLogData {
         job_id: JobId,
     ) -> Vec<AssetId> {
         let mut assets = vec![];
-        let mut checked_requestors = HashSet::<JobId>::default();
+        let checked_requestors = HashSet::<JobId>::default();
         let mut requestor_check_queue = vec![job_id];
 
         while let Some(requestor) = requestor_check_queue.pop() {

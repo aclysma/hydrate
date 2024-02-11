@@ -207,7 +207,7 @@ impl HydrateEditorApp {
         root_container.shares.set_share(central_tabs, 3.0);
         let root = tiles.insert_container(root_container);
 
-        let mut dock_state = egui_tiles::Tree::new("tree", root, tiles);
+        let dock_state = egui_tiles::Tree::new("tree", root, tiles);
 
         HydrateEditorApp {
             db_state,

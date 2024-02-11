@@ -201,7 +201,7 @@ impl ImageLoader for ThumbnailImageLoader {
                     image: image.clone(),
                 })
             } else if let Some(cached_entry) = self.thumbnail_system_state.request(asset_id) {
-                let mut image = Arc::new(ColorImage::from_rgba_unmultiplied(
+                let image = Arc::new(ColorImage::from_rgba_unmultiplied(
                     [cached_entry.width as usize, cached_entry.height as usize],
                     &cached_entry.pixel_data,
                 ));

@@ -300,23 +300,39 @@ impl BuildJobs {
                     artifact_id: ArtifactId,
                     combined_hash: &mut u64,
                     all_dependencies: &mut HashSet<ArtifactId>,
-                    build_task: &BuildTask
+                    build_task: &BuildTask,
                 ) {
                     // Get the hash and combine it with the hash so far
                     *combined_hash ^= build_task.build_hashes.get(&artifact_id).unwrap();
 
                     // Visit all of its dependencies
-                    for dependency in &build_task.built_artifact_info.get(&artifact_id).unwrap().metadata.dependencies {
+                    for dependency in &build_task
+                        .built_artifact_info
+                        .get(&artifact_id)
+                        .unwrap()
+                        .metadata
+                        .dependencies
+                    {
                         // Visit each artifact only once
                         if !all_dependencies.contains(&dependency) {
-                            add_dependencies_recursively(*dependency, combined_hash, all_dependencies, build_task);
+                            add_dependencies_recursively(
+                                *dependency,
+                                combined_hash,
+                                all_dependencies,
+                                build_task,
+                            );
                         }
                     }
                 }
 
                 let mut combined_build_hash = 0;
                 let mut all_dependencies = HashSet::<ArtifactId>::default();
-                add_dependencies_recursively(artifact_id, &mut combined_build_hash, &mut all_dependencies, &build_task);
+                add_dependencies_recursively(
+                    artifact_id,
+                    &mut combined_build_hash,
+                    &mut all_dependencies,
+                    &build_task,
+                );
 
                 let is_default_artifact = artifact_id.as_uuid() == asset_id.as_uuid();
                 let symbol_name = if is_default_artifact {

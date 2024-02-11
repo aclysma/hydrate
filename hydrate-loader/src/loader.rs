@@ -1,17 +1,17 @@
-use std::fmt::Formatter;
-use std::hash::Hash;
 use crate::storage::{AssetLoadOp, AssetStorage, HandleOp, IndirectIdentifier};
 use crate::ArtifactTypeId;
 use crossbeam_channel::{Receiver, Sender};
+use hydrate_base::handle::LoadState::WaitingForDependencies;
 use hydrate_base::handle::{
     ArtifactRef, LoadState, LoadStateProvider, LoaderInfoProvider, ResolvedLoadHandle,
 };
 use hydrate_base::hashing::{HashMap, HashSet};
 use hydrate_base::ArtifactId;
 use hydrate_base::{ArtifactManifestData, LoadHandle, StringHash};
-use std::sync::atomic::{Ordering};
+use std::fmt::Formatter;
+use std::hash::Hash;
+use std::sync::atomic::Ordering;
 use std::sync::{Arc, Mutex};
-use hydrate_base::handle::LoadState::WaitingForDependencies;
 
 //
 // Interface for IO
@@ -78,7 +78,10 @@ pub struct RequestDataResult {
 pub struct ManifestBuildHash(pub u64);
 
 impl std::fmt::Debug for ManifestBuildHash {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    fn fmt(
+        &self,
+        f: &mut Formatter<'_>,
+    ) -> std::fmt::Result {
         write!(f, "ManifestBuildHash({:0>16x})", self.0)
     }
 }
@@ -94,7 +97,10 @@ pub trait LoaderIO: Sync + Send {
     fn pending_build_hash(&self) -> Option<ManifestBuildHash>;
 
     // Switches to using the new manifest for future requests
-    fn activate_pending_build_hash(&mut self, new_build_hash: ManifestBuildHash);
+    fn activate_pending_build_hash(
+        &mut self,
+        new_build_hash: ManifestBuildHash,
+    );
 
     // Provide manifest data for a particular artifact by ID
     fn manifest_entry(
@@ -289,11 +295,9 @@ impl LoaderInner {
                 for (_, indirect_load) in &mut self.indirect_states {
                     // Resolve the indirect handle under the new manifest
                     let new_manifest_entry = self.loader_io.resolve_indirect(&indirect_load.id);
-                    let new_id_and_hash = new_manifest_entry.map(|x| {
-                        ArtifactIdAndHash {
-                            id: x.artifact_id,
-                            hash: x.combined_build_hash
-                        }
+                    let new_id_and_hash = new_manifest_entry.map(|x| ArtifactIdAndHash {
+                        id: x.artifact_id,
+                        hash: x.combined_build_hash,
                     });
                     let old_id_and_hash = indirect_load.resolved_id_and_hash;
 
@@ -302,8 +306,10 @@ impl LoaderInner {
                     let artifact_changed = old_id_and_hash != new_id_and_hash;
                     if artifact_changed {
                         // Get the new direct load handle (and add a ref count to it if it is valid)
-                        let new_load_handle_direct = if let Some(new_id_and_hash) = new_id_and_hash {
-                            let new_load_handle_direct = *self.artifact_id_to_handle.get(&new_id_and_hash).unwrap();
+                        let new_load_handle_direct = if let Some(new_id_and_hash) = new_id_and_hash
+                        {
+                            let new_load_handle_direct =
+                                *self.artifact_id_to_handle.get(&new_id_and_hash).unwrap();
                             let new_load_handle_info = self
                                 .load_handle_infos
                                 .get_mut(&new_load_handle_direct)
@@ -311,9 +317,14 @@ impl LoaderInner {
 
                             // Add a ref count to new version's direct handle
                             //log::info!("Add load handle ref for new version {:?}", new_load_handle_direct);
-                            new_load_handle_info.external_ref_count_direct += indirect_load.external_ref_count_indirect;
+                            new_load_handle_info.external_ref_count_direct +=
+                                indirect_load.external_ref_count_indirect;
                             for _ in 0..indirect_load.external_ref_count_indirect {
-                                Self::add_internal_ref(&self.events_tx, new_load_handle_direct, new_load_handle_info);
+                                Self::add_internal_ref(
+                                    &self.events_tx,
+                                    new_load_handle_direct,
+                                    new_load_handle_info,
+                                );
                                 //self.add_engine_ref_by_handle_direct(new_load_handle_direct);
                             }
                             new_load_handle_direct
@@ -324,30 +335,36 @@ impl LoaderInner {
 
                         // Point the indirect load to the new version
                         indirect_load.resolved_id_and_hash = new_id_and_hash;
-                        let old_load_handle_direct = self.indirect_to_load.get(&indirect_load.id).unwrap().direct_load_handle.swap(new_load_handle_direct.0, Ordering::Relaxed);
-                        log::info!("Update indirect handle {:?} => {:?} -> {:?}", indirect_load.id, LoadHandle(old_load_handle_direct), new_load_handle_direct);
-
-                        // Transfer ref counts from indirect?
-                        // for _ in 0..indirect_load.external_ref_count_indirect {
-                        //     Self::remove_internal_ref(&self.events_tx, old_load_handle_direct, old_load_handle_info);
-                        // }
-                        //
-                        // for _ in 0..indirect_load.external_ref_count_indirect {
-                        //     Self::add_internal_ref(&self.events_tx, new_load_handle_direct, new_load_handle_info);
-                        // }
-
+                        let old_load_handle_direct = self
+                            .indirect_to_load
+                            .get(&indirect_load.id)
+                            .unwrap()
+                            .direct_load_handle
+                            .swap(new_load_handle_direct.0, Ordering::Relaxed);
+                        log::info!(
+                            "Update indirect handle {:?} => {:?} -> {:?}",
+                            indirect_load.id,
+                            LoadHandle(old_load_handle_direct),
+                            new_load_handle_direct
+                        );
 
                         // Drop ref count to old version, if it existed
                         if let Some(old_id_and_hash) = &old_id_and_hash {
-                            let old_load_handle_direct = *self.artifact_id_to_handle.get(&old_id_and_hash).unwrap();
+                            let old_load_handle_direct =
+                                *self.artifact_id_to_handle.get(&old_id_and_hash).unwrap();
                             let old_load_handle_info = self
                                 .load_handle_infos
                                 .get_mut(&old_load_handle_direct)
                                 .unwrap();
                             //log::info!("Remove load handle ref for old version {:?}", old_load_handle_direct);
-                            old_load_handle_info.external_ref_count_direct -= indirect_load.external_ref_count_indirect;
+                            old_load_handle_info.external_ref_count_direct -=
+                                indirect_load.external_ref_count_indirect;
                             for _ in 0..indirect_load.external_ref_count_indirect {
-                                Self::remove_internal_ref(&self.events_tx, old_load_handle_direct, old_load_handle_info);
+                                Self::remove_internal_ref(
+                                    &self.events_tx,
+                                    old_load_handle_direct,
+                                    old_load_handle_info,
+                                );
                                 //self.remove_engine_ref_direct(new_load_handle_direct);
                             }
                         }
@@ -356,16 +373,16 @@ impl LoaderInner {
 
                 //remove temporary ref count added when we started the reload
                 for &load_handle in &current_reload_action.load_handles_to_reload {
-                    let load_handle_info = self
-                        .load_handle_infos
-                        .get_mut(&load_handle)
-                        .unwrap();
+                    let load_handle_info = self.load_handle_infos.get_mut(&load_handle).unwrap();
                     log::info!("Remove temporary load handle ref for {:?}", load_handle);
                     Self::remove_internal_ref(&self.events_tx, load_handle, load_handle_info);
                 }
 
                 // indicate that the reload is complete
-                log::info!("Finished asset reload, now on manifest build hash {:?}", self.current_build_hash);
+                log::info!(
+                    "Finished asset reload, now on manifest build hash {:?}",
+                    self.current_build_hash
+                );
                 self.current_reload_action = None;
             }
         } else if let Some(pending_build_hash) = self.loader_io.pending_build_hash() {
@@ -376,21 +393,24 @@ impl LoaderInner {
 
             // Switch to the new manifest
             let old_build_hash = self.current_build_hash;
-            self.loader_io.activate_pending_build_hash(pending_build_hash);
+            self.loader_io
+                .activate_pending_build_hash(pending_build_hash);
             self.current_build_hash = self.loader_io.current_build_hash();
 
-            log::info!("Begin asset reload {:?} -> {:?}", old_build_hash, self.current_build_hash);
+            log::info!(
+                "Begin asset reload {:?} -> {:?}",
+                old_build_hash,
+                self.current_build_hash
+            );
 
             // Iterate indirect handles and see if what they are pointing at has changed
             let mut artifacts_to_reload = HashSet::default();
             for (_, indirect_load) in &self.indirect_states {
                 // Resolve the indirect handle under the new manifest
                 let new_manifest_entry = self.loader_io.resolve_indirect(&indirect_load.id);
-                let new_id_and_hash = new_manifest_entry.map(|x| {
-                    ArtifactIdAndHash {
-                        id: x.artifact_id,
-                        hash: x.combined_build_hash
-                    }
+                let new_id_and_hash = new_manifest_entry.map(|x| ArtifactIdAndHash {
+                    id: x.artifact_id,
+                    hash: x.combined_build_hash,
                 });
                 let old_id_and_hash = indirect_load.resolved_id_and_hash;
 
@@ -403,7 +423,7 @@ impl LoaderInner {
                     if let Some(new_manifest_entry) = &new_manifest_entry {
                         artifacts_to_reload.insert(ArtifactIdAndHash {
                             id: new_manifest_entry.artifact_id,
-                            hash: new_manifest_entry.combined_build_hash
+                            hash: new_manifest_entry.combined_build_hash,
                         });
                     }
                 }
@@ -413,10 +433,8 @@ impl LoaderInner {
             let mut load_handles_to_reload = vec![];
             for new_handle in artifacts_to_reload {
                 let new_load_handle = self.get_or_insert_direct(new_handle);
-                let new_load_handle_info = self
-                    .load_handle_infos
-                    .get_mut(&new_load_handle)
-                    .unwrap();
+                let new_load_handle_info =
+                    self.load_handle_infos.get_mut(&new_load_handle).unwrap();
 
                 // This reference is temporary and will be removed when we finish the reload
                 log::info!("Add temporary load handle ref for {:?}", new_load_handle);
@@ -432,7 +450,9 @@ impl LoaderInner {
         while let Ok(loader_event) = self.events_rx.try_recv() {
             log::debug!("handle event {:?}", loader_event);
             match loader_event {
-                LoaderEvent::TryLoad(load_handle) => self.handle_try_load(self.current_build_hash, load_handle),
+                LoaderEvent::TryLoad(load_handle) => {
+                    self.handle_try_load(self.current_build_hash, load_handle)
+                }
                 LoaderEvent::TryUnload(load_handle) => {
                     self.handle_try_unload(load_handle, asset_storage)
                 }
@@ -533,9 +553,15 @@ impl LoaderInner {
         // Remove dependency refs, we do this after we finish mutating the load info so that we don't
         // take multiple locks, which risks deadlock
         for depenency_load_handle in dependencies {
-            let depenency_load_handle_info =
-                self.load_handle_infos.get_mut(&depenency_load_handle).unwrap();
-            Self::remove_internal_ref(&self.events_tx, depenency_load_handle, depenency_load_handle_info);
+            let depenency_load_handle_info = self
+                .load_handle_infos
+                .get_mut(&depenency_load_handle)
+                .unwrap();
+            Self::remove_internal_ref(
+                &self.events_tx,
+                depenency_load_handle,
+                depenency_load_handle_info,
+            );
         }
     }
 
@@ -575,7 +601,7 @@ impl LoaderInner {
 
             let dependency_load_handle = self.get_or_insert_direct(ArtifactIdAndHash {
                 id: *dependency,
-                hash: dependency_manifest_entry.combined_build_hash
+                hash: dependency_manifest_entry.combined_build_hash,
             });
             let dependency_load_handle_info = self
                 .load_handle_infos
@@ -766,10 +792,7 @@ impl LoaderInner {
                         load_handle_info.artifact_id,
                         load_handle_info.hash
                     );
-                    std::mem::swap(
-                        &mut blocked_loads,
-                        &mut load_handle_info.blocked_loads,
-                    );
+                    std::mem::swap(&mut blocked_loads, &mut load_handle_info.blocked_loads);
                     load_handle_info.load_state = LoadState::Loaded;
                     load_handle_info.artifact_type_id
                 };
@@ -780,8 +803,7 @@ impl LoaderInner {
                         .load_handle_infos
                         .get_mut(&blocked_load_handle)
                         .unwrap();
-                    blocked_load
-                        .blocking_dependency_count -= 1;
+                    blocked_load.blocking_dependency_count -= 1;
                     if blocked_load.blocking_dependency_count == 0 {
                         // Kick off the blocked load
                         self.events_tx
@@ -838,7 +860,8 @@ impl LoaderInner {
                     manifest_entry.artifact_id
                 );
 
-                let resolved_load_handle = ResolvedLoadHandle::new(indirect_load_handle, LoadHandle(0));
+                let resolved_load_handle =
+                    ResolvedLoadHandle::new(indirect_load_handle, LoadHandle(0));
 
                 indirect_states.insert(
                     indirect_load_handle,
@@ -870,7 +893,10 @@ impl LoaderInner {
                 let direct_load_handle = LoadHandle::new(*next_handle_index, false);
                 *next_handle_index += 1;
                 let manifest_entry = loader_io.manifest_entry(artifact_id_and_hash.id).unwrap();
-                assert_eq!(manifest_entry.combined_build_hash, artifact_id_and_hash.hash);
+                assert_eq!(
+                    manifest_entry.combined_build_hash,
+                    artifact_id_and_hash.hash
+                );
 
                 log::debug!(
                     "Allocate load handle {:?} for artifact id {:?}",
@@ -944,11 +970,9 @@ impl LoaderInner {
         &mut self,
         direct_load_handle: LoadHandle,
     ) -> LoadHandle {
-        assert!(!direct_load_handle.is_null());
         assert!(!direct_load_handle.is_indirect());
         let load_handle_info = self.load_handle_infos.get_mut(&direct_load_handle).unwrap();
-        load_handle_info
-            .external_ref_count_direct += 1;
+        load_handle_info.external_ref_count_direct += 1;
 
         Self::add_internal_ref(&self.events_tx, direct_load_handle, load_handle_info);
 
@@ -976,11 +1000,9 @@ impl LoaderInner {
         direct_load_handle: LoadHandle,
     ) {
         log::debug!("remove_engine_ref_direct for {:?}", direct_load_handle);
-        assert!(!direct_load_handle.is_null());
         assert!(!direct_load_handle.is_indirect());
         let load_handle_info = self.load_handle_infos.get_mut(&direct_load_handle).unwrap();
-        load_handle_info
-            .external_ref_count_direct -= 1;
+        load_handle_info.external_ref_count_direct -= 1;
 
         // Engine always adjusts the latest version count
         Self::remove_internal_ref(&self.events_tx, direct_load_handle, load_handle_info);
@@ -993,12 +1015,13 @@ impl LoaderInner {
         load_handle_info: &mut LoadHandleInfo,
     ) {
         assert!(!direct_load_handle.is_indirect());
-        load_handle_info
-            .internal_ref_count += 1;
+        load_handle_info.internal_ref_count += 1;
 
         // If this is the first reference to the artifact, put it in the queue to be loaded
         if load_handle_info.internal_ref_count == 1 {
-            events_tx.send(LoaderEvent::TryLoad(direct_load_handle)).unwrap();
+            events_tx
+                .send(LoaderEvent::TryLoad(direct_load_handle))
+                .unwrap();
         }
     }
 
@@ -1009,8 +1032,7 @@ impl LoaderInner {
         load_handle_info: &mut LoadHandleInfo,
     ) {
         assert!(!direct_load_handle.is_indirect());
-        load_handle_info
-            .internal_ref_count -= 1;
+        load_handle_info.internal_ref_count -= 1;
         // If this was the last reference to the artifact, put it in queue to be dropped
         if load_handle_info.internal_ref_count == 0 {
             events_tx
@@ -1220,12 +1242,19 @@ impl<'a> LoaderInfoProvider for LoadHandleInfoProviderImpl<'a> {
         id: &ArtifactRef,
     ) -> Option<Arc<ResolvedLoadHandle>> {
         let artifact_id = ArtifactId::from_uuid(id.0.as_uuid());
-        let build_hash = self.loader_io.manifest_entry(artifact_id).unwrap().combined_build_hash;
+        let build_hash = self
+            .loader_io
+            .manifest_entry(artifact_id)
+            .unwrap()
+            .combined_build_hash;
 
-        let load_handle = self.artifact_id_to_handle.get(&ArtifactIdAndHash {
-            id: artifact_id,
-            hash: build_hash,
-        }).map(|l| *l)?;
+        let load_handle = self
+            .artifact_id_to_handle
+            .get(&ArtifactIdAndHash {
+                id: artifact_id,
+                hash: build_hash,
+            })
+            .map(|l| *l)?;
         Some(ResolvedLoadHandle::new(load_handle, load_handle))
     }
 

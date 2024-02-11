@@ -1,6 +1,6 @@
 use crate::loader::ArtifactData;
 use crate::loader::{
-    ArtifactMetadata, ManifestBuildHash, LoaderEvent, LoaderIO, RequestDataResult,
+    ArtifactMetadata, LoaderEvent, LoaderIO, ManifestBuildHash, RequestDataResult,
     RequestMetadataResult,
 };
 use crate::storage::IndirectIdentifier;
@@ -52,7 +52,7 @@ struct DiskAssetIOWorkerThread {
 
 fn find_and_load_latest_toc_if_changed(
     build_data_root_path: &Path,
-    previous_build_hash: Option<ManifestBuildHash>
+    previous_build_hash: Option<ManifestBuildHash>,
 ) -> Result<Option<(ManifestBuildHash, BuildManifest)>, String> {
     let max_toc_path = find_latest_toc(&build_data_root_path.join("toc"));
     let max_toc_path = max_toc_path.ok_or_else(|| "Could not find TOC file".to_string())?;
@@ -337,7 +337,10 @@ impl BuildManifest {
 
                     let debug_manifest_build_hash =
                         u64::from_str_radix(&debug_manifest_entry.combined_build_hash, 16).unwrap();
-                    assert_eq!(manifest_entry.combined_build_hash, debug_manifest_build_hash);
+                    assert_eq!(
+                        manifest_entry.combined_build_hash,
+                        debug_manifest_build_hash
+                    );
 
                     if debug_manifest_entry.symbol_name.is_empty() {
                         assert_eq!(manifest_entry.symbol_hash, None);
@@ -408,7 +411,7 @@ pub struct DiskAssetIO {
     new_toc_rx: Receiver<DiskAssetIOResponseNewToc>,
     last_toc_check: std::time::Instant,
     toc_check_queued: bool,
-    pending_new_build_manifest: Option<(ManifestBuildHash, BuildManifest)>
+    pending_new_build_manifest: Option<(ManifestBuildHash, BuildManifest)>,
 }
 
 impl Drop for DiskAssetIO {
@@ -435,7 +438,7 @@ impl DiskAssetIO {
             Arc::new(build_data_root_path.clone()),
             4,
             load_event_tx.clone(),
-            new_toc_tx
+            new_toc_tx,
         ));
 
         Ok(DiskAssetIO {
@@ -451,13 +454,16 @@ impl DiskAssetIO {
         })
     }
 
-    fn request_check_for_new_toc(
-        &self
-    ) {
+    fn request_check_for_new_toc(&self) {
         log::debug!("request_check_for_new_toc");
-        self.thread_pool.as_ref().unwrap().add_request(DiskAssetIORequest::CheckNewToc(DiskAssetIORequestCheckNewToc {
-            current_manifest_build_hash: self.current_build_hash(),
-        }));
+        self.thread_pool
+            .as_ref()
+            .unwrap()
+            .add_request(DiskAssetIORequest::CheckNewToc(
+                DiskAssetIORequestCheckNewToc {
+                    current_manifest_build_hash: self.current_build_hash(),
+                },
+            ));
     }
 }
 
@@ -466,15 +472,20 @@ impl LoaderIO for DiskAssetIO {
         // If a background thread found a new TOC, handle that here
         while let Ok(new_toc_event) = self.new_toc_rx.try_recv() {
             self.toc_check_queued = false;
-            if let Some((new_build_manifest_hash, new_build_manifest)) = new_toc_event.new_build_manifest {
+            if let Some((new_build_manifest_hash, new_build_manifest)) =
+                new_toc_event.new_build_manifest
+            {
                 log::info!("New manifest TOC is ready to load");
-                self.pending_new_build_manifest = Some((new_build_manifest_hash, new_build_manifest));
+                self.pending_new_build_manifest =
+                    Some((new_build_manifest_hash, new_build_manifest));
                 //self.load_event_tx.send(LoaderEvent::ArtifactsUpdated(new_build_manifest_hash)).unwrap();
             }
         }
 
         // Periodically check for a new TOC on a background thread
-        if !self.toc_check_queued && (std::time::Instant::now() - self.last_toc_check).as_secs_f32() > 1.0 {
+        if !self.toc_check_queued
+            && (std::time::Instant::now() - self.last_toc_check).as_secs_f32() > 1.0
+        {
             self.toc_check_queued = true;
             self.last_toc_check = std::time::Instant::now();
 
@@ -486,8 +497,12 @@ impl LoaderIO for DiskAssetIO {
         self.pending_new_build_manifest.as_ref().map(|x| x.0)
     }
 
-    fn activate_pending_build_hash(&mut self, new_build_hash: ManifestBuildHash) {
-        if let Some((manifest_build_hash, build_manifest)) = self.pending_new_build_manifest.take() {
+    fn activate_pending_build_hash(
+        &mut self,
+        new_build_hash: ManifestBuildHash,
+    ) {
+        if let Some((manifest_build_hash, build_manifest)) = self.pending_new_build_manifest.take()
+        {
             if manifest_build_hash != new_build_hash {
                 panic!("Tried to switch to new build manifest but the manifest build hash doesn't match");
             } else {

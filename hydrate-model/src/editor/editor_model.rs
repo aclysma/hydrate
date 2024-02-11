@@ -58,6 +58,10 @@ impl<'a> DynEditorModel for EditorModelWithCache<'a> {
         //
         let edit_context = self.editor_model.root_edit_context_mut();
         if replace_with_default_asset {
+            if edit_context.has_asset(asset_id) {
+                edit_context.delete_asset(asset_id)?;
+            }
+
             edit_context.init_from_single_object(
                 asset_id,
                 asset_name,

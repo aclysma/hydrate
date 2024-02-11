@@ -1,3 +1,4 @@
+use std::path::PathBuf;
 use crate::app::UiState;
 use crate::modal_action::ModalAction;
 use crate::ui::modals::ConfirmQuitWithoutSaving;
@@ -5,7 +6,7 @@ use crate::ui::modals::ConfirmRevertChanges;
 use crossbeam_channel::{Receiver, Sender};
 use egui::KeyboardShortcut;
 use hydrate_model::edit_context::EditContext;
-use hydrate_model::pipeline::{AssetEngine, HydrateProjectConfiguration, ImportJobToQueue};
+use hydrate_model::pipeline::{AssetEngine, HydrateProjectConfiguration, ImportJobSourceFile, ImportJobToQueue, ImportLogData, ImportType};
 use hydrate_model::{
     AssetId, AssetLocation, AssetName, DataSetError, DataSetErrorWithBacktrace, DataSetResult,
     EditorModel, EndContextBehavior, NullOverride, OverrideBehavior, PropertyPath, Schema,
@@ -13,6 +14,7 @@ use hydrate_model::{
 };
 use std::sync::Arc;
 use uuid::Uuid;
+use hydrate_base::hashing::HashMap;
 
 pub enum UIAction {
     TryBeginModalAction(Box<dyn ModalAction>),
@@ -29,6 +31,7 @@ pub enum UIAction {
     QuitNoConfirm,
     PersistAssets(Vec<AssetId>),
     BuildAll,
+    ReimportAndRebuild(Vec<AssetId>),
     ForceRebuild(Vec<AssetId>),
     ShowAssetInAssetGallery(AssetId),
     MoveAssets(Vec<AssetId>, AssetLocation),
@@ -289,9 +292,66 @@ impl UIActionQueueReceiver {
                         },
                     );
                 }
+                UIAction::ReimportAndRebuild(asset_ids) => {
+                    // - Only update assets that were requested
+                    // - Process source files once
+                    // - Match the same import settings as were originally in place, or fail if
+                    //   this is not possible.
+
+
+
+                    let mut import_job_to_queue = ImportJobToQueue::default();
+                    for &asset_id in &asset_ids {
+                        let root_edit_context = editor_model.root_edit_context();
+                        let import_info = root_edit_context.import_info(asset_id);
+                        if let Some(import_info) = import_info {
+                            //import_info.importer_id()
+                            //
+                            let source_file_path: PathBuf = import_info
+                                .source_file()
+                                .canonicalized_absolute_path(root_edit_context, &PathBuf::default())
+                                .unwrap()
+                                .path()
+                                .into();
+
+                            // let requested_importables = HashMap::default();
+                            // let source_file = ImportJobSourceFile {
+                            //     importer_id: import_info.importer_id(),
+                            //     import_type: ImportType::ImportAlways,
+                            //     requested_importables,
+                            //     source_file_path,
+                            // };
+
+                            let mut asset_id_assignments = HashMap::default();
+                            asset_id_assignments.insert(import_info.importable_name().clone(), asset_id);
+
+                            println!("reimport {:?}", source_file_path);
+                            hydrate_model::pipeline::recursively_gather_import_operations_and_create_assets(
+                                project_config,
+                                &source_file_path,
+                                asset_engine.importer_registry().importer(import_info.importer_id()).unwrap(),
+                                root_edit_context,
+                                asset_engine.importer_registry(),
+                                &root_edit_context.asset_location(asset_id).unwrap(),
+                                Some(&asset_id_assignments),
+                                &mut import_job_to_queue,
+                            ).unwrap();
+
+                            //hydrate_pipeline::recursively_gather_import_operations_and_create_assets()
+                        }
+                    }
+
+                    if !import_job_to_queue.is_empty() {
+                        asset_engine.queue_import_operation(import_job_to_queue);
+
+                        for asset_id in asset_ids {
+                            asset_engine.queue_build_asset(asset_id);
+                        }
+                    }
+                }
                 UIAction::ForceRebuild(asset_ids) => {
                     for asset_id in asset_ids {
-                        asset_engine.queue_build_asset(asset_id)
+                        asset_engine.queue_build_asset(asset_id);
                     }
                 }
                 UIAction::ShowAssetInAssetGallery(asset_id) => {

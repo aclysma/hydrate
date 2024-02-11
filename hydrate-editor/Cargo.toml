@@ -12,6 +12,7 @@ eframe = { version = "0.24.0", default-features = false, features = ["default_fo
 
 hydrate-base = { path = "../hydrate-base" }
 hydrate-model = { path = "../hydrate-model" }
+hydrate-pipeline = {path = "../hydrate-pipeline" }
 image = { version = "0.23.12", default-features = false, features = ["gif", "jpeg", "ico", "png", "pnm", "tga", "tiff", "bmp"] }
 
 ahash = "0.7.4"

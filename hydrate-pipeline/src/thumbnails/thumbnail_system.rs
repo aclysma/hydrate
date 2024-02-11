@@ -33,13 +33,19 @@ pub struct ThumbnailImage {
     pub pixel_data: Vec<u8>,
 }
 
+#[derive(Clone)]
+pub struct ThumbnailImageWithHash {
+    pub image: Arc<ThumbnailImage>,
+    pub hash: ThumbnailInputHash,
+}
+
 #[derive(Default)]
 pub struct ThumbnailState {
     // List of asset dependencies
     // List of import data dependencies
-    image: Option<Arc<ThumbnailImage>>,
+    image: Option<ThumbnailImageWithHash>,
     // Set when the image is loaded
-    current_input_hash: Option<ThumbnailInputHash>,
+    //current_input_hash: Option<ThumbnailInputHash>,
     // Set when the image request is queued and cleared when it completes
     queued_request_input_hash: Option<ThumbnailInputHash>,
     failed_to_load: bool,
@@ -48,6 +54,7 @@ pub struct ThumbnailState {
 
 struct ThumbnailSystemStateInner {
     cache: LruCache<AssetId, ThumbnailState>,
+    refreshed_thumbnails: HashSet<AssetId>,
 }
 
 #[derive(Clone)]
@@ -60,16 +67,24 @@ impl Default for ThumbnailSystemState {
         ThumbnailSystemState {
             inner: Arc::new(Mutex::new(ThumbnailSystemStateInner {
                 cache: LruCache::new(THUMBNAIL_CACHE_SIZE),
+                refreshed_thumbnails: Default::default(),
             })),
         }
     }
 }
 
 impl ThumbnailSystemState {
+    pub fn take_refreshed_thumbnails(&self) -> HashSet<AssetId> {
+        let mut refreshed_thumbnails = HashSet::default();
+        let mut inner = self.inner.lock().unwrap();
+        std::mem::swap(&mut inner.refreshed_thumbnails, &mut refreshed_thumbnails);
+        refreshed_thumbnails
+    }
+
     pub fn request(
         &self,
         asset_id: AssetId,
-    ) -> Option<Arc<ThumbnailImage>> {
+    ) -> Option<ThumbnailImageWithHash> {
         let mut inner = self.inner.lock().unwrap();
         if let Some(thumbnail_state) = inner.cache.get(&asset_id, true) {
             thumbnail_state.image.clone()
@@ -78,6 +93,18 @@ impl ThumbnailSystemState {
             None
         }
     }
+
+    // pub fn peek(
+    //     &self,
+    //     asset_id: AssetId,
+    // ) -> Option<ThumbnailImageWithHash> {
+    //     let mut inner = self.inner.lock().unwrap();
+    //     if let Some(thumbnail_state) = inner.cache.get(&asset_id, true) {
+    //         thumbnail_state.image.clone()
+    //     } else {
+    //         None
+    //     }
+    // }
 
     pub fn forget(
         &self,
@@ -155,6 +182,9 @@ impl ThumbnailSystem {
     ) {
         let now = std::time::Instant::now();
         let mut state = self.thumbnail_system_state.inner.lock().unwrap();
+
+        let mut refreshed_thumbnails = vec![];
+
         for (asset_id, thumbnail_state) in state
             .cache
             .pairs_mut()
@@ -198,7 +228,12 @@ impl ThumbnailSystem {
                 .thumbnail_provider_registry
                 .provider_for_asset(asset_schema.fingerprint())
             else {
-                thumbnail_state.image = Some(self.default_image.clone());
+                let old_thumbnail_hash = thumbnail_state.image.as_ref().map(|x| x.hash);
+                let new_thumbnail_hash = ThumbnailInputHash::null();
+                thumbnail_state.image = Some(ThumbnailImageWithHash { image: self.default_image.clone(), hash: new_thumbnail_hash });
+                if old_thumbnail_hash != Some(new_thumbnail_hash) {
+                    refreshed_thumbnails.push(asset_id);
+                }
                 continue;
             };
 
@@ -214,7 +249,7 @@ impl ThumbnailSystem {
             }
 
             // Check if the image we loaded is stale
-            if thumbnail_state.current_input_hash == Some(dependencies.thumbnail_input_hash) {
+            if thumbnail_state.image.as_ref().map(|x| x.hash) == Some(dependencies.thumbnail_input_hash) {
                 continue;
             }
 
@@ -222,6 +257,7 @@ impl ThumbnailSystem {
             self.current_requests
                 .insert(dependencies.thumbnail_input_hash);
             thumbnail_state.queued_request_input_hash = Some(dependencies.thumbnail_input_hash);
+            log::trace!("Generate thumbnail for {:?}", asset_id);
             self.thread_pool
                 .as_ref()
                 .unwrap()
@@ -243,10 +279,19 @@ impl ThumbnailSystem {
                     {
                         match msg.result {
                             Ok(image) => {
+
+                                let old_thumbnail_hash = thumbnail_state.image.as_ref().map(|x| x.hash);
+                                let new_thumbnail_hash = msg.request.dependencies.thumbnail_input_hash;
+
                                 thumbnail_state.queued_request_input_hash = None;
-                                thumbnail_state.current_input_hash =
-                                    Some(msg.request.dependencies.thumbnail_input_hash);
-                                thumbnail_state.image = Some(Arc::new(image));
+                                thumbnail_state.image = Some(ThumbnailImageWithHash {
+                                    image: Arc::new(image),
+                                    hash: msg.request.dependencies.thumbnail_input_hash
+                                });
+
+                                if old_thumbnail_hash != Some(new_thumbnail_hash) {
+                                    refreshed_thumbnails.push(msg.request.asset_id);
+                                }
                             }
                             Err(e) => {
                                 thumbnail_state.failed_to_load = true;
@@ -255,6 +300,10 @@ impl ThumbnailSystem {
                     }
                 }
             }
+        }
+
+        for refreshed_thumbnail in refreshed_thumbnails {
+            state.refreshed_thumbnails.insert(refreshed_thumbnail);
         }
     }
 }

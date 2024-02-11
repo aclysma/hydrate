@@ -291,6 +291,8 @@ impl eframe::App for HydrateEditorApp {
                 .unwrap()
         };
 
+        self.thumbnail_image_loader.check_for_stale_thumbnails(ctx);
+
         //
         // If we have any completed logs, store them
         //

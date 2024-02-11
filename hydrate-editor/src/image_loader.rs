@@ -14,6 +14,7 @@ use hydrate_model::{AssetId, HashMap, SchemaFingerprint, SchemaSet};
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use uuid::Uuid;
+use hydrate_pipeline::ThumbnailInputHash;
 
 const THUMBNAIL_ASSET_URI_PREFIX: &str = "thumbnail-asset://";
 const THUMBNAIL_ASSET_TYPE_URI_PREFIX: &str = "thumbnail-asset-type://";
@@ -28,9 +29,14 @@ enum LoadState {
     Loaded(Arc<ColorImage>),
 }
 
+struct CachedThumbnail {
+    thumbnail_input_hash: ThumbnailInputHash,
+    color_image: Arc<ColorImage>,
+}
+
 pub struct ThumbnailImageLoader {
     dummy_image: Arc<ColorImage>,
-    thumbnail_cache: Mutex<LruCache<AssetId, Arc<ColorImage>>>,
+    thumbnail_cache: Mutex<LruCache<AssetId, CachedThumbnail>>,
     thumbnail_system_state: ThumbnailSystemState,
     thumbnail_provider_registry: ThumbnailProviderRegistry,
     default_thumbnails: HashMap<SchemaFingerprint, Arc<ColorImage>>,
@@ -108,6 +114,36 @@ impl ThumbnailImageLoader {
             special_thumbnail_no_thumbnail: Arc::new(no_thumbnail),
             special_thumbnail_no_reference: Arc::new(no_reference),
         }
+    }
+
+    pub fn check_for_stale_thumbnails(
+        &self,
+        ctx: &egui::Context,
+    ) {
+        // let mut thumbnails_to_invalidate = vec![];
+        // {
+        //     let lru_cache = self.thumbnail_cache.lock().unwrap();
+        //     for (asset_id, thumbnail) in lru_cache.pairs().iter().filter_map(|x| x.as_ref()) {
+        //         if let Some(c) = self.thumbnail_system_state.peek(*asset_id) {
+        //             if c.hash != thumbnail.thumbnail_input_hash {
+        //                 println!("Invalidate thumbnail {:?}", asset_id);
+        //                 thumbnails_to_invalidate.push(format!("thumbnail-asset://{}", asset_id.as_uuid().to_string()));
+        //             }
+        //         }
+        //     }
+        // }
+
+        //TODO: Or, the thumbnail system produces events
+        // for thumbnail_to_invalidate in thumbnails_to_invalidate {
+        //     ctx.forget_image(&thumbnail_to_invalidate);
+        // }
+
+        let refreshed_thumbnails = self.thumbnail_system_state.take_refreshed_thumbnails();
+        for refreshed_thumbnail in refreshed_thumbnails {
+            ctx.forget_image(&format!("thumbnail-asset://{}", refreshed_thumbnail.as_uuid().to_string()));
+        }
+
+        //ctx.forget_image()
     }
 
     pub fn thumbnail_uri_for_asset_with_fingerprint(
@@ -198,14 +234,18 @@ impl ImageLoader for ThumbnailImageLoader {
             let mut cache = self.thumbnail_cache.lock().unwrap();
             if let Some(image) = cache.get(&asset_id, true) {
                 Ok(ImagePoll::Ready {
-                    image: image.clone(),
+                    image: image.color_image.clone(),
                 })
             } else if let Some(cached_entry) = self.thumbnail_system_state.request(asset_id) {
                 let image = Arc::new(ColorImage::from_rgba_unmultiplied(
-                    [cached_entry.width as usize, cached_entry.height as usize],
-                    &cached_entry.pixel_data,
+                    [cached_entry.image.width as usize, cached_entry.image.height as usize],
+                    &cached_entry.image.pixel_data,
                 ));
-                cache.insert(asset_id, image.clone());
+
+                cache.insert(asset_id, CachedThumbnail {
+                    thumbnail_input_hash: cached_entry.hash,
+                    color_image: image.clone()
+                });
 
                 Ok(ImagePoll::Ready { image })
             } else {

@@ -115,6 +115,7 @@ impl ModalAction for ImportFilesModal {
                                     context.db_state.editor_model.root_edit_context(),
                                     context.asset_engine.importer_registry(),
                                     &self.selected_location.unwrap(),
+                                    None,
                                     &mut import_job_to_queue,
                                 ).unwrap();
                             }

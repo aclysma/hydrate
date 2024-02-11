@@ -72,6 +72,8 @@ pub fn recursively_gather_import_operations_and_create_assets(
     //asset_engine: &AssetEngine,
     selected_import_location: &AssetLocation,
 
+    asset_id_assignments: Option<&HashMap<ImportableName, AssetId>>,
+
     // In addition to being the imports that need to be queued, this is also the assets that were
     // created. Pre-existing but referenced assets won't be in this list
     import_job_to_queue: &mut ImportJobToQueue,
@@ -162,20 +164,26 @@ pub fn recursively_gather_import_operations_and_create_assets(
                 }
             }
 
-            // If we didn't find it, try to import it
-            if found.is_none() {
-                let importer = importer_registry.importer(*importer_id).unwrap();
-                found = recursively_gather_import_operations_and_create_assets(
-                    project_config,
-                    Path::new(referenced_file_absolute.path()),
-                    importer,
-                    editor_context,
-                    importer_registry,
-                    selected_import_location,
-                    import_job_to_queue,
-                )?
-                .get(referenced_source_file.importable_name())
-                .copied();
+            if asset_id_assignments.is_some() && found.is_none() {
+                // fail
+                Err("Importing the asset will require importing another asset")?;
+            } else {
+                // If we didn't find it, try to import it
+                if found.is_none() {
+                    let importer = importer_registry.importer(*importer_id).unwrap();
+                    found = recursively_gather_import_operations_and_create_assets(
+                        project_config,
+                        Path::new(referenced_file_absolute.path()),
+                        importer,
+                        editor_context,
+                        importer_registry,
+                        selected_import_location,
+                        asset_id_assignments,
+                        import_job_to_queue,
+                    )?
+                    .get(referenced_source_file.importable_name())
+                    .copied();
+                }
             }
 
             //if let Some(found) = found {
@@ -186,7 +194,15 @@ pub fn recursively_gather_import_operations_and_create_assets(
         // At this point all referenced files have either been found or scanned
 
         // We create a random asset ID now so that other imported files can reference this asset later
-        let asset_id = AssetId::from_uuid(Uuid::new_v4());
+        let asset_id =if let Some(asset_id_assignments) = asset_id_assignments {
+            let Some(asset_id) = asset_id_assignments.get(scanned_importable_name) else {
+                continue;
+            };
+
+            *asset_id
+        } else {
+            AssetId::from_uuid(Uuid::new_v4())
+        };
 
         let source_file = PathReference::new(
             "".to_string(),

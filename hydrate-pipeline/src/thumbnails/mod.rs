@@ -101,6 +101,10 @@ where
         for asset_id in &import_data {
             let mut hasher_inner = siphasher::sip128::SipHasher::default();
             asset_id.hash(&mut hasher_inner);
+            if let Some(import_data) = data_set.import_info(*asset_id) {
+                import_data.import_data_contents_hash().hash(&mut hasher_inner);
+            }
+
             thumbnail_input_hash ^= hasher_inner.finish128().as_u128();
         }
 

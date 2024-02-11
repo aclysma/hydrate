@@ -145,6 +145,11 @@ pub fn draw_inspector(
                             ui.close_menu();
                         }
 
+                        if ui.button("Reimport And Rebuild").clicked() {
+                            action_sender.queue_action(UIAction::ReimportAndRebuild(selected_assets.iter().copied().collect()));
+                            ui.close_menu();
+                        }
+
                         if ui.button("Rebuild").clicked() {
                             action_sender.queue_action(UIAction::ForceRebuild(selected_assets.iter().copied().collect()));
                             ui.close_menu();

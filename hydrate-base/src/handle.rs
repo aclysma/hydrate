@@ -45,7 +45,7 @@ impl LoadHandle {
     }
 }
 
-/// A potentially unresolved reference to an asset
+/// A potentially unresolved reference to an artifact
 #[derive(Debug, Hash, PartialEq, Eq, Clone, Ord, PartialOrd, Serialize, Deserialize)]
 pub struct ArtifactRef(pub ArtifactId);
 

@@ -30,14 +30,14 @@ impl fmt::Debug for StringHash {
     ) -> fmt::Result {
         #[cfg(feature = "strip-stringhash-strings")]
         {
-            f.debug_struct("AssetId")
+            f.debug_struct("StringHash")
                 .field("hash", &format!("{:0>32x}", self.hash))
                 .finish()
         }
 
         #[cfg(not(feature = "strip-stringhash-strings"))]
         {
-            f.debug_struct("AssetId")
+            f.debug_struct("StringHash")
                 .field("hash", &format!("{:0>32x}", self.hash))
                 .field("contents", &self.contents)
                 .finish()

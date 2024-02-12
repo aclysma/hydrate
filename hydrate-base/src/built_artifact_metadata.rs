@@ -27,10 +27,10 @@ pub struct DebugManifestFileJson {
     pub artifacts: Vec<DebugArtifactManifestDataJson>,
 }
 
-/// Metadata about the asset that is loaded in memory at all times. May include extra debug data.
-/// This is just enough information to know if an asset exists and know where to get more info
-/// about it. Some data needed for load is encoded in the asset itself and not in memory until the
-/// asset is requested and must be fetched from disk.
+/// Metadata about the artifact that is loaded in memory at all times. May include extra debug data.
+/// This is just enough information to know if an artifact exists and know where to get more info
+/// about it. Some data needed for load is encoded in the artifact itself and not in memory until the
+/// artifact is requested and must be fetched from disk.
 pub struct ArtifactManifestData {
     pub artifact_id: ArtifactId,
     pub simple_build_hash: u64,
@@ -49,7 +49,7 @@ pub struct ArtifactManifestData {
 // to be.
 const MAX_HEADER_SIZE: usize = 1024 * 1024;
 
-/// Data encoded into the asset. This is necessary for loading but is not available in memory at
+/// Data encoded into the artifact. This is necessary for loading but is not available in memory at
 /// all times. The load process will fetch this from the top of the built artifact data.
 /// This is specifically designed to read the minimum amount of info out of the file.
 
@@ -58,6 +58,7 @@ const MAX_HEADER_SIZE: usize = 1024 * 1024;
 #[derive(Debug, Serialize, Deserialize)]
 pub struct BuiltArtifactHeaderData {
     pub dependencies: Vec<ArtifactId>,
+    // Should be called artifact_type but this would be an unnecessary schema break
     pub asset_type: Uuid, // size?
 }
 

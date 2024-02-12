@@ -1,7 +1,6 @@
 use crate::storage::{ArtifactLoadOp, ArtifactStorage, HandleOp, IndirectIdentifier};
 use crate::ArtifactTypeId;
 use crossbeam_channel::{Receiver, Sender};
-use hydrate_base::handle::LoadState::WaitingForDependencies;
 use hydrate_base::handle::{
     ArtifactRef, LoadState, LoadStateProvider, LoaderInfoProvider, ResolvedLoadHandle,
 };
@@ -261,7 +260,7 @@ struct LoaderInner {
 }
 
 impl LoaderInner {
-    fn recursive_log_load_state(
+    pub fn log_load_state_recursive(
         &self,
         load_handle: LoadHandle,
         indent: usize,
@@ -276,7 +275,7 @@ impl LoaderInner {
             indent = indent
         );
         for dependency in &load_handle_info.dependencies {
-            self.recursive_log_load_state(*dependency, indent + 2);
+            self.log_load_state_recursive(*dependency, indent + 2);
         }
     }
 
@@ -300,7 +299,7 @@ impl LoaderInner {
                 let load_handle_info = self.load_handle_infos.get(&load_handle).unwrap();
                 if load_handle_info.load_state != LoadState::Loaded {
                     //log::debug!("Reloading waiting for {:?} {:?} {:?} to load, it's in state {:?}", load_handle, load_handle_info.artifact_id, load_handle_info.debug_name, load_handle_info.load_state);
-                    //self.recursive_log_load_state(load_handle, 2);
+                    //self.log_load_state_recursive(load_handle, 2);
                     reload_complete = false;
                     break;
                 }
@@ -972,7 +971,7 @@ impl LoaderInner {
         indirect_load_handle: LoadHandle,
     ) -> LoadHandle {
         assert!(indirect_load_handle.is_indirect());
-        let mut state = self.indirect_states.get_mut(&indirect_load_handle).unwrap();
+        let state = self.indirect_states.get_mut(&indirect_load_handle).unwrap();
         state.external_ref_count_indirect += 1;
 
         let resolved_id_and_hash = state.resolved_id_and_hash;
@@ -1205,6 +1204,11 @@ impl Loader {
         handle: LoadHandle,
     ) -> Option<LoadInfo> {
         self.inner.lock().unwrap().get_load_info(handle)
+    }
+
+    pub fn log_load_state_recursive(&self, load_handle: LoadHandle) {
+        self.inner.lock().unwrap().log_load_state_recursive(load_handle, 0);
+
     }
 }
 

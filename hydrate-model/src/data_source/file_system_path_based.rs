@@ -79,7 +79,6 @@ struct SourceFileDiskState {
 // Key: AssetId
 struct GeneratedAssetDiskState {
     source_file_path: PathBuf, // Immutable, don't need to keep state for the asset, just the source file path
-    containing_path: PathBuf,
 }
 
 // Key: AssetId
@@ -87,7 +86,6 @@ struct PersistedAssetDiskState {
     asset_file_path: PathBuf,
     _asset_file_metadata: FileMetadata,
     object_hash: u64,
-    containing_path: PathBuf,
     // modified time? file length?
     // hash of asset's on-disk state?
 }
@@ -113,27 +111,6 @@ impl AssetDiskState {
         match self {
             AssetDiskState::Generated(x) => Some(x),
             AssetDiskState::Persisted(_) => None,
-        }
-    }
-
-    fn _as_persisted_asset_disk_state(&self) -> Option<&PersistedAssetDiskState> {
-        match self {
-            AssetDiskState::Generated(_) => None,
-            AssetDiskState::Persisted(x) => Some(x),
-        }
-    }
-
-    fn object_hash(&self) -> Option<u64> {
-        match self {
-            AssetDiskState::Generated(x) => None,
-            AssetDiskState::Persisted(x) => Some(x.object_hash),
-        }
-    }
-
-    fn containing_path(&self) -> &Path {
-        match self {
-            AssetDiskState::Generated(x) => &x.containing_path,
-            AssetDiskState::Persisted(x) => &x.containing_path,
         }
     }
 }
@@ -218,54 +195,6 @@ impl FileSystemPathBasedDataSource {
         root_location: &AssetLocation,
     ) -> bool {
         root_location.path_node_id().as_uuid() == *self.asset_source_id.uuid()
-    }
-
-    /*
-    // Only called by flush_to_storage, we can tweak this
-    fn find_all_modified_assets(
-        &self,
-        edit_context: &EditContext,
-    ) -> HashSet<AssetId> {
-        unimplemented!();
-        // Also need to handle assets REMOVED from this data source
-
-        // We need to handle assets that had their paths changed. For ID-based data sources we can
-        // simply rely on assets being marked modified if their own parent changed, but for a file
-        // system a move can cause many files need to be removed/added to the file system.
-        let mut modified_assets: HashSet<AssetId> = Default::default();
-
-        for asset_id in edit_context.assets().keys() {
-            if self.is_asset_owned_by_this_data_source(edit_context, *asset_id) {
-                let containing_file_path =
-                    self.containing_file_path_for_asset(edit_context, *asset_id);
-                if let Some(on_disk_state) =
-                    self.all_asset_ids_on_disk_with_on_disk_state.get(asset_id)
-                {
-                    if containing_file_path != on_disk_state.containing_path {
-                        // It has been moved, we will need to write it to the new location
-                        // We will delete the old location later (we have to be careful with how we handle directories)
-                        modified_assets.insert(*asset_id);
-                    }
-                } else {
-                    // It's not on disk, we will need to write it
-                    modified_assets.insert(*asset_id);
-                }
-            }
-        }
-
-        modified_assets
-    }
-
-     */
-
-    fn canonicalize_containing_file_path(
-        &self,
-        path: &Path,
-    ) -> PathBuf {
-        let path = dunce::canonicalize(path).unwrap();
-        assert!(path.starts_with(&self.file_system_root_path));
-        assert!(path.is_dir());
-        path
     }
 
     fn path_for_asset(
@@ -588,7 +517,6 @@ impl DataSource for FileSystemPathBasedDataSource {
             AssetDiskState::Persisted(PersistedAssetDiskState {
                 _asset_file_metadata: asset_file_metadata,
                 asset_file_path: asset_file_path.clone(),
-                containing_path: containing_file_path.clone(),
                 object_hash,
             }),
         );
@@ -661,8 +589,6 @@ impl DataSource for FileSystemPathBasedDataSource {
 
                     let asset_file_metadata =
                         FileMetadata::new(&std::fs::metadata(&asset_file).unwrap());
-                    let containing_file_path =
-                        self.canonicalize_containing_file_path(asset_file.parent().unwrap());
                     let object_hash = edit_context
                         .data_set()
                         .hash_object(asset_id, HashObjectMode::FullObjectWithLocationChainNames)
@@ -673,7 +599,6 @@ impl DataSource for FileSystemPathBasedDataSource {
                         AssetDiskState::Persisted(PersistedAssetDiskState {
                             asset_file_path: asset_file,
                             _asset_file_metadata: asset_file_metadata,
-                            containing_path: containing_file_path,
                             object_hash,
                         }),
                     );
@@ -759,8 +684,6 @@ impl DataSource for FileSystemPathBasedDataSource {
                 let asset_file_metadata =
                     FileMetadata::new(&std::fs::metadata(&asset_file).unwrap());
 
-                let containing_file_path =
-                    self.canonicalize_containing_file_path(asset_file.parent().unwrap());
                 let object_hash = edit_context
                     .data_set()
                     .hash_object(asset_id, HashObjectMode::FullObjectWithLocationChainNames)
@@ -771,7 +694,6 @@ impl DataSource for FileSystemPathBasedDataSource {
                     AssetDiskState::Persisted(PersistedAssetDiskState {
                         asset_file_path: asset_file,
                         _asset_file_metadata: asset_file_metadata,
-                        containing_path: containing_file_path,
                         object_hash,
                     }),
                 );
@@ -945,9 +867,6 @@ impl DataSource for FileSystemPathBasedDataSource {
                         .persisted_assets
                         .contains(&importable_asset_id);
 
-                    let containing_file_path =
-                        self.canonicalize_containing_file_path(source_file_path.parent().unwrap());
-
                     if asset_is_persisted && !asset_file_exists {
                         // If the asset is persisted but deleted, we do not want to import it
                         continue;
@@ -958,7 +877,6 @@ impl DataSource for FileSystemPathBasedDataSource {
                             importable_asset_id,
                             AssetDiskState::Generated(GeneratedAssetDiskState {
                                 source_file_path: source_file_path.clone(),
-                                containing_path: containing_file_path,
                             }),
                         );
                         source_file_disk_state
@@ -1200,7 +1118,6 @@ impl DataSource for FileSystemPathBasedDataSource {
                             AssetDiskState::Persisted(PersistedAssetDiskState {
                                 _asset_file_metadata: asset_file_metadata,
                                 asset_file_path: asset_file_path.clone(),
-                                containing_path: containing_file_path.clone(),
                                 object_hash,
                             }),
                         );
@@ -1247,7 +1164,7 @@ impl DataSource for FileSystemPathBasedDataSource {
         deferred_directory_deletes.sort_by(|(_, lhs), (_, rhs)| rhs.cmp(lhs));
 
         // Second pass to delete directories if they are empty and path node does not exist
-        for (asset_id, directory) in deferred_directory_deletes {
+        for (_, directory) in deferred_directory_deletes {
             let is_empty = directory.read_dir().unwrap().next().is_none();
             if is_empty {
                 std::fs::remove_dir(&directory).unwrap();

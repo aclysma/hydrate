@@ -7,15 +7,14 @@ use std::io::BufReader;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
-use crate::build::JobRequestor;
 use crate::import::import_storage::ImportDataMetadata;
 use crate::import::import_thread_pool::{
     ImportThreadOutcome, ImportThreadRequest, ImportThreadRequestImport, ImportWorkerThreadPool,
 };
 use crate::import::import_util::RequestedImportable;
 use crate::{
-    BuildLogData, BuildLogEvent, DynEditorModel, HydrateProjectConfiguration, ImportJobToQueue,
-    ImportLogData, ImportLogEvent, JobId, LogEventLevel, PipelineResult,
+    DynEditorModel, HydrateProjectConfiguration, ImportJobToQueue,
+    ImportLogData, ImportLogEvent, LogEventLevel, PipelineResult,
 };
 use hydrate_base::uuid_path::{path_to_uuid, uuid_to_path};
 use hydrate_data::ImportableName;
@@ -133,7 +132,6 @@ pub struct ImportJobs {
     import_jobs: HashMap<AssetId, ImportJob>,
     import_operations: VecDeque<ImportJobToQueue>,
     current_import_task: Option<ImportTask>,
-    previous_log_events: Option<Vec<ImportLogEvent>>,
 }
 
 impl ImportJobs {
@@ -176,7 +174,6 @@ impl ImportJobs {
             import_jobs,
             import_operations: Default::default(),
             current_import_task: None,
-            previous_log_events: None,
         }
     }
 

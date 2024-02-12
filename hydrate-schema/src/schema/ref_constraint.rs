@@ -1,3 +1,6 @@
+// This is not used yet
+
+/*
 use super::SchemaInterface;
 use super::SchemaRecord;
 
@@ -8,3 +11,4 @@ pub enum SchemaRefConstraint {
 }
 
 impl SchemaRefConstraint {}
+*/

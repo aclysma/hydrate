@@ -1,42 +1,15 @@
-use crate::build::{BuiltArtifact, FetchedImportData, FetchedImportDataInfo, NewJob};
+use crate::build::{FetchedImportData, FetchedImportDataInfo};
 use crate::import::ImportData;
 use crate::thumbnails::thumbnail_system::ThumbnailImage;
-use crate::{HydrateProjectConfiguration, JobId, PipelineResult};
+use crate::{HydrateProjectConfiguration, PipelineResult};
 use hydrate_base::hashing::HashMap;
-use hydrate_base::{ArtifactId, AssetId};
+use hydrate_base::AssetId;
 use hydrate_data::{DataContainerRef, DataSet, FieldRef, PropertyPath, Record, SchemaSet};
 use hydrate_schema::{DataSetError, HashSet};
 use std::cell::RefCell;
 use std::hash::Hash;
 use std::rc::Rc;
 use std::sync::Arc;
-use type_uuid::TypeUuid;
-
-// pub trait ThumbnailApi: Send + Sync {
-//     // fn enqueue_job(
-//     //     &self,
-//     //     data_set: &DataSet,
-//     //     schema_set: &SchemaSet,
-//     //     job: NewJob,
-//     //     debug_name: String,
-//     // ) -> PipelineResult<JobId>;
-//     //
-//     // fn artifact_handle_created(
-//     //     &self,
-//     //     asset_id: AssetId,
-//     //     artifact_id: ArtifactId,
-//     // );
-//     //
-//     // fn produce_artifact(
-//     //     &self,
-//     //     artifact: BuiltArtifact,
-//     // );
-//
-//     fn fetch_import_data(
-//         &self,
-//         asset_id: AssetId,
-//     ) -> PipelineResult<ImportData>;
-// }
 
 struct ThumbnailApiInner {
     hydrate_config: HydrateProjectConfiguration,

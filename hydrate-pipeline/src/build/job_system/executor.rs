@@ -1,12 +1,11 @@
 use crate::build::{BuiltArtifact, WrittenArtifact};
 use crate::import::ImportData;
-use crate::{BuildLogData, BuildLogEvent, LogEventLevel, PipelineError, PipelineResult};
+use crate::{BuildLogData, BuildLogEvent, LogEventLevel, PipelineResult};
 use crossbeam_channel::{Receiver, Sender};
 use hydrate_base::hashing::HashMap;
 use hydrate_base::uuid_path::uuid_and_hash_to_path;
 use hydrate_base::{ArtifactId, AssetId};
 use hydrate_data::{DataSet, SchemaSet};
-use log::Log;
 use serde::{Deserialize, Serialize};
 use std::cell::RefCell;
 use std::hash::Hasher;
@@ -511,13 +510,6 @@ impl JobExecutor {
         written_artifacts
     }
 
-    fn clear_create_queue(&mut self) {
-        while let Ok(queued_job) = self.job_create_queue_rx.try_recv() {
-            // do nothing with it
-            drop(queued_job);
-        }
-    }
-
     fn handle_create_queue(
         &mut self,
         log_data: &mut BuildLogData,
@@ -751,17 +743,6 @@ impl JobExecutor {
 
     pub fn current_job_count(&self) -> usize {
         self.current_jobs.len()
-    }
-
-    pub fn stop(
-        &mut self,
-        log_events: &mut Vec<BuildLogEvent>,
-    ) {
-        //TODO: If we have a thread pool do we need to notify them to stop?
-        self.clear_create_queue();
-        self.handle_completed_queue(log_events);
-
-        self.current_jobs.clear();
     }
 
     pub fn is_idle(&self) -> bool {

@@ -1,11 +1,9 @@
 use crate::thumbnails::{
     ThumbnailProvider, ThumbnailProviderAbstract, ThumbnailProviderId, ThumbnailProviderWrapper,
 };
-use crate::{Builder, ThumbnailImage};
+use crate::ThumbnailImage;
 use hydrate_base::hashing::HashMap;
-use hydrate_base::AssetId;
-use hydrate_data::Record;
-use hydrate_data::{BuilderId, SchemaSet};
+use hydrate_data::SchemaSet;
 use hydrate_schema::SchemaFingerprint;
 use std::hash::Hash;
 use std::sync::Arc;

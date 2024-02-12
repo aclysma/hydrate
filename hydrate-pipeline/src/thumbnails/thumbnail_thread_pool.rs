@@ -1,13 +1,10 @@
 use super::thumbnail_types::ThumbnailApi;
 use super::ThumbnailEnumeratedDependencies;
-use super::ThumbnailInputHash;
 use crate::{PipelineResult, ThumbnailImage, ThumbnailProviderRegistry};
 use crossbeam_channel::{Receiver, Sender};
-use hydrate_base::hashing::HashMap;
 use hydrate_base::AssetId;
-use hydrate_data::{DataSet, SchemaSet};
+use hydrate_data::SchemaSet;
 use hydrate_schema::SchemaFingerprint;
-use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 use std::thread::JoinHandle;
@@ -163,14 +160,6 @@ impl ThumbnailThreadPool {
             worker_threads,
             active_request_count,
         }
-    }
-
-    pub fn is_idle(&self) -> bool {
-        self.active_request_count() == 0
-    }
-
-    pub fn active_request_count(&self) -> usize {
-        self.active_request_count.load(Ordering::Relaxed)
     }
 
     pub(crate) fn add_request(

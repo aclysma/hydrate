@@ -4,8 +4,8 @@ pub use dynamic_array::*;
 mod r#enum;
 pub use r#enum::*;
 
-mod interface;
-pub use interface::*;
+//mod interface;
+//pub use interface::*;
 
 mod map;
 pub use map::*;
@@ -13,8 +13,8 @@ pub use map::*;
 mod record;
 pub use record::*;
 
-mod ref_constraint;
-pub use ref_constraint::*;
+//mod ref_constraint;
+//pub use ref_constraint::*;
 
 mod static_array;
 pub use static_array::*;
@@ -379,9 +379,9 @@ impl Schema {
                     false
                 }
             }
-            Schema::AssetRef(old_inner) => {
-                if let Schema::AssetRef(new_inner) = new_parent_schema {
-                    // probably won't enforce any type constraints here, we can leave that for schema validation
+            Schema::AssetRef(_) => {
+                if let Schema::AssetRef(_) = new_parent_schema {
+                    // won't enforce any type constraints here, we can leave that for schema validation
                     // later, which allows users to fix any problems
                     true
                 } else {
@@ -418,7 +418,7 @@ impl Schema {
         old_parent_schema: &Schema,
         old_property_name: &'a str,
         old_named_types: &HashMap<SchemaFingerprint, SchemaNamedType>,
-        new_parent_schema: &Schema,
+        _new_parent_schema: &Schema,
         new_named_types: &HashMap<SchemaFingerprint, SchemaNamedType>,
         new_named_types_by_uuid: &HashMap<Uuid, SchemaFingerprint>,
     ) -> Option<String> {
@@ -457,12 +457,12 @@ impl Schema {
                     None
                 }
             }
-            Schema::DynamicArray(x) => {
+            Schema::DynamicArray(_) => {
                 // We could validate that name is a valid UUID
                 Uuid::from_str(old_property_name.as_ref()).ok()?;
                 Some(old_property_name.to_string())
             }
-            Schema::Map(x) => {
+            Schema::Map(_) => {
                 if old_property_name.ends_with(":key") {
                     Uuid::from_str(&old_property_name[0..old_property_name.len() - 4]).ok()?;
                     Some(old_property_name.to_string())

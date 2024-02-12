@@ -100,7 +100,7 @@ impl CachedSchemaRecordField {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-struct CachedSchemaRecord {
+pub struct CachedSchemaRecord {
     name: String,
     type_uuid: Uuid,
     fingerprint: Uuid,
@@ -171,7 +171,7 @@ impl CachedSchemaEnumSymbol {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-struct CachedSchemaEnum {
+pub struct CachedSchemaEnum {
     name: String,
     type_uuid: Uuid,
     fingerprint: Uuid,
@@ -225,13 +225,6 @@ impl CachedSchemaNamedType {
             CachedSchemaNamedType::Enum(x) => x.fingerprint,
         }
     }
-    //
-    // pub fn type_uuid(&self) -> Uuid {
-    //     match self {
-    //         CachedSchemaNamedType::Record(x) => x.type_uuid,
-    //         CachedSchemaNamedType::Enum(x) => x.type_uuid,
-    //     }
-    // }
 
     pub fn new_from_schema(schema: &SchemaNamedType) -> CachedSchemaNamedType {
         match schema {
@@ -250,20 +243,6 @@ impl CachedSchemaNamedType {
             CachedSchemaNamedType::Enum(x) => SchemaNamedType::Enum(x.to_schema()),
         }
     }
-
-    // pub fn as_record(&self) -> Option<&CachedSchemaRecord> {
-    //     match self {
-    //         CachedSchemaNamedType::Record(x) => Some(x),
-    //         CachedSchemaNamedType::Enum(_) => None,
-    //     }
-    // }
-    //
-    // pub fn as_enum(&self) -> Option<&CachedSchemaEnum> {
-    //     match self {
-    //         CachedSchemaNamedType::Record(_) => None,
-    //         CachedSchemaNamedType::Enum(x) => Some(x),
-    //     }
-    // }
 }
 
 #[derive(Debug, Serialize, Deserialize)]

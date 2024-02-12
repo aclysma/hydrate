@@ -34,7 +34,6 @@ struct DiskArtifactIORequestCheckNewToc {
 }
 
 struct DiskArtifactIOResponseNewToc {
-    current_manifest_build_hash: ManifestBuildHash,
     new_build_manifest: Option<(ManifestBuildHash, BuildManifest)>,
 }
 
@@ -90,14 +89,12 @@ impl DiskArtifactIOWorkerThread {
                                 match find_and_load_latest_toc_if_changed(&*root_path, Some(msg.current_manifest_build_hash)) {
                                     Ok(Some(new_build_manifest)) => {
                                         toc_event_tx.send(DiskArtifactIOResponseNewToc {
-                                            current_manifest_build_hash: msg.current_manifest_build_hash,
                                             new_build_manifest: Some(new_build_manifest),
 
                                         }).unwrap();
                                     },
                                     _ => {
                                         toc_event_tx.send(DiskArtifactIOResponseNewToc {
-                                            current_manifest_build_hash: msg.current_manifest_build_hash,
                                             new_build_manifest: None,
                                         }).unwrap();
                                     }
@@ -403,7 +400,6 @@ fn read_toc(path: &Path) -> BuildToc {
 }
 
 pub struct DiskArtifactIO {
-    build_data_root_path: PathBuf,
     thread_pool: Option<DiskArtifactIOThreadPool>,
     manifest: BuildManifest,
     build_hash: ManifestBuildHash,
@@ -436,14 +432,13 @@ impl DiskArtifactIO {
         let manifest =
             BuildManifest::load_from_file(&build_data_root_path.join("manifests"), build_hash);
         let thread_pool = Some(DiskArtifactIOThreadPool::new(
-            Arc::new(build_data_root_path.clone()),
+            Arc::new(build_data_root_path),
             4,
             load_event_tx.clone(),
             new_toc_tx,
         ));
 
         Ok(DiskArtifactIO {
-            build_data_root_path,
             thread_pool,
             manifest,
             build_hash,

@@ -299,7 +299,7 @@ fn load_json_properties(
             //
             // Handle the possibility of a property path changing due to schema migration
             //
-            let mut fixed_parent_path_by_value = None;
+            let fixed_parent_path_by_value;
             let new_parent_path = if let Some(old_named_types) = &old_named_types {
                 let old_root_named_type = old_named_types.get(&old_schema_fingerprint).unwrap();
 
@@ -365,7 +365,7 @@ fn load_json_properties(
             //
             // Handle the possibility of a property path changing due to schema migration
             //
-            let mut fixed_path_by_value = None;
+            let fixed_path_by_value;
             let new_path = if let Some(old_named_types) = &old_named_types {
                 let old_root_named_type = old_named_types.get(&old_schema_fingerprint).unwrap();
 
@@ -945,10 +945,10 @@ impl SingleObjectJson {
         // This allows us to get the UUIDs for all the fields/enum symbols, etc.
         //
         let new_named_type = schema_set.find_named_type_by_fingerprint(root_schema_fingerprint);
-        let (new_named_type, old_named_types) = if let Some(new_named_type) = new_named_type {
+        let new_named_type= if let Some(new_named_type) = new_named_type {
             // The object was saved using the identical schema that we already loaded. This is the
             // fast/happy path
-            (new_named_type.clone(), None)
+            new_named_type.clone()
         } else if !self.schemas.is_empty() {
             // There's a schema cache in the asset file. We can try to locate the corresponding type in our schema set
             // and try to migrate the data
@@ -968,7 +968,7 @@ impl SingleObjectJson {
             let new_named_type = schema_set
                 .find_named_type_by_type_uuid(root_type_uuid)
                 .unwrap();
-            (new_named_type.clone(), Some(old_named_types))
+            new_named_type.clone()
         } else {
             panic!(
                 "Can't load single object type {} by fingerprint, no stored schemas found",

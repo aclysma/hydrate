@@ -7,27 +7,9 @@ use hydrate_pipeline::{HydrateProjectConfiguration, ImportJobToQueue};
 use hydrate_schema::SchemaNamedType;
 use std::path::PathBuf;
 
-struct FileMetadata {
-    // size_in_bytes: u64,
-    // last_modified_time: Option<SystemTime>,
-}
-
-impl FileMetadata {
-    pub fn new(_metadata: &std::fs::Metadata) -> Self {
-        FileMetadata {
-            // size_in_bytes: metadata.len(),
-            // last_modified_time: metadata.modified().ok()
-        }
-    }
-
-    // pub fn has_changed(&self, metadata: &std::fs::Metadata) -> bool {
-    //     self.size_in_bytes != metadata.len() || self.last_modified_time != metadata.modified().ok()
-    // }
-}
-
 struct AssetDiskState {
     object_hash: u64,
-    file_metadata: FileMetadata,
+    //file_metadata: FileMetadata,
 }
 
 pub struct FileSystemIdBasedDataSource {
@@ -163,7 +145,7 @@ impl DataSource for FileSystemIdBasedDataSource {
             if let Ok(file) = file {
                 let file = dunce::canonicalize(&file.path()).unwrap();
 
-                let asset_file_metadata = FileMetadata::new(&std::fs::metadata(&file).unwrap());
+                //let asset_file_metadata = FileMetadata::new(&std::fs::metadata(&file).unwrap());
 
                 //println!("asset file {:?}", file);
                 let file_uuid = path_to_uuid(&self.file_system_root_path, &file).unwrap();
@@ -192,7 +174,7 @@ impl DataSource for FileSystemIdBasedDataSource {
                     asset_id,
                     AssetDiskState {
                         object_hash: object_hash,
-                        file_metadata: asset_file_metadata,
+                        //file_metadata: asset_file_metadata,
                     },
                 );
                 assert!(old.is_none());
@@ -284,13 +266,13 @@ impl DataSource for FileSystemIdBasedDataSource {
                 .data_set()
                 .hash_object(asset_id, HashObjectMode::FullObjectWithLocationId)
                 .unwrap();
-            let asset_file_metadata = FileMetadata::new(&std::fs::metadata(&file_path).unwrap());
+            //let asset_file_metadata = FileMetadata::new(&std::fs::metadata(&file_path).unwrap());
 
             self.assets_disk_state.insert(
                 asset_id,
                 AssetDiskState {
                     object_hash,
-                    file_metadata: asset_file_metadata,
+                    //file_metadata: asset_file_metadata,
                 },
             );
         }

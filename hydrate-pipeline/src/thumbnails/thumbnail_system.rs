@@ -1,4 +1,3 @@
-use crate::build::JobExecutor;
 use crate::thumbnails::thumbnail_thread_pool::{
     ThumbnailThreadPool, ThumbnailThreadPoolOutcome, ThumbnailThreadPoolRequest,
     ThumbnailThreadPoolRequestRunJob,
@@ -6,11 +5,10 @@ use crate::thumbnails::thumbnail_thread_pool::{
 use crate::thumbnails::ThumbnailProviderRegistry;
 use crate::{HydrateProjectConfiguration, ThumbnailApi, ThumbnailInputHash};
 use crossbeam_channel::Receiver;
-use hydrate_base::hashing::HashMap;
 use hydrate_base::lru_cache::LruCache;
 use hydrate_base::AssetId;
 use hydrate_data::{DataSet, SchemaSet};
-use hydrate_schema::{HashSet, SchemaFingerprint};
+use hydrate_schema::HashSet;
 use std::sync::{Arc, Mutex};
 
 // Thumbnail providers are implemented per asset type
@@ -59,7 +57,7 @@ struct ThumbnailSystemStateInner {
 
 #[derive(Clone)]
 pub struct ThumbnailSystemState {
-    pub inner: Arc<Mutex<ThumbnailSystemStateInner>>,
+    inner: Arc<Mutex<ThumbnailSystemStateInner>>,
 }
 
 impl Default for ThumbnailSystemState {
@@ -96,7 +94,7 @@ impl ThumbnailSystemState {
 
     pub fn forget(
         &self,
-        asset_id: AssetId,
+        _asset_id: AssetId,
     ) {
     }
 
@@ -288,6 +286,7 @@ impl ThumbnailSystem {
                                 }
                             }
                             Err(e) => {
+                                log::warn!("Thumbnail creation failed: {:?}", e);
                                 thumbnail_state.failed_to_load = true;
                             }
                         }

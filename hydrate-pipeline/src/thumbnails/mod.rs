@@ -11,20 +11,17 @@ pub use thumbnail_system::ThumbnailImage;
 pub use thumbnail_system::ThumbnailSystem;
 pub use thumbnail_system::ThumbnailSystemState;
 
-use crate::build::{FetchedImportData, JobApi, JobProcessorAbstract};
-use crate::{JobOutput, JobProcessor, PipelineResult};
+use crate::build::FetchedImportData;
+use crate::PipelineResult;
 use hydrate_base::hashing::HashMap;
 use hydrate_base::AssetId;
 use hydrate_data::{DataSet, SchemaSet};
 use hydrate_schema::HashSet;
-use serde::{Deserialize, Serialize};
 use siphasher::sip128::Hasher128;
 use std::cell::RefCell;
 use std::hash::Hash;
 use std::rc::Rc;
 use std::sync::Arc;
-use type_uuid::TypeUuid;
-use uuid::Uuid;
 
 crate::create_uuid_newtype!(ThumbnailInputHash, "ThumbnailInputHash");
 
@@ -56,12 +53,7 @@ trait ThumbnailProviderAbstract: Send + Sync {
         gathered_data: &Vec<u8>,
         schema_set: &SchemaSet,
         thumbnail_api: &ThumbnailApi,
-        // data_set: &DataSet,
-        // schema_set: &SchemaSet,
-        // job_api: &dyn JobApi,
-        // fetched_asset_data: &mut HashMap<AssetId, FetchedAssetData>,
-        // fetched_import_data: &mut HashMap<AssetId, FetchedImportData>,
-    ) -> PipelineResult<ThumbnailImage>; // return something?
+    ) -> PipelineResult<ThumbnailImage>;
 }
 
 struct ThumbnailProviderWrapper<T: ThumbnailProvider>(T);

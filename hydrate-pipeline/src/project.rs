@@ -1,5 +1,4 @@
 use hydrate_data::PathReferenceNamespaceResolver;
-use hydrate_schema::SchemaCacheSingleFile;
 use serde::{Deserialize, Serialize};
 use std::error::Error;
 use std::path::{Path, PathBuf};

@@ -1,5 +1,5 @@
 use crate::{
-    BuildLogEvent, HydrateProjectConfiguration, ImportLogEvent, ImporterRegistry, LogEventLevel,
+    HydrateProjectConfiguration, ImportLogEvent, ImporterRegistry, LogEventLevel,
     PipelineResult,
 };
 use hydrate_data::{

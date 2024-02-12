@@ -1,0 +1,12 @@
+{
+  "importables": {
+    "material_Material.001": {
+      "id": "5bd71ce5-5ff2-4a92-a89e-f11f2866b5cb",
+      "persisted": false
+    },
+    "mesh_Sphere": {
+      "id": "ebfd7cb8-24d3-49ab-a484-09f0b1c78d16",
+      "persisted": false
+    }
+  }
+}

@@ -1,0 +1,18 @@
+{
+  "id": "43550966-01bf-4a2c-a362-baa47c6d7e67",
+  "name": "test_transform_ref",
+  "parent_dir": null,
+  "root_schema": "1509ad01-027f-c0e4-b89b-4ed7a44cc666",
+  "schema_name": "TransformRef",
+  "import_info": null,
+  "build_info": {
+    "file_reference_overrides": {}
+  },
+  "prototype": null,
+  "properties": {
+    "transform": "a883cfa0-c682-4b8b-b81c-f3c5c260a819"
+  },
+  "schemas": {
+    "1509ad01-027f-c0e4-b89b-4ed7a44cc666": "eyJSZWNvcmQiOnsibmFtZSI6IlRyYW5zZm9ybVJlZiIsInR5cGVfdXVpZCI6IjliM2I2ODIxLThjMmMtNGUyOS1iMzBhLTZmODc0MTczYTJlMSIsImZpbmdlcnByaW50IjoiMTUwOWFkMDEtMDI3Zi1jMGU0LWI4OWItNGVkN2E0NGNjNjY2IiwiZmllbGRzIjpbeyJuYW1lIjoidHJhbnNmb3JtIiwiZmllbGRfdXVpZCI6IjEwMmViYzdjLTFjMjktNGEzYy05YzFkLTc1MThiMjVkOTMwMCIsImZpZWxkX3NjaGVtYSI6eyJBc3NldFJlZiI6ImRlODkzYjNlLWQ5OTMtNWNmMC05NTNmLWM1MzNhMTZjMDk1MCJ9fV19fQ=="
+  }
+}

@@ -39,5 +39,3 @@ opt-level = 2
 split-debuginfo = "unpacked"
 
 [patch.crates-io]
-#egui = { path = "vendor/egui/egui" }
-#imgui = { git = "https://github.com/aclysma/imgui-rs.git", branch = "custom-imgui-rs" }

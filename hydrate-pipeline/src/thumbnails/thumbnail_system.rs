@@ -218,7 +218,10 @@ impl ThumbnailSystem {
             else {
                 let old_thumbnail_hash = thumbnail_state.image.as_ref().map(|x| x.hash);
                 let new_thumbnail_hash = ThumbnailInputHash::null();
-                thumbnail_state.image = Some(ThumbnailImageWithHash { image: self.default_image.clone(), hash: new_thumbnail_hash });
+                thumbnail_state.image = Some(ThumbnailImageWithHash {
+                    image: self.default_image.clone(),
+                    hash: new_thumbnail_hash,
+                });
                 if old_thumbnail_hash != Some(new_thumbnail_hash) {
                     refreshed_thumbnails.push(asset_id);
                 }
@@ -237,7 +240,9 @@ impl ThumbnailSystem {
             }
 
             // Check if the image we loaded is stale
-            if thumbnail_state.image.as_ref().map(|x| x.hash) == Some(dependencies.thumbnail_input_hash) {
+            if thumbnail_state.image.as_ref().map(|x| x.hash)
+                == Some(dependencies.thumbnail_input_hash)
+            {
                 continue;
             }
 
@@ -267,14 +272,15 @@ impl ThumbnailSystem {
                     {
                         match msg.result {
                             Ok(image) => {
-
-                                let old_thumbnail_hash = thumbnail_state.image.as_ref().map(|x| x.hash);
-                                let new_thumbnail_hash = msg.request.dependencies.thumbnail_input_hash;
+                                let old_thumbnail_hash =
+                                    thumbnail_state.image.as_ref().map(|x| x.hash);
+                                let new_thumbnail_hash =
+                                    msg.request.dependencies.thumbnail_input_hash;
 
                                 thumbnail_state.queued_request_input_hash = None;
                                 thumbnail_state.image = Some(ThumbnailImageWithHash {
                                     image: Arc::new(image),
-                                    hash: msg.request.dependencies.thumbnail_input_hash
+                                    hash: msg.request.dependencies.thumbnail_input_hash,
                                 });
 
                                 if old_thumbnail_hash != Some(new_thumbnail_hash) {

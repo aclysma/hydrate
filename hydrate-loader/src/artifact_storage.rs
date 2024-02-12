@@ -416,7 +416,10 @@ impl<ArtifactT: TypeUuid + 'static + Send> DynArtifactStorage for Storage<Artifa
         // If a load handler exists, trigger the commit_artifact callback
         self.loader.commit_artifact(load_handle);
 
-        let artifact_state = ArtifactState { artifact, artifact_id };
+        let artifact_state = ArtifactState {
+            artifact,
+            artifact_id,
+        };
 
         // Commit the result
         self.artifacts.insert(load_handle, artifact_state);

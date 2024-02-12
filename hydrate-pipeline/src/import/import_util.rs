@@ -194,7 +194,7 @@ pub fn recursively_gather_import_operations_and_create_assets(
         // At this point all referenced files have either been found or scanned
 
         // We create a random asset ID now so that other imported files can reference this asset later
-        let asset_id =if let Some(asset_id_assignments) = asset_id_assignments {
+        let asset_id = if let Some(asset_id_assignments) = asset_id_assignments {
             let Some(asset_id) = asset_id_assignments.get(scanned_importable_name) else {
                 continue;
             };

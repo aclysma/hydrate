@@ -1,20 +1,23 @@
-use std::path::PathBuf;
 use crate::app::UiState;
 use crate::modal_action::ModalAction;
 use crate::ui::modals::ConfirmQuitWithoutSaving;
 use crate::ui::modals::ConfirmRevertChanges;
 use crossbeam_channel::{Receiver, Sender};
 use egui::KeyboardShortcut;
+use hydrate_base::hashing::HashMap;
 use hydrate_model::edit_context::EditContext;
-use hydrate_model::pipeline::{AssetEngine, HydrateProjectConfiguration, ImportJobSourceFile, ImportJobToQueue, ImportLogData, ImportType};
+use hydrate_model::pipeline::{
+    AssetEngine, HydrateProjectConfiguration, ImportJobSourceFile, ImportJobToQueue, ImportLogData,
+    ImportType,
+};
 use hydrate_model::{
     AssetId, AssetLocation, AssetName, DataSetError, DataSetErrorWithBacktrace, DataSetResult,
     EditorModel, EndContextBehavior, NullOverride, OverrideBehavior, PropertyPath, Schema,
     SchemaFingerprint, SchemaRecord, Value,
 };
+use std::path::PathBuf;
 use std::sync::Arc;
 use uuid::Uuid;
-use hydrate_base::hashing::HashMap;
 
 pub enum UIAction {
     TryBeginModalAction(Box<dyn ModalAction>),
@@ -298,8 +301,6 @@ impl UIActionQueueReceiver {
                     // - Match the same import settings as were originally in place, or fail if
                     //   this is not possible.
 
-
-
                     let mut import_job_to_queue = ImportJobToQueue::default();
                     for &asset_id in &asset_ids {
                         let root_edit_context = editor_model.root_edit_context();
@@ -323,7 +324,8 @@ impl UIActionQueueReceiver {
                             // };
 
                             let mut asset_id_assignments = HashMap::default();
-                            asset_id_assignments.insert(import_info.importable_name().clone(), asset_id);
+                            asset_id_assignments
+                                .insert(import_info.importable_name().clone(), asset_id);
 
                             println!("reimport {:?}", source_file_path);
                             hydrate_model::pipeline::recursively_gather_import_operations_and_create_assets(

@@ -261,14 +261,24 @@ struct LoaderInner {
 }
 
 impl LoaderInner {
-    fn recursive_log_load_state(&self, load_handle: LoadHandle, indent: usize) {
+    fn recursive_log_load_state(
+        &self,
+        load_handle: LoadHandle,
+        indent: usize,
+    ) {
         let load_handle_info = self.load_handle_infos.get(&load_handle).unwrap();
-        log::debug!("{:indent$}{:?} {:?} {:?}", "", load_handle_info.artifact_id, load_handle_info.debug_name, load_handle_info.load_state, indent=indent);
+        log::debug!(
+            "{:indent$}{:?} {:?} {:?}",
+            "",
+            load_handle_info.artifact_id,
+            load_handle_info.debug_name,
+            load_handle_info.load_state,
+            indent = indent
+        );
         for dependency in &load_handle_info.dependencies {
             self.recursive_log_load_state(*dependency, indent + 2);
         }
     }
-
 
     // Process all events, possibly changing load status of artifacts
     // Also commit reload of artifact data if needed

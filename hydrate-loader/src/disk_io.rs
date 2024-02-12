@@ -425,7 +425,8 @@ impl DiskArtifactIO {
         build_data_root_path: PathBuf,
         load_event_tx: Sender<LoaderEvent>,
     ) -> Result<Self, String> {
-        let (new_toc_tx, new_toc_rx) = crossbeam_channel::unbounded::<DiskArtifactIOResponseNewToc>();
+        let (new_toc_tx, new_toc_rx) =
+            crossbeam_channel::unbounded::<DiskArtifactIOResponseNewToc>();
 
         let max_toc_path = find_latest_toc(&build_data_root_path.join("toc"));
         let max_toc_path = max_toc_path.ok_or_else(|| "Could not find TOC file".to_string())?;
@@ -570,11 +571,13 @@ impl LoaderIO for DiskArtifactIO {
             self.thread_pool
                 .as_ref()
                 .unwrap()
-                .add_request(DiskArtifactIORequest::Metadata(DiskArtifactIORequestMetadata {
-                    load_handle,
-                    artifact_id,
-                    hash,
-                }));
+                .add_request(DiskArtifactIORequest::Metadata(
+                    DiskArtifactIORequestMetadata {
+                        load_handle,
+                        artifact_id,
+                        hash,
+                    },
+                ));
         } else {
             // Return the failure immediately
             self.load_event_tx

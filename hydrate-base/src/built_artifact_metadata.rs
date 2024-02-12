@@ -1,6 +1,6 @@
-use std::hash::{Hash, Hasher};
 use crate::{ArtifactId, StringHash};
 use serde::{Deserialize, Serialize};
+use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 use uuid::Uuid;
 
@@ -63,7 +63,10 @@ pub struct BuiltArtifactHeaderData {
 }
 
 impl Hash for BuiltArtifactHeaderData {
-    fn hash<H: Hasher>(&self, state: &mut H) {
+    fn hash<H: Hasher>(
+        &self,
+        state: &mut H,
+    ) {
         let mut dependencies_hash = 0;
         for dependency in &self.dependencies {
             dependencies_hash ^= dependency.0.as_u128();

@@ -11,10 +11,10 @@ use hydrate_model::pipeline::{
     AssetEngine, ThumbnailImage, ThumbnailProviderRegistry, ThumbnailSystemState,
 };
 use hydrate_model::{AssetId, HashMap, SchemaFingerprint, SchemaSet};
+use hydrate_pipeline::ThumbnailInputHash;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use uuid::Uuid;
-use hydrate_pipeline::ThumbnailInputHash;
 
 const THUMBNAIL_ASSET_URI_PREFIX: &str = "thumbnail-asset://";
 const THUMBNAIL_ASSET_TYPE_URI_PREFIX: &str = "thumbnail-asset-type://";
@@ -122,7 +122,10 @@ impl ThumbnailImageLoader {
     ) {
         let refreshed_thumbnails = self.thumbnail_system_state.take_refreshed_thumbnails();
         for refreshed_thumbnail in refreshed_thumbnails {
-            ctx.forget_image(&format!("thumbnail-asset://{}", refreshed_thumbnail.as_uuid().to_string()));
+            ctx.forget_image(&format!(
+                "thumbnail-asset://{}",
+                refreshed_thumbnail.as_uuid().to_string()
+            ));
         }
     }
 
@@ -218,14 +221,20 @@ impl ImageLoader for ThumbnailImageLoader {
                 })
             } else if let Some(cached_entry) = self.thumbnail_system_state.request(asset_id) {
                 let image = Arc::new(ColorImage::from_rgba_unmultiplied(
-                    [cached_entry.image.width as usize, cached_entry.image.height as usize],
+                    [
+                        cached_entry.image.width as usize,
+                        cached_entry.image.height as usize,
+                    ],
                     &cached_entry.image.pixel_data,
                 ));
 
-                cache.insert(asset_id, CachedThumbnail {
-                    thumbnail_input_hash: cached_entry.hash,
-                    color_image: image.clone()
-                });
+                cache.insert(
+                    asset_id,
+                    CachedThumbnail {
+                        thumbnail_input_hash: cached_entry.hash,
+                        color_image: image.clone(),
+                    },
+                );
 
                 Ok(ImagePoll::Ready { image })
             } else {

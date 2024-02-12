@@ -1,3 +1,4 @@
+#[allow(dead_code)]
 pub fn round_size_up_to_alignment_usize(
     size: usize,
     required_alignment: usize,
@@ -12,10 +13,12 @@ pub struct PushBufferResult {
 }
 
 impl PushBufferResult {
+    #[allow(dead_code)]
     pub fn offset(&self) -> usize {
         self.offset
     }
 
+    #[allow(dead_code)]
     pub fn size(&self) -> usize {
         self.size
     }
@@ -30,6 +33,7 @@ impl PushBufferSizeCalculator {
         PushBufferSizeCalculator { required_size: 0 }
     }
 
+    #[allow(dead_code)]
     pub fn push_bytes(
         &mut self,
         data: &[u8],
@@ -38,6 +42,7 @@ impl PushBufferSizeCalculator {
         self.push(data, required_alignment)
     }
 
+    #[allow(dead_code)]
     pub fn push<T>(
         &mut self,
         data: &[T],
@@ -48,6 +53,7 @@ impl PushBufferSizeCalculator {
         self.required_size += data.len() * std::mem::size_of::<T>();
     }
 
+    #[allow(dead_code)]
     pub fn required_size(&self) -> usize {
         self.required_size
     }
@@ -109,6 +115,7 @@ impl PushBuffer {
         self.push_bytes(slice, required_alignment)
     }
 
+    #[allow(dead_code)]
     pub fn pad_to_alignment(
         &mut self,
         required_alignment: usize,

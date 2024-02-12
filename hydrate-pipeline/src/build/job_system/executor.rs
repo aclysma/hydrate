@@ -104,9 +104,9 @@ struct JobState {
 }
 
 struct JobStateOutput {
-    output_data: PipelineResult<Arc<Vec<u8>>>,
-    fetched_asset_data: HashMap<AssetId, FetchedAssetData>,
-    fetched_import_data: HashMap<AssetId, FetchedImportData>,
+    _output_data: PipelineResult<Arc<Vec<u8>>>,
+    _fetched_asset_data: HashMap<AssetId, FetchedAssetData>,
+    _fetched_import_data: HashMap<AssetId, FetchedImportData>,
 }
 
 //TODO: Future optimization, we clone this and it could be big, especially when we re-run jobs. We
@@ -555,9 +555,9 @@ impl JobExecutor {
                             debug_name: queued_job.debug_name,
                             has_been_scheduled: true,
                             output_data: Some(JobStateOutput {
-                                output_data: Err(e),
-                                fetched_asset_data: Default::default(),
-                                fetched_import_data: Default::default(),
+                                _output_data: Err(e),
+                                _fetched_asset_data: Default::default(),
+                                _fetched_import_data: Default::default(),
                             }),
                         }
                     }
@@ -579,9 +579,9 @@ impl JobExecutor {
                     match msg.result {
                         Ok(data) => {
                             job.output_data = Some(JobStateOutput {
-                                output_data: Ok(data.output_data),
-                                fetched_asset_data: data.fetched_asset_data,
-                                fetched_import_data: data.fetched_import_data,
+                                _output_data: Ok(data.output_data),
+                                _fetched_asset_data: data.fetched_asset_data,
+                                _fetched_import_data: data.fetched_import_data,
                             });
 
                             for log_event in data.log_events {
@@ -599,9 +599,9 @@ impl JobExecutor {
                             log_events.push(log_event);
 
                             job.output_data = Some(JobStateOutput {
-                                output_data: Err(e),
-                                fetched_asset_data: Default::default(),
-                                fetched_import_data: Default::default(),
+                                _output_data: Err(e),
+                                _fetched_asset_data: Default::default(),
+                                _fetched_import_data: Default::default(),
                             });
                         }
                     }
@@ -701,8 +701,8 @@ impl JobExecutor {
                         job_id,
                         job_type: job_state.job_type,
                         data_set: data_set.clone(),
-                        debug_name: job_state.debug_name.clone(),
-                        dependencies: job_state.dependencies.clone(),
+                        _debug_name: job_state.debug_name.clone(),
+                        _dependencies: job_state.dependencies.clone(),
                         input_data: job_state.input_data.clone(),
                     },
                 ));

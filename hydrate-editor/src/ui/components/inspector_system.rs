@@ -3,8 +3,7 @@ use crate::image_loader::ThumbnailImageLoader;
 use crate::ui::drag_drop::DragDropPayload;
 use crate::ui_state::EditorModelUiState;
 use eframe::epaint::Color32;
-use egui::{FontFamily, FontId, Response, Widget, WidgetText};
-use hydrate_model::pipeline::ThumbnailProviderRegistry;
+use egui::{FontFamily, Response, Widget, WidgetText};
 use hydrate_model::value::ValueEnum;
 use hydrate_model::{
     AssetId, EditorModel, EndContextBehavior, HashMap, HashSet, NullOverride, OverrideBehavior,
@@ -272,7 +271,7 @@ fn add_empty_collapsing_header(
 ) -> bool {
     let response = egui::CollapsingHeader::new(text)
         .id_source(id_source)
-        .show_unindented(ui, |ui| {});
+        .show_unindented(ui, |_ui| {});
 
     response.openness > 0.5
 }
@@ -328,8 +327,8 @@ pub trait RecordInspector {
 
     fn draw_inspector_value(
         &self,
-        ui: &mut egui::Ui,
-        ctx: InspectorContext,
+        _ui: &mut egui::Ui,
+        _ctx: InspectorContext,
     ) {
         unimplemented!()
     }
@@ -338,7 +337,7 @@ pub trait RecordInspector {
         &self,
         table_body: &mut egui_extras::TableBody,
         ctx: InspectorContext,
-        record: &SchemaRecord,
+        _record: &SchemaRecord,
         indent_level: u32,
     ) {
         // Must implement either draw_inspector_rows, or implement draw_inspector_value
@@ -399,7 +398,7 @@ impl RecordInspector for DefaultRecordInspector {
                         });
                         indent_level += 1;
                     });
-                    row.col(|ui| {});
+                    row.col(|_ui| {});
                 });
             }
             if visible {
@@ -588,7 +587,7 @@ pub fn draw_indented_collapsible_label(
 
 pub fn draw_multiple_values_row(body: &mut egui_extras::TableBody) {
     body.row(ROW_HEIGHT, |mut row| {
-        row.col(|ui| {});
+        row.col(|_ui| {});
         row.col(|ui| {
             ui.label("Multiple Values");
         });
@@ -925,7 +924,7 @@ pub fn draw_inspector_value(
                         crate::ui::drag_drop::try_take_dropped_payload(ui, response)
                     {
                         match payload {
-                            DragDropPayload::AssetReferences(primary_dragged_asset_id, all_dragged_asset_ids) => {
+                            DragDropPayload::AssetReferences(primary_dragged_asset_id, _all_dragged_asset_ids) => {
                                 ctx.action_sender.queue_action(UIAction::SetProperty(
                                     ctx.selected_assets.iter().copied().collect(),
                                     ctx.property_path.clone(),
@@ -933,7 +932,7 @@ pub fn draw_inspector_value(
                                     EndContextBehavior::Finish
                                 ));
                             }
-                            _ => log::error!("Payload type not expected when dropping onto a asset reference text field"),
+                            //_ => log::error!("Payload type not expected when dropping onto a asset reference text field"),
                         }
                     }
                 }
@@ -990,7 +989,7 @@ pub fn draw_inspector_value(
                 .find_named_type_by_fingerprint(*schema_fingerprint)
                 .unwrap();
             match schema {
-                SchemaNamedType::Record(record_schema) => {
+                SchemaNamedType::Record(_) => {
                     panic!("An enum schema is referencing a record")
                 }
                 SchemaNamedType::Enum(enum_schema) => {
@@ -1008,7 +1007,7 @@ pub fn draw_inspector_value(
                         ui.set_enabled(!ctx.read_only);
                         set_override_text_color_for_has_override_status(ctx, ui);
 
-                        let response = egui::ComboBox::new(ctx.property_path.path(), "")
+                        egui::ComboBox::new(ctx.property_path.path(), "")
                             .selected_text(&selected_symbol_name)
                             .width(ui.available_width() - ui.style().spacing.item_spacing.x)
                             .show_ui(ui, |ui| {
@@ -1046,7 +1045,7 @@ pub fn draw_inspector_value(
                     .find_named_type_by_fingerprint(*schema_fingerprint);
                 if let Some(record) = record {
                     match record {
-                        SchemaNamedType::Record(record) => {
+                        SchemaNamedType::Record(_) => {
                             inspector_impl.draw_inspector_value(ui, ctx);
                         }
                         _ => {
@@ -1075,7 +1074,7 @@ pub fn draw_inspector_rows(
     indent_level: u32,
 ) {
     if indent_level > 10 {
-        draw_basic_inspector_row(body, ctx, indent_level, |ui, ctx| {
+        draw_basic_inspector_row(body, ctx, indent_level, |ui, _ctx| {
             ui.label(format!("Too many nested rows, returning."));
         });
     }
@@ -1891,8 +1890,8 @@ pub fn draw_inspector_rows(
 
                         entry_index += 1;
                     }
-                    let overrides_len = overrides.len();
-                    for (override_index, entry_uuid) in overrides.into_iter().enumerate() {
+
+                    for entry_uuid in overrides.into_iter() {
                         let entry_uuid_as_string = entry_uuid.to_string();
                         let key_path = ctx
                             .property_path
@@ -2060,7 +2059,7 @@ pub fn draw_inspector_rows(
                 match record {
                     SchemaNamedType::Record(record) => {
                         if indent_level > 10 {
-                            draw_basic_inspector_row(body, ctx, indent_level, |ui, ctx| {
+                            draw_basic_inspector_row(body, ctx, indent_level, |ui, _ctx| {
                                 ui.label(format!("Too many nested rows, returning."));
                             });
                         } else {
@@ -2114,7 +2113,7 @@ pub fn draw_inspector_rows(
                         }
                     }
                     _ => {
-                        draw_basic_inspector_row(body, ctx, indent_level, |ui, ctx| {
+                        draw_basic_inspector_row(body, ctx, indent_level, |ui, _ctx| {
                             ui.label(
                                 "SCHEMA ERROR: Type referenced by Schema::Record is not a record",
                             );
@@ -2122,7 +2121,7 @@ pub fn draw_inspector_rows(
                     }
                 }
             } else {
-                draw_basic_inspector_row(body, ctx, indent_level, |ui, ctx| {
+                draw_basic_inspector_row(body, ctx, indent_level, |ui, _ctx| {
                     ui.label("SCHEMA ERROR: Type not found");
                 });
             }
@@ -2135,10 +2134,10 @@ pub fn draw_inspector_rows(
                     .find_named_type_by_fingerprint(*schema_fingerprint)
                     .unwrap();
                 match schema {
-                    SchemaNamedType::Record(record_schema) => {
+                    SchemaNamedType::Record(_) => {
                         panic!("An enum schema is referencing a record")
                     }
-                    SchemaNamedType::Enum(enum_schema) => {
+                    SchemaNamedType::Enum(_) => {
                         draw_inspector_value_and_action_button(ui, ctx);
                     }
                 }

@@ -107,38 +107,40 @@ fn do_import(
                 break;
             }
 
-            // let Some(asset_import_state) = existing_asset_import_state.get(&asset.id) else {
-            //     //
-            //     // The asset doesn't exist or has never been imported. (Eventually we want to avoid
-            //     // creating assets until the import runs so that the asset doesn't exist but that's
-            //     // needs addressing.)
-            //     //
-            //     any_asset_has_stale_asset_data = true;
-            // };
-            //
-            // if asset_import_state.import_data_contents_hash != metadata.import_data_contents_hash ||
-            //     asset_import_state.source_file_size != metadata.source_file_size ||
-            //     asset_import_state.source_file_modified_timestamp != metadata.source_file_modified_timestamp {
-            //     //
-            //     // The asset data does not match the source file size/timestamp. Even if import data is not
-            //     // stale we still at least need to update the asset metadata.
-            //     //
-            //     // This is not really an expected case, like the user copies an asset file, re-imports,
-            //     // then overwrites the asset file with the old asset file from before the import
-            //     //
-            //     any_asset_has_stale_asset_data = true;
-            // }
+            let Some(asset_import_state) = existing_asset_import_state.get(&asset.id) else {
+                //
+                // The asset doesn't exist or has never been imported. (Eventually we want to avoid
+                // creating assets until the import runs so that the asset doesn't exist but that's
+                // needs addressing.)
+                //
+                any_asset_has_stale_asset_data = true;
+                continue;
+            };
+
+            if asset_import_state.import_data_contents_hash != metadata.import_data_contents_hash ||
+                asset_import_state.source_file_size != metadata.source_file_size ||
+                asset_import_state.source_file_modified_timestamp != metadata.source_file_modified_timestamp {
+                //
+                // The asset data does not match the source file size/timestamp. Even if import data is not
+                // stale we still at least need to update the asset metadata.
+                //
+                // This is not really an expected case, like the user copies an asset file, re-imports,
+                // then overwrites the asset file with the old asset file from before the import
+                //
+                any_asset_has_stale_asset_data = true;
+            }
         }
 
         // any stale import data = full re-import
         if !any_asset_has_stale_import_data {
             // depending on if we have stale asset data
-            /*if !any_asset_has_stale_asset_data {
+            if !any_asset_has_stale_asset_data {
                 //
                 // Our state matches source file state, do nothing
                 //
                 return Ok(Default::default())
-            } else*/
+            }
+            else
             {
                 //
                 // Just the asset data is stale, we can recover it from the import data that isn't stale
@@ -177,7 +179,7 @@ fn do_import(
                     assert!(old.is_none());
                 }
 
-                //return Ok(cached_importables);
+                return Ok(cached_importables);
             }
         }
     }
@@ -210,9 +212,9 @@ fn do_import(
     for (name, imported_asset) in imported_importables {
         if let Some(requested_importable) = msg.import_op.requested_importables.get(&name) {
             let default_asset = &imported_asset.default_asset;
-            let type_name = default_asset.schema().name();
+            let _type_name = default_asset.schema().name();
 
-            profiling::scope!(&format!("Importable {:?} {}", name, type_name));
+            profiling::scope!(&format!("Importable {:?} {}", name, _type_name));
 
             let mut import_data_metadata = ImportDataMetadata {
                 source_file_modified_timestamp,
@@ -333,13 +335,13 @@ impl ImportWorkerThread {
         request_rx: Receiver<ImportThreadRequest>,
         outcome_tx: Sender<ImportThreadOutcome>,
         active_request_count: Arc<AtomicUsize>,
-        thread_index: usize,
+        _thread_index: usize,
     ) -> Self {
         let (finish_tx, finish_rx) = crossbeam_channel::bounded(1);
         let join_handle = std::thread::Builder::new()
             .name("IO Thread".into())
             .spawn(move || {
-                profiling::register_thread!(&format!("ImportWorkerThread {}", thread_index));
+                profiling::register_thread!(&format!("ImportWorkerThread {}", _thread_index));
                 loop {
                     crossbeam_channel::select! {
                         recv(request_rx) -> msg => {

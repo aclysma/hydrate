@@ -110,7 +110,7 @@ pub struct CommentText {
 
 struct RemoveCommentsResult {
     without_comments: Vec<char>,
-    comments: VecDeque<CommentText>,
+    _comments: VecDeque<CommentText>,
 }
 
 fn remove_comments(code: &[char]) -> RemoveCommentsResult {
@@ -229,7 +229,7 @@ fn remove_comments(code: &[char]) -> RemoveCommentsResult {
 
     RemoveCommentsResult {
         without_comments,
-        comments,
+        _comments: comments,
     }
 }
 

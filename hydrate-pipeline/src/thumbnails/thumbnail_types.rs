@@ -89,9 +89,9 @@ impl<'a> ThumbnailProviderRenderContext<'a> {
                 asset_id,
                 FetchedImportData {
                     import_data: import_data.clone(),
-                    info: FetchedImportDataInfo {
-                        contents_hash: newly_fetched_import_data.contents_hash,
-                        metadata_hash: newly_fetched_import_data.metadata_hash,
+                    _info: FetchedImportDataInfo {
+                        _contents_hash: newly_fetched_import_data.contents_hash,
+                        _metadata_hash: newly_fetched_import_data.metadata_hash,
                     },
                 },
             );

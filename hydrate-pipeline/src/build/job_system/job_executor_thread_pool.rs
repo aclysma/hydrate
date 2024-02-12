@@ -16,8 +16,8 @@ use std::thread::JoinHandle;
 pub(crate) struct JobExecutorThreadPoolRequestRunJob {
     pub job_id: JobId,
     pub job_type: JobTypeId,
-    pub debug_name: Arc<String>,
-    pub dependencies: Arc<JobEnumeratedDependencies>,
+    pub _debug_name: Arc<String>,
+    pub _dependencies: Arc<JobEnumeratedDependencies>,
     pub input_data: Arc<Vec<u8>>,
     pub data_set: Arc<DataSet>,
 }
@@ -57,7 +57,7 @@ fn do_build(
     job_api: &dyn JobApi,
     request: &JobExecutorThreadPoolRequestRunJob,
 ) -> PipelineResult<JobExecutorThreadPoolOutcomeRunJobCompleteData> {
-    profiling::scope!(&format!("Handle Job {}", request.debug_name));
+    profiling::scope!(&format!("Handle Job {}", request._debug_name));
 
     let mut fetched_asset_data = HashMap::<AssetId, FetchedAssetData>::default();
     let mut fetched_import_data = HashMap::<AssetId, FetchedImportData>::default();
@@ -101,13 +101,13 @@ impl JobExecutorWorkerThread {
         request_rx: Receiver<JobExecutorThreadPoolRequest>,
         outcome_tx: Sender<JobExecutorThreadPoolOutcome>,
         active_request_count: Arc<AtomicUsize>,
-        thread_index: usize,
+        _thread_index: usize,
     ) -> Self {
         let (finish_tx, finish_rx) = crossbeam_channel::bounded(1);
         let join_handle = std::thread::Builder::new()
             .name("IO Thread".into())
             .spawn(move || {
-                profiling::register_thread!(&format!("JobExecutorWorkerThread {}", thread_index));
+                profiling::register_thread!(&format!("JobExecutorWorkerThread {}", _thread_index));
                 loop {
                     crossbeam_channel::select! {
                         recv(request_rx) -> msg => {

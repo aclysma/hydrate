@@ -1,23 +1,21 @@
 use crate::action_queue::{UIAction, UIActionQueueSender};
 use crate::ui_state::EditorModelUiState;
-use egui::Widget;
 use hydrate_model::pipeline::{AssetEngine, BuildLogData, ImportLogData, LogData, LogDataRef};
 use hydrate_model::EditorModel;
-use serde_json::to_string;
 use uuid::Uuid;
 
 #[derive(Default)]
 pub struct LogEventViewUiState {
     selected_log: Option<Uuid>,
-    search_string: String,
+    //search_string: String,
 }
 
 pub fn draw_import_log(
     ui: &mut egui::Ui,
-    editor_model: &EditorModel,
-    editor_model_ui_state: &EditorModelUiState,
-    log_event_view_ui_state: &mut LogEventViewUiState,
-    action_queue_sender: &UIActionQueueSender,
+    _editor_model: &EditorModel,
+    _editor_model_ui_state: &EditorModelUiState,
+    _log_event_view_ui_state: &mut LogEventViewUiState,
+    _action_queue_sender: &UIActionQueueSender,
     import_log_data: &ImportLogData,
 ) {
     ui.style_mut().spacing.item_spacing = egui::vec2(8.0, 2.0);
@@ -73,7 +71,7 @@ pub fn draw_build_log(
     ui: &mut egui::Ui,
     editor_model: &EditorModel,
     editor_model_ui_state: &EditorModelUiState,
-    log_event_view_ui_state: &mut LogEventViewUiState,
+    _log_event_view_ui_state: &mut LogEventViewUiState,
     action_queue_sender: &UIActionQueueSender,
     build_log_data: &BuildLogData,
 ) {
@@ -183,8 +181,8 @@ pub fn draw_log_event_view(
             .format(time_format)
             .unwrap();
         match log_data {
-            LogData::Import(import_data) => format!("Import at {}", formatted_start_time),
-            LogData::Build(build_data) => format!("Build at {}", formatted_start_time),
+            LogData::Import(_) => format!("Import at {}", formatted_start_time),
+            LogData::Build(_) => format!("Build at {}", formatted_start_time),
         }
     }
 
@@ -218,10 +216,10 @@ pub fn draw_log_event_view(
                             .format(&format_description)
                             .unwrap();
                     let label = match previous_log {
-                        LogData::Import(import_data) => {
+                        LogData::Import(_) => {
                             format!("Import at {}", formatted_start_time)
                         }
-                        LogData::Build(build_data) => format!("Build at {}", formatted_start_time),
+                        LogData::Build(_) => format!("Build at {}", formatted_start_time),
                     };
 
                     ui.selectable_value(selected_log, Some(previous_log.id()), label);
@@ -251,22 +249,6 @@ pub fn draw_log_event_view(
         .auto_shrink([false, false])
         .show(&mut child_ui, |ui| {
             ui.style_mut().spacing.item_spacing = egui::vec2(8.0, 2.0);
-            let table = egui_extras::TableBuilder::new(ui)
-                .striped(true)
-                .auto_shrink([true, false])
-                .resizable(true)
-                // vscroll and min/max scroll height make this table grow/shrink according to available size
-                .vscroll(false)
-                .min_scrolled_height(1.0)
-                .max_scroll_height(1.0)
-                .cell_layout(egui::Layout::left_to_right(egui::Align::Center))
-                .column(
-                    egui_extras::Column::initial(200.0)
-                        .at_least(40.0)
-                        .clip(true),
-                )
-                .column(egui_extras::Column::initial(30.0).at_least(30.0).clip(true))
-                .column(egui_extras::Column::remainder());
 
             if let Some(selected_log_id) = log_event_view_ui_state.selected_log {
                 //

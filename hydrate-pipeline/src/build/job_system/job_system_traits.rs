@@ -198,8 +198,8 @@ impl<'a, InputT> EnumerateDependenciesContext<'a, InputT> {
 
         let mut log_events = self.log_events.borrow_mut();
         let log_event = BuildLogEvent {
-            asset_id: None,
-            job_id: Some(self.job_id),
+            asset_id,
+            job_id,
             level: LogEventLevel::Error,
             message: format!(
                 "While enumerating dependencies for new job {}: {}",
@@ -213,16 +213,16 @@ impl<'a, InputT> EnumerateDependenciesContext<'a, InputT> {
 }
 
 pub(crate) struct FetchedAssetData {
-    pub(crate) contents_hash: u64,
+    pub(crate) _contents_hash: u64,
 }
 
 pub(crate) struct FetchedImportDataInfo {
-    pub(crate) contents_hash: u64,
-    pub(crate) metadata_hash: u64,
+    pub(crate) _contents_hash: u64,
+    pub(crate) _metadata_hash: u64,
 }
 
 pub(crate) struct FetchedImportData {
-    pub(crate) info: FetchedImportDataInfo,
+    pub(crate) _info: FetchedImportDataInfo,
     pub(crate) import_data: Arc<SingleObject>,
 }
 
@@ -287,7 +287,7 @@ impl<'a, InputT> RunContext<'a, InputT> {
         fetched_asset_data
             .entry(asset_id)
             .or_insert_with(|| FetchedAssetData {
-                contents_hash: self
+                _contents_hash: self
                     .data_set
                     .hash_object(asset_id, HashObjectMode::PropertiesOnly)
                     .unwrap(),
@@ -314,9 +314,9 @@ impl<'a, InputT> RunContext<'a, InputT> {
                 asset_id,
                 FetchedImportData {
                     import_data: import_data.clone(),
-                    info: FetchedImportDataInfo {
-                        contents_hash: newly_fetched_import_data.contents_hash,
-                        metadata_hash: newly_fetched_import_data.metadata_hash,
+                    _info: FetchedImportDataInfo {
+                        _contents_hash: newly_fetched_import_data.contents_hash,
+                        _metadata_hash: newly_fetched_import_data.metadata_hash,
                     },
                 },
             );

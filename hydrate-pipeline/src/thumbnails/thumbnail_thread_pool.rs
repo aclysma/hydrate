@@ -79,13 +79,13 @@ impl ThumbnailWorkerThread {
         request_rx: Receiver<ThumbnailThreadPoolRequest>,
         outcome_tx: Sender<ThumbnailThreadPoolOutcome>,
         active_request_count: Arc<AtomicUsize>,
-        thread_index: usize,
+        _thread_index: usize,
     ) -> Self {
         let (finish_tx, finish_rx) = crossbeam_channel::bounded(1);
         let join_handle = std::thread::Builder::new()
             .name("IO Thread".into())
             .spawn(move || {
-                profiling::register_thread!(&format!("ThumbnailWorkerThread {}", thread_index));
+                profiling::register_thread!(&format!("ThumbnailWorkerThread {}", _thread_index));
                 loop {
                     crossbeam_channel::select! {
                         recv(request_rx) -> msg => {

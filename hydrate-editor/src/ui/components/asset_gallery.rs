@@ -5,13 +5,9 @@ use crate::ui::drag_drop::DragDropPayload;
 use crate::ui::modals::{MoveAssetsModal, NewAssetModal};
 use crate::ui_state::EditorModelUiState;
 use crate::DbState;
-use egui::epaint::text::FontsImpl;
 use egui::text::LayoutJob;
-use egui::{Color32, FontId, Layout, Ui, Widget};
-use hydrate_model::edit_context::EditContext;
-use hydrate_model::pipeline::ThumbnailProviderRegistry;
+use egui::{Layout, Ui, Widget};
 use hydrate_model::{AssetId, AssetLocation, DataSetAssetInfo, EditorModel, HashSet};
-use std::sync::Arc;
 
 #[derive(Default, PartialEq, Copy, Clone)]
 pub enum AssetGalleryViewMode {
@@ -160,7 +156,7 @@ pub fn draw_asset_gallery(
     //ui.label("asset gallery");
 
     //println!("available {:?}", ui.available_width());
-    let (toolbar_id, toolbar_rect) = ui.allocate_space(egui::vec2(ui.available_width(), 30.0));
+    let (_, toolbar_rect) = ui.allocate_space(egui::vec2(ui.available_width(), 30.0));
 
     //ui.child_ui(toolbar_rect)
 
@@ -536,8 +532,6 @@ fn draw_asset_gallery_tile(
         asset_gallery_ui_state,
         |asset_gallery_ui_state| create_drag_payload(asset_gallery_ui_state, asset_id),
         |ui, asset_gallery_ui_state| {
-            let is_on = false;
-
             let desired_size = egui::vec2(
                 asset_gallery_ui_state.tile_size,
                 asset_gallery_ui_state.tile_size + 30.0,
@@ -652,7 +646,6 @@ fn draw_asset_gallery_tile(
                 );
             }
 
-            let is_generated = is_generated;
             let response = response.context_menu(move |ui| {
                 asset_context_menu(
                     ui,
@@ -681,14 +674,6 @@ fn asset_context_menu(
 ) {
     if !asset_gallery_ui_state.selected_assets.contains(&asset_id) {
         asset_gallery_ui_state.select_one(asset_id);
-    }
-
-    let mut are_any_generated = false;
-    for asset_id in &asset_gallery_ui_state.selected_assets {
-        if editor_model.is_generated_asset(*asset_id) {
-            are_any_generated = true;
-            break;
-        }
     }
 
     let mut are_any_generated = false;
@@ -802,14 +787,14 @@ fn handle_asset_selection(
     is_selected: bool,
     all_assets: &Vec<(&AssetId, &DataSetAssetInfo)>,
 ) {
-    let mut primary_index = None;
+    let mut _primary_index = None;
     let mut selected_index = None;
     let mut shift_select_begin_index = None;
     let mut shift_select_end_index = None;
 
     for (i, (id, _)) in all_assets.iter().enumerate() {
         if Some(**id) == asset_gallery_ui_state.primary_selected_asset {
-            primary_index = Some(i);
+            _primary_index = Some(i);
         }
 
         if Some(**id) == asset_gallery_ui_state.previous_shift_select_range_begin {

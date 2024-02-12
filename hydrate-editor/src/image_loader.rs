@@ -1,14 +1,12 @@
-use eframe::epaint::Color32;
 use egui::load::{
     ImageLoadResult, ImageLoader, ImagePoll, LoadError, SizedTexture, TextureLoadResult,
     TextureLoader, TexturePoll,
 };
-use egui::ImageData::Color;
 use egui::{ColorImage, Context, SizeHint, TextureHandle, TextureOptions};
 use hydrate_base::lru_cache::LruCache;
 use hydrate_model::edit_context::EditContext;
 use hydrate_model::pipeline::{
-    AssetEngine, ThumbnailImage, ThumbnailProviderRegistry, ThumbnailSystemState,
+    ThumbnailProviderRegistry, ThumbnailSystemState,
 };
 use hydrate_model::{AssetId, HashMap, SchemaFingerprint, SchemaSet};
 use hydrate_pipeline::ThumbnailInputHash;
@@ -18,19 +16,12 @@ use uuid::Uuid;
 
 const THUMBNAIL_ASSET_URI_PREFIX: &str = "thumbnail-asset://";
 const THUMBNAIL_ASSET_TYPE_URI_PREFIX: &str = "thumbnail-asset-type://";
-const THUMBNAIL_SPECIAL_PREFIX: &str = "thumbnail-special://";
 const THUMBNAIL_URI_NO_THUMBNAIL: &str = "thumbnail-special://no-thumbnail";
 const THUMBNAIL_URI_NO_REFERENCE: &str = "thumbnail-special://no-reference";
 const THUMBNAIL_CACHE_SIZE: u32 = 64;
 
-#[derive(PartialEq)]
-enum LoadState {
-    Requesting,
-    Loaded(Arc<ColorImage>),
-}
-
 struct CachedThumbnail {
-    thumbnail_input_hash: ThumbnailInputHash,
+    _thumbnail_input_hash: ThumbnailInputHash,
     color_image: Arc<ColorImage>,
 }
 
@@ -40,7 +31,6 @@ pub struct ThumbnailImageLoader {
     thumbnail_system_state: ThumbnailSystemState,
     thumbnail_provider_registry: ThumbnailProviderRegistry,
     default_thumbnails: HashMap<SchemaFingerprint, Arc<ColorImage>>,
-    schema_set: SchemaSet,
     special_thumbnail_no_thumbnail: Arc<ColorImage>,
     special_thumbnail_no_reference: Arc<ColorImage>,
 }
@@ -105,7 +95,6 @@ impl ThumbnailImageLoader {
         }
 
         ThumbnailImageLoader {
-            schema_set: schema_set.clone(),
             dummy_image: Arc::new(dummy_image),
             thumbnail_cache: Mutex::new(LruCache::new(THUMBNAIL_CACHE_SIZE)),
             thumbnail_system_state: thumbnail_system_state.clone(),
@@ -123,7 +112,8 @@ impl ThumbnailImageLoader {
         let refreshed_thumbnails = self.thumbnail_system_state.take_refreshed_thumbnails();
         for refreshed_thumbnail in refreshed_thumbnails {
             ctx.forget_image(&format!(
-                "thumbnail-asset://{}",
+                "{}{}",
+                THUMBNAIL_ASSET_URI_PREFIX,
                 refreshed_thumbnail.as_uuid().to_string()
             ));
         }
@@ -140,10 +130,11 @@ impl ThumbnailImageLoader {
             .thumbnail_provider_registry
             .has_provider_for_asset(schema_fingerprint)
         {
-            format!("thumbnail-asset://{}", asset_id.as_uuid().to_string())
+            format!("{}{}", THUMBNAIL_ASSET_URI_PREFIX, asset_id.as_uuid().to_string())
         } else if self.default_thumbnails.contains_key(&schema_fingerprint) {
             format!(
-                "thumbnail-asset-type://{}",
+                "{}{}",
+                THUMBNAIL_ASSET_TYPE_URI_PREFIX,
                 schema_fingerprint.as_uuid().to_string()
             )
         } else {
@@ -167,10 +158,11 @@ impl ThumbnailImageLoader {
                 .thumbnail_provider_registry
                 .has_provider_for_asset(schema_fingerprint)
             {
-                return format!("thumbnail-asset://{}", asset_id.as_uuid().to_string());
+                return format!("{}{}", THUMBNAIL_ASSET_URI_PREFIX, asset_id.as_uuid().to_string());
             } else if self.default_thumbnails.contains_key(&schema_fingerprint) {
                 return format!(
-                    "thumbnail-asset-type://{}",
+                    "{}{}",
+                    THUMBNAIL_ASSET_TYPE_URI_PREFIX,
                     schema_fingerprint.as_uuid().to_string()
                 );
             }
@@ -187,9 +179,9 @@ impl ImageLoader for ThumbnailImageLoader {
 
     fn load(
         &self,
-        ctx: &Context,
+        _ctx: &Context,
         uri: &str,
-        size_hint: SizeHint,
+        _size_hint: SizeHint,
     ) -> ImageLoadResult {
         if uri == THUMBNAIL_URI_NO_THUMBNAIL {
             Ok(ImagePoll::Ready {
@@ -231,7 +223,7 @@ impl ImageLoader for ThumbnailImageLoader {
                 cache.insert(
                     asset_id,
                     CachedThumbnail {
-                        thumbnail_input_hash: cached_entry.hash,
+                        _thumbnail_input_hash: cached_entry.hash,
                         color_image: image.clone(),
                     },
                 );
@@ -317,7 +309,7 @@ impl TextureLoader for AssetThumbnailTextureLoader {
         let mut pending_remove = Vec::default();
 
         let mut cache = self.cache.lock().unwrap();
-        for (asset_id, thumbnail_info) in cache.pairs_mut().iter_mut().filter_map(|x| x.as_mut()) {
+        for (asset_id, _) in cache.pairs_mut().iter_mut().filter_map(|x| x.as_mut()) {
             if asset_id.0 == uri {
                 pending_remove.push(asset_id.clone());
             }
@@ -346,7 +338,7 @@ impl TextureLoader for AssetThumbnailTextureLoader {
             .pairs()
             .iter()
             .filter_map(|x| x.as_ref())
-            .map(|(k, v)| v.byte_size())
+            .map(|(_, v)| v.byte_size())
             .sum()
     }
 }

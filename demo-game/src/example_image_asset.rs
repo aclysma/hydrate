@@ -1,8 +1,8 @@
 use demo_types::image::GpuImageAssetData;
 use hydrate::base::handle::{LoaderInfoProvider, RefOp, SerdeContext};
 use hydrate::base::LoadHandle;
-use hydrate::loader::asset_storage::UpdateAssetResult;
-use hydrate::loader::DynAssetLoader;
+use hydrate::loader::artifact_storage::UpdateArtifactResult;
+use hydrate::loader::DynArtifactLoader;
 use std::error::Error;
 use type_uuid::TypeUuid;
 
@@ -18,16 +18,16 @@ pub struct GpuImageAsset {
 // This is an example asset loader, allowing for custom operations to prepare the asset for use
 pub struct GpuImageLoader;
 
-impl DynAssetLoader<GpuImageAsset> for GpuImageLoader {
-    fn update_asset(
+impl DynArtifactLoader<GpuImageAsset> for GpuImageLoader {
+    fn update_artifact(
         &mut self,
         refop_sender: &crossbeam_channel::Sender<RefOp>,
         loader_info: &dyn LoaderInfoProvider,
         data: &[u8],
         _load_handle: LoadHandle,
-        load_op: hydrate::loader::storage::AssetLoadOp,
+        load_op: hydrate::loader::storage::ArtifactLoadOp,
     ) -> Result<
-        hydrate::loader::asset_storage::UpdateAssetResult<GpuImageAsset>,
+        hydrate::loader::artifact_storage::UpdateArtifactResult<GpuImageAsset>,
         Box<dyn Error + Send + 'static>,
     > {
         log::debug!("GpuImageLoader update_asset");
@@ -44,20 +44,20 @@ impl DynAssetLoader<GpuImageAsset> for GpuImageLoader {
 
         load_op.complete();
         log::debug!("return");
-        Ok(UpdateAssetResult::Result(GpuImageAsset {
+        Ok(UpdateArtifactResult::Result(GpuImageAsset {
             image_bytes: asset_data.image_bytes,
             _width: asset_data.width,
             _height: asset_data.height,
         }))
     }
 
-    fn commit_asset_version(
+    fn commit_artifact(
         &mut self,
         _handle: LoadHandle,
     ) {
     }
 
-    fn free(
+    fn free_artifact(
         &mut self,
         _handle: LoadHandle,
     ) {

@@ -1,4 +1,4 @@
-use crate::storage::{AssetLoadOp, AssetStorage, HandleOp, IndirectIdentifier};
+use crate::storage::{ArtifactLoadOp, ArtifactStorage, HandleOp, IndirectIdentifier};
 use crate::ArtifactTypeId;
 use crossbeam_channel::{Receiver, Sender};
 use hydrate_base::handle::LoadState::WaitingForDependencies;
@@ -184,7 +184,7 @@ struct LoadHandleInfo {
     // This will be set to true if we reload and this artifact is no longer the latest version of
     // the artifact. Already loaded objects may stay loaded, but we would cancel any further attempts
     // to load this object. (Additionally the currently available manifest data won't be compatible
-    // with this asset, so we would not be able to continue loading it)
+    // with this artifact, so we would not be able to continue loading it)
     //replaced_by_newer_version: bool,
 
     // The reference count of external handles (i.e. explicitly requested references, not references
@@ -275,7 +275,7 @@ impl LoaderInner {
     #[profiling::function]
     fn update(
         &mut self,
-        asset_storage: &mut dyn AssetStorage,
+        artifact_storage: &mut dyn ArtifactStorage,
     ) {
         self.loader_io.update();
 
@@ -395,7 +395,7 @@ impl LoaderInner {
 
                 // indicate that the reload is complete
                 log::info!(
-                    "Finished asset reload, now on manifest build hash {:?}",
+                    "Finished artifact reload, now on manifest build hash {:?}",
                     self.current_build_hash
                 );
                 self.current_reload_action = None;
@@ -413,7 +413,7 @@ impl LoaderInner {
             self.current_build_hash = self.loader_io.current_build_hash();
 
             log::info!(
-                "Begin asset reload {:?} -> {:?}",
+                "Begin artifact reload {:?} -> {:?}",
                 old_build_hash,
                 self.current_build_hash
             );
@@ -469,7 +469,7 @@ impl LoaderInner {
                     self.handle_try_load(self.current_build_hash, load_handle)
                 }
                 LoaderEvent::TryUnload(load_handle) => {
-                    self.handle_try_unload(load_handle, asset_storage)
+                    self.handle_try_unload(load_handle, artifact_storage)
                 }
                 LoaderEvent::MetadataRequestComplete(result) => {
                     self.handle_request_metadata_result(self.current_build_hash, result)
@@ -478,10 +478,10 @@ impl LoaderInner {
                     self.handle_dependencies_loaded(self.current_build_hash, load_handle)
                 }
                 LoaderEvent::DataRequestComplete(result) => {
-                    self.handle_request_data_result(result, asset_storage)
+                    self.handle_request_data_result(result, artifact_storage)
                 }
                 LoaderEvent::LoadResult(load_result) => {
-                    self.handle_load_result(load_result, asset_storage)
+                    self.handle_load_result(load_result, artifact_storage)
                 }
             }
         }
@@ -526,7 +526,7 @@ impl LoaderInner {
     fn handle_try_unload(
         &mut self,
         load_handle: LoadHandle,
-        asset_storage: &mut dyn AssetStorage,
+        artifact_storage: &mut dyn ArtifactStorage,
     ) {
         // Should always exist, we don't delete load handles
         let load_state_info = self.load_handle_infos.get_mut(&load_handle).unwrap();
@@ -549,12 +549,12 @@ impl LoaderInner {
             } else {
                 // It's not referenced, so go ahead and unloaded it...
 
-                // If it's been loaded, tell asset storage to drop it
+                // If it's been loaded, tell artifact storage to drop it
                 if load_state_info.load_state == LoadState::Loading
                     || load_state_info.load_state == LoadState::Loaded
                     || load_state_info.load_state == LoadState::Committed
                 {
-                    asset_storage.free(load_state_info.artifact_type_id, load_handle);
+                    artifact_storage.free_artifact(load_state_info.artifact_type_id, load_handle);
                 }
 
                 std::mem::swap(&mut dependencies, &mut load_state_info.dependencies);
@@ -712,7 +712,7 @@ impl LoaderInner {
     fn handle_request_data_result(
         &mut self,
         result: RequestDataResult,
-        asset_storage: &mut dyn AssetStorage,
+        artifact_storage: &mut dyn ArtifactStorage,
     ) {
         // if self.artifact_id_to_handle.get(&result.artifact_id).unwrap() != result.artifact_id {
         //     assert!(version.load_state == LoadState::
@@ -732,7 +732,7 @@ impl LoaderInner {
                 load_state_info.artifact_id,
                 load_state_info.hash
             );
-            // Bail if the asset is unloaded
+            // Bail if the artifact is unloaded
             if load_state_info.load_state == LoadState::Unloaded {
                 return;
             }
@@ -742,7 +742,7 @@ impl LoaderInner {
             // start loading
             let data = result.result.unwrap();
 
-            let load_op = AssetLoadOp::new(self.events_tx.clone(), result.load_handle);
+            let load_op = ArtifactLoadOp::new(self.events_tx.clone(), result.load_handle);
 
             (load_op, load_state_info, data)
         };
@@ -753,10 +753,10 @@ impl LoaderInner {
             loader_io: &*self.loader_io,
         };
 
-        // We dropped the load_state_info lock before calling this because the serde deserializer may query for asset
+        // We dropped the load_state_info lock before calling this because the serde deserializer may query for artifact
         // references, which can cause deadlocks if we are still holding a lock
-        asset_storage
-            .update_asset(
+        artifact_storage
+            .update_artifact(
                 &info_provider,
                 &load_state_info.artifact_type_id,
                 load_state_info.artifact_id,
@@ -774,7 +774,7 @@ impl LoaderInner {
     fn handle_load_result(
         &mut self,
         load_result: HandleOp,
-        asset_storage: &mut dyn AssetStorage,
+        artifact_storage: &mut dyn ArtifactStorage,
     ) {
         //while let Ok(handle_op) = self.handle_op_rx.try_recv() {
         // Handle the operation
@@ -827,7 +827,7 @@ impl LoaderInner {
                     }
                 }
 
-                asset_storage.commit_asset_version(artifact_type_id, load_handle);
+                artifact_storage.commit_artifact(artifact_type_id, load_handle);
                 self.load_handle_infos
                     .get_mut(&load_handle)
                     .unwrap()
@@ -864,7 +864,7 @@ impl LoaderInner {
 
                 let resolved = loader_io.resolve_indirect(indirect_id);
                 if resolved.is_none() {
-                    panic!("Couldn't find asset {:?}", indirect_id);
+                    panic!("Couldn't find artifact {:?}", indirect_id);
                 }
 
                 let manifest_entry = resolved.unwrap();
@@ -1092,9 +1092,9 @@ pub struct LoadInfo {
     pub refs: u32,
     pub symbol: Option<StringHash>,
     pub debug_name: Option<Arc<String>>,
-    // Path to asset's source file. Not guaranteed to always be available.
+    // Path to artifact's source file. Not guaranteed to always be available.
     //pub path: Option<String>,
-    // Name of asset's source file. Not guaranteed to always be available.
+    // Name of artifact's source file. Not guaranteed to always be available.
     //pub file_name: Option<String>,
     // Asset name. Not guaranteed to always be available.
     //pub asset_name: Option<String>,
@@ -1137,9 +1137,9 @@ impl Loader {
 
     pub(crate) fn update(
         &self,
-        asset_storage: &mut dyn AssetStorage,
+        artifact_storage: &mut dyn ArtifactStorage,
     ) {
-        self.inner.lock().unwrap().update(asset_storage);
+        self.inner.lock().unwrap().update(artifact_storage);
     }
 
     pub(crate) fn add_engine_ref_indirect(

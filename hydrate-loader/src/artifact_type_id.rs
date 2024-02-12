@@ -51,7 +51,7 @@ impl fmt::Debug for ArtifactTypeId {
         &self,
         f: &mut fmt::Formatter<'_>,
     ) -> fmt::Result {
-        f.debug_tuple("AssetTypeId").field(&self.0).finish()
+        f.debug_tuple("ArtifactTypeId").field(&self.0).finish()
     }
 }
 
@@ -77,9 +77,9 @@ impl Serialize for ArtifactTypeId {
     }
 }
 
-struct AssetIdVisitor;
+struct ArtifactIdVisitor;
 
-impl<'a> de::Visitor<'a> for AssetIdVisitor {
+impl<'a> de::Visitor<'a> for ArtifactIdVisitor {
     type Value = ArtifactTypeId;
 
     fn expecting(
@@ -102,7 +102,7 @@ impl<'a> de::Visitor<'a> for AssetIdVisitor {
 impl<'de> Deserialize<'de> for ArtifactTypeId {
     fn deserialize<D: de::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
         if deserializer.is_human_readable() {
-            deserializer.deserialize_string(AssetIdVisitor)
+            deserializer.deserialize_string(ArtifactIdVisitor)
         } else {
             Ok(ArtifactTypeId(Uuid::deserialize(deserializer)?))
         }

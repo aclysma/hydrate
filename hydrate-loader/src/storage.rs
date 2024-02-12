@@ -13,14 +13,14 @@ pub enum HandleOp {
     Drop(LoadHandle),
 }
 
-/// Type that allows the downstream asset storage implementation to signal that an asset update
-/// operation has completed. See [`AssetStorage::update_asset`].
-pub struct AssetLoadOp {
+/// Type that allows the downstream artifact storage implementation to signal that an artifact update
+/// operation has completed. See [`ArtifactStorage::update_artifact`].
+pub struct ArtifactLoadOp {
     sender: Option<Sender<LoaderEvent>>,
     handle: LoadHandle,
 }
 
-impl AssetLoadOp {
+impl ArtifactLoadOp {
     pub(crate) fn new(
         sender: Sender<LoaderEvent>,
         handle: LoadHandle,
@@ -65,7 +65,7 @@ impl AssetLoadOp {
     }
 }
 
-impl Drop for AssetLoadOp {
+impl Drop for ArtifactLoadOp {
     fn drop(&mut self) {
         if let Some(ref sender) = self.sender {
             let _ = sender.send(LoaderEvent::LoadResult(HandleOp::Drop(self.handle)));
@@ -73,61 +73,59 @@ impl Drop for AssetLoadOp {
     }
 }
 
-/// Storage for all assets of all asset types.
+/// Storage for all artifacts of all artifact types.
 ///
 /// Consumers are expected to provide the implementation for this, as this is the bridge between
 /// [`Loader`](crate::loader::Loader) and the application.
-pub trait AssetStorage {
-    /// Updates the backing data of an asset.
+pub trait ArtifactStorage {
+    /// Updates the backing data of an artifact.
     ///
     /// An example usage of this is when a texture such as "player.png" changes while the
-    /// application is running. The asset ID is the same, but the underlying pixel data can differ.
+    /// application is running. The artifact ID is the same, but the underlying pixel data can differ.
     ///
     /// # Parameters
     ///
     /// * `loader`: Loader implementation calling this function.
-    /// * `asset_type_id`: UUID of the asset type.
-    /// * `data`: The updated asset byte data.
-    /// * `load_handle`: ID allocated by [`Loader`](crate::loader::Loader) to track loading of a particular asset.
+    /// * `artifact_type_id`: UUID of the artifact type.
+    /// * `data`: The updated artifact byte data.
+    /// * `load_handle`: ID allocated by [`Loader`](crate::loader::Loader) to track loading of a particular artifact.
     /// * `load_op`: Allows the loading implementation to signal when loading is done / errors.
-    /// * `version`: Runtime load version of this asset, increments each time the asset is updated.
-    fn update_asset(
+    fn update_artifact(
         &mut self,
         loader_info: &dyn LoaderInfoProvider,
         artifact_type_id: &ArtifactTypeId,
         artifact_id: ArtifactId,
         data: Vec<u8>,
         load_handle: LoadHandle,
-        load_op: AssetLoadOp,
+        load_op: ArtifactLoadOp,
     ) -> Result<(), Box<dyn Error + Send + 'static>>;
 
-    /// Commits the specified asset version as loaded and ready to use.
+    /// Commits the specified artifact as loaded and ready to use.
     ///
     /// # Parameters
     ///
-    /// * `asset_type_id`: UUID of the asset type.
-    /// * `load_handle`: ID allocated by [`Loader`](crate::loader::Loader) to track loading of a particular asset.
-    /// * `version`: Runtime load version of this asset, increments each time the asset is updated.
-    fn commit_asset_version(
+    /// * `artifact_type`: UUID of the artifact type.
+    /// * `load_handle`: ID allocated by [`Loader`](crate::loader::Loader) to track loading of a particular artifact.
+    fn commit_artifact(
         &mut self,
-        asset_type: ArtifactTypeId,
+        artifact_type: ArtifactTypeId,
         load_handle: LoadHandle,
     );
 
-    /// Frees the asset identified by the load handle.
+    /// Frees the artifact identified by the load handle.
     ///
     /// # Parameters
     ///
-    /// * `asset_type_id`: UUID of the asset type.
-    /// * `load_handle`: ID allocated by [`Loader`](crate::loader::Loader) to track loading of a particular asset.
-    fn free(
+    /// * `artifact_type_id`: UUID of the artifact type.
+    /// * `load_handle`: ID allocated by [`Loader`](crate::loader::Loader) to track loading of a particular artifact.
+    fn free_artifact(
         &mut self,
         artifact_type_id: ArtifactTypeId,
         load_handle: LoadHandle,
     );
 }
 
-/// An indirect identifier that can be resolved to a specific [`AssetId`] by an [`IndirectionResolver`] impl.
+/// An indirect identifier that can be resolved to a specific [`ArtifactID`] by an [`IndirectionResolver`] impl.
 #[derive(Clone, PartialEq, Eq, Debug, Hash)]
 pub enum IndirectIdentifier {
     ArtifactId(ArtifactId, ArtifactTypeId),

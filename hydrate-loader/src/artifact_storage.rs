@@ -4,7 +4,7 @@ use hydrate_base::{
 };
 use std::{collections::HashMap, error::Error, sync::Mutex};
 
-use crate::storage::{AssetLoadOp, AssetStorage};
+use crate::storage::{ArtifactLoadOp, ArtifactStorage};
 use crate::ArtifactTypeId;
 use crossbeam_channel::{Receiver, Sender};
 use downcast_rs::Downcast;
@@ -14,20 +14,20 @@ use std::marker::PhantomData;
 use type_uuid::TypeUuid;
 
 // Used to dynamic dispatch into a storage, supports checked downcasting
-pub trait DynAssetStorage: Downcast + Send {
+pub trait DynArtifactStorage: Downcast + Send {
     fn update_artifact(
         &mut self,
         loader_info: &dyn LoaderInfoProvider,
         artifact_id: ArtifactId,
         data: &[u8],
         load_handle: LoadHandle,
-        load_op: AssetLoadOp,
+        load_op: ArtifactLoadOp,
     ) -> Result<(), Box<dyn Error + Send + 'static>>;
-    fn commit_artifact_version(
+    fn commit_artifact(
         &mut self,
         handle: LoadHandle,
     );
-    fn free(
+    fn free_artifact(
         &mut self,
         handle: LoadHandle,
     );
@@ -35,26 +35,26 @@ pub trait DynAssetStorage: Downcast + Send {
     fn type_name(&self) -> &'static str;
 }
 
-downcast_rs::impl_downcast!(DynAssetStorage);
+downcast_rs::impl_downcast!(DynArtifactStorage);
 
-pub struct AssetStorageSetInner {
-    storage: HashMap<ArtifactTypeId, Box<dyn DynAssetStorage>>,
-    data_to_asset_type_uuid: HashMap<ArtifactTypeId, ArtifactTypeId>,
-    asset_to_data_type_uuid: HashMap<ArtifactTypeId, ArtifactTypeId>,
+pub struct ArtifactStorageSetInner {
+    storage: HashMap<ArtifactTypeId, Box<dyn DynArtifactStorage>>,
+    data_to_artifact_type_uuid: HashMap<ArtifactTypeId, ArtifactTypeId>,
+    artifact_to_data_type_uuid: HashMap<ArtifactTypeId, ArtifactTypeId>,
     refop_sender: Sender<RefOp>,
 }
 
-// Contains a storage per asset type
-pub struct AssetStorageSet {
-    inner: Mutex<AssetStorageSetInner>,
+// Contains a storage per artifact type
+pub struct ArtifactStorageSet {
+    inner: Mutex<ArtifactStorageSetInner>,
 }
 
-impl AssetStorageSet {
+impl ArtifactStorageSet {
     pub fn new(refop_sender: Sender<RefOp>) -> Self {
-        let inner = AssetStorageSetInner {
+        let inner = ArtifactStorageSetInner {
             storage: Default::default(),
-            data_to_asset_type_uuid: Default::default(),
-            asset_to_data_type_uuid: Default::default(),
+            data_to_artifact_type_uuid: Default::default(),
+            artifact_to_data_type_uuid: Default::default(),
             refop_sender,
         };
 
@@ -69,12 +69,12 @@ impl AssetStorageSet {
     {
         let mut inner = self.inner.lock().unwrap();
         let refop_sender = inner.refop_sender.clone();
-        let old = inner.data_to_asset_type_uuid.insert(
+        let old = inner.data_to_artifact_type_uuid.insert(
             ArtifactTypeId::from_bytes(T::UUID),
             ArtifactTypeId::from_bytes(T::UUID),
         );
         assert!(old.is_none());
-        let old = inner.asset_to_data_type_uuid.insert(
+        let old = inner.artifact_to_data_type_uuid.insert(
             ArtifactTypeId::from_bytes(T::UUID),
             ArtifactTypeId::from_bytes(T::UUID),
         );
@@ -83,118 +83,118 @@ impl AssetStorageSet {
             ArtifactTypeId::from_bytes(T::UUID),
             Box::new(Storage::<T>::new(
                 refop_sender,
-                Box::new(DefaultAssetLoader::default()),
+                Box::new(DefaultArtifactLoader::default()),
             )),
         );
     }
 
-    pub fn add_storage_with_loader<AssetDataT, AssetT, LoaderT>(
+    pub fn add_storage_with_loader<ArtifactDataT, ArtifactT, LoaderT>(
         &self,
         loader: Box<LoaderT>,
     ) where
-        AssetDataT: TypeUuid + for<'a> serde::Deserialize<'a> + 'static,
-        AssetT: TypeUuid + 'static + Send,
-        LoaderT: DynAssetLoader<AssetT> + 'static,
+        ArtifactDataT: TypeUuid + for<'a> serde::Deserialize<'a> + 'static,
+        ArtifactT: TypeUuid + 'static + Send,
+        LoaderT: DynArtifactLoader<ArtifactT> + 'static,
     {
         let mut inner = self.inner.lock().unwrap();
         let refop_sender = inner.refop_sender.clone();
-        let old = inner.data_to_asset_type_uuid.insert(
-            ArtifactTypeId::from_bytes(AssetDataT::UUID),
-            ArtifactTypeId::from_bytes(AssetT::UUID),
+        let old = inner.data_to_artifact_type_uuid.insert(
+            ArtifactTypeId::from_bytes(ArtifactDataT::UUID),
+            ArtifactTypeId::from_bytes(ArtifactT::UUID),
         );
         assert!(old.is_none());
-        let old = inner.asset_to_data_type_uuid.insert(
-            ArtifactTypeId::from_bytes(AssetT::UUID),
-            ArtifactTypeId::from_bytes(AssetDataT::UUID),
+        let old = inner.artifact_to_data_type_uuid.insert(
+            ArtifactTypeId::from_bytes(ArtifactT::UUID),
+            ArtifactTypeId::from_bytes(ArtifactDataT::UUID),
         );
         assert!(old.is_none());
         inner.storage.insert(
-            ArtifactTypeId::from_bytes(AssetT::UUID),
-            Box::new(Storage::<AssetT>::new(refop_sender, loader)),
+            ArtifactTypeId::from_bytes(ArtifactT::UUID),
+            Box::new(Storage::<ArtifactT>::new(refop_sender, loader)),
         );
     }
 
-    pub fn asset_to_data_type_uuid<AssetT>(&self) -> Option<ArtifactTypeId>
+    pub fn artifact_to_data_type_uuid<ArtifactT>(&self) -> Option<ArtifactTypeId>
     where
-        AssetT: TypeUuid + 'static + Send,
+        ArtifactT: TypeUuid + 'static + Send,
     {
         let inner = self.inner.lock().unwrap();
         inner
-            .asset_to_data_type_uuid
-            .get(&ArtifactTypeId::from_bytes(AssetT::UUID))
+            .artifact_to_data_type_uuid
+            .get(&ArtifactTypeId::from_bytes(ArtifactT::UUID))
             .cloned()
     }
 }
 
-// Implement distill's AssetStorage - an untyped trait that finds the asset_type's storage and
+// Implement distill's ArtifactStorage - an untyped trait that finds the artifact_type's storage and
 // forwards the call
-impl AssetStorage for AssetStorageSet {
-    fn update_asset(
+impl ArtifactStorage for ArtifactStorageSet {
+    fn update_artifact(
         &mut self,
         loader_info: &dyn LoaderInfoProvider,
         artifact_type_id: &ArtifactTypeId,
         artifact_id: ArtifactId,
         data: Vec<u8>,
         load_handle: LoadHandle,
-        load_op: AssetLoadOp,
+        load_op: ArtifactLoadOp,
     ) -> Result<(), Box<dyn Error + Send + 'static>> {
         let mut inner = self.inner.lock().unwrap();
 
-        let asset_type_id = *inner
-            .data_to_asset_type_uuid
+        let artifact_type_id = *inner
+            .data_to_artifact_type_uuid
             .get(artifact_type_id)
-            .expect("unknown asset data type");
+            .expect("unknown artifact data type");
 
         let x = inner
             .storage
-            .get_mut(&asset_type_id)
-            .expect("unknown asset type")
+            .get_mut(&artifact_type_id)
+            .expect("unknown artifact type")
             .update_artifact(loader_info, artifact_id, &data, load_handle, load_op);
         x
     }
 
-    fn commit_asset_version(
+    fn commit_artifact(
         &mut self,
-        asset_data_type_id: ArtifactTypeId,
+        artifact_data_type_id: ArtifactTypeId,
         load_handle: LoadHandle,
     ) {
         let mut inner = self.inner.lock().unwrap();
 
-        let asset_type_id = *inner
-            .data_to_asset_type_uuid
-            .get(&asset_data_type_id)
-            .expect("unknown asset data type");
+        let artifact_type_id = *inner
+            .data_to_artifact_type_uuid
+            .get(&artifact_data_type_id)
+            .expect("unknown artifact data type");
 
         inner
             .storage
-            .get_mut(&asset_type_id)
-            .expect("unknown asset type")
-            .commit_artifact_version(load_handle)
+            .get_mut(&artifact_type_id)
+            .expect("unknown artifact type")
+            .commit_artifact(load_handle)
     }
 
-    fn free(
+    fn free_artifact(
         &mut self,
-        asset_data_type_id: ArtifactTypeId,
+        artifact_data_type_id: ArtifactTypeId,
         load_handle: LoadHandle,
     ) {
         let mut inner = self.inner.lock().unwrap();
 
-        let asset_type_id = *inner
-            .data_to_asset_type_uuid
-            .get(&asset_data_type_id)
-            .expect("unknown asset data type");
+        let artifact_type_id = *inner
+            .data_to_artifact_type_uuid
+            .get(&artifact_data_type_id)
+            .expect("unknown artifact data type");
 
         inner
             .storage
-            .get_mut(&asset_type_id)
-            .expect("unknown asset type")
-            .free(load_handle)
+            .get_mut(&artifact_type_id)
+            .expect("unknown artifact type")
+            .free_artifact(load_handle)
     }
 }
 
-// Implement distill's TypedAssetStorage - a typed trait that finds the asset_type's storage and
+// Implement distill's TypedArtifactStorage - a typed trait that finds the artifact_type's storage and
 // forwards the call
-impl<A: TypeUuid + 'static + Send> TypedArtifactStorage<A> for AssetStorageSet {
+impl<A: TypeUuid + 'static + Send> TypedArtifactStorage<A> for ArtifactStorageSet {
     fn get<T: ArtifactHandle>(
         &self,
         handle: &T,
@@ -207,7 +207,7 @@ impl<A: TypeUuid + 'static + Send> TypedArtifactStorage<A> for AssetStorageSet {
                     .unwrap()
                     .storage
                     .get(&ArtifactTypeId::from_bytes(A::UUID))
-                    .expect("unknown asset type")
+                    .expect("unknown artifact type")
                     .as_ref()
                     .downcast_ref::<Storage<A>>()
                     .expect("failed to downcast")
@@ -218,76 +218,76 @@ impl<A: TypeUuid + 'static + Send> TypedArtifactStorage<A> for AssetStorageSet {
 }
 
 // Loaders can return immediately by value, or later by returning a channel
-pub enum UpdateAssetResult<AssetT>
+pub enum UpdateArtifactResult<ArtifactT>
 where
-    AssetT: Send,
+    ArtifactT: Send,
 {
-    Result(AssetT),
-    AsyncResult(Receiver<AssetT>),
+    Result(ArtifactT),
+    AsyncResult(Receiver<ArtifactT>),
 }
 
-// Implements loading logic (i.e. turning bytes into an asset. The asset may contain runtime-only
+// Implements loading logic (i.e. turning bytes into an artifact. The artifact may contain runtime-only
 // data and may be created asynchronously
-pub trait DynAssetLoader<AssetT>: Send
+pub trait DynArtifactLoader<ArtifactT>: Send
 where
-    AssetT: TypeUuid + 'static + Send,
+    ArtifactT: TypeUuid + 'static + Send,
 {
-    fn update_asset(
+    fn update_artifact(
         &mut self,
         refop_sender: &Sender<RefOp>,
         loader_info: &dyn LoaderInfoProvider,
         data: &[u8],
         load_handle: LoadHandle,
-        load_op: AssetLoadOp,
-    ) -> Result<UpdateAssetResult<AssetT>, Box<dyn Error + Send + 'static>>;
+        load_op: ArtifactLoadOp,
+    ) -> Result<UpdateArtifactResult<ArtifactT>, Box<dyn Error + Send + 'static>>;
 
-    fn commit_asset_version(
+    fn commit_artifact(
         &mut self,
         handle: LoadHandle,
     );
 
-    fn free(
+    fn free_artifact(
         &mut self,
         handle: LoadHandle,
     );
 }
 
 // A simple loader that just deserializes data
-struct DefaultAssetLoader<AssetDataT>
+struct DefaultArtifactLoader<ArtifactDataT>
 where
-    AssetDataT: TypeUuid + Send + for<'a> serde::Deserialize<'a> + 'static,
+    ArtifactDataT: TypeUuid + Send + for<'a> serde::Deserialize<'a> + 'static,
 {
-    phantom_data: PhantomData<AssetDataT>,
+    phantom_data: PhantomData<ArtifactDataT>,
 }
 
-impl<AssetDataT> Default for DefaultAssetLoader<AssetDataT>
+impl<ArtifactDataT> Default for DefaultArtifactLoader<ArtifactDataT>
 where
-    AssetDataT: TypeUuid + Send + for<'a> serde::Deserialize<'a> + 'static,
+    ArtifactDataT: TypeUuid + Send + for<'a> serde::Deserialize<'a> + 'static,
 {
     fn default() -> Self {
-        DefaultAssetLoader {
+        DefaultArtifactLoader {
             phantom_data: Default::default(),
         }
     }
 }
 
-impl<AssetDataT> DynAssetLoader<AssetDataT> for DefaultAssetLoader<AssetDataT>
+impl<ArtifactDataT> DynArtifactLoader<ArtifactDataT> for DefaultArtifactLoader<ArtifactDataT>
 where
-    AssetDataT: TypeUuid + Send + for<'a> serde::Deserialize<'a> + 'static,
+    ArtifactDataT: TypeUuid + Send + for<'a> serde::Deserialize<'a> + 'static,
 {
-    fn update_asset(
+    fn update_artifact(
         &mut self,
         refop_sender: &Sender<RefOp>,
         loader_info: &dyn LoaderInfoProvider,
         data: &[u8],
         _load_handle: LoadHandle,
-        load_op: AssetLoadOp,
-    ) -> Result<UpdateAssetResult<AssetDataT>, Box<dyn Error + Send + 'static>> {
-        log::debug!("DefaultAssetLoader update_asset");
+        load_op: ArtifactLoadOp,
+    ) -> Result<UpdateArtifactResult<ArtifactDataT>, Box<dyn Error + Send + 'static>> {
+        log::debug!("DefaultArtifactLoader update_artifact");
 
-        let asset = SerdeContext::with(loader_info, refop_sender.clone(), || {
+        let artifact_data = SerdeContext::with(loader_info, refop_sender.clone(), || {
             log::debug!("bincode deserialize");
-            let x = bincode::deserialize::<AssetDataT>(data)
+            let x = bincode::deserialize::<ArtifactDataT>(data)
                 // Coerce into boxed error
                 .map_err(|x| -> Box<dyn Error + Send + 'static> { Box::new(x) });
             println!("finished deserialize");
@@ -297,16 +297,16 @@ where
 
         load_op.complete();
         log::debug!("return");
-        Ok(UpdateAssetResult::Result(asset))
+        Ok(UpdateArtifactResult::Result(artifact_data))
     }
 
-    fn commit_asset_version(
+    fn commit_artifact(
         &mut self,
         _handle: LoadHandle,
     ) {
     }
 
-    fn free(
+    fn free_artifact(
         &mut self,
         _handle: LoadHandle,
     ) {
@@ -315,26 +315,26 @@ where
 
 struct UncommittedArtifactState<A: Send> {
     artifact_id: ArtifactId,
-    result: UpdateAssetResult<A>,
+    result: UpdateArtifactResult<A>,
 }
 
 struct ArtifactState<A> {
     artifact_id: ArtifactId,
-    asset: A,
+    artifact: A,
 }
 
-// A strongly typed storage for a single asset type
-pub struct Storage<AssetT: TypeUuid + Send> {
+// A strongly typed storage for a single artifact type
+pub struct Storage<ArtifactT: TypeUuid + Send> {
     refop_sender: Sender<RefOp>,
-    artifacts: HashMap<LoadHandle, ArtifactState<AssetT>>,
-    uncommitted: HashMap<LoadHandle, UncommittedArtifactState<AssetT>>,
-    loader: Box<dyn DynAssetLoader<AssetT>>,
+    artifacts: HashMap<LoadHandle, ArtifactState<ArtifactT>>,
+    uncommitted: HashMap<LoadHandle, UncommittedArtifactState<ArtifactT>>,
+    loader: Box<dyn DynArtifactLoader<ArtifactT>>,
 }
 
-impl<AssetT: TypeUuid + Send> Storage<AssetT> {
+impl<ArtifactT: TypeUuid + Send> Storage<ArtifactT> {
     fn new(
         sender: Sender<RefOp>,
-        loader: Box<dyn DynAssetLoader<AssetT>>,
+        loader: Box<dyn DynArtifactLoader<ArtifactT>>,
     ) -> Self {
         Self {
             refop_sender: sender,
@@ -346,29 +346,29 @@ impl<AssetT: TypeUuid + Send> Storage<AssetT> {
     fn get<T: ArtifactHandle>(
         &self,
         handle: &T,
-    ) -> Option<&AssetT> {
+    ) -> Option<&ArtifactT> {
         let handle = handle.direct_load_handle();
-        self.artifacts.get(&handle).map(|a| &a.asset)
+        self.artifacts.get(&handle).map(|a| &a.artifact)
     }
 }
 
-impl<AssetT: TypeUuid + 'static + Send> DynAssetStorage for Storage<AssetT> {
+impl<ArtifactT: TypeUuid + 'static + Send> DynArtifactStorage for Storage<ArtifactT> {
     fn update_artifact(
         &mut self,
         loader_info: &dyn LoaderInfoProvider,
         artifact_id: ArtifactId,
         data: &[u8],
         load_handle: LoadHandle,
-        load_op: AssetLoadOp,
+        load_op: ArtifactLoadOp,
     ) -> Result<(), Box<dyn Error + Send + 'static>> {
         log::debug!(
-            "update_asset {} {:?} {:?}",
-            core::any::type_name::<AssetT>(),
+            "update_artifact {} {:?} {:?}",
+            core::any::type_name::<ArtifactT>(),
             load_handle,
             artifact_id,
         );
 
-        let result = self.loader.update_asset(
+        let result = self.loader.update_artifact(
             &self.refop_sender,
             loader_info,
             data,
@@ -376,7 +376,7 @@ impl<AssetT: TypeUuid + 'static + Send> DynAssetStorage for Storage<AssetT> {
             load_op,
         )?;
 
-        // Add to list of uncommitted assets
+        // Add to list of uncommitted artifacts
         self.uncommitted.insert(
             load_handle,
             UncommittedArtifactState {
@@ -388,56 +388,53 @@ impl<AssetT: TypeUuid + 'static + Send> DynAssetStorage for Storage<AssetT> {
         Ok(())
     }
 
-    fn commit_artifact_version(
+    fn commit_artifact(
         &mut self,
         load_handle: LoadHandle,
     ) {
         // Remove from the uncommitted list
-        let uncommitted_asset_state = self
+        let uncommitted_artifact_state = self
             .uncommitted
             .remove(&load_handle)
-            .expect("asset not present when committing");
+            .expect("artifact not present when committing");
 
         log::debug!(
-            "commit_asset_version {} {:?} {:?}",
-            core::any::type_name::<AssetT>(),
+            "commit_artifact {} {:?} {:?}",
+            core::any::type_name::<ArtifactT>(),
             load_handle,
-            uncommitted_asset_state.artifact_id,
+            uncommitted_artifact_state.artifact_id,
         );
 
-        let artifact_id = uncommitted_asset_state.artifact_id;
-        let asset = match uncommitted_asset_state.result {
-            UpdateAssetResult::Result(asset) => asset,
-            UpdateAssetResult::AsyncResult(rx) => rx
+        let artifact_id = uncommitted_artifact_state.artifact_id;
+        let artifact = match uncommitted_artifact_state.result {
+            UpdateArtifactResult::Result(artifact) => artifact,
+            UpdateArtifactResult::AsyncResult(rx) => rx
                 .try_recv()
                 .expect("LoadOp committed but result not sent via channel"),
         };
 
-        // If a load handler exists, trigger the commit_asset_version callback
-        self.loader.commit_asset_version(load_handle);
+        // If a load handler exists, trigger the commit_artifact callback
+        self.loader.commit_artifact(load_handle);
 
-        let asset_state = ArtifactState { asset, artifact_id };
+        let artifact_state = ArtifactState { artifact, artifact_id };
 
         // Commit the result
-        self.artifacts.insert(load_handle, asset_state);
+        self.artifacts.insert(load_handle, artifact_state);
     }
 
-    fn free(
+    fn free_artifact(
         &mut self,
         load_handle: LoadHandle,
     ) {
-        if let Some(asset_state) = self.artifacts.get(&load_handle) {
-            // Remove it from the list of assets
-            let asset_state = self.artifacts.remove(&load_handle).unwrap();
-
+        if let Some(artifact_state) = self.artifacts.remove(&load_handle) {
             log::debug!(
                 "free {} {:?} {:?}",
-                core::any::type_name::<AssetT>(),
+                core::any::type_name::<ArtifactT>(),
                 load_handle,
-                asset_state.artifact_id
+                artifact_state.artifact_id
             );
             // Trigger the free callback on the load handler, if one exists
-            self.loader.free(load_handle);
+            self.loader.free_artifact(load_handle);
         }
     }
 

@@ -30,7 +30,7 @@ fn main() {
     //
     // Set up storage for loaded assets
     //
-    let mut loader = hydrate::loader::AssetManager::new(build_data_source_path()).unwrap();
+    let mut loader = hydrate::loader::ArtifactManager::new(build_data_source_path()).unwrap();
     loader.add_storage_with_loader::<GpuImageAssetData, GpuImageAsset, GpuImageLoader>(Box::new(
         GpuImageLoader,
     ));
@@ -46,11 +46,11 @@ fn main() {
     // Request a few assets (including an image, which will take time to load)
     //
     let load_handle_transform_ref: Option<Handle<TransformRef>> =
-        Some(loader.load_asset_symbol_name("assets://test_transform_ref"));
+        Some(loader.load_artifact_symbol_name("assets://test_transform_ref"));
     let load_handle_mesh: Handle<MeshAdvMeshAssetData> =
-        loader.load_asset_symbol_name("assets://sphere.glb.mesh_Sphere");
+        loader.load_artifact_symbol_name("assets://sphere.glb.mesh_Sphere");
     let load_handle_image: Handle<GpuImageAsset> =
-        loader.load_asset_symbol_name("assets://large_test/rocks/materials/Stones_Big1_a.tif");
+        loader.load_artifact_symbol_name("assets://large_test/rocks/materials/Stones_Big1_a.tif");
 
     //
     // Game Loop

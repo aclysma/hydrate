@@ -28,13 +28,13 @@ crate::create_uuid_newtype!(ThumbnailInputHash, "ThumbnailInputHash");
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct ThumbnailProviderId(pub usize);
 
-pub(crate) struct ThumbnailEnumeratedDependencies {
+pub struct ThumbnailEnumeratedDependencies {
+    // This hash will include things like import data hash
     pub(crate) thumbnail_input_hash: ThumbnailInputHash,
     pub(crate) gathered_data: Arc<Vec<u8>>,
-    pub(crate) import_data: HashSet<AssetId>,
 }
 
-trait ThumbnailProviderAbstract: Send + Sync {
+pub trait ThumbnailProviderAbstract: Send + Sync {
     // The type of asset that this builder handles
     fn asset_type_inner(&self) -> &'static str;
 
@@ -108,7 +108,6 @@ where
         Ok(ThumbnailEnumeratedDependencies {
             thumbnail_input_hash,
             gathered_data,
-            import_data,
         })
     }
 

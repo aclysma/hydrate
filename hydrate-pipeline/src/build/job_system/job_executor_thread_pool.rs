@@ -96,7 +96,7 @@ impl JobExecutorWorkerThread {
     fn new(
         job_processor_registry: JobProcessorRegistry,
         schema_set: SchemaSet,
-        job_data_root_path: Arc<PathBuf>,
+        _job_data_root_path: Arc<PathBuf>,
         job_api: JobApiImpl,
         request_rx: Receiver<JobExecutorThreadPoolRequest>,
         outcome_tx: Sender<JobExecutorThreadPoolOutcome>,
@@ -130,7 +130,7 @@ impl JobExecutorWorkerThread {
                                                 result,
                                             })).unwrap();
                                         },
-                                        Err(e) => {
+                                        Err(_) => {
                                             outcome_tx.send(JobExecutorThreadPoolOutcome::RunJobComplete(JobExecutorThreadPoolOutcomeRunJobComplete {
                                                 request: msg,
                                                 result: Err("Panic detected in build job.".into())

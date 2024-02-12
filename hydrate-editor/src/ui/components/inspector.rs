@@ -2,11 +2,9 @@ use crate::action_queue::{UIAction, UIActionQueueSender};
 use crate::image_loader::ThumbnailImageLoader;
 use crate::ui::modals::{MoveAssetsModal, NewAssetModal};
 use crate::ui_state::EditorModelUiState;
-use hydrate_model::pipeline::ThumbnailProviderRegistry;
 use hydrate_model::{
     AssetId, EditorModel, HashSet, PropertyPath, Schema, SchemaDefRecordFieldMarkup,
 };
-use image::imageops::contrast;
 use std::sync::Arc;
 
 use super::inspector_system::*;
@@ -36,7 +34,7 @@ pub fn draw_inspector(
             // The main complication here is we want a reference to the contents of the Arc<HashSet<AssetId>> in the
             // inspector_ui_state but also be able to mutate inspector_ui_state
             //
-            let mut selected_assets_arc = None;
+            let selected_assets_arc;
             let (primary_asset_id, selected_assets) = if let Some((primary_asset_id, selected_assets)) = &inspector_ui_state.pinned_selection {
                 selected_assets_arc = Some(selected_assets.clone());
                 let selected_assets = &**selected_assets_arc.as_ref().unwrap();

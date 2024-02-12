@@ -77,7 +77,6 @@ pub struct ImportLogData {
     pub(crate) start_instant: std::time::Instant,
     pub(crate) end_instant: Option<std::time::Instant>,
     pub(crate) start_time: std::time::SystemTime,
-    pub(crate) end_time: Option<std::time::SystemTime>,
     pub log_events: Vec<ImportLogEvent>,
 }
 
@@ -94,7 +93,6 @@ impl Default for ImportLogData {
             start_instant: std::time::Instant::now(),
             end_instant: None,
             start_time: std::time::SystemTime::now(),
-            end_time: None,
             log_events: vec![],
         }
     }
@@ -113,7 +111,6 @@ pub struct BuildLogData {
     pub(crate) start_instant: std::time::Instant,
     pub(crate) end_instant: Option<std::time::Instant>,
     pub(crate) start_time: std::time::SystemTime,
-    pub(crate) end_time: Option<std::time::SystemTime>,
     pub(crate) log_events: Vec<BuildLogEvent>,
     pub(crate) requestors: HashMap<JobId, Vec<JobRequestor>>,
 }
@@ -125,7 +122,6 @@ impl Default for BuildLogData {
             start_instant: std::time::Instant::now(),
             end_instant: None,
             start_time: std::time::SystemTime::now(),
-            end_time: None,
             log_events: vec![],
             requestors: Default::default(),
         }

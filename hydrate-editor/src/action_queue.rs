@@ -7,8 +7,7 @@ use egui::KeyboardShortcut;
 use hydrate_base::hashing::HashMap;
 use hydrate_model::edit_context::EditContext;
 use hydrate_model::pipeline::{
-    AssetEngine, HydrateProjectConfiguration, ImportJobSourceFile, ImportJobToQueue, ImportLogData,
-    ImportType,
+    AssetEngine, HydrateProjectConfiguration, ImportJobToQueue
 };
 use hydrate_model::{
     AssetId, AssetLocation, AssetName, DataSetError, DataSetErrorWithBacktrace, DataSetResult,
@@ -354,7 +353,7 @@ impl UIActionQueueReceiver {
 
                     asset_engine.queue_build_all();
                 }
-                UIAction::ForceRebuild(asset_ids) => {
+                UIAction::ForceRebuild(_asset_ids) => {
                     // Can't do incremental build, manifest won't have *anything* but what was built
                     // for asset_id in asset_ids {
                     //     asset_engine.queue_build_asset(asset_id);

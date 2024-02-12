@@ -5,7 +5,6 @@ use crate::ui::modals::NewAssetModal;
 use crate::ui_state::EditorModelUiState;
 use egui::{InnerResponse, Response, Ui};
 use hydrate_model::{AssetLocation, EditorModel, LocationTreeNode};
-use image::imageops::contrast;
 
 #[derive(Default)]
 pub struct AssetTreeUiState {
@@ -164,7 +163,7 @@ fn handle_drop_on_asset_tree_node(
 ) {
     if let Some(payload) = crate::ui::drag_drop::try_take_dropped_payload(ui, &response.response) {
         match payload {
-            DragDropPayload::AssetReferences(primary_dragged_asset_id, all_dragged_asset_ids) => {
+            DragDropPayload::AssetReferences(_, all_dragged_asset_ids) => {
                 action_sender.queue_action(UIAction::MoveAssets(
                     all_dragged_asset_ids,
                     dropped_on_tree_node.location,

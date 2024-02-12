@@ -364,7 +364,7 @@ impl ImportWorkerThread {
                                                 result,
                                             })).unwrap();
                                         },
-                                        Err(e) => {
+                                        Err(_) => {
                                             outcome_tx.send(ImportThreadOutcome::Complete(ImportThreadOutcomeComplete {
                                                 request: msg,
                                                 result: Err("Panic detected in importer.".into())

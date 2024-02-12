@@ -13,7 +13,6 @@ use std::hash::Hash;
 
 crate::create_uuid_newtype!(JobId, "JobId");
 crate::create_uuid_newtype!(JobTypeId, "JobTypeId");
-crate::create_uuid_newtype!(JobHash, "JobHash");
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, Ord, PartialOrd, Serialize, Deserialize)]
 pub struct JobVersion(u32);

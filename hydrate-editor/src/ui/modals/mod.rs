@@ -1,5 +1,4 @@
 mod test_modal;
-pub use test_modal::TestModal;
 
 mod import_files_modal;
 pub use import_files_modal::ImportFilesModal;

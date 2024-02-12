@@ -1,9 +1,9 @@
 use hydrate_model::pipeline::{
-    HydrateProjectConfiguration, ImportJobSourceFile, ImportJobToQueue, ImportJobs,
+    HydrateProjectConfiguration, ImportJobToQueue,
     ImporterRegistry,
 };
 use hydrate_model::{
-    EditorModel, PathNode, PathNodeRoot, SchemaCacheSingleFile, SchemaLinker, SchemaSet,
+    EditorModel, PathNode, PathNodeRoot, SchemaLinker, SchemaSet,
     SchemaSetBuilder,
 };
 

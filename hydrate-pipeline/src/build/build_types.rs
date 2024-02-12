@@ -5,12 +5,6 @@ use hydrate_data::{AssetId, DataSet, SchemaSet};
 use std::cell::RefCell;
 use std::rc::Rc;
 
-pub struct BuiltAsset {
-    pub asset_id: AssetId,
-    pub metadata: BuiltArtifactHeaderData,
-    pub data: Vec<u8>,
-}
-
 pub struct BuiltArtifact {
     pub asset_id: AssetId,
     pub artifact_id: ArtifactId,

@@ -19,7 +19,7 @@ pub struct GpuImageAsset {
 pub struct GpuImageLoader;
 
 impl DynArtifactLoader<GpuImageAsset> for GpuImageLoader {
-    fn update_artifact(
+    fn load_artifact(
         &mut self,
         refop_sender: &crossbeam_channel::Sender<RefOp>,
         loader_info: &dyn LoaderInfoProvider,

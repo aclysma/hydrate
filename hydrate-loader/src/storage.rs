@@ -14,7 +14,7 @@ pub enum HandleOp {
 }
 
 /// Type that allows the downstream artifact storage implementation to signal that an artifact update
-/// operation has completed. See [`ArtifactStorage::update_artifact`].
+/// operation has completed. See [`ArtifactStorage::load_artifact`].
 pub struct ArtifactLoadOp {
     sender: Option<Sender<LoaderEvent>>,
     handle: LoadHandle,
@@ -90,7 +90,7 @@ pub trait ArtifactStorage {
     /// * `data`: The updated artifact byte data.
     /// * `load_handle`: ID allocated by [`Loader`](crate::loader::Loader) to track loading of a particular artifact.
     /// * `load_op`: Allows the loading implementation to signal when loading is done / errors.
-    fn update_artifact(
+    fn load_artifact(
         &mut self,
         loader_info: &dyn LoaderInfoProvider,
         artifact_type_id: &ArtifactTypeId,

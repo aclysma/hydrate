@@ -288,7 +288,7 @@ impl LoaderInner {
             let mut reload_complete = true;
             for &load_handle in &current_reload_action.load_handles_to_reload {
                 let load_handle_info = self.load_handle_infos.get(&load_handle).unwrap();
-                if load_handle_info.load_state != LoadState::Committed {
+                if load_handle_info.load_state != LoadState::Loaded {
                     //log::debug!("Reloading waiting for {:?} {:?} {:?} to load, it's in state {:?}", load_handle, load_handle_info.artifact_id, load_handle_info.debug_name, load_handle_info.load_state);
                     //self.recursive_log_load_state(load_handle, 2);
                     reload_complete = false;
@@ -552,7 +552,6 @@ impl LoaderInner {
                 // If it's been loaded, tell artifact storage to drop it
                 if load_state_info.load_state == LoadState::Loading
                     || load_state_info.load_state == LoadState::Loaded
-                    || load_state_info.load_state == LoadState::Committed
                 {
                     artifact_storage.free_artifact(load_state_info.artifact_type_id, load_handle);
                 }
@@ -632,7 +631,7 @@ impl LoaderInner {
             );
 
             let load_state = dependency_load_handle_info.load_state;
-            if load_state != LoadState::Loaded && load_state != LoadState::Committed {
+            if load_state != LoadState::Loaded {
                 blocking_dependency_count += 1;
 
                 dependency_load_handle_info
@@ -756,7 +755,7 @@ impl LoaderInner {
         // We dropped the load_state_info lock before calling this because the serde deserializer may query for artifact
         // references, which can cause deadlocks if we are still holding a lock
         artifact_storage
-            .update_artifact(
+            .load_artifact(
                 &info_provider,
                 &load_state_info.artifact_type_id,
                 load_state_info.artifact_id,
@@ -828,10 +827,6 @@ impl LoaderInner {
                 }
 
                 artifact_storage.commit_artifact(artifact_type_id, load_handle);
-                self.load_handle_infos
-                    .get_mut(&load_handle)
-                    .unwrap()
-                    .load_state = LoadState::Committed;
             }
             HandleOp::Drop(load_handle) => {
                 log::debug!("handle_load_result drop {:?}", load_handle);

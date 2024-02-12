@@ -819,12 +819,8 @@ pub enum LoadState {
     WaitingForData,
     // Data has been passed off to end-user's loader
     Loading,
-    // The engine finished loading the artifact but it is not available to the game yet
-    // When hot reloading, we delay commit until we have loaded new versions of all changed artifacts,
-    // so engine never sees a partial reload
+    // The engine finished loading the artifact and it is available to the game.
     Loaded,
-    // The artifact has been committed and is visible to the game
-    Committed,
 }
 
 // This allows a handle in hydrate_base to get information from the loader which may be in hydrate_loader

@@ -15,7 +15,7 @@ use type_uuid::TypeUuid;
 
 // Used to dynamic dispatch into a storage, supports checked downcasting
 pub trait DynArtifactStorage: Downcast + Send {
-    fn update_artifact(
+    fn load_artifact(
         &mut self,
         loader_info: &dyn LoaderInfoProvider,
         artifact_id: ArtifactId,
@@ -129,7 +129,7 @@ impl ArtifactStorageSet {
 // Implement distill's ArtifactStorage - an untyped trait that finds the artifact_type's storage and
 // forwards the call
 impl ArtifactStorage for ArtifactStorageSet {
-    fn update_artifact(
+    fn load_artifact(
         &mut self,
         loader_info: &dyn LoaderInfoProvider,
         artifact_type_id: &ArtifactTypeId,
@@ -149,7 +149,7 @@ impl ArtifactStorage for ArtifactStorageSet {
             .storage
             .get_mut(&artifact_type_id)
             .expect("unknown artifact type")
-            .update_artifact(loader_info, artifact_id, &data, load_handle, load_op);
+            .load_artifact(loader_info, artifact_id, &data, load_handle, load_op);
         x
     }
 
@@ -232,7 +232,7 @@ pub trait DynArtifactLoader<ArtifactT>: Send
 where
     ArtifactT: TypeUuid + 'static + Send,
 {
-    fn update_artifact(
+    fn load_artifact(
         &mut self,
         refop_sender: &Sender<RefOp>,
         loader_info: &dyn LoaderInfoProvider,
@@ -275,7 +275,7 @@ impl<ArtifactDataT> DynArtifactLoader<ArtifactDataT> for DefaultArtifactLoader<A
 where
     ArtifactDataT: TypeUuid + Send + for<'a> serde::Deserialize<'a> + 'static,
 {
-    fn update_artifact(
+    fn load_artifact(
         &mut self,
         refop_sender: &Sender<RefOp>,
         loader_info: &dyn LoaderInfoProvider,
@@ -283,7 +283,7 @@ where
         _load_handle: LoadHandle,
         load_op: ArtifactLoadOp,
     ) -> Result<UpdateArtifactResult<ArtifactDataT>, Box<dyn Error + Send + 'static>> {
-        log::debug!("DefaultArtifactLoader update_artifact");
+        log::debug!("DefaultArtifactLoader load_artifact");
 
         let artifact_data = SerdeContext::with(loader_info, refop_sender.clone(), || {
             log::debug!("bincode deserialize");
@@ -353,7 +353,7 @@ impl<ArtifactT: TypeUuid + Send> Storage<ArtifactT> {
 }
 
 impl<ArtifactT: TypeUuid + 'static + Send> DynArtifactStorage for Storage<ArtifactT> {
-    fn update_artifact(
+    fn load_artifact(
         &mut self,
         loader_info: &dyn LoaderInfoProvider,
         artifact_id: ArtifactId,
@@ -362,13 +362,13 @@ impl<ArtifactT: TypeUuid + 'static + Send> DynArtifactStorage for Storage<Artifa
         load_op: ArtifactLoadOp,
     ) -> Result<(), Box<dyn Error + Send + 'static>> {
         log::debug!(
-            "update_artifact {} {:?} {:?}",
+            "load_artifact {} {:?} {:?}",
             core::any::type_name::<ArtifactT>(),
             load_handle,
             artifact_id,
         );
 
-        let result = self.loader.update_artifact(
+        let result = self.loader.load_artifact(
             &self.refop_sender,
             loader_info,
             data,

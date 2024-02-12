@@ -3,13 +3,13 @@ use ::image::GenericImageView;
 use std::sync::Arc;
 
 use super::generated::{GpuImageAssetRecord, GpuImageImportedDataRecord};
-use ::image::{Pixel, Rgba};
+use ::image::Rgba;
 use demo_types::image::*;
 use hydrate_data::Record;
 use hydrate_model::pipeline::{ImportContext, ScanContext};
 use hydrate_pipeline::{
-    AssetId, BuilderContext, BuilderRegistryBuilder, ImporterRegistryBuilder, JobInput, JobOutput,
-    JobProcessor, JobProcessorRegistryBuilder, PipelineResult, RunContext,
+    AssetId, BuilderContext, JobInput, JobOutput,
+    JobProcessor, PipelineResult, RunContext,
 };
 use hydrate_pipeline::{AssetPlugin, Builder};
 use hydrate_pipeline::{
@@ -212,7 +212,7 @@ impl ThumbnailProvider for GpuImageThumbnailProvider {
     fn render<'a>(
         &'a self,
         context: &'a ThumbnailProviderRenderContext<'a>,
-        gathered_data: Self::GatheredDataT,
+        _gathered_data: Self::GatheredDataT,
     ) -> PipelineResult<ThumbnailImage> {
         let import_data = context.imported_data::<GpuImageImportedDataRecord>(context.asset_id)?;
         let width = import_data.width().get()?;

@@ -9,8 +9,8 @@ use hydrate_data::{ImportableName, Record};
 use hydrate_model::pipeline::Importer;
 use hydrate_model::pipeline::{AssetPlugin, ImportContext, ScanContext};
 use hydrate_pipeline::{
-    AssetPluginSetupContext, BuilderRegistryBuilder, HashMap, ImporterRegistryBuilder,
-    JobProcessorRegistryBuilder, PipelineResult,
+    AssetPluginSetupContext, HashMap,
+    PipelineResult,
 };
 use serde::{Deserialize, Serialize};
 use type_uuid::TypeUuid;

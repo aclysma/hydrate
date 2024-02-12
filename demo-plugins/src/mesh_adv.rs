@@ -1,7 +1,6 @@
 pub use super::*;
 use glam::Vec3;
 use rafx_api::RafxResourceType;
-use std::sync::Arc;
 
 use crate::generated::{
     MeshAdvMaterialAssetRecord, MeshAdvMeshAssetRecord, MeshAdvMeshImportedDataRecord,
@@ -11,9 +10,9 @@ use demo_types::mesh_adv::*;
 use hydrate_data::Record;
 use hydrate_model::pipeline::{AssetPlugin, Builder};
 use hydrate_pipeline::{
-    AssetId, AssetPluginSetupContext, BuilderContext, BuilderRegistryBuilder,
-    ImporterRegistryBuilder, JobInput, JobOutput, JobProcessor, JobProcessorRegistryBuilder,
-    PipelineResult, RunContext, ThumbnailImage,
+    AssetId, AssetPluginSetupContext, BuilderContext,
+    JobInput, JobOutput, JobProcessor,
+    PipelineResult, RunContext,
 };
 use serde::{Deserialize, Serialize};
 use type_uuid::TypeUuid;

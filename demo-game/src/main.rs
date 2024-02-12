@@ -50,7 +50,7 @@ fn main() {
     let load_handle_mesh: Handle<MeshAdvMeshAssetData> =
         loader.load_artifact_symbol_name("assets://sphere.glb.mesh_Sphere");
     let load_handle_image: Handle<GpuImageAsset> =
-        loader.load_artifact_symbol_name("assets://large_test/rocks/materials/Stones_Big1_a.tif");
+        loader.load_artifact_symbol_name("assets://test_texture.jpg");
 
     //
     // Game Loop

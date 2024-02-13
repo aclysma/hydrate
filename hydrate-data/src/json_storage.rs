@@ -945,7 +945,7 @@ impl SingleObjectJson {
         // This allows us to get the UUIDs for all the fields/enum symbols, etc.
         //
         let new_named_type = schema_set.find_named_type_by_fingerprint(root_schema_fingerprint);
-        let new_named_type= if let Some(new_named_type) = new_named_type {
+        let new_named_type = if let Some(new_named_type) = new_named_type {
             // The object was saved using the identical schema that we already loaded. This is the
             // fast/happy path
             new_named_type.clone()

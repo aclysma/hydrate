@@ -13,8 +13,8 @@ use crate::import::import_thread_pool::{
 };
 use crate::import::import_util::RequestedImportable;
 use crate::{
-    DynEditorModel, HydrateProjectConfiguration, ImportJobToQueue,
-    ImportLogData, ImportLogEvent, LogEventLevel, PipelineResult,
+    DynEditorModel, HydrateProjectConfiguration, ImportJobToQueue, ImportLogData, ImportLogEvent,
+    LogEventLevel, PipelineResult,
 };
 use hydrate_base::uuid_path::{path_to_uuid, uuid_to_path};
 use hydrate_data::ImportableName;

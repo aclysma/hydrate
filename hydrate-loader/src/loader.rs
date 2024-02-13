@@ -1206,9 +1206,14 @@ impl Loader {
         self.inner.lock().unwrap().get_load_info(handle)
     }
 
-    pub fn log_load_state_recursive(&self, load_handle: LoadHandle) {
-        self.inner.lock().unwrap().log_load_state_recursive(load_handle, 0);
-
+    pub fn log_load_state_recursive(
+        &self,
+        load_handle: LoadHandle,
+    ) {
+        self.inner
+            .lock()
+            .unwrap()
+            .log_load_state_recursive(load_handle, 0);
     }
 }
 

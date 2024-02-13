@@ -1,10 +1,7 @@
 use super::generated::{AllFieldsAccessor, TransformAccessor, TransformRefAccessor};
 use demo_types::simple_data::*;
 use hydrate_model::pipeline::AssetPlugin;
-use hydrate_pipeline::{
-    AssetPluginSetupContext, DataContainerRef, HandleFactory,
-    PipelineResult,
-};
+use hydrate_pipeline::{AssetPluginSetupContext, DataContainerRef, HandleFactory, PipelineResult};
 
 mod simple_data_trait;
 pub use simple_data_trait::SimpleData;

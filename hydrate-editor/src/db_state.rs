@@ -1,10 +1,6 @@
-use hydrate_model::pipeline::{
-    HydrateProjectConfiguration, ImportJobToQueue,
-    ImporterRegistry,
-};
+use hydrate_model::pipeline::{HydrateProjectConfiguration, ImportJobToQueue, ImporterRegistry};
 use hydrate_model::{
-    EditorModel, PathNode, PathNodeRoot, SchemaLinker, SchemaSet,
-    SchemaSetBuilder,
+    EditorModel, PathNode, PathNodeRoot, SchemaLinker, SchemaSet, SchemaSetBuilder,
 };
 
 pub struct DbState {

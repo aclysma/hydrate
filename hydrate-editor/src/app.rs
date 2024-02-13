@@ -12,9 +12,7 @@ use crate::ui::modals::ImportFilesModal;
 use crate::ui_state::EditorModelUiState;
 use egui::{Ui, ViewportCommand, WidgetText};
 use egui_tiles::{SimplificationOptions, TileId};
-use hydrate_model::pipeline::{
-    AssetEngine, AssetEngineState, LogData,
-};
+use hydrate_model::pipeline::{AssetEngine, AssetEngineState, LogData};
 use hydrate_model::EditorModelWithCache;
 use std::sync::Arc;
 

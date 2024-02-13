@@ -8,10 +8,7 @@ use hydrate_base::b3f::B3FReader;
 use hydrate_data::{ImportableName, Record};
 use hydrate_model::pipeline::Importer;
 use hydrate_model::pipeline::{AssetPlugin, ImportContext, ScanContext};
-use hydrate_pipeline::{
-    AssetPluginSetupContext, HashMap,
-    PipelineResult,
-};
+use hydrate_pipeline::{AssetPluginSetupContext, HashMap, PipelineResult};
 use serde::{Deserialize, Serialize};
 use type_uuid::TypeUuid;
 

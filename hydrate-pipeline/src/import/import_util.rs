@@ -1,8 +1,6 @@
 use crate::import::{ImportType, Importer, ScanContext, ScannedImportable};
 use crate::ImporterRegistry;
-use crate::{
-    DynEditContext, HydrateProjectConfiguration, ImportLogData, PipelineResult,
-};
+use crate::{DynEditContext, HydrateProjectConfiguration, ImportLogData, PipelineResult};
 use hydrate_data::{
     AssetId, AssetLocation, AssetName, CanonicalPathReference, HashMap, ImporterId,
     PathReferenceHash,

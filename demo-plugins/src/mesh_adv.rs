@@ -10,8 +10,7 @@ use demo_types::mesh_adv::*;
 use hydrate_data::Record;
 use hydrate_model::pipeline::{AssetPlugin, Builder};
 use hydrate_pipeline::{
-    AssetId, AssetPluginSetupContext, BuilderContext,
-    JobInput, JobOutput, JobProcessor,
+    AssetId, AssetPluginSetupContext, BuilderContext, JobInput, JobOutput, JobProcessor,
     PipelineResult, RunContext,
 };
 use serde::{Deserialize, Serialize};

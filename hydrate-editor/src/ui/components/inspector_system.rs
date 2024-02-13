@@ -919,66 +919,93 @@ pub fn draw_inspector_value(
             ui.with_layout(egui::Layout::left_to_right(egui::Align::Center), |ui| {
                 let can_accept_what_is_being_dragged = !ctx.read_only;
 
-                fn handle_asset_ref_drop(ctx: InspectorContext, ui: &mut egui::Ui, response: &Response) {
+                fn handle_asset_ref_drop(
+                    ctx: InspectorContext,
+                    ui: &mut egui::Ui,
+                    response: &Response,
+                ) {
                     if let Some(payload) =
                         crate::ui::drag_drop::try_take_dropped_payload(ui, response)
                     {
                         match payload {
-                            DragDropPayload::AssetReferences(primary_dragged_asset_id, _all_dragged_asset_ids) => {
+                            DragDropPayload::AssetReferences(
+                                primary_dragged_asset_id,
+                                _all_dragged_asset_ids,
+                            ) => {
                                 ctx.action_sender.queue_action(UIAction::SetProperty(
                                     ctx.selected_assets.iter().copied().collect(),
                                     ctx.property_path.clone(),
                                     Some(Value::AssetRef(primary_dragged_asset_id)),
-                                    EndContextBehavior::Finish
+                                    EndContextBehavior::Finish,
                                 ));
-                            }
-                            //_ => log::error!("Payload type not expected when dropping onto a asset reference text field"),
+                            } //_ => log::error!("Payload type not expected when dropping onto a asset reference text field"),
                         }
                     }
                 }
 
-                let response = crate::ui::drag_drop::drop_target(
-                    ui,
-                    can_accept_what_is_being_dragged,
-                |ui| {
-                    let thumbnail_uri = ctx.thumbnail_image_loader.thumbnail_uri_for_asset(ctx.editor_model.root_edit_context(), asset_ref);
-                    ui.add_sized(egui::vec2(64.0, 64.0), egui::Image::new(thumbnail_uri));
-                }).response;
+                let response =
+                    crate::ui::drag_drop::drop_target(ui, can_accept_what_is_being_dragged, |ui| {
+                        let thumbnail_uri = ctx.thumbnail_image_loader.thumbnail_uri_for_asset(
+                            ctx.editor_model.root_edit_context(),
+                            asset_ref,
+                        );
+                        ui.add_sized(egui::vec2(64.0, 64.0), egui::Image::new(thumbnail_uri));
+                    })
+                    .response;
 
                 handle_asset_ref_drop(ctx, ui, &response);
 
                 set_override_text_color_for_has_override_status(ctx, ui);
 
                 // The GO TO ASSET button
-                if ui.add_enabled(!asset_ref.is_null(), egui::Button::new(">>")).clicked() {
-                    ctx.action_sender.queue_action(UIAction::ShowAssetInAssetGallery(asset_ref));
+                if ui
+                    .add_enabled(!asset_ref.is_null(), egui::Button::new(">>"))
+                    .clicked()
+                {
+                    ctx.action_sender
+                        .queue_action(UIAction::ShowAssetInAssetGallery(asset_ref));
                 }
 
                 // Set enabled after the "go to" button
                 ui.set_enabled(!ctx.read_only);
 
                 // Draw the text field and enable it as a drop target
-                let response = crate::ui::drag_drop::drop_target(
-                    ui,
-                    can_accept_what_is_being_dragged,
-                    |ui| {
+                let response =
+                    crate::ui::drag_drop::drop_target(ui, can_accept_what_is_being_dragged, |ui| {
                         ui.add_enabled_ui(false, |ui| {
                             let mut label_string = if asset_ref.is_null() {
                                 "not set".to_string()
                             } else {
-                                let asset_path = ctx.editor_model.asset_path(asset_ref, &ctx.editor_model_ui_state.asset_path_cache);
-                                asset_path.as_ref().map(|x| x.as_str()).unwrap_or("Unknown Path").to_string()
+                                let asset_path = ctx.editor_model.asset_path(
+                                    asset_ref,
+                                    &ctx.editor_model_ui_state.asset_path_cache,
+                                );
+                                asset_path
+                                    .as_ref()
+                                    .map(|x| x.as_str())
+                                    .unwrap_or("Unknown Path")
+                                    .to_string()
                             };
 
-                            ui.add(egui::TextEdit::singleline(&mut label_string).desired_width(ui.available_width() - 30.0 - ui.style().spacing.item_spacing.x));
+                            ui.add(egui::TextEdit::singleline(&mut label_string).desired_width(
+                                ui.available_width() - 30.0 - ui.style().spacing.item_spacing.x,
+                            ));
                         })
-                    },
-                ).response;
+                    })
+                    .response;
                 handle_asset_ref_drop(ctx, ui, &response);
 
                 // Button to clear the asset ref field
-                if ui.add_enabled(!asset_ref.is_null(), egui::Button::new("X")).clicked() {
-                    ctx.action_sender.queue_action(UIAction::SetProperty(ctx.selected_assets.iter().copied().collect(), ctx.property_path.clone(), None, EndContextBehavior::Finish));
+                if ui
+                    .add_enabled(!asset_ref.is_null(), egui::Button::new("X"))
+                    .clicked()
+                {
+                    ctx.action_sender.queue_action(UIAction::SetProperty(
+                        ctx.selected_assets.iter().copied().collect(),
+                        ctx.property_path.clone(),
+                        None,
+                        EndContextBehavior::Finish,
+                    ));
                 }
             });
         }

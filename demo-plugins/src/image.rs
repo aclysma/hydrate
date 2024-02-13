@@ -8,8 +8,7 @@ use demo_types::image::*;
 use hydrate_data::Record;
 use hydrate_model::pipeline::{ImportContext, ScanContext};
 use hydrate_pipeline::{
-    AssetId, BuilderContext, JobInput, JobOutput,
-    JobProcessor, PipelineResult, RunContext,
+    AssetId, BuilderContext, JobInput, JobOutput, JobProcessor, PipelineResult, RunContext,
 };
 use hydrate_pipeline::{AssetPlugin, Builder};
 use hydrate_pipeline::{

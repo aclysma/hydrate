@@ -9,9 +9,8 @@ use hydrate_data::{PathReference, PathReferenceHash, Record};
 use hydrate_model::pipeline::Importer;
 use hydrate_model::pipeline::{AssetPlugin, Builder, ImportContext, ScanContext};
 use hydrate_pipeline::{
-    AssetId, AssetPluginSetupContext, BuilderContext, HashMap, HashSet,
-    JobInput, JobOutput, JobProcessor,
-    PipelineResult, RunContext,
+    AssetId, AssetPluginSetupContext, BuilderContext, HashMap, HashSet, JobInput, JobOutput,
+    JobProcessor, PipelineResult, RunContext,
 };
 use serde::{Deserialize, Serialize};
 use shaderc::IncludeType;

@@ -117,9 +117,11 @@ fn do_import(
                 continue;
             };
 
-            if asset_import_state.import_data_contents_hash != metadata.import_data_contents_hash ||
-                asset_import_state.source_file_size != metadata.source_file_size ||
-                asset_import_state.source_file_modified_timestamp != metadata.source_file_modified_timestamp {
+            if asset_import_state.import_data_contents_hash != metadata.import_data_contents_hash
+                || asset_import_state.source_file_size != metadata.source_file_size
+                || asset_import_state.source_file_modified_timestamp
+                    != metadata.source_file_modified_timestamp
+            {
                 //
                 // The asset data does not match the source file size/timestamp. Even if import data is not
                 // stale we still at least need to update the asset metadata.
@@ -138,10 +140,8 @@ fn do_import(
                 //
                 // Our state matches source file state, do nothing
                 //
-                return Ok(Default::default())
-            }
-            else
-            {
+                return Ok(Default::default());
+            } else {
                 //
                 // Just the asset data is stale, we can recover it from the import data that isn't stale
                 //

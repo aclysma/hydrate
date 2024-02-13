@@ -1,6 +1,5 @@
 use crate::{
-    HydrateProjectConfiguration, ImportLogEvent, ImporterRegistry, LogEventLevel,
-    PipelineResult,
+    HydrateProjectConfiguration, ImportLogEvent, ImporterRegistry, LogEventLevel, PipelineResult,
 };
 use hydrate_data::{
     AssetId, CanonicalPathReference, HashMap, ImportableName, ImporterId, PathReference,

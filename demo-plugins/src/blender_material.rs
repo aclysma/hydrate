@@ -3,9 +3,7 @@ use std::path::PathBuf;
 use hydrate_data::{DataSetError, ImportableName, PathReference, Record};
 use hydrate_model::pipeline::Importer;
 use hydrate_model::pipeline::{AssetPlugin, ImportContext, ScanContext};
-use hydrate_pipeline::{
-    AssetPluginSetupContext, Enum, PipelineResult,
-};
+use hydrate_pipeline::{AssetPluginSetupContext, Enum, PipelineResult};
 use serde::{Deserialize, Serialize};
 use type_uuid::TypeUuid;
 

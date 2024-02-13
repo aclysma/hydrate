@@ -6,9 +6,7 @@ use crossbeam_channel::{Receiver, Sender};
 use egui::KeyboardShortcut;
 use hydrate_base::hashing::HashMap;
 use hydrate_model::edit_context::EditContext;
-use hydrate_model::pipeline::{
-    AssetEngine, HydrateProjectConfiguration, ImportJobToQueue
-};
+use hydrate_model::pipeline::{AssetEngine, HydrateProjectConfiguration, ImportJobToQueue};
 use hydrate_model::{
     AssetId, AssetLocation, AssetName, DataSetError, DataSetErrorWithBacktrace, DataSetResult,
     EditorModel, EndContextBehavior, NullOverride, OverrideBehavior, PropertyPath, Schema,

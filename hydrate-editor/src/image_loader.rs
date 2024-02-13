@@ -5,9 +5,7 @@ use egui::load::{
 use egui::{ColorImage, Context, SizeHint, TextureHandle, TextureOptions};
 use hydrate_base::lru_cache::LruCache;
 use hydrate_model::edit_context::EditContext;
-use hydrate_model::pipeline::{
-    ThumbnailProviderRegistry, ThumbnailSystemState,
-};
+use hydrate_model::pipeline::{ThumbnailProviderRegistry, ThumbnailSystemState};
 use hydrate_model::{AssetId, HashMap, SchemaFingerprint, SchemaSet};
 use hydrate_pipeline::ThumbnailInputHash;
 use std::path::PathBuf;
@@ -130,7 +128,11 @@ impl ThumbnailImageLoader {
             .thumbnail_provider_registry
             .has_provider_for_asset(schema_fingerprint)
         {
-            format!("{}{}", THUMBNAIL_ASSET_URI_PREFIX, asset_id.as_uuid().to_string())
+            format!(
+                "{}{}",
+                THUMBNAIL_ASSET_URI_PREFIX,
+                asset_id.as_uuid().to_string()
+            )
         } else if self.default_thumbnails.contains_key(&schema_fingerprint) {
             format!(
                 "{}{}",
@@ -158,7 +160,11 @@ impl ThumbnailImageLoader {
                 .thumbnail_provider_registry
                 .has_provider_for_asset(schema_fingerprint)
             {
-                return format!("{}{}", THUMBNAIL_ASSET_URI_PREFIX, asset_id.as_uuid().to_string());
+                return format!(
+                    "{}{}",
+                    THUMBNAIL_ASSET_URI_PREFIX,
+                    asset_id.as_uuid().to_string()
+                );
             } else if self.default_thumbnails.contains_key(&schema_fingerprint) {
                 return format!(
                     "{}{}",

@@ -1,3 +1,4 @@
+#[cfg(debug_assertions)]
 use std::sync::Arc;
 
 #[derive(Debug, Copy, Clone)]

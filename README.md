@@ -4,6 +4,8 @@ Hydrate is an asset pipeline and game data authoring framework.
 
 [Take a Quick Tour](docs/quick-tour/quick-tour.md)
 
+![Screenshot of Hydrate Editor](docs/quick-tour/material-property-edit-example.png)
+
 ## Running the Demo
 
 TODO, but basically cargo run from within demo-editor. Click build, then 

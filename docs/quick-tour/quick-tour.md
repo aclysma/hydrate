@@ -117,13 +117,13 @@ Note that asset files are self-describing by including the schema they were save
 
 A more interesting scenario might be defining some material with parameters and references to textures. References between assets can be set with drag-and-drop.
 
-![[material-property-edit-example.png]]
+![](material-property-edit-example.png)
 
 ## Building
 
 Hitting the build button in the bottom right produces data for consumption by the game. Thousands of assets representing GBs of data can be processed in a couple seconds.
 
-![[editor-building-example.png]]
+![](editor-building-example.png)
 ## Loading
 
 When an artifact is built, it produces one or more artifacts. The artifacts can be requested by UUID or symbolic name. Generally, the symbolic name of an asset will be the path.
@@ -149,4 +149,4 @@ loop {
 
 The above example data is loaded below. Thousands of individual built artifacts were loaded in about 300ms based on a single scene being requested (`assets://demo/bistro_merged/Scene.blender_prefab`)
 
-![[bistro-loaded-example.png]]
+![](bistro-loaded-example.png)

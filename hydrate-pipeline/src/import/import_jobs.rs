@@ -87,8 +87,6 @@ pub struct ImportOp {
 struct ImportJob {
     import_data_exists: bool,
     asset_exists: bool,
-    //imported_data_stale: bool, // how to know it's stale? (we need timestamp/filesize stored along with import data, and paths to file it included) We may not know until we try to open it
-    //imported_data_invalid: bool, // how to know it's valid? (does it parse? does it have errors? we may not know until we try to open it)
     imported_data_hash: Option<u64>,
 }
 
@@ -97,8 +95,6 @@ impl ImportJob {
         ImportJob {
             import_data_exists: false,
             asset_exists: false,
-            //imported_data_stale: false,
-            //imported_data_invalid: false,
             imported_data_hash: None,
         }
     }
@@ -224,18 +220,6 @@ impl ImportJobs {
             import_job_to_queue.import_job_source_files.len()
         );
 
-        //
-        // Take the import operations
-        //
-        // let Some(queued_import_job) = self.import_operations.pop_front() else {
-        //     return Ok(());
-        // };
-        //
-        // for source_file in queued_import_job.import_job_source_files {
-        //
-        // }
-        // let mut import_operations = queued_import_job.import_job_source_files;
-
         let import_operations: Vec<_> = import_job_to_queue
             .import_job_source_files
             .into_iter()
@@ -246,8 +230,6 @@ impl ImportJobs {
                 import_type: x.import_type,
             })
             .collect();
-
-        //for x in import_operations.sour
 
         //
         // Cache the import info for all assets
@@ -477,19 +459,5 @@ impl ImportJobs {
         }
 
         import_jobs
-
-        // for (asset_id, job) in import_jobs {
-        //     if job.asset_exists && !job.import_data_exists {
-        //         // We need to re-import the data
-        //     }
-        //
-        //     if !job.asset_exists && job.import_data_exists {
-        //         // We need to delete the import data that no longer has an associated asset
-        //     }
-        //
-        //     if job.asset_exists && job.import_data_exists {
-        //         // We may want to validate the import data and check that it is not stale
-        //     }
-        // }
     }
 }

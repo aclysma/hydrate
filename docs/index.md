@@ -2,6 +2,8 @@
 
 [Quick Tour](quick-tour/quick-tour.md)
 
+More will be coming, but for now refer to [Rafx](https://github.com/aclysma/rafx) for more advanced usage of hydrate.
+
 ## Setup
 
 - [Overview](setup/overview.md)
@@ -14,13 +16,23 @@ Before data can be edited or imported, the schema for the data must be defined.
 
 - [Schema Authoring](authoring/schema-authoring.md)
 - [Code Generation](authoring/schema-code-generation.md)
+- [Assets and Import Data](authoring/assets-and-import-data.md)
+- Custom Importers
+- Custom Inspectors
+- Custom Thumbnail Providers
 
 # Building
 
-...
+- Artifacts
+- Custom Builders and Jobs
 
 # Loading
 
-...
+- Runtime Integration and Usage
+- Custom Loaders
 
-More will be coming, but for now refer to [Rafx](https://github.com/aclysma/rafx) for more advanced usage of hydrate.
+# Implementation Details
+
+- Asset File Format
+- Import Data File Format
+- Built Data File Format

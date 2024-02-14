@@ -26,8 +26,6 @@ pub struct EditorModel {
     //TODO: slot_map?
     data_sources: HashMap<AssetSourceId, Box<dyn DataSource>>,
 
-    //asset_path_cache: AssetPathCache,
-    //location_tree: LocationTree,
     path_node_schema: SchemaNamedType,
     path_node_root_schema: SchemaNamedType,
 }
@@ -524,20 +522,4 @@ impl EditorModel {
     pub fn redo(&mut self) -> DataSetResult<()> {
         self.undo_stack.redo(&mut self.edit_contexts)
     }
-
-    // pub fn refresh_tree_node_cache(&mut self) {
-    //     let asset_path_cache = AssetPathCache::new(self);
-    //
-    //     let location_tree = LocationTree::build(
-    //         &self,
-    //         &asset_path_cache
-    //     );
-    //
-    //     self.asset_path_cache = asset_path_cache;
-    //     self.location_tree = location_tree;
-    // }
-    //
-    // pub fn cached_location_tree(&self) -> &LocationTree {
-    //     &self.location_tree
-    // }
 }

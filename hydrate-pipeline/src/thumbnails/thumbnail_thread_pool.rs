@@ -12,7 +12,6 @@ use std::thread::JoinHandle;
 // Ask the thread to gather build data from the asset
 pub(crate) struct ThumbnailThreadPoolRequestRunJob {
     pub asset_id: AssetId,
-    //pub thumbnail_input_hash: ThumbnailInputHash,
     pub asset_type: SchemaFingerprint,
     pub dependencies: Arc<ThumbnailEnumeratedDependencies>,
 }
@@ -25,8 +24,6 @@ pub(crate) enum ThumbnailThreadPoolRequest {
 pub(crate) struct ThumbnailThreadPoolOutcomeRunJobComplete {
     pub request: ThumbnailThreadPoolRequestRunJob,
     pub result: PipelineResult<ThumbnailImage>,
-    //asset: SingleObject,
-    //import_data: SingleObject,
 }
 
 pub(crate) enum ThumbnailThreadPoolOutcome {

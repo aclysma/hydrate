@@ -40,11 +40,6 @@ pub trait DataSource {
         asset_id: AssetId,
     ) -> bool;
 
-    // fn asset_symbol_name(
-    //     &self,
-    //     asset_id: AssetId
-    // ) -> Option<String>;
-
     fn persist_generated_asset(
         &mut self,
         edit_context: &mut EditContext,
@@ -61,16 +56,4 @@ pub trait DataSource {
         edit_context: &EditContext,
         pending_file_operations: &mut PendingFileOperations,
     );
-
-    // fn revert_all_modified(
-    //     &mut self,
-    //     edit_context: &mut EditContext,
-    //     import_jobs_to_queue: &mut Vec<ImportJobToQueue>,
-    // );
-
-    // fn get_file_operations_required_to_save();
-    //
-    //
-    //
-    // fn save_assets(objects: &[ObjectId]);
 }

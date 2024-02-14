@@ -206,33 +206,6 @@ impl EditContext {
     }
 
     //
-    // pub fn default_value_for_schema(
-    //     &self,
-    //     schema: &Schema,
-    // ) -> Value {
-    //     self.schema_set.default_value_for_schema(schema)
-    // }
-    //
-    // pub fn add_linked_types(
-    //     &mut self,
-    //     linker: SchemaLinker,
-    // ) -> SchemaLinkerResult<()> {
-    //     let mut schemas = (*self.schema_set).clone();
-    //     schemas.add_linked_types(linker)?;
-    //     self.schema_set = Arc::new(schemas);
-    //     Ok(())
-    // }
-    //
-    // pub(crate) fn restore_named_types(
-    //     &mut self,
-    //     named_types: Vec<SchemaNamedType>
-    // ) {
-    //     let mut schemas = (*self.schema_set).clone();
-    //     schemas.restore_named_types(named_types);
-    //     self.schema_set = Arc::new(schemas);
-    // }
-
-    //
     // Data-related functions
     //
     pub fn data_set(&self) -> &DataSet {
@@ -242,13 +215,6 @@ impl EditContext {
     // pub fn data_set_mut(&mut self) -> &mut DataSet {
     //     &mut self.data_set
     // }
-
-    // pub fn assets_with_locations(&self) -> HashMap<AssetId, &AssetLocation> {
-    //     self.data_set.assets.iter().map(|(k, v)| {
-    //         (k, &v.asset_location)
-    //     })
-    // }
-    //
 
     pub fn assets(&self) -> &HashMap<AssetId, DataSetAssetInfo> {
         self.data_set.assets()
@@ -260,15 +226,6 @@ impl EditContext {
     ) -> bool {
         self.assets().contains_key(&asset_id)
     }
-
-    // pub(crate) fn insert_asset(
-    //     &mut self,
-    //     obj_info: DataAssetInfo,
-    // ) -> AssetId {
-    //     let asset_id = self.data_set.insert_asset(obj_info);
-    //     self.undo_context.track_new_asset(asset_id);
-    //     asset_id
-    // }
 
     pub fn new_asset_with_id(
         &mut self,

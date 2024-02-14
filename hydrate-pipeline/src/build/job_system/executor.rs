@@ -385,16 +385,6 @@ impl Drop for JobExecutor {
 }
 
 impl JobExecutor {
-    // pub fn all_build_event_logs(&self, ) {
-    //     for (job_id, job_state) in &self.current_jobs {
-    //         if let Some(output_data) = job_state.output_data {
-    //             for log_event in &output_data.log_events {
-    //
-    //             }
-    //         }
-    //     }
-    // }
-
     pub fn reset(&mut self) {
         assert!(self.is_idle());
         self.current_jobs.clear();

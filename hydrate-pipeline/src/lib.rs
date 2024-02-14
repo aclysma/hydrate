@@ -289,20 +289,11 @@ impl AssetEngine {
         self.builder_registry.builder_for_asset(fingerprint)
     }
 
-    // pub fn builder(&self, builder_id: BuilderId) -> Option<&Box<Builder>> {
-    //     self.builder_registry.builder(builder_id)
-    // }
-
     pub fn queue_import_operation(
         &mut self,
         import_job_to_queue: ImportJobToQueue,
-        // asset_ids: HashMap<ImportableName, RequestedImportable>,
-        // importer_id: ImporterId,
-        // path: PathBuf,
-        // import_type: ImportType,
     ) {
         self.import_jobs
-            //.queue_import_operation(asset_ids, importer_id, path, import_type);
             .queue_import_operation(import_job_to_queue);
     }
 

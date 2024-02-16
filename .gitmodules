@@ -1,6 +1,0 @@
-[submodule "bevy"]
-	path = vendor/bevy
-	url = https://github.com/aclysma/bevy.git
-[submodule "egui"]
-	path = vendor/egui
-	url = https://github.com/aclysma/egui.git

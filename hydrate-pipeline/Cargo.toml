@@ -1,7 +1,18 @@
 [package]
 name = "hydrate-pipeline"
-version = "0.1.0"
+version = "0.0.1"
+authors = ["Philip Degarmo <aclysma@gmail.com>"]
 edition = "2021"
+description = "Game asset pipeline and authoring framework"
+license = "MIT OR Apache-2.0"
+readme = "../README.md"
+repository = "https://github.com/aclysma/hydrate"
+homepage = "https://github.com/aclysma/hydrate"
+keywords = ["gamedev"]
+categories = [
+    "game-development",
+    "game-engines"
+]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 

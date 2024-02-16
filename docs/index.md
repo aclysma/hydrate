@@ -33,4 +33,3 @@ Before data can be edited or imported, the schema for the data must be defined.
 
 - [Technical FQA](faq/technical-faq.md)
 - [Example Data Flow](example-workflow/example-workflow.md)
-- 

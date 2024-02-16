@@ -13,8 +13,8 @@ publish = false
 editor-types = []
 
 [dependencies]
-hydrate-base = { path = "../hydrate-base" }
-hydrate-data = { path = "../hydrate-data" }
+hydrate-base = { path = "../hydrate-base", version = "0.0.1" }
+hydrate-data = { path = "../hydrate-data", version = "0.0.1" }
 
 serde = { default-features = false, version = "1.0.145", features = ["derive"] }
 type-uuid = "0.1.2"

@@ -17,8 +17,8 @@ categories = [
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-hydrate-data = { path = "../hydrate-data" }
-hydrate-pipeline = { path = "../hydrate-pipeline" }
+hydrate-data = { path = "../hydrate-data", version = "0.0.1" }
+hydrate-pipeline = { path = "../hydrate-pipeline", version = "0.0.1" }
 
 codegen = "0.2.0"
 log = "0.4"

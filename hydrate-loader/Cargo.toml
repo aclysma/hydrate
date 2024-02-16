@@ -17,7 +17,7 @@ categories = [
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-hydrate-base = { path = "../hydrate-base" }
+hydrate-base = { path = "../hydrate-base", version = "0.0.1" }
 
 log = "0.4.14"
 crossbeam-channel = "0.5"

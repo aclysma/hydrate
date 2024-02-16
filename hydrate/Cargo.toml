@@ -17,15 +17,15 @@ categories = [
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-hydrate-base = { path = "../hydrate-base", optional = true }
-hydrate-schema = { path = "../hydrate-schema", optional = true }
-hydrate-data = { path = "../hydrate-data", optional = true }
-hydrate-model = { path = "../hydrate-model", optional = true }
-hydrate-pipeline = { path = "../hydrate-pipeline", optional = true }
+hydrate-base = { path = "../hydrate-base", version = "0.0.1", optional = true }
+hydrate-schema = { path = "../hydrate-schema", version = "0.0.1", optional = true }
+hydrate-data = { path = "../hydrate-data", version = "0.0.1", optional = true }
+hydrate-model = { path = "../hydrate-model", version = "0.0.1", optional = true }
+hydrate-pipeline = { path = "../hydrate-pipeline", version = "0.0.1", optional = true }
 
-hydrate-editor = { path = "../hydrate-editor", optional = true }
-hydrate-loader = { path = "../hydrate-loader", optional = true }
-hydrate-codegen = { path = "../hydrate-codegen", optional = true }
+hydrate-editor = { path = "../hydrate-editor", version = "0.0.1", optional = true }
+hydrate-loader = { path = "../hydrate-loader", version = "0.0.1", optional = true }
+hydrate-codegen = { path = "../hydrate-codegen", version = "0.0.1", optional = true }
 
 [features]
 loader = ["hydrate-base", "hydrate-loader"]

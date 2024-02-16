@@ -18,22 +18,19 @@ Before data can be edited or imported, the schema for the data must be defined.
 - [Code Generation](authoring/schema-code-generation.md)
 - [Assets and Import Data](authoring/assets-and-import-data.md)
 - [Custom Importers](authoring/custom-importers.md)
-- Custom Inspectors
-- Custom Thumbnail Providers
+- [Custom Inspectors](authoring/custom-inspectors.md)
+- [Custom Thumbnail Providers](authoring/custom-thumbnail-providers.md)
 
 # Building
 
-- [build-system.md](building/build-system.md)
+- [Builders and Build Jobs](building/build-system.md)
 
 # Loading
 
-- Runtime Integration and Usage
-- Custom Loaders
+- [Loading Artifacts at Runtime](loading/loading.md)
 
 # Implementation Details
 
 - [Technical FQA](faq/technical-faq.md)
 - [Example Data Flow](example-workflow/example-workflow.md)
-- Asset File Format
-- Import Data File Format
-- Built Data File Format
+- 

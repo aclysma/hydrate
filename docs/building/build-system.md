@@ -1,4 +1,4 @@
-# Build System
+# Builders and Build Jobs
 
 In order to build artifacts into assets, there are a few steps required:
  - An asset exists with an associated builder. The builder will create jobs.

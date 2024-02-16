@@ -4,13 +4,34 @@ Hydrate is an asset pipeline and game data authoring framework.
 
 [Take a Quick Tour](docs/quick-tour/quick-tour.md)
 
+[Documentation](docs/index.md)
+
 ![Screenshot of Hydrate Editor](docs/quick-tour/material-property-edit-example.png)
 
 ## Running the Demo
 
-TODO, but basically cargo run from within demo-editor. Click build, then 
-cargo run from within demo-game. Building while the game is running works 
-and should hot-reload the data.
+```
+git clone https://github.com/aclysma/hydrate.git
+cd hydrate/demo-editor
+cargo run
+After it launches, click build in the bottom right and close the editor
+cd ../demo-game
+cargo run
+```
+
+## Project Status
+
+This project should be considered experimental and unsupported. My primary goal in
+open-sourcing this project is to share *ideas*. I would love to see other projects
+learn from this project and make something even better.
+
+I will happily discuss the high-level design decisions for this project and rationale
+for choosing certain tradeoffs, but I probably won't be able to devote much time
+to support. I might arbitrarily not take a PR simply because it is not a feature
+I'm personally interested in.
+
+The demo code in this repository and [rafx](https://github.com/aclysma/rafx)'s usage of this crate are the best
+examples to look at for how hydrate works.
 
 ## License
 

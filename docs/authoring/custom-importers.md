@@ -1,24 +1,22 @@
 # Custom Importers
 
 In order to consume game data authored in other tools, such as blender or photoshop,
-exported data must be exported to disk and then imported to hydrate. Hydrate supports
-a wide range of import scenarios:
+exported data must be exported to disk in those tools and then imported to hydrate.
+Hydrate supports a wide range of import scenarios:
 
  - Single Source File -> Single Asset
    - Example: A .png file producing an image asset
  - Single Source File -> Multiple assets of different types
-   - Example: A GLTF file including textures, meshes, animations, etc.
- - Many source files -> single assets
-   - Technically, even in this case each file must produce an asset. However, the
-     editor is capable of following paths from a single source file and importing
-     an interconnected group of files in a single import. Build steps can walk across
-     this data to produce sinle artifacts.
+   - Example: A single GLTF file including textures, meshes, animations, etc.
+ - Many source files -> Multiple assets and a single artifact
+   - Each file is individually imported as an asset. A builder can then gather
+     data from multiple interconnected assets to produce a single artifact at runtime
    - Example: GLSL source code
 
 Imports generally happen for one of three reasons:
  - A file is drag and dropped into the editor
  - A file has changed and the user clicked a button to re-import
- - On initial load, any source files in a path-based data source will be automatically imported.
+ - On initial load, any source files in a path-based asset source will be automatically imported.
 
 ## Importer API
 
@@ -29,6 +27,8 @@ API follows a two-step process:
    assets to import and path references to other source files.
  - Import: Using the metadata provided by the scan(), import one or more assets from
    the source file(s.)
+
+Importers can throw warnings and errors by calling `warn()` or `error()` on the context.
 
 ```rust
 #[derive(TypeUuid, Default)]

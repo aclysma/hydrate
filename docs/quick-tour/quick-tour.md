@@ -135,6 +135,8 @@ let transform_handle: Handle<TransformArtifact> =
 // ...
 
 loop {
+	loader.update();
+
     // The artifact, along with dependencies, will be loaded in the background
     // If the asset changes and is rebuilt, it will be reloaded in-game
 	if let Some(transform) = transform_handle.artifact(loader.storage()) {  

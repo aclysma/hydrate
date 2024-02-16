@@ -34,15 +34,20 @@ pub fn canonicalized_absolute_path(
                 .unwrap()
                 .join(Path::new(referenced_path))
                 .canonicalize()
-                .unwrap()
+                .map_err(|_| DataSetError::InvalidPath)?
         } else {
-            PathBuf::from(referenced_path).canonicalize().unwrap()
+            PathBuf::from(referenced_path)
+                .canonicalize()
+                .map_err(|_| DataSetError::InvalidPath)?
         }
     } else {
         let namespace_root = namespace_resolver
             .namespace_root(namespace)
             .ok_or(DataSetError::UnknownPathNamespace)?;
-        namespace_root.join(referenced_path).canonicalize().unwrap()
+        namespace_root
+            .join(referenced_path)
+            .canonicalize()
+            .map_err(|_| DataSetError::InvalidPath)?
     };
 
     Ok(PathReference {

@@ -104,7 +104,7 @@ impl From<uuid::Error> for PipelineError {
 #[derive(Clone)]
 pub struct PipelineErrorWithBacktrace {
     pub error: PipelineError,
-    #[cfg(debug_assertions)]
+    #[cfg(all(backtrace, debug_assertions))]
     backtrace: Arc<backtrace::Backtrace>,
 }
 
@@ -127,14 +127,14 @@ impl<T: Into<PipelineError>> From<T> for PipelineErrorWithBacktrace {
     fn from(error: T) -> Self {
         PipelineErrorWithBacktrace {
             error: error.into(),
-            #[cfg(debug_assertions)]
+            #[cfg(all(backtrace, debug_assertions))]
             backtrace: Arc::new(backtrace::Backtrace::new()),
         }
     }
 }
 
 impl std::fmt::Debug for PipelineErrorWithBacktrace {
-    #[cfg(not(debug_assertions))]
+    #[cfg(not(all(backtrace, debug_assertions)))]
     fn fmt(
         &self,
         f: &mut std::fmt::Formatter<'_>,
@@ -142,7 +142,7 @@ impl std::fmt::Debug for PipelineErrorWithBacktrace {
         write!(f, "{:?}", self.error)
     }
 
-    #[cfg(debug_assertions)]
+    #[cfg(all(backtrace, debug_assertions))]
     fn fmt(
         &self,
         f: &mut std::fmt::Formatter<'_>,

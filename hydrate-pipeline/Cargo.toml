@@ -25,7 +25,6 @@ hydrate-data = { path = "../hydrate-data" }
 ahash = "0.7.4"
 uuid = { version = "0.8.2", features = ["v4", "serde"] }
 log = "0.4.14"
-slotmap = "1.0.5"
 serde = { default-features = false, version = "1.0.145", features = ["derive"] }
 serde_json = { default-features = false, version = "1.0.85", features = ["std"] }
 siphasher = "0.3"
@@ -41,9 +40,4 @@ num_cpus = "1.16.0"
 type-uuid = "0.1.2"
 
 profiling = "1.0"
-backtrace = "0.3.69"
-
-[dev-dependencies]
-serde_json = { default-features = false, version = "1.0.85", features = ["std"] }
-env_logger = "0.9.0"
-image = { version = "0.23.12", default-features = false, features = ["gif", "jpeg", "ico", "png", "pnm", "tga", "tiff", "bmp"] }
+backtrace = { version = "0.3.69", optional = true }

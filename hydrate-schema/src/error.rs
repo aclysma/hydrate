@@ -1,4 +1,4 @@
-#[cfg(debug_assertions)]
+#[cfg(all(backtrace, debug_assertions))]
 use std::sync::Arc;
 
 #[derive(Debug, Copy, Clone)]
@@ -31,7 +31,7 @@ pub enum DataSetError {
 #[derive(Clone)]
 pub struct DataSetErrorWithBacktrace {
     pub error: DataSetError,
-    #[cfg(debug_assertions)]
+    #[cfg(all(backtrace, debug_assertions))]
     pub backtrace: Arc<backtrace::Backtrace>,
 }
 
@@ -39,14 +39,14 @@ impl From<DataSetError> for DataSetErrorWithBacktrace {
     fn from(error: DataSetError) -> Self {
         DataSetErrorWithBacktrace {
             error,
-            #[cfg(debug_assertions)]
+            #[cfg(all(backtrace, debug_assertions))]
             backtrace: Arc::new(backtrace::Backtrace::new()),
         }
     }
 }
 
 impl std::fmt::Debug for DataSetErrorWithBacktrace {
-    #[cfg(not(debug_assertions))]
+    #[cfg(not(all(backtrace, debug_assertions)))]
     fn fmt(
         &self,
         f: &mut std::fmt::Formatter<'_>,
@@ -54,7 +54,7 @@ impl std::fmt::Debug for DataSetErrorWithBacktrace {
         write!(f, "{:?}", self.error)
     }
 
-    #[cfg(debug_assertions)]
+    #[cfg(all(backtrace, debug_assertions))]
     fn fmt(
         &self,
         f: &mut std::fmt::Formatter<'_>,

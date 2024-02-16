@@ -12,8 +12,6 @@ members = [
     "hydrate-editor",
     "hydrate-loader",
     "hydrate-codegen"
-    #"distill-core",
-    #"distill-loader"
 ]
 
 exclude = [

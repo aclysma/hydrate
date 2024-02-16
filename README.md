@@ -31,7 +31,7 @@ to support. I might arbitrarily not take a PR simply because it is not a feature
 I'm personally interested in.
 
 The demo code in this repository and [rafx](https://github.com/aclysma/rafx)'s usage of this crate are the best
-examples to look at for how hydrate works.
+examples to look at for how hydrate works. (see the use-hydrate) branch
 
 ## License
 

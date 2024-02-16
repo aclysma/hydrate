@@ -2,7 +2,7 @@
 
 [Quick Tour](quick-tour/quick-tour.md)
 
-Please see [Rafx](https://github.com/aclysma/rafx) for more advanced example usage of hydrate.
+Please see [Rafx](https://github.com/aclysma/rafx) for more advanced example usage of hydrate (in the use-hydrate branch)
 
 ## Setup
 

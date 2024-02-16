@@ -293,8 +293,7 @@ impl AssetEngine {
         &mut self,
         import_job_to_queue: ImportJobToQueue,
     ) {
-        self.import_jobs
-            .queue_import_operation(import_job_to_queue);
+        self.import_jobs.queue_import_operation(import_job_to_queue);
     }
 
     pub fn queue_build_asset(

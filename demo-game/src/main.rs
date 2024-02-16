@@ -30,10 +30,11 @@ fn main() {
     //
     // Set up storage for loaded assets
     //
-    let mut artifact_manager = hydrate::loader::ArtifactManager::new(build_data_source_path()).unwrap();
-    artifact_manager.add_storage_with_loader::<GpuImageAssetData, GpuImageAsset, GpuImageLoader>(Box::new(
-        GpuImageLoader,
-    ));
+    let mut artifact_manager =
+        hydrate::loader::ArtifactManager::new(build_data_source_path()).unwrap();
+    artifact_manager.add_storage_with_loader::<GpuImageAssetData, GpuImageAsset, GpuImageLoader>(
+        Box::new(GpuImageLoader),
+    );
     artifact_manager.add_storage::<GpuBufferBuiltData>();
     artifact_manager.add_storage::<Transform>();
     artifact_manager.add_storage::<TransformRef>();

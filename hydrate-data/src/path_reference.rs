@@ -29,24 +29,23 @@ pub fn canonicalized_absolute_path(
 ) -> DataSetResult<PathReference> {
     let canonical_absolute_path = if namespace.is_empty() {
         if Path::new(referenced_path).is_relative() {
-            source_file_path
-                .parent()
-                .unwrap()
-                .join(Path::new(referenced_path))
-                .canonicalize()
-                .map_err(|_| DataSetError::InvalidPath)?
+            dunce::canonicalize(
+                source_file_path
+                    .parent()
+                    .unwrap()
+                    .join(Path::new(referenced_path))
+                    .as_path(),
+            )
+            .map_err(|_| DataSetError::InvalidPath)?
         } else {
-            PathBuf::from(referenced_path)
-                .canonicalize()
+            dunce::canonicalize(PathBuf::from(referenced_path))
                 .map_err(|_| DataSetError::InvalidPath)?
         }
     } else {
         let namespace_root = namespace_resolver
             .namespace_root(namespace)
             .ok_or(DataSetError::UnknownPathNamespace)?;
-        namespace_root
-            .join(referenced_path)
-            .canonicalize()
+        dunce::canonicalize(namespace_root.join(referenced_path))
             .map_err(|_| DataSetError::InvalidPath)?
     };
 
@@ -221,7 +220,7 @@ impl PathReference {
         } else {
             // If it's an absolute path, see if it is in a namespace, if it is, we can return a PathReference relative
             // to the namespace
-            let canonicalized_path = PathBuf::from(&self.path).canonicalize().unwrap();
+            let canonicalized_path = dunce::canonicalize(PathBuf::from(&self.path)).unwrap();
 
             if let Some((namespace, prefix)) = namespace_resolver.simplify_path(&canonicalized_path)
             {

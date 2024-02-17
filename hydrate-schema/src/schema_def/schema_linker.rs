@@ -140,7 +140,7 @@ impl SchemaLinker {
                 SchemaLinkerError::Str("Schema file must be an array of json objects")
             })?;
 
-            let base_path = file.path().canonicalize().unwrap();
+            let base_path = dunce::canonicalize(file.path()).unwrap();
 
             for json_object in json_objects {
                 let named_type = super::json_schema::parse_json_schema_def(

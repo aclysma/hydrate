@@ -25,4 +25,5 @@ serde_json = { default-features = false, version = "1.0.85", features = ["std"] 
 siphasher = "0.3"
 globwalk = "0.8.1"
 profiling = "1.0"
+dunce = "1.0.4"
 backtrace = { version = "0.3.69", optional = true }

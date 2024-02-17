@@ -406,7 +406,12 @@ impl FileSystemPathBasedDataSource {
             //println!("referenced {:?}", path_reference_absolute_path);
             let referenced_scanned_source_file = scanned_source_files
                 .get(&PathBuf::from(path_reference_absolute.path()))
-                .ok_or_else(|| format!("{:?} is referencing source file {:?} but it does not exist or failed to import", source_file_path, path_reference.path()))?;
+                .ok_or_else(|| format!(
+                    "{:?} is referencing source file {:?} via absolute path {:?} but it does not exist or failed to import",
+                    source_file_path,
+                    path_reference.path(),
+                    path_reference_absolute
+                ))?;
             assert_eq!(
                 importer_id,
                 referenced_scanned_source_file.importer.importer_id()

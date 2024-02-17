@@ -79,7 +79,6 @@ impl ThumbnailImageLoader {
                     if let Some(loaded_image) = loaded_images.get(path) {
                         default_thumbnails.insert(*k, loaded_image.clone());
                     } else {
-                        println!("open path {:?}", path);
                         let image = image::open(path).unwrap().into_rgba8();
                         let image = Arc::new(ColorImage::from_rgba_unmultiplied(
                             [image.width() as usize, image.height() as usize],

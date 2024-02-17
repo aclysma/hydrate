@@ -75,7 +75,7 @@ pub fn recursively_gather_import_operations_and_create_assets(
     import_job_to_queue: &mut ImportJobToQueue,
 ) -> PipelineResult<HashMap<ImportableName, AssetId>> {
     assert!(source_file_path.is_absolute());
-    let source_file_path = source_file_path.canonicalize().unwrap();
+    let source_file_path = dunce::canonicalize(source_file_path)?;
 
     //
     // If we request to import a file we already processed, just return the name/id pairs again

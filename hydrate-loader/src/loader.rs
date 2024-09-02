@@ -279,6 +279,23 @@ impl LoaderInner {
         }
     }
 
+    pub fn loading_artifact_count(&self) -> usize {
+        let mut loading_artifact_count = 0;
+
+        for (_, load_handle_info) in &self.load_handle_infos {
+            match load_handle_info.load_state {
+                LoadState::Unloaded | LoadState::Loaded => {
+                    // do nothing
+                },
+                _ => {
+                    loading_artifact_count += 1;
+                }
+            }
+        }
+
+        loading_artifact_count
+    }
+
     // Process all events, possibly changing load status of artifacts
     // Also commit reload of artifact data if needed
     #[profiling::function]
@@ -1214,6 +1231,10 @@ impl Loader {
             .lock()
             .unwrap()
             .log_load_state_recursive(load_handle, 0);
+    }
+
+    pub fn loading_artifact_count(&self) -> usize {
+        self.inner.lock().unwrap().loading_artifact_count()
     }
 }
 
